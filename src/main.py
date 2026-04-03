@@ -20,6 +20,12 @@ logging.basicConfig(
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     engine = create_async_engine(settings.database_url, pool_size=10, max_overflow=20)
+
+    from src.models.db import Base
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+    logging.getLogger(__name__).info("DB tables ensured")
+
     app.state.db_sessionmaker = async_sessionmaker(engine, expire_on_commit=False)
     app.state.redis = Redis.from_url(settings.redis_url, decode_responses=True)
 
