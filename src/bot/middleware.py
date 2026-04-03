@@ -6,17 +6,21 @@ from typing import Any, Awaitable, Callable
 from aiogram import BaseMiddleware
 from aiogram.types import TelegramObject, Message, CallbackQuery
 import httpx
+from redis.asyncio import Redis
 
 logger = logging.getLogger(__name__)
+
+PHOTO_KEY = "rateme:photo:{}"
 
 
 class UserRegistrationMiddleware(BaseMiddleware):
     """Ensures user is registered in the API before handling any update."""
 
-    def __init__(self, api_base_url: str):
+    def __init__(self, api_base_url: str, redis: Redis):
         self._api_base_url = api_base_url.rstrip("/")
         self._client = httpx.AsyncClient(timeout=10.0)
         self._registered: set[int] = set()
+        self._redis = redis
 
     async def __call__(
         self,
@@ -24,6 +28,8 @@ class UserRegistrationMiddleware(BaseMiddleware):
         event: TelegramObject,
         data: dict[str, Any],
     ) -> Any:
+        data["redis"] = self._redis
+
         user = None
         if isinstance(event, Message) and event.from_user:
             user = event.from_user

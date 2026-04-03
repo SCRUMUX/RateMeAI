@@ -6,19 +6,21 @@ import logging
 from aiogram import Router, F
 from aiogram.types import CallbackQuery
 import httpx
+from redis.asyncio import Redis
+
+from src.bot.middleware import PHOTO_KEY
 
 logger = logging.getLogger(__name__)
 router = Router()
 
 
 @router.callback_query(F.data.startswith("mode:"))
-async def on_mode_selected(callback: CallbackQuery, api_base_url: str):
+async def on_mode_selected(callback: CallbackQuery, api_base_url: str, redis: Redis):
     mode = callback.data.split(":", 1)[1]
     user_id = callback.from_user.id
     bot = callback.bot
 
-    photos = getattr(bot, "_user_photos", {})
-    file_id = photos.get(user_id)
+    file_id = await redis.get(PHOTO_KEY.format(user_id))
 
     if not file_id:
         await callback.answer("Сначала отправь фото!", show_alert=True)
@@ -68,7 +70,7 @@ async def on_mode_selected(callback: CallbackQuery, api_base_url: str):
         logger.exception("Failed to submit analysis for user %s", user_id)
         await status_msg.edit_text("❌ Произошла ошибка. Попробуй позже.")
 
-    photos.pop(user_id, None)
+    await redis.delete(PHOTO_KEY.format(user_id))
 
 
 @router.callback_query(F.data == "new_photo")

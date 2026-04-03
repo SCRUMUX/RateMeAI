@@ -1,0 +1,53 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: ratemeai
+          POSTGRES_PASSWORD: ratemeai
+          POSTGRES_DB: ratemeai
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U ratemeai"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run pytest
+        env:
+          DATABASE_URL: postgresql+asyncpg://ratemeai:ratemeai@127.0.0.1:5432/ratemeai
+          REDIS_URL: redis://127.0.0.1:6379/0
+          APP_ENV: dev
+          API_BASE_URL: http://127.0.0.1:8000
+        run: python -m pytest tests/ -v --tb=short

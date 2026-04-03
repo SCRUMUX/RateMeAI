@@ -1,19 +1,23 @@
 from __future__ import annotations
 
+import base64
+import logging
 import uuid
-from datetime import date
 
 from arq.connections import ArqRedis, create_pool, RedisSettings
 from fastapi import APIRouter, Depends, UploadFile, File, Form, HTTPException
-from sqlalchemy.dialects.postgresql import insert as pg_insert
+from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.config import settings
-from src.models.db import Task, UsageLog, User
+from src.models.db import Task, User
 from src.models.enums import AnalysisMode, TaskStatus
 from src.models.schemas import TaskCreated
-from src.api.deps import get_db, check_rate_limit
+from src.api.deps import get_db, get_redis, check_rate_limit
 from src.providers.factory import get_storage
+from src.utils.redis_keys import task_input_cache_key
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -33,6 +37,7 @@ async def create_analysis(
     mode: AnalysisMode = Form(AnalysisMode.RATING),
     user: User = Depends(check_rate_limit),
     db: AsyncSession = Depends(get_db),
+    redis: Redis = Depends(get_redis),
 ):
     content_type = image.content_type or ""
     if not content_type.startswith("image/"):
@@ -54,17 +59,19 @@ async def create_analysis(
     )
     db.add(task)
 
-    today = date.today()
-    stmt = pg_insert(UsageLog).values(
-        user_id=user.id, usage_date=today, count=1
-    ).on_conflict_do_update(
-        constraint="uq_usage_user_date",
-        set_={"count": UsageLog.count + 1},
-    )
-    await db.execute(stmt)
-
     await db.commit()
     await db.refresh(task)
+
+    cache_key = task_input_cache_key(str(task.id))
+    try:
+        await redis.set(
+            cache_key,
+            base64.b64encode(image_bytes).decode("ascii"),
+            ex=settings.task_input_redis_ttl_seconds,
+        )
+    except Exception:
+        logger.exception("Redis error staging task input for %s", task.id)
+        raise HTTPException(status_code=500, detail="Failed to stage task input") from None
 
     arq = await _get_arq()
     await arq.enqueue_job("process_analysis", str(task.id))

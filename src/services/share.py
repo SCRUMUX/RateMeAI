@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING
 
 from PIL import Image, ImageDraw, ImageFont
 
+from src.config import settings
 from src.providers.base import StorageProvider
 
 if TYPE_CHECKING:
@@ -19,7 +20,6 @@ BG_COLOR = (18, 18, 24)
 ACCENT_COLOR = (139, 92, 246)
 TEXT_COLOR = (255, 255, 255)
 SUBTEXT_COLOR = (163, 163, 163)
-BOT_USERNAME = "RateMeAIBot"
 
 _FONT_CANDIDATES = [
     "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
@@ -135,5 +135,5 @@ class ShareCardGenerator:
         buf.seek(0)
 
         key = f"cards/{user_id}/{task_id}.jpg"
-        url = await self._storage.upload(key, buf.read())
-        return url
+        await self._storage.upload(key, buf.read())
+        return await self._storage.get_url(key)

@@ -6,19 +6,24 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.models.db import Task, User
-from src.models.enums import TaskStatus
-from src.models.schemas import ShareResponse
-from src.api.deps import get_db, get_current_user
 from src.config import settings
+from src.models.db import Task, User
+from src.models.enums import TaskStatus, AnalysisMode
+from src.models.schemas import ShareResponse
+from src.api.deps import get_db, get_auth_user
+from src.providers.factory import get_storage
 
 router = APIRouter()
+
+
+def _bot_username() -> str:
+    return settings.telegram_bot_username.lstrip("@")
 
 
 @router.post("/{task_id}", response_model=ShareResponse)
 async def create_share(
     task_id: uuid.UUID,
-    user: User = Depends(get_current_user),
+    user: User = Depends(get_auth_user),
     db: AsyncSession = Depends(get_db),
 ):
     result = await db.execute(select(Task).where(Task.id == task_id))
@@ -31,15 +36,39 @@ async def create_share(
     if task.status != TaskStatus.COMPLETED.value:
         raise HTTPException(status_code=400, detail="Task not completed yet")
 
-    score = task.result.get("score", "?") if task.result else "?"
-    bot_username = "RateMeAIBot"
-    deep_link = f"https://t.me/{bot_username}?start=ref_{user.id}"
+    u = _bot_username()
+    deep_link = f"https://t.me/{u}?start=ref_{user.id}"
 
-    share_card_url = task.share_card_path or ""
-    caption = f"Мой рейтинг: {score}/10 🔥 Узнай свой → @{bot_username}"
+    res = task.result or {}
+    mode = AnalysisMode(task.mode)
+
+    if mode == AnalysisMode.RATING:
+        score = res.get("score", "?")
+        caption = f"Мой рейтинг: {score}/10 — узнай свой → @{u}"
+    elif mode == AnalysisMode.DATING:
+        score = res.get("dating_score", "?")
+        caption = f"Мой дейтинг-скор: {score}/10 — попробуй → @{u}"
+    elif mode == AnalysisMode.CV:
+        hire = res.get("hireability", "?")
+        caption = f"Мой профиль: hireability {hire}/10 — оцени своё фото → @{u}"
+    else:
+        caption = f"Мой эмодзи-пак — попробуй → @{u}"
+
+    raw_card = task.share_card_path or ""
+    image_url = ""
+    if raw_card:
+        if raw_card.startswith("http://") or raw_card.startswith("https://"):
+            image_url = raw_card
+        else:
+            storage = get_storage()
+            image_url = await storage.get_url(raw_card)
+
+    gen_url = res.get("generated_image_url") or res.get("image_url")
+    if not image_url and gen_url and (gen_url.startswith("http://") or gen_url.startswith("https://")):
+        image_url = gen_url
 
     return ShareResponse(
-        image_url=share_card_url,
+        image_url=image_url,
         caption=caption,
         deep_link=deep_link,
     )

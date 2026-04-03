@@ -29,9 +29,7 @@ services:
 
   app:
     build: .
-    command: >
-      sh -c "alembic upgrade head &&
-             uvicorn src.main:app --host 0.0.0.0 --port 8000"
+    command: uvicorn src.main:app --host 0.0.0.0 --port 8000
     ports:
       - "8000:8000"
     env_file:
@@ -39,6 +37,8 @@ services:
     environment:
       DATABASE_URL: postgresql+asyncpg://ratemeai:ratemeai@postgres:5432/ratemeai
       REDIS_URL: redis://redis:6379/0
+      # Same path as volume mount — overrides host .env (e.g. Windows paths) so app/worker share files
+      STORAGE_LOCAL_PATH: /app/storage
     depends_on:
       postgres:
         condition: service_healthy
@@ -61,7 +61,12 @@ services:
     environment:
       DATABASE_URL: postgresql+asyncpg://ratemeai:ratemeai@postgres:5432/ratemeai
       REDIS_URL: redis://redis:6379/0
+      STORAGE_LOCAL_PATH: /app/storage
+      # Fetch inputs from API when bind-mount is unreliable (e.g. Docker Desktop on Windows)
+      STORAGE_HTTP_FALLBACK_BASE: http://app:8000
     depends_on:
+      app:
+        condition: service_healthy
       postgres:
         condition: service_healthy
       redis:
@@ -78,6 +83,7 @@ services:
       DATABASE_URL: postgresql+asyncpg://ratemeai:ratemeai@postgres:5432/ratemeai
       REDIS_URL: redis://redis:6379/0
       API_BASE_URL: http://app:8000
+      STORAGE_LOCAL_PATH: /app/storage
     depends_on:
       app:
         condition: service_healthy

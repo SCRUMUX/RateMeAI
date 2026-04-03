@@ -24,6 +24,17 @@ class TelegramAuthRequest(BaseModel):
     first_name: str | None = None
 
 
+class ApiClientCreateRequest(BaseModel):
+    name: str
+    rate_limit_daily: int = 1000
+
+
+class ApiClientCreatedResponse(BaseModel):
+    api_key: str
+    user_id: uuid.UUID
+    client_id: uuid.UUID
+
+
 # ── Task ──
 
 class TaskResponse(BaseModel):
@@ -104,6 +115,6 @@ class UserUsage(BaseModel):
 
 class UserResponse(BaseModel):
     user_id: uuid.UUID
-    telegram_id: int
+    telegram_id: int | None = None
     username: str | None = None
     usage: UserUsage

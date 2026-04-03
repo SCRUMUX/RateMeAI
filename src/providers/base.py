@@ -25,7 +25,7 @@ class ImageGenProvider(ABC):
 class StorageProvider(ABC):
     @abstractmethod
     async def upload(self, key: str, data: bytes) -> str:
-        """Upload data, return access URL."""
+        """Upload data, return storage key (use get_url for public URL)."""
 
     @abstractmethod
     async def download(self, key: str) -> bytes:
