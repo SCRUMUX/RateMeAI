@@ -62,9 +62,9 @@ class AnalysisPipeline:
         else:
             result_dict = result.model_dump() if hasattr(result, "model_dump") else result
 
-        # --- Image generation (CV / emoji) ---
+        # --- Image generation (CV / dating / emoji) ---
         if (
-            mode in (AnalysisMode.CV, AnalysisMode.EMOJI)
+            mode in (AnalysisMode.CV, AnalysisMode.EMOJI, AnalysisMode.DATING)
             and self._image_gen is not None
         ):
             try:
@@ -77,6 +77,16 @@ class AnalysisPipeline:
                     if synopsis:
                         prompt = f"{prompt} Notes: {synopsis}"
                     extra: dict = {}
+                elif mode == AnalysisMode.DATING:
+                    prompt = (
+                        "Improved dating profile photo, warm natural lighting, "
+                        "friendly confident expression, soft bokeh background, "
+                        "photorealistic. Preserve the person's identity."
+                    )
+                    tips = str(result_dict.get("first_impression", ""))[:400]
+                    if tips:
+                        prompt = f"{prompt} Context: {tips}"
+                    extra = {}
                 else:
                     prompt = (
                         "Single cute sticker avatar portrait, bold outlines, flat colors, "

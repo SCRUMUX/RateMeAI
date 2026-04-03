@@ -186,6 +186,18 @@ async def _send_dating(bot: Bot, chat_id: int, result: dict, user_id: int, uname
             text_parts.append(f"\n  **{vtype.capitalize()}:** {explanation}")
 
     text = "\n".join(text_parts)
+
+    img = result.get("generated_image_url") or result.get("image_url")
+    if img and (img.startswith("http://") or img.startswith("https://")):
+        if await _send_photo_from_public_url(
+            bot,
+            chat_id,
+            img,
+            caption=text,
+            reply_markup=result_keyboard(uname, str(user_id)),
+        ):
+            return
+
     await bot.send_message(
         chat_id,
         text,
