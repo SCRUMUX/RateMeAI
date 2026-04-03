@@ -1,0 +1,88 @@
+version: "3.9"
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ratemeai
+      POSTGRES_PASSWORD: ratemeai
+      POSTGRES_DB: ratemeai
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ratemeai"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  app:
+    build: .
+    command: >
+      sh -c "alembic upgrade head &&
+             uvicorn src.main:app --host 0.0.0.0 --port 8000"
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://ratemeai:ratemeai@postgres:5432/ratemeai
+      REDIS_URL: redis://redis:6379/0
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    volumes:
+      - ./storage:/app/storage
+
+  worker:
+    build: .
+    command: arq src.workers.tasks.WorkerSettings
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://ratemeai:ratemeai@postgres:5432/ratemeai
+      REDIS_URL: redis://redis:6379/0
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./storage:/app/storage
+
+  bot:
+    build: .
+    command: python -m src.bot.app
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://ratemeai:ratemeai@postgres:5432/ratemeai
+      REDIS_URL: redis://redis:6379/0
+      API_BASE_URL: http://app:8000
+    depends_on:
+      app:
+        condition: service_healthy
+    volumes:
+      - ./storage:/app/storage
+
+volumes:
+  pgdata:

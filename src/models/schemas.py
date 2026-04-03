@@ -1,0 +1,109 @@
+from __future__ import annotations
+
+import uuid
+from datetime import datetime
+
+from pydantic import BaseModel, Field
+
+from src.models.enums import AnalysisMode, TaskStatus
+
+
+# ── Requests ──
+
+class AnalyzeRequest(BaseModel):
+    mode: AnalysisMode
+
+
+class ShareRequest(BaseModel):
+    format: str = "telegram"
+
+
+class TelegramAuthRequest(BaseModel):
+    telegram_id: int
+    username: str | None = None
+    first_name: str | None = None
+
+
+# ── Task ──
+
+class TaskResponse(BaseModel):
+    task_id: uuid.UUID
+    status: TaskStatus
+    mode: AnalysisMode
+    created_at: datetime
+    completed_at: datetime | None = None
+    result: dict | None = None
+    share_card_url: str | None = None
+    error_message: str | None = None
+
+
+class TaskCreated(BaseModel):
+    task_id: uuid.UUID
+    status: TaskStatus = TaskStatus.PENDING
+    estimated_seconds: int = 15
+
+
+# ── Rating Result ──
+
+class PerceptionData(BaseModel):
+    trust: float = Field(ge=0, le=10)
+    attractiveness: float = Field(ge=0, le=10)
+    emotional_expression: str
+
+
+class RatingResult(BaseModel):
+    score: float = Field(ge=0, le=10)
+    perception: PerceptionData
+    insights: list[str]
+    recommendations: list[str]
+
+
+# ── Dating Result ──
+
+class DatingVariant(BaseModel):
+    type: str
+    image_url: str | None = None
+    explanation: str
+
+
+class DatingResult(BaseModel):
+    first_impression: str
+    dating_score: float = Field(ge=0, le=10)
+    strengths: list[str]
+    weaknesses: list[str]
+    variants: list[DatingVariant] = []
+
+
+# ── CV Result ──
+
+class CVResult(BaseModel):
+    profession: str
+    trust: float = Field(ge=0, le=10)
+    competence: float = Field(ge=0, le=10)
+    hireability: float = Field(ge=0, le=10)
+    analysis: str
+    image_url: str | None = None
+
+
+# ── Share ──
+
+class ShareResponse(BaseModel):
+    image_url: str
+    caption: str
+    deep_link: str
+
+
+# ── User ──
+
+class UserUsage(BaseModel):
+    daily_limit: int
+    used: int
+    remaining: int
+    is_premium: bool
+
+
+class UserResponse(BaseModel):
+    user_id: uuid.UUID
+    telegram_id: int
+    username: str | None = None
+    usage: UserUsage
