@@ -4,7 +4,7 @@ __pycache__/
 *.pyo
 .venv/
 venv/
-storage/
+/storage/
 *.egg-info/
 dist/
 build/
