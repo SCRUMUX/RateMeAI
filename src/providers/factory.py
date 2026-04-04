@@ -43,11 +43,34 @@ def _missing_replicate_config() -> bool:
     )
 
 
+def _make_reve() -> ImageGenProvider | None:
+    from src.providers.image_gen.reve_provider import ReveImageGen
+    if not settings.reve_api_token.strip():
+        return None
+    return ReveImageGen(
+        api_token=settings.reve_api_token,
+        api_host=settings.reve_api_host,
+        aspect_ratio=settings.reve_aspect_ratio,
+        version=settings.reve_version,
+        test_time_scaling=settings.reve_test_time_scaling,
+    )
+
+
+def _make_replicate() -> ImageGenProvider | None:
+    from src.providers.image_gen.replicate import ReplicateImageGen
+    if _missing_replicate_config():
+        return None
+    return ReplicateImageGen(
+        api_token=settings.replicate_api_token,
+        model_version=settings.replicate_model_version,
+        storage=get_storage(),
+    )
+
+
 @lru_cache(maxsize=1)
 def get_image_gen() -> ImageGenProvider:
+    from src.providers.image_gen.chain import ChainImageGen
     from src.providers.image_gen.mock import MockImageGen
-    from src.providers.image_gen.replicate import ReplicateImageGen
-    from src.providers.image_gen.reve_provider import ReveImageGen
 
     mode = _image_gen_provider_mode()
     prod = settings.is_production
@@ -56,50 +79,38 @@ def get_image_gen() -> ImageGenProvider:
         return MockImageGen()
 
     if mode == "reve":
-        if not settings.reve_api_token.strip():
-            if prod:
-                raise RuntimeError(
-                    "IMAGE_GEN_PROVIDER=reve requires REVE_API_TOKEN",
-                )
-            return MockImageGen()
-        return ReveImageGen(
-            api_token=settings.reve_api_token,
-            api_host=settings.reve_api_host,
-            aspect_ratio=settings.reve_aspect_ratio,
-            version=settings.reve_version,
-            test_time_scaling=settings.reve_test_time_scaling,
-        )
+        p = _make_reve()
+        if p:
+            return p
+        if prod:
+            raise RuntimeError("IMAGE_GEN_PROVIDER=reve requires REVE_API_TOKEN")
+        return MockImageGen()
 
     if mode == "replicate":
-        if _missing_replicate_config():
-            if prod:
-                raise RuntimeError(
-                    "IMAGE_GEN_PROVIDER=replicate requires "
-                    "REPLICATE_API_TOKEN and REPLICATE_MODEL_VERSION",
-                )
-            return MockImageGen()
-        return ReplicateImageGen(
-            api_token=settings.replicate_api_token,
-            model_version=settings.replicate_model_version,
-            storage=get_storage(),
-        )
+        p = _make_replicate()
+        if p:
+            return p
+        if prod:
+            raise RuntimeError(
+                "IMAGE_GEN_PROVIDER=replicate requires "
+                "REPLICATE_API_TOKEN and REPLICATE_MODEL_VERSION",
+            )
+        return MockImageGen()
 
-    # auto
-    if settings.reve_api_token.strip():
-        return ReveImageGen(
-            api_token=settings.reve_api_token,
-            api_host=settings.reve_api_host,
-            aspect_ratio=settings.reve_aspect_ratio,
-            version=settings.reve_version,
-            test_time_scaling=settings.reve_test_time_scaling,
-        )
-    if not _missing_replicate_config():
-        return ReplicateImageGen(
-            api_token=settings.replicate_api_token,
-            model_version=settings.replicate_model_version,
-            storage=get_storage(),
-        )
-    return MockImageGen()
+    # auto — build a chain of all available providers
+    providers: list[ImageGenProvider] = []
+    reve = _make_reve()
+    if reve:
+        providers.append(reve)
+    rep = _make_replicate()
+    if rep:
+        providers.append(rep)
+
+    if not providers:
+        return MockImageGen()
+    if len(providers) == 1:
+        return providers[0]
+    return ChainImageGen(providers)
 
 
 @lru_cache(maxsize=1)
