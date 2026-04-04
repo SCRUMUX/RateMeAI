@@ -177,15 +177,13 @@ async def deliver_result(bot: Bot, chat_id: int, status_msg_id: int, data: dict,
         kb = action_keyboard(uname, str(user_id))
         await bot.send_message(chat_id, f"Результат:\n```\n{result}\n```", parse_mode="Markdown", reply_markup=kb)
 
-    if mode in ("dating", "cv", "emoji") and not needs_upgrade:
-        credits = await _get_credit_balance(user_id)
-        if credits is not None and credits <= 2:
-            hint = f"💰 Осталось генераций: *{credits}*"
-            if credits == 0:
-                hint += "\nКупи пакет, чтобы продолжить!"
-                await bot.send_message(chat_id, hint, parse_mode="Markdown", reply_markup=upgrade_keyboard())
-            else:
-                await bot.send_message(chat_id, hint, parse_mode="Markdown")
+    credits = await _get_credit_balance(user_id)
+    if credits is not None:
+        if credits == 0:
+            hint = "💰 Баланс: *0 генераций*\nКупи пакет, чтобы продолжить!"
+            await bot.send_message(chat_id, hint, parse_mode="Markdown", reply_markup=upgrade_keyboard())
+        else:
+            await bot.send_message(chat_id, f"💰 Баланс: *{credits} генераций*", parse_mode="Markdown")
 
 
 async def _send_rating(bot: Bot, chat_id: int, result: dict, user_id: int, uname: str):
