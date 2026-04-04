@@ -163,6 +163,12 @@ async def _submit_analysis(callback: CallbackQuery, api_base_url: str, redis: Re
             import asyncio
             asyncio.create_task(_poll_task(bot, api_base_url, user_id, task_id, callback.message.chat.id, status_msg.message_id, redis))
 
+        elif resp.status_code == 402:
+            from src.bot.keyboards import upgrade_keyboard
+            await status_msg.edit_text(
+                "🔒 Кредиты для генерации закончились!\nКупи пакет, чтобы продолжить:",
+                reply_markup=upgrade_keyboard(),
+            )
         elif resp.status_code == 429:
             await status_msg.edit_text(
                 "⚠️ Дневной лимит исчерпан. Попробуй завтра или оформи Premium!",
@@ -179,15 +185,72 @@ async def _submit_analysis(callback: CallbackQuery, api_base_url: str, redis: Re
 
 @router.callback_query(F.data.startswith("buy:"))
 async def on_buy(callback: CallbackQuery):
-    """Placeholder for payment flow — show instructions."""
-    pack = callback.data.split(":", 1)[1]
-    packs = {"5": "$2", "25": "$5", "70": "$10"}
-    price = packs.get(pack, "?")
+    """Create YooKassa payment and send payment link."""
+    from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+    from src.services.payments import create_payment, _pack_by_quantity
+
+    pack_qty = int(callback.data.split(":", 1)[1])
+    pack = _pack_by_quantity(pack_qty)
+    if not pack:
+        await callback.answer("Неизвестный пакет", show_alert=True)
+        return
+
     await callback.answer()
-    await callback.message.answer(
-        f"💳 Пакет: {pack} генераций за {price}\n\n"
-        "Оплата пока в разработке. Свяжитесь с @admin для покупки."
+    wait_msg = await callback.message.answer("💳 Создаю платёж...")
+
+    result = await create_payment(callback.from_user.id, pack_qty)
+    if result is None:
+        await wait_msg.edit_text(
+            "❌ Не удалось создать платёж. Попробуйте позже.",
+            reply_markup=error_keyboard(),
+        )
+        return
+
+    payment_id, confirmation_url = result
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text=f"💳 Оплатить {pack.price_rub} ₽", url=confirmation_url)],
+        [InlineKeyboardButton(text="💰 Проверить баланс", callback_data="balance")],
+    ])
+    await wait_msg.edit_text(
+        f"🛒 *Пакет: {pack.quantity} генераций за {pack.price_rub} ₽*\n\n"
+        f"Нажми кнопку ниже для оплаты.\n"
+        f"После оплаты кредиты зачислятся автоматически!",
+        parse_mode="Markdown",
+        reply_markup=kb,
     )
+
+
+@router.callback_query(F.data == "balance")
+async def on_balance(callback: CallbackQuery, api_base_url: str):
+    """Show user's current credit balance."""
+    await callback.answer()
+    user_id = callback.from_user.id
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            resp = await client.get(
+                f"{api_base_url}/api/v1/payments/balance",
+                headers={"X-Telegram-Id": str(user_id)},
+            )
+        if resp.status_code == 200:
+            data = resp.json()
+            credits = data.get("image_credits", 0)
+            text = (
+                f"💰 *Твой баланс*\n\n"
+                f"Доступно генераций: *{credits}*\n\n"
+            )
+            if credits == 0:
+                text += "Купи пакет, чтобы генерировать фото!"
+                from src.bot.keyboards import upgrade_keyboard
+                await callback.message.answer(text, parse_mode="Markdown", reply_markup=upgrade_keyboard())
+            else:
+                text += "Отправь фото для генерации!"
+                from src.bot.keyboards import back_keyboard
+                await callback.message.answer(text, parse_mode="Markdown", reply_markup=back_keyboard())
+        else:
+            await callback.message.answer("❌ Не удалось получить баланс.", reply_markup=error_keyboard())
+    except Exception:
+        logger.exception("Failed to fetch balance for user %s", user_id)
+        await callback.message.answer("❌ Ошибка. Попробуй позже.", reply_markup=error_keyboard())
 
 
 @router.callback_query(F.data == "new_photo")

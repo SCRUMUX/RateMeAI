@@ -48,6 +48,14 @@ class Settings(BaseSettings):
     replicate_api_token: str = ""
     replicate_model_version: str = ""
 
+    # YooKassa payments
+    yookassa_shop_id: str = ""
+    yookassa_secret_key: str = ""
+    yookassa_return_url: str = "https://t.me/{bot_username}"
+
+    # Credit packs: pack_size:price_rub (comma-separated)
+    credit_packs: str = "5:200,25:500,70:1000"
+
     # Admin (bootstrap API keys for B2B)
     admin_secret: str = ""
     api_key_pepper: str = ""

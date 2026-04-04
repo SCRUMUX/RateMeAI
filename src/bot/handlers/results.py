@@ -131,6 +131,22 @@ async def _fetch_gen_image_from_redis(redis: Redis | None, task_id: str | None) 
     return None
 
 
+async def _get_credit_balance(user_id: int) -> int | None:
+    """Fetch user's credit balance from API."""
+    try:
+        async with httpx.AsyncClient(timeout=5.0) as client:
+            api_base = settings.api_base_url
+            resp = await client.get(
+                f"{api_base}/api/v1/payments/balance",
+                headers={"X-Telegram-Id": str(user_id)},
+            )
+        if resp.status_code == 200:
+            return resp.json().get("image_credits")
+    except Exception:
+        logger.debug("Could not fetch balance for user %s", user_id)
+    return None
+
+
 async def deliver_result(bot: Bot, chat_id: int, status_msg_id: int, data: dict, user_id: int, redis: Redis | None = None):
     result = data.get("result", {})
     mode = data.get("mode", "rating")
@@ -160,6 +176,16 @@ async def deliver_result(bot: Bot, chat_id: int, status_msg_id: int, data: dict,
     else:
         kb = action_keyboard(uname, str(user_id))
         await bot.send_message(chat_id, f"Результат:\n```\n{result}\n```", parse_mode="Markdown", reply_markup=kb)
+
+    if mode in ("dating", "cv", "emoji") and not needs_upgrade:
+        credits = await _get_credit_balance(user_id)
+        if credits is not None and credits <= 2:
+            hint = f"💰 Осталось генераций: *{credits}*"
+            if credits == 0:
+                hint += "\nКупи пакет, чтобы продолжить!"
+                await bot.send_message(chat_id, hint, parse_mode="Markdown", reply_markup=upgrade_keyboard())
+            else:
+                await bot.send_message(chat_id, hint, parse_mode="Markdown")
 
 
 async def _send_rating(bot: Bot, chat_id: int, result: dict, user_id: int, uname: str):

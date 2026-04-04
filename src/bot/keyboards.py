@@ -83,12 +83,16 @@ def error_keyboard() -> InlineKeyboardMarkup:
 
 
 def upgrade_keyboard() -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="5 фото — $2", callback_data="buy:5")],
-        [InlineKeyboardButton(text="25 фото — $5", callback_data="buy:25")],
-        [InlineKeyboardButton(text="70 фото — $10", callback_data="buy:70")],
-        [InlineKeyboardButton(text="📸 Новое фото", callback_data="new_photo")],
-    ])
+    from src.services.payments import get_credit_packs
+    rows = []
+    for pack in get_credit_packs():
+        rows.append([InlineKeyboardButton(
+            text=f"🛒 {pack.label}",
+            callback_data=f"buy:{pack.quantity}",
+        )])
+    rows.append([InlineKeyboardButton(text="💰 Мой баланс", callback_data="balance")])
+    rows.append([InlineKeyboardButton(text="📸 Новое фото", callback_data="new_photo")])
+    return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
 def back_keyboard() -> InlineKeyboardMarkup:
