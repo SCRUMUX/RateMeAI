@@ -76,7 +76,7 @@ class AnalysisPipeline:
                         "KEEP the face, facial features, eye color, hair, and expression exactly as-is. "
                         "The result must be photorealistic and the person must be immediately recognizable."
                     )
-                    extra: dict = {"use_edit": True, "aspect_ratio": "auto"}
+                    extra: dict = {"aspect_ratio": "auto", "test_time_scaling": 3}
                 elif mode == AnalysisMode.DATING:
                     prompt = (
                         "Retouch this portrait for a dating profile. "
@@ -85,7 +85,7 @@ class AnalysisPipeline:
                         "KEEP the face, all facial features, eye color, hair, and bone structure exactly as-is. "
                         "The result must be photorealistic and the person must be immediately recognizable."
                     )
-                    extra = {"use_edit": True, "aspect_ratio": "auto"}
+                    extra = {"aspect_ratio": "auto", "test_time_scaling": 3}
                 else:
                     prompt = (
                         "Cartoon sticker avatar of the person from <ref>0</ref>. "
