@@ -62,7 +62,7 @@ services:
       DATABASE_URL: postgresql+asyncpg://ratemeai:ratemeai@postgres:5432/ratemeai
       REDIS_URL: redis://redis:6379/0
       STORAGE_LOCAL_PATH: /app/storage
-      # Fetch inputs from API when bind-mount is unreliable (e.g. Docker Desktop on Windows)
+      API_BASE_URL: http://app:8000
       STORAGE_HTTP_FALLBACK_BASE: http://app:8000
     depends_on:
       app:

@@ -56,9 +56,8 @@ async def on_mode_selected(callback: CallbackQuery, api_base_url: str, redis: Re
                 "status_msg_id": status_msg.message_id,
             }
 
-            # Start polling in background
             import asyncio
-            asyncio.create_task(_poll_task(bot, api_base_url, user_id, task_id, callback.message.chat.id, status_msg.message_id))
+            asyncio.create_task(_poll_task(bot, api_base_url, user_id, task_id, callback.message.chat.id, status_msg.message_id, redis))
 
         elif resp.status_code == 429:
             await status_msg.edit_text("⚠️ Дневной лимит исчерпан. Попробуй завтра или оформи Premium!")
@@ -79,7 +78,7 @@ async def on_new_photo(callback: CallbackQuery):
     await callback.message.answer("📸 Отправь мне новое фото!")
 
 
-async def _poll_task(bot, api_base_url: str, user_id: int, task_id: str, chat_id: int, status_msg_id: int):
+async def _poll_task(bot, api_base_url: str, user_id: int, task_id: str, chat_id: int, status_msg_id: int, redis: Redis):
     """Poll API until task completes, then deliver result."""
     import asyncio
     from src.bot.handlers.results import deliver_result
@@ -99,7 +98,7 @@ async def _poll_task(bot, api_base_url: str, user_id: int, task_id: str, chat_id
                 status = data.get("status")
 
                 if status == "completed":
-                    await deliver_result(bot, chat_id, status_msg_id, data, user_id)
+                    await deliver_result(bot, chat_id, status_msg_id, data, user_id, redis)
                     return
                 elif status == "failed":
                     error = data.get("error_message", "Неизвестная ошибка")

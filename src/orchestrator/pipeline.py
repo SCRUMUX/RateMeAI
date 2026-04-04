@@ -96,6 +96,7 @@ class AnalysisPipeline:
                     if desc:
                         prompt = f"{prompt} Character: {desc}"
                     extra = {}
+                logger.info("Starting image generation for mode=%s task=%s", mode.value, task_id)
                 raw = await self._image_gen.generate(
                     prompt,
                     reference_image=image_bytes,
@@ -107,8 +108,13 @@ class AnalysisPipeline:
                     gen_url = await self._storage.get_url(gkey)
                     result_dict["generated_image_url"] = gen_url
                     result_dict["image_url"] = gen_url
+                    logger.info("Image generated and stored: %s", gkey)
+                else:
+                    logger.warning("Image gen returned empty/tiny result (%s bytes)", len(raw) if raw else 0)
+                    result_dict["image_gen_error"] = "empty_result"
             except Exception:
                 logger.exception("Image generation failed for mode %s", mode.value)
+                result_dict["image_gen_error"] = "generation_failed"
 
         # --- Share card (rating only) ---
         share_card_url = None

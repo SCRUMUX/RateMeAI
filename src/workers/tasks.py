@@ -15,7 +15,7 @@ from src.models.db import Task, UsageLog
 from src.models.enums import AnalysisMode, TaskStatus
 from src.orchestrator.pipeline import AnalysisPipeline
 from src.providers.factory import get_image_gen, get_llm, get_storage
-from src.utils.redis_keys import task_input_cache_key
+from src.utils.redis_keys import gen_image_cache_key, task_input_cache_key
 from src.version import APP_VERSION
 
 logger = logging.getLogger(__name__)
@@ -95,6 +95,21 @@ async def process_analysis(ctx: dict, task_id: str):
                 user_id=str(task.user_id),
                 task_id=str(task.id),
             )
+
+            gen_url = analysis_result.get("generated_image_url")
+            if gen_url:
+                gkey = f"generated/{task.user_id}/{task.id}.jpg"
+                try:
+                    gen_bytes = await storage.download(gkey)
+                    b64_gen = base64.b64encode(gen_bytes).decode()
+                    await redis.set(
+                        gen_image_cache_key(str(task.id)),
+                        b64_gen,
+                        ex=settings.task_input_redis_ttl_seconds,
+                    )
+                    logger.info("Staged generated image in Redis for task %s (%d bytes)", task_id, len(gen_bytes))
+                except Exception:
+                    logger.exception("Failed to stage generated image in Redis for task %s", task_id)
 
             task.result = analysis_result
             task.share_card_path = analysis_result.get("share", {}).get("card_url")

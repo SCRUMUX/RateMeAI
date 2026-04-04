@@ -1,14 +1,17 @@
 from __future__ import annotations
 
+import base64
 import logging
 from pathlib import Path
 
 import httpx
 from aiogram import Bot
 from aiogram.types import BufferedInputFile, FSInputFile
+from redis.asyncio import Redis
 
 from src.bot.keyboards import result_keyboard
 from src.config import settings
+from src.utils.redis_keys import gen_image_cache_key
 
 logger = logging.getLogger(__name__)
 
@@ -16,58 +19,106 @@ _MAX_PHOTO_BYTES = 9 * 1024 * 1024
 _STORAGE_BASE = Path(settings.storage_local_path).resolve()
 
 
-async def _send_photo_from_public_url(
+def _extract_storage_key(url_or_path: str) -> str | None:
+    """Extract storage key from URL like http://host/storage/gen/uid/tid.jpg or a relative path."""
+    marker = "/storage/"
+    idx = url_or_path.find(marker)
+    if idx >= 0:
+        return url_or_path[idx + len(marker):]
+    if not url_or_path.startswith(("http://", "https://")):
+        return url_or_path
+    return None
+
+
+async def _send_photo_safe(
     bot: Bot,
     chat_id: int,
-    url: str,
+    url_or_path: str,
     *,
     caption: str,
     reply_markup,
 ) -> bool:
-    """Telegram loads URL from its servers; on failure, download and send as bytes."""
-    try:
-        await bot.send_photo(
-            chat_id,
-            url,
-            caption=caption,
-            parse_mode="Markdown",
-            reply_markup=reply_markup,
-        )
-        return True
-    except Exception:
-        logger.warning(
-            "send_photo by URL failed (Telegram may not reach URL); retrying via download",
-            exc_info=True,
-        )
-    try:
-        async with httpx.AsyncClient(timeout=45.0, follow_redirects=True) as client:
-            resp = await client.get(url)
-            resp.raise_for_status()
-            data = resp.content
-        if len(data) > _MAX_PHOTO_BYTES:
-            logger.warning("downloaded image too large for Telegram: %s bytes", len(data))
-            return False
-        await bot.send_photo(
-            chat_id,
-            BufferedInputFile(data, filename="photo.jpg"),
-            caption=caption,
-            parse_mode="Markdown",
-            reply_markup=reply_markup,
-        )
-        return True
-    except Exception:
-        logger.exception("send_photo after download failed")
-        return False
+    """Try 3 strategies: Telegram URL → httpx download → local filesystem."""
+    if url_or_path.startswith(("http://", "https://")):
+        try:
+            await bot.send_photo(
+                chat_id,
+                url_or_path,
+                caption=caption,
+                parse_mode="Markdown",
+                reply_markup=reply_markup,
+            )
+            return True
+        except Exception:
+            logger.warning("send_photo by URL failed; trying httpx download", exc_info=True)
+
+        try:
+            async with httpx.AsyncClient(timeout=45.0, follow_redirects=True) as client:
+                resp = await client.get(url_or_path)
+                resp.raise_for_status()
+                data = resp.content
+            if len(data) <= _MAX_PHOTO_BYTES:
+                await bot.send_photo(
+                    chat_id,
+                    BufferedInputFile(data, filename="photo.jpg"),
+                    caption=caption,
+                    parse_mode="Markdown",
+                    reply_markup=reply_markup,
+                )
+                return True
+            logger.warning("downloaded image too large: %s bytes", len(data))
+        except Exception:
+            logger.warning("httpx download failed; trying local filesystem", exc_info=True)
+
+    key = _extract_storage_key(url_or_path)
+    if key:
+        local_path = _STORAGE_BASE / key
+        if local_path.exists() and local_path.is_file():
+            try:
+                await bot.send_photo(
+                    chat_id,
+                    FSInputFile(str(local_path)),
+                    caption=caption,
+                    parse_mode="Markdown",
+                    reply_markup=reply_markup,
+                )
+                return True
+            except Exception:
+                logger.exception("send_photo from local file failed: %s", local_path)
+
+    logger.error("All photo delivery methods failed for: %s", url_or_path)
+    return False
 
 
 def _bot_username() -> str:
     return settings.telegram_bot_username.lstrip("@")
 
 
-async def deliver_result(bot: Bot, chat_id: int, status_msg_id: int, data: dict, user_id: int):
+async def _fetch_gen_image_from_redis(redis: Redis | None, task_id: str | None) -> bytes | None:
+    """Try to load generated image bytes from Redis staging."""
+    if not redis or not task_id:
+        return None
+    try:
+        b64 = await redis.get(gen_image_cache_key(task_id))
+        if b64:
+            await redis.delete(gen_image_cache_key(task_id))
+            data = base64.b64decode(b64)
+            logger.info("Loaded generated image from Redis for task %s (%d bytes)", task_id, len(data))
+            return data
+    except Exception:
+        logger.exception("Failed to load generated image from Redis for task %s", task_id)
+    return None
+
+
+async def deliver_result(bot: Bot, chat_id: int, status_msg_id: int, data: dict, user_id: int, redis: Redis | None = None):
     """Format and send analysis result to user."""
     result = data.get("result", {})
     mode = data.get("mode", "rating")
+    task_id = str(data.get("task_id", ""))
+
+    gen_image_bytes: bytes | None = None
+    if result.get("generated_image_url"):
+        gen_image_bytes = await _fetch_gen_image_from_redis(redis, task_id)
 
     try:
         await bot.delete_message(chat_id=chat_id, message_id=status_msg_id)
@@ -79,11 +130,11 @@ async def deliver_result(bot: Bot, chat_id: int, status_msg_id: int, data: dict,
     if mode == "rating":
         await _send_rating(bot, chat_id, result, user_id, uname)
     elif mode == "dating":
-        await _send_dating(bot, chat_id, result, user_id, uname)
+        await _send_dating(bot, chat_id, result, user_id, uname, gen_image_bytes)
     elif mode == "cv":
-        await _send_cv(bot, chat_id, result, user_id, uname)
+        await _send_cv(bot, chat_id, result, user_id, uname, gen_image_bytes)
     elif mode == "emoji":
-        await _send_emoji(bot, chat_id, result, user_id, uname)
+        await _send_emoji(bot, chat_id, result, user_id, uname, gen_image_bytes)
     else:
         await bot.send_message(chat_id, f"Результат:\n```\n{result}\n```", parse_mode="Markdown")
 
@@ -122,29 +173,14 @@ async def _send_rating(bot: Bot, chat_id: int, result: dict, user_id: int, uname
     card_path = share_info.get("card_url")
 
     if card_path:
-        try:
-            if card_path.startswith("http://") or card_path.startswith("https://"):
-                if await _send_photo_from_public_url(
-                    bot,
-                    chat_id,
-                    card_path,
-                    caption=text,
-                    reply_markup=result_keyboard(uname, str(user_id)),
-                ):
-                    return
-
-            absolute_path = _STORAGE_BASE / card_path
-            photo = FSInputFile(str(absolute_path))
-            await bot.send_photo(
-                chat_id,
-                photo,
-                caption=text,
-                parse_mode="Markdown",
-                reply_markup=result_keyboard(uname, str(user_id)),
-            )
+        if await _send_photo_safe(
+            bot,
+            chat_id,
+            card_path,
+            caption=text,
+            reply_markup=result_keyboard(uname, str(user_id)),
+        ):
             return
-        except Exception:
-            logger.exception("Failed to send share card")
 
     await bot.send_message(
         chat_id,
@@ -154,7 +190,7 @@ async def _send_rating(bot: Bot, chat_id: int, result: dict, user_id: int, uname
     )
 
 
-async def _send_dating(bot: Bot, chat_id: int, result: dict, user_id: int, uname: str):
+async def _send_dating(bot: Bot, chat_id: int, result: dict, user_id: int, uname: str, gen_image_bytes: bytes | None = None):
     score = result.get("dating_score", "?")
     impression = result.get("first_impression", "")
     strengths = result.get("strengths", [])
@@ -186,27 +222,30 @@ async def _send_dating(bot: Bot, chat_id: int, result: dict, user_id: int, uname
             text_parts.append(f"\n  **{vtype.capitalize()}:** {explanation}")
 
     text = "\n".join(text_parts)
+    kb = result_keyboard(uname, str(user_id))
+
+    if gen_image_bytes:
+        try:
+            await bot.send_photo(
+                chat_id,
+                BufferedInputFile(gen_image_bytes, filename="dating_improved.jpg"),
+                caption=text,
+                parse_mode="Markdown",
+                reply_markup=kb,
+            )
+            return
+        except Exception:
+            logger.exception("send_photo from Redis bytes failed (dating)")
 
     img = result.get("generated_image_url") or result.get("image_url")
-    if img and (img.startswith("http://") or img.startswith("https://")):
-        if await _send_photo_from_public_url(
-            bot,
-            chat_id,
-            img,
-            caption=text,
-            reply_markup=result_keyboard(uname, str(user_id)),
-        ):
+    if img:
+        if await _send_photo_safe(bot, chat_id, img, caption=text, reply_markup=kb):
             return
 
-    await bot.send_message(
-        chat_id,
-        text,
-        parse_mode="Markdown",
-        reply_markup=result_keyboard(uname, str(user_id)),
-    )
+    await bot.send_message(chat_id, text, parse_mode="Markdown", reply_markup=kb)
 
 
-async def _send_cv(bot: Bot, chat_id: int, result: dict, user_id: int, uname: str):
+async def _send_cv(bot: Bot, chat_id: int, result: dict, user_id: int, uname: str, gen_image_bytes: bytes | None = None):
     profession = result.get("profession", "?")
     trust = result.get("trust", "?")
     competence = result.get("competence", "?")
@@ -221,26 +260,30 @@ async def _send_cv(bot: Bot, chat_id: int, result: dict, user_id: int, uname: st
         f"📋 Шанс на собеседование: {hireability}/10\n\n"
         f"📝 {analysis}"
     )
+    kb = result_keyboard(uname, str(user_id))
+
+    if gen_image_bytes:
+        try:
+            await bot.send_photo(
+                chat_id,
+                BufferedInputFile(gen_image_bytes, filename="cv_improved.jpg"),
+                caption=text,
+                parse_mode="Markdown",
+                reply_markup=kb,
+            )
+            return
+        except Exception:
+            logger.exception("send_photo from Redis bytes failed (cv)")
+
     img = result.get("generated_image_url") or result.get("image_url")
-    if img and (img.startswith("http://") or img.startswith("https://")):
-        if await _send_photo_from_public_url(
-            bot,
-            chat_id,
-            img,
-            caption=text,
-            reply_markup=result_keyboard(uname, str(user_id)),
-        ):
+    if img:
+        if await _send_photo_safe(bot, chat_id, img, caption=text, reply_markup=kb):
             return
 
-    await bot.send_message(
-        chat_id,
-        text,
-        parse_mode="Markdown",
-        reply_markup=result_keyboard(uname, str(user_id)),
-    )
+    await bot.send_message(chat_id, text, parse_mode="Markdown", reply_markup=kb)
 
 
-async def _send_emoji(bot: Bot, chat_id: int, result: dict, user_id: int, uname: str):
+async def _send_emoji(bot: Bot, chat_id: int, result: dict, user_id: int, uname: str, gen_image_bytes: bytes | None = None):
     base_desc = result.get("base_description", "")
     stickers = result.get("stickers", [])
 
@@ -259,21 +302,24 @@ async def _send_emoji(bot: Bot, chat_id: int, result: dict, user_id: int, uname:
             text_parts.append(f"  {icon} {emotion}: {s.get('description', '')[:80]}")
 
     text = "\n".join(text_parts)
+    kb = result_keyboard(uname, str(user_id))
+
+    if gen_image_bytes:
+        try:
+            await bot.send_photo(
+                chat_id,
+                BufferedInputFile(gen_image_bytes, filename="emoji_sticker.jpg"),
+                caption=text,
+                parse_mode="Markdown",
+                reply_markup=kb,
+            )
+            return
+        except Exception:
+            logger.exception("send_photo from Redis bytes failed (emoji)")
 
     img = result.get("generated_image_url") or result.get("image_url")
-    if img and (img.startswith("http://") or img.startswith("https://")):
-        if await _send_photo_from_public_url(
-            bot,
-            chat_id,
-            img,
-            caption=text,
-            reply_markup=result_keyboard(uname, str(user_id)),
-        ):
+    if img:
+        if await _send_photo_safe(bot, chat_id, img, caption=text, reply_markup=kb):
             return
 
-    await bot.send_message(
-        chat_id,
-        text,
-        parse_mode="Markdown",
-        reply_markup=result_keyboard(uname, str(user_id)),
-    )
+    await bot.send_message(chat_id, text, parse_mode="Markdown", reply_markup=kb)
