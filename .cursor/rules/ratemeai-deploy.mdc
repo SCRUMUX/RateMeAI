@@ -1,0 +1,50 @@
+---
+description: RateMeAI deployment, testing, and Telegram bot constraints
+globs: src/**,docker-compose.yml,Dockerfile,.env.example,src/version.py
+alwaysApply: false
+---
+
+# RateMeAI — правила проекта
+
+## Архитектура
+- 5 процессов: postgres, redis, app (FastAPI), worker (ARQ), bot (aiogram)
+- app/worker/bot собираются из ОДНОГО Dockerfile и ОБЯЗАНЫ быть ОДНОЙ версии
+- Версия в `src/version.py` — BUMP при каждом деплое
+- `GET /health` возвращает `version` и опционально `git` SHA
+
+## Деплой — чеклист
+1. Bump `src/version.py`
+2. `python -m pytest tests/ -v` — тесты должны пройти
+3. `git push origin main` — CI + автодеплой
+4. Проверить `GET /health` — version совпадает
+5. Проверить логи worker и bot — та же version
+6. Smoke: фото в бот, все 4 режима (rating, dating, cv, emoji)
+
+## Telegram лимиты (КРИТИЧНО)
+- Photo caption: МАКС **1024** символов — если длиннее, send_photo ПАДАЕТ
+- Длинный текст: фото с коротким caption + полный текст отдельным сообщением
+- Message text: макс 4096 символов
+- `parse_mode="Markdown"` = V1: жирный `*bold*`, НЕ `**bold**`
+- URL фото: только публичный HTTPS, localhost не работает
+
+## Переменные окружения
+- `API_BASE_URL` для app/worker: ПУБЛИЧНЫЙ HTTPS
+- `API_BASE_URL` для bot (compose): `http://app:8000`
+- `STORAGE_LOCAL_PATH`: в compose = `/app/storage` + общий volume
+- `APP_ENV=prod`: включает Alembic миграции
+- Один `DATABASE_URL`, один `REDIS_URL` для всех сервисов
+
+## Поток данных
+```
+Bot → POST /api/v1/analyze → Redis input cache + DB task → ARQ
+Worker: Redis→image → LLM → Reve image gen → Storage + Redis gen cache → DB
+Bot: poll GET /tasks/{id} → Redis gen image → send_photo(≤1024) + send_message
+```
+
+## Частые ошибки
+- Забыть определить переменную → NameError в рантайме
+- Длинный caption > 1024 → Telegram отклоняет → "картинки пропали"
+- `**bold**` вместо `*bold*` → Markdown V1 parse error
+- Обновить app без worker → рассинхрон версий
+- `API_BASE_URL=localhost` в проде → Telegram не скачает файлы
+- На Windows: shell = PowerShell, НЕ поддерживает `&&` и HEREDOC (`<<'EOF'`)

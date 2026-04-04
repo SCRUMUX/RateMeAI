@@ -10,7 +10,7 @@ from src.providers.base import ImageGenProvider
 
 logger = logging.getLogger(__name__)
 
-_MAX_RETRIES = 3
+_MAX_RETRIES = 2
 
 
 class ReveImageGen(ImageGenProvider):
@@ -85,7 +85,7 @@ class ReveImageGen(ImageGenProvider):
                     resp = create(prompt, client=client, **options)
                 break
             except ReveRateLimitError as e:
-                wait = getattr(e, "retry_after", None) or (10 * (attempt + 1))
+                wait = min(getattr(e, "retry_after", None) or (5 * (attempt + 1)), 15)
                 logger.warning("Reve rate-limited, waiting %ss (attempt %d/%d)", wait, attempt + 1, _MAX_RETRIES)
                 last_err = e
                 time.sleep(float(wait))
