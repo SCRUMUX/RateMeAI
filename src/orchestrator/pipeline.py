@@ -70,27 +70,27 @@ class AnalysisPipeline:
             try:
                 if mode == AnalysisMode.CV:
                     prompt = (
-                        "Professional corporate headshot, soft studio lighting, neutral gray background, "
-                        "sharp focus on face, business attire, photorealistic. Preserve the person's identity."
+                        "Retouch this portrait for a professional corporate headshot. "
+                        "Smooth skin slightly, even out skin tone, whiten teeth subtly if visible. "
+                        "Improve lighting to soft studio quality, neutral background. "
+                        "KEEP the face, facial features, eye color, hair, and expression exactly as-is. "
+                        "The result must be photorealistic and the person must be immediately recognizable."
                     )
-                    synopsis = str(result_dict.get("analysis", ""))[:400]
-                    if synopsis:
-                        prompt = f"{prompt} Notes: {synopsis}"
-                    extra: dict = {}
+                    extra: dict = {"use_edit": True, "aspect_ratio": "auto"}
                 elif mode == AnalysisMode.DATING:
                     prompt = (
-                        "Improved dating profile photo, warm natural lighting, "
-                        "friendly confident expression, soft bokeh background, "
-                        "photorealistic. Preserve the person's identity."
+                        "Retouch this portrait for a dating profile. "
+                        "Smooth skin slightly, even out skin tone, whiten teeth subtly if visible, "
+                        "add a slight natural warm glow to the lighting. "
+                        "KEEP the face, all facial features, eye color, hair, and bone structure exactly as-is. "
+                        "The result must be photorealistic and the person must be immediately recognizable."
                     )
-                    tips = str(result_dict.get("first_impression", ""))[:400]
-                    if tips:
-                        prompt = f"{prompt} Context: {tips}"
-                    extra = {}
+                    extra = {"use_edit": True, "aspect_ratio": "auto"}
                 else:
                     prompt = (
-                        "Single cute sticker avatar portrait, bold outlines, flat colors, "
-                        "same person as reference, friendly expression, square composition."
+                        "Cartoon sticker avatar of the person from <ref>0</ref>. "
+                        "Keep recognizable facial proportions, face shape, hairstyle and hair color. "
+                        "Bold outlines, flat vibrant colors, friendly expression, square composition."
                     )
                     desc = str(result_dict.get("base_description", ""))[:400]
                     if desc:

@@ -51,7 +51,7 @@ class ReveImageGen(ImageGenProvider):
         params: dict | None,
     ) -> bytes:
         from reve._client import ReveClient
-        from reve.v1.image import create, remix
+        from reve.v1.image import create, edit, remix
         from reve.exceptions import ReveAPIError
 
         client = ReveClient(
@@ -59,9 +59,17 @@ class ReveImageGen(ImageGenProvider):
             api_url=self._host or None,
         )
         options = self._build_options(params)
+        use_edit = bool(params and params.get("use_edit"))
 
         try:
-            if reference_image:
+            if reference_image and use_edit:
+                resp = edit(
+                    edit_instruction=prompt,
+                    reference_image=reference_image,
+                    client=client,
+                    **options,
+                )
+            elif reference_image:
                 resp = remix(
                     prompt,
                     [reference_image],
