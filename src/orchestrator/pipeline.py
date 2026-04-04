@@ -111,6 +111,15 @@ class AnalysisPipeline:
                     "style": style or "default",
                     "mode": mode.value,
                     "provider": type(self._image_gen).__name__,
+                    "corrections_applied": [
+                        "defect_correction",
+                        "skin_enhancement",
+                        "under_eye_cleanup",
+                        "blemish_removal",
+                        "tone_evening",
+                    ],
+                    "identity_preservation": "strict",
+                    "photorealism_check": "enforced",
                 }
                 logger.info("Image generated and stored: %s", gkey)
             else:

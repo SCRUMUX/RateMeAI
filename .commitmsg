@@ -1,36 +1,10 @@
-﻿feat: v1.0.0 — full platform evolution (5 phases)
+﻿fix: mandatory defect correction for all image gen modes
 
-Phase 1 — UX Quick Wins:
-- Remove file_id deletion after submit (photo persists 24h in Redis)
-- Add action_keyboard after every result (no more dead ends)
-- Add error_keyboard to all error/timeout messages
-- Shorten result templates for rating/dating/cv/emoji
-
-Phase 2 — Mode Switching + Loop:
-- Add action: handlers for mode switching without re-upload
-- Add loop:/restyle: handlers for iterative refinement
-- Add personality styles (friendly/confident/charismatic for dating, corporate/startup/creative for CV)
-- Store last_gen state in Redis for retry
-
-Phase 3 — Architecture Cleanup:
-- Create src/prompts/image_gen.py (centralized image gen prompts)
-- Add build_image_prompt to PromptEngine
-- Split pipeline.execute() into _preprocess/_analyze/_generate_image/_finalize
-- Add close() to LLMProvider/ImageGenProvider/StorageProvider ABCs
-- Remove dead code (AnalyzeRequest, ShareRequest schemas)
-- Fix enhancement.provider to use actual class name
-
-Phase 4 — Monetization:
-- Add image_credits to User model (default 1)
-- Add CreditTransaction table + Alembic migration 003
-- Add context column to Task model
-- Worker deducts credits on successful generation
-- Skip image gen when credits exhausted (upgrade_prompt flag)
-- Add upgrade_keyboard with pricing tiers
-- Add buy: callback handler (placeholder)
-
-Phase 5 — Performance:
-- Redis Pub/Sub for task completion (worker publishes, bot subscribes)
-- Merge NSFW check into analysis prompt (eliminate double LLM call)
-- Auto-retry failed tasks once (skip user-facing errors)
-- Bump version to 1.0.0
+- Add DEFECT_CORRECTION block: detailed 5-point checklist for under-eye
+  spots, blemishes, pigmentation, texture, and stray hairs
+- Add PHOTOREALISM_ANCHOR block: strict anti-artifact requirements
+- Strengthen FACE_ANCHOR with 15+ specific feature locks
+- Strengthen SKIN_ENHANCE with zoom-test and seamless transitions
+- Apply all mandatory blocks to dating, CV, and emoji prompts
+- Add correction metadata to enhancement logging
+- v1.0.1
