@@ -110,25 +110,11 @@ class AnalysisPipeline:
                     result_dict["image_url"] = gen_url
                     logger.info("Image generated and stored: %s", gkey)
                 else:
-                    logger.warning("Image gen returned empty/tiny result (%s bytes), using original photo", len(raw) if raw else 0)
+                    logger.warning("Image gen returned empty/tiny result (%s bytes)", len(raw) if raw else 0)
                     result_dict["image_gen_error"] = "empty_result"
-                    gkey = f"generated/{user_id}/{task_id}.jpg"
-                    await self._storage.upload(gkey, image_bytes)
-                    gen_url = await self._storage.get_url(gkey)
-                    result_dict["generated_image_url"] = gen_url
-                    result_dict["image_url"] = gen_url
             except Exception:
-                logger.exception("Image generation failed for mode %s, falling back to original photo", mode.value)
+                logger.exception("Image generation failed for mode %s", mode.value)
                 result_dict["image_gen_error"] = "generation_failed"
-                try:
-                    gkey = f"generated/{user_id}/{task_id}.jpg"
-                    await self._storage.upload(gkey, image_bytes)
-                    gen_url = await self._storage.get_url(gkey)
-                    result_dict["generated_image_url"] = gen_url
-                    result_dict["image_url"] = gen_url
-                    logger.info("Fallback: stored original photo as generated: %s", gkey)
-                except Exception:
-                    logger.exception("Fallback original photo upload also failed")
 
         # --- Share card (rating only) ---
         share_card_url = None
