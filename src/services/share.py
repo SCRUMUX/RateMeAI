@@ -14,6 +14,8 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+BOT_USERNAME = settings.telegram_bot_username.lstrip("@")
+
 CARD_WIDTH = 800
 CARD_HEIGHT = 1000
 BG_COLOR = (18, 18, 24)
