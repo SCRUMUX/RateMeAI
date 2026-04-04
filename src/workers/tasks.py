@@ -89,11 +89,19 @@ async def process_analysis(ctx: dict, task_id: str):
             else:
                 image_bytes = await storage.download(task.input_image_path)
 
+            style_key = f"ratemeai:style:{task_id}"
+            style = await redis.get(style_key) or ""
+            if style:
+                await redis.delete(style_key)
+
+            context = {"style": style} if style else None
+
             analysis_result = await pipeline.execute(
                 mode=AnalysisMode(task.mode),
                 image_bytes=image_bytes,
                 user_id=str(task.user_id),
                 task_id=str(task.id),
+                context=context,
             )
 
             gen_url = analysis_result.get("generated_image_url")

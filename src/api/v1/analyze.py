@@ -35,6 +35,7 @@ async def _get_arq() -> ArqRedis:
 async def create_analysis(
     image: UploadFile = File(...),
     mode: AnalysisMode = Form(AnalysisMode.RATING),
+    style: str = Form(""),
     user: User = Depends(check_rate_limit),
     db: AsyncSession = Depends(get_db),
     redis: Redis = Depends(get_redis),
@@ -69,6 +70,12 @@ async def create_analysis(
             base64.b64encode(image_bytes).decode("ascii"),
             ex=settings.task_input_redis_ttl_seconds,
         )
+        if style.strip():
+            await redis.set(
+                f"ratemeai:style:{task.id}",
+                style.strip(),
+                ex=settings.task_input_redis_ttl_seconds,
+            )
     except Exception:
         logger.exception("Redis error staging task input for %s", task.id)
         raise HTTPException(status_code=500, detail="Failed to stage task input") from None

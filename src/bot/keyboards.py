@@ -7,12 +7,28 @@ def mode_selection_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(inline_keyboard=[
         [
             InlineKeyboardButton(text="⭐ Рейтинг", callback_data=f"mode:{AnalysisMode.RATING.value}"),
-            InlineKeyboardButton(text="💕 Дейтинг", callback_data=f"mode:{AnalysisMode.DATING.value}"),
+            InlineKeyboardButton(text="💕 Дейтинг", callback_data="pick_style:dating"),
         ],
         [
-            InlineKeyboardButton(text="💼 Резюме/CV", callback_data=f"mode:{AnalysisMode.CV.value}"),
+            InlineKeyboardButton(text="💼 Резюме/CV", callback_data="pick_style:cv"),
             InlineKeyboardButton(text="😀 Эмодзи-пак", callback_data=f"mode:{AnalysisMode.EMOJI.value}"),
         ],
+    ])
+
+
+def dating_style_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="🌅 На прогулке", callback_data="style:dating:warm_outdoor")],
+        [InlineKeyboardButton(text="✨ Студия / элегант", callback_data="style:dating:studio_elegant")],
+        [InlineKeyboardButton(text="☕ Кафе / бар", callback_data="style:dating:cafe")],
+    ])
+
+
+def cv_style_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="🏢 Корпоративный", callback_data="style:cv:corporate")],
+        [InlineKeyboardButton(text="🎨 Креативный", callback_data="style:cv:creative")],
+        [InlineKeyboardButton(text="📷 Нейтральный фон", callback_data="style:cv:neutral")],
     ])
 
 

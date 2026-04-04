@@ -9,25 +9,55 @@ import httpx
 from redis.asyncio import Redis
 
 from src.bot.middleware import PHOTO_KEY
+from src.bot.keyboards import dating_style_keyboard, cv_style_keyboard
 
 logger = logging.getLogger(__name__)
 router = Router()
+
+STYLE_KEY = "ratemeai:style:{}"
+
+
+@router.callback_query(F.data.startswith("pick_style:"))
+async def on_pick_style(callback: CallbackQuery, redis: Redis):
+    """Show style selection keyboard for dating/cv modes."""
+    kind = callback.data.split(":", 1)[1]
+    file_id = await redis.get(PHOTO_KEY.format(callback.from_user.id))
+    if not file_id:
+        await callback.answer("Сначала отправь фото!", show_alert=True)
+        return
+    await callback.answer()
+    if kind == "dating":
+        await callback.message.answer("💕 Выбери стиль фото:", reply_markup=dating_style_keyboard())
+    else:
+        await callback.message.answer("💼 Выбери стиль фото:", reply_markup=cv_style_keyboard())
+
+
+@router.callback_query(F.data.startswith("style:"))
+async def on_style_selected(callback: CallbackQuery, api_base_url: str, redis: Redis):
+    """Handle style:dating:warm_outdoor → submit analysis with context."""
+    parts = callback.data.split(":")
+    mode = parts[1]
+    style = parts[2] if len(parts) > 2 else ""
+    await _submit_analysis(callback, api_base_url, redis, mode, style)
 
 
 @router.callback_query(F.data.startswith("mode:"))
 async def on_mode_selected(callback: CallbackQuery, api_base_url: str, redis: Redis):
     mode = callback.data.split(":", 1)[1]
+    await _submit_analysis(callback, api_base_url, redis, mode, "")
+
+
+async def _submit_analysis(callback: CallbackQuery, api_base_url: str, redis: Redis, mode: str, style: str):
     user_id = callback.from_user.id
     bot = callback.bot
 
     file_id = await redis.get(PHOTO_KEY.format(user_id))
-
     if not file_id:
         await callback.answer("Сначала отправь фото!", show_alert=True)
         return
 
     await callback.answer()
-    status_msg = await callback.message.answer("⏳ Анализирую твоё фото... Это займёт 10-20 секунд.")
+    status_msg = await callback.message.answer("⏳ Анализирую твоё фото... Это займёт 15-30 секунд.")
 
     try:
         file = await bot.get_file(file_id)
@@ -36,11 +66,15 @@ async def on_mode_selected(callback: CallbackQuery, api_base_url: str, redis: Re
         file_bytes.seek(0)
         image_data = file_bytes.read()
 
+        form_data = {"mode": mode}
+        if style:
+            form_data["style"] = style
+
         async with httpx.AsyncClient(timeout=30.0) as client:
             resp = await client.post(
                 f"{api_base_url}/api/v1/analyze",
                 files={"image": ("photo.jpg", image_data, "image/jpeg")},
-                data={"mode": mode},
+                data=form_data,
                 headers={"X-Telegram-Id": str(user_id)},
             )
 

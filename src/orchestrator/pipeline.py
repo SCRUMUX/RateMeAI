@@ -63,28 +63,17 @@ class AnalysisPipeline:
             result_dict = result.model_dump() if hasattr(result, "model_dump") else result
 
         # --- Image generation (CV / dating / emoji) ---
+        style = (context or {}).get("style", "")
         if (
             mode in (AnalysisMode.CV, AnalysisMode.EMOJI, AnalysisMode.DATING)
             and self._image_gen is not None
         ):
             try:
                 if mode == AnalysisMode.CV:
-                    prompt = (
-                        "Retouch this portrait for a professional corporate headshot. "
-                        "Smooth skin slightly, even out skin tone, whiten teeth subtly if visible. "
-                        "Improve lighting to soft studio quality, neutral background. "
-                        "KEEP the face, facial features, eye color, hair, and expression exactly as-is. "
-                        "The result must be photorealistic and the person must be immediately recognizable."
-                    )
+                    prompt = self._build_cv_prompt(style)
                     extra: dict = {"aspect_ratio": "auto", "test_time_scaling": 3}
                 elif mode == AnalysisMode.DATING:
-                    prompt = (
-                        "Retouch this portrait for a dating profile. "
-                        "Smooth skin slightly, even out skin tone, whiten teeth subtly if visible, "
-                        "add a slight natural warm glow to the lighting. "
-                        "KEEP the face, all facial features, eye color, hair, and bone structure exactly as-is. "
-                        "The result must be photorealistic and the person must be immediately recognizable."
-                    )
+                    prompt = self._build_dating_prompt(style)
                     extra = {"aspect_ratio": "auto", "test_time_scaling": 3}
                 else:
                     prompt = (
@@ -96,7 +85,7 @@ class AnalysisPipeline:
                     if desc:
                         prompt = f"{prompt} Character: {desc}"
                     extra = {}
-                logger.info("Starting image generation for mode=%s task=%s", mode.value, task_id)
+                logger.info("Starting image generation for mode=%s style=%s task=%s", mode.value, style or "default", task_id)
                 raw = await self._image_gen.generate(
                     prompt,
                     reference_image=image_bytes,
@@ -108,6 +97,11 @@ class AnalysisPipeline:
                     gen_url = await self._storage.get_url(gkey)
                     result_dict["generated_image_url"] = gen_url
                     result_dict["image_url"] = gen_url
+                    result_dict["enhancement"] = {
+                        "style": style or "default",
+                        "mode": mode.value,
+                        "provider": "reve_remix",
+                    }
                     logger.info("Image generated and stored: %s", gkey)
                 else:
                     logger.warning("Image gen returned empty/tiny result (%s bytes)", len(raw) if raw else 0)
@@ -130,3 +124,75 @@ class AnalysisPipeline:
                 logger.exception("Failed to generate share card")
 
         return self._merger.merge(result_dict, share_card_url, user_id)
+
+    # ── Prompt builders ──
+
+    _FACE_ANCHOR = (
+        "STRICT IDENTITY RULE: the person's face shape, nose, eyes, eyebrows, "
+        "lips, jawline, ears, and bone structure MUST remain pixel-identical to "
+        "the reference photo. Do NOT reshape, resize, or reposition any facial "
+        "feature. The person must be instantly recognizable."
+    )
+
+    _SKIN_ENHANCE = (
+        "Enhance skin: remove blemishes, acne, and dark spots; even out skin "
+        "tone; reduce visible pores and under-eye circles; add a healthy natural "
+        "glow. Smooth wrinkles gently while keeping skin texture realistic — "
+        "no plastic or airbrushed look."
+    )
+
+    _DATING_STYLES: dict[str, str] = {
+        "warm_outdoor": (
+            "Background: warm golden-hour outdoor scene with soft bokeh "
+            "(park, city sunset, or seaside). "
+            "Clothing: stylish casual outfit that flatters the person."
+        ),
+        "studio_elegant": (
+            "Background: professional studio with soft gradient lighting. "
+            "Clothing: elegant evening outfit (dark tones, well-fitted)."
+        ),
+        "cafe": (
+            "Background: cozy upscale café or wine bar with warm ambient light. "
+            "Clothing: smart-casual date-night outfit."
+        ),
+    }
+
+    _CV_STYLES: dict[str, str] = {
+        "corporate": (
+            "Background: clean modern corporate office, neutral grey/white wall. "
+            "Clothing: formal business suit with tie or blazer, crisp white shirt."
+        ),
+        "creative": (
+            "Background: modern creative workspace with subtle design elements. "
+            "Clothing: smart-casual — neat blazer over a crew-neck, no tie."
+        ),
+        "neutral": (
+            "Background: solid light-grey professional studio backdrop. "
+            "Clothing: classic professional attire appropriate for the industry."
+        ),
+    }
+
+    def _build_dating_prompt(self, style: str = "") -> str:
+        style_block = self._DATING_STYLES.get(style, self._DATING_STYLES["warm_outdoor"])
+        return (
+            "Transform this portrait into an attractive dating-profile photo. "
+            f"{self._SKIN_ENHANCE} "
+            "Add a warm, approachable, light smile with natural lip curvature. "
+            "Brighten the whites of the eyes and subtly enhance iris color. "
+            "Improve lighting to soft, flattering, directional golden-hour quality. "
+            f"{style_block} "
+            f"{self._FACE_ANCHOR} "
+            "The final image must be indistinguishable from a real high-end photograph."
+        )
+
+    def _build_cv_prompt(self, style: str = "") -> str:
+        style_block = self._CV_STYLES.get(style, self._CV_STYLES["corporate"])
+        return (
+            "Transform this portrait into a professional corporate headshot. "
+            f"{self._SKIN_ENHANCE} "
+            "Set expression to confident and approachable — subtle professional smile. "
+            "Improve lighting to even, soft studio quality with catchlights in eyes. "
+            f"{style_block} "
+            f"{self._FACE_ANCHOR} "
+            "The final image must look like a real executive portrait by a professional photographer."
+        )

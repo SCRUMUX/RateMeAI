@@ -1,0 +1,7 @@
+﻿feat: style options for dating/CV + enhanced prompts for photorealistic retouching
+
+- Add style selection keyboards (dating: outdoor/studio/cafe, CV: corporate/creative/neutral)
+- Rewrite prompts: aggressive skin/lighting enhancements while strictly preserving facial identity
+- Pass style context through bot -> API -> Redis -> worker -> pipeline
+- Add enhancement metadata (style, mode, provider) to task result
+- Bump version to 0.4.0
