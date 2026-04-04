@@ -18,11 +18,13 @@ class User(Base):
     username: Mapped[str | None] = mapped_column(String(255), nullable=True)
     first_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
     is_premium: Mapped[bool] = mapped_column(Boolean, default=False)
+    image_credits: Mapped[int] = mapped_column(Integer, default=1)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     tasks: Mapped[list["Task"]] = relationship(back_populates="user", cascade="all, delete-orphan")
     usage_logs: Mapped[list["UsageLog"]] = relationship(back_populates="user", cascade="all, delete-orphan")
     api_clients: Mapped[list["ApiClient"]] = relationship(back_populates="user", cascade="all, delete-orphan")
+    credit_transactions: Mapped[list["CreditTransaction"]] = relationship(back_populates="user", cascade="all, delete-orphan")
 
 
 class ApiClient(Base):
@@ -47,6 +49,7 @@ class Task(Base):
     mode: Mapped[str] = mapped_column(String(20))
     status: Mapped[str] = mapped_column(String(20), default="pending")
     input_image_path: Mapped[str | None] = mapped_column(Text, nullable=True)
+    context: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     result: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     share_card_path: Mapped[str | None] = mapped_column(Text, nullable=True)
     error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
@@ -69,3 +72,17 @@ class UsageLog(Base):
     __table_args__ = (
         UniqueConstraint("user_id", "usage_date", name="uq_usage_user_date"),
     )
+
+
+class CreditTransaction(Base):
+    __tablename__ = "credit_transactions"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id"), index=True)
+    amount: Mapped[int] = mapped_column(Integer, nullable=False)
+    balance_after: Mapped[int] = mapped_column(Integer, nullable=False)
+    tx_type: Mapped[str] = mapped_column(String(30), nullable=False)
+    payment_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    user: Mapped["User"] = relationship(back_populates="credit_transactions")

@@ -9,12 +9,17 @@ import httpx
 from redis.asyncio import Redis
 
 from src.bot.middleware import PHOTO_KEY
-from src.bot.keyboards import dating_style_keyboard, cv_style_keyboard
+from src.bot.keyboards import (
+    dating_style_keyboard,
+    cv_style_keyboard,
+    error_keyboard,
+    mode_selection_keyboard,
+)
 
 logger = logging.getLogger(__name__)
 router = Router()
 
-STYLE_KEY = "ratemeai:style:{}"
+LAST_GEN_KEY = "ratemeai:last_gen:{}"
 
 
 @router.callback_query(F.data.startswith("pick_style:"))
@@ -47,6 +52,69 @@ async def on_mode_selected(callback: CallbackQuery, api_base_url: str, redis: Re
     await _submit_analysis(callback, api_base_url, redis, mode, "")
 
 
+@router.callback_query(F.data.startswith("action:"))
+async def on_action(callback: CallbackQuery, api_base_url: str, redis: Redis):
+    """Reuse stored photo for a different mode (no re-upload)."""
+    mode = callback.data.split(":", 1)[1]
+    file_id = await redis.get(PHOTO_KEY.format(callback.from_user.id))
+    if not file_id:
+        await callback.answer("Фото больше не доступно. Отправь новое!", show_alert=True)
+        return
+    await callback.answer()
+    if mode == "dating":
+        await callback.message.answer("💕 Выбери стиль фото:", reply_markup=dating_style_keyboard())
+    elif mode == "cv":
+        await callback.message.answer("💼 Выбери стиль фото:", reply_markup=cv_style_keyboard())
+    else:
+        await _submit_analysis(callback, api_base_url, redis, mode, "")
+
+
+@router.callback_query(F.data.startswith("loop:"))
+async def on_loop(callback: CallbackQuery, api_base_url: str, redis: Redis):
+    """Re-generate with a different personality/style, same photo."""
+    parts = callback.data.split(":")
+    mode = parts[1]
+    style = parts[2] if len(parts) > 2 else ""
+    file_id = await redis.get(PHOTO_KEY.format(callback.from_user.id))
+    if not file_id:
+        await callback.answer("Фото больше не доступно. Отправь новое!", show_alert=True)
+        return
+    await _submit_analysis(callback, api_base_url, redis, mode, style)
+
+
+@router.callback_query(F.data.startswith("restyle:"))
+async def on_restyle(callback: CallbackQuery, redis: Redis):
+    """Show style keyboard for current mode."""
+    mode = callback.data.split(":", 1)[1]
+    file_id = await redis.get(PHOTO_KEY.format(callback.from_user.id))
+    if not file_id:
+        await callback.answer("Фото больше не доступно. Отправь новое!", show_alert=True)
+        return
+    await callback.answer()
+    if mode == "cv":
+        await callback.message.answer("💼 Выбери стиль фото:", reply_markup=cv_style_keyboard())
+    else:
+        await callback.message.answer("💕 Выбери стиль фото:", reply_markup=dating_style_keyboard())
+
+
+@router.callback_query(F.data == "retry")
+async def on_retry(callback: CallbackQuery, api_base_url: str, redis: Redis):
+    """Retry last generation using stored last_gen context."""
+    user_id = callback.from_user.id
+    file_id = await redis.get(PHOTO_KEY.format(user_id))
+    if not file_id:
+        await callback.answer("Фото больше не доступно. Отправь новое!", show_alert=True)
+        return
+    last = await redis.get(LAST_GEN_KEY.format(user_id))
+    if last and ":" in last:
+        mode, style = last.split(":", 1)
+    else:
+        await callback.answer()
+        await callback.message.answer("📸 Выбери режим:", reply_markup=mode_selection_keyboard())
+        return
+    await _submit_analysis(callback, api_base_url, redis, mode, style)
+
+
 async def _submit_analysis(callback: CallbackQuery, api_base_url: str, redis: Redis, mode: str, style: str):
     user_id = callback.from_user.id
     bot = callback.bot
@@ -58,6 +126,8 @@ async def _submit_analysis(callback: CallbackQuery, api_base_url: str, redis: Re
 
     await callback.answer()
     status_msg = await callback.message.answer("⏳ Анализирую твоё фото... Это займёт 15-30 секунд.")
+
+    await redis.set(LAST_GEN_KEY.format(user_id), f"{mode}:{style}", ex=86400)
 
     try:
         file = await bot.get_file(file_id)
@@ -94,16 +164,30 @@ async def _submit_analysis(callback: CallbackQuery, api_base_url: str, redis: Re
             asyncio.create_task(_poll_task(bot, api_base_url, user_id, task_id, callback.message.chat.id, status_msg.message_id, redis))
 
         elif resp.status_code == 429:
-            await status_msg.edit_text("⚠️ Дневной лимит исчерпан. Попробуй завтра или оформи Premium!")
+            await status_msg.edit_text(
+                "⚠️ Дневной лимит исчерпан. Попробуй завтра или оформи Premium!",
+                reply_markup=error_keyboard(),
+            )
         else:
             detail = resp.json().get("detail", "Unknown error")
-            await status_msg.edit_text(f"❌ Ошибка: {detail}")
+            await status_msg.edit_text(f"❌ Ошибка: {detail}", reply_markup=error_keyboard())
 
     except Exception:
         logger.exception("Failed to submit analysis for user %s", user_id)
-        await status_msg.edit_text("❌ Произошла ошибка. Попробуй позже.")
+        await status_msg.edit_text("❌ Произошла ошибка. Попробуй позже.", reply_markup=error_keyboard())
 
-    await redis.delete(PHOTO_KEY.format(user_id))
+
+@router.callback_query(F.data.startswith("buy:"))
+async def on_buy(callback: CallbackQuery):
+    """Placeholder for payment flow — show instructions."""
+    pack = callback.data.split(":", 1)[1]
+    packs = {"5": "$2", "25": "$5", "70": "$10"}
+    price = packs.get(pack, "?")
+    await callback.answer()
+    await callback.message.answer(
+        f"💳 Пакет: {pack} генераций за {price}\n\n"
+        "Оплата пока в разработке. Свяжитесь с @admin для покупки."
+    )
 
 
 @router.callback_query(F.data == "new_photo")
@@ -113,19 +197,43 @@ async def on_new_photo(callback: CallbackQuery):
 
 
 async def _poll_task(bot, api_base_url: str, user_id: int, task_id: str, chat_id: int, status_msg_id: int, redis: Redis):
-    """Poll API until task completes, then deliver result."""
+    """Wait for task via Redis Pub/Sub, with HTTP polling fallback."""
     import asyncio
     from src.bot.handlers.results import deliver_result
 
+    channel = f"ratemeai:task_done:{task_id}"
+    notified = False
+
+    try:
+        pubsub = redis.pubsub()
+        await pubsub.subscribe(channel)
+        try:
+            for _ in range(120):
+                msg = await pubsub.get_message(ignore_subscribe_messages=True, timeout=1.0)
+                if msg and msg.get("type") == "message":
+                    notified = True
+                    break
+        finally:
+            await pubsub.unsubscribe(channel)
+            await pubsub.close()
+    except Exception:
+        logger.warning("Pub/Sub failed for task %s, falling back to polling", task_id)
+
     async with httpx.AsyncClient(timeout=15.0) as client:
-        for attempt in range(30):
-            await asyncio.sleep(3)
+        max_polls = 3 if notified else 30
+        sleep_interval = 1 if notified else 3
+
+        for attempt in range(max_polls):
+            if not notified:
+                await asyncio.sleep(sleep_interval)
             try:
                 resp = await client.get(
                     f"{api_base_url}/api/v1/tasks/{task_id}",
                     headers={"X-Telegram-Id": str(user_id)},
                 )
                 if resp.status_code != 200:
+                    if notified:
+                        await asyncio.sleep(1)
                     continue
 
                 data = resp.json()
@@ -140,14 +248,19 @@ async def _poll_task(bot, api_base_url: str, user_id: int, task_id: str, chat_id
                         f"❌ Анализ не удался: {error}",
                         chat_id=chat_id,
                         message_id=status_msg_id,
+                        reply_markup=error_keyboard(),
                     )
                     return
 
             except Exception:
                 logger.exception("Poll error for task %s", task_id)
 
+            if notified:
+                await asyncio.sleep(1)
+
         await bot.edit_message_text(
             "⏰ Анализ занимает слишком долго. Попробуй позже.",
             chat_id=chat_id,
             message_id=status_msg_id,
+            reply_markup=error_keyboard(),
         )

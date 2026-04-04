@@ -9,7 +9,7 @@ from aiogram import Bot
 from aiogram.types import BufferedInputFile, FSInputFile
 from redis.asyncio import Redis
 
-from src.bot.keyboards import result_keyboard
+from src.bot.keyboards import action_keyboard, loop_keyboard, upgrade_keyboard
 from src.config import settings
 from src.utils.redis_keys import gen_image_cache_key
 
@@ -21,7 +21,6 @@ _STORAGE_BASE = Path(settings.storage_local_path).resolve()
 
 
 def _extract_storage_key(url_or_path: str) -> str | None:
-    """Extract storage key from URL like http://host/storage/gen/uid/tid.jpg or a relative path."""
     marker = "/storage/"
     idx = url_or_path.find(marker)
     if idx >= 0:
@@ -40,11 +39,7 @@ async def _send_photo_safe(
     reply_markup,
     full_text: str | None = None,
 ) -> bool:
-    """Try 3 strategies: Telegram URL → httpx download → local filesystem.
-
-    When *full_text* is provided it is sent as a follow-up message after the
-    photo so that long analysis texts don't break the 1024-char caption limit.
-    """
+    """Try 3 strategies: Telegram URL -> httpx download -> local filesystem."""
     sent = False
 
     if url_or_path.startswith(("http://", "https://")):
@@ -115,9 +110,6 @@ def _bot_username() -> str:
 
 
 def _split_caption(text: str) -> tuple[str, str | None]:
-    """If text fits in a photo caption, return (text, None).
-    Otherwise return (short_caption, full_text) so the photo gets a
-    truncated caption and full_text is sent as a separate message."""
     if len(text) <= _MAX_CAPTION_LEN:
         return text, None
     truncated = text[: _MAX_CAPTION_LEN - 1] + "…"
@@ -125,7 +117,6 @@ def _split_caption(text: str) -> tuple[str, str | None]:
 
 
 async def _fetch_gen_image_from_redis(redis: Redis | None, task_id: str | None) -> bytes | None:
-    """Try to load generated image bytes from Redis staging."""
     if not redis or not task_id:
         return None
     try:
@@ -141,7 +132,6 @@ async def _fetch_gen_image_from_redis(redis: Redis | None, task_id: str | None) 
 
 
 async def deliver_result(bot: Bot, chat_id: int, status_msg_id: int, data: dict, user_id: int, redis: Redis | None = None):
-    """Format and send analysis result to user."""
     result = data.get("result", {})
     mode = data.get("mode", "rating")
     task_id = str(data.get("task_id", ""))
@@ -157,16 +147,19 @@ async def deliver_result(bot: Bot, chat_id: int, status_msg_id: int, data: dict,
 
     uname = _bot_username()
 
+    needs_upgrade = result.get("upgrade_prompt", False)
+
     if mode == "rating":
         await _send_rating(bot, chat_id, result, user_id, uname)
     elif mode == "dating":
-        await _send_dating(bot, chat_id, result, user_id, uname, gen_image_bytes)
+        await _send_dating(bot, chat_id, result, user_id, uname, gen_image_bytes, needs_upgrade)
     elif mode == "cv":
-        await _send_cv(bot, chat_id, result, user_id, uname, gen_image_bytes)
+        await _send_cv(bot, chat_id, result, user_id, uname, gen_image_bytes, needs_upgrade)
     elif mode == "emoji":
-        await _send_emoji(bot, chat_id, result, user_id, uname, gen_image_bytes)
+        await _send_emoji(bot, chat_id, result, user_id, uname, gen_image_bytes, needs_upgrade)
     else:
-        await bot.send_message(chat_id, f"Результат:\n```\n{result}\n```", parse_mode="Markdown")
+        kb = action_keyboard(uname, str(user_id))
+        await bot.send_message(chat_id, f"Результат:\n```\n{result}\n```", parse_mode="Markdown", reply_markup=kb)
 
 
 async def _send_rating(bot: Bot, chat_id: int, result: dict, user_id: int, uname: str):
@@ -180,25 +173,21 @@ async def _send_rating(bot: Bot, chat_id: int, result: dict, user_id: int, uname
     recommendations = result.get("recommendations", [])
 
     text_parts = [
-        f"⭐ *Твой рейтинг: {score}/10*\n",
-        f"🤝 Доверие: {trust}/10",
-        f"✨ Привлекательность: {attractiveness}/10",
-        f"🎭 Эмоция: {emotion}\n",
+        f"⭐ *Рейтинг: {score}/10*\n",
+        f"Доверие: {trust} | Привлекательность: {attractiveness}",
+        f"Эмоция: {emotion}\n",
     ]
 
     if insights:
-        text_parts.append("💡 *Инсайты:*")
-        for i, ins in enumerate(insights[:3], 1):
-            text_parts.append(f"  {i}. {ins}")
-        text_parts.append("")
+        text_parts.append(f"💡 {insights[0]}")
+    if len(insights) > 1:
+        text_parts.append(f"💡 {insights[1]}")
 
     if recommendations:
-        text_parts.append("🎯 *Рекомендации:*")
-        for i, rec in enumerate(recommendations[:3], 1):
-            text_parts.append(f"  {i}. {rec}")
+        text_parts.append(f"\n🎯 {recommendations[0]}")
 
     text = "\n".join(text_parts)
-    kb = result_keyboard(uname, str(user_id))
+    kb = action_keyboard(uname, str(user_id))
 
     share_info = result.get("share", {})
     card_path = share_info.get("card_url")
@@ -214,39 +203,32 @@ async def _send_rating(bot: Bot, chat_id: int, result: dict, user_id: int, uname
     await bot.send_message(chat_id, text, parse_mode="Markdown", reply_markup=kb)
 
 
-async def _send_dating(bot: Bot, chat_id: int, result: dict, user_id: int, uname: str, gen_image_bytes: bytes | None = None):
+async def _send_dating(bot: Bot, chat_id: int, result: dict, user_id: int, uname: str, gen_image_bytes: bytes | None = None, needs_upgrade: bool = False):
     score = result.get("dating_score", "?")
     impression = result.get("first_impression", "")
     strengths = result.get("strengths", [])
-    weaknesses = result.get("weaknesses", [])
-    variants = result.get("variants", [])
 
-    text_parts = [
-        f"💕 *Дейтинг-анализ: {score}/10*\n",
-        f"Первое впечатление: {impression}\n",
-    ]
+    enhancement = result.get("enhancement", {})
+    style_name = enhancement.get("style", "")
+
+    text_parts = [f"💕 *Дейтинг: {score}/10*\n"]
+
+    if style_name:
+        style_labels = {"warm_outdoor": "На прогулке", "studio_elegant": "Студия", "cafe": "Кафе"}
+        text_parts.append(f"Стиль: {style_labels.get(style_name, style_name)}")
+
+    if impression:
+        text_parts.append(f"Впечатление: {impression[:120]}")
 
     if strengths:
-        text_parts.append("💪 *Сильные стороны:*")
-        for s in strengths[:3]:
-            text_parts.append(f"  • {s}")
-        text_parts.append("")
+        text_parts.append(f"\n💪 {strengths[0]}")
+    if len(strengths) > 1:
+        text_parts.append(f"💪 {strengths[1]}")
 
-    if weaknesses:
-        text_parts.append("📌 *Можно улучшить:*")
-        for w in weaknesses[:3]:
-            text_parts.append(f"  • {w}")
-        text_parts.append("")
-
-    if variants:
-        text_parts.append("🎭 *Варианты улучшения:*")
-        for v in variants[:3]:
-            vtype = v.get("type", "")
-            explanation = v.get("explanation", "")
-            text_parts.append(f"\n  *{vtype.capitalize()}:* {explanation}")
-
+    if needs_upgrade:
+        text_parts.append("\n🔒 Генерация фото недоступна — закончились кредиты.")
     text = "\n".join(text_parts)
-    kb = result_keyboard(uname, str(user_id))
+    kb = upgrade_keyboard() if needs_upgrade else loop_keyboard(uname, str(user_id), "dating")
     caption, full_text = _split_caption(text)
 
     if gen_image_bytes:
@@ -272,22 +254,34 @@ async def _send_dating(bot: Bot, chat_id: int, result: dict, user_id: int, uname
     await bot.send_message(chat_id, text, parse_mode="Markdown", reply_markup=kb)
 
 
-async def _send_cv(bot: Bot, chat_id: int, result: dict, user_id: int, uname: str, gen_image_bytes: bytes | None = None):
+async def _send_cv(bot: Bot, chat_id: int, result: dict, user_id: int, uname: str, gen_image_bytes: bytes | None = None, needs_upgrade: bool = False):
     profession = result.get("profession", "?")
     trust = result.get("trust", "?")
     competence = result.get("competence", "?")
     hireability = result.get("hireability", "?")
     analysis = result.get("analysis", "")
 
-    text = (
-        f"💼 *Профессиональный анализ*\n"
-        f"Профессия: {profession}\n\n"
-        f"🤝 Доверие: {trust}/10\n"
-        f"🧠 Компетентность: {competence}/10\n"
-        f"📋 Шанс на собеседование: {hireability}/10\n\n"
-        f"📝 {analysis}"
-    )
-    kb = result_keyboard(uname, str(user_id))
+    enhancement = result.get("enhancement", {})
+    style_name = enhancement.get("style", "")
+
+    text_parts = [f"💼 *Профессиональный анализ*\n"]
+
+    if style_name:
+        style_labels = {"corporate": "Корпоративный", "creative": "Креативный", "neutral": "Нейтральный"}
+        text_parts.append(f"Стиль: {style_labels.get(style_name, style_name)}")
+
+    text_parts.extend([
+        f"Профессия: {profession}",
+        f"Доверие: {trust} | Компетентность: {competence} | Найм: {hireability}\n",
+    ])
+
+    if analysis:
+        text_parts.append(f"📝 {analysis[:200]}")
+
+    if needs_upgrade:
+        text_parts.append("\n🔒 Генерация фото недоступна — закончились кредиты.")
+    text = "\n".join(text_parts)
+    kb = upgrade_keyboard() if needs_upgrade else loop_keyboard(uname, str(user_id), "cv")
     caption, full_text = _split_caption(text)
 
     if gen_image_bytes:
@@ -313,26 +307,29 @@ async def _send_cv(bot: Bot, chat_id: int, result: dict, user_id: int, uname: st
     await bot.send_message(chat_id, text, parse_mode="Markdown", reply_markup=kb)
 
 
-async def _send_emoji(bot: Bot, chat_id: int, result: dict, user_id: int, uname: str, gen_image_bytes: bytes | None = None):
+async def _send_emoji(bot: Bot, chat_id: int, result: dict, user_id: int, uname: str, gen_image_bytes: bytes | None = None, needs_upgrade: bool = False):
     base_desc = result.get("base_description", "")
     stickers = result.get("stickers", [])
 
-    text_parts = [f"😀 *Эмодзи-пак*\n", f"Базовое описание: {base_desc}\n"]
+    text_parts = ["😀 *Эмодзи-пак*\n"]
+    if base_desc:
+        text_parts.append(f"{base_desc[:150]}\n")
 
     if stickers:
-        text_parts.append("Стикеры:")
-        for s in stickers[:12]:
-            emoji_map = {
-                "happy": "😊", "sad": "😢", "angry": "😠", "surprised": "😲",
-                "love": "😍", "cool": "😎", "thinking": "🤔", "laughing": "😂",
-                "sleepy": "😴", "wink": "😉", "scared": "😱", "party": "🎉",
-            }
+        emoji_map = {
+            "happy": "😊", "sad": "😢", "angry": "😠", "surprised": "😲",
+            "love": "😍", "cool": "😎", "thinking": "🤔", "laughing": "😂",
+            "sleepy": "😴", "wink": "😉", "scared": "😱", "party": "🎉",
+        }
+        for s in stickers[:6]:
             emotion = s.get("emotion", "")
             icon = emoji_map.get(emotion, "•")
-            text_parts.append(f"  {icon} {emotion}: {s.get('description', '')[:80]}")
+            text_parts.append(f"{icon} {emotion}: {s.get('description', '')[:60]}")
 
+    if needs_upgrade:
+        text_parts.append("\n🔒 Генерация фото недоступна — закончились кредиты.")
     text = "\n".join(text_parts)
-    kb = result_keyboard(uname, str(user_id))
+    kb = upgrade_keyboard() if needs_upgrade else action_keyboard(uname, str(user_id))
     caption, full_text = _split_caption(text)
 
     if gen_image_bytes:

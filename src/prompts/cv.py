@@ -1,4 +1,6 @@
-SYSTEM_PROMPT_TEMPLATE = """Ты — HR-эксперт и специалист по профессиональному имиджу. Проанализируй фото человека с точки зрения профессионального восприятия{profession_suffix}.
+from src.utils.security import NSFW_INLINE_PREFIX
+
+SYSTEM_PROMPT_TEMPLATE = NSFW_INLINE_PREFIX + """Ты — HR-эксперт и специалист по профессиональному имиджу. Проанализируй фото человека с точки зрения профессионального восприятия{profession_suffix}.
 
 Верни результат СТРОГО в формате JSON:
 

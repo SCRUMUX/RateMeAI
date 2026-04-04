@@ -10,14 +10,6 @@ from src.models.enums import AnalysisMode, TaskStatus
 
 # ── Requests ──
 
-class AnalyzeRequest(BaseModel):
-    mode: AnalysisMode
-
-
-class ShareRequest(BaseModel):
-    format: str = "telegram"
-
-
 class TelegramAuthRequest(BaseModel):
     telegram_id: int
     username: str | None = None

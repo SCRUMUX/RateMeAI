@@ -19,7 +19,7 @@ async def handle_photo(message: Message, redis: Redis):
     photo = message.photo[-1]
     user_id = message.from_user.id
 
-    await redis.set(PHOTO_KEY.format(user_id), photo.file_id, ex=3600)
+    await redis.set(PHOTO_KEY.format(user_id), photo.file_id, ex=86400)
 
     await message.answer(
         "📸 Отличное фото! Выбери, что хочешь узнать:",
@@ -31,7 +31,7 @@ async def handle_photo(message: Message, redis: Redis):
 async def handle_document(message: Message, redis: Redis):
     content_type = message.document.mime_type or ""
     if content_type.startswith("image/"):
-        await redis.set(PHOTO_KEY.format(message.from_user.id), message.document.file_id, ex=3600)
+        await redis.set(PHOTO_KEY.format(message.from_user.id), message.document.file_id, ex=86400)
         await message.answer(
             "📸 Фото получено! Выбери режим:",
             reply_markup=mode_selection_keyboard(),

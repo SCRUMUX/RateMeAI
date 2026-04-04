@@ -10,6 +10,9 @@ class LLMProvider(ABC):
     async def generate_text(self, prompt: str) -> str:
         """Generate text completion."""
 
+    async def close(self) -> None:
+        """Release resources (HTTP clients, connections)."""
+
 
 class ImageGenProvider(ABC):
     @abstractmethod
@@ -20,6 +23,9 @@ class ImageGenProvider(ABC):
         params: dict | None = None,
     ) -> bytes:
         """Generate image from prompt, optionally using reference image for identity preservation."""
+
+    async def close(self) -> None:
+        """Release resources."""
 
 
 class StorageProvider(ABC):
@@ -34,3 +40,6 @@ class StorageProvider(ABC):
     @abstractmethod
     async def get_url(self, key: str) -> str:
         """Return public/presigned URL for the key."""
+
+    async def close(self) -> None:
+        """Release resources."""

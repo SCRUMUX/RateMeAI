@@ -11,7 +11,7 @@ from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
 
 from src.config import settings
-from src.models.db import Task, UsageLog
+from src.models.db import Task, UsageLog, User, CreditTransaction
 from src.models.enums import AnalysisMode, TaskStatus
 from src.orchestrator.pipeline import AnalysisPipeline
 from src.providers.factory import get_image_gen, get_llm, get_storage
@@ -62,7 +62,7 @@ async def shutdown(ctx: dict):
     logger.info("Worker stopped")
 
 
-async def process_analysis(ctx: dict, task_id: str):
+async def process_analysis(ctx: dict, task_id: str, _retry: bool = False):
     db_sessionmaker = ctx["db_sessionmaker"]
     pipeline: AnalysisPipeline = ctx["pipeline"]
     storage = ctx["storage"]
@@ -94,14 +94,22 @@ async def process_analysis(ctx: dict, task_id: str):
             if style:
                 await redis.delete(style_key)
 
-            context = {"style": style} if style else None
+            u_row = await db.execute(select(User).where(User.id == task.user_id))
+            task_user = u_row.scalar_one()
+            has_credits = task_user.image_credits > 0
+
+            context: dict = {}
+            if style:
+                context["style"] = style
+            if not has_credits:
+                context["skip_image_gen"] = True
 
             analysis_result = await pipeline.execute(
                 mode=AnalysisMode(task.mode),
                 image_bytes=image_bytes,
                 user_id=str(task.user_id),
                 task_id=str(task.id),
-                context=context,
+                context=context or None,
             )
 
             gen_url = analysis_result.get("generated_image_url")
@@ -119,6 +127,21 @@ async def process_analysis(ctx: dict, task_id: str):
                 except Exception:
                     logger.exception("Failed to stage generated image in Redis for task %s", task_id)
 
+                try:
+                    u = await db.execute(select(User).where(User.id == task.user_id))
+                    user = u.scalar_one()
+                    if user.image_credits > 0:
+                        user.image_credits -= 1
+                        db.add(CreditTransaction(
+                            user_id=task.user_id,
+                            amount=-1,
+                            balance_after=user.image_credits,
+                            tx_type="generation",
+                        ))
+                        logger.info("Deducted 1 image credit for user %s, remaining=%d", task.user_id, user.image_credits)
+                except Exception:
+                    logger.exception("Failed to deduct image credit for task %s", task_id)
+
             task.result = analysis_result
             task.share_card_path = analysis_result.get("share", {}).get("card_url")
             task.status = TaskStatus.COMPLETED.value
@@ -135,10 +158,28 @@ async def process_analysis(ctx: dict, task_id: str):
 
             logger.info("Task %s completed", task_id)
 
+            try:
+                await redis.publish(f"ratemeai:task_done:{task_id}", "completed")
+            except Exception:
+                logger.warning("Failed to publish task_done for %s", task_id)
+
         except Exception as e:
-            logger.exception("Task %s failed", task_id)
+            if not _retry and "модерацию" not in str(e) and "лицо" not in str(e):
+                logger.warning("Task %s failed, scheduling retry", task_id)
+                task.status = TaskStatus.PENDING.value
+                task.error_message = f"retry: {str(e)[:300]}"
+                await db.commit()
+                import asyncio
+                await asyncio.sleep(5)
+                return await process_analysis(ctx, task_id, _retry=True)
+
+            logger.exception("Task %s failed (final)", task_id)
             task.status = TaskStatus.FAILED.value
             task.error_message = str(e)[:500]
+            try:
+                await redis.publish(f"ratemeai:task_done:{task_id}", "failed")
+            except Exception:
+                logger.warning("Failed to publish task_done (failed) for %s", task_id)
 
         await db.commit()
 
