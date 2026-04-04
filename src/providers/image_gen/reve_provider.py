@@ -3,11 +3,14 @@ from __future__ import annotations
 import asyncio
 import io
 import logging
+import time
 from typing import Any
 
 from src.providers.base import ImageGenProvider
 
 logger = logging.getLogger(__name__)
+
+_MAX_RETRIES = 3
 
 
 class ReveImageGen(ImageGenProvider):
@@ -52,7 +55,7 @@ class ReveImageGen(ImageGenProvider):
     ) -> bytes:
         from reve._client import ReveClient
         from reve.v1.image import create, edit, remix
-        from reve.exceptions import ReveAPIError
+        from reve.exceptions import ReveAPIError, ReveRateLimitError
 
         client = ReveClient(
             api_token=self._token,
@@ -61,27 +64,38 @@ class ReveImageGen(ImageGenProvider):
         options = self._build_options(params)
         use_edit = bool(params and params.get("use_edit"))
 
-        try:
-            if reference_image and use_edit:
-                resp = edit(
-                    edit_instruction=prompt,
-                    reference_image=reference_image,
-                    client=client,
-                    **options,
-                )
-            elif reference_image:
-                resp = remix(
-                    prompt,
-                    [reference_image],
-                    client=client,
-                    **options,
-                )
-            else:
-                resp = create(prompt, client=client, **options)
-        except ReveAPIError as e:
-            msg = getattr(e, "message", None) or str(e)
-            logger.exception("Reve API error: %s", msg)
-            raise RuntimeError(f"Reve API error: {msg}") from e
+        last_err: Exception | None = None
+        for attempt in range(_MAX_RETRIES):
+            try:
+                if reference_image and use_edit:
+                    resp = edit(
+                        edit_instruction=prompt,
+                        reference_image=reference_image,
+                        client=client,
+                        **options,
+                    )
+                elif reference_image:
+                    resp = remix(
+                        prompt,
+                        [reference_image],
+                        client=client,
+                        **options,
+                    )
+                else:
+                    resp = create(prompt, client=client, **options)
+                break
+            except ReveRateLimitError as e:
+                wait = getattr(e, "retry_after", None) or (10 * (attempt + 1))
+                logger.warning("Reve rate-limited, waiting %ss (attempt %d/%d)", wait, attempt + 1, _MAX_RETRIES)
+                last_err = e
+                time.sleep(float(wait))
+            except ReveAPIError as e:
+                msg = getattr(e, "message", None) or str(e)
+                logger.exception("Reve API error: %s", msg)
+                raise RuntimeError(f"Reve API error: {msg}") from e
+        else:
+            msg = getattr(last_err, "message", None) or str(last_err)
+            raise RuntimeError(f"Reve rate limit after {_MAX_RETRIES} retries: {msg}") from last_err
 
         if getattr(resp, "content_violation", False):
             raise RuntimeError("Reve: content policy violation")
