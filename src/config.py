@@ -70,7 +70,7 @@ class Settings(BaseSettings):
 
     # Quality gates
     aesthetic_threshold: float = 6.0
-    artifact_threshold: float = 0.05
+    artifact_threshold: float = 0.15
     photorealism_enabled: bool = True
     photorealism_threshold: float = 0.5
 
