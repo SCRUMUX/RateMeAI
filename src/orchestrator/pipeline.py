@@ -373,7 +373,18 @@ class AnalysisPipeline:
                     "pipeline_type": "multi_pass",
                 }
             else:
-                result_dict["image_gen_error"] = "multi_pass_no_output"
+                logger.warning(
+                    "Multi-pass produced no output for task=%s, falling back to single-pass",
+                    task_id,
+                )
+                trace["decisions"].append({
+                    "phase": "execute_plan",
+                    "decision": "Fallback to single-pass after multi-pass produced no output",
+                    "reason": "all steps failed or produced no output",
+                })
+                await self._generate_image(
+                    mode, style, image_bytes, result_dict, user_id, task_id, trace,
+                )
 
         except Exception:
             logger.exception("Multi-pass pipeline failed for task=%s, falling back to single-pass", task_id)
