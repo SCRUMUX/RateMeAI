@@ -9,6 +9,8 @@ from fastapi.staticfiles import StaticFiles
 from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
 
+from prometheus_fastapi_instrumentator import Instrumentator
+
 from src.config import settings
 from src.api.router import api_router
 from src.api.middleware import RequestLoggingMiddleware
@@ -107,7 +109,6 @@ else:
     )
 app.include_router(api_router, prefix="/api/v1")
 
-from prometheus_fastapi_instrumentator import Instrumentator
 Instrumentator().instrument(app).expose(app, endpoint="/metrics")
 
 storage_dir = Path(settings.storage_local_path).resolve()
