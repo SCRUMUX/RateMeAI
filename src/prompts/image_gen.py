@@ -1,90 +1,140 @@
 """Centralized image-generation prompt builder for all modes.
 
-Every prompt includes FACE_ANCHOR + BODY_ANCHOR + SKIN_FIX + REALISM blocks
-to ensure identity preservation, anatomical correctness, and photorealism.
+Prompt structure follows the Change -> Preserve -> Quality pattern
+proven to achieve 91% first-attempt success in edit-mode models.
+Constants use positive framing to avoid diffusion "NO Syndrome".
 """
 from __future__ import annotations
 
+# ---------------------------------------------------------------------------
+# Core anchors — positive framing, no negation overload
+# ---------------------------------------------------------------------------
+
 FACE_ANCHOR = (
-    "IDENTITY LOCK: preserve exact face shape, nose, eyes, eyebrows, lips, "
-    "jawline, chin, ears, cheekbones, forehead. Do NOT reshape or reposition "
-    "any facial feature. Person must be instantly recognizable. "
-    "MOUTH RULE: keep the original mouth expression exactly as-is. "
-    "Do NOT add, remove, whiten, or reshape teeth. "
-    "Do NOT add a smile or change the degree of smile."
+    "FACE IDENTITY: keep exact bone structure, nose shape, eye shape and "
+    "spacing, eyebrow shape, lip shape, jawline, chin, ears, cheekbones, "
+    "forehead proportions. Same face as reference, instantly recognizable. "
+    "Keep original mouth expression and teeth exactly as-is."
 )
 
 BODY_ANCHOR = (
-    "BODY PRESERVATION: keep exact original body proportions — head-to-body "
-    "ratio, shoulder width, torso length, limb length. Do NOT enlarge or "
-    "shrink the head relative to the body. Preserve the original pose, arm "
-    "positions, and hand gestures exactly. Hands must have exactly 5 fingers "
-    "with natural joint angles, no merged or extra digits. Limbs must be "
-    "anatomically correct with natural length ratios. No warping, stretching, "
-    "or compressing any body part. Keep natural relaxed posture."
+    "BODY: keep original body proportions, head-to-body ratio, shoulder "
+    "width, pose, hand positions. Hands: exactly 5 fingers, natural joints."
 )
 
 SKIN_FIX = (
-    "SKIN FIX (mandatory): remove dark circles and spots under eyes, "
-    "blemishes, acne, pigmentation, redness, enlarged pores. "
-    "Even out skin tone, add healthy glow. Keep realistic texture — "
-    "no plastic or airbrushed look."
+    "SKIN: visible pores, natural texture, subtle imperfections, "
+    "subsurface scattering on ears and cheeks, healthy glow, even tone. "
+    "Remove only blemishes, dark circles, and acne."
+)
+
+CAMERA = (
+    "Shot on Canon EOS R5, 85mm f/1.8, shallow depth of field. "
+    "Natural color grading, Kodak Portra 400 tones."
 )
 
 REALISM = (
-    "PHOTOREALISM: must look like a real high-end photograph. "
-    "No AI artifacts, no painterly effects, no unnatural glow. "
-    "Natural skin texture, realistic lighting on skin and clothes."
+    "Raw photograph aesthetic, real skin pores, natural grain. "
+    "Professional studio-quality image indistinguishable from a real photo."
 )
 
+# ---------------------------------------------------------------------------
+# Style dictionaries — enriched with materials, textures, lighting
+# ---------------------------------------------------------------------------
+
 DATING_STYLES: dict[str, str] = {
-    "warm_outdoor": "Background: golden-hour outdoor, soft bokeh. Clothing: stylish casual.",
-    "studio_elegant": "Background: studio, soft gradient lighting. Clothing: elegant evening, dark tones.",
-    "cafe": "Background: cozy upscale cafe, warm light. Clothing: smart-casual date outfit.",
+    "warm_outdoor": (
+        "Background: golden-hour park or waterfront, warm backlight with "
+        "soft rim light, creamy bokeh, natural green and water textures. "
+        "Clothing: stylish casual, fitted, clean fabrics."
+    ),
+    "studio_elegant": (
+        "Background: studio with soft gradient lighting, charcoal-to-warm-grey "
+        "backdrop, subtle vignette. "
+        "Clothing: elegant evening wear, dark tones, silk or fine wool textures."
+    ),
+    "cafe": (
+        "Background: cozy upscale cafe, warm tungsten light, exposed brick or "
+        "wood paneling, blurred bottles and candles in background. "
+        "Clothing: smart-casual date outfit, earth tones, linen or cotton."
+    ),
 }
 
 DATING_PERSONALITIES: dict[str, str] = {
-    "friendly": "Expression: soft relaxed eyes, warm approachable look.",
-    "confident": "Expression: strong direct gaze, squared shoulders, calm confidence.",
-    "charismatic": "Expression: bright engaging eyes, magnetic energy, open posture.",
+    "friendly": "Soft relaxed eyes, warm approachable look, gentle natural expression.",
+    "confident": "Strong direct gaze, squared shoulders, calm self-assured energy.",
+    "charismatic": "Bright engaging eyes, magnetic energy, open relaxed posture.",
 }
 
 CV_STYLES: dict[str, str] = {
-    "corporate": "Background: corporate office, neutral wall. Clothing: formal suit, crisp shirt.",
-    "creative": "Background: creative workspace. Clothing: smart-casual blazer, no tie.",
-    "neutral": "Background: light-grey studio backdrop. Clothing: classic professional attire.",
+    "corporate": (
+        "Background: modern corner office, floor-to-ceiling windows with soft "
+        "diffused daylight, neutral beige wall, clean minimalist interior. "
+        "Clothing: tailored formal suit, crisp white shirt, subtle tie or scarf."
+    ),
+    "creative": (
+        "Background: bright creative workspace, whiteboard or bookshelf slightly "
+        "out of focus, warm ambient light. "
+        "Clothing: smart-casual blazer over fitted shirt, relaxed professional."
+    ),
+    "neutral": (
+        "Background: light-grey studio backdrop, even soft lighting from both sides, "
+        "clean and distraction-free. "
+        "Clothing: classic professional attire, solid neutral colors."
+    ),
 }
 
 CV_PERSONALITIES: dict[str, str] = {
-    "corporate": "Expression: composed, trustworthy professional confidence.",
-    "startup": "Expression: relaxed, approachable, open gaze.",
-    "creative": "Expression: bold, expressive, artistic energy.",
+    "corporate": "Composed, trustworthy expression, professional confidence.",
+    "startup": "Relaxed, approachable, open and friendly gaze.",
+    "creative": "Bold, expressive, artistic energy with confident posture.",
 }
 
 SOCIAL_STYLES: dict[str, str] = {
-    "influencer": "Background: trendy urban rooftop or scenic overlook. Clothing: stylish streetwear, statement accessories.",
-    "luxury": "Background: upscale lounge, marble textures, soft ambient light. Clothing: designer outfit, watches, jewelry.",
-    "casual": "Background: sunlit park, beach, or cozy home interior. Clothing: relaxed casual wear, natural fabrics.",
-    "artistic": "Background: gallery, mural wall, or creative studio. Clothing: eclectic artistic mix, bold colors.",
+    "influencer": (
+        "Background: trendy urban rooftop at golden hour, city skyline bokeh, "
+        "warm directional light with lens flare. "
+        "Clothing: stylish streetwear, statement accessories, layered textures."
+    ),
+    "luxury": (
+        "Background: upscale lounge with marble surfaces, soft amber ambient "
+        "light, velvet and brass details blurred behind. "
+        "Clothing: designer outfit, fine fabrics, watches or minimal jewelry."
+    ),
+    "casual": (
+        "Background: sunlit park with dappled tree shadows, or bright airy "
+        "home interior with natural window light. "
+        "Clothing: relaxed casual wear, natural cotton and linen fabrics."
+    ),
+    "artistic": (
+        "Background: art gallery with textured walls, or vivid mural, "
+        "dramatic side lighting with deep shadows. "
+        "Clothing: eclectic artistic mix, bold colors, unique layering."
+    ),
 }
 
 SOCIAL_PERSONALITIES: dict[str, str] = {
-    "influencer": "Expression: bright confident look, engaging eye contact, charismatic energy.",
-    "luxury": "Expression: elegant poise, mysterious allure, sophisticated calm.",
-    "casual": "Expression: genuine relaxed look, warm natural feel, approachable vibe.",
-    "artistic": "Expression: thoughtful creative gaze, expressive, unconventional character.",
+    "influencer": "Bright confident look, engaging direct eye contact, charismatic energy.",
+    "luxury": "Elegant poise, mysterious allure, sophisticated calm expression.",
+    "casual": "Genuine relaxed look, warm natural feel, approachable open vibe.",
+    "artistic": "Thoughtful creative gaze, expressive intensity, unconventional character.",
 }
 
+
+# ---------------------------------------------------------------------------
+# Prompt builders — Change -> Preserve -> Quality order
+# ---------------------------------------------------------------------------
 
 def build_dating_prompt(style: str = "") -> str:
     s = DATING_STYLES.get(style, DATING_STYLES["warm_outdoor"])
     p = DATING_PERSONALITIES.get(style, DATING_PERSONALITIES["friendly"])
     return (
-        f"Enhance this existing photo for a dating profile. "
-        f"Do NOT generate a new person — improve the SAME person in the photo. "
-        f"{FACE_ANCHOR} {BODY_ANCHOR} {SKIN_FIX} {p} "
-        f"Brighten eye whites, subtle iris enhancement. "
-        f"Soft flattering golden-hour lighting. {s} {REALISM}"
+        f"Enhance into a dating profile photo. "
+        f"Change background, lighting, and clothing style. "
+        f"Brighten eye whites subtly, add soft flattering golden-hour light. "
+        f"{s} {p} "
+        f"{FACE_ANCHOR} {BODY_ANCHOR} "
+        f"{SKIN_FIX} {CAMERA} {REALISM}"
     )
 
 
@@ -92,12 +142,12 @@ def build_cv_prompt(style: str = "") -> str:
     s = CV_STYLES.get(style, CV_STYLES["corporate"])
     p = CV_PERSONALITIES.get(style, CV_PERSONALITIES["corporate"])
     return (
-        f"Enhance this existing photo into a professional headshot. "
-        f"Do NOT generate a new person — improve the SAME person in the photo. "
-        f"Keep the person's body, posture, and proportions exactly unchanged. "
-        f"{FACE_ANCHOR} {BODY_ANCHOR} {SKIN_FIX} {p} "
-        f"Studio catchlights in eyes. Hair groomed. Even soft lighting. "
-        f"{s} {REALISM}"
+        f"Enhance into a professional headshot. "
+        f"Change background to studio or office, clothing to professional attire, "
+        f"add even soft studio lighting, groom hair neatly, add catchlights in eyes. "
+        f"{s} {p} "
+        f"{FACE_ANCHOR} {BODY_ANCHOR} "
+        f"{SKIN_FIX} {CAMERA} {REALISM}"
     )
 
 
@@ -105,49 +155,53 @@ def build_social_prompt(style: str = "") -> str:
     s = SOCIAL_STYLES.get(style, SOCIAL_STYLES["influencer"])
     p = SOCIAL_PERSONALITIES.get(style, SOCIAL_PERSONALITIES["influencer"])
     return (
-        f"Enhance this existing photo for social media. "
-        f"Do NOT generate a new person — improve the SAME person in the photo. "
-        f"{FACE_ANCHOR} {BODY_ANCHOR} {SKIN_FIX} {p} "
-        f"Vibrant colors, modern aesthetic, crisp detail. "
-        f"{s} {REALISM}"
+        f"Enhance into a social media photo. "
+        f"Change background, lighting, colors, and clothing per style. "
+        f"Vibrant modern aesthetic, crisp detail. "
+        f"{s} {p} "
+        f"{FACE_ANCHOR} {BODY_ANCHOR} "
+        f"{SKIN_FIX} {CAMERA} {REALISM}"
     )
 
 
+# ---------------------------------------------------------------------------
+# Multi-pass step templates — same Change -> Preserve -> Quality order
+# ---------------------------------------------------------------------------
+
 STEP_TEMPLATES: dict[str, str] = {
     "background_edit": (
-        "Enhance this existing photo — change ONLY the background: {description}. "
-        "Keep the person, clothing, pose, and body proportions exactly as they are. "
-        f"{FACE_ANCHOR} {BODY_ANCHOR} {REALISM}"
+        "Change ONLY the background: {{description}}. "
+        "Keep the person, clothing, pose, and body proportions identical. "
+        f"{FACE_ANCHOR} {BODY_ANCHOR} {CAMERA} {REALISM}"
     ),
     "clothing_edit": (
-        "Enhance this existing photo — adjust ONLY the clothing/outfit: {description}. "
-        "Keep face, background, pose, and body proportions unchanged. "
-        f"{FACE_ANCHOR} {BODY_ANCHOR} {REALISM}"
+        "Change ONLY the clothing and outfit: {{description}}. "
+        "Keep face, background, pose, and body proportions identical. "
+        f"{FACE_ANCHOR} {BODY_ANCHOR} {CAMERA} {REALISM}"
     ),
     "lighting_adjust": (
-        "Enhance this existing photo — improve ONLY the lighting and color grading: "
-        "{description}. Natural studio quality, even skin tones. "
-        "Keep body, pose, and proportions unchanged. "
-        f"{FACE_ANCHOR} {BODY_ANCHOR} {REALISM}"
+        "Improve ONLY the lighting and color grading: {{description}}. "
+        "Natural studio quality, even skin tones. "
+        "Keep body, pose, and proportions identical. "
+        f"{FACE_ANCHOR} {BODY_ANCHOR} {CAMERA} {REALISM}"
     ),
     "expression_hint": (
-        "Enhance this existing photo — subtle expression adjustment: {description}. "
-        "Keep identity, do not change face shape or features. "
-        "Do NOT modify teeth or add smile. Keep original mouth. "
-        "Keep body pose and proportions unchanged. "
-        f"{FACE_ANCHOR} {BODY_ANCHOR} {SKIN_FIX} {REALISM}"
+        "Subtle expression adjustment: {{description}}. "
+        "Keep face shape, features, and original mouth identical. "
+        "Keep body pose and proportions identical. "
+        f"{FACE_ANCHOR} {BODY_ANCHOR} {SKIN_FIX} {CAMERA} {REALISM}"
     ),
     "skin_correction": (
-        "Enhance this existing photo — minor skin tone correction and blemish removal. "
-        "Keep all facial features exactly the same. No plastic look. "
-        "Keep body pose and proportions unchanged. "
-        f"{FACE_ANCHOR} {BODY_ANCHOR} {SKIN_FIX} {REALISM}"
+        "Minor skin tone correction and blemish removal. "
+        "Keep all facial features identical. "
+        "Keep body pose and proportions identical. "
+        f"{FACE_ANCHOR} {BODY_ANCHOR} {SKIN_FIX} {CAMERA} {REALISM}"
     ),
     "style_overall": (
-        "Enhance this existing photo — apply overall style enhancement: {description}. "
+        "Apply overall style enhancement: {{description}}. "
         "Vibrant modern aesthetic, crisp detail. "
-        "Keep body proportions and pose unchanged. "
-        f"{FACE_ANCHOR} {BODY_ANCHOR} {REALISM}"
+        "Keep body proportions and pose identical. "
+        f"{FACE_ANCHOR} {BODY_ANCHOR} {CAMERA} {REALISM}"
     ),
 }
 

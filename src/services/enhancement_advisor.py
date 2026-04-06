@@ -22,7 +22,7 @@ class EnhancementSuggestion:
 
     @property
     def line(self) -> str:
-        return f"{self.action} \u2192 {self.effect} (+{self.predicted_delta:.2f})"
+        return f"{self.action} \u2192 {self.effect} (+{self.predicted_delta:.1f})"
 
 
 @dataclass(frozen=True)
@@ -50,28 +50,28 @@ class EnhancementPreview:
 
 _ENHANCEMENT_ACTIONS: dict[str, list[dict]] = {
     "dating": [
-        {"action": "Мягкий направленный свет", "effect": "подчеркнёт черты лица", "base": 0.58},
-        {"action": "Коррекция тона кожи", "effect": "добавит свежести и здорового вида", "base": 0.41},
-        {"action": "Тёплая цветовая гамма", "effect": "создаст располагающее впечатление", "base": 0.36},
-        {"action": "Стильный фон", "effect": "усилит атмосферу уверенности", "base": 0.62},
-        {"action": "Чистые линии одежды", "effect": "добавит ухоженности", "base": 0.47},
-        {"action": "Мягкое боке на фоне", "effect": "сфокусирует внимание на тебе", "base": 0.33},
+        {"action": "Мягкий направленный свет", "effect": "подчеркнёт черты лица", "base": 1.8},
+        {"action": "Коррекция тона кожи", "effect": "добавит свежести и здорового вида", "base": 1.3},
+        {"action": "Тёплая цветовая гамма", "effect": "создаст располагающее впечатление", "base": 1.1},
+        {"action": "Стильный фон", "effect": "усилит атмосферу уверенности", "base": 1.9},
+        {"action": "Чистые линии одежды", "effect": "добавит ухоженности", "base": 1.5},
+        {"action": "Мягкое боке на фоне", "effect": "сфокусирует внимание на тебе", "base": 1.0},
     ],
     "cv": [
-        {"action": "Профессиональное освещение", "effect": "усилит восприятие компетентности", "base": 0.73},
-        {"action": "Нейтральный деловой фон", "effect": "добавит серьёзности", "base": 0.52},
-        {"action": "Структурированный стиль одежды", "effect": "повысит доверие", "base": 0.64},
-        {"action": "Ровный тон кожи", "effect": "добавит уверенности в образе", "base": 0.38},
-        {"action": "Чёткий контур причёски", "effect": "усилит профессиональный вид", "base": 0.44},
-        {"action": "Спокойное выражение", "effect": "создаст впечатление надёжности", "base": 0.56},
+        {"action": "Профессиональное освещение", "effect": "усилит восприятие компетентности", "base": 2.2},
+        {"action": "Нейтральный деловой фон", "effect": "добавит серьёзности", "base": 1.6},
+        {"action": "Структурированный стиль одежды", "effect": "повысит доверие", "base": 1.9},
+        {"action": "Ровный тон кожи", "effect": "добавит уверенности в образе", "base": 1.2},
+        {"action": "Чёткий контур причёски", "effect": "усилит профессиональный вид", "base": 1.4},
+        {"action": "Спокойное выражение", "effect": "создаст впечатление надёжности", "base": 1.7},
     ],
     "social": [
-        {"action": "Яркая цветовая палитра", "effect": "привлечёт внимание в ленте", "base": 0.67},
-        {"action": "Трендовое освещение", "effect": "добавит современности", "base": 0.54},
-        {"action": "Стильный фон", "effect": "создаст запоминающийся кадр", "base": 0.48},
-        {"action": "Чистая кожа и свежий вид", "effect": "усилит визуальный эффект", "base": 0.42},
-        {"action": "Модная обработка", "effect": "повысит вовлечённость аудитории", "base": 0.59},
-        {"action": "Контрастные акценты", "effect": "выделит из массы контента", "base": 0.37},
+        {"action": "Яркая цветовая палитра", "effect": "привлечёт внимание в ленте", "base": 2.0},
+        {"action": "Трендовое освещение", "effect": "добавит современности", "base": 1.7},
+        {"action": "Стильный фон", "effect": "создаст запоминающийся кадр", "base": 1.5},
+        {"action": "Чистая кожа и свежий вид", "effect": "усилит визуальный эффект", "base": 1.3},
+        {"action": "Модная обработка", "effect": "повысит вовлечённость аудитории", "base": 1.8},
+        {"action": "Контрастные акценты", "effect": "выделит из массы контента", "base": 1.2},
     ],
 }
 
@@ -129,10 +129,11 @@ _DEPTH_LABELS: dict[str, dict[int, list[dict]]] = {
 
 
 def _vary_delta(base: float, seed: str) -> float:
+    """Deterministic variation around base value on the 0-10 score scale."""
     h = int(hashlib.md5(seed.encode()).hexdigest()[:8], 16)
-    offset = ((h % 20) - 10) / 100.0
-    val = round(base + offset, 2)
-    return max(0.11, min(0.89, val))
+    offset = ((h % 20) - 10) / 10.0  # +/- 1.0
+    val = round(base + offset, 1)
+    return max(0.5, min(3.5, val))
 
 
 def build_enhancement_preview(
@@ -152,8 +153,8 @@ def build_enhancement_preview(
     selected = []
     for i in range(3):
         a = actions[(start_idx + i) % len(actions)]
-        base_val = a["base"] * (1.0 + (lvl.level - 1) * 0.1)
-        delta = _vary_delta(min(base_val, 0.95), f"{seed_base}:{i}")
+        base_val = a["base"] * (1.0 + (lvl.level - 1) * 0.15)
+        delta = _vary_delta(min(base_val, 3.5), f"{seed_base}:{i}")
         selected.append(EnhancementSuggestion(
             action=a["action"],
             effect=a["effect"],

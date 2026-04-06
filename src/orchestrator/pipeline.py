@@ -172,7 +172,10 @@ class AnalysisPipeline:
                 with _trace_step(trace, "generate_image"):
                     await self._generate_image(mode, style, image_bytes, result_dict, user_id, task_id, trace)
 
-            if result_dict.get("generated_image_url") and mode in (AnalysisMode.DATING, AnalysisMode.CV, AnalysisMode.SOCIAL):
+            if (
+                result_dict.get("generated_image_url")
+                and mode in (AnalysisMode.DATING, AnalysisMode.CV, AnalysisMode.SOCIAL)
+            ):
                 with _trace_step(trace, "post_gen_rescore"):
                     await self._compute_delta(mode, image_bytes, result_dict, user_id, task_id)
 
@@ -514,7 +517,6 @@ class AnalysisPipeline:
         if self._image_gen is None:
             return
 
-        max_retries = settings.identity_max_retries
         identity_svc = self._get_identity_service()
 
         try:
@@ -525,44 +527,35 @@ class AnalysisPipeline:
             if mode in (AnalysisMode.CV, AnalysisMode.DATING, AnalysisMode.SOCIAL):
                 extra = {
                     "aspect_ratio": "auto",
-                    "test_time_scaling": 3,
-                    "prompt_strength": settings.image_gen_strength,
+                    "test_time_scaling": settings.reve_test_time_scaling,
+                    "use_edit": True,
                 }
 
             raw = None
             identity_score = 0.0
-            attempt = 0
 
-            for attempt in range(1, max_retries + 2):
-                logger.info(
-                    "Image generation attempt %d/%d mode=%s style=%s task=%s",
-                    attempt, max_retries + 1, mode.value, style or "default", task_id,
-                )
-                with _trace_step(trace, f"image_gen_attempt_{attempt}"):
-                    raw = await self._image_gen.generate(prompt, reference_image=image_bytes, params=extra or None)
+            logger.info(
+                "Image generation (edit mode) mode=%s style=%s task=%s",
+                mode.value, style or "default", task_id,
+            )
+            with _trace_step(trace, "image_gen"):
+                raw = await self._image_gen.generate(prompt, reference_image=image_bytes, params=extra or None)
 
-                if not raw or len(raw) <= 100:
-                    logger.warning("Image gen returned empty/tiny result (%s bytes)", len(raw) if raw else 0)
-                    raw = None
-                    continue
+            if not raw or len(raw) <= 100:
+                logger.warning("Image gen returned empty/tiny result (%s bytes)", len(raw) if raw else 0)
+                raw = None
 
-                if identity_svc and mode != AnalysisMode.EMOJI:
-                    with _trace_step(trace, f"identity_gate_attempt_{attempt}") as gate_entry:
-                        passed, identity_score = identity_svc.verify(image_bytes, raw)
-                        gate_entry["similarity"] = round(identity_score, 3)
-                        if identity_score == 0.0 and passed:
-                            result_dict["identity_gate_skipped"] = True
-                            gate_entry["skipped"] = True
-                    if passed:
-                        break
+            if raw and mode != AnalysisMode.EMOJI and identity_svc:
+                with _trace_step(trace, "identity_check") as gate_entry:
+                    passed, identity_score = identity_svc.verify(image_bytes, raw)
+                    gate_entry["similarity"] = round(identity_score, 3)
+                    gate_entry["passed"] = passed
+                if not passed:
                     logger.warning(
-                        "Identity gate failed: similarity=%.3f < threshold=%.2f (attempt %d)",
-                        identity_score, settings.identity_threshold, attempt,
+                        "Identity check: similarity=%.3f < threshold=%.2f — "
+                        "accepting result (edit mode), logging for telemetry (task=%s)",
+                        identity_score, settings.identity_threshold, task_id,
                     )
-                    if attempt <= max_retries:
-                        raw = None
-                else:
-                    break
 
             if raw and len(raw) > 100:
                 gkey = f"generated/{user_id}/{task_id}.jpg"
@@ -581,18 +574,18 @@ class AnalysisPipeline:
                     "mode": mode.value,
                     "provider": provider_name,
                     "identity_score": round(identity_score, 3),
-                    "generation_attempts": attempt,
-                    "pipeline_type": "single_pass",
+                    "generation_attempts": 1,
+                    "pipeline_type": "single_pass_edit",
                 }
                 result_dict["cost_breakdown"] = {
-                    "steps": [{"step": "single_pass", "model": provider_name,
-                               "cost_usd": estimated_cost * attempt}],
-                    "total_usd": round(estimated_cost * attempt, 4),
+                    "steps": [{"step": "single_pass_edit", "model": provider_name,
+                               "cost_usd": estimated_cost}],
+                    "total_usd": round(estimated_cost, 4),
                     "budget_usd": settings.pipeline_budget_max_usd,
                 }
-                logger.info("Image generated and stored: %s (identity=%.3f, attempts=%d)", gkey, identity_score, attempt)
+                logger.info("Image generated (edit mode): %s (identity=%.3f)", gkey, identity_score)
             else:
-                logger.warning("All image gen attempts failed for task=%s", task_id)
+                logger.warning("Image gen returned no usable result for task=%s", task_id)
                 result_dict["image_gen_error"] = "empty_result"
         except Exception:
             logger.exception("Image generation failed for mode %s", mode.value)

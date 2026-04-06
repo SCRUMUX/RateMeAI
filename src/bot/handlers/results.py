@@ -152,9 +152,18 @@ async def _get_credit_balance(user_id: int) -> int | None:
     return None
 
 
+def _format_score_val(val: float) -> str:
+    """Display score values without false precision: 6.0 -> '6', 6.5 -> '6.5'."""
+    if val == int(val):
+        return str(int(val))
+    return f"{val:.1f}"
+
+
 def _format_delta_fractional(delta_val: float) -> str:
     sign = "+" if delta_val >= 0 else ""
-    return f"{sign}{delta_val:.2f}"
+    if delta_val == int(delta_val):
+        return f"{sign}{int(delta_val)}"
+    return f"{sign}{delta_val:.1f}"
 
 
 def _build_next_level_text(mode: str, user_id: int, depth: int) -> str:
@@ -292,11 +301,10 @@ async def _send_enhanced(
     if impression:
         text_parts.append(f"\n{impression[:200]}")
 
-    # Fractional delta
     delta = result.get("delta", {})
-    delta_lines = _format_delta_block(mode, delta)
-    if delta_lines:
-        text_parts.append(f"\n\U0001f4ca *Что изменилось:*\n{delta_lines}")
+    score_block = _format_score_block(mode, delta, result)
+    if score_block:
+        text_parts.append(f"\n{score_block}")
 
     # Next-level suggestions — use depth+1 to show what comes next
     depth = 2
@@ -346,22 +354,43 @@ async def _send_enhanced(
     await bot.send_message(chat_id, text, parse_mode="Markdown", reply_markup=kb)
 
 
-def _format_delta_block(mode: str, delta: dict) -> str:
-    if not delta:
-        return ""
+def _format_score_block(mode: str, delta: dict, result: dict) -> str:
+    """Format score display with initial score, delta, and progression bar."""
+    if delta:
+        return _format_delta_lines(mode, delta)
+
+    score_key = {"dating": "dating_score", "cv": "hireability", "social": "social_score"}.get(mode)
+    if score_key and result.get(score_key) is not None:
+        val = _format_score_val(float(result[score_key]))
+        label = {"dating": "Привлекательность", "cv": "Найм", "social": "Соцсети"}.get(mode, "Скор")
+        return f"\U0001f4ca *Текущий скор:*\n{label}: *{val}/10*"
+    return ""
+
+
+def _format_delta_lines(mode: str, delta: dict) -> str:
     lines = []
     if mode == "dating" and delta.get("dating_score"):
         d = delta["dating_score"]
-        lines.append(f"Привлекательность: {_format_delta_fractional(d['delta'])} ({d['pre']} \u2192 {d['post']})")
+        lines.append(_format_score_row("Привлекательность", d))
     elif mode == "cv":
         for key, label in [("trust", "Доверие"), ("competence", "Компетентность"), ("hireability", "Найм")]:
             d = delta.get(key)
             if d:
-                lines.append(f"{label}: {_format_delta_fractional(d['delta'])}")
+                lines.append(_format_score_row(label, d))
     elif mode == "social" and delta.get("social_score"):
         d = delta["social_score"]
-        lines.append(f"Соцсети: {_format_delta_fractional(d['delta'])} ({d['pre']} \u2192 {d['post']})")
-    return "\n".join(lines)
+        lines.append(_format_score_row("Соцсети", d))
+
+    if not lines:
+        return ""
+    return "\U0001f4ca *Что изменилось:*\n" + "\n".join(lines)
+
+
+def _format_score_row(label: str, d: dict) -> str:
+    pre = _format_score_val(d["pre"])
+    post = _format_score_val(d["post"])
+    delta_str = _format_delta_fractional(d["delta"])
+    return f"{label}: {delta_str} ({pre} \u2192 {post})"
 
 
 async def _send_emoji(

@@ -24,6 +24,25 @@ logger = logging.getLogger(__name__)
 router = Router()
 
 LAST_GEN_KEY = "ratemeai:last_gen:{}"
+
+_STYLE_DISPLAY_NAMES: dict[str, dict[str, str]] = {
+    "dating": {
+        "warm_outdoor": "На прогулке",
+        "studio_elegant": "Студия / элегант",
+        "cafe": "Кафе / бар",
+    },
+    "cv": {
+        "corporate": "Корпоративный",
+        "creative": "Креативный",
+        "neutral": "Нейтральный фон",
+    },
+    "social": {
+        "influencer": "Influencer",
+        "luxury": "Luxury",
+        "casual": "Casual",
+        "artistic": "Artistic",
+    },
+}
 _PROCESSING_LOCK = "ratemeai:processing:{}"
 _LOCK_TTL = 60
 DEPTH_KEY = "ratemeai:depth:{}:{}"
@@ -50,7 +69,7 @@ async def on_pick_style(callback: CallbackQuery, redis: Redis):
 
 @router.callback_query(F.data.startswith("style:"))
 async def on_style_selected(callback: CallbackQuery, redis: Redis):
-    """Show Enhancement Preview with predictions + 2 binary options."""
+    """Show Enhancement Preview with predictions + action buttons."""
     parts = callback.data.split(":")
     mode = parts[1]
     style = parts[2] if len(parts) > 2 else ""
@@ -72,18 +91,27 @@ async def on_style_selected(callback: CallbackQuery, redis: Redis):
         current_style=style,
     )
 
+    mode_headers = {
+        "dating": "\U0001f495 *Образ для знакомств*",
+        "cv": "\U0001f4bc *Профессиональный образ*",
+        "social": "\U0001f4f8 *Образ для соцсетей*",
+    }
+    style_names = _STYLE_DISPLAY_NAMES.get(mode, {})
+    style_label = style_names.get(style, style)
+
+    header = mode_headers.get(mode, "\u2728 *Твой образ*")
     text = (
-        "\u2728 *Давай усилим образ*\n\n"
-        "Можно улучшить через:\n"
-        f"{preview.suggestions_text}\n\n"
-        "Выбери направление:"
+        f"{header}\n"
+        f"Стиль: *{style_label}*\n\n"
+        "\U0001f680 *Что можно усилить:*\n"
+        f"{preview.suggestions_text}\n"
     )
 
     kb = enhancement_choice_keyboard(
-        option_a_label=preview.option_a.label,
-        option_a_data=f"enhance:{mode}:{preview.option_a.key}",
-        option_b_label=preview.option_b.label,
-        option_b_data=f"enhance:{mode}:{preview.option_b.key}",
+        option_a_label="\u2728 Усилить образ",
+        option_a_data=f"enhance:{mode}:{style}",
+        option_b_label="\U0001f504 Другой стиль",
+        option_b_data=f"restyle:{mode}",
     )
 
     await callback.message.answer(text, parse_mode="Markdown", reply_markup=kb)

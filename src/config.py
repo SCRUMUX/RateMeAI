@@ -60,9 +60,9 @@ class Settings(BaseSettings):
     admin_secret: str = ""
     api_key_pepper: str = ""
 
-    # Identity gate (face similarity threshold for generated images)
+    # Identity gate (face similarity — logged for telemetry, no retries in edit mode)
     identity_threshold: float = 0.75
-    identity_max_retries: int = 2
+    identity_max_retries: int = 0
 
     # Multi-pass pipeline / segmentation
     segmentation_enabled: bool = True
@@ -74,8 +74,8 @@ class Settings(BaseSettings):
     photorealism_enabled: bool = True
     photorealism_threshold: float = 0.5
 
-    # FLUX prompt_strength (0.0 = no change, 1.0 = full regeneration)
-    image_gen_strength: float = 0.70
+    # Legacy prompt_strength (unused in edit mode, kept for replicate fallback)
+    image_gen_strength: float = 0.45
 
     # Model cost estimates (USD per call)
     model_cost_reve: float = 0.02

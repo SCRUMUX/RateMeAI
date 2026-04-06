@@ -68,6 +68,7 @@ class ReveImageGen(ImageGenProvider):
     ) -> bytes:
         from reve._client import ReveClient
         from reve.v1.image import create, edit, remix
+        from reve.v1.postprocessing import upscale
         from reve.exceptions import ReveAPIError, ReveRateLimitError
 
         client = ReveClient(
@@ -75,6 +76,8 @@ class ReveImageGen(ImageGenProvider):
             api_url=self._host or None,
         )
         options = self._build_options(params)
+        if "postprocessing" not in options:
+            options["postprocessing"] = [upscale(factor=2)]
 
         has_mask = bool(params and params.get("mask_image"))
         use_edit = bool(params and params.get("use_edit")) or has_mask

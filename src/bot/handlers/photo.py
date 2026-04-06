@@ -12,6 +12,15 @@ from src.bot.keyboards import scenario_keyboard
 router = Router()
 logger = logging.getLogger(__name__)
 
+_DEPTH_MODES = ("dating", "cv", "social")
+
+
+async def _reset_depth(redis: Redis, user_id: int) -> None:
+    """Clear depth tracking for all modes when a new photo is uploaded."""
+    for mode in _DEPTH_MODES:
+        key = f"ratemeai:depth:{user_id}:{mode}"
+        await redis.delete(key)
+
 
 @router.message(F.photo)
 async def handle_photo(message: Message, redis: Redis):
@@ -20,6 +29,7 @@ async def handle_photo(message: Message, redis: Redis):
     user_id = message.from_user.id
 
     await redis.set(PHOTO_KEY.format(user_id), photo.file_id, ex=86400)
+    await _reset_depth(redis, user_id)
 
     rating_flag = await redis.get(f"ratemeai:rating_mode:{user_id}")
     if rating_flag:
@@ -43,6 +53,7 @@ async def handle_document(message: Message, redis: Redis):
     if content_type.startswith("image/"):
         user_id = message.from_user.id
         await redis.set(PHOTO_KEY.format(user_id), message.document.file_id, ex=86400)
+        await _reset_depth(redis, user_id)
 
         rating_flag = await redis.get(f"ratemeai:rating_mode:{user_id}")
         if rating_flag:

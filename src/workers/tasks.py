@@ -43,6 +43,13 @@ async def startup(ctx: dict):
         logger.info("Worker storage base_path=%s", st.base_path)
     if settings.is_production and not settings.openrouter_api_key.strip():
         logger.error("OPENROUTER_API_KEY is empty — tasks will fail at LLM step")
+
+    identity_ok = ctx["pipeline"]._get_identity_service() is not None
+    if not identity_ok:
+        logger.error(
+            "InsightFace NOT loaded — identity gate DISABLED. "
+            "Generated images may show a different person. Install insightface to fix."
+        )
     sha = (settings.deploy_git_sha or "").strip()
     logger.info(
         "Worker started RateMeAI version=%s%s",
