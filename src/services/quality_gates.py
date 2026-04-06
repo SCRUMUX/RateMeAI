@@ -23,6 +23,9 @@ QUALITY_CHECK_PROMPT = (
     '  "photorealism_confidence": <float 0.0-1.0>,\n'
     '  "teeth_natural": <bool, true if teeth look natural or mouth is closed; false if teeth look AI-generated, unnaturally white, duplicated, or deformed>,\n'
     '  "expression_altered": <bool, true if the facial expression looks artificially changed — forced smile, unnatural grin, plastic look around mouth>,\n'
+    '  "proportions_natural": <bool, true if head-to-body ratio looks natural and realistic; false if head is too large/small for body, or body parts look disproportionate>,\n'
+    '  "pose_natural": <bool, true if the person\'s pose, limbs, and joints look anatomically correct and natural; false if pose looks contorted, limbs bent unnaturally, or body is warped>,\n'
+    '  "hands_correct": <bool, true if hands are not visible OR have correct number of fingers with natural joint angles; false if extra/missing/merged fingers or deformed hands>,\n'
     '  "details": "<one-sentence summary>"\n'
     "}"
 )
@@ -63,7 +66,7 @@ class QualityGateRunner:
                 gate_spec["face_similarity"], original_bytes, generated_bytes, original_embedding,
             ))
 
-        _LLM_GATE_KEYS = ("aesthetic_score", "artifact_ratio", "photorealism", "naturalness")
+        _LLM_GATE_KEYS = ("aesthetic_score", "artifact_ratio", "photorealism", "naturalness", "anatomy")
         llm_gates = {k: v for k, v in gate_spec.items() if k in _LLM_GATE_KEYS}
         if llm_gates and self._llm is not None:
             quality = await self._get_quality_metrics(generated_bytes)
@@ -88,6 +91,13 @@ class QualityGateRunner:
                 passed = teeth_ok and not expr_altered
                 val = 1.0 if passed else 0.0
                 results.append(GateResult("naturalness", passed, val, 1.0))
+            if "anatomy" in llm_gates:
+                proportions_ok = quality.get("proportions_natural", True)
+                pose_ok = quality.get("pose_natural", True)
+                hands_ok = quality.get("hands_correct", True)
+                passed = proportions_ok and pose_ok and hands_ok
+                val = 1.0 if passed else 0.0
+                results.append(GateResult("anatomy", passed, val, 1.0))
 
         return results
 
@@ -111,6 +121,9 @@ class QualityGateRunner:
             "is_photorealistic": quality.get("is_photorealistic"),
             "teeth_natural": quality.get("teeth_natural"),
             "expression_altered": quality.get("expression_altered"),
+            "proportions_natural": quality.get("proportions_natural"),
+            "pose_natural": quality.get("pose_natural"),
+            "hands_correct": quality.get("hands_correct"),
             "gates_passed": [r.gate_name for r in results if r.passed],
             "gates_failed": [r.gate_name for r in results if not r.passed],
         }
@@ -159,6 +172,9 @@ class QualityGateRunner:
                 "photorealism_confidence": float(result.get("photorealism_confidence", 0.5)),
                 "teeth_natural": bool(result.get("teeth_natural", True)),
                 "expression_altered": bool(result.get("expression_altered", False)),
+                "proportions_natural": bool(result.get("proportions_natural", True)),
+                "pose_natural": bool(result.get("pose_natural", True)),
+                "hands_correct": bool(result.get("hands_correct", True)),
                 "details": str(result.get("details", "")),
             }
         except Exception:

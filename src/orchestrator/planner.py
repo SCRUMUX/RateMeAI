@@ -56,6 +56,7 @@ _DEFAULT_GLOBAL_GATES = {
     "artifact_ratio": 0.05,
     "photorealism": 0.5,
     "naturalness": 1.0,
+    "anatomy": 1.0,
 }
 
 _DATING_STEPS = [

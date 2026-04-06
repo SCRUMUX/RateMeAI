@@ -42,7 +42,7 @@ def action_keyboard(bot_username: str, user_id: str) -> InlineKeyboardMarkup:
     deep_link = f"https://t.me/{bot_username}?start=ref_{user_id}"
     return InlineKeyboardMarkup(inline_keyboard=[
         [
-            InlineKeyboardButton(text="💕 Знакомства", callback_data="action:dating"),
+            InlineKeyboardButton(text="💕 Дейтинг", callback_data="action:dating"),
             InlineKeyboardButton(text="💼 Карьера", callback_data="action:cv"),
         ],
         [
@@ -51,7 +51,7 @@ def action_keyboard(bot_username: str, user_id: str) -> InlineKeyboardMarkup:
         ],
         [
             InlineKeyboardButton(text="😀 Эмодзи", callback_data="action:emoji"),
-            InlineKeyboardButton(text="📤 Поделиться", switch_inline_query=deep_link),
+            InlineKeyboardButton(text="📤 Друзьям", switch_inline_query=deep_link),
         ],
         [InlineKeyboardButton(text="📸 Новое фото", callback_data="new_photo")],
     ])
@@ -78,14 +78,16 @@ def loop_keyboard(bot_username: str, user_id: str, current_mode: str) -> InlineK
         ])
     rows.extend([
         [
-            InlineKeyboardButton(text="💕 Знакомства", callback_data="action:dating"),
+            InlineKeyboardButton(text="💕 Дейтинг", callback_data="action:dating"),
             InlineKeyboardButton(text="💼 Карьера", callback_data="action:cv"),
-            InlineKeyboardButton(text="📸 Соцсети", callback_data="action:social"),
         ],
         [
+            InlineKeyboardButton(text="📸 Соцсети", callback_data="action:social"),
             InlineKeyboardButton(text="⭐ Рейтинг", callback_data="action:rating"),
+        ],
+        [
             InlineKeyboardButton(text="😀 Эмодзи", callback_data="action:emoji"),
-            InlineKeyboardButton(text="📤 Поделиться", switch_inline_query=deep_link),
+            InlineKeyboardButton(text="📤 Друзьям", switch_inline_query=deep_link),
         ],
         [InlineKeyboardButton(text="📸 Новое фото", callback_data="new_photo")],
     ])

@@ -1,7 +1,7 @@
 """Centralized image-generation prompt builder for all modes.
 
-Prompts are kept concise to stay within Reve API limits (~1000 chars).
-Every prompt includes FACE_ANCHOR + SKIN_FIX + REALISM blocks.
+Every prompt includes FACE_ANCHOR + BODY_ANCHOR + SKIN_FIX + REALISM blocks
+to ensure identity preservation, anatomical correctness, and photorealism.
 """
 from __future__ import annotations
 
@@ -14,6 +14,16 @@ FACE_ANCHOR = (
     "Do NOT add a smile or change the degree of smile."
 )
 
+BODY_ANCHOR = (
+    "BODY PRESERVATION: keep exact original body proportions — head-to-body "
+    "ratio, shoulder width, torso length, limb length. Do NOT enlarge or "
+    "shrink the head relative to the body. Preserve the original pose, arm "
+    "positions, and hand gestures exactly. Hands must have exactly 5 fingers "
+    "with natural joint angles, no merged or extra digits. Limbs must be "
+    "anatomically correct with natural length ratios. No warping, stretching, "
+    "or compressing any body part. Keep natural relaxed posture."
+)
+
 SKIN_FIX = (
     "SKIN FIX (mandatory): remove dark circles and spots under eyes, "
     "blemishes, acne, pigmentation, redness, enlarged pores. "
@@ -23,7 +33,8 @@ SKIN_FIX = (
 
 REALISM = (
     "PHOTOREALISM: must look like a real high-end photograph. "
-    "No AI artifacts, no painterly effects, no unnatural glow."
+    "No AI artifacts, no painterly effects, no unnatural glow. "
+    "Natural skin texture, realistic lighting on skin and clothes."
 )
 
 DATING_STYLES: dict[str, str] = {
@@ -69,8 +80,9 @@ def build_dating_prompt(style: str = "") -> str:
     s = DATING_STYLES.get(style, DATING_STYLES["warm_outdoor"])
     p = DATING_PERSONALITIES.get(style, DATING_PERSONALITIES["friendly"])
     return (
-        f"Attractive dating-profile photo. Enhance, do NOT recreate face. "
-        f"{FACE_ANCHOR} {SKIN_FIX} {p} "
+        f"Enhance this existing photo for a dating profile. "
+        f"Do NOT generate a new person — improve the SAME person in the photo. "
+        f"{FACE_ANCHOR} {BODY_ANCHOR} {SKIN_FIX} {p} "
         f"Brighten eye whites, subtle iris enhancement. "
         f"Soft flattering golden-hour lighting. {s} {REALISM}"
     )
@@ -80,8 +92,10 @@ def build_cv_prompt(style: str = "") -> str:
     s = CV_STYLES.get(style, CV_STYLES["corporate"])
     p = CV_PERSONALITIES.get(style, CV_PERSONALITIES["corporate"])
     return (
-        f"Professional corporate headshot. Enhance, do NOT recreate face. "
-        f"{FACE_ANCHOR} {SKIN_FIX} {p} "
+        f"Enhance this existing photo into a professional headshot. "
+        f"Do NOT generate a new person — improve the SAME person in the photo. "
+        f"Keep the person's body, posture, and proportions exactly unchanged. "
+        f"{FACE_ANCHOR} {BODY_ANCHOR} {SKIN_FIX} {p} "
         f"Studio catchlights in eyes. Hair groomed. Even soft lighting. "
         f"{s} {REALISM}"
     )
@@ -91,8 +105,9 @@ def build_social_prompt(style: str = "") -> str:
     s = SOCIAL_STYLES.get(style, SOCIAL_STYLES["influencer"])
     p = SOCIAL_PERSONALITIES.get(style, SOCIAL_PERSONALITIES["influencer"])
     return (
-        f"Social media profile photo. Enhance, do NOT recreate face. "
-        f"{FACE_ANCHOR} {SKIN_FIX} {p} "
+        f"Enhance this existing photo for social media. "
+        f"Do NOT generate a new person — improve the SAME person in the photo. "
+        f"{FACE_ANCHOR} {BODY_ANCHOR} {SKIN_FIX} {p} "
         f"Vibrant colors, modern aesthetic, crisp detail. "
         f"{s} {REALISM}"
     )
@@ -100,35 +115,39 @@ def build_social_prompt(style: str = "") -> str:
 
 STEP_TEMPLATES: dict[str, str] = {
     "background_edit": (
-        "Change ONLY the background: {description}. "
-        "Keep the person, clothing, and pose exactly as they are. "
-        f"{FACE_ANCHOR} {REALISM}"
+        "Enhance this existing photo — change ONLY the background: {description}. "
+        "Keep the person, clothing, pose, and body proportions exactly as they are. "
+        f"{FACE_ANCHOR} {BODY_ANCHOR} {REALISM}"
     ),
     "clothing_edit": (
-        "Adjust ONLY the clothing/outfit: {description}. "
-        "Keep face, background, and pose unchanged. "
-        f"{FACE_ANCHOR} {REALISM}"
+        "Enhance this existing photo — adjust ONLY the clothing/outfit: {description}. "
+        "Keep face, background, pose, and body proportions unchanged. "
+        f"{FACE_ANCHOR} {BODY_ANCHOR} {REALISM}"
     ),
     "lighting_adjust": (
-        "Improve ONLY the lighting and color grading: {description}. "
-        "Natural studio quality, even skin tones. "
-        f"{FACE_ANCHOR} {REALISM}"
+        "Enhance this existing photo — improve ONLY the lighting and color grading: "
+        "{description}. Natural studio quality, even skin tones. "
+        "Keep body, pose, and proportions unchanged. "
+        f"{FACE_ANCHOR} {BODY_ANCHOR} {REALISM}"
     ),
     "expression_hint": (
-        "Subtle expression adjustment: {description}. "
+        "Enhance this existing photo — subtle expression adjustment: {description}. "
         "Keep identity, do not change face shape or features. "
         "Do NOT modify teeth or add smile. Keep original mouth. "
-        f"{FACE_ANCHOR} {SKIN_FIX} {REALISM}"
+        "Keep body pose and proportions unchanged. "
+        f"{FACE_ANCHOR} {BODY_ANCHOR} {SKIN_FIX} {REALISM}"
     ),
     "skin_correction": (
-        "Minor skin tone correction and blemish removal. "
+        "Enhance this existing photo — minor skin tone correction and blemish removal. "
         "Keep all facial features exactly the same. No plastic look. "
-        f"{FACE_ANCHOR} {SKIN_FIX} {REALISM}"
+        "Keep body pose and proportions unchanged. "
+        f"{FACE_ANCHOR} {BODY_ANCHOR} {SKIN_FIX} {REALISM}"
     ),
     "style_overall": (
-        "Apply overall style enhancement: {description}. "
+        "Enhance this existing photo — apply overall style enhancement: {description}. "
         "Vibrant modern aesthetic, crisp detail. "
-        f"{FACE_ANCHOR} {REALISM}"
+        "Keep body proportions and pose unchanged. "
+        f"{FACE_ANCHOR} {BODY_ANCHOR} {REALISM}"
     ),
 }
 

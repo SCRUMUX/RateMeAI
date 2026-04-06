@@ -11,6 +11,12 @@ from src.providers.base import ImageGenProvider, StorageProvider
 
 logger = logging.getLogger(__name__)
 
+_REVE_ONLY_PARAMS = {"test_time_scaling"}
+_VALID_FLUX_ASPECT_RATIOS = {
+    "1:1", "16:9", "9:16", "21:9", "9:21",
+    "4:3", "3:4", "4:5", "5:4", "2:3", "3:2",
+}
+
 
 class ReplicateImageGen(ImageGenProvider):
     """Replicate predictions API; reference image is uploaded to storage and passed as URL."""
@@ -18,6 +24,7 @@ class ReplicateImageGen(ImageGenProvider):
     def __init__(self, api_token: str, model_version: str, storage: StorageProvider):
         self._token = api_token.strip()
         self._version = model_version.strip()
+        self._is_model_name = "/" in self._version
         self._storage = storage
         self._client = httpx.AsyncClient(
             timeout=httpx.Timeout(300.0, connect=30.0),
@@ -29,6 +36,17 @@ class ReplicateImageGen(ImageGenProvider):
 
     async def close(self):
         await self._client.aclose()
+
+    @staticmethod
+    def _clean_params(params: dict | None) -> dict:
+        """Remove Reve-specific params and normalize FLUX-compatible ones."""
+        if not params:
+            return {}
+        cleaned = {k: v for k, v in params.items() if k not in _REVE_ONLY_PARAMS}
+        ar = cleaned.get("aspect_ratio")
+        if ar and ar not in _VALID_FLUX_ASPECT_RATIOS:
+            cleaned.pop("aspect_ratio", None)
+        return cleaned
 
     @retry(
         stop=stop_after_attempt(2),
@@ -44,6 +62,8 @@ class ReplicateImageGen(ImageGenProvider):
         if not self._version:
             raise ValueError("REPLICATE_MODEL_VERSION is required for image generation")
 
+        params = dict(params) if params else {}
+
         image_url = None
         if reference_image:
             key = f"temp/replicate/{uuid.uuid4()}.jpg"
@@ -51,16 +71,22 @@ class ReplicateImageGen(ImageGenProvider):
             image_url = await self._storage.get_url(key)
 
         mask_url = None
-        mask_bytes = params.pop("mask_image", None) if params else None
-        params.pop("mask_region", None) if params else None
+        mask_bytes = params.pop("mask_image", None)
+        params.pop("mask_region", None)
         if mask_bytes and isinstance(mask_bytes, bytes):
             mkey = f"temp/replicate/{uuid.uuid4()}_mask.png"
             await self._storage.upload(mkey, mask_bytes)
             mask_url = await self._storage.get_url(mkey)
 
-        prompt_strength = (params or {}).pop("prompt_strength", None)
+        prompt_strength = params.pop("prompt_strength", None)
+        params = self._clean_params(params)
 
-        inp: dict = {"prompt": prompt}
+        inp: dict = {
+            "prompt": prompt,
+            "output_format": "jpg",
+            "output_quality": 90,
+            "safety_tolerance": 5,
+        }
         if image_url:
             inp["image"] = image_url
             if prompt_strength is not None:
@@ -70,10 +96,14 @@ class ReplicateImageGen(ImageGenProvider):
         if params:
             inp.update(params)
 
-        r = await self._client.post(
-            "https://api.replicate.com/v1/predictions",
-            json={"version": self._version, "input": inp},
-        )
+        if self._is_model_name:
+            url = f"https://api.replicate.com/v1/models/{self._version}/predictions"
+            body: dict = {"input": inp}
+        else:
+            url = "https://api.replicate.com/v1/predictions"
+            body = {"version": self._version, "input": inp}
+
+        r = await self._client.post(url, json=body)
         r.raise_for_status()
         pred = r.json()
         status_url = pred["urls"]["get"]
