@@ -279,8 +279,6 @@ async def _send_enhanced(
     redis: Redis | None = None,
 ):
     """Unified enhancement-first result for dating/cv/social."""
-    enhancement = result.get("enhancement", {})
-    style_name = enhancement.get("style", "") or result.get("style", "")
 
     mode_titles = {
         "dating": "\U0001f495 *Образ для знакомств*",
@@ -305,7 +303,6 @@ async def _send_enhanced(
     if redis:
         try:
             from src.bot.handlers.mode_select import _get_depth
-            import asyncio
             depth = await _get_depth(redis, user_id, mode)
             depth = max(depth, 2)
         except Exception:

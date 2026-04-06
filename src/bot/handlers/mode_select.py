@@ -448,9 +448,8 @@ async def _poll_task(bot, api_base_url: str, user_id: int, task_id: str, chat_id
                     return
                 elif status == "failed":
                     await redis.delete(lock_key)
-                    error = data.get("error_message", "Неизвестная ошибка")
                     await bot.edit_message_text(
-                        f"\u274c Не удалось обработать фото. Попробуй загрузить другое фото.",
+                        "\u274c Не удалось обработать фото. Попробуй загрузить другое фото.",
                         chat_id=chat_id,
                         message_id=status_msg_id,
                         reply_markup=error_keyboard(),

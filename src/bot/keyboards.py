@@ -1,7 +1,5 @@
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
-from src.models.enums import AnalysisMode
-
 
 def scenario_keyboard() -> InlineKeyboardMarkup:
     """Primary 3-button scenario selection (no Rating in main flow)."""
