@@ -12,7 +12,7 @@ router = Router()
 @router.message()
 async def catch_all_message(message: Message):
     await message.answer(
-        "📸 Отправь мне фото, чтобы я мог его проанализировать!",
+        "\U0001f4f8 Отправь мне фото, и я подберу лучший образ!",
         reply_markup=back_keyboard(),
     )
 

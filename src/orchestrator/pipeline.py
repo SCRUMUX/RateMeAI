@@ -136,6 +136,7 @@ class AnalysisPipeline:
 
         style = (context or {}).get("style", "")
         skip_gen = (context or {}).get("skip_image_gen", False)
+        self._enhancement_level = int((context or {}).get("enhancement_level", 0))
 
         if skip_gen:
             result_dict["upgrade_prompt"] = True
@@ -426,7 +427,10 @@ class AnalysisPipeline:
     ) -> tuple[bytes | None, float]:
         """Execute one pipeline step. Returns (output_bytes, cost_spent)."""
         with _trace_step(trace, f"step_{i}_{step.step}") as step_entry:
-            prompt = self._prompt_engine.build_step_prompt(step.prompt_template, style, mode)
+            prompt = self._prompt_engine.build_step_prompt(
+                step.prompt_template, style, mode,
+                enhancement_level=getattr(self, "_enhancement_level", 0),
+            )
 
             mask_bytes = None
             if seg_svc and step.region != "full":
@@ -621,16 +625,16 @@ class AnalysisPipeline:
             if mode == AnalysisMode.DATING:
                 pre = float(result_dict.get("dating_score", 0))
                 post = float(post_dict.get("dating_score", 0))
-                delta = {"dating_score": {"pre": pre, "post": post, "delta": round(post - pre, 1)}}
+                delta = {"dating_score": {"pre": round(pre, 2), "post": round(post, 2), "delta": round(post - pre, 2)}}
             elif mode == AnalysisMode.CV:
                 for key in ("trust", "competence", "hireability"):
                     pre = float(result_dict.get(key, 0))
                     post = float(post_dict.get(key, 0))
-                    delta[key] = {"pre": pre, "post": post, "delta": round(post - pre, 1)}
+                    delta[key] = {"pre": round(pre, 2), "post": round(post, 2), "delta": round(post - pre, 2)}
             elif mode == AnalysisMode.SOCIAL:
                 pre = float(result_dict.get("social_score", 0))
                 post = float(post_dict.get("social_score", 0))
-                delta = {"social_score": {"pre": pre, "post": post, "delta": round(post - pre, 1)}}
+                delta = {"social_score": {"pre": round(pre, 2), "post": round(post, 2), "delta": round(post - pre, 2)}}
 
             result_dict["delta"] = delta
             result_dict["post_score"] = post_dict

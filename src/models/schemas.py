@@ -75,7 +75,8 @@ class DatingResult(BaseModel):
     first_impression: str
     dating_score: float = Field(ge=0, le=10)
     strengths: list[str]
-    weaknesses: list[str]
+    weaknesses: list[str] = Field(default_factory=list)
+    enhancement_opportunities: list[str] = Field(default_factory=list)
     variants: list[Variant] = []
 
 
@@ -96,7 +97,8 @@ class SocialResult(BaseModel):
     first_impression: str
     social_score: float = Field(ge=0, le=10)
     strengths: list[str]
-    weaknesses: list[str]
+    weaknesses: list[str] = Field(default_factory=list)
+    enhancement_opportunities: list[str] = Field(default_factory=list)
     variants: list[Variant] = []
 
 

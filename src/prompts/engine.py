@@ -47,10 +47,10 @@ class PromptEngine:
             raise ValueError(f"No image prompt for mode: {mode}")
         return builder(style, base_description)
 
-    def build_step_prompt(self, step_template: str, style: str, mode: AnalysisMode) -> str:
+    def build_step_prompt(self, step_template: str, style: str, mode: AnalysisMode, enhancement_level: int = 0) -> str:
         """Build a prompt for a single multi-pass pipeline step."""
         if step_template in _EXPRESSION_STEPS:
             mode_dict = _MODE_PERSONALITY_DICTS.get(mode)
         else:
             mode_dict = _MODE_STYLE_DICTS.get(mode)
-        return ig.build_step_prompt(step_template, style, mode_dict)
+        return ig.build_step_prompt(step_template, style, mode_dict, enhancement_level=enhancement_level)

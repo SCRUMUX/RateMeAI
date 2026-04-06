@@ -1,7 +1,11 @@
+"""Result delivery — enhancement-first UX.
+
+Photo is the primary focus. No visible scores in header.
+Instead: current look description, fractional delta, and next-level suggestions.
+"""
 from __future__ import annotations
 
 import base64
-import hashlib
 import logging
 from pathlib import Path
 
@@ -10,8 +14,9 @@ from aiogram import Bot
 from aiogram.types import BufferedInputFile, FSInputFile
 from redis.asyncio import Redis
 
-from src.bot.keyboards import action_keyboard, loop_keyboard, upgrade_keyboard
+from src.bot.keyboards import post_result_keyboard, upgrade_keyboard, action_keyboard
 from src.config import settings
+from src.services.enhancement_advisor import build_enhancement_preview
 from src.utils.redis_keys import gen_image_cache_key
 
 logger = logging.getLogger(__name__)
@@ -147,51 +152,37 @@ async def _get_credit_balance(user_id: int) -> int | None:
     return None
 
 
-_MODE_SUGGESTIONS: dict[str, list[str]] = {
-    "dating": [
-        "Попробуй образ *Студия / элегант* \u2014 он часто да\u0451т +1-2 к привлекательности!",
-        "Хочешь ещ\u0451 больше? Попробуй стиль *Кафе / бар* для непринужд\u0451нного образа.",
-    ],
-    "cv": [
-        "Попробуй *Корпоративный* стиль \u2014 он максимально повышает доверие.",
-        "Для творческих профессий подойд\u0451т *Креативный* образ!",
-    ],
-    "social": [
-        "Попробуй стиль *Luxury* \u2014 он отлично работает для Instagram.",
-        "Стиль *Artistic* может дать ещ\u0451 более яркий результат!",
-    ],
-}
+def _format_delta_fractional(delta_val: float) -> str:
+    sign = "+" if delta_val >= 0 else ""
+    return f"{sign}{delta_val:.2f}"
 
 
-def _retention_line(result: dict, mode: str, chat_id: int) -> str:
-    """Return an inline retention hint string, or empty string."""
-    if mode not in ("dating", "cv", "social"):
-        return ""
+def _build_next_level_text(mode: str, user_id: int, depth: int) -> str:
+    preview = build_enhancement_preview(
+        mode=mode,
+        analysis_result={},
+        user_id=user_id,
+        depth=depth,
+    )
+    lines = ["\n\U0001f680 *Как усилить дальше:*"]
+    for s in preview.suggestions[:3]:
+        lines.append(f"\u2022 {s.line}")
+    return "\n".join(lines)
 
-    delta = result.get("delta", {})
-    if not delta:
-        return ""
 
-    has_improvement = False
-    if mode == "dating" and delta.get("dating_score"):
-        has_improvement = delta["dating_score"].get("delta", 0) > 0
-    elif mode == "cv":
-        for key in ("trust", "competence", "hireability"):
-            if delta.get(key, {}).get("delta", 0) > 0:
-                has_improvement = True
-                break
-    elif mode == "social" and delta.get("social_score"):
-        has_improvement = delta["social_score"].get("delta", 0) > 0
-
-    if not has_improvement:
-        return ""
-
-    suggestions = _MODE_SUGGESTIONS.get(mode, [])
-    if not suggestions:
-        return ""
-
-    idx = int(hashlib.md5(str(chat_id).encode()).hexdigest(), 16) % len(suggestions)
-    return f"\n\n\U0001f4a1 {suggestions[idx]}"
+def _build_next_level_options(mode: str, user_id: int, depth: int) -> list[dict]:
+    preview = build_enhancement_preview(
+        mode=mode,
+        analysis_result={},
+        user_id=user_id,
+        depth=depth,
+    )
+    options = []
+    if preview.option_a:
+        options.append({"label": preview.option_a.label, "callback_data": f"enhance:{mode}:{preview.option_a.key}"})
+    if preview.option_b:
+        options.append({"label": preview.option_b.label, "callback_data": f"enhance:{mode}:{preview.option_b.key}"})
+    return options
 
 
 def _balance_line(credits: int | None) -> str:
@@ -218,23 +209,20 @@ async def deliver_result(bot: Bot, chat_id: int, status_msg_id: int, data: dict,
     credits = await _get_credit_balance(user_id)
 
     needs_upgrade = result.get("upgrade_prompt", False)
-    hint = _retention_line(result, mode, chat_id)
     bal = _balance_line(credits)
 
     quality_warn = ""
     if result.get("quality_warning"):
         quality_warn = "\n\n\u2139\ufe0f Результат может отличаться от ожидаемого. Попробуй другой стиль или загрузи новое фото."
 
-    footer = hint + quality_warn + bal
-
     if mode == "rating":
         await _send_rating(bot, chat_id, result, user_id, uname, quality_warn + bal)
     elif mode == "dating":
-        await _send_dating(bot, chat_id, result, user_id, uname, gen_image_bytes, needs_upgrade, footer)
+        await _send_enhanced(bot, chat_id, result, user_id, uname, "dating", gen_image_bytes, needs_upgrade, quality_warn, bal, redis)
     elif mode == "cv":
-        await _send_cv(bot, chat_id, result, user_id, uname, gen_image_bytes, needs_upgrade, footer)
+        await _send_enhanced(bot, chat_id, result, user_id, uname, "cv", gen_image_bytes, needs_upgrade, quality_warn, bal, redis)
     elif mode == "social":
-        await _send_social(bot, chat_id, result, user_id, uname, gen_image_bytes, needs_upgrade, footer)
+        await _send_enhanced(bot, chat_id, result, user_id, uname, "social", gen_image_bytes, needs_upgrade, quality_warn, bal, redis)
     elif mode == "emoji":
         await _send_emoji(bot, chat_id, result, user_id, uname, gen_image_bytes, needs_upgrade, quality_warn + bal)
     else:
@@ -243,6 +231,7 @@ async def deliver_result(bot: Bot, chat_id: int, status_msg_id: int, data: dict,
 
 
 async def _send_rating(bot: Bot, chat_id: int, result: dict, user_id: int, uname: str, footer: str):
+    """Rating mode — hidden, available via /rating."""
     perception = result.get("perception", {})
     score = result.get("score", "?")
     trust = perception.get("trust", "?")
@@ -253,9 +242,9 @@ async def _send_rating(bot: Bot, chat_id: int, result: dict, user_id: int, uname
     recommendations = result.get("recommendations", [])
 
     text_parts = [
-        f"\u2b50 *\u0420\u0435\u0439\u0442\u0438\u043d\u0433: {score}/10*\n",
-        f"\u0414\u043e\u0432\u0435\u0440\u0438\u0435: {trust} | \u041f\u0440\u0438\u0432\u043b\u0435\u043a\u0430\u0442\u0435\u043b\u044c\u043d\u043e\u0441\u0442\u044c: {attractiveness}",
-        f"\u042d\u043c\u043e\u0446\u0438\u044f: {emotion}\n",
+        f"\u2b50 *Рейтинг: {score}/10*\n",
+        f"Доверие: {trust} | Привлекательность: {attractiveness}",
+        f"Эмоция: {emotion}\n",
     ]
 
     if insights:
@@ -267,7 +256,7 @@ async def _send_rating(bot: Bot, chat_id: int, result: dict, user_id: int, uname
         text_parts.append(f"\n\U0001f3af {recommendations[0]}")
 
     text = "\n".join(text_parts) + footer
-    kb = action_keyboard(uname, str(user_id))
+    kb = post_result_keyboard("dating", str(user_id), uname)
 
     share_info = result.get("share", {})
     card_path = share_info.get("card_url")
@@ -283,48 +272,65 @@ async def _send_rating(bot: Bot, chat_id: int, result: dict, user_id: int, uname
     await bot.send_message(chat_id, text, parse_mode="Markdown", reply_markup=kb)
 
 
-async def _send_dating(
+async def _send_enhanced(
     bot: Bot, chat_id: int, result: dict, user_id: int, uname: str,
-    gen_image_bytes: bytes | None = None, needs_upgrade: bool = False, footer: str = "",
+    mode: str, gen_image_bytes: bytes | None = None,
+    needs_upgrade: bool = False, quality_warn: str = "", bal: str = "",
+    redis: Redis | None = None,
 ):
-    score = result.get("dating_score", "?")
-    impression = result.get("first_impression", "")
-    strengths = result.get("strengths", [])
-
+    """Unified enhancement-first result for dating/cv/social."""
     enhancement = result.get("enhancement", {})
-    style_name = enhancement.get("style", "")
+    style_name = enhancement.get("style", "") or result.get("style", "")
 
-    text_parts = [f"\U0001f495 *\u0414\u0435\u0439\u0442\u0438\u043d\u0433: {score}/10*\n"]
+    mode_titles = {
+        "dating": "\U0001f495 *Образ для знакомств*",
+        "cv": "\U0001f4bc *Профессиональный образ*",
+        "social": "\U0001f4f8 *Образ для соцсетей*",
+    }
 
-    if style_name:
-        style_labels = {"warm_outdoor": "\u041d\u0430 \u043f\u0440\u043e\u0433\u0443\u043b\u043a\u0435", "studio_elegant": "\u0421\u0442\u0443\u0434\u0438\u044f", "cafe": "\u041a\u0430\u0444\u0435"}
-        text_parts.append(f"\u0421\u0442\u0438\u043b\u044c: {style_labels.get(style_name, style_name)}")
+    text_parts = [mode_titles.get(mode, "\u2728 *Твой образ*")]
 
+    impression = result.get("first_impression", "")
     if impression:
-        text_parts.append(f"\u0412\u043f\u0435\u0447\u0430\u0442\u043b\u0435\u043d\u0438\u0435: {impression[:120]}")
+        text_parts.append(f"\n{impression[:200]}")
 
-    if strengths:
-        text_parts.append(f"\n\U0001f4aa {strengths[0]}")
-    if len(strengths) > 1:
-        text_parts.append(f"\U0001f4aa {strengths[1]}")
-
+    # Fractional delta
     delta = result.get("delta", {})
-    if delta.get("dating_score"):
-        d = delta["dating_score"]
-        sign = "+" if d["delta"] >= 0 else ""
-        text_parts.append(f"\n\U0001f4ca *\u0427\u0442\u043e \u0438\u0437\u043c\u0435\u043d\u0438\u043b\u043e\u0441\u044c:* {sign}{d['delta']} \u043a \u043f\u0440\u0438\u0432\u043b\u0435\u043a\u0430\u0442\u0435\u043b\u044c\u043d\u043e\u0441\u0442\u0438 ({d['pre']} \u2192 {d['post']})")
+    delta_lines = _format_delta_block(mode, delta)
+    if delta_lines:
+        text_parts.append(f"\n\U0001f4ca *Что изменилось:*\n{delta_lines}")
+
+    # Next-level suggestions — use depth+1 to show what comes next
+    depth = 2
+    if redis:
+        try:
+            from src.bot.handlers.mode_select import _get_depth
+            import asyncio
+            depth = await _get_depth(redis, user_id, mode)
+            depth = max(depth, 2)
+        except Exception:
+            pass
+
+    next_text = _build_next_level_text(mode, user_id, depth)
+    text_parts.append(next_text)
 
     if needs_upgrade:
-        text_parts.append("\n\U0001f512 \u0423\u043b\u0443\u0447\u0448\u0435\u043d\u0438\u0435 \u043e\u0431\u0440\u0430\u0437\u0430 \u043d\u0435\u0434\u043e\u0441\u0442\u0443\u043f\u043d\u043e \u2014 \u043f\u043e\u043f\u043e\u043b\u043d\u0438 \u043f\u0430\u043a\u0435\u0442.")
-    text = "\n".join(text_parts) + footer
-    kb = upgrade_keyboard() if needs_upgrade else loop_keyboard(uname, str(user_id), "dating")
+        text_parts.append("\n\U0001f512 Улучшение образа недоступно \u2014 пополни пакет.")
+
+    text_parts.append(quality_warn)
+    text_parts.append(bal)
+
+    text = "\n".join(text_parts)
+
+    next_opts = _build_next_level_options(mode, user_id, depth)
+    kb = upgrade_keyboard() if needs_upgrade else post_result_keyboard(mode, str(user_id), uname, next_opts)
     caption, full_text = _split_caption(text)
 
     if gen_image_bytes:
         try:
             await bot.send_photo(
                 chat_id,
-                BufferedInputFile(gen_image_bytes, filename="ratemeai_dating.jpg"),
+                BufferedInputFile(gen_image_bytes, filename=f"ratemeai_{mode}.jpg"),
                 caption=caption,
                 parse_mode="Markdown",
                 reply_markup=None if full_text else kb,
@@ -333,7 +339,7 @@ async def _send_dating(
                 await bot.send_message(chat_id, full_text, parse_mode="Markdown", reply_markup=kb)
             return
         except Exception:
-            logger.exception("send_photo from Redis bytes failed (dating)")
+            logger.exception("send_photo from Redis bytes failed (%s)", mode)
 
     img = result.get("generated_image_url") or result.get("image_url")
     if img:
@@ -343,137 +349,22 @@ async def _send_dating(
     await bot.send_message(chat_id, text, parse_mode="Markdown", reply_markup=kb)
 
 
-async def _send_cv(
-    bot: Bot, chat_id: int, result: dict, user_id: int, uname: str,
-    gen_image_bytes: bytes | None = None, needs_upgrade: bool = False, footer: str = "",
-):
-    profession = result.get("profession", "?")
-    trust = result.get("trust", "?")
-    competence = result.get("competence", "?")
-    hireability = result.get("hireability", "?")
-    analysis = result.get("analysis", "")
-
-    enhancement = result.get("enhancement", {})
-    style_name = enhancement.get("style", "")
-
-    text_parts = ["\U0001f4bc *\u041f\u0440\u043e\u0444\u0435\u0441\u0441\u0438\u043e\u043d\u0430\u043b\u044c\u043d\u044b\u0439 \u0430\u043d\u0430\u043b\u0438\u0437*\n"]
-
-    if style_name:
-        style_labels = {"corporate": "\u041a\u043e\u0440\u043f\u043e\u0440\u0430\u0442\u0438\u0432\u043d\u044b\u0439", "creative": "\u041a\u0440\u0435\u0430\u0442\u0438\u0432\u043d\u044b\u0439", "neutral": "\u041d\u0435\u0439\u0442\u0440\u0430\u043b\u044c\u043d\u044b\u0439"}
-        text_parts.append(f"\u0421\u0442\u0438\u043b\u044c: {style_labels.get(style_name, style_name)}")
-
-    text_parts.extend([
-        f"\u041f\u0440\u043e\u0444\u0435\u0441\u0441\u0438\u044f: {profession}",
-        f"\u0414\u043e\u0432\u0435\u0440\u0438\u0435: {trust} | \u041a\u043e\u043c\u043f\u0435\u0442\u0435\u043d\u0442\u043d\u043e\u0441\u0442\u044c: {competence} | \u041d\u0430\u0439\u043c: {hireability}\n",
-    ])
-
-    if analysis:
-        text_parts.append(f"\U0001f4dd {analysis[:200]}")
-
-    delta = result.get("delta", {})
-    if delta:
-        delta_lines = []
-        for key, label in [("trust", "\u0434\u043e\u0432\u0435\u0440\u0438\u0435"), ("competence", "\u043a\u043e\u043c\u043f\u0435\u0442\u0435\u043d\u0442\u043d\u043e\u0441\u0442\u044c"), ("hireability", "\u043d\u0430\u0439\u043c")]:
+def _format_delta_block(mode: str, delta: dict) -> str:
+    if not delta:
+        return ""
+    lines = []
+    if mode == "dating" and delta.get("dating_score"):
+        d = delta["dating_score"]
+        lines.append(f"Привлекательность: {_format_delta_fractional(d['delta'])} ({d['pre']} \u2192 {d['post']})")
+    elif mode == "cv":
+        for key, label in [("trust", "Доверие"), ("competence", "Компетентность"), ("hireability", "Найм")]:
             d = delta.get(key)
             if d:
-                sign = "+" if d["delta"] >= 0 else ""
-                delta_lines.append(f"{label} {sign}{d['delta']}")
-        if delta_lines:
-            text_parts.append(f"\n\U0001f4ca *\u0427\u0442\u043e \u0438\u0437\u043c\u0435\u043d\u0438\u043b\u043e\u0441\u044c:* {', '.join(delta_lines)}")
-
-    if needs_upgrade:
-        text_parts.append("\n\U0001f512 \u0423\u043b\u0443\u0447\u0448\u0435\u043d\u0438\u0435 \u043e\u0431\u0440\u0430\u0437\u0430 \u043d\u0435\u0434\u043e\u0441\u0442\u0443\u043f\u043d\u043e \u2014 \u043f\u043e\u043f\u043e\u043b\u043d\u0438 \u043f\u0430\u043a\u0435\u0442.")
-    text = "\n".join(text_parts) + footer
-    kb = upgrade_keyboard() if needs_upgrade else loop_keyboard(uname, str(user_id), "cv")
-    caption, full_text = _split_caption(text)
-
-    if gen_image_bytes:
-        try:
-            await bot.send_photo(
-                chat_id,
-                BufferedInputFile(gen_image_bytes, filename="ratemeai_cv.jpg"),
-                caption=caption,
-                parse_mode="Markdown",
-                reply_markup=None if full_text else kb,
-            )
-            if full_text:
-                await bot.send_message(chat_id, full_text, parse_mode="Markdown", reply_markup=kb)
-            return
-        except Exception:
-            logger.exception("send_photo from Redis bytes failed (cv)")
-
-    img = result.get("generated_image_url") or result.get("image_url")
-    if img:
-        if await _send_photo_safe(bot, chat_id, img, caption=caption, reply_markup=kb, full_text=full_text):
-            return
-
-    await bot.send_message(chat_id, text, parse_mode="Markdown", reply_markup=kb)
-
-
-async def _send_social(
-    bot: Bot, chat_id: int, result: dict, user_id: int, uname: str,
-    gen_image_bytes: bytes | None = None, needs_upgrade: bool = False, footer: str = "",
-):
-    first_impression = result.get("first_impression", "")
-    social_score = result.get("social_score", "\u2014")
-    strengths = result.get("strengths", [])
-    weaknesses = result.get("weaknesses", [])
-    style_name = result.get("style")
-
-    text_parts = ["\U0001f4f8 *\u0421\u0442\u0438\u043b\u044c \u0434\u043b\u044f \u0441\u043e\u0446\u0441\u0435\u0442\u0435\u0439*\n"]
-
-    if style_name:
-        style_labels = {"influencer": "Influencer", "luxury": "Luxury", "casual": "Casual", "artistic": "Artistic"}
-        text_parts.append(f"\u041e\u0431\u0440\u0430\u0437: {style_labels.get(style_name, style_name)}")
-
-    if first_impression:
-        text_parts.append(f"\u041f\u0435\u0440\u0432\u043e\u0435 \u0432\u043f\u0435\u0447\u0430\u0442\u043b\u0435\u043d\u0438\u0435: {first_impression[:200]}")
-
-    text_parts.append(f"\u041e\u0446\u0435\u043d\u043a\u0430 \u0434\u043b\u044f \u0441\u043e\u0446\u0441\u0435\u0442\u0435\u0439: *{social_score}/10*\n")
-
-    if strengths:
-        text_parts.append("\u2705 \u0421\u0438\u043b\u044c\u043d\u044b\u0435 \u0441\u0442\u043e\u0440\u043e\u043d\u044b:")
-        for s in strengths[:3]:
-            text_parts.append(f"  \u2022 {s}")
-
-    if weaknesses:
-        text_parts.append("\n\U0001f4a1 \u0427\u0442\u043e \u043c\u043e\u0436\u043d\u043e \u0443\u043b\u0443\u0447\u0448\u0438\u0442\u044c:")
-        for w in weaknesses[:2]:
-            text_parts.append(f"  \u2022 {w}")
-
-    delta = result.get("delta", {})
-    if delta.get("social_score"):
+                lines.append(f"{label}: {_format_delta_fractional(d['delta'])}")
+    elif mode == "social" and delta.get("social_score"):
         d = delta["social_score"]
-        sign = "+" if d["delta"] >= 0 else ""
-        text_parts.append(f"\n\U0001f4ca *\u0427\u0442\u043e \u0438\u0437\u043c\u0435\u043d\u0438\u043b\u043e\u0441\u044c:* {sign}{d['delta']} ({d['pre']} \u2192 {d['post']})")
-
-    if needs_upgrade:
-        text_parts.append("\n\U0001f512 \u0423\u043b\u0443\u0447\u0448\u0435\u043d\u0438\u0435 \u043e\u0431\u0440\u0430\u0437\u0430 \u043d\u0435\u0434\u043e\u0441\u0442\u0443\u043f\u043d\u043e \u2014 \u043f\u043e\u043f\u043e\u043b\u043d\u0438 \u043f\u0430\u043a\u0435\u0442.")
-    text = "\n".join(text_parts) + footer
-    kb = upgrade_keyboard() if needs_upgrade else loop_keyboard(uname, str(user_id), "social")
-    caption, full_text = _split_caption(text)
-
-    if gen_image_bytes:
-        try:
-            await bot.send_photo(
-                chat_id,
-                BufferedInputFile(gen_image_bytes, filename="ratemeai_social.jpg"),
-                caption=caption,
-                parse_mode="Markdown",
-                reply_markup=None if full_text else kb,
-            )
-            if full_text:
-                await bot.send_message(chat_id, full_text, parse_mode="Markdown", reply_markup=kb)
-            return
-        except Exception:
-            logger.exception("send_photo from Redis bytes failed (social)")
-
-    img = result.get("generated_image_url") or result.get("image_url")
-    if img:
-        if await _send_photo_safe(bot, chat_id, img, caption=caption, reply_markup=kb, full_text=full_text):
-            return
-
-    await bot.send_message(chat_id, text, parse_mode="Markdown", reply_markup=kb)
+        lines.append(f"Соцсети: {_format_delta_fractional(d['delta'])} ({d['pre']} \u2192 {d['post']})")
+    return "\n".join(lines)
 
 
 async def _send_emoji(
@@ -483,7 +374,7 @@ async def _send_emoji(
     base_desc = result.get("base_description", "")
     stickers = result.get("stickers", [])
 
-    text_parts = ["\U0001f600 *\u042d\u043c\u043e\u0434\u0437\u0438-\u043f\u0430\u043a*\n"]
+    text_parts = ["\U0001f600 *Эмодзи-пак*\n"]
     if base_desc:
         text_parts.append(f"{base_desc[:150]}\n")
 
@@ -499,7 +390,7 @@ async def _send_emoji(
             text_parts.append(f"{icon} {emotion}: {s.get('description', '')[:60]}")
 
     if needs_upgrade:
-        text_parts.append("\n\U0001f512 \u0423\u043b\u0443\u0447\u0448\u0435\u043d\u0438\u0435 \u043e\u0431\u0440\u0430\u0437\u0430 \u043d\u0435\u0434\u043e\u0441\u0442\u0443\u043f\u043d\u043e \u2014 \u043f\u043e\u043f\u043e\u043b\u043d\u0438 \u043f\u0430\u043a\u0435\u0442.")
+        text_parts.append("\n\U0001f512 Улучшение образа недоступно \u2014 пополни пакет.")
     text = "\n".join(text_parts) + footer
     kb = upgrade_keyboard() if needs_upgrade else action_keyboard(uname, str(user_id))
     caption, full_text = _split_caption(text)

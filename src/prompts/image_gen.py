@@ -152,13 +152,29 @@ STEP_TEMPLATES: dict[str, str] = {
 }
 
 
-def build_step_prompt(step_template: str, style: str, mode_styles: dict[str, str] | None = None) -> str:
+ENHANCEMENT_LEVEL_MODIFIERS: dict[int, str] = {
+    1: "Apply subtle, minimal changes. Focus only on lighting and skin tone. Strength: very light.",
+    2: "Apply moderate enhancement. Improve background and clothing while keeping natural look. Strength: medium.",
+    3: "Apply noticeable enhancement. Include expression refinement and styling. Strength: confident.",
+    4: "Apply full style transformation. Complete look overhaul with strong aesthetic. Strength: full.",
+}
+
+
+def build_step_prompt(
+    step_template: str,
+    style: str,
+    mode_styles: dict[str, str] | None = None,
+    enhancement_level: int = 0,
+) -> str:
     """Build a prompt for a single pipeline step, filling {description} from style dicts."""
     template = STEP_TEMPLATES.get(step_template, STEP_TEMPLATES.get("style_overall", ""))
     description = ""
     if mode_styles:
         description = mode_styles.get(style, next(iter(mode_styles.values()), ""))
-    return template.replace("{description}", description)
+    prompt = template.replace("{description}", description)
+    if enhancement_level and enhancement_level in ENHANCEMENT_LEVEL_MODIFIERS:
+        prompt += " " + ENHANCEMENT_LEVEL_MODIFIERS[enhancement_level]
+    return prompt
 
 
 def build_emoji_prompt(base_description: str = "") -> str:

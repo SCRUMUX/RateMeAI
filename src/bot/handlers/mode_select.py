@@ -13,10 +13,12 @@ from src.bot.keyboards import (
     dating_style_keyboard,
     cv_style_keyboard,
     social_style_keyboard,
+    enhancement_choice_keyboard,
     error_keyboard,
-    mode_selection_keyboard,
+    scenario_keyboard,
     back_keyboard,
 )
+from src.services.enhancement_advisor import build_enhancement_preview
 
 logger = logging.getLogger(__name__)
 router = Router()
@@ -24,11 +26,12 @@ router = Router()
 LAST_GEN_KEY = "ratemeai:last_gen:{}"
 _PROCESSING_LOCK = "ratemeai:processing:{}"
 _LOCK_TTL = 60
+DEPTH_KEY = "ratemeai:depth:{}:{}"
 
 
 @router.callback_query(F.data.startswith("pick_style:"))
 async def on_pick_style(callback: CallbackQuery, redis: Redis):
-    """Show style selection keyboard for dating/cv modes."""
+    """Show style selection keyboard for scenario."""
     kind = callback.data.split(":", 1)[1]
     file_id = await redis.get(PHOTO_KEY.format(callback.from_user.id))
     if not file_id:
@@ -36,18 +39,59 @@ async def on_pick_style(callback: CallbackQuery, redis: Redis):
         return
     await callback.answer()
     if kind == "dating":
-        await callback.message.answer("💕 Выбери образ:", reply_markup=dating_style_keyboard())
+        await callback.message.answer("\U0001f495 Выбери образ:", reply_markup=dating_style_keyboard())
     elif kind == "social":
-        await callback.message.answer("📸 Выбери образ:", reply_markup=social_style_keyboard())
+        await callback.message.answer("\U0001f4f8 Выбери образ:", reply_markup=social_style_keyboard())
     elif kind == "cv":
-        await callback.message.answer("💼 Выбери образ:", reply_markup=cv_style_keyboard())
+        await callback.message.answer("\U0001f4bc Выбери образ:", reply_markup=cv_style_keyboard())
     else:
-        await callback.message.answer("📸 Выбери направление:", reply_markup=mode_selection_keyboard())
+        await callback.message.answer("Выбери направление:", reply_markup=scenario_keyboard())
 
 
 @router.callback_query(F.data.startswith("style:"))
-async def on_style_selected(callback: CallbackQuery, api_base_url: str, redis: Redis):
-    """Handle style:dating:warm_outdoor → submit analysis with context."""
+async def on_style_selected(callback: CallbackQuery, redis: Redis):
+    """Show Enhancement Preview with predictions + 2 binary options."""
+    parts = callback.data.split(":")
+    mode = parts[1]
+    style = parts[2] if len(parts) > 2 else ""
+    user_id = callback.from_user.id
+
+    file_id = await redis.get(PHOTO_KEY.format(user_id))
+    if not file_id:
+        await callback.answer("Сначала отправь фото!", show_alert=True)
+        return
+    await callback.answer()
+
+    depth = await _get_depth(redis, user_id, mode)
+
+    preview = build_enhancement_preview(
+        mode=mode,
+        analysis_result={},
+        user_id=user_id,
+        depth=depth,
+        current_style=style,
+    )
+
+    text = (
+        "\u2728 *Давай усилим образ*\n\n"
+        "Можно улучшить через:\n"
+        f"{preview.suggestions_text}\n\n"
+        "Выбери направление:"
+    )
+
+    kb = enhancement_choice_keyboard(
+        option_a_label=preview.option_a.label,
+        option_a_data=f"enhance:{mode}:{preview.option_a.key}",
+        option_b_label=preview.option_b.label,
+        option_b_data=f"enhance:{mode}:{preview.option_b.key}",
+    )
+
+    await callback.message.answer(text, parse_mode="Markdown", reply_markup=kb)
+
+
+@router.callback_query(F.data.startswith("enhance:"))
+async def on_enhancement_choice(callback: CallbackQuery, api_base_url: str, redis: Redis):
+    """User picked a binary option — run the full pipeline."""
     parts = callback.data.split(":")
     mode = parts[1]
     style = parts[2] if len(parts) > 2 else ""
@@ -56,13 +100,14 @@ async def on_style_selected(callback: CallbackQuery, api_base_url: str, redis: R
 
 @router.callback_query(F.data.startswith("mode:"))
 async def on_mode_selected(callback: CallbackQuery, api_base_url: str, redis: Redis):
+    """Legacy: direct mode selection (for /rating command flow)."""
     mode = callback.data.split(":", 1)[1]
     await _submit_analysis(callback, api_base_url, redis, mode, "")
 
 
 @router.callback_query(F.data.startswith("action:"))
-async def on_action(callback: CallbackQuery, api_base_url: str, redis: Redis):
-    """Reuse stored photo for a different mode (no re-upload)."""
+async def on_action(callback: CallbackQuery, redis: Redis):
+    """Reuse stored photo for a different scenario."""
     mode = callback.data.split(":", 1)[1]
     file_id = await redis.get(PHOTO_KEY.format(callback.from_user.id))
     if not file_id:
@@ -70,13 +115,13 @@ async def on_action(callback: CallbackQuery, api_base_url: str, redis: Redis):
         return
     await callback.answer()
     if mode == "dating":
-        await callback.message.answer("💕 Выбери образ:", reply_markup=dating_style_keyboard())
+        await callback.message.answer("\U0001f495 Выбери образ:", reply_markup=dating_style_keyboard())
     elif mode == "cv":
-        await callback.message.answer("💼 Выбери образ:", reply_markup=cv_style_keyboard())
+        await callback.message.answer("\U0001f4bc Выбери образ:", reply_markup=cv_style_keyboard())
     elif mode == "social":
-        await callback.message.answer("📸 Выбери образ:", reply_markup=social_style_keyboard())
+        await callback.message.answer("\U0001f4f8 Выбери образ:", reply_markup=social_style_keyboard())
     else:
-        await _submit_analysis(callback, api_base_url, redis, mode, "")
+        await callback.message.answer("Выбери направление:", reply_markup=scenario_keyboard())
 
 
 @router.callback_query(F.data.startswith("loop:"))
@@ -102,18 +147,18 @@ async def on_restyle(callback: CallbackQuery, redis: Redis):
         return
     await callback.answer()
     if mode == "dating":
-        await callback.message.answer("💕 Выбери образ:", reply_markup=dating_style_keyboard())
+        await callback.message.answer("\U0001f495 Выбери образ:", reply_markup=dating_style_keyboard())
     elif mode == "cv":
-        await callback.message.answer("💼 Выбери образ:", reply_markup=cv_style_keyboard())
+        await callback.message.answer("\U0001f4bc Выбери образ:", reply_markup=cv_style_keyboard())
     elif mode == "social":
-        await callback.message.answer("📸 Выбери образ:", reply_markup=social_style_keyboard())
+        await callback.message.answer("\U0001f4f8 Выбери образ:", reply_markup=social_style_keyboard())
     else:
-        await callback.message.answer("📸 Выбери направление:", reply_markup=mode_selection_keyboard())
+        await callback.message.answer("Выбери направление:", reply_markup=scenario_keyboard())
 
 
 @router.callback_query(F.data == "retry")
 async def on_retry(callback: CallbackQuery, api_base_url: str, redis: Redis):
-    """Retry last generation using stored last_gen context."""
+    """Retry last generation using stored context."""
     user_id = callback.from_user.id
     file_id = await redis.get(PHOTO_KEY.format(user_id))
     if not file_id:
@@ -124,7 +169,7 @@ async def on_retry(callback: CallbackQuery, api_base_url: str, redis: Redis):
         mode, style = last.split(":", 1)
     else:
         await callback.answer()
-        await callback.message.answer("📸 Выбери режим:", reply_markup=mode_selection_keyboard())
+        await callback.message.answer("Выбери направление:", reply_markup=scenario_keyboard())
         return
     await _submit_analysis(callback, api_base_url, redis, mode, style)
 
@@ -141,13 +186,20 @@ async def _submit_analysis(callback: CallbackQuery, api_base_url: str, redis: Re
     lock_key = _PROCESSING_LOCK.format(user_id)
     acquired = await redis.set(lock_key, "1", ex=_LOCK_TTL, nx=True)
     if not acquired:
-        await callback.answer("⏳ Предыдущий запрос ещё обрабатывается...", show_alert=True)
+        await callback.answer("\u23f3 Предыдущий запрос ещё обрабатывается...", show_alert=True)
         return
 
     await callback.answer()
-    status_msg = await callback.message.answer("⏳ Подбираю лучший образ для тебя... Это может занять до минуты.")
+
+    depth = await _get_depth(redis, user_id, mode)
+    if depth > 1:
+        status_text = f"\u23f3 Усиливаю образ (уровень {depth})\u2026 Это может занять до минуты."
+    else:
+        status_text = "\u23f3 Улучшаю твой образ\u2026 Это может занять до минуты."
+    status_msg = await callback.message.answer(status_text)
 
     await redis.set(LAST_GEN_KEY.format(user_id), f"{mode}:{style}", ex=86400)
+    await _increment_depth(redis, user_id, mode)
 
     try:
         file = await bot.get_file(file_id)
@@ -156,7 +208,10 @@ async def _submit_analysis(callback: CallbackQuery, api_base_url: str, redis: Re
         file_bytes.seek(0)
         image_data = file_bytes.read()
 
-        form_data = {"mode": mode}
+        from src.orchestrator.enhancement_matrix import level_for_depth
+        enh_level = level_for_depth(depth).level
+
+        form_data = {"mode": mode, "enhancement_level": str(enh_level)}
         if style:
             form_data["style"] = style
 
@@ -186,18 +241,18 @@ async def _submit_analysis(callback: CallbackQuery, api_base_url: str, redis: Re
         elif resp.status_code == 429:
             await redis.delete(lock_key)
             await status_msg.edit_text(
-                "⚠️ Дневной лимит исчерпан. Попробуй завтра!",
+                "\u26a0\ufe0f Дневной лимит исчерпан. Попробуй завтра!",
                 reply_markup=error_keyboard(),
             )
         else:
             await redis.delete(lock_key)
             detail = resp.json().get("detail", "Unknown error")
-            await status_msg.edit_text(f"❌ Ошибка: {detail}", reply_markup=error_keyboard())
+            await status_msg.edit_text(f"\u274c Ошибка: {detail}", reply_markup=error_keyboard())
 
     except Exception:
         await redis.delete(lock_key)
         logger.exception("Failed to submit analysis for user %s", user_id)
-        await status_msg.edit_text("❌ Произошла ошибка. Попробуй позже.", reply_markup=error_keyboard())
+        await status_msg.edit_text("\u274c Произошла ошибка. Попробуй позже.", reply_markup=error_keyboard())
 
 
 @router.callback_query(F.data.startswith("buy:"))
@@ -213,24 +268,24 @@ async def on_buy(callback: CallbackQuery):
         return
 
     await callback.answer()
-    wait_msg = await callback.message.answer("💳 Создаю платёж...")
+    wait_msg = await callback.message.answer("\U0001f4b3 Создаю платёж...")
 
     result = await create_payment(callback.from_user.id, pack_qty)
     if result is None:
         await wait_msg.edit_text(
-            "❌ Не удалось создать платёж. Попробуй позже.",
+            "\u274c Не удалось создать платёж. Попробуй позже.",
             reply_markup=error_keyboard(),
         )
         return
 
     _payment_id, confirmation_url = result
     kb = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text=f"💳 Оплатить {pack.price_rub} ₽", url=confirmation_url)],
-        [InlineKeyboardButton(text="💰 Проверить баланс", callback_data="balance")],
-        [InlineKeyboardButton(text="📸 Новое фото", callback_data="new_photo")],
+        [InlineKeyboardButton(text=f"\U0001f4b3 Оплатить {pack.price_rub} \u20bd", url=confirmation_url)],
+        [InlineKeyboardButton(text="\U0001f4b0 Проверить баланс", callback_data="balance")],
+        [InlineKeyboardButton(text="\U0001f4f8 Новое фото", callback_data="new_photo")],
     ])
     await wait_msg.edit_text(
-        f"🛒 *Пакет: {pack.quantity} образов за {pack.price_rub} ₽*\n\n"
+        f"\U0001f6d2 *Пакет: {pack.quantity} образов за {pack.price_rub} \u20bd*\n\n"
         f"Нажми кнопку ниже для оплаты.\n"
         f"После оплаты образы зачислятся автоматически!",
         parse_mode="Markdown",
@@ -253,7 +308,7 @@ async def on_balance(callback: CallbackQuery, api_base_url: str):
             data = resp.json()
             credits = data.get("image_credits", 0)
             text = (
-                f"💰 *Твой баланс*\n\n"
+                f"\U0001f4b0 *Твой баланс*\n\n"
                 f"Доступно образов: *{credits}*\n\n"
             )
             if credits == 0:
@@ -261,20 +316,41 @@ async def on_balance(callback: CallbackQuery, api_base_url: str):
                 from src.bot.keyboards import upgrade_keyboard
                 await callback.message.answer(text, parse_mode="Markdown", reply_markup=upgrade_keyboard())
             else:
-                text += "Отправь фото для примерки образа!"
+                text += "Отправь фото для улучшения образа!"
                 await callback.message.answer(text, parse_mode="Markdown", reply_markup=back_keyboard())
         else:
-            await callback.message.answer("❌ Не удалось получить баланс.", reply_markup=error_keyboard())
+            await callback.message.answer("\u274c Не удалось получить баланс.", reply_markup=error_keyboard())
     except Exception:
         logger.exception("Failed to fetch balance for user %s", user_id)
-        await callback.message.answer("❌ Ошибка. Попробуй позже.", reply_markup=error_keyboard())
+        await callback.message.answer("\u274c Ошибка. Попробуй позже.", reply_markup=error_keyboard())
 
 
 @router.callback_query(F.data == "new_photo")
 async def on_new_photo(callback: CallbackQuery):
     await callback.answer()
-    await callback.message.answer("📸 Отправь мне новое фото!", reply_markup=back_keyboard())
+    await callback.message.answer("\U0001f4f8 Отправь мне новое фото!", reply_markup=back_keyboard())
 
+
+# ------------------------------------------------------------------
+# Depth tracking
+# ------------------------------------------------------------------
+
+async def _get_depth(redis: Redis, user_id: int, mode: str) -> int:
+    key = DEPTH_KEY.format(user_id, mode)
+    val = await redis.get(key)
+    return int(val) if val else 1
+
+
+async def _increment_depth(redis: Redis, user_id: int, mode: str) -> int:
+    key = DEPTH_KEY.format(user_id, mode)
+    new_val = await redis.incr(key)
+    await redis.expire(key, 86400)
+    return new_val
+
+
+# ------------------------------------------------------------------
+# Progress streaming
+# ------------------------------------------------------------------
 
 async def _update_progress(bot, chat_id: int, status_msg_id: int, data_str: str):
     """Update the status message with step progress."""
@@ -286,8 +362,8 @@ async def _update_progress(bot, chat_id: int, status_msg_id: int, data_str: str)
 
         step_name = step_raw.split("_", 2)[-1] if step_raw.startswith("step_") else step_raw
         label = _STEP_LABELS.get(step_name, f"Шаг {current}...")
-        bar = "▓" * current + "░" * (total - current)
-        text = f"⏳ {label}\n[{bar}] {current}/{total}"
+        bar = "\u2593" * current + "\u2591" * (total - current)
+        text = f"\u23f3 {label}\n[{bar}] {current}/{total}"
 
         await bot.edit_message_text(text, chat_id=chat_id, message_id=status_msg_id)
     except Exception:
@@ -295,14 +371,21 @@ async def _update_progress(bot, chat_id: int, status_msg_id: int, data_str: str)
 
 
 _STEP_LABELS: dict[str, str] = {
-    "background_edit": "Работаю над фоном...",
-    "lighting_adjust": "Настраиваю освещение...",
-    "clothing_edit": "Подбираю стиль одежды...",
-    "expression_hint": "Финальные штрихи...",
-    "skin_correction": "Финальная коррекция...",
-    "style_overall": "Подбираю стиль...",
+    "background_edit": "Работаю над окружением\u2026",
+    "lighting_adjust": "Улучшаю освещение\u2026",
+    "clothing_edit": "Подбираю стиль одежды\u2026",
+    "expression_hint": "Работаю с выражением\u2026",
+    "skin_correction": "Сохраняю идентичность\u2026",
+    "style_overall": "Финализация образа\u2026",
+    "preprocess": "Анализ черт лица\u2026",
+    "analyze": "Подбираю улучшения\u2026",
+    "identity": "Сохраняю идентичность\u2026",
 }
 
+
+# ------------------------------------------------------------------
+# Task polling
+# ------------------------------------------------------------------
 
 async def _poll_task(bot, api_base_url: str, user_id: int, task_id: str, chat_id: int, status_msg_id: int, redis: Redis):
     """Wait for task via Redis Pub/Sub, with HTTP polling fallback."""
@@ -367,7 +450,7 @@ async def _poll_task(bot, api_base_url: str, user_id: int, task_id: str, chat_id
                     await redis.delete(lock_key)
                     error = data.get("error_message", "Неизвестная ошибка")
                     await bot.edit_message_text(
-                        f"❌ Анализ не удался: {error}",
+                        f"\u274c Не удалось обработать фото. Попробуй загрузить другое фото.",
                         chat_id=chat_id,
                         message_id=status_msg_id,
                         reply_markup=error_keyboard(),
@@ -382,7 +465,7 @@ async def _poll_task(bot, api_base_url: str, user_id: int, task_id: str, chat_id
 
         await redis.delete(lock_key)
         await bot.edit_message_text(
-            "⏰ Анализ занимает слишком долго. Попробуй позже.",
+            "\u23f0 Обработка занимает слишком долго. Попробуй позже.",
             chat_id=chat_id,
             message_id=status_msg_id,
             reply_markup=error_keyboard(),

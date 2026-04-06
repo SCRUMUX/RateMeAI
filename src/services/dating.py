@@ -30,6 +30,7 @@ class DatingService:
             first_impression=raw.get("first_impression", ""),
             dating_score=float(raw.get("dating_score", 5)),
             strengths=raw.get("strengths", []),
-            weaknesses=raw.get("weaknesses", []),
+            weaknesses=raw.get("weaknesses", raw.get("enhancement_opportunities", [])),
+            enhancement_opportunities=raw.get("enhancement_opportunities", raw.get("weaknesses", [])),
             variants=raw.get("variants", []),
         )

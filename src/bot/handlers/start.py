@@ -6,27 +6,27 @@ from aiogram import Router
 from aiogram.filters import CommandStart, Command
 from aiogram.types import Message
 import httpx
+from redis.asyncio import Redis
 
 from src.bot.keyboards import back_keyboard, upgrade_keyboard
 
 router = Router()
 logger = logging.getLogger(__name__)
 
-WELCOME_TEXT = """👋 Привет! Я *RateMe AI* — твой AI-стилист.
+WELCOME_TEXT = """\u2728 *RateMe AI* \u2014 твой персональный AI-стилист.
 
-Покажу, как тебя воспринимают, и помогу усилить образ для разных жизненных ситуаций.
+Теперь мощь и опыт лучших стилистов мира \u2014 в твоём телефоне.
+Давай усилим твой образ для разных жизненных ситуаций:
 
-Что я умею:
-⭐ *Анализ восприятия* — как тебя видят окружающие
-💕 *Стиль для знакомств* — образы для дейтинга
-💼 *Карьерный стиль* — профессиональный образ
-📸 *Стиль для соцсетей* — образы для Instagram и соцсетей
+\U0001f495 *Знакомства* \u2014 образы для дейтинга
+\U0001f4bc *Карьера* \u2014 профессиональный образ
+\U0001f4f8 *Соцсети* \u2014 образы для Instagram и соцсетей
 
 *Отправь мне фото* и выбери направление!
 
-💰 /balance — проверить баланс образов"""
+\U0001f4b0 /balance \u2014 проверить баланс образов"""
 
-REFERRAL_TEXT = """🎁 Тебя пригласил друг! Отправь фото и узнай, как тебя воспринимают."""
+REFERRAL_TEXT = """\U0001f381 Тебя пригласил друг! Отправь фото и я подберу лучший образ для тебя."""
 
 
 @router.message(CommandStart())
@@ -50,7 +50,19 @@ async def cmd_start(message: Message, api_base_url: str):
 async def cmd_emoji(message: Message):
     """Access emoji mode via /emoji command."""
     await message.answer(
-        "😀 *Эмодзи-пак*\n\nОтправь мне фото, а затем выбери 😀 Эмодзи в меню после результата.",
+        "\U0001f600 *Эмодзи-пак*\n\nОтправь мне фото, а затем выбери \U0001f600 Эмодзи через /emoji после результата.",
+        parse_mode="Markdown",
+        reply_markup=back_keyboard(),
+    )
+
+
+@router.message(Command("rating"))
+async def cmd_rating(message: Message, redis: Redis):
+    """Hidden rating mode for advanced users."""
+    user_id = message.from_user.id
+    await redis.set(f"ratemeai:rating_mode:{user_id}", "1", ex=300)
+    await message.answer(
+        "\u2b50 *Рейтинг*\n\nОтправь мне фото, чтобы узнать свой рейтинг восприятия.",
         parse_mode="Markdown",
         reply_markup=back_keyboard(),
     )
@@ -67,18 +79,18 @@ async def cmd_balance(message: Message, api_base_url: str):
             )
         if resp.status_code == 200:
             credits = resp.json().get("image_credits", 0)
-            text = f"💰 *Твой баланс: {credits} образов*\n\n"
+            text = f"\U0001f4b0 *Твой баланс: {credits} образов*\n\n"
             if credits == 0:
                 text += "Открой новые образы и стили!"
                 await message.answer(text, parse_mode="Markdown", reply_markup=upgrade_keyboard())
             else:
-                text += "Отправь фото для примерки образа!"
+                text += "Отправь фото для улучшения образа!"
                 await message.answer(text, parse_mode="Markdown", reply_markup=back_keyboard())
         else:
-            await message.answer("❌ Не удалось получить баланс.", reply_markup=back_keyboard())
+            await message.answer("\u274c Не удалось получить баланс.", reply_markup=back_keyboard())
     except Exception:
         logger.exception("Failed to fetch balance for user %s", user_id)
-        await message.answer("❌ Ошибка. Попробуй позже.", reply_markup=back_keyboard())
+        await message.answer("\u274c Ошибка. Попробуй позже.", reply_markup=back_keyboard())
 
 
 async def _get_balance_line(api_base_url: str, user_id: int) -> str:
@@ -90,7 +102,7 @@ async def _get_balance_line(api_base_url: str, user_id: int) -> str:
             )
         if resp.status_code == 200:
             credits = resp.json().get("image_credits", 0)
-            return f"💰 Баланс: *{credits} образов*"
+            return f"\U0001f4b0 Баланс: *{credits} образов*"
     except Exception:
         logger.debug("Could not fetch balance for start message, user=%s", user_id)
     return ""

@@ -38,6 +38,7 @@ async def create_analysis(
     mode: AnalysisMode = Form(AnalysisMode.RATING),
     style: str = Form(""),
     profession: str = Form(""),
+    enhancement_level: int = Form(0),
     user: User = Depends(check_rate_limit),
     db: AsyncSession = Depends(get_db),
     redis: Redis = Depends(get_redis),
@@ -59,6 +60,8 @@ async def create_analysis(
         ctx["style"] = style.strip()
     if profession.strip():
         ctx["profession"] = profession.strip()
+    if enhancement_level > 0:
+        ctx["enhancement_level"] = enhancement_level
 
     task = Task(
         user_id=user.id,
