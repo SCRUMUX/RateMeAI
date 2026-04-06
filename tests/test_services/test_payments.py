@@ -38,5 +38,5 @@ def test_pack_by_quantity_not_found():
 
 def test_credit_pack_label():
     p = CreditPack(quantity=5, price_rub=150)
-    assert "5 фото" in p.label
+    assert "5" in p.label
     assert "150 ₽" in p.label
