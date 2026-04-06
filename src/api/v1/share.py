@@ -47,10 +47,13 @@ async def create_share(
         caption = f"Мой рейтинг: {score}/10 — узнай свой → @{u}"
     elif mode == AnalysisMode.DATING:
         score = res.get("dating_score", "?")
-        caption = f"Мой дейтинг-скор: {score}/10 — попробуй → @{u}"
+        caption = f"Стиль для знакомств: {score}/10 — попробуй → @{u}"
     elif mode == AnalysisMode.CV:
         hire = res.get("hireability", "?")
-        caption = f"Мой профиль: hireability {hire}/10 — оцени своё фото → @{u}"
+        caption = f"Карьерный стиль: {hire}/10 — оцени своё фото → @{u}"
+    elif mode == AnalysisMode.SOCIAL:
+        score = res.get("social_score", "?")
+        caption = f"Стиль для соцсетей: {score}/10 — попробуй → @{u}"
     else:
         caption = f"Мой эмодзи-пак — попробуй → @{u}"
 

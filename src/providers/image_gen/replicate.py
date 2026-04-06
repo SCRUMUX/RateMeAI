@@ -50,9 +50,19 @@ class ReplicateImageGen(ImageGenProvider):
             await self._storage.upload(key, reference_image)
             image_url = await self._storage.get_url(key)
 
+        mask_url = None
+        mask_bytes = params.pop("mask_image", None) if params else None
+        params.pop("mask_region", None) if params else None
+        if mask_bytes and isinstance(mask_bytes, bytes):
+            mkey = f"temp/replicate/{uuid.uuid4()}_mask.png"
+            await self._storage.upload(mkey, mask_bytes)
+            mask_url = await self._storage.get_url(mkey)
+
         inp: dict = {"prompt": prompt}
         if image_url:
             inp["image"] = image_url
+        if mask_url:
+            inp["mask"] = mask_url
         if params:
             inp.update(params)
 

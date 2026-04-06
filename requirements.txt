@@ -16,5 +16,6 @@ tenacity==9.0.0
 yookassa==3.4.0
 reve[all]==0.1.2
 aioboto3==13.4.0
-pytest==8.3.4
-pytest-asyncio==0.25.0
+insightface>=0.7.3,<1.0
+onnxruntime>=1.17.0,<2.0
+mediapipe>=0.10.0,<1.0

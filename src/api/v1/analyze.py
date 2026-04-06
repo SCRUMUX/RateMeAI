@@ -6,6 +6,7 @@ import uuid
 
 from arq.connections import ArqRedis, create_pool, RedisSettings
 from fastapi import APIRouter, Depends, UploadFile, File, Form, HTTPException
+from fastapi.responses import JSONResponse
 from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -36,6 +37,7 @@ async def create_analysis(
     image: UploadFile = File(...),
     mode: AnalysisMode = Form(AnalysisMode.RATING),
     style: str = Form(""),
+    profession: str = Form(""),
     user: User = Depends(check_rate_limit),
     db: AsyncSession = Depends(get_db),
     redis: Redis = Depends(get_redis),
@@ -52,11 +54,18 @@ async def create_analysis(
     image_key = f"inputs/{user.id}/{uuid.uuid4()}.jpg"
     await storage.upload(image_key, image_bytes)
 
+    ctx: dict = {}
+    if style.strip():
+        ctx["style"] = style.strip()
+    if profession.strip():
+        ctx["profession"] = profession.strip()
+
     task = Task(
         user_id=user.id,
         mode=mode.value,
         status=TaskStatus.PENDING.value,
         input_image_path=image_key,
+        context=ctx or None,
     )
     db.add(task)
 
@@ -83,4 +92,15 @@ async def create_analysis(
     arq = await _get_arq()
     await arq.enqueue_job("process_analysis", str(task.id))
 
-    return TaskCreated(task_id=task.id)
+    rl = getattr(user, "_rate_limit_info", None)
+    headers = {}
+    if rl:
+        headers["X-RateLimit-Limit"] = str(rl["limit"])
+        headers["X-RateLimit-Remaining"] = str(rl["remaining"])
+
+    body = TaskCreated(task_id=task.id, status=TaskStatus.PENDING, estimated_seconds=15)
+    return JSONResponse(
+        content=body.model_dump(mode="json"),
+        status_code=202,
+        headers=headers,
+    )

@@ -60,6 +60,31 @@ class Settings(BaseSettings):
     admin_secret: str = ""
     api_key_pepper: str = ""
 
+    # Identity gate (face similarity threshold for generated images)
+    identity_threshold: float = 0.85
+    identity_max_retries: int = 2
+
+    # Multi-pass pipeline / segmentation
+    segmentation_enabled: bool = True
+    pipeline_budget_max_usd: float = 0.15
+
+    # Quality gates
+    aesthetic_threshold: float = 6.0
+    artifact_threshold: float = 0.05
+    photorealism_enabled: bool = True
+    photorealism_threshold: float = 0.5
+
+    # Model cost estimates (USD per call)
+    model_cost_reve: float = 0.02
+    model_cost_replicate: float = 0.05
+
+    # Replicate inpainting model (FLUX-inpaint or similar)
+    replicate_inpaint_model_version: str = ""
+
+    # Scoring reproducibility
+    scoring_temperature: float = 0.0
+    scoring_consensus_samples: int = 1
+
     # Rate Limits
     rate_limit_daily: int = 3
     # Telegram @username без лимита (через запятую, без @): RATE_LIMIT_EXEMPT_USERNAMES=scrumux

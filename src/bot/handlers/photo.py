@@ -22,7 +22,10 @@ async def handle_photo(message: Message, redis: Redis):
     await redis.set(PHOTO_KEY.format(user_id), photo.file_id, ex=86400)
 
     await message.answer(
-        "📸 Отличное фото! Выбери, что хочешь узнать:",
+        "Я — твой AI-стилист.\n\n"
+        "Сейчас я проанализирую, как тебя воспринимают, "
+        "и предложу образы для разных ситуаций.\n\n"
+        "Выбери направление:",
         reply_markup=mode_selection_keyboard(),
     )
 
@@ -33,8 +36,15 @@ async def handle_document(message: Message, redis: Redis):
     if content_type.startswith("image/"):
         await redis.set(PHOTO_KEY.format(message.from_user.id), message.document.file_id, ex=86400)
         await message.answer(
-            "📸 Фото получено! Выбери режим:",
+            "Я — твой AI-стилист.\n\n"
+            "Сейчас я проанализирую, как тебя воспринимают, "
+            "и предложу образы для разных ситуаций.\n\n"
+            "Выбери направление:",
             reply_markup=mode_selection_keyboard(),
         )
     else:
-        await message.answer("Пожалуйста, отправь фотографию (изображение).")
+        from src.bot.keyboards import back_keyboard
+        await message.answer(
+            "Пожалуйста, отправь фотографию (изображение).",
+            reply_markup=back_keyboard(),
+        )

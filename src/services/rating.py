@@ -4,6 +4,7 @@ import logging
 
 from pydantic import ValidationError
 
+from src.config import settings
 from src.providers.base import LLMProvider
 from src.prompts.engine import PromptEngine
 from src.models.enums import AnalysisMode
@@ -18,8 +19,14 @@ class RatingService:
         self._prompt_engine = prompt_engine
 
     async def analyze(self, image_bytes: bytes) -> RatingResult:
+        from src.utils.consensus import consensus_analyze
+
         prompt = self._prompt_engine.build(AnalysisMode.RATING)
-        raw = await self._llm.analyze_image(image_bytes, prompt)
+        raw = await consensus_analyze(
+            self._llm, image_bytes, prompt,
+            temperature=settings.scoring_temperature,
+            n=settings.scoring_consensus_samples,
+        )
 
         try:
             result = RatingResult.model_validate(raw)
@@ -48,5 +55,5 @@ class RatingService:
                 "emotional_expression": str(perception.get("emotional_expression", "нейтральное")),
             },
             insights=raw.get("insights", ["Анализ не удалось полностью распарсить"]),
-            recommendations=raw.get("recommendations", ["Попробуйте загрузить фото с лучшим освещением"]),
+            recommendations=raw.get("recommendations", ["Попробуй загрузить фото с лучшим освещением"]),
         )

@@ -24,7 +24,9 @@ class OpenRouterLLM(LLMProvider):
         wait=wait_exponential(multiplier=1, min=2, max=10),
         retry=retry_if_exception_type((httpx.HTTPStatusError, httpx.ConnectError)),
     )
-    async def analyze_image(self, image_bytes: bytes, prompt: str) -> dict:
+    async def analyze_image(
+        self, image_bytes: bytes, prompt: str, *, temperature: float = 0.7,
+    ) -> dict:
         b64 = base64.b64encode(image_bytes).decode()
         data_url = f"data:image/jpeg;base64,{b64}"
 
@@ -40,7 +42,7 @@ class OpenRouterLLM(LLMProvider):
                 }
             ],
             "response_format": {"type": "json_object"},
-            "temperature": 0.7,
+            "temperature": temperature,
             "max_tokens": 2000,
         }
 

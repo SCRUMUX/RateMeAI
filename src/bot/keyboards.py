@@ -7,11 +7,11 @@ def mode_selection_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(inline_keyboard=[
         [
             InlineKeyboardButton(text="⭐ Рейтинг", callback_data=f"mode:{AnalysisMode.RATING.value}"),
-            InlineKeyboardButton(text="💕 Дейтинг", callback_data="pick_style:dating"),
+            InlineKeyboardButton(text="💕 Стиль для знакомств", callback_data="pick_style:dating"),
         ],
         [
-            InlineKeyboardButton(text="💼 Резюме/CV", callback_data="pick_style:cv"),
-            InlineKeyboardButton(text="😀 Эмодзи-пак", callback_data=f"mode:{AnalysisMode.EMOJI.value}"),
+            InlineKeyboardButton(text="💼 Карьерный стиль", callback_data="pick_style:cv"),
+            InlineKeyboardButton(text="📸 Стиль для соцсетей", callback_data="pick_style:social"),
         ],
     ])
 
@@ -32,19 +32,31 @@ def cv_style_keyboard() -> InlineKeyboardMarkup:
     ])
 
 
+def social_style_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="🌟 Influencer", callback_data="style:social:influencer")],
+        [InlineKeyboardButton(text="💎 Luxury", callback_data="style:social:luxury")],
+        [InlineKeyboardButton(text="☀️ Casual lifestyle", callback_data="style:social:casual")],
+        [InlineKeyboardButton(text="🎨 Artistic", callback_data="style:social:artistic")],
+    ])
+
+
 def action_keyboard(bot_username: str, user_id: str) -> InlineKeyboardMarkup:
     """Post-result keyboard: mode switching + share + new photo."""
     deep_link = f"https://t.me/{bot_username}?start=ref_{user_id}"
     return InlineKeyboardMarkup(inline_keyboard=[
         [
-            InlineKeyboardButton(text="💕 Дейтинг-фото", callback_data="action:dating"),
-            InlineKeyboardButton(text="💼 CV-фото", callback_data="action:cv"),
+            InlineKeyboardButton(text="💕 Образ для знакомств", callback_data="action:dating"),
+            InlineKeyboardButton(text="💼 Профессиональный образ", callback_data="action:cv"),
+        ],
+        [
+            InlineKeyboardButton(text="📸 Образ для соцсетей", callback_data="action:social"),
+            InlineKeyboardButton(text="⭐ Рейтинг", callback_data="action:rating"),
         ],
         [
             InlineKeyboardButton(text="😀 Эмодзи", callback_data="action:emoji"),
-            InlineKeyboardButton(text="⭐ Рейтинг", callback_data="action:rating"),
+            InlineKeyboardButton(text="📤 Поделиться", switch_inline_query=deep_link),
         ],
-        [InlineKeyboardButton(text="📤 Поделиться", switch_inline_query=deep_link)],
         [InlineKeyboardButton(text="📸 Новое фото", callback_data="new_photo")],
     ])
 
@@ -55,21 +67,30 @@ def loop_keyboard(bot_username: str, user_id: str, current_mode: str) -> InlineK
     rows = []
     if current_mode == "dating":
         rows.append([
-            InlineKeyboardButton(text="🔥 Привлекательнее", callback_data="loop:dating:charismatic"),
-            InlineKeyboardButton(text="🎨 Другой стиль", callback_data="restyle:dating"),
+            InlineKeyboardButton(text="🔥 Более уверенный образ", callback_data="loop:dating:charismatic"),
+            InlineKeyboardButton(text="🎨 Другой образ", callback_data="restyle:dating"),
         ])
     elif current_mode == "cv":
         rows.append([
             InlineKeyboardButton(text="💼 Профессиональнее", callback_data="loop:cv:corporate"),
-            InlineKeyboardButton(text="🎨 Другой стиль", callback_data="restyle:cv"),
+            InlineKeyboardButton(text="🎨 Другой образ", callback_data="restyle:cv"),
+        ])
+    elif current_mode == "social":
+        rows.append([
+            InlineKeyboardButton(text="🌟 Ярче", callback_data="loop:social:influencer"),
+            InlineKeyboardButton(text="🎨 Другой образ", callback_data="restyle:social"),
         ])
     rows.extend([
         [
-            InlineKeyboardButton(text="💕 Дейтинг", callback_data="action:dating"),
-            InlineKeyboardButton(text="💼 CV", callback_data="action:cv"),
-            InlineKeyboardButton(text="😀 Эмодзи", callback_data="action:emoji"),
+            InlineKeyboardButton(text="💕 Знакомства", callback_data="action:dating"),
+            InlineKeyboardButton(text="💼 Карьера", callback_data="action:cv"),
+            InlineKeyboardButton(text="📸 Соцсети", callback_data="action:social"),
         ],
-        [InlineKeyboardButton(text="📤 Поделиться", switch_inline_query=deep_link)],
+        [
+            InlineKeyboardButton(text="⭐ Рейтинг", callback_data="action:rating"),
+            InlineKeyboardButton(text="😀 Эмодзи", callback_data="action:emoji"),
+            InlineKeyboardButton(text="📤 Поделиться", switch_inline_query=deep_link),
+        ],
         [InlineKeyboardButton(text="📸 Новое фото", callback_data="new_photo")],
     ])
     return InlineKeyboardMarkup(inline_keyboard=rows)

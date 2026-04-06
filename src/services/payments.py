@@ -20,7 +20,7 @@ class CreditPack:
 
     @property
     def label(self) -> str:
-        return f"{self.quantity} фото — {self.price_rub} ₽"
+        return f"{self.quantity} образов — {self.price_rub} ₽"
 
 
 def get_credit_packs() -> list[CreditPack]:
@@ -74,7 +74,7 @@ async def create_payment(telegram_id: int, pack_qty: int) -> tuple[str, str] | N
             "return_url": return_url,
         },
         "capture": True,
-        "description": f"RateMeAI: {pack.quantity} фото-генераций",
+        "description": f"RateMeAI: {pack.quantity} улучшений образа",
         "metadata": {
             "telegram_id": str(telegram_id),
             "pack_qty": str(pack.quantity),

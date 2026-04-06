@@ -54,3 +54,6 @@ class UserRegistrationMiddleware(BaseMiddleware):
 
         data["api_base_url"] = self._api_base_url
         return await handler(event, data)
+
+    async def close(self) -> None:
+        await self._client.aclose()

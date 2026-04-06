@@ -147,6 +147,71 @@ async def _get_credit_balance(user_id: int) -> int | None:
     return None
 
 
+_MODE_SUGGESTIONS: dict[str, list[str]] = {
+    "dating": [
+        "Попробуй образ *Студия / элегант* — он часто даёт +1-2 к привлекательности!",
+        "Хочешь ещё больше? Попробуй стиль *Кафе / бар* для непринуждённого образа.",
+    ],
+    "cv": [
+        "Попробуй *Корпоративный* стиль — он максимально повышает доверие.",
+        "Для творческих профессий подойдёт *Креативный* образ!",
+    ],
+    "social": [
+        "Попробуй стиль *Luxury* — он отлично работает для Instagram.",
+        "Стиль *Artistic* может дать ещё более яркий результат!",
+    ],
+}
+
+
+async def _send_retention_hint(bot: Bot, chat_id: int, result: dict, mode: str):
+    """Send personalized next-step suggestion based on delta and quality_report."""
+    if mode not in ("dating", "cv", "social"):
+        return
+
+    delta = result.get("delta", {})
+    if not delta:
+        return
+
+    has_improvement = False
+    post_score = None
+
+    if mode == "dating" and delta.get("dating_score"):
+        d = delta["dating_score"]
+        has_improvement = d.get("delta", 0) > 0
+        post_score = d.get("post")
+    elif mode == "cv":
+        for key in ("trust", "competence", "hireability"):
+            d = delta.get(key, {})
+            if d.get("delta", 0) > 0:
+                has_improvement = True
+                break
+    elif mode == "social" and delta.get("social_score"):
+        d = delta["social_score"]
+        has_improvement = d.get("delta", 0) > 0
+        post_score = d.get("post")
+
+    if not has_improvement:
+        return
+
+    suggestions = _MODE_SUGGESTIONS.get(mode, [])
+    if not suggestions:
+        return
+
+    import hashlib
+    idx = int(hashlib.md5(str(chat_id).encode()).hexdigest(), 16) % len(suggestions)
+    hint = suggestions[idx]
+
+    if post_score is not None:
+        msg = f"Результат: *{post_score}/10*. {hint}"
+    else:
+        msg = f"Образ стал лучше! {hint}"
+
+    try:
+        await bot.send_message(chat_id, msg, parse_mode="Markdown")
+    except Exception:
+        pass
+
+
 async def deliver_result(bot: Bot, chat_id: int, status_msg_id: int, data: dict, user_id: int, redis: Redis | None = None):
     result = data.get("result", {})
     mode = data.get("mode", "rating")
@@ -163,6 +228,19 @@ async def deliver_result(bot: Bot, chat_id: int, status_msg_id: int, data: dict,
 
     uname = _bot_username()
 
+    gen_error = result.get("image_gen_error", "")
+    if gen_error == "quality_gates_failed":
+        from src.bot.keyboards import error_keyboard
+        failed = result.get("quality_report", {}).get("gates_failed", [])
+        logger.warning("Quality gates failed for user %s: %s", user_id, failed)
+        await bot.send_message(
+            chat_id,
+            "Не удалось достичь нужного качества образа.\n"
+            "Попробуй другой стиль или загрузи новое фото.",
+            reply_markup=error_keyboard(),
+        )
+        return
+
     needs_upgrade = result.get("upgrade_prompt", False)
 
     if mode == "rating":
@@ -171,19 +249,29 @@ async def deliver_result(bot: Bot, chat_id: int, status_msg_id: int, data: dict,
         await _send_dating(bot, chat_id, result, user_id, uname, gen_image_bytes, needs_upgrade)
     elif mode == "cv":
         await _send_cv(bot, chat_id, result, user_id, uname, gen_image_bytes, needs_upgrade)
+    elif mode == "social":
+        await _send_social(bot, chat_id, result, user_id, uname, gen_image_bytes, needs_upgrade)
     elif mode == "emoji":
         await _send_emoji(bot, chat_id, result, user_id, uname, gen_image_bytes, needs_upgrade)
     else:
         kb = action_keyboard(uname, str(user_id))
         await bot.send_message(chat_id, f"Результат:\n```\n{result}\n```", parse_mode="Markdown", reply_markup=kb)
 
+    await _send_retention_hint(bot, chat_id, result, mode)
+
     credits = await _get_credit_balance(user_id)
     if credits is not None:
+        from src.bot.keyboards import back_keyboard
         if credits == 0:
-            hint = "💰 Баланс: *0 генераций*\nКупи пакет, чтобы продолжить!"
+            hint = "💰 Баланс: *0 образов*\nОткрой новые образы и стили!"
             await bot.send_message(chat_id, hint, parse_mode="Markdown", reply_markup=upgrade_keyboard())
         else:
-            await bot.send_message(chat_id, f"💰 Баланс: *{credits} генераций*", parse_mode="Markdown")
+            await bot.send_message(
+                chat_id,
+                f"💰 Баланс: *{credits} образов*",
+                parse_mode="Markdown",
+                reply_markup=back_keyboard(),
+            )
 
 
 async def _send_rating(bot: Bot, chat_id: int, result: dict, user_id: int, uname: str):
@@ -249,8 +337,14 @@ async def _send_dating(bot: Bot, chat_id: int, result: dict, user_id: int, uname
     if len(strengths) > 1:
         text_parts.append(f"💪 {strengths[1]}")
 
+    delta = result.get("delta", {})
+    if delta.get("dating_score"):
+        d = delta["dating_score"]
+        sign = "+" if d["delta"] >= 0 else ""
+        text_parts.append(f"\n📊 *Что изменилось:* {sign}{d['delta']} к привлекательности ({d['pre']} → {d['post']})")
+
     if needs_upgrade:
-        text_parts.append("\n🔒 Генерация фото недоступна — закончились кредиты.")
+        text_parts.append("\n🔒 Улучшение образа недоступно — пополни пакет.")
     text = "\n".join(text_parts)
     kb = upgrade_keyboard() if needs_upgrade else loop_keyboard(uname, str(user_id), "dating")
     caption, full_text = _split_caption(text)
@@ -259,7 +353,7 @@ async def _send_dating(bot: Bot, chat_id: int, result: dict, user_id: int, uname
         try:
             await bot.send_photo(
                 chat_id,
-                BufferedInputFile(gen_image_bytes, filename="dating_improved.jpg"),
+                BufferedInputFile(gen_image_bytes, filename="ratemeai_dating.jpg"),
                 caption=caption,
                 parse_mode="Markdown",
                 reply_markup=None if full_text else kb,
@@ -288,7 +382,7 @@ async def _send_cv(bot: Bot, chat_id: int, result: dict, user_id: int, uname: st
     enhancement = result.get("enhancement", {})
     style_name = enhancement.get("style", "")
 
-    text_parts = [f"💼 *Профессиональный анализ*\n"]
+    text_parts = ["💼 *Профессиональный анализ*\n"]
 
     if style_name:
         style_labels = {"corporate": "Корпоративный", "creative": "Креативный", "neutral": "Нейтральный"}
@@ -302,8 +396,19 @@ async def _send_cv(bot: Bot, chat_id: int, result: dict, user_id: int, uname: st
     if analysis:
         text_parts.append(f"📝 {analysis[:200]}")
 
+    delta = result.get("delta", {})
+    if delta:
+        delta_lines = []
+        for key, label in [("trust", "доверие"), ("competence", "компетентность"), ("hireability", "найм")]:
+            d = delta.get(key)
+            if d:
+                sign = "+" if d["delta"] >= 0 else ""
+                delta_lines.append(f"{label} {sign}{d['delta']}")
+        if delta_lines:
+            text_parts.append(f"\n📊 *Что изменилось:* {', '.join(delta_lines)}")
+
     if needs_upgrade:
-        text_parts.append("\n🔒 Генерация фото недоступна — закончились кредиты.")
+        text_parts.append("\n🔒 Улучшение образа недоступно — пополни пакет.")
     text = "\n".join(text_parts)
     kb = upgrade_keyboard() if needs_upgrade else loop_keyboard(uname, str(user_id), "cv")
     caption, full_text = _split_caption(text)
@@ -312,7 +417,7 @@ async def _send_cv(bot: Bot, chat_id: int, result: dict, user_id: int, uname: st
         try:
             await bot.send_photo(
                 chat_id,
-                BufferedInputFile(gen_image_bytes, filename="cv_improved.jpg"),
+                BufferedInputFile(gen_image_bytes, filename="ratemeai_cv.jpg"),
                 caption=caption,
                 parse_mode="Markdown",
                 reply_markup=None if full_text else kb,
@@ -322,6 +427,69 @@ async def _send_cv(bot: Bot, chat_id: int, result: dict, user_id: int, uname: st
             return
         except Exception:
             logger.exception("send_photo from Redis bytes failed (cv)")
+
+    img = result.get("generated_image_url") or result.get("image_url")
+    if img:
+        if await _send_photo_safe(bot, chat_id, img, caption=caption, reply_markup=kb, full_text=full_text):
+            return
+
+    await bot.send_message(chat_id, text, parse_mode="Markdown", reply_markup=kb)
+
+
+async def _send_social(bot: Bot, chat_id: int, result: dict, user_id: int, uname: str, gen_image_bytes: bytes | None = None, needs_upgrade: bool = False):
+    first_impression = result.get("first_impression", "")
+    social_score = result.get("social_score", "—")
+    strengths = result.get("strengths", [])
+    weaknesses = result.get("weaknesses", [])
+    style_name = result.get("style")
+
+    text_parts = ["📸 *Стиль для соцсетей*\n"]
+
+    if style_name:
+        style_labels = {"influencer": "Influencer", "luxury": "Luxury", "casual": "Casual lifestyle", "artistic": "Artistic"}
+        text_parts.append(f"Образ: {style_labels.get(style_name, style_name)}")
+
+    if first_impression:
+        text_parts.append(f"Первое впечатление: {first_impression[:200]}")
+
+    text_parts.append(f"Оценка для соцсетей: *{social_score}/10*\n")
+
+    if strengths:
+        text_parts.append("✅ Сильные стороны:")
+        for s in strengths[:3]:
+            text_parts.append(f"  • {s}")
+
+    if weaknesses:
+        text_parts.append("\n💡 Что можно улучшить:")
+        for w in weaknesses[:2]:
+            text_parts.append(f"  • {w}")
+
+    delta = result.get("delta", {})
+    if delta.get("social_score"):
+        d = delta["social_score"]
+        sign = "+" if d["delta"] >= 0 else ""
+        text_parts.append(f"\n📊 *Что изменилось:* {sign}{d['delta']} к привлекательности ({d['pre']} → {d['post']})")
+
+    if needs_upgrade:
+        text_parts.append("\n🔒 Улучшение образа недоступно — пополни пакет.")
+    text = "\n".join(text_parts)
+    kb = upgrade_keyboard() if needs_upgrade else loop_keyboard(uname, str(user_id), "social")
+    caption, full_text = _split_caption(text)
+
+    if gen_image_bytes:
+        try:
+            await bot.send_photo(
+                chat_id,
+                BufferedInputFile(gen_image_bytes, filename="ratemeai_social.jpg"),
+                caption=caption,
+                parse_mode="Markdown",
+                reply_markup=None if full_text else kb,
+            )
+            if full_text:
+                await bot.send_message(chat_id, full_text, parse_mode="Markdown", reply_markup=kb)
+            return
+        except Exception:
+            logger.exception("send_photo from Redis bytes failed (social)")
 
     img = result.get("generated_image_url") or result.get("image_url")
     if img:
@@ -351,7 +519,7 @@ async def _send_emoji(bot: Bot, chat_id: int, result: dict, user_id: int, uname:
             text_parts.append(f"{icon} {emotion}: {s.get('description', '')[:60]}")
 
     if needs_upgrade:
-        text_parts.append("\n🔒 Генерация фото недоступна — закончились кредиты.")
+        text_parts.append("\n🔒 Улучшение образа недоступно — пополни пакет.")
     text = "\n".join(text_parts)
     kb = upgrade_keyboard() if needs_upgrade else action_keyboard(uname, str(user_id))
     caption, full_text = _split_caption(text)

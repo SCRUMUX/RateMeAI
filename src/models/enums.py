@@ -5,6 +5,7 @@ class AnalysisMode(str, enum.Enum):
     RATING = "rating"
     DATING = "dating"
     CV = "cv"
+    SOCIAL = "social"
     EMOJI = "emoji"
 
 

@@ -42,7 +42,13 @@ jobs:
           cache: pip
 
       - name: Install dependencies
-        run: pip install -r requirements.txt
+        run: pip install -r requirements-dev.txt
+
+      - name: Lint with ruff
+        run: ruff check src/ tests/ --select=E,F,W --ignore=E501
+
+      - name: Smoke-test native imports
+        run: python -c "import insightface; import onnxruntime; import mediapipe; print('Native imports OK')"
 
       - name: Run pytest
         env:
@@ -51,6 +57,14 @@ jobs:
           APP_ENV: dev
           API_BASE_URL: http://127.0.0.1:8000
         run: python -m pytest tests/ -v --tb=short
+
+  docker-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build Docker image
+        run: docker build -t ratemeai:ci .
 
   deploy:
     needs: test

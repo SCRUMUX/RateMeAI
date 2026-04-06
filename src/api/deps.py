@@ -9,12 +9,15 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.config import settings
-from src.models.db import User, UsageLog, ApiClient, CreditTransaction
+from src.models.db import User, UsageLog, ApiClient
 from src.utils.auth_tokens import hash_api_key
 
 
 def _pepper() -> str:
-    return settings.api_key_pepper or settings.admin_secret or "dev-pepper"
+    val = settings.api_key_pepper or settings.admin_secret
+    if not val and settings.is_production:
+        raise RuntimeError("API_KEY_PEPPER must be set in production")
+    return val or "dev-pepper"
 
 
 def _rate_limit_exempt_usernames() -> set[str]:
@@ -106,36 +109,11 @@ async def check_rate_limit(
         raise HTTPException(
             status_code=429,
             detail=f"Daily limit reached ({limit}). Try again tomorrow or upgrade to premium.",
+            headers={
+                "X-RateLimit-Limit": str(limit),
+                "X-RateLimit-Remaining": "0",
+                "Retry-After": "86400",
+            },
         )
+    user._rate_limit_info = {"limit": limit, "remaining": limit - used - 1}
     return user
-
-
-async def check_image_credits(
-    user: User = Depends(get_auth_user),
-    db: AsyncSession = Depends(get_db),
-) -> User:
-    """Verify user has image generation credits. Does NOT deduct — worker does that."""
-    if _user_exempt_from_rate_limit(user):
-        return user
-    if user.image_credits <= 0:
-        raise HTTPException(
-            status_code=402,
-            detail="No image credits remaining. Purchase a pack to continue.",
-        )
-    return user
-
-
-async def deduct_image_credit(user_id, db: AsyncSession) -> int:
-    """Deduct 1 image credit and log the transaction. Returns remaining credits."""
-    r = await db.execute(select(User).where(User.id == user_id))
-    user = r.scalar_one()
-    if user.image_credits <= 0:
-        return 0
-    user.image_credits -= 1
-    db.add(CreditTransaction(
-        user_id=user_id,
-        amount=-1,
-        balance_after=user.image_credits,
-        tx_type="generation",
-    ))
-    return user.image_credits

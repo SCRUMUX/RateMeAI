@@ -4,6 +4,7 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
@@ -70,6 +71,16 @@ app = FastAPI(
 )
 
 app.add_middleware(RequestLoggingMiddleware)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"] if not settings.is_production else [
+        "https://ratemeai.com",
+        "https://*.up.railway.app",
+    ],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 app.include_router(api_router, prefix="/api/v1")
 
 storage_dir = Path(settings.storage_local_path).resolve()

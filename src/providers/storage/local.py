@@ -24,6 +24,7 @@ class LocalStorageProvider(StorageProvider):
         self._base.mkdir(parents=True, exist_ok=True)
         self._public_base = public_base_url.rstrip("/")
         self._http_fallback_base = (http_fallback_base or "").rstrip("/") or None
+        self._http_client: httpx.AsyncClient | None = None
 
     @property
     def base_path(self) -> Path:
@@ -46,10 +47,11 @@ class LocalStorageProvider(StorageProvider):
             enc = quote(key, safe="/")
             url = f"{self._http_fallback_base}/storage/{enc}"
             try:
-                async with httpx.AsyncClient(timeout=120.0, follow_redirects=True) as client:
-                    resp = await client.get(url)
-                    resp.raise_for_status()
-                    data = resp.content
+                if self._http_client is None:
+                    self._http_client = httpx.AsyncClient(timeout=120.0, follow_redirects=True)
+                resp = await self._http_client.get(url)
+                resp.raise_for_status()
+                data = resp.content
                 logger.info("Storage download via HTTP fallback: %s", key)
                 return data
             except Exception:

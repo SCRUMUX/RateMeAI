@@ -4,6 +4,7 @@ from src.models.enums import AnalysisMode
 from src.services.rating import RatingService
 from src.services.dating import DatingService
 from src.services.cv import CVService
+from src.services.social import SocialService
 from src.services.emoji import EmojiService
 from src.providers.base import LLMProvider
 from src.prompts.engine import PromptEngine
@@ -17,6 +18,7 @@ class ModeRouter:
             AnalysisMode.RATING: RatingService(llm, prompt_engine),
             AnalysisMode.DATING: DatingService(llm, prompt_engine),
             AnalysisMode.CV: CVService(llm, prompt_engine),
+            AnalysisMode.SOCIAL: SocialService(llm, prompt_engine),
             AnalysisMode.EMOJI: EmojiService(llm, prompt_engine),
         }
 

@@ -7,3 +7,7 @@ def task_input_cache_key(task_id: str) -> str:
 
 def gen_image_cache_key(task_id: str) -> str:
     return f"ratemeai:gen_image:{task_id}"
+
+
+def embedding_cache_key(task_id: str) -> str:
+    return f"ratemeai:embedding:{task_id}"

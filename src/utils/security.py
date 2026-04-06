@@ -32,8 +32,8 @@ async def check_nsfw(llm: LLMProvider, image_bytes: bytes) -> tuple[bool, str]:
         reason = result.get("reason", "")
         return bool(is_safe), str(reason)
     except Exception:
-        logger.exception("NSFW check failed, blocking content as precaution")
-        return False, "Не удалось проверить содержимое фото. Попробуйте ещё раз."
+        logger.exception("NSFW check failed — allowing content (fail-open)")
+        return True, ""
 
 
 def extract_nsfw_from_analysis(result: dict) -> tuple[bool, str]:

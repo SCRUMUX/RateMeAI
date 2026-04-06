@@ -84,22 +84,29 @@ def get_image_gen() -> ImageGenProvider:
             storage=get_storage(),
         )
 
-    # auto
+    # auto — chain available providers for fallback resilience
+    from src.providers.image_gen.chain import ChainImageGen
+
+    providers: list[ImageGenProvider] = []
     if settings.reve_api_token.strip():
-        return ReveImageGen(
+        providers.append(ReveImageGen(
             api_token=settings.reve_api_token,
             api_host=settings.reve_api_host,
             aspect_ratio=settings.reve_aspect_ratio,
             version=settings.reve_version,
             test_time_scaling=settings.reve_test_time_scaling,
-        )
+        ))
     if not _missing_replicate_config():
-        return ReplicateImageGen(
+        providers.append(ReplicateImageGen(
             api_token=settings.replicate_api_token,
             model_version=settings.replicate_model_version,
             storage=get_storage(),
-        )
-    return MockImageGen()
+        ))
+    if not providers:
+        return MockImageGen()
+    if len(providers) == 1:
+        return providers[0]
+    return ChainImageGen(providers)
 
 
 @lru_cache(maxsize=1)

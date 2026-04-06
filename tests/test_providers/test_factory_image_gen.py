@@ -48,11 +48,12 @@ def test_get_image_gen_auto_prefers_reve(monkeypatch):
         is_production=True,
     )
     monkeypatch.setattr(factory, "settings", fake)
+    monkeypatch.setattr(factory, "get_storage", MagicMock(return_value=MagicMock()))
     factory.get_image_gen.cache_clear()
-    from src.providers.image_gen.reve_provider import ReveImageGen
+    from src.providers.image_gen.chain import ChainImageGen
 
     g = factory.get_image_gen()
-    assert isinstance(g, ReveImageGen)
+    assert isinstance(g, ChainImageGen)
 
 
 def test_get_image_gen_auto_replicate_when_no_reve(monkeypatch):

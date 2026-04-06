@@ -61,20 +61,22 @@ class RatingResult(BaseModel):
     recommendations: list[str]
 
 
-# ── Dating Result ──
+# ── Shared ──
 
-class DatingVariant(BaseModel):
+class Variant(BaseModel):
     type: str
     image_url: str | None = None
     explanation: str
 
+
+# ── Dating Result ──
 
 class DatingResult(BaseModel):
     first_impression: str
     dating_score: float = Field(ge=0, le=10)
     strengths: list[str]
     weaknesses: list[str]
-    variants: list[DatingVariant] = []
+    variants: list[Variant] = []
 
 
 # ── CV Result ──
@@ -86,6 +88,16 @@ class CVResult(BaseModel):
     hireability: float = Field(ge=0, le=10)
     analysis: str
     image_url: str | None = None
+
+
+# ── Social Result ──
+
+class SocialResult(BaseModel):
+    first_impression: str
+    social_score: float = Field(ge=0, le=10)
+    strengths: list[str]
+    weaknesses: list[str]
+    variants: list[Variant] = []
 
 
 # ── Share ──

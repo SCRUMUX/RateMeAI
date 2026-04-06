@@ -12,19 +12,21 @@ from src.bot.keyboards import back_keyboard, upgrade_keyboard
 router = Router()
 logger = logging.getLogger(__name__)
 
-WELCOME_TEXT = """👋 Привет! Я **RateMe AI** — бот, который анализирует, как тебя воспринимают по фото.
+WELCOME_TEXT = """👋 Привет! Я *RateMe AI* — твой AI-стилист.
+
+Покажу, как тебя воспринимают, и помогу усилить образ для разных жизненных ситуаций.
 
 Что я умею:
-⭐ **Рейтинг** — честная оценка 0–10 с разбором
-💕 **Дейтинг** — анализ для свиданий + рекомендации
-💼 **CV** — оценка для профессионального фото
-😀 **Эмодзи** — пак стикеров с твоим лицом
+⭐ *Анализ восприятия* — как тебя видят окружающие
+💕 *Стиль для знакомств* — образы для дейтинга
+💼 *Карьерный стиль* — профессиональный образ
+📸 *Стиль для соцсетей* — образы для Instagram и соцсетей
 
-**Просто отправь мне фото** и выбери режим!
+*Отправь мне фото* и выбери направление!
 
-💰 /balance — проверить баланс генераций"""
+💰 /balance — проверить баланс образов"""
 
-REFERRAL_TEXT = """🎁 Тебя пригласил друг! Отправь фото и узнай свой рейтинг."""
+REFERRAL_TEXT = """🎁 Тебя пригласил друг! Отправь фото и узнай, как тебя воспринимают."""
 
 
 @router.message(CommandStart())
@@ -44,6 +46,16 @@ async def cmd_start(message: Message, api_base_url: str):
     await message.answer(text, parse_mode="Markdown", reply_markup=back_keyboard())
 
 
+@router.message(Command("emoji"))
+async def cmd_emoji(message: Message):
+    """Access emoji mode via /emoji command."""
+    await message.answer(
+        "😀 *Эмодзи-пак*\n\nОтправь мне фото, а затем выбери 😀 Эмодзи в меню после результата.",
+        parse_mode="Markdown",
+        reply_markup=back_keyboard(),
+    )
+
+
 @router.message(Command("balance"))
 async def cmd_balance(message: Message, api_base_url: str):
     user_id = message.from_user.id
@@ -55,18 +67,18 @@ async def cmd_balance(message: Message, api_base_url: str):
             )
         if resp.status_code == 200:
             credits = resp.json().get("image_credits", 0)
-            text = f"💰 *Твой баланс: {credits} генераций*\n\n"
+            text = f"💰 *Твой баланс: {credits} образов*\n\n"
             if credits == 0:
-                text += "Купи пакет, чтобы генерировать фото!"
+                text += "Открой новые образы и стили!"
                 await message.answer(text, parse_mode="Markdown", reply_markup=upgrade_keyboard())
             else:
-                text += "Отправь фото для генерации!"
+                text += "Отправь фото для примерки образа!"
                 await message.answer(text, parse_mode="Markdown", reply_markup=back_keyboard())
         else:
-            await message.answer("❌ Не удалось получить баланс.")
+            await message.answer("❌ Не удалось получить баланс.", reply_markup=back_keyboard())
     except Exception:
         logger.exception("Failed to fetch balance for user %s", user_id)
-        await message.answer("❌ Ошибка. Попробуй позже.")
+        await message.answer("❌ Ошибка. Попробуй позже.", reply_markup=back_keyboard())
 
 
 async def _get_balance_line(api_base_url: str, user_id: int) -> str:
@@ -78,7 +90,7 @@ async def _get_balance_line(api_base_url: str, user_id: int) -> str:
             )
         if resp.status_code == 200:
             credits = resp.json().get("image_credits", 0)
-            return f"💰 Баланс: *{credits} генераций*"
+            return f"💰 Баланс: *{credits} образов*"
     except Exception:
         logger.debug("Could not fetch balance for start message, user=%s", user_id)
     return ""

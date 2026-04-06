@@ -12,14 +12,18 @@ from src.bot.middleware import PHOTO_KEY
 from src.bot.keyboards import (
     dating_style_keyboard,
     cv_style_keyboard,
+    social_style_keyboard,
     error_keyboard,
     mode_selection_keyboard,
+    back_keyboard,
 )
 
 logger = logging.getLogger(__name__)
 router = Router()
 
 LAST_GEN_KEY = "ratemeai:last_gen:{}"
+_PROCESSING_LOCK = "ratemeai:processing:{}"
+_LOCK_TTL = 60
 
 
 @router.callback_query(F.data.startswith("pick_style:"))
@@ -32,9 +36,13 @@ async def on_pick_style(callback: CallbackQuery, redis: Redis):
         return
     await callback.answer()
     if kind == "dating":
-        await callback.message.answer("💕 Выбери стиль фото:", reply_markup=dating_style_keyboard())
+        await callback.message.answer("💕 Выбери образ:", reply_markup=dating_style_keyboard())
+    elif kind == "social":
+        await callback.message.answer("📸 Выбери образ:", reply_markup=social_style_keyboard())
+    elif kind == "cv":
+        await callback.message.answer("💼 Выбери образ:", reply_markup=cv_style_keyboard())
     else:
-        await callback.message.answer("💼 Выбери стиль фото:", reply_markup=cv_style_keyboard())
+        await callback.message.answer("📸 Выбери направление:", reply_markup=mode_selection_keyboard())
 
 
 @router.callback_query(F.data.startswith("style:"))
@@ -62,9 +70,11 @@ async def on_action(callback: CallbackQuery, api_base_url: str, redis: Redis):
         return
     await callback.answer()
     if mode == "dating":
-        await callback.message.answer("💕 Выбери стиль фото:", reply_markup=dating_style_keyboard())
+        await callback.message.answer("💕 Выбери образ:", reply_markup=dating_style_keyboard())
     elif mode == "cv":
-        await callback.message.answer("💼 Выбери стиль фото:", reply_markup=cv_style_keyboard())
+        await callback.message.answer("💼 Выбери образ:", reply_markup=cv_style_keyboard())
+    elif mode == "social":
+        await callback.message.answer("📸 Выбери образ:", reply_markup=social_style_keyboard())
     else:
         await _submit_analysis(callback, api_base_url, redis, mode, "")
 
@@ -91,10 +101,14 @@ async def on_restyle(callback: CallbackQuery, redis: Redis):
         await callback.answer("Фото больше не доступно. Отправь новое!", show_alert=True)
         return
     await callback.answer()
-    if mode == "cv":
-        await callback.message.answer("💼 Выбери стиль фото:", reply_markup=cv_style_keyboard())
+    if mode == "dating":
+        await callback.message.answer("💕 Выбери образ:", reply_markup=dating_style_keyboard())
+    elif mode == "cv":
+        await callback.message.answer("💼 Выбери образ:", reply_markup=cv_style_keyboard())
+    elif mode == "social":
+        await callback.message.answer("📸 Выбери образ:", reply_markup=social_style_keyboard())
     else:
-        await callback.message.answer("💕 Выбери стиль фото:", reply_markup=dating_style_keyboard())
+        await callback.message.answer("📸 Выбери направление:", reply_markup=mode_selection_keyboard())
 
 
 @router.callback_query(F.data == "retry")
@@ -124,8 +138,14 @@ async def _submit_analysis(callback: CallbackQuery, api_base_url: str, redis: Re
         await callback.answer("Сначала отправь фото!", show_alert=True)
         return
 
+    lock_key = _PROCESSING_LOCK.format(user_id)
+    acquired = await redis.set(lock_key, "1", ex=_LOCK_TTL, nx=True)
+    if not acquired:
+        await callback.answer("⏳ Предыдущий запрос ещё обрабатывается...", show_alert=True)
+        return
+
     await callback.answer()
-    status_msg = await callback.message.answer("⏳ Анализирую твоё фото... Это займёт 15-30 секунд.")
+    status_msg = await callback.message.answer("⏳ Подбираю лучший образ для тебя... Это может занять до минуты.")
 
     await redis.set(LAST_GEN_KEY.format(user_id), f"{mode}:{style}", ex=86400)
 
@@ -163,22 +183,19 @@ async def _submit_analysis(callback: CallbackQuery, api_base_url: str, redis: Re
             import asyncio
             asyncio.create_task(_poll_task(bot, api_base_url, user_id, task_id, callback.message.chat.id, status_msg.message_id, redis))
 
-        elif resp.status_code == 402:
-            from src.bot.keyboards import upgrade_keyboard
-            await status_msg.edit_text(
-                "🔒 Кредиты для генерации закончились!\nКупи пакет, чтобы продолжить:",
-                reply_markup=upgrade_keyboard(),
-            )
         elif resp.status_code == 429:
+            await redis.delete(lock_key)
             await status_msg.edit_text(
-                "⚠️ Дневной лимит исчерпан. Попробуй завтра или оформи Premium!",
+                "⚠️ Дневной лимит исчерпан. Попробуй завтра!",
                 reply_markup=error_keyboard(),
             )
         else:
+            await redis.delete(lock_key)
             detail = resp.json().get("detail", "Unknown error")
             await status_msg.edit_text(f"❌ Ошибка: {detail}", reply_markup=error_keyboard())
 
     except Exception:
+        await redis.delete(lock_key)
         logger.exception("Failed to submit analysis for user %s", user_id)
         await status_msg.edit_text("❌ Произошла ошибка. Попробуй позже.", reply_markup=error_keyboard())
 
@@ -201,20 +218,21 @@ async def on_buy(callback: CallbackQuery):
     result = await create_payment(callback.from_user.id, pack_qty)
     if result is None:
         await wait_msg.edit_text(
-            "❌ Не удалось создать платёж. Попробуйте позже.",
+            "❌ Не удалось создать платёж. Попробуй позже.",
             reply_markup=error_keyboard(),
         )
         return
 
-    payment_id, confirmation_url = result
+    _payment_id, confirmation_url = result
     kb = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text=f"💳 Оплатить {pack.price_rub} ₽", url=confirmation_url)],
         [InlineKeyboardButton(text="💰 Проверить баланс", callback_data="balance")],
+        [InlineKeyboardButton(text="📸 Новое фото", callback_data="new_photo")],
     ])
     await wait_msg.edit_text(
-        f"🛒 *Пакет: {pack.quantity} генераций за {pack.price_rub} ₽*\n\n"
+        f"🛒 *Пакет: {pack.quantity} образов за {pack.price_rub} ₽*\n\n"
         f"Нажми кнопку ниже для оплаты.\n"
-        f"После оплаты кредиты зачислятся автоматически!",
+        f"После оплаты образы зачислятся автоматически!",
         parse_mode="Markdown",
         reply_markup=kb,
     )
@@ -236,15 +254,14 @@ async def on_balance(callback: CallbackQuery, api_base_url: str):
             credits = data.get("image_credits", 0)
             text = (
                 f"💰 *Твой баланс*\n\n"
-                f"Доступно генераций: *{credits}*\n\n"
+                f"Доступно образов: *{credits}*\n\n"
             )
             if credits == 0:
-                text += "Купи пакет, чтобы генерировать фото!"
+                text += "Открой новые образы и стили!"
                 from src.bot.keyboards import upgrade_keyboard
                 await callback.message.answer(text, parse_mode="Markdown", reply_markup=upgrade_keyboard())
             else:
-                text += "Отправь фото для генерации!"
-                from src.bot.keyboards import back_keyboard
+                text += "Отправь фото для примерки образа!"
                 await callback.message.answer(text, parse_mode="Markdown", reply_markup=back_keyboard())
         else:
             await callback.message.answer("❌ Не удалось получить баланс.", reply_markup=error_keyboard())
@@ -256,7 +273,35 @@ async def on_balance(callback: CallbackQuery, api_base_url: str):
 @router.callback_query(F.data == "new_photo")
 async def on_new_photo(callback: CallbackQuery):
     await callback.answer()
-    await callback.message.answer("📸 Отправь мне новое фото!")
+    await callback.message.answer("📸 Отправь мне новое фото!", reply_markup=back_keyboard())
+
+
+async def _update_progress(bot, chat_id: int, status_msg_id: int, data_str: str):
+    """Update the status message with step progress."""
+    try:
+        parts = data_str.split(":")
+        step_raw = parts[0] if parts else ""
+        current = int(parts[1]) if len(parts) > 1 else 0
+        total = int(parts[2]) if len(parts) > 2 else 0
+
+        step_name = step_raw.split("_", 2)[-1] if step_raw.startswith("step_") else step_raw
+        label = _STEP_LABELS.get(step_name, f"Шаг {current}...")
+        bar = "▓" * current + "░" * (total - current)
+        text = f"⏳ {label}\n[{bar}] {current}/{total}"
+
+        await bot.edit_message_text(text, chat_id=chat_id, message_id=status_msg_id)
+    except Exception:
+        pass
+
+
+_STEP_LABELS: dict[str, str] = {
+    "background_edit": "Работаю над фоном...",
+    "lighting_adjust": "Настраиваю освещение...",
+    "clothing_edit": "Подбираю стиль одежды...",
+    "expression_hint": "Финальные штрихи...",
+    "skin_correction": "Финальная коррекция...",
+    "style_overall": "Подбираю стиль...",
+}
 
 
 async def _poll_task(bot, api_base_url: str, user_id: int, task_id: str, chat_id: int, status_msg_id: int, redis: Redis):
@@ -264,20 +309,32 @@ async def _poll_task(bot, api_base_url: str, user_id: int, task_id: str, chat_id
     import asyncio
     from src.bot.handlers.results import deliver_result
 
-    channel = f"ratemeai:task_done:{task_id}"
+    lock_key = _PROCESSING_LOCK.format(user_id)
+
+    done_channel = f"ratemeai:task_done:{task_id}"
+    progress_channel = f"ratemeai:progress:{task_id}"
     notified = False
 
     try:
         pubsub = redis.pubsub()
-        await pubsub.subscribe(channel)
+        await pubsub.subscribe(done_channel, progress_channel)
         try:
             for _ in range(120):
                 msg = await pubsub.get_message(ignore_subscribe_messages=True, timeout=1.0)
                 if msg and msg.get("type") == "message":
-                    notified = True
-                    break
+                    ch = msg.get("channel", "")
+                    if isinstance(ch, bytes):
+                        ch = ch.decode()
+                    if ch == done_channel:
+                        notified = True
+                        break
+                    if ch == progress_channel:
+                        data_str = msg.get("data", "")
+                        if isinstance(data_str, bytes):
+                            data_str = data_str.decode()
+                        await _update_progress(bot, chat_id, status_msg_id, data_str)
         finally:
-            await pubsub.unsubscribe(channel)
+            await pubsub.unsubscribe(done_channel, progress_channel)
             await pubsub.close()
     except Exception:
         logger.warning("Pub/Sub failed for task %s, falling back to polling", task_id)
@@ -303,9 +360,11 @@ async def _poll_task(bot, api_base_url: str, user_id: int, task_id: str, chat_id
                 status = data.get("status")
 
                 if status == "completed":
+                    await redis.delete(lock_key)
                     await deliver_result(bot, chat_id, status_msg_id, data, user_id, redis)
                     return
                 elif status == "failed":
+                    await redis.delete(lock_key)
                     error = data.get("error_message", "Неизвестная ошибка")
                     await bot.edit_message_text(
                         f"❌ Анализ не удался: {error}",
@@ -321,6 +380,7 @@ async def _poll_task(bot, api_base_url: str, user_id: int, task_id: str, chat_id
             if notified:
                 await asyncio.sleep(1)
 
+        await redis.delete(lock_key)
         await bot.edit_message_text(
             "⏰ Анализ занимает слишком долго. Попробуй позже.",
             chat_id=chat_id,

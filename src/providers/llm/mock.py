@@ -6,7 +6,7 @@ from src.providers.base import LLMProvider
 class MockLLM(LLMProvider):
     """Deterministic mock for testing."""
 
-    async def analyze_image(self, image_bytes: bytes, prompt: str) -> dict:
+    async def analyze_image(self, image_bytes: bytes, prompt: str, *, temperature: float = 0.7) -> dict:
         return {
             "score": 7.5,
             "perception": {

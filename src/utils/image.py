@@ -47,8 +47,15 @@ def validate_and_normalize(image_bytes: bytes) -> tuple[bytes, dict]:
 
 
 def has_face_heuristic(image_bytes: bytes) -> bool:
-    """Basic heuristic: check if image has reasonable dimensions for a portrait.
-    Real face detection is delegated to the LLM vision call."""
+    """Detect face using InsightFace if available, falling back to aspect-ratio heuristic."""
+    try:
+        from src.services.identity import IdentityService
+        return IdentityService().detect_face(image_bytes)
+    except ImportError:
+        pass
+    except Exception:
+        logger.debug("InsightFace detection failed, falling back to heuristic")
+
     try:
         img = Image.open(io.BytesIO(image_bytes))
         w, h = img.size

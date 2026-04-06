@@ -1,20 +1,28 @@
 from __future__ import annotations
 
 from src.models.enums import AnalysisMode
-from src.prompts import rating, dating, cv, emoji
+from src.prompts import rating, dating, cv, social, emoji
 from src.prompts import image_gen as ig
 
 _PROMPT_MAP = {
     AnalysisMode.RATING: rating.build_prompt,
     AnalysisMode.DATING: dating.build_prompt,
     AnalysisMode.CV: cv.build_prompt,
+    AnalysisMode.SOCIAL: social.build_prompt,
     AnalysisMode.EMOJI: emoji.build_prompt,
 }
 
 _IMAGE_PROMPT_MAP = {
     AnalysisMode.DATING: lambda style, _desc: ig.build_dating_prompt(style),
     AnalysisMode.CV: lambda style, _desc: ig.build_cv_prompt(style),
+    AnalysisMode.SOCIAL: lambda style, _desc: ig.build_social_prompt(style),
     AnalysisMode.EMOJI: lambda _style, desc: ig.build_emoji_prompt(desc),
+}
+
+_MODE_STYLE_DICTS: dict[AnalysisMode, dict[str, str]] = {
+    AnalysisMode.DATING: ig.DATING_STYLES,
+    AnalysisMode.CV: ig.CV_STYLES,
+    AnalysisMode.SOCIAL: ig.SOCIAL_STYLES,
 }
 
 
@@ -30,3 +38,8 @@ class PromptEngine:
         if builder is None:
             raise ValueError(f"No image prompt for mode: {mode}")
         return builder(style, base_description)
+
+    def build_step_prompt(self, step_template: str, style: str, mode: AnalysisMode) -> str:
+        """Build a prompt for a single multi-pass pipeline step."""
+        mode_styles = _MODE_STYLE_DICTS.get(mode)
+        return ig.build_step_prompt(step_template, style, mode_styles)

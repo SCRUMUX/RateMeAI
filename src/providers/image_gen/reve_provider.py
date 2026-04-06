@@ -47,6 +47,19 @@ class ReveImageGen(ImageGenProvider):
                     opts[k] = params[k]
         return opts
 
+    @staticmethod
+    def _mask_to_instruction_hint(params: dict | None) -> str:
+        """Translate a mask region name into a textual hint for edit mode."""
+        if not params:
+            return ""
+        region = params.get("mask_region", "")
+        hints = {
+            "background": "Change ONLY the background, keep the person untouched.",
+            "clothing": "Change ONLY the clothing/outfit, keep face and background untouched.",
+            "face": "Make subtle adjustments to lighting/expression on the face ONLY.",
+        }
+        return hints.get(region, "")
+
     def _generate_sync(
         self,
         prompt: str,
@@ -62,7 +75,14 @@ class ReveImageGen(ImageGenProvider):
             api_url=self._host or None,
         )
         options = self._build_options(params)
-        use_edit = bool(params and params.get("use_edit"))
+
+        has_mask = bool(params and params.get("mask_image"))
+        use_edit = bool(params and params.get("use_edit")) or has_mask
+
+        if has_mask:
+            region_hint = self._mask_to_instruction_hint(params)
+            if region_hint:
+                prompt = f"{region_hint} {prompt}"
 
         last_err: Exception | None = None
         for attempt in range(_MAX_RETRIES):

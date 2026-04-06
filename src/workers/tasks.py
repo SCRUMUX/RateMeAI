@@ -35,6 +35,7 @@ async def startup(ctx: dict):
         llm=ctx["llm"],
         storage=ctx["storage"],
         image_gen=ctx["image_gen"],
+        redis=ctx["redis"],
     )
 
     st = ctx["storage"]
@@ -98,11 +99,20 @@ async def process_analysis(ctx: dict, task_id: str, _retry: bool = False):
             task_user = u_row.scalar_one()
             has_credits = task_user.image_credits > 0
 
-            context: dict = {}
-            if style:
+            context: dict = dict(task.context or {})
+            if style and "style" not in context:
                 context["style"] = style
             if not has_credits:
                 context["skip_image_gen"] = True
+
+            async def _progress_cb(step_name: str, current: int, total: int):
+                try:
+                    await redis.publish(
+                        f"ratemeai:progress:{task.id}",
+                        f"{step_name}:{current}:{total}",
+                    )
+                except Exception:
+                    pass
 
             analysis_result = await pipeline.execute(
                 mode=AnalysisMode(task.mode),
@@ -110,6 +120,7 @@ async def process_analysis(ctx: dict, task_id: str, _retry: bool = False):
                 user_id=str(task.user_id),
                 task_id=str(task.id),
                 context=context or None,
+                progress_callback=_progress_cb,
             )
 
             gen_url = analysis_result.get("generated_image_url")
@@ -139,8 +150,10 @@ async def process_analysis(ctx: dict, task_id: str, _retry: bool = False):
                             tx_type="generation",
                         ))
                         logger.info("Deducted 1 image credit for user %s, remaining=%d", task.user_id, user.image_credits)
+                    analysis_result["credit_deducted"] = True
                 except Exception:
                     logger.exception("Failed to deduct image credit for task %s", task_id)
+                    analysis_result["credit_deducted"] = False
 
             task.result = analysis_result
             task.share_card_path = analysis_result.get("share", {}).get("card_url")
@@ -190,4 +203,4 @@ class WorkerSettings:
     on_shutdown = shutdown
     redis_settings = RedisSettings.from_dsn(settings.redis_url)
     max_jobs = 5
-    job_timeout = 120
+    job_timeout = 200
