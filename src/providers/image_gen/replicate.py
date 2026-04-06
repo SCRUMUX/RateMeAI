@@ -58,9 +58,13 @@ class ReplicateImageGen(ImageGenProvider):
             await self._storage.upload(mkey, mask_bytes)
             mask_url = await self._storage.get_url(mkey)
 
+        prompt_strength = (params or {}).pop("prompt_strength", None)
+
         inp: dict = {"prompt": prompt}
         if image_url:
             inp["image"] = image_url
+            if prompt_strength is not None:
+                inp["prompt_strength"] = float(prompt_strength)
         if mask_url:
             inp["mask"] = mask_url
         if params:

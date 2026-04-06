@@ -351,11 +351,10 @@ class AnalysisPipeline:
 
                 if not global_passed:
                     logger.warning(
-                        "Global quality gates failed for task=%s: %s",
+                        "Global quality gates failed for task=%s: %s — delivering with warning",
                         task_id, quality_report.get("gates_failed"),
                     )
-                    result_dict["image_gen_error"] = "quality_gates_failed"
-                    return
+                    result_dict["quality_warning"] = True
 
                 gkey = f"generated/{user_id}/{task_id}.jpg"
                 await self._storage.upload(gkey, current_image)
@@ -457,7 +456,11 @@ class AnalysisPipeline:
                 "reason": f"tier={model_spec.quality_tier}, cost=${model_spec.cost_per_call:.3f}, budget_left=${budget:.3f}",
             })
 
-            params: dict = {"aspect_ratio": "auto", "test_time_scaling": 3}
+            params: dict = {
+                "aspect_ratio": "auto",
+                "test_time_scaling": 3,
+                "prompt_strength": settings.image_gen_strength,
+            }
             params.update(extra_params)
             if mask_bytes:
                 params["mask_image"] = mask_bytes
@@ -516,7 +519,11 @@ class AnalysisPipeline:
 
             extra: dict = {}
             if mode in (AnalysisMode.CV, AnalysisMode.DATING, AnalysisMode.SOCIAL):
-                extra = {"aspect_ratio": "auto", "test_time_scaling": 3}
+                extra = {
+                    "aspect_ratio": "auto",
+                    "test_time_scaling": 3,
+                    "prompt_strength": settings.image_gen_strength,
+                }
 
             raw = None
             identity_score = 0.0

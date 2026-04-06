@@ -84,10 +84,16 @@ def get_image_gen() -> ImageGenProvider:
             storage=get_storage(),
         )
 
-    # auto — chain available providers for fallback resilience
+    # auto — chain available providers; FLUX (Replicate) first, Reve fallback
     from src.providers.image_gen.chain import ChainImageGen
 
     providers: list[ImageGenProvider] = []
+    if not _missing_replicate_config():
+        providers.append(ReplicateImageGen(
+            api_token=settings.replicate_api_token,
+            model_version=settings.replicate_model_version,
+            storage=get_storage(),
+        ))
     if settings.reve_api_token.strip():
         providers.append(ReveImageGen(
             api_token=settings.reve_api_token,
@@ -95,12 +101,6 @@ def get_image_gen() -> ImageGenProvider:
             aspect_ratio=settings.reve_aspect_ratio,
             version=settings.reve_version,
             test_time_scaling=settings.reve_test_time_scaling,
-        ))
-    if not _missing_replicate_config():
-        providers.append(ReplicateImageGen(
-            api_token=settings.replicate_api_token,
-            model_version=settings.replicate_model_version,
-            storage=get_storage(),
         ))
     if not providers:
         return MockImageGen()

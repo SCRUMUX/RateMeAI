@@ -217,35 +217,26 @@ async def deliver_result(bot: Bot, chat_id: int, status_msg_id: int, data: dict,
     uname = _bot_username()
     credits = await _get_credit_balance(user_id)
 
-    gen_error = result.get("image_gen_error", "")
-    if gen_error == "quality_gates_failed":
-        from src.bot.keyboards import error_keyboard
-        failed = result.get("quality_report", {}).get("gates_failed", [])
-        logger.warning("Quality gates failed for user %s: %s", user_id, failed)
-        await bot.send_message(
-            chat_id,
-            "Не удалось достичь нужного качества образа.\n"
-            "Попробуй другой стиль или загрузи новое фото."
-            + _balance_line(credits),
-            parse_mode="Markdown",
-            reply_markup=error_keyboard(),
-        )
-        return
-
     needs_upgrade = result.get("upgrade_prompt", False)
     hint = _retention_line(result, mode, chat_id)
     bal = _balance_line(credits)
 
+    quality_warn = ""
+    if result.get("quality_warning"):
+        quality_warn = "\n\n\u2139\ufe0f Результат может отличаться от ожидаемого. Попробуй другой стиль или загрузи новое фото."
+
+    footer = hint + quality_warn + bal
+
     if mode == "rating":
-        await _send_rating(bot, chat_id, result, user_id, uname, bal)
+        await _send_rating(bot, chat_id, result, user_id, uname, quality_warn + bal)
     elif mode == "dating":
-        await _send_dating(bot, chat_id, result, user_id, uname, gen_image_bytes, needs_upgrade, hint + bal)
+        await _send_dating(bot, chat_id, result, user_id, uname, gen_image_bytes, needs_upgrade, footer)
     elif mode == "cv":
-        await _send_cv(bot, chat_id, result, user_id, uname, gen_image_bytes, needs_upgrade, hint + bal)
+        await _send_cv(bot, chat_id, result, user_id, uname, gen_image_bytes, needs_upgrade, footer)
     elif mode == "social":
-        await _send_social(bot, chat_id, result, user_id, uname, gen_image_bytes, needs_upgrade, hint + bal)
+        await _send_social(bot, chat_id, result, user_id, uname, gen_image_bytes, needs_upgrade, footer)
     elif mode == "emoji":
-        await _send_emoji(bot, chat_id, result, user_id, uname, gen_image_bytes, needs_upgrade, bal)
+        await _send_emoji(bot, chat_id, result, user_id, uname, gen_image_bytes, needs_upgrade, quality_warn + bal)
     else:
         kb = action_keyboard(uname, str(user_id))
         await bot.send_message(chat_id, f"Результат:\n```\n{result}\n```{bal}", parse_mode="Markdown", reply_markup=kb)

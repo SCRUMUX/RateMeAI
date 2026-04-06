@@ -74,6 +74,9 @@ class Settings(BaseSettings):
     photorealism_enabled: bool = True
     photorealism_threshold: float = 0.5
 
+    # FLUX prompt_strength (0.0 = no change, 1.0 = full regeneration)
+    image_gen_strength: float = 0.70
+
     # Model cost estimates (USD per call)
     model_cost_reve: float = 0.02
     model_cost_replicate: float = 0.05

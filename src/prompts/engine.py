@@ -25,6 +25,14 @@ _MODE_STYLE_DICTS: dict[AnalysisMode, dict[str, str]] = {
     AnalysisMode.SOCIAL: ig.SOCIAL_STYLES,
 }
 
+_MODE_PERSONALITY_DICTS: dict[AnalysisMode, dict[str, str]] = {
+    AnalysisMode.DATING: ig.DATING_PERSONALITIES,
+    AnalysisMode.CV: ig.CV_PERSONALITIES,
+    AnalysisMode.SOCIAL: ig.SOCIAL_PERSONALITIES,
+}
+
+_EXPRESSION_STEPS = {"expression_hint"}
+
 
 class PromptEngine:
     def build(self, mode: AnalysisMode, context: dict | None = None) -> str:
@@ -41,5 +49,8 @@ class PromptEngine:
 
     def build_step_prompt(self, step_template: str, style: str, mode: AnalysisMode) -> str:
         """Build a prompt for a single multi-pass pipeline step."""
-        mode_styles = _MODE_STYLE_DICTS.get(mode)
-        return ig.build_step_prompt(step_template, style, mode_styles)
+        if step_template in _EXPRESSION_STEPS:
+            mode_dict = _MODE_PERSONALITY_DICTS.get(mode)
+        else:
+            mode_dict = _MODE_STYLE_DICTS.get(mode)
+        return ig.build_step_prompt(step_template, style, mode_dict)

@@ -115,7 +115,7 @@ def build_model_registry(
             router.register(ModelSpec(
                 name="replicate_flux",
                 provider=p,
-                capabilities={"remix", "inpaint"},
+                capabilities={"remix", "inpaint", "edit"},
                 cost_per_call=cost_replicate,
                 avg_latency_ms=8000,
                 quality_tier=1,
