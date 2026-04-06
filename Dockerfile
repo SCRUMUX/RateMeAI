@@ -3,11 +3,14 @@ FROM python:3.12-slim AS base
 WORKDIR /app
 
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends gcc libpq-dev curl fonts-dejavu-core libgl1 libglib2.0-0 && \
+    apt-get install -y --no-install-recommends \
+        gcc g++ libpq-dev curl fonts-dejavu-core \
+        libgl1-mesa-glx libglib2.0-0 && \
     rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir opencv-python-headless>=4.6.0 && \
+    pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
