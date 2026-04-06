@@ -9,8 +9,9 @@ RUN apt-get update && \
     rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt .
-RUN pip install --no-cache-dir opencv-python-headless>=4.6.0 && \
-    pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt && \
+    pip install --no-cache-dir --force-reinstall --no-deps \
+        opencv-python-headless opencv-contrib-python-headless
 
 COPY . .
 
