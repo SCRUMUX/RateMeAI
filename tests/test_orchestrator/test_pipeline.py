@@ -501,8 +501,8 @@ def test_decisions_logged_in_trace(mock_nsfw, mock_norm, mock_face, mock_setting
 @patch("src.orchestrator.pipeline.has_face_heuristic", return_value=True)
 @patch("src.orchestrator.pipeline.validate_and_normalize", side_effect=lambda b: (b, {}))
 @patch("src.orchestrator.pipeline.extract_nsfw_from_analysis", return_value=(True, ""))
-def test_multipass_global_gates_block_result(mock_nsfw, mock_norm, mock_face, mock_settings):
-    """When global gates fail, generated_image_url is NOT set."""
+def test_multipass_global_gates_fail_still_delivers(mock_nsfw, mock_norm, mock_face, mock_settings):
+    """When global gates fail, image is still delivered with quality_warning."""
     mock_settings.segmentation_enabled = True
     mock_settings.identity_threshold = 0.85
     mock_settings.identity_max_retries = 2
@@ -570,7 +570,7 @@ def test_multipass_global_gates_block_result(mock_nsfw, mock_norm, mock_face, mo
         )
     )
 
-    assert merged.get("image_gen_error") == "quality_gates_failed"
-    assert "generated_image_url" not in merged
+    assert merged.get("quality_warning") is True
+    assert merged.get("generated_image_url")
     assert merged.get("quality_report")
     assert merged.get("cost_breakdown")
