@@ -71,16 +71,19 @@ def test_emoji_returns_none():
 
 
 @patch("src.orchestrator.planner.settings")
-def test_plan_removes_face_steps_when_no_face(mock_settings):
+def test_plan_filters_steps_by_enhancement_level(mock_settings):
     _apply_planner_settings(mock_settings)
 
     planner = PipelinePlanner()
     plan = planner.plan(
-        mode=AnalysisMode.DATING, style="", task_id="t6", has_face=False,
+        mode=AnalysisMode.DATING, style="", task_id="t6", enhancement_level=1,
     )
     assert plan is not None
-    regions = [s.region for s in plan.steps]
-    assert "face" not in regions
+    step_names = [s.step for s in plan.steps]
+    assert "lighting_adjust" in step_names
+    assert "skin_correction" in step_names
+    assert "background_edit" not in step_names
+    assert "expression_hint" not in step_names
 
 
 @patch("src.orchestrator.planner.settings")

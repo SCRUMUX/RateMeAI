@@ -15,6 +15,29 @@ logger = logging.getLogger(__name__)
 _DEPTH_MODES = ("dating", "cv", "social")
 
 
+async def _check_mode_flags(redis: Redis, user_id: int) -> dict | None:
+    """Check if a special mode flag (rating/emoji) is set and return redirect info."""
+    from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+
+    rating_flag = await redis.get(f"ratemeai:rating_mode:{user_id}")
+    if rating_flag:
+        await redis.delete(f"ratemeai:rating_mode:{user_id}")
+        kb = InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="\u2b50 Получить рейтинг", callback_data="mode:rating")],
+        ])
+        return {"text": "\u2b50 Анализирую фото для рейтинга:", "kb": kb}
+
+    emoji_flag = await redis.get(f"ratemeai:emoji_mode:{user_id}")
+    if emoji_flag:
+        await redis.delete(f"ratemeai:emoji_mode:{user_id}")
+        kb = InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="\U0001f600 Создать эмодзи", callback_data="mode:emoji")],
+        ])
+        return {"text": "\U0001f600 Создаю эмодзи-стикер:", "kb": kb}
+
+    return None
+
+
 async def _reset_depth(redis: Redis, user_id: int) -> None:
     """Clear depth tracking for all modes when a new photo is uploaded."""
     for mode in _DEPTH_MODES:
@@ -31,14 +54,9 @@ async def handle_photo(message: Message, redis: Redis):
     await redis.set(PHOTO_KEY.format(user_id), photo.file_id, ex=86400)
     await _reset_depth(redis, user_id)
 
-    rating_flag = await redis.get(f"ratemeai:rating_mode:{user_id}")
-    if rating_flag:
-        await redis.delete(f"ratemeai:rating_mode:{user_id}")
-        from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
-        kb = InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text="\u2b50 Получить рейтинг", callback_data="mode:rating")],
-        ])
-        await message.answer("\u2b50 Анализирую фото для рейтинга:", reply_markup=kb)
+    mode_redirect = await _check_mode_flags(redis, user_id)
+    if mode_redirect:
+        await message.answer(mode_redirect["text"], reply_markup=mode_redirect["kb"])
         return
 
     await message.answer(
@@ -55,14 +73,9 @@ async def handle_document(message: Message, redis: Redis):
         await redis.set(PHOTO_KEY.format(user_id), message.document.file_id, ex=86400)
         await _reset_depth(redis, user_id)
 
-        rating_flag = await redis.get(f"ratemeai:rating_mode:{user_id}")
-        if rating_flag:
-            await redis.delete(f"ratemeai:rating_mode:{user_id}")
-            from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
-            kb = InlineKeyboardMarkup(inline_keyboard=[
-                [InlineKeyboardButton(text="\u2b50 Получить рейтинг", callback_data="mode:rating")],
-            ])
-            await message.answer("\u2b50 Анализирую фото для рейтинга:", reply_markup=kb)
+        mode_redirect = await _check_mode_flags(redis, user_id)
+        if mode_redirect:
+            await message.answer(mode_redirect["text"], reply_markup=mode_redirect["kb"])
             return
 
         await message.answer(

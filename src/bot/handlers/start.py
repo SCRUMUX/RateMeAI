@@ -47,10 +47,12 @@ async def cmd_start(message: Message, api_base_url: str):
 
 
 @router.message(Command("emoji"))
-async def cmd_emoji(message: Message):
-    """Access emoji mode via /emoji command."""
+async def cmd_emoji(message: Message, redis: Redis):
+    """Access emoji mode via /emoji command — sets flag, then user sends photo."""
+    user_id = message.from_user.id
+    await redis.set(f"ratemeai:emoji_mode:{user_id}", "1", ex=300)
     await message.answer(
-        "\U0001f600 *Эмодзи-пак*\n\nОтправь мне фото, а затем выбери \U0001f600 Эмодзи через /emoji после результата.",
+        "\U0001f600 *Эмодзи-пак*\n\nОтправь мне фото, и я сделаю из него стикер-аватар!",
         parse_mode="Markdown",
         reply_markup=back_keyboard(),
     )

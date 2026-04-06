@@ -265,7 +265,7 @@ async def _send_rating(bot: Bot, chat_id: int, result: dict, user_id: int, uname
         text_parts.append(f"\n\U0001f3af {recommendations[0]}")
 
     text = "\n".join(text_parts) + footer
-    kb = post_result_keyboard("dating", str(user_id), uname)
+    kb = post_result_keyboard("rating", str(user_id), uname)
 
     share_info = result.get("share", {})
     card_path = share_info.get("card_url")

@@ -87,6 +87,9 @@ class ReveImageGen(ImageGenProvider):
             if region_hint:
                 prompt = f"{region_hint} {prompt}"
 
+        for k in ("mask_image", "mask_region", "use_edit"):
+            options.pop(k, None)
+
         last_err: Exception | None = None
         for attempt in range(_MAX_RETRIES):
             try:

@@ -39,21 +39,6 @@ def social_style_keyboard() -> InlineKeyboardMarkup:
     ])
 
 
-def enhancement_choice_keyboard(
-    option_a_label: str,
-    option_a_data: str,
-    option_b_label: str,
-    option_b_data: str,
-) -> InlineKeyboardMarkup:
-    """Binary choice — always exactly 2 buttons side by side."""
-    return InlineKeyboardMarkup(inline_keyboard=[
-        [
-            InlineKeyboardButton(text=option_a_label, callback_data=option_a_data),
-            InlineKeyboardButton(text=option_b_label, callback_data=option_b_data),
-        ],
-    ])
-
-
 def post_result_keyboard(
     mode: str,
     user_id: str,
@@ -69,22 +54,26 @@ def post_result_keyboard(
             InlineKeyboardButton(text=next_options[0]["label"], callback_data=next_options[0]["callback_data"]),
             InlineKeyboardButton(text=next_options[1]["label"], callback_data=next_options[1]["callback_data"]),
         ])
-    else:
-        if mode == "dating":
-            rows.append([
-                InlineKeyboardButton(text="\U0001f525 Уверенный", callback_data="enhance:dating:charismatic"),
-                InlineKeyboardButton(text="\U0001f3a8 Другой стиль", callback_data="restyle:dating"),
-            ])
-        elif mode == "cv":
-            rows.append([
-                InlineKeyboardButton(text="\U0001f4bc Строже", callback_data="enhance:cv:corporate"),
-                InlineKeyboardButton(text="\U0001f3a8 Другой стиль", callback_data="restyle:cv"),
-            ])
-        elif mode == "social":
-            rows.append([
-                InlineKeyboardButton(text="\U0001f31f Ярче", callback_data="enhance:social:influencer"),
-                InlineKeyboardButton(text="\U0001f3a8 Другой стиль", callback_data="restyle:social"),
-            ])
+    elif mode == "dating":
+        rows.append([
+            InlineKeyboardButton(text="\U0001f525 Уверенный", callback_data="enhance:dating:charismatic"),
+            InlineKeyboardButton(text="\U0001f3a8 Другой стиль", callback_data="restyle:dating"),
+        ])
+    elif mode == "cv":
+        rows.append([
+            InlineKeyboardButton(text="\U0001f4bc Строже", callback_data="enhance:cv:corporate"),
+            InlineKeyboardButton(text="\U0001f3a8 Другой стиль", callback_data="restyle:cv"),
+        ])
+    elif mode == "social":
+        rows.append([
+            InlineKeyboardButton(text="\U0001f31f Ярче", callback_data="enhance:social:influencer"),
+            InlineKeyboardButton(text="\U0001f3a8 Другой стиль", callback_data="restyle:social"),
+        ])
+    elif mode == "rating":
+        rows.append([
+            InlineKeyboardButton(text="\U0001f495 Знакомства", callback_data="pick_style:dating"),
+            InlineKeyboardButton(text="\U0001f4bc Карьера", callback_data="pick_style:cv"),
+        ])
 
     rows.extend([
         [

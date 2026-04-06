@@ -13,7 +13,6 @@ from src.bot.keyboards import (
     dating_style_keyboard,
     cv_style_keyboard,
     social_style_keyboard,
-    enhancement_choice_keyboard,
     error_keyboard,
     scenario_keyboard,
     back_keyboard,
@@ -114,38 +113,6 @@ async def on_mode_selected(callback: CallbackQuery, api_base_url: str, redis: Re
     """Legacy: direct mode selection (for /rating command flow)."""
     mode = callback.data.split(":", 1)[1]
     await _submit_analysis(callback, api_base_url, redis, mode, "")
-
-
-@router.callback_query(F.data.startswith("action:"))
-async def on_action(callback: CallbackQuery, redis: Redis):
-    """Reuse stored photo for a different scenario."""
-    mode = callback.data.split(":", 1)[1]
-    file_id = await redis.get(PHOTO_KEY.format(callback.from_user.id))
-    if not file_id:
-        await callback.answer("Фото больше не доступно. Отправь новое!", show_alert=True)
-        return
-    await callback.answer()
-    if mode == "dating":
-        await callback.message.answer("\U0001f495 Выбери образ:", reply_markup=dating_style_keyboard())
-    elif mode == "cv":
-        await callback.message.answer("\U0001f4bc Выбери образ:", reply_markup=cv_style_keyboard())
-    elif mode == "social":
-        await callback.message.answer("\U0001f4f8 Выбери образ:", reply_markup=social_style_keyboard())
-    else:
-        await callback.message.answer("Выбери направление:", reply_markup=scenario_keyboard())
-
-
-@router.callback_query(F.data.startswith("loop:"))
-async def on_loop(callback: CallbackQuery, api_base_url: str, redis: Redis):
-    """Re-generate with a different personality/style, same photo."""
-    parts = callback.data.split(":")
-    mode = parts[1]
-    style = parts[2] if len(parts) > 2 else ""
-    file_id = await redis.get(PHOTO_KEY.format(callback.from_user.id))
-    if not file_id:
-        await callback.answer("Фото больше не доступно. Отправь новое!", show_alert=True)
-        return
-    await _submit_analysis(callback, api_base_url, redis, mode, style)
 
 
 @router.callback_query(F.data.startswith("restyle:"))

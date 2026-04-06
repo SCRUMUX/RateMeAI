@@ -4,44 +4,52 @@
 
 ---
 
-## 1. ТЕКУЩЕЕ СОСТОЯНИЕ (AS-IS)
+## 1. ТЕКУЩЕЕ СОСТОЯНИЕ (AS-IS) — обновлено v1.3.x
 
 ### 1.1 Архитектура текущего pipeline
 
-Текущий пайплайн реализован в `src/orchestrator/pipeline.py` (класс `AnalysisPipeline`) и работает по схеме **single-pass**:
+Пайплайн реализован в `src/orchestrator/pipeline.py` (класс `AnalysisPipeline`) и поддерживает два режима:
 
+**Multi-pass (default при `SEGMENTATION_ENABLED=true`):**
 ```text
-Input -> Preprocess -> LLM Analysis -> SingleGenerationCall -> Store -> Return
+Input -> Preprocess -> LLM Analysis -> PipelinePlan -> [Step1 -> Step2 -> ... -> StepN] -> GlobalGates -> Store -> Return
+```
+
+**Single-pass (fallback):**
+```text
+Input -> Preprocess -> LLM Analysis -> SingleEditCall -> Store -> Return
 ```
 
 **Ключевые характеристики:**
-- Один вызов `image_gen.generate()` с полным промптом, который пытается решить все задачи сразу (identity lock + skin fix + background + clothing + expression + realism).
-- Промпт-constraints (`FACE_ANCHOR`, `SKIN_FIX`, `REALISM` в `src/prompts/image_gen.py`) — единственный механизм защиты идентичности.
-- Нет face embeddings и нет post-generation identity verification.
-- Нет масок и локального редактирования.
-- Нет quality gates: результат принимается или отклоняется только по размеру байтов (`len(raw) > 100`).
-- Metadata `enhancement.identity_preservation: "strict"` и `photorealism_check: "enforced"` записываются как статические строки, не как результат реальных проверок.
+- Основной режим генерации — Reve `edit` (не `remix`). Каждый шаг вызывает `edit()` с `edit_instruction`, что обеспечивает точечные правки без полной перегенерации.
+- Промпт-anchors (`FACE_ANCHOR`, `BODY_ANCHOR`, `SKIN_FIX`, `CAMERA`, `REALISM` в `src/prompts/image_gen.py`) используют positive framing (без "DO NOT"), чтобы избежать diffusion "negation blindness".
+- Шаги выполняются **последовательно** — каждый получает результат предыдущего шага как input.
+- Identity gate: InsightFace ArcFace embeddings используются для face similarity (telemetry-only, без блокировки). Результат всегда доставляется пользователю.
+- Quality gates: face_similarity, aesthetic_score, artifact_ratio, photorealism — проверяются после всех шагов, результат с warning доставляется при непрохождении.
+- MediaPipe SelfieSegmentation используется для масок (face, body, background, clothing) — маска передается как текстовая подсказка в edit mode.
+- `test_time_scaling` настраивается через `REVE_TEST_TIME_SCALING` (default 5).
+- Автоматический upscale: `postprocessing=[upscale(factor=2)]` добавляется по умолчанию.
 
 ### 1.2 Текущий preprocessing
 
 Файл `src/utils/image.py`:
 - Валидация формата и размера.
-- `has_face_heuristic()` проверяет только aspect ratio и min dimensions (не face detection).
-- Нет вычисления face embeddings на входе.
+- `has_face_heuristic()` проверяет aspect ratio и min dimensions.
+- При отсутствии лица — ошибка до начала pipeline.
 
 ### 1.3 Текущий provider layer
 
-- `src/providers/image_gen/reve_provider.py` — основной провайдер (Reve API, remix mode).
-- `src/providers/image_gen/replicate.py` — альтернативный провайдер.
-- `src/providers/factory.py` — выбор провайдера (mock / reve / replicate / chain).
-- `ChainImageGen` — fallback chain, но без cost/quality-aware routing (первый успешный результат принимается).
+- `src/providers/image_gen/reve_provider.py` — основной провайдер (Reve API, edit mode с rate-limit retry).
+- `src/providers/image_gen/replicate.py` — альтернативный провайдер (fallback).
+- `src/providers/factory.py` — выбор провайдера (mock / reve / replicate / auto).
+- Model Router: cost-aware routing с budget enforcement per pipeline.
 
 ### 1.4 Текущий scoring
 
-- Скор вычисляется LLM **только для входного изображения** (services: `rating.py`, `dating.py`, `cv.py`).
-- После генерации выходное изображение **не оценивается повторно**.
-- Delta (до/после) **не вычисляется**.
-- Temperature LLM = 0.7 (стохастичность).
+- Pre-score: LLM scoring входного изображения (temperature=0, configurable consensus).
+- Post-score: LLM re-scoring выходного фото через `_compute_delta`.
+- Delta (до/после) вычисляется и отображается пользователю.
+- Scoring temperature = 0.0, consensus samples = 1 (configurable via `SCORING_CONSENSUS_SAMPLES`).
 
 ---
 

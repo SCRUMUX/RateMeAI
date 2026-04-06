@@ -61,9 +61,9 @@ DATING_STYLES: dict[str, str] = {
 }
 
 DATING_PERSONALITIES: dict[str, str] = {
-    "friendly": "Soft relaxed eyes, warm approachable look, gentle natural expression.",
-    "confident": "Strong direct gaze, squared shoulders, calm self-assured energy.",
-    "charismatic": "Bright engaging eyes, magnetic energy, open relaxed posture.",
+    "warm_outdoor": "Soft relaxed eyes, warm approachable look, gentle natural expression.",
+    "studio_elegant": "Strong direct gaze, squared shoulders, calm self-assured energy.",
+    "cafe": "Bright engaging eyes, magnetic energy, open relaxed posture.",
 }
 
 CV_STYLES: dict[str, str] = {
@@ -86,8 +86,8 @@ CV_STYLES: dict[str, str] = {
 
 CV_PERSONALITIES: dict[str, str] = {
     "corporate": "Composed, trustworthy expression, professional confidence.",
-    "startup": "Relaxed, approachable, open and friendly gaze.",
     "creative": "Bold, expressive, artistic energy with confident posture.",
+    "neutral": "Relaxed, approachable, open and friendly gaze.",
 }
 
 SOCIAL_STYLES: dict[str, str] = {
@@ -127,7 +127,7 @@ SOCIAL_PERSONALITIES: dict[str, str] = {
 
 def build_dating_prompt(style: str = "") -> str:
     s = DATING_STYLES.get(style, DATING_STYLES["warm_outdoor"])
-    p = DATING_PERSONALITIES.get(style, DATING_PERSONALITIES["friendly"])
+    p = DATING_PERSONALITIES.get(style, DATING_PERSONALITIES["warm_outdoor"])
     return (
         f"Enhance into a dating profile photo. "
         f"Change background, lighting, and clothing style. "
@@ -170,23 +170,23 @@ def build_social_prompt(style: str = "") -> str:
 
 STEP_TEMPLATES: dict[str, str] = {
     "background_edit": (
-        "Change ONLY the background: {{description}}. "
+        "Change ONLY the background: {description}. "
         "Keep the person, clothing, pose, and body proportions identical. "
         f"{FACE_ANCHOR} {BODY_ANCHOR} {CAMERA} {REALISM}"
     ),
     "clothing_edit": (
-        "Change ONLY the clothing and outfit: {{description}}. "
+        "Change ONLY the clothing and outfit: {description}. "
         "Keep face, background, pose, and body proportions identical. "
         f"{FACE_ANCHOR} {BODY_ANCHOR} {CAMERA} {REALISM}"
     ),
     "lighting_adjust": (
-        "Improve ONLY the lighting and color grading: {{description}}. "
+        "Improve ONLY the lighting and color grading: {description}. "
         "Natural studio quality, even skin tones. "
         "Keep body, pose, and proportions identical. "
         f"{FACE_ANCHOR} {BODY_ANCHOR} {CAMERA} {REALISM}"
     ),
     "expression_hint": (
-        "Subtle expression adjustment: {{description}}. "
+        "Subtle expression adjustment: {description}. "
         "Keep face shape, features, and original mouth identical. "
         "Keep body pose and proportions identical. "
         f"{FACE_ANCHOR} {BODY_ANCHOR} {SKIN_FIX} {CAMERA} {REALISM}"
@@ -198,7 +198,7 @@ STEP_TEMPLATES: dict[str, str] = {
         f"{FACE_ANCHOR} {BODY_ANCHOR} {SKIN_FIX} {CAMERA} {REALISM}"
     ),
     "style_overall": (
-        "Apply overall style enhancement: {{description}}. "
+        "Apply overall style enhancement: {description}. "
         "Vibrant modern aesthetic, crisp detail. "
         "Keep body proportions and pose identical. "
         f"{FACE_ANCHOR} {BODY_ANCHOR} {CAMERA} {REALISM}"

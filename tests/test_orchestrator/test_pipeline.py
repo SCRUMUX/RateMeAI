@@ -409,6 +409,7 @@ def test_multipass_fallback_on_error(mock_nsfw, mock_norm, mock_face, mock_setti
     mock_settings.artifact_threshold = 0.05
     mock_settings.photorealism_enabled = True
     mock_settings.photorealism_threshold = 0.5
+    mock_settings.reve_test_time_scaling = 3
 
     pipeline, llm, storage = _build_pipeline()
 
@@ -420,13 +421,17 @@ def test_multipass_fallback_on_error(mock_nsfw, mock_norm, mock_face, mock_setti
     })
     pipeline._router = MagicMock()
     pipeline._router.get_service.return_value = service_mock
-    pipeline._prompt_engine = MagicMock()
-    pipeline._prompt_engine.build_image_prompt.return_value = "fallback prompt"
-    pipeline._prompt_engine.build_step_prompt.return_value = "step prompt"
 
-    seg_mock = MagicMock()
-    seg_mock.segment = AsyncMock(side_effect=Exception("segmentation failed"))
-    pipeline._segmentation = seg_mock
+    prompt_mock = MagicMock()
+    prompt_mock.build_image_prompt.return_value = "fallback prompt"
+    prompt_mock.build_step_prompt.return_value = "step prompt"
+    pipeline._prompt_engine = prompt_mock
+    pipeline._executor._prompt_engine = prompt_mock
+
+    gate_mock = MagicMock()
+    gate_mock.run_gates = AsyncMock(side_effect=Exception("gate runner exploded"))
+    pipeline._get_gate_runner = lambda: gate_mock
+    pipeline._executor._get_gate_runner = lambda: gate_mock
 
     merged = {}
     def capture_merge(result, card, uid):

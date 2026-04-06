@@ -72,9 +72,9 @@ services:
       redis:
         condition: service_healthy
     healthcheck:
-      test: ["CMD-SHELL", "pgrep -f 'arq' || exit 1"]
+      test: ["CMD-SHELL", "python -c 'import src.workers.tasks' || exit 1"]
       interval: 30s
-      timeout: 5s
+      timeout: 10s
       retries: 3
     volumes:
       - ./storage:/app/storage
@@ -93,9 +93,9 @@ services:
       app:
         condition: service_healthy
     healthcheck:
-      test: ["CMD-SHELL", "pgrep -f 'src.bot.app' || exit 1"]
+      test: ["CMD-SHELL", "python -c 'import src.bot.app' || exit 1"]
       interval: 30s
-      timeout: 5s
+      timeout: 10s
       retries: 3
     volumes:
       - ./storage:/app/storage

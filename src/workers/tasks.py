@@ -16,6 +16,7 @@ from src.models.enums import AnalysisMode, TaskStatus
 from src.orchestrator.pipeline import AnalysisPipeline
 from src.providers.factory import get_image_gen, get_llm, get_storage
 from src.utils.redis_keys import gen_image_cache_key, task_input_cache_key
+from src.metrics import CREDITS_USED
 from src.version import APP_VERSION
 
 logger = logging.getLogger(__name__)
@@ -44,7 +45,7 @@ async def startup(ctx: dict):
     if settings.is_production and not settings.openrouter_api_key.strip():
         logger.error("OPENROUTER_API_KEY is empty — tasks will fail at LLM step")
 
-    identity_ok = ctx["pipeline"]._get_identity_service() is not None
+    identity_ok = ctx["pipeline"].identity_available
     if not identity_ok:
         logger.error(
             "InsightFace NOT loaded — identity gate DISABLED. "
@@ -102,7 +103,9 @@ async def process_analysis(ctx: dict, task_id: str, _retry: bool = False):
             if style:
                 await redis.delete(style_key)
 
-            u_row = await db.execute(select(User).where(User.id == task.user_id))
+            u_row = await db.execute(
+                select(User).where(User.id == task.user_id).with_for_update()
+            )
             task_user = u_row.scalar_one()
             has_credits = task_user.image_credits > 0
 
@@ -146,7 +149,9 @@ async def process_analysis(ctx: dict, task_id: str, _retry: bool = False):
                     logger.exception("Failed to stage generated image in Redis for task %s", task_id)
 
                 try:
-                    u = await db.execute(select(User).where(User.id == task.user_id))
+                    u = await db.execute(
+                        select(User).where(User.id == task.user_id).with_for_update()
+                    )
                     user = u.scalar_one()
                     if user.image_credits > 0:
                         user.image_credits -= 1
@@ -156,6 +161,7 @@ async def process_analysis(ctx: dict, task_id: str, _retry: bool = False):
                             balance_after=user.image_credits,
                             tx_type="generation",
                         ))
+                        CREDITS_USED.inc()
                         logger.info("Deducted 1 image credit for user %s, remaining=%d", task.user_id, user.image_credits)
                     analysis_result["credit_deducted"] = True
                 except Exception:

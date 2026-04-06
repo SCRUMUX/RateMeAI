@@ -19,3 +19,5 @@ aioboto3==13.4.0
 insightface>=0.7.3,<1.0
 onnxruntime>=1.17.0,<2.0
 mediapipe>=0.10.0,<0.10.21
+python-json-logger>=2.0.0,<3.0
+prometheus-fastapi-instrumentator>=7.0.0,<8.0

@@ -14,10 +14,27 @@ from src.api.router import api_router
 from src.api.middleware import RequestLoggingMiddleware
 from src.version import APP_VERSION
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
-)
+
+def _configure_logging() -> None:
+    root = logging.getLogger()
+    root.setLevel(logging.INFO)
+    handler = logging.StreamHandler()
+
+    if settings.is_production:
+        from pythonjsonlogger import jsonlogger
+        handler.setFormatter(jsonlogger.JsonFormatter(
+            "%(asctime)s %(levelname)s %(name)s %(message)s",
+            rename_fields={"asctime": "timestamp", "levelname": "level"},
+        ))
+    else:
+        handler.setFormatter(logging.Formatter(
+            "%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+        ))
+
+    root.addHandler(handler)
+
+
+_configure_logging()
 
 
 def _run_alembic_upgrade() -> None:
@@ -71,17 +88,27 @@ app = FastAPI(
 )
 
 app.add_middleware(RequestLoggingMiddleware)
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"] if not settings.is_production else [
-        "https://ratemeai.com",
-        "https://*.up.railway.app",
-    ],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+if settings.is_production:
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=["https://ratemeai.com"],
+        allow_origin_regex=r"https://.*\.up\.railway\.app",
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+else:
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=["*"],
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
 app.include_router(api_router, prefix="/api/v1")
+
+from prometheus_fastapi_instrumentator import Instrumentator
+Instrumentator().instrument(app).expose(app, endpoint="/metrics")
 
 storage_dir = Path(settings.storage_local_path).resolve()
 storage_dir.mkdir(parents=True, exist_ok=True)
@@ -95,3 +122,29 @@ async def health():
     if sha:
         body["git"] = sha[:12]
     return body
+
+
+@app.get("/readiness")
+async def readiness():
+    from fastapi.responses import JSONResponse
+    from sqlalchemy import text
+
+    checks: dict[str, str] = {}
+
+    try:
+        async with app.state.db_sessionmaker() as db:
+            await db.execute(text("SELECT 1"))
+        checks["db"] = "ok"
+    except Exception:
+        checks["db"] = "fail"
+
+    try:
+        await app.state.redis.ping()
+        checks["redis"] = "ok"
+    except Exception:
+        checks["redis"] = "fail"
+
+    checks["openrouter_key"] = "ok" if settings.openrouter_api_key.strip() else "missing"
+
+    ok = all(v == "ok" for v in checks.values())
+    return JSONResponse(checks, status_code=200 if ok else 503)

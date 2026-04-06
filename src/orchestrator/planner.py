@@ -10,6 +10,7 @@ from typing import Any
 
 from src.config import settings
 from src.models.enums import AnalysisMode
+from src.orchestrator.enhancement_matrix import level_for_depth
 
 
 @dataclass
@@ -36,7 +37,7 @@ class PipelinePlan:
     intent: str
     steps: list[PipelineStep]
     global_gates: dict[str, float] = field(default_factory=dict)
-    retry_policy: dict[str, Any] = field(default_factory=lambda: {"max_retries": 2, "on_fail": "rollback"})
+    retry_policy: dict[str, Any] = field(default_factory=lambda: {"max_retries": 0, "on_fail": "accept"})
     cost_budget: float = 0.15
 
     def to_dict(self) -> dict[str, Any]:
@@ -158,7 +159,7 @@ class PipelinePlanner:
         style: str,
         task_id: str,
         analysis_result: dict | None = None,
-        has_face: bool = True,
+        enhancement_level: int = 0,
     ) -> PipelinePlan | None:
         """Return a multi-step plan, or None for modes that don't need one."""
         if mode in (AnalysisMode.RATING, AnalysisMode.EMOJI):
@@ -184,8 +185,9 @@ class PipelinePlanner:
             for s in steps_template
         ]
 
-        if not has_face:
-            steps = [s for s in steps if s.region != "face"]
+        if enhancement_level > 0:
+            allowed = set(level_for_depth(enhancement_level).steps)
+            steps = [s for s in steps if s.step in allowed]
 
         if analysis_result:
             steps = [s for s in steps if self._step_needed(s, analysis_result)]

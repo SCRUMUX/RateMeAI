@@ -1,4 +1,8 @@
-# Concept Conformance Audit
+# Concept Conformance Audit [ARCHIVED]
+
+> **ARCHIVED:** This audit was created against v1.2.x and is superseded by v1.3.x changes.
+> Many findings below (no embeddings, no multi-pass, no quality gates, bot language issues)
+> have been addressed. Retained for historical reference only.
 
 ## Аудит соответствия RateMeAI продуктовой конституции
 
