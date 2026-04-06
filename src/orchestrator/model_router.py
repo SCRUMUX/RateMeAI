@@ -109,7 +109,7 @@ def build_model_registry(
                 capabilities={"remix", "edit"},
                 cost_per_call=cost_reve,
                 avg_latency_ms=5000,
-                quality_tier=1,
+                quality_tier=2,
             ))
         elif isinstance(p, ReplicateImageGen):
             router.register(ModelSpec(
@@ -118,7 +118,7 @@ def build_model_registry(
                 capabilities={"remix", "inpaint"},
                 cost_per_call=cost_replicate,
                 avg_latency_ms=8000,
-                quality_tier=2,
+                quality_tier=1,
             ))
         elif isinstance(p, MockImageGen):
             router.register(ModelSpec(

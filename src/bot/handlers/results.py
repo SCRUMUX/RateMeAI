@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import base64
+import hashlib
 import logging
 from pathlib import Path
 
@@ -112,7 +113,7 @@ def _bot_username() -> str:
 def _split_caption(text: str) -> tuple[str, str | None]:
     if len(text) <= _MAX_CAPTION_LEN:
         return text, None
-    truncated = text[: _MAX_CAPTION_LEN - 1] + "…"
+    truncated = text[: _MAX_CAPTION_LEN - 1] + "\u2026"
     return truncated, text
 
 
@@ -132,7 +133,6 @@ async def _fetch_gen_image_from_redis(redis: Redis | None, task_id: str | None) 
 
 
 async def _get_credit_balance(user_id: int) -> int | None:
-    """Fetch user's credit balance from API."""
     try:
         async with httpx.AsyncClient(timeout=5.0) as client:
             api_base = settings.api_base_url
@@ -149,67 +149,55 @@ async def _get_credit_balance(user_id: int) -> int | None:
 
 _MODE_SUGGESTIONS: dict[str, list[str]] = {
     "dating": [
-        "Попробуй образ *Студия / элегант* — он часто даёт +1-2 к привлекательности!",
-        "Хочешь ещё больше? Попробуй стиль *Кафе / бар* для непринуждённого образа.",
+        "Попробуй образ *Студия / элегант* \u2014 он часто да\u0451т +1-2 к привлекательности!",
+        "Хочешь ещ\u0451 больше? Попробуй стиль *Кафе / бар* для непринужд\u0451нного образа.",
     ],
     "cv": [
-        "Попробуй *Корпоративный* стиль — он максимально повышает доверие.",
-        "Для творческих профессий подойдёт *Креативный* образ!",
+        "Попробуй *Корпоративный* стиль \u2014 он максимально повышает доверие.",
+        "Для творческих профессий подойд\u0451т *Креативный* образ!",
     ],
     "social": [
-        "Попробуй стиль *Luxury* — он отлично работает для Instagram.",
-        "Стиль *Artistic* может дать ещё более яркий результат!",
+        "Попробуй стиль *Luxury* \u2014 он отлично работает для Instagram.",
+        "Стиль *Artistic* может дать ещ\u0451 более яркий результат!",
     ],
 }
 
 
-async def _send_retention_hint(bot: Bot, chat_id: int, result: dict, mode: str):
-    """Send personalized next-step suggestion based on delta and quality_report."""
+def _retention_line(result: dict, mode: str, chat_id: int) -> str:
+    """Return an inline retention hint string, or empty string."""
     if mode not in ("dating", "cv", "social"):
-        return
+        return ""
 
     delta = result.get("delta", {})
     if not delta:
-        return
+        return ""
 
     has_improvement = False
-    post_score = None
-
     if mode == "dating" and delta.get("dating_score"):
-        d = delta["dating_score"]
-        has_improvement = d.get("delta", 0) > 0
-        post_score = d.get("post")
+        has_improvement = delta["dating_score"].get("delta", 0) > 0
     elif mode == "cv":
         for key in ("trust", "competence", "hireability"):
-            d = delta.get(key, {})
-            if d.get("delta", 0) > 0:
+            if delta.get(key, {}).get("delta", 0) > 0:
                 has_improvement = True
                 break
     elif mode == "social" and delta.get("social_score"):
-        d = delta["social_score"]
-        has_improvement = d.get("delta", 0) > 0
-        post_score = d.get("post")
+        has_improvement = delta["social_score"].get("delta", 0) > 0
 
     if not has_improvement:
-        return
+        return ""
 
     suggestions = _MODE_SUGGESTIONS.get(mode, [])
     if not suggestions:
-        return
+        return ""
 
-    import hashlib
     idx = int(hashlib.md5(str(chat_id).encode()).hexdigest(), 16) % len(suggestions)
-    hint = suggestions[idx]
+    return f"\n\n\U0001f4a1 {suggestions[idx]}"
 
-    if post_score is not None:
-        msg = f"Результат: *{post_score}/10*. {hint}"
-    else:
-        msg = f"Образ стал лучше! {hint}"
 
-    try:
-        await bot.send_message(chat_id, msg, parse_mode="Markdown")
-    except Exception:
-        pass
+def _balance_line(credits: int | None) -> str:
+    if credits is None:
+        return ""
+    return f"\n\n\U0001f4b0 Баланс: *{credits} образов*"
 
 
 async def deliver_result(bot: Bot, chat_id: int, status_msg_id: int, data: dict, user_id: int, redis: Redis | None = None):
@@ -227,6 +215,7 @@ async def deliver_result(bot: Bot, chat_id: int, status_msg_id: int, data: dict,
         pass
 
     uname = _bot_username()
+    credits = await _get_credit_balance(user_id)
 
     gen_error = result.get("image_gen_error", "")
     if gen_error == "quality_gates_failed":
@@ -236,45 +225,33 @@ async def deliver_result(bot: Bot, chat_id: int, status_msg_id: int, data: dict,
         await bot.send_message(
             chat_id,
             "Не удалось достичь нужного качества образа.\n"
-            "Попробуй другой стиль или загрузи новое фото.",
+            "Попробуй другой стиль или загрузи новое фото."
+            + _balance_line(credits),
+            parse_mode="Markdown",
             reply_markup=error_keyboard(),
         )
         return
 
     needs_upgrade = result.get("upgrade_prompt", False)
+    hint = _retention_line(result, mode, chat_id)
+    bal = _balance_line(credits)
 
     if mode == "rating":
-        await _send_rating(bot, chat_id, result, user_id, uname)
+        await _send_rating(bot, chat_id, result, user_id, uname, bal)
     elif mode == "dating":
-        await _send_dating(bot, chat_id, result, user_id, uname, gen_image_bytes, needs_upgrade)
+        await _send_dating(bot, chat_id, result, user_id, uname, gen_image_bytes, needs_upgrade, hint + bal)
     elif mode == "cv":
-        await _send_cv(bot, chat_id, result, user_id, uname, gen_image_bytes, needs_upgrade)
+        await _send_cv(bot, chat_id, result, user_id, uname, gen_image_bytes, needs_upgrade, hint + bal)
     elif mode == "social":
-        await _send_social(bot, chat_id, result, user_id, uname, gen_image_bytes, needs_upgrade)
+        await _send_social(bot, chat_id, result, user_id, uname, gen_image_bytes, needs_upgrade, hint + bal)
     elif mode == "emoji":
-        await _send_emoji(bot, chat_id, result, user_id, uname, gen_image_bytes, needs_upgrade)
+        await _send_emoji(bot, chat_id, result, user_id, uname, gen_image_bytes, needs_upgrade, bal)
     else:
         kb = action_keyboard(uname, str(user_id))
-        await bot.send_message(chat_id, f"Результат:\n```\n{result}\n```", parse_mode="Markdown", reply_markup=kb)
-
-    await _send_retention_hint(bot, chat_id, result, mode)
-
-    credits = await _get_credit_balance(user_id)
-    if credits is not None:
-        from src.bot.keyboards import back_keyboard
-        if credits == 0:
-            hint = "💰 Баланс: *0 образов*\nОткрой новые образы и стили!"
-            await bot.send_message(chat_id, hint, parse_mode="Markdown", reply_markup=upgrade_keyboard())
-        else:
-            await bot.send_message(
-                chat_id,
-                f"💰 Баланс: *{credits} образов*",
-                parse_mode="Markdown",
-                reply_markup=back_keyboard(),
-            )
+        await bot.send_message(chat_id, f"Результат:\n```\n{result}\n```{bal}", parse_mode="Markdown", reply_markup=kb)
 
 
-async def _send_rating(bot: Bot, chat_id: int, result: dict, user_id: int, uname: str):
+async def _send_rating(bot: Bot, chat_id: int, result: dict, user_id: int, uname: str, footer: str):
     perception = result.get("perception", {})
     score = result.get("score", "?")
     trust = perception.get("trust", "?")
@@ -285,20 +262,20 @@ async def _send_rating(bot: Bot, chat_id: int, result: dict, user_id: int, uname
     recommendations = result.get("recommendations", [])
 
     text_parts = [
-        f"⭐ *Рейтинг: {score}/10*\n",
-        f"Доверие: {trust} | Привлекательность: {attractiveness}",
-        f"Эмоция: {emotion}\n",
+        f"\u2b50 *\u0420\u0435\u0439\u0442\u0438\u043d\u0433: {score}/10*\n",
+        f"\u0414\u043e\u0432\u0435\u0440\u0438\u0435: {trust} | \u041f\u0440\u0438\u0432\u043b\u0435\u043a\u0430\u0442\u0435\u043b\u044c\u043d\u043e\u0441\u0442\u044c: {attractiveness}",
+        f"\u042d\u043c\u043e\u0446\u0438\u044f: {emotion}\n",
     ]
 
     if insights:
-        text_parts.append(f"💡 {insights[0]}")
+        text_parts.append(f"\U0001f4a1 {insights[0]}")
     if len(insights) > 1:
-        text_parts.append(f"💡 {insights[1]}")
+        text_parts.append(f"\U0001f4a1 {insights[1]}")
 
     if recommendations:
-        text_parts.append(f"\n🎯 {recommendations[0]}")
+        text_parts.append(f"\n\U0001f3af {recommendations[0]}")
 
-    text = "\n".join(text_parts)
+    text = "\n".join(text_parts) + footer
     kb = action_keyboard(uname, str(user_id))
 
     share_info = result.get("share", {})
@@ -315,7 +292,10 @@ async def _send_rating(bot: Bot, chat_id: int, result: dict, user_id: int, uname
     await bot.send_message(chat_id, text, parse_mode="Markdown", reply_markup=kb)
 
 
-async def _send_dating(bot: Bot, chat_id: int, result: dict, user_id: int, uname: str, gen_image_bytes: bytes | None = None, needs_upgrade: bool = False):
+async def _send_dating(
+    bot: Bot, chat_id: int, result: dict, user_id: int, uname: str,
+    gen_image_bytes: bytes | None = None, needs_upgrade: bool = False, footer: str = "",
+):
     score = result.get("dating_score", "?")
     impression = result.get("first_impression", "")
     strengths = result.get("strengths", [])
@@ -323,29 +303,29 @@ async def _send_dating(bot: Bot, chat_id: int, result: dict, user_id: int, uname
     enhancement = result.get("enhancement", {})
     style_name = enhancement.get("style", "")
 
-    text_parts = [f"💕 *Дейтинг: {score}/10*\n"]
+    text_parts = [f"\U0001f495 *\u0414\u0435\u0439\u0442\u0438\u043d\u0433: {score}/10*\n"]
 
     if style_name:
-        style_labels = {"warm_outdoor": "На прогулке", "studio_elegant": "Студия", "cafe": "Кафе"}
-        text_parts.append(f"Стиль: {style_labels.get(style_name, style_name)}")
+        style_labels = {"warm_outdoor": "\u041d\u0430 \u043f\u0440\u043e\u0433\u0443\u043b\u043a\u0435", "studio_elegant": "\u0421\u0442\u0443\u0434\u0438\u044f", "cafe": "\u041a\u0430\u0444\u0435"}
+        text_parts.append(f"\u0421\u0442\u0438\u043b\u044c: {style_labels.get(style_name, style_name)}")
 
     if impression:
-        text_parts.append(f"Впечатление: {impression[:120]}")
+        text_parts.append(f"\u0412\u043f\u0435\u0447\u0430\u0442\u043b\u0435\u043d\u0438\u0435: {impression[:120]}")
 
     if strengths:
-        text_parts.append(f"\n💪 {strengths[0]}")
+        text_parts.append(f"\n\U0001f4aa {strengths[0]}")
     if len(strengths) > 1:
-        text_parts.append(f"💪 {strengths[1]}")
+        text_parts.append(f"\U0001f4aa {strengths[1]}")
 
     delta = result.get("delta", {})
     if delta.get("dating_score"):
         d = delta["dating_score"]
         sign = "+" if d["delta"] >= 0 else ""
-        text_parts.append(f"\n📊 *Что изменилось:* {sign}{d['delta']} к привлекательности ({d['pre']} → {d['post']})")
+        text_parts.append(f"\n\U0001f4ca *\u0427\u0442\u043e \u0438\u0437\u043c\u0435\u043d\u0438\u043b\u043e\u0441\u044c:* {sign}{d['delta']} \u043a \u043f\u0440\u0438\u0432\u043b\u0435\u043a\u0430\u0442\u0435\u043b\u044c\u043d\u043e\u0441\u0442\u0438 ({d['pre']} \u2192 {d['post']})")
 
     if needs_upgrade:
-        text_parts.append("\n🔒 Улучшение образа недоступно — пополни пакет.")
-    text = "\n".join(text_parts)
+        text_parts.append("\n\U0001f512 \u0423\u043b\u0443\u0447\u0448\u0435\u043d\u0438\u0435 \u043e\u0431\u0440\u0430\u0437\u0430 \u043d\u0435\u0434\u043e\u0441\u0442\u0443\u043f\u043d\u043e \u2014 \u043f\u043e\u043f\u043e\u043b\u043d\u0438 \u043f\u0430\u043a\u0435\u0442.")
+    text = "\n".join(text_parts) + footer
     kb = upgrade_keyboard() if needs_upgrade else loop_keyboard(uname, str(user_id), "dating")
     caption, full_text = _split_caption(text)
 
@@ -372,7 +352,10 @@ async def _send_dating(bot: Bot, chat_id: int, result: dict, user_id: int, uname
     await bot.send_message(chat_id, text, parse_mode="Markdown", reply_markup=kb)
 
 
-async def _send_cv(bot: Bot, chat_id: int, result: dict, user_id: int, uname: str, gen_image_bytes: bytes | None = None, needs_upgrade: bool = False):
+async def _send_cv(
+    bot: Bot, chat_id: int, result: dict, user_id: int, uname: str,
+    gen_image_bytes: bytes | None = None, needs_upgrade: bool = False, footer: str = "",
+):
     profession = result.get("profession", "?")
     trust = result.get("trust", "?")
     competence = result.get("competence", "?")
@@ -382,34 +365,34 @@ async def _send_cv(bot: Bot, chat_id: int, result: dict, user_id: int, uname: st
     enhancement = result.get("enhancement", {})
     style_name = enhancement.get("style", "")
 
-    text_parts = ["💼 *Профессиональный анализ*\n"]
+    text_parts = ["\U0001f4bc *\u041f\u0440\u043e\u0444\u0435\u0441\u0441\u0438\u043e\u043d\u0430\u043b\u044c\u043d\u044b\u0439 \u0430\u043d\u0430\u043b\u0438\u0437*\n"]
 
     if style_name:
-        style_labels = {"corporate": "Корпоративный", "creative": "Креативный", "neutral": "Нейтральный"}
-        text_parts.append(f"Стиль: {style_labels.get(style_name, style_name)}")
+        style_labels = {"corporate": "\u041a\u043e\u0440\u043f\u043e\u0440\u0430\u0442\u0438\u0432\u043d\u044b\u0439", "creative": "\u041a\u0440\u0435\u0430\u0442\u0438\u0432\u043d\u044b\u0439", "neutral": "\u041d\u0435\u0439\u0442\u0440\u0430\u043b\u044c\u043d\u044b\u0439"}
+        text_parts.append(f"\u0421\u0442\u0438\u043b\u044c: {style_labels.get(style_name, style_name)}")
 
     text_parts.extend([
-        f"Профессия: {profession}",
-        f"Доверие: {trust} | Компетентность: {competence} | Найм: {hireability}\n",
+        f"\u041f\u0440\u043e\u0444\u0435\u0441\u0441\u0438\u044f: {profession}",
+        f"\u0414\u043e\u0432\u0435\u0440\u0438\u0435: {trust} | \u041a\u043e\u043c\u043f\u0435\u0442\u0435\u043d\u0442\u043d\u043e\u0441\u0442\u044c: {competence} | \u041d\u0430\u0439\u043c: {hireability}\n",
     ])
 
     if analysis:
-        text_parts.append(f"📝 {analysis[:200]}")
+        text_parts.append(f"\U0001f4dd {analysis[:200]}")
 
     delta = result.get("delta", {})
     if delta:
         delta_lines = []
-        for key, label in [("trust", "доверие"), ("competence", "компетентность"), ("hireability", "найм")]:
+        for key, label in [("trust", "\u0434\u043e\u0432\u0435\u0440\u0438\u0435"), ("competence", "\u043a\u043e\u043c\u043f\u0435\u0442\u0435\u043d\u0442\u043d\u043e\u0441\u0442\u044c"), ("hireability", "\u043d\u0430\u0439\u043c")]:
             d = delta.get(key)
             if d:
                 sign = "+" if d["delta"] >= 0 else ""
                 delta_lines.append(f"{label} {sign}{d['delta']}")
         if delta_lines:
-            text_parts.append(f"\n📊 *Что изменилось:* {', '.join(delta_lines)}")
+            text_parts.append(f"\n\U0001f4ca *\u0427\u0442\u043e \u0438\u0437\u043c\u0435\u043d\u0438\u043b\u043e\u0441\u044c:* {', '.join(delta_lines)}")
 
     if needs_upgrade:
-        text_parts.append("\n🔒 Улучшение образа недоступно — пополни пакет.")
-    text = "\n".join(text_parts)
+        text_parts.append("\n\U0001f512 \u0423\u043b\u0443\u0447\u0448\u0435\u043d\u0438\u0435 \u043e\u0431\u0440\u0430\u0437\u0430 \u043d\u0435\u0434\u043e\u0441\u0442\u0443\u043f\u043d\u043e \u2014 \u043f\u043e\u043f\u043e\u043b\u043d\u0438 \u043f\u0430\u043a\u0435\u0442.")
+    text = "\n".join(text_parts) + footer
     kb = upgrade_keyboard() if needs_upgrade else loop_keyboard(uname, str(user_id), "cv")
     caption, full_text = _split_caption(text)
 
@@ -436,43 +419,46 @@ async def _send_cv(bot: Bot, chat_id: int, result: dict, user_id: int, uname: st
     await bot.send_message(chat_id, text, parse_mode="Markdown", reply_markup=kb)
 
 
-async def _send_social(bot: Bot, chat_id: int, result: dict, user_id: int, uname: str, gen_image_bytes: bytes | None = None, needs_upgrade: bool = False):
+async def _send_social(
+    bot: Bot, chat_id: int, result: dict, user_id: int, uname: str,
+    gen_image_bytes: bytes | None = None, needs_upgrade: bool = False, footer: str = "",
+):
     first_impression = result.get("first_impression", "")
-    social_score = result.get("social_score", "—")
+    social_score = result.get("social_score", "\u2014")
     strengths = result.get("strengths", [])
     weaknesses = result.get("weaknesses", [])
     style_name = result.get("style")
 
-    text_parts = ["📸 *Стиль для соцсетей*\n"]
+    text_parts = ["\U0001f4f8 *\u0421\u0442\u0438\u043b\u044c \u0434\u043b\u044f \u0441\u043e\u0446\u0441\u0435\u0442\u0435\u0439*\n"]
 
     if style_name:
-        style_labels = {"influencer": "Influencer", "luxury": "Luxury", "casual": "Casual lifestyle", "artistic": "Artistic"}
-        text_parts.append(f"Образ: {style_labels.get(style_name, style_name)}")
+        style_labels = {"influencer": "Influencer", "luxury": "Luxury", "casual": "Casual", "artistic": "Artistic"}
+        text_parts.append(f"\u041e\u0431\u0440\u0430\u0437: {style_labels.get(style_name, style_name)}")
 
     if first_impression:
-        text_parts.append(f"Первое впечатление: {first_impression[:200]}")
+        text_parts.append(f"\u041f\u0435\u0440\u0432\u043e\u0435 \u0432\u043f\u0435\u0447\u0430\u0442\u043b\u0435\u043d\u0438\u0435: {first_impression[:200]}")
 
-    text_parts.append(f"Оценка для соцсетей: *{social_score}/10*\n")
+    text_parts.append(f"\u041e\u0446\u0435\u043d\u043a\u0430 \u0434\u043b\u044f \u0441\u043e\u0446\u0441\u0435\u0442\u0435\u0439: *{social_score}/10*\n")
 
     if strengths:
-        text_parts.append("✅ Сильные стороны:")
+        text_parts.append("\u2705 \u0421\u0438\u043b\u044c\u043d\u044b\u0435 \u0441\u0442\u043e\u0440\u043e\u043d\u044b:")
         for s in strengths[:3]:
-            text_parts.append(f"  • {s}")
+            text_parts.append(f"  \u2022 {s}")
 
     if weaknesses:
-        text_parts.append("\n💡 Что можно улучшить:")
+        text_parts.append("\n\U0001f4a1 \u0427\u0442\u043e \u043c\u043e\u0436\u043d\u043e \u0443\u043b\u0443\u0447\u0448\u0438\u0442\u044c:")
         for w in weaknesses[:2]:
-            text_parts.append(f"  • {w}")
+            text_parts.append(f"  \u2022 {w}")
 
     delta = result.get("delta", {})
     if delta.get("social_score"):
         d = delta["social_score"]
         sign = "+" if d["delta"] >= 0 else ""
-        text_parts.append(f"\n📊 *Что изменилось:* {sign}{d['delta']} к привлекательности ({d['pre']} → {d['post']})")
+        text_parts.append(f"\n\U0001f4ca *\u0427\u0442\u043e \u0438\u0437\u043c\u0435\u043d\u0438\u043b\u043e\u0441\u044c:* {sign}{d['delta']} ({d['pre']} \u2192 {d['post']})")
 
     if needs_upgrade:
-        text_parts.append("\n🔒 Улучшение образа недоступно — пополни пакет.")
-    text = "\n".join(text_parts)
+        text_parts.append("\n\U0001f512 \u0423\u043b\u0443\u0447\u0448\u0435\u043d\u0438\u0435 \u043e\u0431\u0440\u0430\u0437\u0430 \u043d\u0435\u0434\u043e\u0441\u0442\u0443\u043f\u043d\u043e \u2014 \u043f\u043e\u043f\u043e\u043b\u043d\u0438 \u043f\u0430\u043a\u0435\u0442.")
+    text = "\n".join(text_parts) + footer
     kb = upgrade_keyboard() if needs_upgrade else loop_keyboard(uname, str(user_id), "social")
     caption, full_text = _split_caption(text)
 
@@ -499,28 +485,31 @@ async def _send_social(bot: Bot, chat_id: int, result: dict, user_id: int, uname
     await bot.send_message(chat_id, text, parse_mode="Markdown", reply_markup=kb)
 
 
-async def _send_emoji(bot: Bot, chat_id: int, result: dict, user_id: int, uname: str, gen_image_bytes: bytes | None = None, needs_upgrade: bool = False):
+async def _send_emoji(
+    bot: Bot, chat_id: int, result: dict, user_id: int, uname: str,
+    gen_image_bytes: bytes | None = None, needs_upgrade: bool = False, footer: str = "",
+):
     base_desc = result.get("base_description", "")
     stickers = result.get("stickers", [])
 
-    text_parts = ["😀 *Эмодзи-пак*\n"]
+    text_parts = ["\U0001f600 *\u042d\u043c\u043e\u0434\u0437\u0438-\u043f\u0430\u043a*\n"]
     if base_desc:
         text_parts.append(f"{base_desc[:150]}\n")
 
     if stickers:
         emoji_map = {
-            "happy": "😊", "sad": "😢", "angry": "😠", "surprised": "😲",
-            "love": "😍", "cool": "😎", "thinking": "🤔", "laughing": "😂",
-            "sleepy": "😴", "wink": "😉", "scared": "😱", "party": "🎉",
+            "happy": "\U0001f60a", "sad": "\U0001f622", "angry": "\U0001f620", "surprised": "\U0001f632",
+            "love": "\U0001f60d", "cool": "\U0001f60e", "thinking": "\U0001f914", "laughing": "\U0001f602",
+            "sleepy": "\U0001f634", "wink": "\U0001f609", "scared": "\U0001f631", "party": "\U0001f389",
         }
         for s in stickers[:6]:
             emotion = s.get("emotion", "")
-            icon = emoji_map.get(emotion, "•")
+            icon = emoji_map.get(emotion, "\u2022")
             text_parts.append(f"{icon} {emotion}: {s.get('description', '')[:60]}")
 
     if needs_upgrade:
-        text_parts.append("\n🔒 Улучшение образа недоступно — пополни пакет.")
-    text = "\n".join(text_parts)
+        text_parts.append("\n\U0001f512 \u0423\u043b\u0443\u0447\u0448\u0435\u043d\u0438\u0435 \u043e\u0431\u0440\u0430\u0437\u0430 \u043d\u0435\u0434\u043e\u0441\u0442\u0443\u043f\u043d\u043e \u2014 \u043f\u043e\u043f\u043e\u043b\u043d\u0438 \u043f\u0430\u043a\u0435\u0442.")
+    text = "\n".join(text_parts) + footer
     kb = upgrade_keyboard() if needs_upgrade else action_keyboard(uname, str(user_id))
     caption, full_text = _split_caption(text)
 

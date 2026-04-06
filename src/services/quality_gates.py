@@ -15,12 +15,14 @@ from src.providers.base import LLMProvider
 logger = logging.getLogger(__name__)
 
 QUALITY_CHECK_PROMPT = (
-    "Analyze this photo for quality. Return ONLY a JSON object:\n"
+    "Analyze this AI-enhanced photo for quality. Return ONLY a JSON object:\n"
     "{\n"
     '  "aesthetic_score": <float 1-10, consider lighting, composition, skin naturalness>,\n'
     '  "artifact_ratio": <float 0.0-1.0, proportion of visible AI artifacts or distortions>,\n'
     '  "is_photorealistic": <bool, true if it looks like a genuine photograph>,\n'
     '  "photorealism_confidence": <float 0.0-1.0>,\n'
+    '  "teeth_natural": <bool, true if teeth look natural or mouth is closed; false if teeth look AI-generated, unnaturally white, duplicated, or deformed>,\n'
+    '  "expression_altered": <bool, true if the facial expression looks artificially changed — forced smile, unnatural grin, plastic look around mouth>,\n'
     '  "details": "<one-sentence summary>"\n'
     "}"
 )
@@ -61,8 +63,8 @@ class QualityGateRunner:
                 gate_spec["face_similarity"], original_bytes, generated_bytes, original_embedding,
             ))
 
-        llm_gates = {k: v for k, v in gate_spec.items()
-                     if k in ("aesthetic_score", "artifact_ratio", "photorealism")}
+        _LLM_GATE_KEYS = ("aesthetic_score", "artifact_ratio", "photorealism", "naturalness")
+        llm_gates = {k: v for k, v in gate_spec.items() if k in _LLM_GATE_KEYS}
         if llm_gates and self._llm is not None:
             quality = await self._get_quality_metrics(generated_bytes)
             if "aesthetic_score" in llm_gates:
@@ -76,9 +78,16 @@ class QualityGateRunner:
             if "photorealism" in llm_gates:
                 is_real = quality.get("is_photorealistic", True)
                 confidence = quality.get("photorealism_confidence", 0.5)
-                val = confidence if is_real else 0.0
                 thr = llm_gates["photorealism"]
-                results.append(GateResult("photorealism", is_real, val, thr))
+                passed = is_real and confidence >= thr
+                val = confidence if is_real else 0.0
+                results.append(GateResult("photorealism", passed, val, thr))
+            if "naturalness" in llm_gates:
+                teeth_ok = quality.get("teeth_natural", True)
+                expr_altered = quality.get("expression_altered", False)
+                passed = teeth_ok and not expr_altered
+                val = 1.0 if passed else 0.0
+                results.append(GateResult("naturalness", passed, val, 1.0))
 
         return results
 
@@ -100,6 +109,8 @@ class QualityGateRunner:
             "aesthetic_score": quality.get("aesthetic_score"),
             "artifact_ratio": quality.get("artifact_ratio"),
             "is_photorealistic": quality.get("is_photorealistic"),
+            "teeth_natural": quality.get("teeth_natural"),
+            "expression_altered": quality.get("expression_altered"),
             "gates_passed": [r.gate_name for r in results if r.passed],
             "gates_failed": [r.gate_name for r in results if not r.passed],
         }
@@ -146,6 +157,8 @@ class QualityGateRunner:
                 "artifact_ratio": float(result.get("artifact_ratio", 0.0)),
                 "is_photorealistic": bool(result.get("is_photorealistic", True)),
                 "photorealism_confidence": float(result.get("photorealism_confidence", 0.5)),
+                "teeth_natural": bool(result.get("teeth_natural", True)),
+                "expression_altered": bool(result.get("expression_altered", False)),
                 "details": str(result.get("details", "")),
             }
         except Exception:

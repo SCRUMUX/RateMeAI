@@ -8,7 +8,10 @@ from __future__ import annotations
 FACE_ANCHOR = (
     "IDENTITY LOCK: preserve exact face shape, nose, eyes, eyebrows, lips, "
     "jawline, chin, ears, cheekbones, forehead. Do NOT reshape or reposition "
-    "any facial feature. Person must be instantly recognizable."
+    "any facial feature. Person must be instantly recognizable. "
+    "MOUTH RULE: keep the original mouth expression exactly as-is. "
+    "Do NOT add, remove, whiten, or reshape teeth. "
+    "Do NOT add a smile or change the degree of smile."
 )
 
 SKIN_FIX = (
@@ -30,9 +33,9 @@ DATING_STYLES: dict[str, str] = {
 }
 
 DATING_PERSONALITIES: dict[str, str] = {
-    "friendly": "Expression: warm genuine smile, soft relaxed eyes.",
-    "confident": "Expression: strong direct gaze, slight smirk, squared shoulders.",
-    "charismatic": "Expression: bright magnetic smile, infectious charm.",
+    "friendly": "Expression: soft relaxed eyes, warm approachable look.",
+    "confident": "Expression: strong direct gaze, squared shoulders, calm confidence.",
+    "charismatic": "Expression: bright engaging eyes, magnetic energy, open posture.",
 }
 
 CV_STYLES: dict[str, str] = {
@@ -43,7 +46,7 @@ CV_STYLES: dict[str, str] = {
 
 CV_PERSONALITIES: dict[str, str] = {
     "corporate": "Expression: composed, trustworthy professional confidence.",
-    "startup": "Expression: relaxed, approachable, friendly smile.",
+    "startup": "Expression: relaxed, approachable, open gaze.",
     "creative": "Expression: bold, expressive, artistic energy.",
 }
 
@@ -55,9 +58,9 @@ SOCIAL_STYLES: dict[str, str] = {
 }
 
 SOCIAL_PERSONALITIES: dict[str, str] = {
-    "influencer": "Expression: bright confident smile, engaging eye contact, charismatic energy.",
+    "influencer": "Expression: bright confident look, engaging eye contact, charismatic energy.",
     "luxury": "Expression: elegant poise, mysterious allure, sophisticated calm.",
-    "casual": "Expression: genuine relaxed smile, warm natural look, approachable vibe.",
+    "casual": "Expression: genuine relaxed look, warm natural feel, approachable vibe.",
     "artistic": "Expression: thoughtful creative gaze, expressive, unconventional character.",
 }
 
@@ -114,6 +117,7 @@ STEP_TEMPLATES: dict[str, str] = {
     "expression_hint": (
         "Subtle expression adjustment: {description}. "
         "Keep identity, do not change face shape or features. "
+        "Do NOT modify teeth or add smile. Keep original mouth. "
         f"{FACE_ANCHOR} {SKIN_FIX} {REALISM}"
     ),
     "skin_correction": (
