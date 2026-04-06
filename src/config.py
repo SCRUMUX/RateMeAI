@@ -61,7 +61,7 @@ class Settings(BaseSettings):
     api_key_pepper: str = ""
 
     # Identity gate (face similarity threshold for generated images)
-    identity_threshold: float = 0.85
+    identity_threshold: float = 0.75
     identity_max_retries: int = 2
 
     # Multi-pass pipeline / segmentation
