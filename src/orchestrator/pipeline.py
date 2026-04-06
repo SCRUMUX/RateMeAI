@@ -465,8 +465,8 @@ class AnalysisPipeline:
 
             params: dict = {
                 "aspect_ratio": "auto",
-                "test_time_scaling": 3,
-                "prompt_strength": settings.image_gen_strength,
+                "test_time_scaling": settings.reve_test_time_scaling,
+                "use_edit": True,
             }
             params.update(extra_params)
             if mask_bytes:

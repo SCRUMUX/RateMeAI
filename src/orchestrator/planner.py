@@ -72,7 +72,7 @@ _DATING_STEPS = [
         region="full",
         prompt_template="lighting_adjust",
         gate={"face_similarity": 0.78},
-        model_preference="remix",
+        model_preference="edit",
     ),
     PipelineStep(
         step="expression_hint",
@@ -127,7 +127,7 @@ _SOCIAL_STEPS = [
         region="full",
         prompt_template="style_overall",
         gate={"face_similarity": 0.78, "aesthetic_score": 6.0},
-        model_preference="remix",
+        model_preference="edit",
     ),
     PipelineStep(
         step="expression_hint",

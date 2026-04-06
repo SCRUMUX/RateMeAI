@@ -50,45 +50,22 @@ DEPTH_KEY = "ratemeai:depth:{}:{}"
 
 @router.callback_query(F.data.startswith("pick_style:"))
 async def on_pick_style(callback: CallbackQuery, redis: Redis):
-    """Show style selection keyboard for scenario."""
+    """Show enhancement preview + style selection for the chosen direction."""
     kind = callback.data.split(":", 1)[1]
-    file_id = await redis.get(PHOTO_KEY.format(callback.from_user.id))
-    if not file_id:
-        await callback.answer("Сначала отправь фото!", show_alert=True)
-        return
-    await callback.answer()
-    if kind == "dating":
-        await callback.message.answer("\U0001f495 Выбери образ:", reply_markup=dating_style_keyboard())
-    elif kind == "social":
-        await callback.message.answer("\U0001f4f8 Выбери образ:", reply_markup=social_style_keyboard())
-    elif kind == "cv":
-        await callback.message.answer("\U0001f4bc Выбери образ:", reply_markup=cv_style_keyboard())
-    else:
-        await callback.message.answer("Выбери направление:", reply_markup=scenario_keyboard())
-
-
-@router.callback_query(F.data.startswith("style:"))
-async def on_style_selected(callback: CallbackQuery, redis: Redis):
-    """Show Enhancement Preview with predictions + action buttons."""
-    parts = callback.data.split(":")
-    mode = parts[1]
-    style = parts[2] if len(parts) > 2 else ""
     user_id = callback.from_user.id
-
     file_id = await redis.get(PHOTO_KEY.format(user_id))
     if not file_id:
         await callback.answer("Сначала отправь фото!", show_alert=True)
         return
     await callback.answer()
 
-    depth = await _get_depth(redis, user_id, mode)
-
+    depth = await _get_depth(redis, user_id, kind)
     preview = build_enhancement_preview(
-        mode=mode,
+        mode=kind,
         analysis_result={},
         user_id=user_id,
         depth=depth,
-        current_style=style,
+        current_style="",
     )
 
     mode_headers = {
@@ -96,25 +73,31 @@ async def on_style_selected(callback: CallbackQuery, redis: Redis):
         "cv": "\U0001f4bc *Профессиональный образ*",
         "social": "\U0001f4f8 *Образ для соцсетей*",
     }
-    style_names = _STYLE_DISPLAY_NAMES.get(mode, {})
-    style_label = style_names.get(style, style)
-
-    header = mode_headers.get(mode, "\u2728 *Твой образ*")
+    header = mode_headers.get(kind, "\u2728 *Твой образ*")
     text = (
-        f"{header}\n"
-        f"Стиль: *{style_label}*\n\n"
+        f"{header}\n\n"
         "\U0001f680 *Что можно усилить:*\n"
-        f"{preview.suggestions_text}\n"
+        f"{preview.suggestions_text}\n\n"
+        "*Выбери стиль:*"
     )
 
-    kb = enhancement_choice_keyboard(
-        option_a_label="\u2728 Усилить образ",
-        option_a_data=f"enhance:{mode}:{style}",
-        option_b_label="\U0001f504 Другой стиль",
-        option_b_data=f"restyle:{mode}",
-    )
+    if kind == "dating":
+        await callback.message.answer(text, parse_mode="Markdown", reply_markup=dating_style_keyboard())
+    elif kind == "social":
+        await callback.message.answer(text, parse_mode="Markdown", reply_markup=social_style_keyboard())
+    elif kind == "cv":
+        await callback.message.answer(text, parse_mode="Markdown", reply_markup=cv_style_keyboard())
+    else:
+        await callback.message.answer("Выбери направление:", reply_markup=scenario_keyboard())
 
-    await callback.message.answer(text, parse_mode="Markdown", reply_markup=kb)
+
+@router.callback_query(F.data.startswith("style:"))
+async def on_style_selected(callback: CallbackQuery, api_base_url: str, redis: Redis):
+    """User picked a style — run the pipeline immediately."""
+    parts = callback.data.split(":")
+    mode = parts[1]
+    style = parts[2] if len(parts) > 2 else ""
+    await _submit_analysis(callback, api_base_url, redis, mode, style)
 
 
 @router.callback_query(F.data.startswith("enhance:"))
