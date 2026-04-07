@@ -277,27 +277,41 @@ class ImageGenerationExecutor:
                 logger.warning("Image gen returned empty/tiny result (%s bytes)", len(raw) if raw else 0)
                 raw = None
 
+            warnings: list[str] = result_dict.setdefault("generation_warnings", [])
+
             if raw and mode != AnalysisMode.EMOJI and identity_svc:
                 with _trace_step(trace, "identity_check") as gate_entry:
                     passed, identity_score = identity_svc.verify(image_bytes, raw)
                     gate_entry["similarity"] = round(identity_score, 3)
                     gate_entry["passed"] = passed
                 IDENTITY_SCORE.observe(identity_score)
-                if not passed:
-                    logger.warning(
-                        "Identity check FAILED: similarity=%.3f < threshold=%.2f — "
-                        "rejecting generated image (task=%s)",
-                        identity_score, settings.identity_threshold, task_id,
+
+                if identity_score == 0.0:
+                    warnings.append(
+                        "На обработанном фото не распознано лицо. "
+                        "Попробуй загрузить чёткое портретное фото анфас."
                     )
-                    raw = None
-                    result_dict["identity_rejected"] = True
+                elif identity_score < 0.3:
+                    warnings.append(
+                        "Результат значительно отличается от оригинала. "
+                        "Загрузи фото с чётким лицом и хорошим освещением."
+                    )
+                elif identity_score < 0.5:
+                    warnings.append(
+                        "Результат может отличаться от оригинала. "
+                        "Для лучшего сходства используй фото анфас с равномерным освещением."
+                    )
                 elif identity_score < 0.75:
-                    logger.info(
-                        "Identity check SOFT: similarity=%.3f < 0.75 — "
-                        "accepting with quality warning (task=%s)",
-                        identity_score, task_id,
+                    warnings.append(
+                        "Небольшие отличия от оригинала. "
+                        "Попробуй другой стиль для лучшего результата."
                     )
-                    result_dict["quality_warning"] = True
+
+                logger.info(
+                    "Identity gate: similarity=%.3f threshold=%.2f passed=%s warnings=%d (task=%s)",
+                    identity_score, settings.identity_threshold, passed,
+                    len(warnings), task_id,
+                )
 
             if raw and len(raw) > 100:
                 gkey = f"generated/{user_id}/{task_id}.jpg"
@@ -329,9 +343,16 @@ class ImageGenerationExecutor:
             else:
                 logger.warning("Image gen returned no usable result for task=%s", task_id)
                 result_dict["image_gen_error"] = "empty_result"
+                warnings.append(
+                    "Не удалось сгенерировать улучшенное фото. "
+                    "Попробуй загрузить другое фото или выбрать другой стиль."
+                )
         except Exception:
             logger.exception("Image generation failed for mode %s", mode.value)
             result_dict["image_gen_error"] = "generation_failed"
+            result_dict.setdefault("generation_warnings", []).append(
+                "Произошла ошибка при генерации. Попробуй ещё раз или загрузи другое фото."
+            )
 
 
 class DeltaScorer:

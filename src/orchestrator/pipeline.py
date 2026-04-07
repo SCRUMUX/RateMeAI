@@ -143,10 +143,19 @@ class AnalysisPipeline:
         }
 
         with _trace_step(trace, "preprocess"):
-            image_bytes = await self._preprocess(image_bytes)
+            image_bytes, img_meta = await self._preprocess(image_bytes)
 
         with _trace_step(trace, "analyze"):
             result, result_dict = await self._analyze(mode, image_bytes, context)
+
+        warnings: list[str] = result_dict.setdefault("generation_warnings", [])
+        orig_w = img_meta.get("original_width", 0)
+        orig_h = img_meta.get("original_height", 0)
+        if orig_w < 400 or orig_h < 400:
+            warnings.append(
+                "Фото имеет низкое разрешение. "
+                "Загрузи фото в более высоком качестве для лучшего результата."
+            )
 
         style = (context or {}).get("style", "")
         skip_gen = (context or {}).get("skip_image_gen", False)
@@ -213,13 +222,13 @@ class AnalysisPipeline:
     # Preprocessing
     # ------------------------------------------------------------------
 
-    async def _preprocess(self, image_bytes: bytes) -> bytes:
-        image_bytes, _meta = validate_and_normalize(image_bytes)
+    async def _preprocess(self, image_bytes: bytes) -> tuple[bytes, dict]:
+        image_bytes, meta = validate_and_normalize(image_bytes)
 
         if not has_face_heuristic(image_bytes):
             raise ValueError("На фото не обнаружено лицо. Загрузи портретное фото.")
 
-        return image_bytes
+        return image_bytes, meta
 
     # ------------------------------------------------------------------
     # Analysis (LLM scoring)

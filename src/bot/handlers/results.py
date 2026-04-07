@@ -220,9 +220,10 @@ async def deliver_result(bot: Bot, chat_id: int, status_msg_id: int, data: dict,
     needs_upgrade = result.get("upgrade_prompt", False)
     bal = _balance_line(credits)
 
+    gen_warnings = result.get("generation_warnings", [])
     quality_warn = ""
-    if result.get("quality_warning"):
-        quality_warn = "\n\n\u2139\ufe0f Результат может отличаться от ожидаемого. Попробуй другой стиль или загрузи новое фото."
+    if gen_warnings:
+        quality_warn = "\n\n" + "\n".join(f"\u2139\ufe0f {w}" for w in gen_warnings[:3])
 
     if mode == "rating":
         await _send_rating(bot, chat_id, result, user_id, uname, quality_warn + bal)
@@ -318,10 +319,6 @@ async def _send_enhanced(
 
     next_text = _build_next_level_text(mode, user_id, depth)
     text_parts.append(next_text)
-
-    if result.get("identity_rejected"):
-        text_parts.append("\n\nНе удалось сохранить сходство лица. Попробуй другой стиль или загрузи новое фото.")
-        gen_image_bytes = None
 
     if needs_upgrade:
         text_parts.append("\n\U0001f512 Улучшение образа недоступно \u2014 пополни пакет.")
