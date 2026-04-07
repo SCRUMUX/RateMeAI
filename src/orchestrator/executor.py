@@ -285,10 +285,12 @@ class ImageGenerationExecutor:
                 IDENTITY_SCORE.observe(identity_score)
                 if not passed:
                     logger.warning(
-                        "Identity check: similarity=%.3f < threshold=%.2f — "
-                        "accepting result (edit mode), logging for telemetry (task=%s)",
+                        "Identity check FAILED: similarity=%.3f < threshold=%.2f — "
+                        "rejecting generated image (task=%s)",
                         identity_score, settings.identity_threshold, task_id,
                     )
+                    raw = None
+                    result_dict["identity_rejected"] = True
 
             if raw and len(raw) > 100:
                 gkey = f"generated/{user_id}/{task_id}.jpg"

@@ -319,6 +319,10 @@ async def _send_enhanced(
     next_text = _build_next_level_text(mode, user_id, depth)
     text_parts.append(next_text)
 
+    if result.get("identity_rejected"):
+        text_parts.append("\n\nНе удалось сохранить сходство лица. Попробуй другой стиль или загрузи новое фото.")
+        gen_image_bytes = None
+
     if needs_upgrade:
         text_parts.append("\n\U0001f512 Улучшение образа недоступно \u2014 пополни пакет.")
 

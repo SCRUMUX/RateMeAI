@@ -65,7 +65,7 @@ class Settings(BaseSettings):
     identity_max_retries: int = 0
 
     # Multi-pass pipeline / segmentation
-    segmentation_enabled: bool = True
+    segmentation_enabled: bool = False
     pipeline_budget_max_usd: float = 0.15
 
     # Quality gates

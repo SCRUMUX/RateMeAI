@@ -71,7 +71,7 @@ async def shutdown(ctx: dict):
     logger.info("Worker stopped")
 
 
-async def process_analysis(ctx: dict, task_id: str, _retry: bool = False):
+async def process_analysis(ctx: dict, task_id: str):
     db_sessionmaker = ctx["db_sessionmaker"]
     pipeline: AnalysisPipeline = ctx["pipeline"]
     storage = ctx["storage"]
@@ -190,16 +190,7 @@ async def process_analysis(ctx: dict, task_id: str, _retry: bool = False):
                 logger.warning("Failed to publish task_done for %s", task_id)
 
         except Exception as e:
-            if not _retry and "модерацию" not in str(e) and "лицо" not in str(e):
-                logger.warning("Task %s failed, scheduling retry", task_id)
-                task.status = TaskStatus.PENDING.value
-                task.error_message = f"retry: {str(e)[:300]}"
-                await db.commit()
-                import asyncio
-                await asyncio.sleep(5)
-                return await process_analysis(ctx, task_id, _retry=True)
-
-            logger.exception("Task %s failed (final)", task_id)
+            logger.exception("Task %s failed", task_id)
             task.status = TaskStatus.FAILED.value
             task.error_message = str(e)[:500]
             try:
