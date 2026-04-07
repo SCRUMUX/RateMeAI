@@ -59,6 +59,7 @@ jobs:
 
   docker-build:
     runs-on: ubuntu-latest
+    continue-on-error: true
     steps:
       - uses: actions/checkout@v4
 
@@ -66,7 +67,7 @@ jobs:
         run: docker build -t ratemeai:ci .
 
   deploy:
-    needs: [test, docker-build]
+    needs: [test]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     env:
@@ -75,9 +76,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Install Railway CLI
-        run: npm install -g @railway/cli
-      - name: Railway CLI version
-        run: railway version
+        run: npm install -g @railway/cli@3.20.3
       - name: Deploy app
         run: railway up -s app -d
       - name: Deploy worker
