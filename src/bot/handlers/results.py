@@ -166,28 +166,30 @@ def _format_delta_fractional(delta_val: float) -> str:
     return f"{sign}{delta_val:.1f}"
 
 
-def _build_next_level_text(mode: str, user_id: int, depth: int) -> str:
+def _build_next_level(
+    mode: str, user_id: int, depth: int,
+    current_style: str = "", used_styles: set[str] | None = None,
+) -> tuple[str, list[dict]]:
+    """Return (text, button_options) from the SAME picked styles."""
     preview = build_enhancement_preview(
         mode=mode,
-        analysis_result={},
         user_id=user_id,
         depth=depth,
+        current_style=current_style,
+        exclude=used_styles,
+        count=2,
     )
     lines = ["\n\U0001f680 *Как усилить дальше:*"]
-    for s in preview.suggestions[:3]:
+    for s in preview.suggestions[:2]:
         lines.append(f"\u2022 {s.line}")
-    return "\n".join(lines)
+    text = "\n".join(lines)
 
-
-def _build_next_level_options(mode: str, user_id: int, depth: int, current_style: str = "") -> list[dict]:
-    from src.services.enhancement_advisor import _pick_random_styles
-
-    seed = f"{user_id}:{mode}:{depth}:post"
-    pair = _pick_random_styles(mode, current_style, seed, count=2)
-    return [
-        {"label": p["label"], "callback_data": f"style:{mode}:{p['key']}"}
-        for p in pair
-    ]
+    options: list[dict] = []
+    if preview.option_a:
+        options.append({"label": preview.option_a.label, "callback_data": preview.option_a.callback_data})
+    if preview.option_b:
+        options.append({"label": preview.option_b.label, "callback_data": preview.option_b.callback_data})
+    return text, options
 
 
 def _balance_line(credits: int | None) -> str:
@@ -305,18 +307,22 @@ async def _send_enhanced(
 
     depth = 2
     current_style = ""
+    used_styles: set[str] = set()
     if redis:
         try:
-            from src.bot.handlers.mode_select import _get_depth, LAST_GEN_KEY
+            from src.bot.handlers.mode_select import _get_depth, LAST_GEN_KEY, USED_STYLES_KEY
             depth = await _get_depth(redis, user_id, mode)
             depth = max(depth, 2)
             last = await redis.get(LAST_GEN_KEY.format(user_id))
             if last and ":" in last:
                 current_style = last.split(":", 1)[1]
+            raw_used = await redis.smembers(USED_STYLES_KEY.format(user_id, mode))
+            if raw_used:
+                used_styles = {v if isinstance(v, str) else v.decode() for v in raw_used}
         except Exception:
             pass
 
-    next_text = _build_next_level_text(mode, user_id, depth)
+    next_text, next_opts = _build_next_level(mode, user_id, depth, current_style, used_styles)
     text_parts.append(next_text)
 
     if needs_upgrade:
@@ -327,7 +333,6 @@ async def _send_enhanced(
 
     text = "\n".join(text_parts)
 
-    next_opts = _build_next_level_options(mode, user_id, depth, current_style)
     kb = upgrade_keyboard() if needs_upgrade else post_result_keyboard(mode, str(user_id), uname, next_opts)
     caption, full_text = _split_caption(text)
 

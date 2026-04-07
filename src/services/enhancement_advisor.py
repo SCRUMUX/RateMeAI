@@ -1,9 +1,7 @@
-"""Enhancement Advisor — generates improvement suggestions with predictive metrics.
+"""Enhancement Advisor — generates style suggestions linked to actual catalog styles.
 
-Accepts hidden analysis results and produces:
-- 3 concrete enhancement suggestions with fractional predicted metrics
-- 2 best-fit style options from the full scene catalog (deterministic random)
-- Engagement-depth-aware progression
+Picks styles from STYLE_CATALOG and uses their hook_text for suggestion copy,
+ensuring text and buttons always reference the same styles.
 """
 from __future__ import annotations
 
@@ -18,11 +16,11 @@ logger = logging.getLogger(__name__)
 class EnhancementSuggestion:
     action: str
     effect: str
-    predicted_delta: float
+    style_key: str
 
     @property
     def line(self) -> str:
-        return f"{self.action} \u2192 {self.effect} (+{self.predicted_delta:.1f})"
+        return f"{self.action} \u2014 {self.effect}"
 
 
 @dataclass(frozen=True)
@@ -48,53 +46,28 @@ class EnhancementPreview:
         return "\n".join(lines)
 
 
-_ENHANCEMENT_ACTIONS: dict[str, list[dict]] = {
-    "dating": [
-        {"action": "Мягкий направленный свет", "effect": "подчеркнёт черты лица", "base": 1.8},
-        {"action": "Коррекция тона кожи", "effect": "добавит свежести и здорового вида", "base": 1.3},
-        {"action": "Тёплая цветовая гамма", "effect": "создаст располагающее впечатление", "base": 1.1},
-        {"action": "Стильный фон", "effect": "усилит атмосферу уверенности", "base": 1.9},
-        {"action": "Чистые линии одежды", "effect": "добавит ухоженности", "base": 1.5},
-        {"action": "Мягкое боке на фоне", "effect": "сфокусирует внимание на тебе", "base": 1.0},
-    ],
-    "cv": [
-        {"action": "Профессиональное освещение", "effect": "усилит восприятие компетентности", "base": 2.2},
-        {"action": "Нейтральный деловой фон", "effect": "добавит серьёзности", "base": 1.6},
-        {"action": "Структурированный стиль одежды", "effect": "повысит доверие", "base": 1.9},
-        {"action": "Ровный тон кожи", "effect": "добавит уверенности в образе", "base": 1.2},
-        {"action": "Чёткий контур причёски", "effect": "усилит профессиональный вид", "base": 1.4},
-        {"action": "Спокойное выражение", "effect": "создаст впечатление надёжности", "base": 1.7},
-    ],
-    "social": [
-        {"action": "Яркая цветовая палитра", "effect": "привлечёт внимание в ленте", "base": 2.0},
-        {"action": "Трендовое освещение", "effect": "добавит современности", "base": 1.7},
-        {"action": "Стильный фон", "effect": "создаст запоминающийся кадр", "base": 1.5},
-        {"action": "Чистая кожа и свежий вид", "effect": "усилит визуальный эффект", "base": 1.3},
-        {"action": "Модная обработка", "effect": "повысит вовлечённость аудитории", "base": 1.8},
-        {"action": "Контрастные акценты", "effect": "выделит из массы контента", "base": 1.2},
-    ],
-}
-
-
-def _vary_delta(base: float, seed: str) -> float:
-    """Deterministic variation around base value on the 0-10 score scale."""
-    h = int(hashlib.md5(seed.encode()).hexdigest()[:8], 16)
-    offset = ((h % 20) - 10) / 10.0  # +/- 1.0
-    val = round(base + offset, 1)
-    return max(0.5, min(3.5, val))
-
-
 def _pick_random_styles(
     mode: str,
     current_style: str,
     seed: str,
     count: int = 2,
+    exclude: set[str] | None = None,
 ) -> list[dict]:
-    """Pick `count` deterministic-random styles from STYLE_CATALOG, excluding current."""
+    """Pick `count` deterministic-random styles from STYLE_CATALOG.
+
+    Excludes `current_style` and any keys in `exclude` (already used styles).
+    Returns dicts with keys: key, label, hook.
+    """
     from src.bot.keyboards import STYLE_CATALOG
 
     catalog = STYLE_CATALOG.get(mode, [])
-    filtered = [(k, lbl) for k, lbl in catalog if k != current_style]
+    skip = {current_style} if current_style else set()
+    if exclude:
+        skip |= exclude
+
+    filtered = [(k, lbl, hook) for k, lbl, hook in catalog if k not in skip]
+    if len(filtered) < count:
+        filtered = [(k, lbl, hook) for k, lbl, hook in catalog if k != current_style]
     if len(filtered) < count:
         filtered = list(catalog)
 
@@ -103,52 +76,49 @@ def _pick_random_styles(
     picked: list[dict] = []
     for i in range(count):
         idx = (start + i) % len(filtered)
-        key, label = filtered[idx]
-        picked.append({"key": key, "label": label})
+        key, label, hook = filtered[idx]
+        picked.append({"key": key, "label": label, "hook": hook})
     return picked
 
 
 def build_enhancement_preview(
     mode: str,
-    analysis_result: dict,
     user_id: int,
     depth: int = 1,
     current_style: str = "",
+    exclude: set[str] | None = None,
+    count: int = 2,
 ) -> EnhancementPreview:
-    from src.orchestrator.enhancement_matrix import level_for_depth
-
-    actions = _ENHANCEMENT_ACTIONS.get(mode, _ENHANCEMENT_ACTIONS["dating"])
+    """Build a unified preview where suggestions and buttons reference the same styles."""
     seed_base = f"{user_id}:{mode}:{depth}"
-    lvl = level_for_depth(depth)
+    pair = _pick_random_styles(mode, current_style, seed_base, count=count, exclude=exclude)
 
-    start_idx = ((depth - 1) * 3) % len(actions)
-    selected = []
-    for i in range(3):
-        a = actions[(start_idx + i) % len(actions)]
-        base_val = a["base"] * (1.0 + (lvl.level - 1) * 0.15)
-        delta = _vary_delta(min(base_val, 3.5), f"{seed_base}:{i}")
-        selected.append(EnhancementSuggestion(
-            action=a["action"],
-            effect=a["effect"],
-            predicted_delta=delta,
-        ))
-    selected.sort(key=lambda s: s.predicted_delta, reverse=True)
+    suggestions = [
+        EnhancementSuggestion(
+            action=p["label"],
+            effect=p["hook"],
+            style_key=p["key"],
+        )
+        for p in pair
+    ]
 
-    pair = _pick_random_styles(mode, current_style, seed_base, count=2)
-
-    option_a = StyleOption(
-        key=pair[0]["key"],
-        label=pair[0]["label"],
-        callback_data=f"style:{mode}:{pair[0]['key']}",
-    )
-    option_b = StyleOption(
-        key=pair[1]["key"],
-        label=pair[1]["label"],
-        callback_data=f"style:{mode}:{pair[1]['key']}",
-    )
+    option_a = None
+    option_b = None
+    if len(pair) >= 1:
+        option_a = StyleOption(
+            key=pair[0]["key"],
+            label=pair[0]["label"],
+            callback_data=f"style:{mode}:{pair[0]['key']}",
+        )
+    if len(pair) >= 2:
+        option_b = StyleOption(
+            key=pair[1]["key"],
+            label=pair[1]["label"],
+            callback_data=f"style:{mode}:{pair[1]['key']}",
+        )
 
     return EnhancementPreview(
-        suggestions=selected,
+        suggestions=suggestions,
         option_a=option_a,
         option_b=option_b,
         mode=mode,

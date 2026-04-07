@@ -10,28 +10,24 @@ from redis.asyncio import Redis
 
 from src.bot.middleware import PHOTO_KEY
 from src.bot.keyboards import (
-    dating_style_keyboard,
-    cv_style_keyboard,
-    social_style_keyboard,
     error_keyboard,
     scenario_keyboard,
     back_keyboard,
     style_keyboard,
     STYLE_CATALOG,
 )
-from src.services.enhancement_advisor import build_enhancement_preview
-
 logger = logging.getLogger(__name__)
 router = Router()
 
 LAST_GEN_KEY = "ratemeai:last_gen:{}"
+USED_STYLES_KEY = "ratemeai:used_styles:{}:{}"
 
 def _build_display_names() -> dict[str, dict[str, str]]:
     """Build display name mapping from STYLE_CATALOG, stripping emoji prefixes."""
     result: dict[str, dict[str, str]] = {}
     for mode, items in STYLE_CATALOG.items():
         mapping: dict[str, str] = {}
-        for key, label in items:
+        for key, label, _hook in items:
             clean = label.lstrip()
             parts = clean.split(" ", 1)
             mapping[key] = parts[1] if len(parts) > 1 else parts[0]
@@ -47,7 +43,7 @@ DEPTH_KEY = "ratemeai:depth:{}:{}"
 
 @router.callback_query(F.data.startswith("pick_style:"))
 async def on_pick_style(callback: CallbackQuery, redis: Redis):
-    """Show enhancement preview + style selection for the chosen direction."""
+    """Show hook_text previews from catalog + style selection keyboard."""
     kind = callback.data.split(":", 1)[1]
     user_id = callback.from_user.id
     file_id = await redis.get(PHOTO_KEY.format(user_id))
@@ -56,14 +52,8 @@ async def on_pick_style(callback: CallbackQuery, redis: Redis):
         return
     await callback.answer()
 
-    depth = await _get_depth(redis, user_id, kind)
-    preview = build_enhancement_preview(
-        mode=kind,
-        analysis_result={},
-        user_id=user_id,
-        depth=depth,
-        current_style="",
-    )
+    catalog = STYLE_CATALOG.get(kind, [])
+    hooks = [f"\u2022 {label} \u2014 {hook}" for _key, label, hook in catalog[:3]]
 
     mode_headers = {
         "dating": "\U0001f495 *Образ для знакомств*",
@@ -74,16 +64,12 @@ async def on_pick_style(callback: CallbackQuery, redis: Redis):
     text = (
         f"{header}\n\n"
         "\U0001f680 *Что можно усилить:*\n"
-        f"{preview.suggestions_text}\n\n"
-        "*Выбери стиль:*"
+        + "\n".join(hooks)
+        + "\n\n*Выбери стиль:*"
     )
 
-    if kind == "dating":
-        await callback.message.answer(text, parse_mode="Markdown", reply_markup=dating_style_keyboard())
-    elif kind == "social":
-        await callback.message.answer(text, parse_mode="Markdown", reply_markup=social_style_keyboard())
-    elif kind == "cv":
-        await callback.message.answer(text, parse_mode="Markdown", reply_markup=cv_style_keyboard())
+    if kind in ("dating", "cv", "social"):
+        await callback.message.answer(text, parse_mode="Markdown", reply_markup=style_keyboard(kind))
     else:
         await callback.message.answer("Выбери направление:", reply_markup=scenario_keyboard())
 
@@ -190,6 +176,10 @@ async def _submit_analysis(callback: CallbackQuery, api_base_url: str, redis: Re
     status_msg = await callback.message.answer(status_text)
 
     await redis.set(LAST_GEN_KEY.format(user_id), f"{mode}:{style}", ex=86400)
+    if style:
+        used_key = USED_STYLES_KEY.format(user_id, mode)
+        await redis.sadd(used_key, style)
+        await redis.expire(used_key, 86400)
     await _increment_depth(redis, user_id, mode)
 
     try:
