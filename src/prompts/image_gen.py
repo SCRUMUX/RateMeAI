@@ -28,19 +28,19 @@ BODY_ANCHOR = (
 )
 
 SKIN_FIX = (
-    "SKIN: visible pores, natural texture, subtle imperfections, "
-    "subsurface scattering on ears and cheeks, healthy glow, even tone. "
-    "Remove only blemishes, dark circles, and acne."
+    "SKIN: keep natural skin texture with visible pores and subtle imperfections. "
+    "Do not smooth or airbrush the skin. Minimal cleanup only."
 )
 
 CAMERA = (
-    "Shot on Canon EOS R5, 85mm f/4, natural depth of field with visible "
+    "Shot on Canon EOS R5, 50mm f/5.6, deep depth of field with sharp "
     "background details. Natural color grading, Kodak Portra 400 tones."
 )
 
 REALISM = (
-    "Raw photograph aesthetic, real skin pores, natural grain. "
-    "Professional studio-quality image indistinguishable from a real photo."
+    "Raw photograph aesthetic, real skin pores, natural film grain. "
+    "No AI artifacts, no plastic skin, no over-smoothing, no airbrushing. "
+    "Imperfect and authentic. Indistinguishable from a real unedited photo."
 )
 
 # ---------------------------------------------------------------------------
