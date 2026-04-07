@@ -291,6 +291,13 @@ class ImageGenerationExecutor:
                     )
                     raw = None
                     result_dict["identity_rejected"] = True
+                elif identity_score < 0.75:
+                    logger.info(
+                        "Identity check SOFT: similarity=%.3f < 0.75 — "
+                        "accepting with quality warning (task=%s)",
+                        identity_score, task_id,
+                    )
+                    result_dict["quality_warning"] = True
 
             if raw and len(raw) > 100:
                 gkey = f"generated/{user_id}/{task_id}.jpg"
