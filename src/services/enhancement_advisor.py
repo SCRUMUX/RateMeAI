@@ -2,7 +2,7 @@
 
 Accepts hidden analysis results and produces:
 - 3 concrete enhancement suggestions with fractional predicted metrics
-- 2 best-fit style options for binary choice
+- 2 best-fit style options from the full scene catalog (deterministic random)
 - Engagement-depth-aware progression
 """
 from __future__ import annotations
@@ -75,58 +75,6 @@ _ENHANCEMENT_ACTIONS: dict[str, list[dict]] = {
     ],
 }
 
-_STYLE_OPTIONS: dict[str, list[dict]] = {
-    "dating": [
-        {"key": "warm_outdoor", "label": "Тёплый уличный"},
-        {"key": "studio_elegant", "label": "Студийный элегант"},
-        {"key": "cafe", "label": "Уютное кафе"},
-    ],
-    "cv": [
-        {"key": "corporate", "label": "Строгий корпоративный"},
-        {"key": "creative", "label": "Креативный"},
-        {"key": "neutral", "label": "Нейтральный фон"},
-    ],
-    "social": [
-        {"key": "influencer", "label": "Инфлюенсер"},
-        {"key": "luxury", "label": "Luxury"},
-        {"key": "casual", "label": "Casual lifestyle"},
-        {"key": "artistic", "label": "Арт-стиль"},
-    ],
-}
-
-_DEPTH_LABELS: dict[str, dict[int, list[dict]]] = {
-    "dating": {
-        2: [
-            {"key": "confident", "label": "Уверенный взгляд"},
-            {"key": "charismatic", "label": "Магнетичный образ"},
-        ],
-        3: [
-            {"key": "studio_elegant", "label": "Контрастный студийный свет"},
-            {"key": "cafe", "label": "Мягкий дневной свет"},
-        ],
-    },
-    "cv": {
-        2: [
-            {"key": "corporate", "label": "Максимум доверия"},
-            {"key": "creative", "label": "Креативная подача"},
-        ],
-        3: [
-            {"key": "neutral", "label": "Нейтральный академический"},
-            {"key": "corporate", "label": "Корпоративный строгий"},
-        ],
-    },
-    "social": {
-        2: [
-            {"key": "luxury", "label": "Premium эстетика"},
-            {"key": "influencer", "label": "Яркий инфлюенсер"},
-        ],
-        3: [
-            {"key": "artistic", "label": "Арт-направление"},
-            {"key": "casual", "label": "Естественный лайфстайл"},
-        ],
-    },
-}
-
 
 def _vary_delta(base: float, seed: str) -> float:
     """Deterministic variation around base value on the 0-10 score scale."""
@@ -134,6 +82,30 @@ def _vary_delta(base: float, seed: str) -> float:
     offset = ((h % 20) - 10) / 10.0  # +/- 1.0
     val = round(base + offset, 1)
     return max(0.5, min(3.5, val))
+
+
+def _pick_random_styles(
+    mode: str,
+    current_style: str,
+    seed: str,
+    count: int = 2,
+) -> list[dict]:
+    """Pick `count` deterministic-random styles from STYLE_CATALOG, excluding current."""
+    from src.bot.keyboards import STYLE_CATALOG
+
+    catalog = STYLE_CATALOG.get(mode, [])
+    filtered = [(k, lbl) for k, lbl in catalog if k != current_style]
+    if len(filtered) < count:
+        filtered = list(catalog)
+
+    h = int(hashlib.md5(seed.encode()).hexdigest()[:8], 16)
+    start = h % len(filtered)
+    picked: list[dict] = []
+    for i in range(count):
+        idx = (start + i) % len(filtered)
+        key, label = filtered[idx]
+        picked.append({"key": key, "label": label})
+    return picked
 
 
 def build_enhancement_preview(
@@ -162,22 +134,7 @@ def build_enhancement_preview(
         ))
     selected.sort(key=lambda s: s.predicted_delta, reverse=True)
 
-    if depth >= 2:
-        depth_options = _DEPTH_LABELS.get(mode, {}).get(
-            min(depth, max(_DEPTH_LABELS.get(mode, {}).keys(), default=2)),
-            _DEPTH_LABELS.get(mode, {}).get(2, []),
-        )
-    else:
-        depth_options = []
-
-    if depth_options and len(depth_options) >= 2:
-        pair = depth_options[:2]
-    else:
-        all_opts = _STYLE_OPTIONS.get(mode, _STYLE_OPTIONS["dating"])
-        filtered = [o for o in all_opts if o["key"] != current_style]
-        if len(filtered) < 2:
-            filtered = all_opts
-        pair = filtered[:2]
+    pair = _pick_random_styles(mode, current_style, seed_base, count=2)
 
     option_a = StyleOption(
         key=pair[0]["key"],

@@ -56,9 +56,26 @@ def level_for_depth(depth: int) -> EnhancementLevel:
 
 
 SCENARIO_STYLES: dict[str, list[str]] = {
-    "dating": ["warm_outdoor", "studio_elegant", "cafe"],
-    "cv": ["corporate", "creative", "neutral"],
-    "social": ["influencer", "luxury", "casual", "artistic"],
+    "dating": [
+        "warm_outdoor", "studio_elegant", "near_car", "in_car", "motorcycle",
+        "yacht", "rooftop_city", "gym_fitness", "running", "tennis",
+        "swimming_pool", "hiking", "cafe", "coffee_date", "restaurant",
+        "bar_lounge", "cooking", "dog_lover", "travel", "beach_sunset",
+        "art_gallery", "street_urban", "concert",
+    ],
+    "cv": [
+        "corporate", "boardroom", "formal_portrait", "creative", "startup_casual",
+        "coworking", "standing_desk", "neutral", "tech_developer", "creative_director",
+        "medical", "legal_finance", "architect", "speaker_stage", "podcast",
+        "mentor", "outdoor_business",
+    ],
+    "social": [
+        "influencer", "influencer_urban", "influencer_minimal", "influencer_luxury",
+        "luxury", "casual", "morning_routine", "fitness_lifestyle", "food_blogger",
+        "travel_blogger", "artistic", "golden_hour", "neon_night", "vintage_film",
+        "dark_moody", "pastel_soft", "youtube_creator", "linkedin_premium",
+        "tinder_top", "instagram_aesthetic", "podcast_host", "creative_portrait",
+    ],
 }
 
 

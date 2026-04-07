@@ -16,6 +16,8 @@ from src.bot.keyboards import (
     error_keyboard,
     scenario_keyboard,
     back_keyboard,
+    style_keyboard,
+    STYLE_CATALOG,
 )
 from src.services.enhancement_advisor import build_enhancement_preview
 
@@ -24,24 +26,20 @@ router = Router()
 
 LAST_GEN_KEY = "ratemeai:last_gen:{}"
 
-_STYLE_DISPLAY_NAMES: dict[str, dict[str, str]] = {
-    "dating": {
-        "warm_outdoor": "На прогулке",
-        "studio_elegant": "Студия / элегант",
-        "cafe": "Кафе / бар",
-    },
-    "cv": {
-        "corporate": "Корпоративный",
-        "creative": "Креативный",
-        "neutral": "Нейтральный фон",
-    },
-    "social": {
-        "influencer": "Influencer",
-        "luxury": "Luxury",
-        "casual": "Casual",
-        "artistic": "Artistic",
-    },
-}
+def _build_display_names() -> dict[str, dict[str, str]]:
+    """Build display name mapping from STYLE_CATALOG, stripping emoji prefixes."""
+    result: dict[str, dict[str, str]] = {}
+    for mode, items in STYLE_CATALOG.items():
+        mapping: dict[str, str] = {}
+        for key, label in items:
+            clean = label.lstrip()
+            parts = clean.split(" ", 1)
+            mapping[key] = parts[1] if len(parts) > 1 else parts[0]
+        result[mode] = mapping
+    return result
+
+
+_STYLE_DISPLAY_NAMES: dict[str, dict[str, str]] = _build_display_names()
 _PROCESSING_LOCK = "ratemeai:processing:{}"
 _LOCK_TTL = 60
 DEPTH_KEY = "ratemeai:depth:{}:{}"
@@ -124,14 +122,29 @@ async def on_restyle(callback: CallbackQuery, redis: Redis):
         await callback.answer("Фото больше не доступно. Отправь новое!", show_alert=True)
         return
     await callback.answer()
-    if mode == "dating":
-        await callback.message.answer("\U0001f495 Выбери образ:", reply_markup=dating_style_keyboard())
-    elif mode == "cv":
-        await callback.message.answer("\U0001f4bc Выбери образ:", reply_markup=cv_style_keyboard())
-    elif mode == "social":
-        await callback.message.answer("\U0001f4f8 Выбери образ:", reply_markup=social_style_keyboard())
+    mode_headers = {
+        "dating": "\U0001f495 Выбери образ:",
+        "cv": "\U0001f4bc Выбери образ:",
+        "social": "\U0001f4f8 Выбери образ:",
+    }
+    header = mode_headers.get(mode)
+    if header:
+        await callback.message.answer(header, reply_markup=style_keyboard(mode))
     else:
         await callback.message.answer("Выбери направление:", reply_markup=scenario_keyboard())
+
+
+@router.callback_query(F.data.startswith("styles_page:"))
+async def on_styles_page(callback: CallbackQuery):
+    """Paginate through style options."""
+    parts = callback.data.split(":")
+    mode = parts[1]
+    page = int(parts[2]) if len(parts) > 2 else 0
+    await callback.answer()
+    try:
+        await callback.message.edit_reply_markup(reply_markup=style_keyboard(mode, page))
+    except Exception:
+        await callback.message.answer("Выбери стиль:", reply_markup=style_keyboard(mode, page))
 
 
 @router.callback_query(F.data == "retry")

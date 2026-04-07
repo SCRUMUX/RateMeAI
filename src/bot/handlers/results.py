@@ -179,19 +179,15 @@ def _build_next_level_text(mode: str, user_id: int, depth: int) -> str:
     return "\n".join(lines)
 
 
-def _build_next_level_options(mode: str, user_id: int, depth: int) -> list[dict]:
-    preview = build_enhancement_preview(
-        mode=mode,
-        analysis_result={},
-        user_id=user_id,
-        depth=depth,
-    )
-    options = []
-    if preview.option_a:
-        options.append({"label": preview.option_a.label, "callback_data": f"enhance:{mode}:{preview.option_a.key}"})
-    if preview.option_b:
-        options.append({"label": preview.option_b.label, "callback_data": f"enhance:{mode}:{preview.option_b.key}"})
-    return options
+def _build_next_level_options(mode: str, user_id: int, depth: int, current_style: str = "") -> list[dict]:
+    from src.services.enhancement_advisor import _pick_random_styles
+
+    seed = f"{user_id}:{mode}:{depth}:post"
+    pair = _pick_random_styles(mode, current_style, seed, count=2)
+    return [
+        {"label": p["label"], "callback_data": f"style:{mode}:{p['key']}"}
+        for p in pair
+    ]
 
 
 def _balance_line(credits: int | None) -> str:
@@ -307,13 +303,16 @@ async def _send_enhanced(
     if score_block:
         text_parts.append(f"\n{score_block}")
 
-    # Next-level suggestions — use depth+1 to show what comes next
     depth = 2
+    current_style = ""
     if redis:
         try:
-            from src.bot.handlers.mode_select import _get_depth
+            from src.bot.handlers.mode_select import _get_depth, LAST_GEN_KEY
             depth = await _get_depth(redis, user_id, mode)
             depth = max(depth, 2)
+            last = await redis.get(LAST_GEN_KEY.format(user_id))
+            if last and ":" in last:
+                current_style = last.split(":", 1)[1]
         except Exception:
             pass
 
@@ -328,7 +327,7 @@ async def _send_enhanced(
 
     text = "\n".join(text_parts)
 
-    next_opts = _build_next_level_options(mode, user_id, depth)
+    next_opts = _build_next_level_options(mode, user_id, depth, current_style)
     kb = upgrade_keyboard() if needs_upgrade else post_result_keyboard(mode, str(user_id), uname, next_opts)
     caption, full_text = _split_caption(text)
 
