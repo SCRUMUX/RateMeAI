@@ -17,17 +17,21 @@ from src.orchestrator.router import ModeRouter
 from src.providers.base import ImageGenProvider, LLMProvider, StorageProvider
 from src.prompts.engine import PromptEngine
 from src.services.share import ShareCardGenerator
-from src.utils.image import validate_and_normalize, has_face_heuristic
+from src.utils.image import validate_and_normalize, has_face_heuristic, estimate_blur_score
 from src.utils.redis_keys import embedding_cache_key
 from src.utils.security import extract_nsfw_from_analysis
 
 logger = logging.getLogger(__name__)
 
 _SCORE_KEYS = ("dating_score", "trust", "competence", "hireability", "social_score")
+_SCORE_FLOOR = 5.0
 
 
 def _humanize_score(raw: float, seed: str) -> float:
-    """Convert raw 0-10 LLM score to X.XX with natural-feeling fractional part."""
+    """Convert raw 0-10 LLM score to X.XX with natural-feeling fractional part.
+
+    Applies a floor of _SCORE_FLOOR so users never see demoralisingly low numbers.
+    """
     base = int(raw)
     raw_frac = raw - base
     h = int(hashlib.md5(seed.encode()).hexdigest()[:6], 16)
@@ -35,7 +39,8 @@ def _humanize_score(raw: float, seed: str) -> float:
     if raw_frac > 0:
         frac = round(raw_frac + (frac - 0.5) * 0.1, 2)
     result = base + max(0.01, min(0.99, frac))
-    return round(min(9.99, max(0.01, result)), 2)
+    result = max(_SCORE_FLOOR, result)
+    return round(min(9.99, result), 2)
 
 
 @contextmanager
@@ -174,6 +179,13 @@ class AnalysisPipeline:
             warnings.append(
                 "Фото имеет низкое разрешение. "
                 "Загрузи фото в более высоком качестве для лучшего результата."
+            )
+
+        blur_score = estimate_blur_score(image_bytes)
+        if 0 <= blur_score < 100:
+            warnings.append(
+                "Фото выглядит размытым. "
+                "Загрузи более чёткое фото для лучшего результата."
             )
 
         style = (context or {}).get("style", "")

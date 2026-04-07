@@ -216,6 +216,11 @@ async def deliver_result(bot: Bot, chat_id: int, status_msg_id: int, data: dict,
     bal = _balance_line(credits)
 
     gen_warnings = result.get("generation_warnings", [])
+    if result.get("quality_warning"):
+        gen_warnings.append(
+            "Качество генерации может быть снижено. "
+            "Загрузи более качественное исходное фото для лучшего результата."
+        )
     quality_warn = ""
     if gen_warnings:
         quality_warn = "\n\n" + "\n".join(f"\u2139\ufe0f {w}" for w in gen_warnings[:3])
@@ -358,19 +363,18 @@ async def _send_enhanced(
 
 def _format_score_block(mode: str, delta: dict, result: dict) -> str:
     """Always show initial score header; append delta progression if available."""
-    score_map = {
-        "dating": ("dating_score", "\U0001f495 Привлекательность"),
-        "cv": ("hireability", "\U0001f4bc Найм"),
-        "social": ("social_score", "\U0001f4f8 Соцсети"),
-    }
-    key, label = score_map.get(mode, ("dating_score", "Скор"))
+    if mode == "cv":
+        vals = [float(result.get(k, 0)) for k in ("trust", "competence", "hireability") if result.get(k) is not None]
+        if not vals:
+            return ""
+        composite = round(sum(vals) / len(vals), 2)
+    else:
+        score_key = {"dating": "dating_score", "social": "social_score"}.get(mode)
+        if not score_key or result.get(score_key) is None:
+            return ""
+        composite = float(result[score_key])
 
-    initial = result.get(key)
-    if initial is None:
-        return ""
-
-    initial_str = _format_score_val(float(initial))
-    header = f"\U0001f4ca *Твой скор: {initial_str} / 10*"
+    header = f"\U0001f4ca *Твой скор: {_format_score_val(composite)} / 10*"
 
     if delta:
         delta_lines = _format_delta_lines(mode, delta)

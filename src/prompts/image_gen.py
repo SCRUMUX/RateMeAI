@@ -10,6 +10,11 @@ from __future__ import annotations
 # Core anchors — positive framing, no negation overload
 # ---------------------------------------------------------------------------
 
+IDENTITY_FIRST = (
+    "CRITICAL: Preserve the person's face identity exactly as in the reference photo. "
+    "The result must be immediately recognizable as the same person."
+)
+
 FACE_ANCHOR = (
     "FACE IDENTITY: keep exact bone structure, nose shape, eye shape and "
     "spacing, eyebrow shape, lip shape, jawline, chin, ears, cheekbones, "
@@ -29,8 +34,8 @@ SKIN_FIX = (
 )
 
 CAMERA = (
-    "Shot on Canon EOS R5, 85mm f/1.8, shallow depth of field. "
-    "Natural color grading, Kodak Portra 400 tones."
+    "Shot on Canon EOS R5, 85mm f/4, natural depth of field with visible "
+    "background details. Natural color grading, Kodak Portra 400 tones."
 )
 
 REALISM = (
@@ -46,7 +51,7 @@ DATING_STYLES: dict[str, str] = {
     # --- Lifestyle ---
     "warm_outdoor": (
         "Background: golden-hour park or waterfront, warm backlight with "
-        "soft rim light, creamy bokeh, natural green and water textures. "
+        "soft rim light, natural green and water textures visible in background. "
         "Clothing: stylish casual, fitted, clean fabrics."
     ),
     "studio_elegant": (
@@ -56,13 +61,13 @@ DATING_STYLES: dict[str, str] = {
     ),
     "near_car": (
         "Background: luxury sedan or sports car parked on sunlit city boulevard, "
-        "warm golden reflections on polished paint, blurred urban architecture. "
+        "warm golden reflections on polished paint, urban architecture visible behind. "
         "Clothing: fitted dark jeans, crisp white crew-neck t-shirt, leather watch, "
         "aviator sunglasses pushed up on head."
     ),
     "in_car": (
         "Background: interior of modern car, soft window light streaming through "
-        "windshield, leather steering wheel and dashboard blurred. "
+        "windshield, leather steering wheel and dashboard visible. "
         "Clothing: casual button-down shirt with rolled sleeves, subtle wrist accessory."
     ),
     "motorcycle": (
@@ -76,14 +81,14 @@ DATING_STYLES: dict[str, str] = {
         "Clothing: white linen shirt unbuttoned at top, navy shorts or chinos, deck shoes."
     ),
     "rooftop_city": (
-        "Background: rooftop terrace at blue hour, city skyline with warm bokeh lights, "
+        "Background: rooftop terrace at blue hour, city skyline with warm lights, "
         "modern glass railing, ambient string lights. "
         "Clothing: dark fitted blazer over black tee, tailored trousers, minimalist watch."
     ),
     # --- Sport / Active ---
     "gym_fitness": (
         "Background: modern gym with matte equipment, even overhead lighting, "
-        "mirrors blurred behind. "
+        "mirrors in background. "
         "Clothing: fitted athletic tank top or compression shirt, athletic shorts, training shoes."
     ),
     "running": (
@@ -93,7 +98,7 @@ DATING_STYLES: dict[str, str] = {
     ),
     "tennis": (
         "Background: outdoor tennis court, warm afternoon light, green court surface, "
-        "blurred net behind. "
+        "net visible behind. "
         "Clothing: fitted polo shirt, tennis shorts, wristband, clean white sneakers."
     ),
     "swimming_pool": (
@@ -109,7 +114,7 @@ DATING_STYLES: dict[str, str] = {
     # --- Atmosphere ---
     "cafe": (
         "Background: cozy upscale cafe, warm tungsten light, exposed brick or "
-        "wood paneling, blurred bottles and candles in background. "
+        "wood paneling, bottles and candles in background. "
         "Clothing: smart-casual date outfit, earth tones, linen or cotton."
     ),
     "coffee_date": (
@@ -119,12 +124,12 @@ DATING_STYLES: dict[str, str] = {
     ),
     "restaurant": (
         "Background: upscale restaurant, dim warm candlelight, dark wood and white linen, "
-        "wine glass on table blurred. "
+        "wine glass on table. "
         "Clothing: tailored dark shirt or blazer, smart evening look, subtle accessories."
     ),
     "bar_lounge": (
         "Background: modern cocktail lounge, moody amber and teal lighting, "
-        "bar shelves with bottles blurred behind. "
+        "bar shelves with bottles in background. "
         "Clothing: dark fitted shirt, sleeves rolled, leather or fabric watch."
     ),
     "cooking": (
@@ -149,7 +154,7 @@ DATING_STYLES: dict[str, str] = {
         "Clothing: unbuttoned linen shirt over tee, rolled chinos or shorts, bare feet."
     ),
     "art_gallery": (
-        "Background: contemporary art gallery, white walls with abstract art blurred, "
+        "Background: contemporary art gallery, white walls with abstract art visible, "
         "track lighting creating soft directional light. "
         "Clothing: smart turtleneck or fitted dark shirt, tailored trousers, minimalist style."
     ),
@@ -165,17 +170,17 @@ DATING_STYLES: dict[str, str] = {
     ),
     # --- Landmarks ---
     "paris_eiffel": (
-        "Background: Parisian boulevard with Eiffel Tower in soft focus behind, "
+        "Background: Parisian boulevard with Eiffel Tower visible behind, "
         "morning golden light, cafe table with croissant and coffee visible. "
         "Clothing: fitted navy blazer over white tee, dark jeans, clean white sneakers."
     ),
     "nyc_brooklyn_bridge": (
         "Background: Brooklyn Bridge walkway at golden sunset, warm orange sky, "
-        "Manhattan skyline in soft bokeh behind. "
+        "Manhattan skyline visible behind. "
         "Clothing: casual fitted jacket, dark jeans, comfortable walking shoes."
     ),
     "rome_colosseum": (
-        "Background: outdoor cafe terrace with Colosseum blurred behind, "
+        "Background: outdoor cafe terrace with Colosseum visible behind, "
         "warm Mediterranean afternoon light, cobblestone street visible. "
         "Clothing: linen shirt, light chinos, leather loafers, relaxed Italian style."
     ),
@@ -190,12 +195,12 @@ DATING_STYLES: dict[str, str] = {
         "Clothing: streetwear layers, statement jacket, fitted dark pants, designer sneakers."
     ),
     "barcelona_sagrada": (
-        "Background: sunlit Barcelona terrace with Sagrada Familia spires in soft focus, "
+        "Background: sunlit Barcelona terrace with Sagrada Familia spires in background, "
         "warm morning light, breakfast table with juice and pastries. "
         "Clothing: relaxed summer shirt, light chinos, straw hat, Mediterranean casual."
     ),
     "london_eye": (
-        "Background: Thames embankment with London Eye in soft bokeh, "
+        "Background: Thames embankment with London Eye visible in background, "
         "grey-blue London sky with golden patches, river reflections. "
         "Clothing: tailored overcoat or trench, dark scarf, smart casual British layers."
     ),
@@ -252,7 +257,7 @@ DATING_STYLES: dict[str, str] = {
     ),
     "hotel_checkin": (
         "Background: luxury hotel lobby with marble floor, warm amber ambient lighting, "
-        "modern reception area blurred, luggage nearby. "
+        "modern reception area visible, luggage nearby. "
         "Clothing: travel-smart outfit, fitted blazer or quality jacket, polished casual look."
     ),
     "hotel_breakfast": (
@@ -272,7 +277,7 @@ DATING_STYLES: dict[str, str] = {
     ),
     "street_market": (
         "Background: vibrant outdoor street market with colorful produce and goods, "
-        "warm natural light, exotic textures, bustling atmosphere blurred. "
+        "warm natural light, exotic textures, bustling atmosphere. "
         "Clothing: casual travel outfit, rolled sleeves, crossbody bag, explorer vibe."
     ),
     # --- Atmosphere expanded ---
@@ -383,7 +388,7 @@ CV_STYLES: dict[str, str] = {
         "Clothing: tailored formal charcoal suit, crisp white shirt, subtle tie or silk scarf."
     ),
     "boardroom": (
-        "Background: executive boardroom, polished dark table, leather chairs blurred, "
+        "Background: executive boardroom, polished dark table, leather chairs, "
         "large screen or whiteboard behind, even overhead lighting. "
         "Clothing: navy suit, power tie, pocket square, cufflinks."
     ),
@@ -394,8 +399,8 @@ CV_STYLES: dict[str, str] = {
     ),
     # --- Modern business ---
     "creative": (
-        "Background: bright creative workspace, whiteboard or bookshelf slightly "
-        "out of focus, warm ambient light. "
+        "Background: bright creative workspace, whiteboard or bookshelf behind, "
+        "warm ambient light. "
         "Clothing: smart-casual blazer over fitted shirt, relaxed professional."
     ),
     "startup_casual": (
@@ -405,11 +410,11 @@ CV_STYLES: dict[str, str] = {
     ),
     "coworking": (
         "Background: trendy coworking loft, exposed brick, industrial lighting, "
-        "community workspace blurred behind. "
+        "community workspace in background. "
         "Clothing: fitted blazer over crew-neck tee, dark jeans, modern smart-casual."
     ),
     "standing_desk": (
-        "Background: minimal home office or tech workspace, monitor screens blurred, "
+        "Background: minimal home office or tech workspace, monitor screens behind, "
         "clean desk, natural window light. "
         "Clothing: premium fitted polo or cashmere sweater, clean minimalist style."
     ),
@@ -420,18 +425,18 @@ CV_STYLES: dict[str, str] = {
     ),
     # --- Industries ---
     "tech_developer": (
-        "Background: developer workspace, multiple monitors with code blurred, "
+        "Background: developer workspace, multiple monitors with code on screen, "
         "dark ambient room, LED desk lighting. "
         "Clothing: quality hoodie or fitted dark sweater, comfortable technical style."
     ),
     "creative_director": (
-        "Background: design studio, mood boards and sketches blurred behind, "
+        "Background: design studio, mood boards and sketches behind, "
         "dramatic directional spotlight. "
         "Clothing: black turtleneck, minimalist dark outfit, statement glasses optional."
     ),
     "medical": (
         "Background: clean modern clinic or hospital corridor, bright even lighting, "
-        "medical equipment blurred. "
+        "medical equipment in background. "
         "Clothing: white lab coat over dress shirt, stethoscope, professional medical attire."
     ),
     "legal_finance": (
@@ -440,14 +445,14 @@ CV_STYLES: dict[str, str] = {
         "Clothing: three-piece suit, silk tie, pocket square, classic luxury watch."
     ),
     "architect": (
-        "Background: architectural studio, blueprints and scale models blurred, "
+        "Background: architectural studio, blueprints and scale models on table, "
         "large drafting table, bright workspace lighting. "
         "Clothing: fitted blazer, dark turtleneck, architect glasses optional."
     ),
     # --- Expertise ---
     "speaker_stage": (
         "Background: conference stage, podium with microphone, presentation screen "
-        "blurred behind, dramatic spotlight from above. "
+        "behind, dramatic spotlight from above. "
         "Clothing: tailored suit without tie, open collar, confident speaker style."
     ),
     "podcast": (
@@ -461,7 +466,7 @@ CV_STYLES: dict[str, str] = {
         "Clothing: smart casual blazer, open collar shirt, approachable professional style."
     ),
     "outdoor_business": (
-        "Background: upscale outdoor cafe terrace, city street blurred behind, "
+        "Background: upscale outdoor cafe terrace, city street behind, "
         "laptop on table, natural daylight. "
         "Clothing: linen blazer over fitted shirt, chinos, digital nomad smart-casual."
     ),
@@ -492,7 +497,7 @@ CV_STYLES: dict[str, str] = {
         "Clothing: smart-casual layers, clean fitted shirt, professional yet relaxed."
     ),
     "coffee_break_work": (
-        "Background: modern office kitchen or lounge area, coffee machine blurred behind, "
+        "Background: modern office kitchen or lounge area, coffee machine in background, "
         "bright even lighting, clean minimalist break space. "
         "Clothing: professional attire slightly relaxed, sleeves rolled, coffee cup in hand."
     ),
@@ -514,12 +519,12 @@ CV_STYLES: dict[str, str] = {
     ),
     "entrepreneur_on_move": (
         "Background: modern city transit hub or street, phone in hand, "
-        "fast-paced urban energy, sleek architecture blurred behind. "
+        "fast-paced urban energy, sleek architecture behind. "
         "Clothing: smart blazer over casual outfit, carry-on bag, confident traveler style."
     ),
     "intellectual": (
         "Background: classic library or bookstore, warm amber ambient lighting, "
-        "books and wooden shelves blurred behind, academic atmosphere. "
+        "books and wooden shelves behind, academic atmosphere. "
         "Clothing: turtleneck or fitted quality shirt, subtle glasses, refined academic style."
     ),
     "man_with_mission": (
@@ -592,12 +597,12 @@ CV_PERSONALITIES: dict[str, str] = {
 SOCIAL_STYLES: dict[str, str] = {
     # --- Influencer ---
     "influencer": (
-        "Background: trendy urban rooftop at golden hour, city skyline bokeh, "
+        "Background: trendy urban rooftop at golden hour, city skyline visible, "
         "warm directional light with lens flare. "
         "Clothing: stylish streetwear, statement accessories, layered textures."
     ),
     "influencer_urban": (
-        "Background: trendy urban rooftop at golden hour, city skyline bokeh, "
+        "Background: trendy urban rooftop at golden hour, city skyline visible, "
         "warm directional light with lens flare. "
         "Clothing: streetwear layers, statement accessories, designer sneakers."
     ),
@@ -614,7 +619,7 @@ SOCIAL_STYLES: dict[str, str] = {
     # --- Lifestyle ---
     "luxury": (
         "Background: upscale lounge with marble surfaces, soft amber ambient "
-        "light, velvet and brass details blurred behind. "
+        "light, velvet and brass details in background. "
         "Clothing: designer outfit, fine fabrics, watches or minimal jewelry."
     ),
     "casual": (
@@ -639,7 +644,7 @@ SOCIAL_STYLES: dict[str, str] = {
     ),
     "travel_blogger": (
         "Background: exotic location, vibrant colors, iconic landmark or tropical scenery "
-        "blurred behind, bright natural light. "
+        "in background, bright natural light. "
         "Clothing: travel outfit, linen shirt, hat or sunglasses, adventure accessories."
     ),
     # --- Aesthetic ---
@@ -727,7 +732,7 @@ SOCIAL_STYLES: dict[str, str] = {
     ),
     "candid_street": (
         "Background: urban street caught mid-stride, natural unposed moment, "
-        "warm directional sunlight, blurred pedestrians and architecture. "
+        "warm directional sunlight, pedestrians and architecture in scene. "
         "Clothing: effortless casual outfit, natural unstaged authentic look."
     ),
     # --- Hobbies ---
@@ -779,7 +784,7 @@ SOCIAL_STYLES: dict[str, str] = {
         "Clothing: minimal dark outfit, clean silhouette against bright cityscape."
     ),
     "in_motion": (
-        "Background: urban street with motion-blurred background, caught walking "
+        "Background: urban street with dynamic energy, caught walking "
         "dynamically, sense of movement and energy. "
         "Clothing: stylish casual outfit with flowing jacket or coat, dynamic movement."
     ),
@@ -890,6 +895,7 @@ def build_dating_prompt(style: str = "") -> str:
     s = DATING_STYLES.get(style, DATING_STYLES["warm_outdoor"])
     p = DATING_PERSONALITIES.get(style, DATING_PERSONALITIES["warm_outdoor"])
     return (
+        f"{IDENTITY_FIRST} "
         f"Enhance into a dating profile photo. "
         f"Change background, lighting, and clothing style. "
         f"Brighten eye whites subtly, add soft flattering golden-hour light. "
@@ -903,6 +909,7 @@ def build_cv_prompt(style: str = "") -> str:
     s = CV_STYLES.get(style, CV_STYLES["corporate"])
     p = CV_PERSONALITIES.get(style, CV_PERSONALITIES["corporate"])
     return (
+        f"{IDENTITY_FIRST} "
         f"Enhance into a professional headshot. "
         f"Change background to studio or office, clothing to professional attire, "
         f"add even soft studio lighting, groom hair neatly, add catchlights in eyes. "
@@ -916,6 +923,7 @@ def build_social_prompt(style: str = "") -> str:
     s = SOCIAL_STYLES.get(style, SOCIAL_STYLES["influencer"])
     p = SOCIAL_PERSONALITIES.get(style, SOCIAL_PERSONALITIES["influencer"])
     return (
+        f"{IDENTITY_FIRST} "
         f"Enhance into a social media photo. "
         f"Change background, lighting, colors, and clothing per style. "
         f"Vibrant modern aesthetic, crisp detail. "
@@ -931,34 +939,40 @@ def build_social_prompt(style: str = "") -> str:
 
 STEP_TEMPLATES: dict[str, str] = {
     "background_edit": (
+        f"{IDENTITY_FIRST} "
         "Change ONLY the background: {description}. "
         "Keep the person, clothing, pose, and body proportions identical. "
         f"{FACE_ANCHOR} {BODY_ANCHOR} {CAMERA} {REALISM}"
     ),
     "clothing_edit": (
+        f"{IDENTITY_FIRST} "
         "Change ONLY the clothing and outfit: {description}. "
         "Keep face, background, pose, and body proportions identical. "
         f"{FACE_ANCHOR} {BODY_ANCHOR} {CAMERA} {REALISM}"
     ),
     "lighting_adjust": (
+        f"{IDENTITY_FIRST} "
         "Improve ONLY the lighting and color grading: {description}. "
         "Natural studio quality, even skin tones. "
         "Keep body, pose, and proportions identical. "
         f"{FACE_ANCHOR} {BODY_ANCHOR} {CAMERA} {REALISM}"
     ),
     "expression_hint": (
+        f"{IDENTITY_FIRST} "
         "Subtle expression adjustment: {description}. "
         "Keep face shape, features, and original mouth identical. "
         "Keep body pose and proportions identical. "
         f"{FACE_ANCHOR} {BODY_ANCHOR} {SKIN_FIX} {CAMERA} {REALISM}"
     ),
     "skin_correction": (
+        f"{IDENTITY_FIRST} "
         "Minor skin tone correction and blemish removal. "
         "Keep all facial features identical. "
         "Keep body pose and proportions identical. "
         f"{FACE_ANCHOR} {BODY_ANCHOR} {SKIN_FIX} {CAMERA} {REALISM}"
     ),
     "style_overall": (
+        f"{IDENTITY_FIRST} "
         "Apply overall style enhancement: {description}. "
         "Vibrant modern aesthetic, crisp detail. "
         "Keep body proportions and pose identical. "

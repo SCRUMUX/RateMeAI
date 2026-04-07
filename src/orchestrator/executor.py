@@ -5,6 +5,7 @@ post-generation delta scoring as standalone collaborators.
 """
 from __future__ import annotations
 
+import hashlib
 import logging
 import time
 from contextlib import contextmanager
@@ -289,22 +290,26 @@ class ImageGenerationExecutor:
                 if identity_score == 0.0:
                     warnings.append(
                         "На обработанном фото не распознано лицо. "
-                        "Попробуй загрузить чёткое портретное фото анфас."
+                        "Загрузи чёткое портретное фото анфас с хорошим освещением "
+                        "для более точного результата."
                     )
                 elif identity_score < 0.3:
                     warnings.append(
                         "Результат значительно отличается от оригинала. "
-                        "Загрузи фото с чётким лицом и хорошим освещением."
+                        "Для лучшего сходства загрузи более качественное фото: "
+                        "чёткое лицо, ровное освещение, фронтальный ракурс."
                     )
                 elif identity_score < 0.5:
                     warnings.append(
-                        "Результат может отличаться от оригинала. "
-                        "Для лучшего сходства используй фото анфас с равномерным освещением."
+                        "Результат может немного отличаться от оригинала. "
+                        "Загрузи фото в более высоком качестве — чёткий портрет "
+                        "анфас даст лучший результат."
                     )
                 elif identity_score < 0.75:
                     warnings.append(
                         "Небольшие отличия от оригинала. "
-                        "Попробуй другой стиль для лучшего результата."
+                        "Для максимальной точности используй качественное фото "
+                        "с чётким лицом крупным планом."
                     )
 
                 logger.info(
@@ -360,17 +365,20 @@ _MAX_DELTA = round(1 / _PHI, 2)  # 0.62
 _MIN_POSITIVE_DELTA = 0.03
 
 
-def _golden_delta(raw_delta: float) -> float:
-    """Clamp delta to gamification-friendly range, never negative."""
+def _golden_delta(raw_delta: float, seed: str = "") -> float:
+    """Clamp delta to gamification-friendly range with seed-based variation."""
     if raw_delta <= 0:
         return 0.0
-    clamped = min(raw_delta, _MAX_DELTA)
+    h = int(hashlib.md5(seed.encode()).hexdigest()[:4], 16) if seed else 0
+    variation = ((h % 25) - 12) / 100.0
+    cap = _MAX_DELTA + variation
+    clamped = min(raw_delta, cap)
     return round(max(clamped, _MIN_POSITIVE_DELTA), 2)
 
 
-def _build_delta_entry(pre: float, raw_post: float) -> dict:
+def _build_delta_entry(pre: float, raw_post: float, seed: str = "") -> dict:
     """Build a single {pre, post, delta} entry with golden-clamped delta."""
-    gd = _golden_delta(raw_post - pre)
+    gd = _golden_delta(raw_post - pre, seed)
     post = round(pre + gd, 2)
     return {"pre": round(pre, 2), "post": post, "delta": gd}
 
@@ -406,16 +414,16 @@ class DeltaScorer:
             if mode == AnalysisMode.DATING:
                 pre = float(result_dict.get("dating_score", 0))
                 raw_post = _humanize_score(float(post_dict.get("dating_score", 0)), f"{task_id}:post:dating_score")
-                delta = {"dating_score": _build_delta_entry(pre, raw_post)}
+                delta = {"dating_score": _build_delta_entry(pre, raw_post, f"{task_id}:dating_score")}
             elif mode == AnalysisMode.CV:
                 for key in ("trust", "competence", "hireability"):
                     pre = float(result_dict.get(key, 0))
                     raw_post = _humanize_score(float(post_dict.get(key, 0)), f"{task_id}:post:{key}")
-                    delta[key] = _build_delta_entry(pre, raw_post)
+                    delta[key] = _build_delta_entry(pre, raw_post, f"{task_id}:{key}")
             elif mode == AnalysisMode.SOCIAL:
                 pre = float(result_dict.get("social_score", 0))
                 raw_post = _humanize_score(float(post_dict.get("social_score", 0)), f"{task_id}:post:social_score")
-                delta = {"social_score": _build_delta_entry(pre, raw_post)}
+                delta = {"social_score": _build_delta_entry(pre, raw_post, f"{task_id}:social_score")}
 
             result_dict["delta"] = delta
             result_dict["post_score"] = post_dict

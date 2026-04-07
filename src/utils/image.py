@@ -46,6 +46,31 @@ def validate_and_normalize(image_bytes: bytes) -> tuple[bytes, dict]:
     return buf.read(), metadata
 
 
+def estimate_blur_score(image_bytes: bytes) -> float:
+    """Estimate image sharpness via Laplacian variance. Lower = blurrier.
+
+    Returns variance of the Laplacian. Typical threshold: < 100 is blurry.
+    Returns -1.0 if computation fails (caller should skip the check).
+    """
+    try:
+        import numpy as np
+
+        img = Image.open(io.BytesIO(image_bytes)).convert("L")
+        arr = np.array(img, dtype=np.float64)
+        # 3x3 Laplacian kernel convolution via numpy
+        laplacian = (
+            -arr[:-2, 1:-1] - arr[2:, 1:-1]
+            - arr[1:-1, :-2] - arr[1:-1, 2:]
+            + 4 * arr[1:-1, 1:-1]
+        )
+        variance = float(np.var(laplacian))
+        logger.debug("Blur score (Laplacian variance): %.1f", variance)
+        return variance
+    except Exception:
+        logger.debug("Blur estimation failed, skipping check")
+        return -1.0
+
+
 def has_face_heuristic(image_bytes: bytes) -> bool:
     """Detect face using InsightFace if available, falling back to aspect-ratio heuristic."""
     try:
