@@ -163,6 +163,156 @@ DATING_STYLES: dict[str, str] = {
         "warm moody lighting, exposed brick or wood. "
         "Clothing: vintage band tee or flannel shirt, relaxed creative style."
     ),
+    # --- Landmarks ---
+    "paris_eiffel": (
+        "Background: Parisian boulevard with Eiffel Tower in soft focus behind, "
+        "morning golden light, cafe table with croissant and coffee visible. "
+        "Clothing: fitted navy blazer over white tee, dark jeans, clean white sneakers."
+    ),
+    "nyc_brooklyn_bridge": (
+        "Background: Brooklyn Bridge walkway at golden sunset, warm orange sky, "
+        "Manhattan skyline in soft bokeh behind. "
+        "Clothing: casual fitted jacket, dark jeans, comfortable walking shoes."
+    ),
+    "rome_colosseum": (
+        "Background: outdoor cafe terrace with Colosseum blurred behind, "
+        "warm Mediterranean afternoon light, cobblestone street visible. "
+        "Clothing: linen shirt, light chinos, leather loafers, relaxed Italian style."
+    ),
+    "dubai_burj_khalifa": (
+        "Background: modern Dubai boulevard with Burj Khalifa illuminated at blue hour, "
+        "glass reflections, warm city lights, luxury urban atmosphere. "
+        "Clothing: fitted dark shirt, tailored trousers, luxury watch, polished modern style."
+    ),
+    "nyc_times_square": (
+        "Background: Times Square with vibrant billboards and neon lights, "
+        "bustling energy, cinematic urban night atmosphere. "
+        "Clothing: streetwear layers, statement jacket, fitted dark pants, designer sneakers."
+    ),
+    "barcelona_sagrada": (
+        "Background: sunlit Barcelona terrace with Sagrada Familia spires in soft focus, "
+        "warm morning light, breakfast table with juice and pastries. "
+        "Clothing: relaxed summer shirt, light chinos, straw hat, Mediterranean casual."
+    ),
+    "london_eye": (
+        "Background: Thames embankment with London Eye in soft bokeh, "
+        "grey-blue London sky with golden patches, river reflections. "
+        "Clothing: tailored overcoat or trench, dark scarf, smart casual British layers."
+    ),
+    "sydney_opera": (
+        "Background: Sydney harbour with Opera House sails in background, "
+        "sparkling blue water, bright Australian daylight. "
+        "Clothing: casual smart outfit, fitted polo or button-down, clean summer style."
+    ),
+    "tokyo_tower": (
+        "Background: minimalist Tokyo street with Tokyo Tower visible behind, "
+        "cherry blossoms or clean urban aesthetic, soft diffused light. "
+        "Clothing: minimal Japanese-inspired outfit, clean dark fitted layers."
+    ),
+    "sf_golden_gate": (
+        "Background: Golden Gate Bridge at sunset with fog rolling in, "
+        "warm orange and teal tones, Pacific Ocean behind. "
+        "Clothing: fitted fleece or casual jacket, dark jeans, relaxed outdoor-casual style."
+    ),
+    "athens_acropolis": (
+        "Background: narrow Athens street with Acropolis on hilltop in warm light, "
+        "whitewashed walls, Mediterranean plants and bougainvillea. "
+        "Clothing: relaxed white linen shirt, light trousers, leather sandals."
+    ),
+    "singapore_marina_bay": (
+        "Background: Marina Bay Sands and Singapore skyline at night, "
+        "illuminated reflections on water, modern futuristic architecture. "
+        "Clothing: smart fitted shirt, tailored dark trousers, polished modern shoes."
+    ),
+    "venice_san_marco": (
+        "Background: Piazza San Marco at golden hour, historic Venetian architecture, "
+        "warm amber light, canal water reflections in distance. "
+        "Clothing: elegant smart-casual, fitted blazer, quality leather shoes, refined style."
+    ),
+    "nyc_central_park": (
+        "Background: Central Park with autumn foliage in warm tones, "
+        "soft dappled sunlight through trees, green lawns and pathway. "
+        "Clothing: casual fitted sweater, dark jeans, clean casual sneakers."
+    ),
+    "london_big_ben": (
+        "Background: Westminster with Big Ben and Parliament in background, "
+        "classic London overcast light, Thames embankment visible. "
+        "Clothing: classic British smart-casual, tailored jacket, polished accessories."
+    ),
+    # --- Travel expanded ---
+    "airplane_window": (
+        "Background: airplane window seat with clouds and blue sky visible outside, "
+        "soft cabin light, tray table with book or headphones. "
+        "Clothing: comfortable travel outfit, quality hoodie or fitted sweater, headphones."
+    ),
+    "train_journey": (
+        "Background: modern train interior, green landscape streaming by window, "
+        "laptop on tray table, earbuds, warm natural light from window. "
+        "Clothing: smart-casual travel outfit, fitted jacket, comfortable layers."
+    ),
+    "hotel_checkin": (
+        "Background: luxury hotel lobby with marble floor, warm amber ambient lighting, "
+        "modern reception area blurred, luggage nearby. "
+        "Clothing: travel-smart outfit, fitted blazer or quality jacket, polished casual look."
+    ),
+    "hotel_breakfast": (
+        "Background: hotel restaurant with panoramic floor-to-ceiling windows, "
+        "city or sea view, elegant breakfast table setting with fresh food. "
+        "Clothing: clean casual morning outfit, quality polo or light linen shirt."
+    ),
+    "sea_balcony": (
+        "Background: hotel or villa balcony overlooking turquoise sea, "
+        "white railing, bright morning light, blue sky, tropical plants. "
+        "Clothing: relaxed morning linen outfit, light cotton, fresh natural look."
+    ),
+    "old_town_walk": (
+        "Background: charming European old-town cobblestone street, "
+        "colorful facades, warm afternoon light, flower boxes on windows. "
+        "Clothing: relaxed stylish outfit, light layers, comfortable leather shoes."
+    ),
+    "street_market": (
+        "Background: vibrant outdoor street market with colorful produce and goods, "
+        "warm natural light, exotic textures, bustling atmosphere blurred. "
+        "Clothing: casual travel outfit, rolled sleeves, crossbody bag, explorer vibe."
+    ),
+    # --- Atmosphere expanded ---
+    "rainy_day": (
+        "Background: city street in light rain, wet reflections on pavement, "
+        "moody atmospheric light, glass surface with droplets, grey sky. "
+        "Clothing: dark fitted coat or jacket, quality umbrella, polished rainy-day style."
+    ),
+    "night_coffee": (
+        "Background: cozy late-night coffee shop interior, warm dim tungsten lighting, "
+        "city lights visible through window, steaming cup on table. "
+        "Clothing: dark cozy layers, quality cashmere sweater or fitted dark shirt."
+    ),
+    "evening_home": (
+        "Background: modern apartment with warm ambient lamp lighting, "
+        "city view through large window, comfortable interior, book or drink nearby. "
+        "Clothing: clean quality loungewear, fitted casual pieces, relaxed domestic style."
+    ),
+    # --- Status ---
+    "car_exit": (
+        "Background: stepping out of luxury car, door open, city backdrop, "
+        "natural light catching the scene, polished car interior visible. "
+        "Clothing: tailored smart outfit, polished shoes, clean confident style."
+    ),
+    "travel_luxury": (
+        "Background: first-class airport lounge or luxury resort entrance, "
+        "marble and brass details, soft ambient warm lighting, premium interior. "
+        "Clothing: elevated travel outfit, quality fabrics, leather accessories, luxury watch."
+    ),
+    # --- Sport expanded ---
+    "yoga_outdoor": (
+        "Background: outdoor yoga mat on green grass or beach at sunrise, "
+        "soft morning golden light, serene natural landscape, calm atmosphere. "
+        "Clothing: fitted clean athletic wear, barefoot, minimal yoga outfit."
+    ),
+    "cycling": (
+        "Background: scenic road or park trail with bicycle nearby, "
+        "golden morning light, green landscape, open sky. "
+        "Clothing: fitted cycling jersey or casual athletic top, sport sunglasses, helmet nearby."
+    ),
 }
 
 DATING_PERSONALITIES: dict[str, str] = {
@@ -189,6 +339,40 @@ DATING_PERSONALITIES: dict[str, str] = {
     "art_gallery": "Standing thoughtfully near artwork, intellectual composed expression, subtle confident gaze, cultured refined energy.",
     "street_urban": "Walking confidently mid-stride, hands in pockets, effortless cool expression, bold urban energy.",
     "concert": "Guitar in hands or leaning against wall near instruments, passionate creative expression, magnetic artistic energy.",
+    # Landmarks
+    "paris_eiffel": "Seated at cafe table, relaxed morning gaze toward tower, warm genuine smile, worldly romantic energy.",
+    "nyc_brooklyn_bridge": "Walking along bridge, wind in hair, warm sunset glow on face, adventurous confident smile.",
+    "rome_colosseum": "Leaning back in cafe chair, relaxed Mediterranean expression, warm open charm, easy-going Italian energy.",
+    "dubai_burj_khalifa": "Standing with city behind, composed modern gaze, subtle power smile, cosmopolitan confident energy.",
+    "nyc_times_square": "Hands in pockets mid-stride, bold confident expression, urban energy, effortless cool neon-lit look.",
+    "barcelona_sagrada": "Seated at terrace breakfast, relaxed sun-kissed expression, bright genuine smile, warm Mediterranean morning.",
+    "london_eye": "Walking along embankment, thoughtful composed expression, subtle warm smile, elegant understated energy.",
+    "sydney_opera": "Relaxed harbour-side posture, bright warm smile, fresh natural look, open confident Australian energy.",
+    "tokyo_tower": "Standing in clean urban setting, calm composed gaze, subtle confident expression, minimalist refined energy.",
+    "sf_golden_gate": "Standing at viewpoint, wind-touched hair, peaceful awe-inspired expression, adventurous warm smile.",
+    "athens_acropolis": "Walking through narrow street, relaxed thoughtful expression, warm gentle smile, cultural explorer energy.",
+    "singapore_marina_bay": "Standing with skyline behind, polished confident gaze, subtle sophisticated smile, modern cosmopolitan energy.",
+    "venice_san_marco": "Walking through piazza, romantic composed expression, warm charming smile, elegant European energy.",
+    "nyc_central_park": "Relaxed walking pose, genuine bright smile, warm approachable look, easy natural park energy.",
+    "london_big_ben": "Standing with landmark behind, composed British elegance, subtle confident smile, refined worldly energy.",
+    # Travel expanded
+    "airplane_window": "Seated with window view, relaxed contemplative gaze outside, calm easy smile, excited traveler energy.",
+    "train_journey": "Working or gazing out window, focused relaxed expression, calm productivity, modern explorer energy.",
+    "hotel_checkin": "Standing in lobby, confident composed posture, warm arrival smile, polished traveler energy.",
+    "hotel_breakfast": "Seated at panoramic table, relaxed morning expression, warm genuine smile, luxury morning energy.",
+    "sea_balcony": "Standing at railing, wind in hair, peaceful bright smile, warm morning sea-breeze energy.",
+    "old_town_walk": "Walking on cobblestones, curious warm expression, gentle smile, cultural wanderer energy.",
+    "street_market": "Engaged with surroundings, bright curious expression, warm genuine smile, adventurous explorer energy.",
+    # Atmosphere expanded
+    "rainy_day": "Walking in rain, contemplative gaze, mysterious half-smile, cinematic moody confidence.",
+    "night_coffee": "Seated with cup, warm intimate gaze, gentle smile, cozy late-night thoughtful energy.",
+    "evening_home": "Relaxed at home, calm contented expression, warm genuine smile, comfortable domestic confidence.",
+    # Status
+    "car_exit": "Stepping from car, confident direct gaze, purposeful composed expression, polished arrival energy.",
+    "travel_luxury": "Standing in premium interior, composed confident posture, subtle assured smile, elevated travel energy.",
+    # Sport expanded
+    "yoga_outdoor": "Balanced peaceful pose, serene calm expression, gentle focused energy, healthy mindful glow.",
+    "cycling": "Standing beside bike, fresh energetic expression, bright confident smile, active outdoor energy.",
 }
 
 CV_STYLES: dict[str, str] = {
@@ -281,6 +465,89 @@ CV_STYLES: dict[str, str] = {
         "laptop on table, natural daylight. "
         "Clothing: linen blazer over fitted shirt, chinos, digital nomad smart-casual."
     ),
+    # --- Career expanded ---
+    "video_call": (
+        "Background: clean home office with ring light or monitor glow, "
+        "neat bookshelves behind, webcam-friendly framing, even soft lighting. "
+        "Clothing: professional fitted shirt, crisp collar, clean grooming visible above desk."
+    ),
+    "glass_wall_pose": (
+        "Background: modern office with floor-to-ceiling glass wall, city panorama behind, "
+        "clean architectural lines, natural daylight streaming in. "
+        "Clothing: tailored suit or smart business attire, confident professional silhouette."
+    ),
+    "analytics_review": (
+        "Background: office desk with financial charts on monitor screen, "
+        "organized documents, warm desk lamp, focused workspace atmosphere. "
+        "Clothing: professional shirt with rolled sleeves, reading glasses optional, sharp look."
+    ),
+    "tablet_stylus": (
+        "Background: creative workspace, digital tablet on desk with sketches visible, "
+        "clean modern interior, soft directional task light. "
+        "Clothing: smart-casual fitted dark sweater, creative professional look."
+    ),
+    "notebook_ideas": (
+        "Background: bright cafe or office corner, quality notebook open on table, "
+        "pen in hand, warm natural window light, coffee cup nearby. "
+        "Clothing: smart-casual layers, clean fitted shirt, professional yet relaxed."
+    ),
+    "coffee_break_work": (
+        "Background: modern office kitchen or lounge area, coffee machine blurred behind, "
+        "bright even lighting, clean minimalist break space. "
+        "Clothing: professional attire slightly relaxed, sleeves rolled, coffee cup in hand."
+    ),
+    "late_hustle": (
+        "Background: dimly lit office at night, monitor glow on face, city lights through "
+        "window behind, focused determined atmosphere. "
+        "Clothing: professional shirt with loosened collar, tie undone, determined focused look."
+    ),
+    # --- Archetypes ---
+    "quiet_expert": (
+        "Background: home library or study with floor-to-ceiling bookshelves, "
+        "warm reading lamp, rich wood tones, intellectual atmosphere. "
+        "Clothing: quality cardigan or fitted cashmere sweater, subtle glasses, refined understated."
+    ),
+    "digital_nomad": (
+        "Background: tropical co-working space or beach cafe with laptop on table, "
+        "palm trees and ocean visible through open walls, bright natural light. "
+        "Clothing: casual smart lightweight shirt, relaxed professional travel style."
+    ),
+    "entrepreneur_on_move": (
+        "Background: modern city transit hub or street, phone in hand, "
+        "fast-paced urban energy, sleek architecture blurred behind. "
+        "Clothing: smart blazer over casual outfit, carry-on bag, confident traveler style."
+    ),
+    "intellectual": (
+        "Background: classic library or bookstore, warm amber ambient lighting, "
+        "books and wooden shelves blurred behind, academic atmosphere. "
+        "Clothing: turtleneck or fitted quality shirt, subtle glasses, refined academic style."
+    ),
+    "man_with_mission": (
+        "Background: dramatic modern architectural backdrop, glass and steel building, "
+        "strong directional light, purposeful atmosphere. "
+        "Clothing: dark tailored outfit, minimal accessories, determined professional style."
+    ),
+    # --- Professional moments ---
+    "before_meeting": (
+        "Background: modern office corridor or glass-walled lobby, bright clean environment, "
+        "meeting rooms visible behind, professional workspace atmosphere. "
+        "Clothing: fresh professional attire, straightened collar, polished ready-for-action look."
+    ),
+    "between_meetings": (
+        "Background: office hallway or cafe between meetings, phone in hand checking messages, "
+        "natural window light, transitional professional moment. "
+        "Clothing: professional suit with relaxed posture, jacket unbuttoned, composed ease."
+    ),
+    "business_lounge": (
+        "Background: premium airport or hotel business lounge, marble and leather surfaces, "
+        "soft warm lighting, laptop and documents on table. "
+        "Clothing: business-casual travel outfit, quality fabrics, polished accessories."
+    ),
+    "decision_moment": (
+        "Background: standing at large window overlooking cityscape, contemplative atmosphere, "
+        "dramatic rim light from window, expansive view behind. "
+        "Clothing: tailored dark suit, strong silhouette against bright window, executive presence."
+    ),
 }
 
 CV_PERSONALITIES: dict[str, str] = {
@@ -301,6 +568,25 @@ CV_PERSONALITIES: dict[str, str] = {
     "podcast": "Seated at mic, natural animated expression, engaging conversational energy, authentic approachable authority.",
     "mentor": "Leaning forward in engaged conversation pose, warm encouraging expression, wise approachable mentor energy.",
     "outdoor_business": "Seated with laptop and coffee, confident relaxed smile, modern flexible professional energy.",
+    # Career expanded
+    "video_call": "Facing camera with engaged expression, warm professional smile, confident screen presence, trustworthy energy.",
+    "glass_wall_pose": "Standing confidently at glass wall, arms relaxed, composed powerful gaze, modern executive energy.",
+    "analytics_review": "Focused on data, sharp analytical expression, slight concentration furrow, intelligent authority.",
+    "tablet_stylus": "Working with tablet, focused creative expression, innovative gaze, modern productive energy.",
+    "notebook_ideas": "Writing in notebook, thoughtful inspired expression, subtle focused smile, creative productive energy.",
+    "coffee_break_work": "Holding coffee, relaxed confident smile, approachable warm expression, human professional energy.",
+    "late_hustle": "Focused determined expression, subtle jaw set, intense productive gaze, ambitious driven energy.",
+    # Archetypes
+    "quiet_expert": "Seated with book, calm wise expression, subtle knowing smile, deep understated authority.",
+    "digital_nomad": "Relaxed at laptop with view, easy confident smile, free productive expression, location-independent energy.",
+    "entrepreneur_on_move": "Walking with purpose, phone in hand, dynamic confident expression, unstoppable momentum energy.",
+    "intellectual": "Thoughtful composed gaze, slight head tilt, deep contemplative expression, scholarly refined energy.",
+    "man_with_mission": "Standing with purpose, strong direct gaze, determined composed expression, visionary leadership energy.",
+    # Professional moments
+    "before_meeting": "Ready confident posture, focused composed gaze, subtle prepared smile, polished professional energy.",
+    "between_meetings": "Checking phone, relaxed but alert expression, composed ease, efficient professional energy.",
+    "business_lounge": "Seated with laptop, composed traveler expression, confident relaxed smile, premium professional energy.",
+    "decision_moment": "Contemplating cityscape, strong thoughtful profile, composed decisive expression, executive vision energy.",
 }
 
 SOCIAL_STYLES: dict[str, str] = {
@@ -418,6 +704,127 @@ SOCIAL_STYLES: dict[str, str] = {
         "bold color accent, artistic composition. "
         "Clothing: eclectic creative outfit, bold patterns or statement piece, unconventional style."
     ),
+    # --- Social aesthetic ---
+    "mirror_aesthetic": (
+        "Background: clean modern full-length mirror, soft indirect lighting, "
+        "minimal decor, aesthetically composed reflection setting. "
+        "Clothing: curated outfit with clean lines, one statement piece, polished silhouette."
+    ),
+    "elevator_clean": (
+        "Background: modern elevator interior, stainless steel or mirrored walls, "
+        "even overhead lighting, clean minimal space. "
+        "Clothing: fitted smart outfit, clean sharp silhouette, polished aesthetic."
+    ),
+    "book_and_coffee": (
+        "Background: cozy aesthetic table setting with open book and coffee cup, "
+        "soft warm light, textured surfaces, neutral tones. "
+        "Clothing: comfortable stylish layers, quality sweater, relaxed intellectual vibe."
+    ),
+    "shopfront": (
+        "Background: stylish boutique or designer store window facade, "
+        "clean architectural lines, warm display lighting, urban fashion setting. "
+        "Clothing: on-trend outfit, shopping bags optional, fashion-forward street style."
+    ),
+    "candid_street": (
+        "Background: urban street caught mid-stride, natural unposed moment, "
+        "warm directional sunlight, blurred pedestrians and architecture. "
+        "Clothing: effortless casual outfit, natural unstaged authentic look."
+    ),
+    # --- Hobbies ---
+    "reading_home": (
+        "Background: cozy home corner with soft window light, comfortable armchair, "
+        "bookshelves behind, warm domestic atmosphere. "
+        "Clothing: comfortable quality loungewear, cozy socks, relaxed domestic style."
+    ),
+    "reading_cafe": (
+        "Background: atmospheric bookshop cafe, books on shelves around, "
+        "warm overhead pendant lights, coffee on table beside open book. "
+        "Clothing: casual intellectual look, fitted sweater, comfortable smart style."
+    ),
+    "sketching": (
+        "Background: studio or desk with sketching supplies, drawings and pencils visible, "
+        "warm directional task lamp, creative workspace atmosphere. "
+        "Clothing: creative casual tee, comfortable fit, artistic relaxed vibe."
+    ),
+    "photographer": (
+        "Background: outdoor or studio setting with interesting light conditions, "
+        "professional camera in hands, creative shooting environment. "
+        "Clothing: practical creative outfit, dark layers, camera strap, artistic professional."
+    ),
+    "meditation": (
+        "Background: serene outdoor garden or minimalist bright room, "
+        "soft natural light, plants, calm zen atmosphere. "
+        "Clothing: comfortable clean neutral outfit, natural tones, peaceful energy."
+    ),
+    "online_learning": (
+        "Background: clean home desk with laptop open showing content, "
+        "notes and coffee cup, focused study environment, natural light. "
+        "Clothing: casual but clean fitted hoodie or sweater, headphones nearby."
+    ),
+    # --- Sport social ---
+    "yoga_social": (
+        "Background: outdoor yoga session at sunrise, mat on grass or deck, "
+        "golden morning light, serene nature backdrop. "
+        "Clothing: premium fitted yoga wear, clean athletic aesthetic, barefoot."
+    ),
+    "cycling_social": (
+        "Background: scenic urban bike path or countryside road, bicycle in frame, "
+        "golden light, green landscape, active lifestyle setting. "
+        "Clothing: stylish cycling outfit or casual athletic top, sport sunglasses."
+    ),
+    # --- Cinematic / unique ---
+    "panoramic_window": (
+        "Background: standing before massive floor-to-ceiling window with dramatic "
+        "city panorama, silhouette rim light from behind, dramatic scale. "
+        "Clothing: minimal dark outfit, clean silhouette against bright cityscape."
+    ),
+    "in_motion": (
+        "Background: urban street with motion-blurred background, caught walking "
+        "dynamically, sense of movement and energy. "
+        "Clothing: stylish casual outfit with flowing jacket or coat, dynamic movement."
+    ),
+    "creative_insight": (
+        "Background: creative workspace with mood boards and inspiration pinned around, "
+        "warm intimate golden lamp lighting, eureka-moment atmosphere. "
+        "Clothing: casual creative outfit, sleeves rolled, passionate engaged energy."
+    ),
+    "architecture_shadow": (
+        "Background: dramatic architectural shadows and geometric light patterns, "
+        "concrete or stone surfaces, bold contrast between light and dark. "
+        "Clothing: minimal outfit in dark tones, strong visual contrast with light."
+    ),
+    "achievement_moment": (
+        "Background: open rooftop or elevated space, bright expansive sky, "
+        "sense of accomplishment and freedom, warm golden light. "
+        "Clothing: smart outfit slightly undone in celebration, genuine joy."
+    ),
+    # --- Evening social ---
+    "skyscraper_view": (
+        "Background: high-rise interior with floor-to-ceiling windows, city lights below "
+        "at night, dramatic metropolitan atmosphere, warm interior accent light. "
+        "Clothing: elegant dark outfit, silhouette against glowing city skyline."
+    ),
+    "after_work": (
+        "Background: city sidewalk at dusk, warm streetlights beginning to glow, "
+        "office buildings behind, golden-blue transition sky. "
+        "Clothing: professional outfit slightly relaxed, jacket over shoulder, end-of-day vibe."
+    ),
+    "evening_planning": (
+        "Background: home desk at evening, warm desk lamp light, notebook and tea, "
+        "calm productivity atmosphere, soft window twilight behind. "
+        "Clothing: comfortable smart-casual loungewear, focused domestic vibe."
+    ),
+    # --- Mood ---
+    "focused_mood": (
+        "Background: clean minimal backdrop with dramatic close-up framing, "
+        "single directional light source creating depth and shadow on face. "
+        "Clothing: minimal dark outfit, all attention drawn to face and expression."
+    ),
+    "light_irony": (
+        "Background: urban setting with interesting visual juxtaposition, "
+        "slightly playful atmosphere, warm natural light, architectural context. "
+        "Clothing: smart casual with personality, slight quirk in style, self-aware modern look."
+    ),
 }
 
 SOCIAL_PERSONALITIES: dict[str, str] = {
@@ -443,6 +850,35 @@ SOCIAL_PERSONALITIES: dict[str, str] = {
     "instagram_aesthetic": "Artfully posed, editorial confident expression, Instagram-worthy polished energy.",
     "podcast_host": "Seated at mic setup, natural conversational smile, engaging authentic host energy.",
     "creative_portrait": "Unconventional pose or angle, intense expressive gaze, bold artistic energy.",
+    # Social aesthetic
+    "mirror_aesthetic": "Composed mirror selfie pose, calm confident gaze at reflection, effortless polished energy.",
+    "elevator_clean": "Clean confident stance, direct gaze, composed minimal expression, sharp modern energy.",
+    "book_and_coffee": "Relaxed with book, warm thoughtful expression, gentle intellectual smile, cozy wisdom energy.",
+    "shopfront": "Walking past or pausing, natural fashion expression, confident modern street-style energy.",
+    "candid_street": "Natural mid-action expression, genuine unposed look, authentic spontaneous energy.",
+    # Hobbies
+    "reading_home": "Absorbed in book, peaceful concentrated expression, warm genuine comfort, domestic intellectual energy.",
+    "reading_cafe": "Reading with coffee, thoughtful calm expression, gentle content smile, quiet cultured energy.",
+    "sketching": "Focused on drawing, creative concentrated expression, passionate hands at work, artistic flow energy.",
+    "photographer": "Looking through viewfinder or reviewing shot, focused creative expression, professional artistic energy.",
+    "meditation": "Eyes closed or soft focus, serene peaceful expression, calm balanced energy, mindful presence.",
+    "online_learning": "Focused on screen, engaged curious expression, productive concentration, growth-minded energy.",
+    # Sport social
+    "yoga_social": "Balanced pose, serene calm expression, healthy glow, peaceful mindful athletic energy.",
+    "cycling_social": "Fresh active expression, bright confident smile, healthy outdoor glow, athletic lifestyle energy.",
+    # Cinematic
+    "panoramic_window": "Standing before panorama, contemplative silhouette expression, profound calm gaze, cinematic scale energy.",
+    "in_motion": "Dynamic walking expression, confident forward gaze, kinetic unstoppable energy.",
+    "creative_insight": "Excited eureka expression, bright inspired eyes, energetic creative breakthrough energy.",
+    "architecture_shadow": "Face partially in shadow, mysterious confident expression, dramatic artistic presence.",
+    "achievement_moment": "Genuine bright celebration expression, relieved proud smile, triumphant authentic energy.",
+    # Evening social
+    "skyscraper_view": "Contemplating city lights, composed serene expression, elevated sophisticated energy.",
+    "after_work": "Relaxed relief expression, easy warm smile, comfortable end-of-day energy.",
+    "evening_planning": "Focused calm expression, quiet determination, productive evening energy.",
+    # Mood
+    "focused_mood": "Intense concentrated gaze, slight furrow, powerful focused presence, magnetic intensity.",
+    "light_irony": "Subtle smirk, one eyebrow slightly raised, playful knowing expression, witty confident energy.",
 }
 
 

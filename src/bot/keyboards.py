@@ -21,50 +21,102 @@ _PAGE_SIZE = 6
 
 STYLE_CATALOG: dict[str, list[tuple[str, str]]] = {
     "dating": [
-        # page 1
+        # --- Landmarks (wow-effect) ---
+        ("paris_eiffel", "\U0001f5fc Эйфелева башня"),
+        ("dubai_burj_khalifa", "\U0001f3d9 Бурдж-Халифа"),
+        ("nyc_brooklyn_bridge", "\U0001f309 Бруклинский мост"),
+        ("rome_colosseum", "\U0001f3db Колизей"),
+        ("venice_san_marco", "\U0001f6f6 Венеция"),
+        ("barcelona_sagrada", "\u2600\ufe0f Барселона"),
+        # ---
+        ("london_eye", "\U0001f3a1 Лондон"),
+        ("tokyo_tower", "\U0001f5fc Токио"),
+        ("singapore_marina_bay", "\U0001f307 Сингапур"),
+        ("sf_golden_gate", "\U0001f309 Золотые Ворота"),
+        ("athens_acropolis", "\U0001f3db Афины"),
+        ("sydney_opera", "\U0001f3b6 Сидней"),
+        # ---
+        ("nyc_times_square", "\U0001f4a1 Таймс-сквер"),
+        ("nyc_central_park", "\U0001f333 Центральный парк"),
+        ("london_big_ben", "\U0001f554 Биг-Бен"),
+        # --- Travel ---
+        ("airplane_window", "\u2708\ufe0f У окна самолёта"),
+        ("hotel_breakfast", "\U0001f373 Завтрак в отеле"),
+        ("sea_balcony", "\U0001f30a Балкон с видом на море"),
+        # ---
+        ("old_town_walk", "\U0001f3d8 Старый город"),
+        ("train_journey", "\U0001f682 В поезде"),
+        ("street_market", "\U0001f6d2 Уличный рынок"),
+        ("hotel_checkin", "\U0001f3e8 Лобби отеля"),
+        ("travel_luxury", "\U0001f48e Travel luxury"),
+        ("car_exit", "\U0001f697 Выход из авто"),
+        # --- Lifestyle ---
         ("near_car", "\U0001f697 У машины"),
         ("yacht", "\u26f5 На яхте"),
-        ("gym_fitness", "\U0001f4aa Спорт"),
         ("coffee_date", "\u2615 В кафе"),
         ("beach_sunset", "\U0001f305 На закате"),
         ("dog_lover", "\U0001f415 С собакой"),
-        # page 2
-        ("motorcycle", "\U0001f3cd Мотоцикл"),
-        ("in_car", "\U0001f698 В машине"),
         ("rooftop_city", "\U0001f303 На крыше"),
+        # --- Sport ---
+        ("gym_fitness", "\U0001f4aa Спортзал"),
+        ("running", "\U0001f3c3 Пробежка"),
         ("swimming_pool", "\U0001f3ca Бассейн"),
         ("hiking", "\u26f0 Поход"),
+        ("yoga_outdoor", "\U0001f9d8 Йога"),
+        ("cycling", "\U0001f6b4 Велопрогулка"),
+        ("tennis", "\U0001f3be Теннис"),
+        # --- Atmosphere ---
         ("restaurant", "\U0001f377 Ресторан"),
-        # page 3
         ("bar_lounge", "\U0001f378 Бар"),
         ("cooking", "\U0001f468\u200d\U0001f373 На кухне"),
-        ("travel", "\u2708\ufe0f Путешествие"),
+        ("rainy_day", "\U0001f327 В дождь"),
+        ("night_coffee", "\u2615 Ночной кофе"),
+        ("evening_home", "\U0001f3e0 Вечер дома"),
+        # --- Classic ---
+        ("motorcycle", "\U0001f3cd Мотоцикл"),
+        ("in_car", "\U0001f698 В машине"),
         ("art_gallery", "\U0001f3a8 Галерея"),
         ("street_urban", "\U0001f3d9 Улица"),
         ("concert", "\U0001f3b8 Музыкант"),
-        # page 4
-        ("running", "\U0001f3c3 Бег"),
-        ("tennis", "\U0001f3be Теннис"),
+        ("travel", "\u2708\ufe0f Аэропорт"),
         ("warm_outdoor", "\U0001f324 На прогулке"),
         ("studio_elegant", "\u2728 Студия"),
         ("cafe", "\u2615 Кафе / бар"),
     ],
     "cv": [
-        # page 1
+        # --- Classic ---
         ("corporate", "\U0001f3e2 Корпоративный"),
         ("boardroom", "\U0001f4cb Переговорная"),
-        ("startup_casual", "\U0001f680 Стартап"),
-        ("tech_developer", "\U0001f4bb IT разработчик"),
-        ("speaker_stage", "\U0001f3a4 Спикер"),
-        ("creative_director", "\U0001f3a8 Креативный директор"),
-        # page 2
         ("formal_portrait", "\U0001f4f7 Формальный портрет"),
+        ("glass_wall_pose", "\U0001f3e2 У стеклянной стены"),
+        ("startup_casual", "\U0001f680 Стартап"),
         ("coworking", "\U0001f465 Коворкинг"),
+        # --- Career ---
+        ("video_call", "\U0001f4f9 Созвон"),
+        ("analytics_review", "\U0001f4ca Аналитика"),
+        ("notebook_ideas", "\U0001f4dd Запись идей"),
+        ("tablet_stylus", "\U0001f4f1 Планшет"),
+        ("coffee_break_work", "\u2615 Перерыв с кофе"),
+        ("late_hustle", "\U0001f319 Вечерняя работа"),
+        # --- Moments ---
+        ("before_meeting", "\U0001f4bc Перед встречей"),
+        ("between_meetings", "\U0001f4f1 Между встречами"),
+        ("decision_moment", "\U0001f3d9 Момент решения"),
+        ("business_lounge", "\u2708\ufe0f Бизнес-лаунж"),
+        ("speaker_stage", "\U0001f3a4 Спикер"),
         ("standing_desk", "\U0001f5a5 Домашний офис"),
+        # --- Archetypes ---
+        ("digital_nomad", "\U0001f310 Digital nomad"),
+        ("quiet_expert", "\U0001f4da Тихий эксперт"),
+        ("intellectual", "\U0001f393 Интеллектуал"),
+        ("entrepreneur_on_move", "\U0001f680 Предприниматель"),
+        ("man_with_mission", "\U0001f3af Человек с миссией"),
+        # --- Industries ---
+        ("tech_developer", "\U0001f4bb IT разработчик"),
+        ("creative_director", "\U0001f3a8 Креативный директор"),
         ("medical", "\U0001f3e5 Медицина"),
         ("legal_finance", "\u2696\ufe0f Юрист / Финансы"),
         ("architect", "\U0001f4d0 Архитектор"),
-        # page 3
         ("podcast", "\U0001f3a7 Подкастер"),
         ("mentor", "\U0001f91d Ментор"),
         ("outdoor_business", "\u2600\ufe0f Бизнес на террасе"),
@@ -72,28 +124,55 @@ STYLE_CATALOG: dict[str, list[tuple[str, str]]] = {
         ("neutral", "\U0001f4f7 Нейтральный фон"),
     ],
     "social": [
-        # page 1
+        # --- Aesthetic ---
+        ("mirror_aesthetic", "\U0001faa9 У зеркала"),
+        ("elevator_clean", "\U0001f6d7 В лифте"),
+        ("candid_street", "\U0001f4f8 Случайный кадр"),
+        ("book_and_coffee", "\U0001f4d6 Книга и кофе"),
+        ("shopfront", "\U0001f6cd У витрины"),
+        ("focused_mood", "\U0001f440 Фокус"),
+        # --- Influencer ---
         ("influencer_urban", "\U0001f303 Urban блогер"),
         ("influencer_luxury", "\U0001f48e Luxury"),
-        ("fitness_lifestyle", "\U0001f4aa Фитнес"),
+        ("influencer_minimal", "\u26aa Минимализм"),
         ("golden_hour", "\U0001f31f Golden hour"),
         ("neon_night", "\U0001f4a0 Неон"),
         ("tinder_top", "\U0001f525 Для Tinder"),
-        # page 2
-        ("influencer_minimal", "\u26aa Минимализм"),
+        # --- Hobbies ---
+        ("reading_home", "\U0001f4da Чтение дома"),
+        ("reading_cafe", "\u2615 Чтение в кафе"),
+        ("sketching", "\u270f\ufe0f Скетчинг"),
+        ("photographer", "\U0001f4f7 Фотограф"),
+        ("meditation", "\U0001f9d8 Медитация"),
+        ("online_learning", "\U0001f4bb Обучение"),
+        # --- Sport ---
+        ("yoga_social", "\U0001f9d8 Йога"),
+        ("cycling_social", "\U0001f6b4 Велопрогулка"),
+        ("fitness_lifestyle", "\U0001f4aa Фитнес"),
+        # --- Cinematic ---
+        ("panoramic_window", "\U0001f303 Панорамное окно"),
+        ("in_motion", "\U0001f3c3 В движении"),
+        ("creative_insight", "\U0001f4a1 Креативный инсайт"),
+        ("architecture_shadow", "\U0001f3db Тень архитектуры"),
+        ("achievement_moment", "\U0001f3c6 Момент победы"),
+        ("light_irony", "\U0001f60f Лёгкая ирония"),
+        # --- Evening ---
+        ("skyscraper_view", "\U0001f307 Вид с небоскрёба"),
+        ("after_work", "\U0001f306 После работы"),
+        ("evening_planning", "\U0001f4dd Вечернее планирование"),
+        ("dark_moody", "\U0001f311 Dark moody"),
+        ("vintage_film", "\U0001f4f7 Винтаж"),
+        ("pastel_soft", "\U0001f338 Пастель"),
+        # --- Platforms ---
+        ("instagram_aesthetic", "\U0001f4f8 Instagram"),
+        ("youtube_creator", "\U0001f3ac YouTube"),
+        ("linkedin_premium", "\U0001f4bc LinkedIn"),
+        ("podcast_host", "\U0001f3a7 Подкаст"),
+        ("creative_portrait", "\U0001f3a8 Арт-портрет"),
+        # --- Classic ---
         ("morning_routine", "\u2600\ufe0f Утро"),
         ("food_blogger", "\U0001f37d Фуд-блогер"),
         ("travel_blogger", "\u2708\ufe0f Тревел-блогер"),
-        ("vintage_film", "\U0001f4f7 Винтаж"),
-        ("dark_moody", "\U0001f311 Dark moody"),
-        # page 3
-        ("pastel_soft", "\U0001f338 Пастель"),
-        ("youtube_creator", "\U0001f3ac YouTube"),
-        ("linkedin_premium", "\U0001f4bc LinkedIn"),
-        ("instagram_aesthetic", "\U0001f4f8 Instagram"),
-        ("podcast_host", "\U0001f3a7 Подкаст"),
-        ("creative_portrait", "\U0001f3a8 Арт-портрет"),
-        # legacy
         ("influencer", "\U0001f31f Influencer"),
         ("luxury", "\U0001f48e Luxury classic"),
         ("casual", "\u2600\ufe0f Casual"),

@@ -62,12 +62,32 @@ SCENARIO_STYLES: dict[str, list[str]] = {
         "swimming_pool", "hiking", "cafe", "coffee_date", "restaurant",
         "bar_lounge", "cooking", "dog_lover", "travel", "beach_sunset",
         "art_gallery", "street_urban", "concert",
+        # landmarks
+        "paris_eiffel", "nyc_brooklyn_bridge", "rome_colosseum", "dubai_burj_khalifa",
+        "nyc_times_square", "barcelona_sagrada", "london_eye", "sydney_opera",
+        "tokyo_tower", "sf_golden_gate", "athens_acropolis", "singapore_marina_bay",
+        "venice_san_marco", "nyc_central_park", "london_big_ben",
+        # travel expanded
+        "airplane_window", "train_journey", "hotel_checkin", "hotel_breakfast",
+        "sea_balcony", "old_town_walk", "street_market",
+        # atmosphere
+        "rainy_day", "night_coffee", "evening_home",
+        # status & sport
+        "car_exit", "travel_luxury", "yoga_outdoor", "cycling",
     ],
     "cv": [
         "corporate", "boardroom", "formal_portrait", "creative", "startup_casual",
         "coworking", "standing_desk", "neutral", "tech_developer", "creative_director",
         "medical", "legal_finance", "architect", "speaker_stage", "podcast",
         "mentor", "outdoor_business",
+        # career expanded
+        "video_call", "glass_wall_pose", "analytics_review", "tablet_stylus",
+        "notebook_ideas", "coffee_break_work", "late_hustle",
+        # archetypes
+        "quiet_expert", "digital_nomad", "entrepreneur_on_move", "intellectual",
+        "man_with_mission",
+        # moments
+        "before_meeting", "between_meetings", "business_lounge", "decision_moment",
     ],
     "social": [
         "influencer", "influencer_urban", "influencer_minimal", "influencer_luxury",
@@ -75,6 +95,20 @@ SCENARIO_STYLES: dict[str, list[str]] = {
         "travel_blogger", "artistic", "golden_hour", "neon_night", "vintage_film",
         "dark_moody", "pastel_soft", "youtube_creator", "linkedin_premium",
         "tinder_top", "instagram_aesthetic", "podcast_host", "creative_portrait",
+        # aesthetic
+        "mirror_aesthetic", "elevator_clean", "book_and_coffee", "shopfront",
+        "candid_street",
+        # hobbies
+        "reading_home", "reading_cafe", "sketching", "photographer",
+        "meditation", "online_learning",
+        # sport social
+        "yoga_social", "cycling_social",
+        # cinematic
+        "panoramic_window", "in_motion", "creative_insight", "architecture_shadow",
+        "achievement_moment",
+        # evening & mood
+        "skyscraper_view", "after_work", "evening_planning",
+        "focused_mood", "light_irony",
     ],
 }
 
