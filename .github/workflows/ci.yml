@@ -76,7 +76,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Install Railway CLI
-        run: npm install -g @railway/cli@3.20.3
+        run: npm install -g @railway/cli
       - name: Deploy app
         run: railway up -s app -d
       - name: Deploy worker
