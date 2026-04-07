@@ -2,7 +2,7 @@
 .github
 .venv
 venv
-storage
+/storage
 __pycache__
 *.pyc
 .env
@@ -11,5 +11,5 @@ __pycache__
 .ruff_cache
 .pytest_cache
 .mypy_cache
-tests
+/tests
 *.md
