@@ -153,17 +153,14 @@ async def _get_credit_balance(user_id: int) -> int | None:
 
 
 def _format_score_val(val: float) -> str:
-    """Display score values without false precision: 6.0 -> '6', 6.5 -> '6.5'."""
-    if val == int(val):
-        return str(int(val))
-    return f"{val:.1f}"
+    """Always display with hundredths precision: 7.0 -> '7.00'."""
+    return f"{val:.2f}"
 
 
 def _format_delta_fractional(delta_val: float) -> str:
-    sign = "+" if delta_val >= 0 else ""
-    if delta_val == int(delta_val):
-        return f"{sign}{int(delta_val)}"
-    return f"{sign}{delta_val:.1f}"
+    if delta_val > 0:
+        return f"+{delta_val:.2f}"
+    return "+0.00"
 
 
 def _build_next_level(
@@ -360,16 +357,27 @@ async def _send_enhanced(
 
 
 def _format_score_block(mode: str, delta: dict, result: dict) -> str:
-    """Format score display with initial score, delta, and progression bar."""
-    if delta:
-        return _format_delta_lines(mode, delta)
+    """Always show initial score header; append delta progression if available."""
+    score_map = {
+        "dating": ("dating_score", "\U0001f495 Привлекательность"),
+        "cv": ("hireability", "\U0001f4bc Найм"),
+        "social": ("social_score", "\U0001f4f8 Соцсети"),
+    }
+    key, label = score_map.get(mode, ("dating_score", "Скор"))
 
-    score_key = {"dating": "dating_score", "cv": "hireability", "social": "social_score"}.get(mode)
-    if score_key and result.get(score_key) is not None:
-        val = _format_score_val(float(result[score_key]))
-        label = {"dating": "Привлекательность", "cv": "Найм", "social": "Соцсети"}.get(mode, "Скор")
-        return f"\U0001f4ca *Текущий скор:*\n{label}: *{val}/10*"
-    return ""
+    initial = result.get(key)
+    if initial is None:
+        return ""
+
+    initial_str = _format_score_val(float(initial))
+    header = f"\U0001f4ca *Твой скор: {initial_str} / 10*"
+
+    if delta:
+        delta_lines = _format_delta_lines(mode, delta)
+        if delta_lines:
+            return f"{header}\n\n{delta_lines}"
+
+    return header
 
 
 def _format_delta_lines(mode: str, delta: dict) -> str:
@@ -388,14 +396,15 @@ def _format_delta_lines(mode: str, delta: dict) -> str:
 
     if not lines:
         return ""
-    return "\U0001f4ca *Что изменилось:*\n" + "\n".join(lines)
+    return "\u2728 *Что изменилось:*\n" + "\n".join(lines)
 
 
 def _format_score_row(label: str, d: dict) -> str:
     pre = _format_score_val(d["pre"])
     post = _format_score_val(d["post"])
     delta_str = _format_delta_fractional(d["delta"])
-    return f"{label}: {delta_str} ({pre} \u2192 {post})"
+    indicator = "\u25b2" if d["delta"] > 0 else "\u25cf"
+    return f"{indicator} {label}: {pre} \u2192 {post} *({delta_str})*"
 
 
 async def _send_emoji(

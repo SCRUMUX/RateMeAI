@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import logging
 import time
 from contextlib import contextmanager
@@ -21,6 +22,20 @@ from src.utils.redis_keys import embedding_cache_key
 from src.utils.security import extract_nsfw_from_analysis
 
 logger = logging.getLogger(__name__)
+
+_SCORE_KEYS = ("dating_score", "trust", "competence", "hireability", "social_score")
+
+
+def _humanize_score(raw: float, seed: str) -> float:
+    """Convert raw 0-10 LLM score to X.XX with natural-feeling fractional part."""
+    base = int(raw)
+    raw_frac = raw - base
+    h = int(hashlib.md5(seed.encode()).hexdigest()[:6], 16)
+    frac = (h % 100) / 100.0
+    if raw_frac > 0:
+        frac = round(raw_frac + (frac - 0.5) * 0.1, 2)
+    result = base + max(0.01, min(0.99, frac))
+    return round(min(9.99, max(0.01, result)), 2)
 
 
 @contextmanager
@@ -147,6 +162,10 @@ class AnalysisPipeline:
 
         with _trace_step(trace, "analyze"):
             result, result_dict = await self._analyze(mode, image_bytes, context)
+
+        for sk in _SCORE_KEYS:
+            if sk in result_dict and isinstance(result_dict[sk], (int, float)):
+                result_dict[sk] = _humanize_score(float(result_dict[sk]), f"{task_id}:{sk}")
 
         warnings: list[str] = result_dict.setdefault("generation_warnings", [])
         orig_w = img_meta.get("original_width", 0)

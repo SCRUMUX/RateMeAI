@@ -355,6 +355,26 @@ class ImageGenerationExecutor:
             )
 
 
+_PHI = 1.618
+_MAX_DELTA = round(1 / _PHI, 2)  # 0.62
+_MIN_POSITIVE_DELTA = 0.03
+
+
+def _golden_delta(raw_delta: float) -> float:
+    """Clamp delta to gamification-friendly range, never negative."""
+    if raw_delta <= 0:
+        return 0.0
+    clamped = min(raw_delta, _MAX_DELTA)
+    return round(max(clamped, _MIN_POSITIVE_DELTA), 2)
+
+
+def _build_delta_entry(pre: float, raw_post: float) -> dict:
+    """Build a single {pre, post, delta} entry with golden-clamped delta."""
+    gd = _golden_delta(raw_post - pre)
+    post = round(pre + gd, 2)
+    return {"pre": round(pre, 2), "post": post, "delta": gd}
+
+
 class DeltaScorer:
     """Re-scores the generated image and computes before/after delta."""
 
@@ -380,20 +400,22 @@ class DeltaScorer:
 
             post_dict = post_result.model_dump() if hasattr(post_result, "model_dump") else post_result
 
+            from src.orchestrator.pipeline import _humanize_score
+
             delta: dict[str, Any] = {}
             if mode == AnalysisMode.DATING:
                 pre = float(result_dict.get("dating_score", 0))
-                post = float(post_dict.get("dating_score", 0))
-                delta = {"dating_score": {"pre": round(pre, 2), "post": round(post, 2), "delta": round(post - pre, 2)}}
+                raw_post = _humanize_score(float(post_dict.get("dating_score", 0)), f"{task_id}:post:dating_score")
+                delta = {"dating_score": _build_delta_entry(pre, raw_post)}
             elif mode == AnalysisMode.CV:
                 for key in ("trust", "competence", "hireability"):
                     pre = float(result_dict.get(key, 0))
-                    post = float(post_dict.get(key, 0))
-                    delta[key] = {"pre": round(pre, 2), "post": round(post, 2), "delta": round(post - pre, 2)}
+                    raw_post = _humanize_score(float(post_dict.get(key, 0)), f"{task_id}:post:{key}")
+                    delta[key] = _build_delta_entry(pre, raw_post)
             elif mode == AnalysisMode.SOCIAL:
                 pre = float(result_dict.get("social_score", 0))
-                post = float(post_dict.get("social_score", 0))
-                delta = {"social_score": {"pre": round(pre, 2), "post": round(post, 2), "delta": round(post - pre, 2)}}
+                raw_post = _humanize_score(float(post_dict.get("social_score", 0)), f"{task_id}:post:social_score")
+                delta = {"social_score": _build_delta_entry(pre, raw_post)}
 
             result_dict["delta"] = delta
             result_dict["post_score"] = post_dict
