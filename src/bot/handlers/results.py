@@ -362,41 +362,54 @@ async def _send_enhanced(
 
 
 def _format_score_block(mode: str, delta: dict, result: dict) -> str:
-    """Always show initial score header; append delta progression if available."""
+    """Show initial score and delta progression when available."""
     if mode == "cv":
         vals = [float(result.get(k, 0)) for k in ("trust", "competence", "hireability") if result.get(k) is not None]
         if not vals:
             return ""
-        composite = round(sum(vals) / len(vals), 2)
+        initial = round(sum(vals) / len(vals), 2)
     else:
         score_key = {"dating": "dating_score", "social": "social_score"}.get(mode)
         if not score_key or result.get(score_key) is None:
             return ""
-        composite = float(result[score_key])
-
-    header = f"\U0001f4ca *Твой скор: {_format_score_val(composite)} / 10*"
+        initial = float(result[score_key])
 
     if delta:
         delta_lines = _format_delta_lines(mode, delta)
         if delta_lines:
+            post_score = _compute_post_composite(mode, delta, initial)
+            header = f"\U0001f4ca *Твой скор: {_format_score_val(post_score)} / 10*"
             return f"{header}\n\n{delta_lines}"
 
-    return header
+    return f"\U0001f4ca *Твой скор: {_format_score_val(initial)} / 10*"
+
+
+def _compute_post_composite(mode: str, delta: dict, fallback: float) -> float:
+    """Extract the post-score from delta dict for the header."""
+    if mode == "cv":
+        posts = [delta[k]["post"] for k in ("trust", "competence", "hireability") if k in delta and "post" in delta[k]]
+        return round(sum(posts) / len(posts), 2) if posts else fallback
+    key = {"dating": "dating_score", "social": "social_score"}.get(mode)
+    if key and key in delta and "post" in delta[key]:
+        return delta[key]["post"]
+    return fallback
 
 
 def _format_delta_lines(mode: str, delta: dict) -> str:
     lines = []
     if mode == "dating" and delta.get("dating_score"):
         d = delta["dating_score"]
-        lines.append(_format_score_row("Привлекательность", d))
+        if d.get("delta", 0) > 0:
+            lines.append(_format_score_row("\U0001f495 Привлекательность", d))
     elif mode == "cv":
-        for key, label in [("trust", "Доверие"), ("competence", "Компетентность"), ("hireability", "Найм")]:
+        for key, label in [("trust", "\U0001f91d Доверие"), ("competence", "\U0001f4a1 Компетентность"), ("hireability", "\U0001f4bc Найм")]:
             d = delta.get(key)
-            if d:
+            if d and d.get("delta", 0) > 0:
                 lines.append(_format_score_row(label, d))
     elif mode == "social" and delta.get("social_score"):
         d = delta["social_score"]
-        lines.append(_format_score_row("Соцсети", d))
+        if d.get("delta", 0) > 0:
+            lines.append(_format_score_row("\U0001f4f8 Соцсети", d))
 
     if not lines:
         return ""
@@ -407,8 +420,7 @@ def _format_score_row(label: str, d: dict) -> str:
     pre = _format_score_val(d["pre"])
     post = _format_score_val(d["post"])
     delta_str = _format_delta_fractional(d["delta"])
-    indicator = "\u25b2" if d["delta"] > 0 else "\u25cf"
-    return f"{indicator} {label}: {pre} \u2192 {post} *({delta_str})*"
+    return f"\u25b2 {label}: {pre} \u2192 {post} *({delta_str})*"
 
 
 async def _send_emoji(
