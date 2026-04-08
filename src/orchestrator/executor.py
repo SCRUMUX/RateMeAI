@@ -506,12 +506,46 @@ def _compute_authenticity(quality_report: dict) -> float:
     return round(min(9.99, max(5.0, raw)), 2)
 
 
-class DeltaScorer:
-    """Re-scores the generated image and computes before/after delta."""
+_SCORE_REDIS_KEY = "ratemeai:score:{}:{}"
+_SCORE_TTL = 86400
 
-    def __init__(self, router, storage: StorageProvider):
+
+class DeltaScorer:
+    """Re-scores the generated image and computes before/after delta.
+
+    Supports score progression: if a previous post score exists in Redis,
+    it is used as the new pre baseline so scores accumulate across generations.
+    """
+
+    def __init__(self, router, storage: StorageProvider, redis=None):
         self._router = router
         self._storage = storage
+        self._redis = redis
+
+    async def _load_previous_scores(self, user_id: str, mode: AnalysisMode) -> dict | None:
+        if not self._redis:
+            return None
+        try:
+            import json as _json
+            raw = await self._redis.get(_SCORE_REDIS_KEY.format(user_id, mode.value))
+            if raw:
+                return _json.loads(raw)
+        except Exception:
+            logger.debug("Failed to load previous scores for user=%s mode=%s", user_id, mode.value)
+        return None
+
+    async def _save_scores(self, user_id: str, mode: AnalysisMode, scores: dict) -> None:
+        if not self._redis:
+            return
+        try:
+            import json as _json
+            await self._redis.set(
+                _SCORE_REDIS_KEY.format(user_id, mode.value),
+                _json.dumps(scores),
+                ex=_SCORE_TTL,
+            )
+        except Exception:
+            logger.debug("Failed to save scores for user=%s mode=%s", user_id, mode.value)
 
     async def compute(
         self, mode: AnalysisMode, original_bytes: bytes,
@@ -536,24 +570,35 @@ class DeltaScorer:
             def _floor_post(raw: float, floor: float = _SCORE_FLOOR) -> float:
                 return max(float(raw), floor)
 
+            prev = await self._load_previous_scores(user_id, mode)
+            prev_scores = prev.get("scores", {}) if prev else {}
+            prev_perception = prev.get("perception", {}) if prev else {}
+
             delta: dict[str, Any] = {}
+            new_scores: dict[str, float] = {}
+
             if mode == AnalysisMode.DATING:
-                pre = float(result_dict.get("dating_score", 0))
+                pre = float(prev_scores.get("dating_score", 0)) or float(result_dict.get("dating_score", 0))
                 raw_post = _floor_post(post_dict.get("dating_score", 0))
-                delta = {"dating_score": _build_delta_entry(pre, raw_post, f"{task_id}:dating_score")}
+                entry = _build_delta_entry(pre, raw_post, f"{task_id}:dating_score")
+                delta = {"dating_score": entry}
+                new_scores["dating_score"] = entry["post"]
             elif mode == AnalysisMode.CV:
                 for key in ("trust", "competence", "hireability"):
-                    pre = float(result_dict.get(key, 0))
+                    pre = float(prev_scores.get(key, 0)) or float(result_dict.get(key, 0))
                     raw_post = _floor_post(post_dict.get(key, 0))
-                    delta[key] = _build_delta_entry(pre, raw_post, f"{task_id}:{key}")
+                    entry = _build_delta_entry(pre, raw_post, f"{task_id}:{key}")
+                    delta[key] = entry
+                    new_scores[key] = entry["post"]
             elif mode == AnalysisMode.SOCIAL:
-                pre = float(result_dict.get("social_score", 0))
+                pre = float(prev_scores.get("social_score", 0)) or float(result_dict.get("social_score", 0))
                 raw_post = _floor_post(post_dict.get("social_score", 0))
-                delta = {"social_score": _build_delta_entry(pre, raw_post, f"{task_id}:social_score")}
+                entry = _build_delta_entry(pre, raw_post, f"{task_id}:social_score")
+                delta = {"social_score": entry}
+                new_scores["social_score"] = entry["post"]
 
             result_dict["delta"] = delta
 
-            # --- Perception parameter deltas ---
             pre_perception = result_dict.get("perception_scores", {})
             if hasattr(pre_perception, "model_dump"):
                 pre_perception = pre_perception.model_dump()
@@ -562,14 +607,21 @@ class DeltaScorer:
                 post_perception = post_perception.model_dump()
 
             perception_delta: dict[str, Any] = {}
+            new_perception: dict[str, float] = {}
             for key in ("warmth", "presence", "appeal"):
-                pre_val = float(pre_perception.get(key, 5.0))
+                pre_val = float(prev_perception.get(key, 0)) or float(pre_perception.get(key, 5.0))
                 raw_post_val = _floor_post(float(post_perception.get(key, 5.0)), floor=_PERCEPTION_FLOOR)
-                perception_delta[key] = _build_delta_entry(pre_val, raw_post_val, f"{task_id}:p:{key}")
+                entry = _build_delta_entry(pre_val, raw_post_val, f"{task_id}:p:{key}")
+                perception_delta[key] = entry
+                new_perception[key] = entry["post"]
 
             result_dict["perception_delta"] = perception_delta
 
-            # Set authenticity from quality gates if available
+            await self._save_scores(user_id, mode, {
+                "scores": new_scores,
+                "perception": new_perception,
+            })
+
             quality_report = result_dict.get("quality_report", {})
             if quality_report:
                 auth_score = _compute_authenticity(quality_report)

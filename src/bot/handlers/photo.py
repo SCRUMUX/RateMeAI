@@ -39,10 +39,10 @@ async def _check_mode_flags(redis: Redis, user_id: int) -> dict | None:
 
 
 async def _reset_depth(redis: Redis, user_id: int) -> None:
-    """Clear depth tracking for all modes when a new photo is uploaded."""
+    """Clear depth tracking and accumulated scores for all modes when a new photo is uploaded."""
     for mode in _DEPTH_MODES:
-        key = f"ratemeai:depth:{user_id}:{mode}"
-        await redis.delete(key)
+        await redis.delete(f"ratemeai:depth:{user_id}:{mode}")
+        await redis.delete(f"ratemeai:score:{user_id}:{mode}")
 
 
 @router.message(F.photo)
