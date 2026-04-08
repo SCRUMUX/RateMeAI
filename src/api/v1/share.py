@@ -2,27 +2,24 @@ from __future__ import annotations
 
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.config import settings
 from src.models.db import Task, User
-from src.models.enums import TaskStatus, AnalysisMode
+from src.models.enums import TaskStatus
 from src.models.schemas import ShareResponse
 from src.api.deps import get_db, get_auth_user
 from src.providers.factory import get_storage
+from src.channels.deep_links import build_deep_link, build_share_caption, PROVIDER_TELEGRAM
 
 router = APIRouter()
-
-
-def _bot_username() -> str:
-    return settings.telegram_bot_username.lstrip("@")
 
 
 @router.post("/{task_id}", response_model=ShareResponse)
 async def create_share(
     task_id: uuid.UUID,
+    channel: str = Query(PROVIDER_TELEGRAM, description="Source channel: telegram, ok, vk, web"),
     user: User = Depends(get_auth_user),
     db: AsyncSession = Depends(get_db),
 ):
@@ -36,26 +33,9 @@ async def create_share(
     if task.status != TaskStatus.COMPLETED.value:
         raise HTTPException(status_code=400, detail="Task not completed yet")
 
-    u = _bot_username()
-    deep_link = f"https://t.me/{u}?start=ref_{user.id}"
-
     res = task.result or {}
-    mode = AnalysisMode(task.mode)
-
-    if mode == AnalysisMode.RATING:
-        score = res.get("score", "?")
-        caption = f"Мой рейтинг: {score}/10 — узнай свой → @{u}"
-    elif mode == AnalysisMode.DATING:
-        score = res.get("dating_score", "?")
-        caption = f"Стиль для знакомств: {score}/10 — попробуй → @{u}"
-    elif mode == AnalysisMode.CV:
-        hire = res.get("hireability", "?")
-        caption = f"Карьерный стиль: {hire}/10 — оцени своё фото → @{u}"
-    elif mode == AnalysisMode.SOCIAL:
-        score = res.get("social_score", "?")
-        caption = f"Стиль для соцсетей: {score}/10 — попробуй → @{u}"
-    else:
-        caption = f"Мой эмодзи-пак — попробуй → @{u}"
+    deep_link = build_deep_link(str(user.id), channel)
+    caption = build_share_caption(res, channel)
 
     raw_card = task.share_card_path or ""
     image_url = ""

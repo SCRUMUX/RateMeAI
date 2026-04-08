@@ -237,7 +237,7 @@ async def _submit_analysis(callback: CallbackQuery, api_base_url: str, redis: Re
 
 
 @router.callback_query(F.data.startswith("buy:"))
-async def on_buy(callback: CallbackQuery):
+async def on_buy(callback: CallbackQuery, api_base_url: str):
     """Create YooKassa payment and send payment link."""
     from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
     from src.services.payments import create_payment, _pack_by_quantity
@@ -251,7 +251,17 @@ async def on_buy(callback: CallbackQuery):
     await callback.answer()
     wait_msg = await callback.message.answer("\U0001f4b3 Создаю платёж...")
 
-    result = await create_payment(callback.from_user.id, pack_qty)
+    # Resolve internal user_id from Telegram ID via API
+    tg_id = callback.from_user.id
+    internal_user_id = await _resolve_user_id(api_base_url, tg_id)
+    if not internal_user_id:
+        await wait_msg.edit_text(
+            "\u274c Не удалось найти профиль. Попробуй /start.",
+            reply_markup=error_keyboard(),
+        )
+        return
+
+    result = await create_payment(internal_user_id, pack_qty, return_channel="telegram")
     if result is None:
         await wait_msg.edit_text(
             "\u274c Не удалось создать платёж. Попробуй позже.",
@@ -310,6 +320,25 @@ async def on_balance(callback: CallbackQuery, api_base_url: str):
 async def on_new_photo(callback: CallbackQuery):
     await callback.answer()
     await callback.message.answer("\U0001f4f8 Отправь мне новое фото!", reply_markup=back_keyboard())
+
+
+# ------------------------------------------------------------------
+# Helpers
+# ------------------------------------------------------------------
+
+async def _resolve_user_id(api_base_url: str, telegram_id: int) -> str | None:
+    """Get internal UUID user_id for a Telegram user."""
+    try:
+        async with httpx.AsyncClient(timeout=5.0) as client:
+            resp = await client.post(
+                f"{api_base_url}/api/v1/auth/telegram",
+                json={"telegram_id": telegram_id},
+            )
+        if resp.status_code == 200:
+            return resp.json().get("user_id")
+    except Exception:
+        logger.debug("Could not resolve user_id for tg=%s", telegram_id)
+    return None
 
 
 # ------------------------------------------------------------------

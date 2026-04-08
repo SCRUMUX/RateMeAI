@@ -47,7 +47,12 @@ def _ensure_configured() -> None:
         Configuration.secret_key = settings.yookassa_secret_key
 
 
-async def create_payment(telegram_id: int, pack_qty: int) -> tuple[str, str] | None:
+async def create_payment(
+    user_id: str,
+    pack_qty: int,
+    *,
+    return_channel: str = "telegram",
+) -> tuple[str, str] | None:
     """Create a YooKassa payment. Returns (payment_id, confirmation_url) or None."""
     pack = _pack_by_quantity(pack_qty)
     if pack is None:
@@ -60,9 +65,7 @@ async def create_payment(telegram_id: int, pack_qty: int) -> tuple[str, str] | N
 
     _ensure_configured()
 
-    return_url = settings.yookassa_return_url.format(
-        bot_username=settings.telegram_bot_username,
-    )
+    return_url = _resolve_return_url(return_channel)
 
     params = {
         "amount": {
@@ -76,7 +79,7 @@ async def create_payment(telegram_id: int, pack_qty: int) -> tuple[str, str] | N
         "capture": True,
         "description": f"RateMeAI: {pack.quantity} улучшений образа",
         "metadata": {
-            "telegram_id": str(telegram_id),
+            "user_id": user_id,
             "pack_qty": str(pack.quantity),
         },
     }
@@ -87,13 +90,21 @@ async def create_payment(telegram_id: int, pack_qty: int) -> tuple[str, str] | N
         )
         url = payment.confirmation.confirmation_url
         logger.info(
-            "Payment created: id=%s tg=%s pack=%s url=%s",
-            payment.id, telegram_id, pack_qty, url,
+            "Payment created: id=%s user=%s pack=%s url=%s",
+            payment.id, user_id, pack_qty, url,
         )
         return payment.id, url
     except Exception:
-        logger.exception("Failed to create YooKassa payment for tg=%s", telegram_id)
+        logger.exception("Failed to create YooKassa payment for user=%s", user_id)
         return None
+
+
+def _resolve_return_url(channel: str) -> str:
+    if channel == "web" and settings.web_base_url:
+        return f"{settings.web_base_url.rstrip('/')}/payment-success"
+    return settings.yookassa_return_url.format(
+        bot_username=settings.telegram_bot_username,
+    )
 
 
 async def fetch_payment(payment_id: str):

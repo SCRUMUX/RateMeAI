@@ -7,6 +7,7 @@ from src.providers.base import LLMProvider
 from src.prompts.engine import PromptEngine
 from src.models.enums import AnalysisMode
 from src.models.schemas import SocialResult
+from src.services.perception_utils import extract_perception_scores, extract_perception_insights
 
 logger = logging.getLogger(__name__)
 
@@ -33,4 +34,6 @@ class SocialService:
             weaknesses=raw.get("weaknesses", raw.get("enhancement_opportunities", [])),
             enhancement_opportunities=raw.get("enhancement_opportunities", raw.get("weaknesses", [])),
             variants=raw.get("variants", []),
+            perception_scores=extract_perception_scores(raw),
+            perception_insights=extract_perception_insights(raw),
         )

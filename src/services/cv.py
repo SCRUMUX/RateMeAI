@@ -7,6 +7,7 @@ from src.providers.base import LLMProvider
 from src.prompts.engine import PromptEngine
 from src.models.enums import AnalysisMode
 from src.models.schemas import CVResult
+from src.services.perception_utils import extract_perception_scores, extract_perception_insights
 
 logger = logging.getLogger(__name__)
 
@@ -32,4 +33,6 @@ class CVService:
             competence=float(raw.get("competence", 5)),
             hireability=float(raw.get("hireability", 5)),
             analysis=raw.get("analysis", ""),
+            perception_scores=extract_perception_scores(raw),
+            perception_insights=extract_perception_insights(raw),
         )

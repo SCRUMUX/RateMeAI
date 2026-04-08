@@ -941,18 +941,21 @@ STEP_TEMPLATES: dict[str, str] = {
     "background_edit": (
         f"{IDENTITY_FIRST} "
         "Change ONLY the background: {description}. "
+        "Create a context that naturally enhances perceived presence and visual appeal. "
         "Keep the person, clothing, pose, and body proportions identical. "
         f"{FACE_ANCHOR} {BODY_ANCHOR} {CAMERA} {REALISM}"
     ),
     "clothing_edit": (
         f"{IDENTITY_FIRST} "
         "Change ONLY the clothing and outfit: {description}. "
+        "Choose attire that communicates confidence and composed presence. "
         "Keep face, background, pose, and body proportions identical. "
         f"{FACE_ANCHOR} {BODY_ANCHOR} {CAMERA} {REALISM}"
     ),
     "lighting_adjust": (
         f"{IDENTITY_FIRST} "
         "Improve ONLY the lighting and color grading: {description}. "
+        "Warm flattering light that naturally enhances perceived warmth and visual appeal. "
         "Natural studio quality, even skin tones. "
         "Keep body, pose, and proportions identical. "
         f"{FACE_ANCHOR} {BODY_ANCHOR} {CAMERA} {REALISM}"
@@ -960,6 +963,7 @@ STEP_TEMPLATES: dict[str, str] = {
     "expression_hint": (
         f"{IDENTITY_FIRST} "
         "Subtle expression adjustment: {description}. "
+        "Aim for an expression that communicates warmth and quiet confidence. "
         "Keep face shape, features, and original mouth identical. "
         "Keep body pose and proportions identical. "
         f"{FACE_ANCHOR} {BODY_ANCHOR} {SKIN_FIX} {CAMERA} {REALISM}"
@@ -974,6 +978,7 @@ STEP_TEMPLATES: dict[str, str] = {
     "style_overall": (
         f"{IDENTITY_FIRST} "
         "Apply overall style enhancement: {description}. "
+        "Cohesive style that maximizes overall visual appeal and presence. "
         "Vibrant modern aesthetic, crisp detail. "
         "Keep body proportions and pose identical. "
         f"{FACE_ANCHOR} {BODY_ANCHOR} {CAMERA} {REALISM}"

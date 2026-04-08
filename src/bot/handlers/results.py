@@ -257,6 +257,11 @@ async def _send_rating(bot: Bot, chat_id: int, result: dict, user_id: int, uname
         f"Эмоция: {emotion}\n",
     ]
 
+    perception_block = _format_perception_breakdown(result)
+    if perception_block:
+        text_parts.append(perception_block)
+        text_parts.append("")
+
     if insights:
         text_parts.append(f"\U0001f4a1 {insights[0]}")
     if len(insights) > 1:
@@ -264,6 +269,10 @@ async def _send_rating(bot: Bot, chat_id: int, result: dict, user_id: int, uname
 
     if recommendations:
         text_parts.append(f"\n\U0001f3af {recommendations[0]}")
+
+    insights_text = _format_perception_insights(result)
+    if insights_text:
+        text_parts.append(f"\n{insights_text}")
 
     text = "\n".join(text_parts) + footer
     kb = post_result_keyboard("rating", str(user_id), uname)
@@ -361,8 +370,23 @@ async def _send_enhanced(
     await bot.send_message(chat_id, text, parse_mode="Markdown", reply_markup=kb)
 
 
+_PERCEPTION_ICONS = {
+    "warmth": "\u2600\ufe0f",
+    "presence": "\u26a1",
+    "appeal": "\u2728",
+    "authenticity": "\u2705",
+}
+
+_PERCEPTION_LABELS = {
+    "warmth": "Теплота",
+    "presence": "Уверенность",
+    "appeal": "Привлекательность",
+    "authenticity": "Аутентичность",
+}
+
+
 def _format_score_block(mode: str, delta: dict, result: dict) -> str:
-    """Show initial score and delta progression when available."""
+    """Show composite score headline + perception breakdown + delta progression."""
     if mode == "cv":
         vals = [float(result.get(k, 0)) for k in ("trust", "competence", "hireability") if result.get(k) is not None]
         if not vals:
@@ -374,14 +398,102 @@ def _format_score_block(mode: str, delta: dict, result: dict) -> str:
             return ""
         initial = float(result[score_key])
 
+    parts: list[str] = []
+
     if delta:
         delta_lines = _format_delta_lines(mode, delta)
         if delta_lines:
             post_score = _compute_post_composite(mode, delta, initial)
-            header = f"\U0001f4ca *Твой скор: {_format_score_val(post_score)} / 10*"
-            return f"{header}\n\n{delta_lines}"
+            parts.append(f"\U0001f4ca *Твой скор: {_format_score_val(post_score)} / 10*")
+            parts.append("")
+            parts.append(delta_lines)
+        else:
+            parts.append(f"\U0001f4ca *Твой скор: {_format_score_val(initial)} / 10*")
+    else:
+        parts.append(f"\U0001f4ca *Твой скор: {_format_score_val(initial)} / 10*")
 
-    return f"\U0001f4ca *Твой скор: {_format_score_val(initial)} / 10*"
+    perception_block = _format_perception_breakdown(result)
+    if perception_block:
+        parts.append("")
+        parts.append(perception_block)
+
+    perception_delta = result.get("perception_delta", {})
+    if perception_delta:
+        pdelta_lines = _format_perception_delta(perception_delta)
+        if pdelta_lines:
+            parts.append("")
+            parts.append(pdelta_lines)
+
+    insights_text = _format_perception_insights(result)
+    if insights_text:
+        parts.append("")
+        parts.append(insights_text)
+
+    return "\n".join(parts)
+
+
+def _format_perception_breakdown(result: dict) -> str:
+    """Show current perception scores as a compact line."""
+    ps = result.get("perception_scores", {})
+    if hasattr(ps, "model_dump"):
+        ps = ps.model_dump()
+    if not ps:
+        return ""
+
+    items = []
+    for key in ("warmth", "presence", "appeal"):
+        val = ps.get(key)
+        if val is not None:
+            icon = _PERCEPTION_ICONS.get(key, "")
+            label = _PERCEPTION_LABELS.get(key, key)
+            items.append(f"{icon} {label}: {_format_score_val(float(val))}")
+
+    auth = ps.get("authenticity")
+    if auth is not None:
+        items.append(f"\u2705 Аутентичность: {_format_score_val(float(auth))}")
+
+    if not items:
+        return ""
+    return "*Профиль восприятия:*\n" + " \u2022 ".join(items)
+
+
+def _format_perception_delta(perception_delta: dict) -> str:
+    """Format perception parameter deltas."""
+    lines = []
+    for key in ("warmth", "presence", "appeal"):
+        d = perception_delta.get(key)
+        if d and d.get("delta", 0) > 0:
+            icon = _PERCEPTION_ICONS.get(key, "")
+            label = _PERCEPTION_LABELS.get(key, key)
+            lines.append(_format_score_row(f"{icon} {label}", d))
+
+    if not lines:
+        return ""
+    return "\u2728 *Что изменилось:*\n" + "\n".join(lines)
+
+
+def _format_perception_insights(result: dict) -> str:
+    """Show LLM-generated positive framing insights."""
+    insights = result.get("perception_insights", [])
+    if hasattr(insights, "__iter__") and not isinstance(insights, (str, dict)):
+        pass
+    else:
+        return ""
+
+    lines = []
+    for item in insights[:2]:
+        if isinstance(item, dict):
+            suggestion = item.get("suggestion", "")
+        elif hasattr(item, "suggestion"):
+            suggestion = item.suggestion
+        else:
+            continue
+        if suggestion:
+            lines.append(f"\u2022 {suggestion[:120]}")
+
+    if not lines:
+        return ""
+    return "\U0001f4a1 *Рекомендации:*\n" + "\n".join(lines)
 
 
 def _compute_post_composite(mode: str, delta: dict, fallback: float) -> float:
@@ -400,7 +512,7 @@ def _format_delta_lines(mode: str, delta: dict) -> str:
     if mode == "dating" and delta.get("dating_score"):
         d = delta["dating_score"]
         if d.get("delta", 0) > 0:
-            lines.append(_format_score_row("\U0001f495 Привлекательность", d))
+            lines.append(_format_score_row("\U0001f495 Общий скор", d))
     elif mode == "cv":
         for key, label in [("trust", "\U0001f91d Доверие"), ("competence", "\U0001f4a1 Компетентность"), ("hireability", "\U0001f4bc Найм")]:
             d = delta.get(key)
@@ -409,11 +521,11 @@ def _format_delta_lines(mode: str, delta: dict) -> str:
     elif mode == "social" and delta.get("social_score"):
         d = delta["social_score"]
         if d.get("delta", 0) > 0:
-            lines.append(_format_score_row("\U0001f4f8 Соцсети", d))
+            lines.append(_format_score_row("\U0001f4f8 Общий скор", d))
 
     if not lines:
         return ""
-    return "\u2728 *Что изменилось:*\n" + "\n".join(lines)
+    return "\n".join(lines)
 
 
 def _format_score_row(label: str, d: dict) -> str:

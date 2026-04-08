@@ -46,6 +46,22 @@ class TaskCreated(BaseModel):
     estimated_seconds: int = 15
 
 
+# ── Perception Scores (unified across all modes) ──
+
+class PerceptionScores(BaseModel):
+    warmth: float = Field(ge=0, le=10)
+    presence: float = Field(ge=0, le=10)
+    appeal: float = Field(ge=0, le=10)
+    authenticity: float = Field(ge=0, le=10, default=9.0)
+
+
+class PerceptionInsight(BaseModel):
+    parameter: str
+    current_level: str
+    suggestion: str
+    controllable_by: str
+
+
 # ── Rating Result ──
 
 class PerceptionData(BaseModel):
@@ -57,6 +73,8 @@ class PerceptionData(BaseModel):
 class RatingResult(BaseModel):
     score: float = Field(ge=0, le=10)
     perception: PerceptionData
+    perception_scores: PerceptionScores | None = None
+    perception_insights: list[PerceptionInsight] = Field(default_factory=list)
     insights: list[str]
     recommendations: list[str]
 
@@ -78,6 +96,8 @@ class DatingResult(BaseModel):
     weaknesses: list[str] = Field(default_factory=list)
     enhancement_opportunities: list[str] = Field(default_factory=list)
     variants: list[Variant] = []
+    perception_scores: PerceptionScores | None = None
+    perception_insights: list[PerceptionInsight] = Field(default_factory=list)
 
 
 # ── CV Result ──
@@ -89,6 +109,8 @@ class CVResult(BaseModel):
     hireability: float = Field(ge=0, le=10)
     analysis: str
     image_url: str | None = None
+    perception_scores: PerceptionScores | None = None
+    perception_insights: list[PerceptionInsight] = Field(default_factory=list)
 
 
 # ── Social Result ──
@@ -100,6 +122,8 @@ class SocialResult(BaseModel):
     weaknesses: list[str] = Field(default_factory=list)
     enhancement_opportunities: list[str] = Field(default_factory=list)
     variants: list[Variant] = []
+    perception_scores: PerceptionScores | None = None
+    perception_insights: list[PerceptionInsight] = Field(default_factory=list)
 
 
 # ── Share ──
@@ -124,3 +148,27 @@ class UserResponse(BaseModel):
     telegram_id: int | None = None
     username: str | None = None
     usage: UserUsage
+
+
+# ── Multi-channel Auth ──
+
+class ChannelAuthResponse(BaseModel):
+    """Returned by all /auth/* endpoints for non-Telegram channels."""
+    session_token: str
+    user_id: uuid.UUID
+    usage: UserUsage
+
+
+class OKAuthRequest(BaseModel):
+    logged_user_id: str
+    session_key: str
+    auth_sig: str
+    application_key: str = ""
+
+
+class VKAuthRequest(BaseModel):
+    launch_params: str
+
+
+class WebAuthRequest(BaseModel):
+    device_id: str

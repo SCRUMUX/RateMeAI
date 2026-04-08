@@ -9,6 +9,7 @@ from src.providers.base import LLMProvider
 from src.prompts.engine import PromptEngine
 from src.models.enums import AnalysisMode
 from src.models.schemas import RatingResult
+from src.services.perception_utils import extract_perception_scores, extract_perception_insights
 
 logger = logging.getLogger(__name__)
 
@@ -34,6 +35,11 @@ class RatingService:
             logger.warning("LLM returned invalid structure, attempting fix: %s", raw)
             result = self._try_fix(raw)
 
+        if result.perception_scores is None:
+            result.perception_scores = extract_perception_scores(raw)
+        if not result.perception_insights:
+            result.perception_insights = extract_perception_insights(raw)
+
         return result
 
     @staticmethod
@@ -54,6 +60,8 @@ class RatingService:
                 "attractiveness": float(perception.get("attractiveness", 5)),
                 "emotional_expression": str(perception.get("emotional_expression", "нейтральное")),
             },
+            perception_scores=extract_perception_scores(raw),
+            perception_insights=extract_perception_insights(raw),
             insights=raw.get("insights", ["Анализ не удалось полностью распарсить"]),
             recommendations=raw.get("recommendations", ["Попробуй загрузить фото с лучшим освещением"]),
         )

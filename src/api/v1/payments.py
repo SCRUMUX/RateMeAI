@@ -2,15 +2,16 @@
 from __future__ import annotations
 
 import logging
+import uuid as _uuid
 
 import httpx
 from fastapi import APIRouter, Depends, Request, HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.api.deps import get_db, get_redis
+from src.api.deps import get_db, get_redis, get_auth_user
 from src.config import settings
-from src.models.db import User, CreditTransaction
+from src.models.db import User, CreditTransaction, UserIdentity
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -38,7 +39,7 @@ async def _verify_payment_server_side(payment_id: str) -> dict | None:
         if payment and payment.status == "succeeded":
             meta = payment.metadata or {}
             return {
-                "telegram_id": meta.get("telegram_id"),
+                "user_id": meta.get("user_id"),
                 "pack_qty": meta.get("pack_qty"),
                 "status": payment.status,
             }
@@ -72,18 +73,17 @@ async def yookassa_webhook(
         if not verified:
             logger.error("Payment %s verification failed from IP %s", payment_id, client_ip)
             raise HTTPException(status_code=403, detail="Untrusted source")
-        telegram_id_str = verified["telegram_id"]
+        user_id_str = verified["user_id"]
         pack_qty_str = verified["pack_qty"]
     else:
         metadata = payment_obj.get("metadata", {})
-        telegram_id_str = metadata.get("telegram_id")
+        user_id_str = metadata.get("user_id")
         pack_qty_str = metadata.get("pack_qty")
 
-    if not telegram_id_str or not pack_qty_str:
+    if not user_id_str or not pack_qty_str:
         logger.warning("Webhook missing metadata: payment=%s", payment_id)
         return {"status": "error", "detail": "missing metadata"}
 
-    telegram_id = int(telegram_id_str)
     pack_qty = int(pack_qty_str)
 
     existing = await db.execute(
@@ -93,10 +93,9 @@ async def yookassa_webhook(
         logger.info("Duplicate webhook for payment=%s, skipping", payment_id)
         return {"status": "duplicate"}
 
-    result = await db.execute(select(User).where(User.telegram_id == telegram_id))
-    user = result.scalar_one_or_none()
+    user = await db.get(User, _uuid.UUID(user_id_str))
     if user is None:
-        logger.error("User not found for telegram_id=%s payment=%s", telegram_id, payment_id)
+        logger.error("User not found for user_id=%s payment=%s", user_id_str, payment_id)
         raise HTTPException(status_code=404, detail="User not found")
 
     user.image_credits += pack_qty
@@ -110,39 +109,50 @@ async def yookassa_webhook(
     await db.commit()
 
     logger.info(
-        "Credits added: user=%s tg=%s +%d credits, new_balance=%d, payment=%s",
-        user.id, telegram_id, pack_qty, user.image_credits, payment_id,
+        "Credits added: user=%s +%d credits, new_balance=%d, payment=%s",
+        user.id, pack_qty, user.image_credits, payment_id,
     )
 
     try:
         await redis.publish(
-            f"ratemeai:payment_done:{telegram_id}",
+            f"ratemeai:payment_done:{user.id}",
             f"{pack_qty}:{user.image_credits}",
         )
     except Exception:
-        logger.warning("Failed to publish payment notification for tg=%s", telegram_id)
+        logger.warning("Failed to publish payment notification for user=%s", user.id)
 
-    await _notify_telegram(telegram_id, pack_qty, user.image_credits)
+    await _notify_user_channels(user, pack_qty, user.image_credits, db)
 
     return {"status": "ok", "credits_added": pack_qty, "balance": user.image_credits}
 
 
 @router.get("/balance")
 async def get_balance(
-    request: Request,
-    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_auth_user),
 ):
-    """Get user's credit balance by telegram_id header."""
-    tg_id = request.headers.get("X-Telegram-Id")
-    if not tg_id:
-        raise HTTPException(status_code=401, detail="X-Telegram-Id required")
+    """Get user's credit balance. Accepts any auth method (Bearer, X-Telegram-Id, X-API-Key)."""
+    return {"user_id": str(user.id), "image_credits": user.image_credits}
 
-    result = await db.execute(select(User).where(User.telegram_id == int(tg_id)))
-    user = result.scalar_one_or_none()
-    if user is None:
-        raise HTTPException(status_code=404, detail="User not found")
 
-    return {"telegram_id": int(tg_id), "image_credits": user.image_credits}
+async def _notify_user_channels(
+    user: User, pack_qty: int, new_balance: int, db: AsyncSession,
+) -> None:
+    """Send payment confirmation to all linked channels that support push."""
+    result = await db.execute(
+        select(UserIdentity).where(UserIdentity.user_id == user.id)
+    )
+    identities = result.scalars().all()
+
+    # Also check legacy telegram_id on User for backward compat
+    tg_ids: set[str] = set()
+    for ident in identities:
+        if ident.provider == "telegram":
+            tg_ids.add(ident.external_id)
+    if user.telegram_id and str(user.telegram_id) not in tg_ids:
+        tg_ids.add(str(user.telegram_id))
+
+    for tg_id in tg_ids:
+        await _notify_telegram(int(tg_id), pack_qty, new_balance)
 
 
 async def _notify_telegram(telegram_id: int, pack_qty: int, new_balance: int) -> None:

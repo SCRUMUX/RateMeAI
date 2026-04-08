@@ -37,6 +37,7 @@ async def startup(ctx: dict):
         storage=ctx["storage"],
         image_gen=ctx["image_gen"],
         redis=ctx["redis"],
+        db_sessionmaker=ctx["db_sessionmaker"],
     )
 
     st = ctx["storage"]

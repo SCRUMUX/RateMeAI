@@ -118,6 +118,13 @@ class ImageGenerationExecutor:
                     for gr in global_results
                 ]
 
+                auth_score = _compute_authenticity(quality_report)
+                ps = result_dict.get("perception_scores")
+                if isinstance(ps, dict):
+                    ps["authenticity"] = auth_score
+                elif hasattr(ps, "authenticity"):
+                    ps.authenticity = auth_score
+
                 result_dict["cost_breakdown"] = {
                     "steps": [
                         {
@@ -386,6 +393,26 @@ def _build_delta_entry(pre: float, raw_post: float, seed: str = "") -> dict:
     return {"pre": round(pre, 2), "post": post, "delta": gd}
 
 
+def _compute_authenticity(quality_report: dict) -> float:
+    """Derive authenticity score from quality gate results.
+
+    Authenticity is a guarantee parameter (not a growth metric): it reflects
+    how real and identity-preserving the generated photo is.
+    """
+    face_sim = float(quality_report.get("face_similarity") or 0.9)
+    photorealism = float(quality_report.get("photorealism_confidence") or 0.8)
+    is_real = quality_report.get("is_photorealistic", True)
+    teeth_ok = quality_report.get("teeth_natural", True)
+    expr_ok = not quality_report.get("expression_altered", False)
+    naturalness = 1.0 if (teeth_ok and expr_ok) else 0.5
+
+    if not is_real:
+        photorealism *= 0.5
+
+    raw = face_sim * 4.0 + photorealism * 3.0 + naturalness * 3.0
+    return round(min(9.99, max(5.0, raw)), 2)
+
+
 class DeltaScorer:
     """Re-scores the generated image and computes before/after delta."""
 
@@ -411,10 +438,10 @@ class DeltaScorer:
 
             post_dict = post_result.model_dump() if hasattr(post_result, "model_dump") else post_result
 
-            from src.orchestrator.pipeline import _SCORE_FLOOR
+            from src.orchestrator.pipeline import _SCORE_FLOOR, _PERCEPTION_FLOOR
 
-            def _floor_post(raw: float) -> float:
-                return max(float(raw), _SCORE_FLOOR)
+            def _floor_post(raw: float, floor: float = _SCORE_FLOOR) -> float:
+                return max(float(raw), floor)
 
             delta: dict[str, Any] = {}
             if mode == AnalysisMode.DATING:
@@ -432,8 +459,38 @@ class DeltaScorer:
                 delta = {"social_score": _build_delta_entry(pre, raw_post, f"{task_id}:social_score")}
 
             result_dict["delta"] = delta
+
+            # --- Perception parameter deltas ---
+            pre_perception = result_dict.get("perception_scores", {})
+            if hasattr(pre_perception, "model_dump"):
+                pre_perception = pre_perception.model_dump()
+            post_perception = post_dict.get("perception_scores", {})
+            if hasattr(post_perception, "model_dump"):
+                post_perception = post_perception.model_dump()
+
+            perception_delta: dict[str, Any] = {}
+            for key in ("warmth", "presence", "appeal"):
+                pre_val = float(pre_perception.get(key, 5.0))
+                raw_post_val = _floor_post(float(post_perception.get(key, 5.0)), floor=_PERCEPTION_FLOOR)
+                perception_delta[key] = _build_delta_entry(pre_val, raw_post_val, f"{task_id}:p:{key}")
+
+            result_dict["perception_delta"] = perception_delta
+
+            # Set authenticity from quality gates if available
+            quality_report = result_dict.get("quality_report", {})
+            if quality_report:
+                auth_score = _compute_authenticity(quality_report)
+            else:
+                auth_score = 9.0
+            result_dict.setdefault("perception_scores", {})
+            ps = result_dict["perception_scores"]
+            if isinstance(ps, dict):
+                ps["authenticity"] = auth_score
+            elif hasattr(ps, "authenticity"):
+                ps.authenticity = auth_score
+
             result_dict["post_score"] = post_dict
-            logger.info("Delta computed for task=%s: %s", task_id, delta)
+            logger.info("Delta computed for task=%s: %s perception: %s", task_id, delta, perception_delta)
         except Exception:
             logger.exception("Post-gen re-scoring failed for task=%s", task_id)
             result_dict["delta_error"] = "rescoring_failed"

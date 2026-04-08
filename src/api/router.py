@@ -6,6 +6,8 @@ from src.api.v1.share import router as share_router
 from src.api.v1.users import router as users_router
 from src.api.v1.payments import router as payments_router
 from src.api.v1.engagement import router as engagement_router
+from src.api.v1.catalog import router as catalog_router
+from src.api.v1.sse import router as sse_router
 
 api_router = APIRouter()
 api_router.include_router(analyze_router, prefix="/analyze", tags=["analyze"])
@@ -14,3 +16,5 @@ api_router.include_router(share_router, prefix="/share", tags=["share"])
 api_router.include_router(users_router, tags=["users"])
 api_router.include_router(payments_router, prefix="/payments", tags=["payments"])
 api_router.include_router(engagement_router, prefix="/engagement", tags=["engagement"])
+api_router.include_router(catalog_router, prefix="/catalog", tags=["catalog"])
+api_router.include_router(sse_router, prefix="/sse", tags=["sse"])

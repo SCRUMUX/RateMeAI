@@ -96,11 +96,33 @@ class Settings(BaseSettings):
     # Одна строка из CI (Railway / GitHub): git rev-parse --short HEAD — для проверки, что на сервере нужный commit
     deploy_git_sha: str = ""
 
+    # OK Mini App
+    ok_app_id: str = ""
+    ok_app_secret_key: str = ""
+    ok_app_public_key: str = ""
+
+    # VK Mini App
+    vk_app_id: str = ""
+    vk_app_secret: str = ""
+    vk_service_token: str = ""
+
+    # WhatsApp Business API
+    whatsapp_api_token: str = ""
+    whatsapp_verify_token: str = ""
+    whatsapp_phone_number_id: str = ""
+
+    # Sessions (Bearer tokens for web / mini apps)
+    session_ttl_seconds: int = 86400
+
+    # CORS — extra origins for mini apps (comma-separated)
+    cors_extra_origins: str = ""
+
     # App
     app_env: str = "dev"
     app_host: str = "0.0.0.0"
     app_port: int = 8000
     api_base_url: str = "http://localhost:8000"
+    web_base_url: str = ""
     bot_webhook_url: str = ""
     bot_webhook_secret: str = ""
 

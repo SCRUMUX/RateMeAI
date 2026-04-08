@@ -4,15 +4,17 @@ from __future__ import annotations
 from unittest.mock import AsyncMock, patch
 
 
-def _register_user(client, telegram_id: int = 888001) -> None:
+def _register_user(client, telegram_id: int = 888001) -> str:
+    """Register user and return their internal UUID."""
     r = client.post(
         "/api/v1/auth/telegram",
         json={"telegram_id": telegram_id, "username": "pay_tester", "first_name": "Pay"},
     )
     assert r.status_code == 200, r.text
+    return r.json()["user_id"]
 
 
-def _webhook_body(payment_id: str, telegram_id: int, pack_qty: int) -> dict:
+def _webhook_body(payment_id: str, user_id: str, pack_qty: int) -> dict:
     return {
         "type": "notification",
         "event": "payment.succeeded",
@@ -20,20 +22,20 @@ def _webhook_body(payment_id: str, telegram_id: int, pack_qty: int) -> dict:
             "id": payment_id,
             "status": "succeeded",
             "metadata": {
-                "telegram_id": str(telegram_id),
+                "user_id": user_id,
                 "pack_qty": str(pack_qty),
             },
         },
     }
 
 
-@patch("src.api.v1.payments._notify_telegram", new_callable=AsyncMock)
+@patch("src.api.v1.payments._notify_user_channels", new_callable=AsyncMock)
 @patch("src.api.v1.payments._is_trusted_ip", return_value=True)
 def test_webhook_credits_user(mock_ip, mock_notify, client):
     tg_id = 888001
-    _register_user(client, tg_id)
+    user_id = _register_user(client, tg_id)
 
-    body = _webhook_body("pay_test_001", tg_id, 5)
+    body = _webhook_body("pay_test_001", user_id, 5)
     r = client.post("/api/v1/payments/yookassa/webhook", json=body)
     assert r.status_code == 200, r.text
     data = r.json()
@@ -48,13 +50,13 @@ def test_webhook_credits_user(mock_ip, mock_notify, client):
     assert r2.json()["image_credits"] >= 5
 
 
-@patch("src.api.v1.payments._notify_telegram", new_callable=AsyncMock)
+@patch("src.api.v1.payments._notify_user_channels", new_callable=AsyncMock)
 @patch("src.api.v1.payments._is_trusted_ip", return_value=True)
 def test_webhook_duplicate_rejected(mock_ip, mock_notify, client):
     tg_id = 888002
-    _register_user(client, tg_id)
+    user_id = _register_user(client, tg_id)
 
-    body = _webhook_body("pay_dup_001", tg_id, 10)
+    body = _webhook_body("pay_dup_001", user_id, 10)
     r1 = client.post("/api/v1/payments/yookassa/webhook", json=body)
     assert r1.status_code == 200
     assert r1.json()["status"] == "ok"
@@ -78,7 +80,7 @@ def test_webhook_ignored_non_succeeded(client):
 @patch("src.api.v1.payments._verify_payment_server_side", new_callable=AsyncMock, return_value=None)
 @patch("src.api.v1.payments._is_trusted_ip", return_value=False)
 def test_webhook_untrusted_ip_rejected(mock_ip, mock_verify, client):
-    body = _webhook_body("pay_untrust_001", 888099, 5)
+    body = _webhook_body("pay_untrust_001", "00000000-0000-0000-0000-000000000099", 5)
     r = client.post("/api/v1/payments/yookassa/webhook", json=body)
     assert r.status_code == 403
 
@@ -93,4 +95,4 @@ def test_balance_unknown_user(client):
         "/api/v1/payments/balance",
         headers={"X-Telegram-Id": "999999999"},
     )
-    assert r.status_code == 404
+    assert r.status_code == 401

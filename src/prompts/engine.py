@@ -3,6 +3,7 @@ from __future__ import annotations
 from src.models.enums import AnalysisMode
 from src.prompts import rating, dating, cv, social, emoji
 from src.prompts import image_gen as ig
+from src.prompts import perception as _perception  # noqa: F401 — ensures perception module loads
 
 _PROMPT_MAP = {
     AnalysisMode.RATING: rating.build_prompt,

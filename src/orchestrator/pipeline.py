@@ -24,13 +24,15 @@ from src.utils.security import extract_nsfw_from_analysis
 logger = logging.getLogger(__name__)
 
 _SCORE_KEYS = ("dating_score", "trust", "competence", "hireability", "social_score")
+_PERCEPTION_KEYS = ("warmth", "presence", "appeal")
 _SCORE_FLOOR = 5.0
+_PERCEPTION_FLOOR = 3.0
 
 
-def _humanize_score(raw: float, seed: str) -> float:
+def _humanize_score(raw: float, seed: str, floor: float = _SCORE_FLOOR) -> float:
     """Convert raw 0-10 LLM score to X.XX with natural-feeling fractional part.
 
-    Applies a floor of _SCORE_FLOOR so users never see demoralisingly low numbers.
+    Applies the given floor so users never see demoralisingly low numbers.
     """
     base = int(raw)
     raw_frac = raw - base
@@ -39,7 +41,7 @@ def _humanize_score(raw: float, seed: str) -> float:
     if raw_frac > 0:
         frac = round(raw_frac + (frac - 0.5) * 0.1, 2)
     result = base + max(0.01, min(0.99, frac))
-    result = max(_SCORE_FLOOR, result)
+    result = max(floor, result)
     return round(min(9.99, result), 2)
 
 
@@ -62,6 +64,7 @@ class AnalysisPipeline:
         storage: StorageProvider,
         image_gen: ImageGenProvider | None = None,
         redis=None,
+        db_sessionmaker=None,
     ):
         self._llm = llm
         self._prompt_engine = PromptEngine()
@@ -71,6 +74,7 @@ class AnalysisPipeline:
         self._storage = storage
         self._image_gen = image_gen
         self._redis = redis
+        self._db_sessionmaker = db_sessionmaker
         self._identity = None
         self._segmentation = None
         self._planner = PipelinePlanner()
@@ -171,6 +175,19 @@ class AnalysisPipeline:
         for sk in _SCORE_KEYS:
             if sk in result_dict and isinstance(result_dict[sk], (int, float)):
                 result_dict[sk] = _humanize_score(float(result_dict[sk]), f"{task_id}:{sk}")
+
+        ps = result_dict.get("perception_scores")
+        if isinstance(ps, dict):
+            for pk in _PERCEPTION_KEYS:
+                if pk in ps and isinstance(ps[pk], (int, float)):
+                    ps[pk] = _humanize_score(float(ps[pk]), f"{task_id}:p:{pk}", floor=_PERCEPTION_FLOOR)
+            result_dict["perception_scores"] = ps
+        elif hasattr(ps, "model_dump"):
+            ps_dict = ps.model_dump()
+            for pk in _PERCEPTION_KEYS:
+                if pk in ps_dict and isinstance(ps_dict[pk], (int, float)):
+                    ps_dict[pk] = _humanize_score(float(ps_dict[pk]), f"{task_id}:p:{pk}", floor=_PERCEPTION_FLOOR)
+            result_dict["perception_scores"] = ps_dict
 
         warnings: list[str] = result_dict.setdefault("generation_warnings", [])
         orig_w = img_meta.get("original_width", 0)
@@ -308,4 +325,31 @@ class AnalysisPipeline:
             except Exception:
                 logger.exception("Failed to generate share card")
 
+        await self._persist_perception_scores(mode, result_dict, user_id)
+
         return self._merger.merge(result_dict, share_card_url, user_id)
+
+    async def _persist_perception_scores(
+        self, mode: AnalysisMode, result_dict: dict, user_id: str,
+    ) -> None:
+        """Best-effort persistence of perception scores for gamification tracking."""
+        if self._db_sessionmaker is None:
+            return
+
+        ps = result_dict.get("perception_scores")
+        if not ps:
+            return
+
+        if hasattr(ps, "model_dump"):
+            ps = ps.model_dump()
+
+        style = result_dict.get("enhancement", {}).get("style", "default")
+
+        try:
+            from src.services.perception_tracker import update_best_scores
+
+            async with self._db_sessionmaker() as session:
+                async with session.begin():
+                    await update_best_scores(session, user_id, mode.value, style, ps)
+        except Exception:
+            logger.debug("Perception tracking skipped (DB not available or error)", exc_info=True)

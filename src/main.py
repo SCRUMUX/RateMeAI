@@ -91,9 +91,14 @@ app = FastAPI(
 
 app.add_middleware(RequestLoggingMiddleware)
 if settings.is_production:
+    _origins = ["https://ratemeai.com"]
+    if settings.cors_extra_origins:
+        _origins.extend(
+            o.strip() for o in settings.cors_extra_origins.split(",") if o.strip()
+        )
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=["https://ratemeai.com"],
+        allow_origins=_origins,
         allow_origin_regex=r"https://.*\.up\.railway\.app",
         allow_credentials=True,
         allow_methods=["*"],
@@ -107,6 +112,24 @@ else:
         allow_methods=["*"],
         allow_headers=["*"],
     )
+from starlette.middleware.base import BaseHTTPMiddleware as _BaseHTTP
+from starlette.requests import Request as _Req
+from starlette.responses import Response as _Resp
+
+
+class _IframeHeadersMiddleware(_BaseHTTP):
+    """Allow embedding in OK / VK mini app iframes."""
+    async def dispatch(self, request: _Req, call_next) -> _Resp:
+        response = await call_next(request)
+        response.headers["X-Frame-Options"] = "ALLOWALL"
+        response.headers.setdefault(
+            "Content-Security-Policy",
+            "frame-ancestors 'self' https://*.ok.ru https://*.odnoklassniki.ru https://*.vk.com",
+        )
+        return response
+
+
+app.add_middleware(_IframeHeadersMiddleware)
 app.include_router(api_router, prefix="/api/v1")
 
 Instrumentator().instrument(app).expose(app, endpoint="/metrics")

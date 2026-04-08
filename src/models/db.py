@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime, date
 
-from sqlalchemy import String, Text, Boolean, Integer, Date, DateTime, ForeignKey, JSON, UniqueConstraint, BigInteger, func
+from sqlalchemy import String, Text, Boolean, Integer, Float, Date, DateTime, ForeignKey, JSON, UniqueConstraint, BigInteger, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
@@ -25,6 +25,26 @@ class User(Base):
     usage_logs: Mapped[list["UsageLog"]] = relationship(back_populates="user", cascade="all, delete-orphan")
     api_clients: Mapped[list["ApiClient"]] = relationship(back_populates="user", cascade="all, delete-orphan")
     credit_transactions: Mapped[list["CreditTransaction"]] = relationship(back_populates="user", cascade="all, delete-orphan")
+    identities: Mapped[list["UserIdentity"]] = relationship(back_populates="user", cascade="all, delete-orphan")
+    perception_records: Mapped[list["UserPerceptionRecord"]] = relationship(back_populates="user", cascade="all, delete-orphan")
+
+
+class UserIdentity(Base):
+    """Links a User to an external platform identity (telegram, ok, vk, web, whatsapp)."""
+    __tablename__ = "user_identities"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id"), index=True)
+    provider: Mapped[str] = mapped_column(String(20), nullable=False)
+    external_id: Mapped[str] = mapped_column(String(255), nullable=False)
+    profile_data: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    user: Mapped["User"] = relationship(back_populates="identities")
+
+    __table_args__ = (
+        UniqueConstraint("provider", "external_id", name="uq_identity_provider_external"),
+    )
 
 
 class ApiClient(Base):
@@ -86,3 +106,25 @@ class CreditTransaction(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     user: Mapped["User"] = relationship(back_populates="credit_transactions")
+
+
+class UserPerceptionRecord(Base):
+    """Best perception scores per user/mode/style combination."""
+    __tablename__ = "user_perception_records"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id"), index=True)
+    mode: Mapped[str] = mapped_column(String(20), nullable=False)
+    style: Mapped[str] = mapped_column(String(100), nullable=False)
+    warmth: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
+    presence: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
+    appeal: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
+    authenticity: Mapped[float] = mapped_column(Float, nullable=False, default=9.0)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+    user: Mapped["User"] = relationship(back_populates="perception_records")
+
+    __table_args__ = (
+        UniqueConstraint("user_id", "mode", "style", name="uq_perception_user_mode_style"),
+    )

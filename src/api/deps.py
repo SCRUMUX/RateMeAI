@@ -48,10 +48,27 @@ async def get_redis(request: Request) -> Redis:
 
 
 async def get_auth_user(
+    request: Request,
     x_telegram_id: int | None = Header(None, alias="X-Telegram-Id"),
     x_api_key: str | None = Header(None, alias="X-API-Key"),
+    authorization: str | None = Header(None),
     db: AsyncSession = Depends(get_db),
 ) -> User:
+    # 1) Bearer session token (web / mini apps)
+    if authorization and authorization.lower().startswith("bearer "):
+        token = authorization.split(" ", 1)[1].strip()
+        if token:
+            from src.services.sessions import resolve_session
+            redis = request.app.state.redis
+            user_id = await resolve_session(redis, token)
+            if user_id is None:
+                raise HTTPException(status_code=401, detail="Invalid or expired session token")
+            user = await db.get(User, user_id)
+            if user is None:
+                raise HTTPException(status_code=401, detail="User not found for session")
+            return user
+
+    # 2) API key (B2B)
     if x_api_key:
         h = hash_api_key(x_api_key.strip(), _pepper())
         r = await db.execute(
@@ -65,6 +82,7 @@ async def get_auth_user(
             raise HTTPException(status_code=401, detail="Invalid API key")
         return user
 
+    # 3) X-Telegram-Id (legacy, backward compat for bot)
     if x_telegram_id is not None:
         result = await db.execute(select(User).where(User.telegram_id == x_telegram_id))
         user = result.scalar_one_or_none()
@@ -75,7 +93,10 @@ async def get_auth_user(
             )
         return user
 
-    raise HTTPException(status_code=401, detail="Provide X-Telegram-Id or X-API-Key header")
+    raise HTTPException(
+        status_code=401,
+        detail="Provide Authorization: Bearer <token>, X-Telegram-Id, or X-API-Key header",
+    )
 
 
 async def get_current_user(user: User = Depends(get_auth_user)) -> User:
