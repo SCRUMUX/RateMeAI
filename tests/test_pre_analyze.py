@@ -151,7 +151,7 @@ def test_pipeline_uses_cached_pre_analysis(mock_nsfw, mock_norm, mock_face, mock
     pipeline._merger.merge.return_value = {"dating_score": 7.5, "cached": True}
 
     import asyncio
-    asyncio.get_event_loop().run_until_complete(
+    asyncio.run(
         pipeline.execute(
             mode=AnalysisMode.DATING,
             image_bytes=_JPEG_STUB,
@@ -193,7 +193,7 @@ def test_pipeline_cache_miss_runs_llm(mock_nsfw, mock_norm, mock_face, mock_sett
     pipeline._merger.merge.return_value = {"dating_score": 6}
 
     import asyncio
-    asyncio.get_event_loop().run_until_complete(
+    asyncio.run(
         pipeline.execute(
             mode=AnalysisMode.DATING,
             image_bytes=_JPEG_STUB,

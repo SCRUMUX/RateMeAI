@@ -65,7 +65,7 @@ def test_execute_rating_mode(mock_nsfw, mock_norm, mock_face, mock_settings):
     pipeline._merger.merge.return_value = {"score": 7.5, "mode": "rating"}
 
     import asyncio
-    result = asyncio.get_event_loop().run_until_complete(
+    result = asyncio.run(
         pipeline.execute(
             mode=AnalysisMode.RATING,
             image_bytes=_make_jpeg_stub(),
@@ -108,7 +108,7 @@ def test_execute_dating_with_image_gen(mock_nsfw, mock_norm, mock_face, mock_set
     }
 
     import asyncio
-    result = asyncio.get_event_loop().run_until_complete(
+    result = asyncio.run(
         pipeline.execute(
             mode=AnalysisMode.DATING,
             image_bytes=_make_jpeg_stub(),
@@ -145,7 +145,7 @@ def test_skip_image_gen_without_credits(mock_nsfw, mock_norm, mock_face, mock_se
     pipeline._merger.merge.return_value = {"dating_score": 6, "upgrade_prompt": True}
 
     import asyncio
-    result = asyncio.get_event_loop().run_until_complete(
+    result = asyncio.run(
         pipeline.execute(
             mode=AnalysisMode.DATING,
             image_bytes=_make_jpeg_stub(),
@@ -189,7 +189,7 @@ def test_execute_social_with_image_gen(mock_nsfw, mock_norm, mock_face, mock_set
     }
 
     import asyncio
-    result = asyncio.get_event_loop().run_until_complete(
+    result = asyncio.run(
         pipeline.execute(
             mode=AnalysisMode.SOCIAL,
             image_bytes=_make_jpeg_stub(),
@@ -234,7 +234,7 @@ def test_pipeline_trace_recorded(mock_nsfw, mock_norm, mock_face, mock_settings)
     pipeline._merger.merge.side_effect = capture_merge
 
     import asyncio
-    asyncio.get_event_loop().run_until_complete(
+    asyncio.run(
         pipeline.execute(
             mode=AnalysisMode.DATING,
             image_bytes=_make_jpeg_stub(),
@@ -283,7 +283,7 @@ def test_delta_error_flagged_on_failure(mock_nsfw, mock_norm, mock_face, mock_se
     pipeline._merger.merge.side_effect = capture_merge
 
     import asyncio
-    asyncio.get_event_loop().run_until_complete(
+    asyncio.run(
         pipeline.execute(
             mode=AnalysisMode.DATING,
             image_bytes=_make_jpeg_stub(),
@@ -302,7 +302,7 @@ def test_no_face_raises(mock_norm, mock_face):
 
     import asyncio
     with pytest.raises(ValueError, match="лицо"):
-        asyncio.get_event_loop().run_until_complete(
+        asyncio.run(
             pipeline.execute(
                 mode=AnalysisMode.RATING,
                 image_bytes=_make_jpeg_stub(),
@@ -373,7 +373,7 @@ def test_multipass_dating_executes_plan(mock_nsfw, mock_norm, mock_face, mock_se
     pipeline._merger.merge.side_effect = capture_merge
 
     import asyncio
-    asyncio.get_event_loop().run_until_complete(
+    asyncio.run(
         pipeline.execute(
             mode=AnalysisMode.DATING,
             image_bytes=_make_jpeg_stub(),
@@ -441,7 +441,7 @@ def test_multipass_fallback_on_error(mock_nsfw, mock_norm, mock_face, mock_setti
     pipeline._merger.merge.side_effect = capture_merge
 
     import asyncio
-    asyncio.get_event_loop().run_until_complete(
+    asyncio.run(
         pipeline.execute(
             mode=AnalysisMode.DATING,
             image_bytes=_make_jpeg_stub(),
@@ -487,7 +487,7 @@ def test_decisions_logged_in_trace(mock_nsfw, mock_norm, mock_face, mock_setting
     pipeline._merger.merge.side_effect = capture_merge
 
     import asyncio
-    asyncio.get_event_loop().run_until_complete(
+    asyncio.run(
         pipeline.execute(
             mode=AnalysisMode.DATING,
             image_bytes=_make_jpeg_stub(),
@@ -565,7 +565,7 @@ def test_multipass_global_gates_fail_still_delivers(mock_nsfw, mock_norm, mock_f
     pipeline._merger.merge.side_effect = capture_merge
 
     import asyncio
-    asyncio.get_event_loop().run_until_complete(
+    asyncio.run(
         pipeline.execute(
             mode=AnalysisMode.DATING,
             image_bytes=_make_jpeg_stub(),
