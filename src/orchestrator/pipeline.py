@@ -91,6 +91,7 @@ class AnalysisPipeline:
             identity_svc_getter=self._get_identity_service,
             gate_runner_getter=self._get_gate_runner,
             embedding_getter=self._get_or_compute_embedding,
+            segmentation_getter=self._get_segmentation_service,
         )
         self._delta_scorer = DeltaScorer(router=self._router, storage=storage)
 

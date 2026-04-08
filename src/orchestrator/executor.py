@@ -18,6 +18,15 @@ from src.orchestrator.model_router import ModelRouter
 from src.orchestrator.planner import PipelinePlan
 from src.prompts.engine import PromptEngine
 from src.providers.base import ImageGenProvider, StorageProvider
+from src.services.postprocess import postprocess_for_realism, composite_face_region
+from src.services.prompt_ab import get_active_experiments, assign_variant, record_result
+
+_LEVEL_TO_TTS: dict[int, int] = {
+    1: 2,
+    2: 3,
+    3: 4,
+    4: 5,
+}
 
 logger = logging.getLogger(__name__)
 
@@ -48,6 +57,7 @@ class ImageGenerationExecutor:
         identity_svc_getter: Callable,
         gate_runner_getter: Callable,
         embedding_getter: Callable,
+        segmentation_getter: Callable | None = None,
     ):
         self._image_gen = image_gen
         self._prompt_engine = prompt_engine
@@ -56,6 +66,19 @@ class ImageGenerationExecutor:
         self._get_identity_service = identity_svc_getter
         self._get_gate_runner = gate_runner_getter
         self._get_or_compute_embedding = embedding_getter
+        self._get_segmentation = segmentation_getter
+
+    async def _record_ab_metrics(self, task_id: str, quality_report: dict, redis=None) -> None:
+        """Record quality metrics for any active A/B experiments."""
+        for exp in get_active_experiments():
+            variant = assign_variant(exp.experiment_id, task_id)
+            if variant:
+                metrics = {
+                    "identity_score": float(quality_report.get("face_similarity") or 0),
+                    "aesthetic_score": float(quality_report.get("aesthetic_score") or 0),
+                    "niqe_score": float(quality_report.get("niqe_score") or 0),
+                }
+                await record_result(redis, exp.experiment_id, variant.name, metrics)
 
     async def execute_plan(
         self,
@@ -146,6 +169,16 @@ class ImageGenerationExecutor:
                     )
                     result_dict["quality_warning"] = True
 
+                await self._record_ab_metrics(task_id, quality_report)
+
+                with _trace_step(trace, "postprocess") as pp_entry:
+                    current_image = await postprocess_for_realism(
+                        current_image,
+                        original_bytes=image_bytes,
+                        enable_skin_transfer=True,
+                    )
+                    pp_entry["size_bytes"] = len(current_image)
+
                 gkey = f"generated/{user_id}/{task_id}.jpg"
                 await self._storage.upload(gkey, current_image)
                 gen_url = await self._storage.get_url(gkey)
@@ -214,14 +247,29 @@ class ImageGenerationExecutor:
                 "reason": f"tier={model_spec.quality_tier}, cost=${model_spec.cost_per_call:.3f}, budget_left=${budget:.3f}",
             })
 
+            tts = _LEVEL_TO_TTS.get(enhancement_level, settings.reve_test_time_scaling)
             params: dict = {
                 "aspect_ratio": "auto",
-                "test_time_scaling": settings.reve_test_time_scaling,
+                "test_time_scaling": tts,
                 "use_edit": True,
             }
             params.update(extra_params)
             if step.region != "full":
                 params["mask_region"] = step.region
+                if settings.segmentation_enabled and self._get_segmentation:
+                    try:
+                        seg_svc = self._get_segmentation()
+                        if seg_svc:
+                            masks = await seg_svc.segment(current_image)
+                            region_mask = masks.get(step.region)
+                            if region_mask is not None:
+                                import io as _io
+                                mask_buf = _io.BytesIO()
+                                region_mask.save(mask_buf, format="PNG")
+                                params["mask_image"] = mask_buf.getvalue()
+                                step_entry["mask_provided"] = True
+                    except Exception:
+                        logger.debug("Segmentation mask failed for step %s, using text hint", step.step)
 
             raw = await model_spec.provider.generate(
                 prompt, reference_image=current_image, params=dict(params),
@@ -294,6 +342,22 @@ class ImageGenerationExecutor:
                     gate_entry["passed"] = passed
                 IDENTITY_SCORE.observe(identity_score)
 
+                if not passed and 0.3 <= identity_score < settings.identity_threshold:
+                    with _trace_step(trace, "face_compositing") as comp_entry:
+                        composited, new_score = await composite_face_region(
+                            image_bytes, raw, identity_svc,
+                        )
+                        comp_entry["original_score"] = round(identity_score, 3)
+                        comp_entry["composited_score"] = round(new_score, 3)
+                    if new_score > identity_score:
+                        logger.info(
+                            "Face compositing improved identity: %.3f -> %.3f (task=%s)",
+                            identity_score, new_score, task_id,
+                        )
+                        raw = composited
+                        identity_score = new_score
+                        passed = identity_score >= settings.identity_threshold
+
                 if identity_score == 0.0:
                     warnings.append(
                         "На обработанном фото не распознано лицо. "
@@ -325,7 +389,46 @@ class ImageGenerationExecutor:
                     len(warnings), task_id,
                 )
 
+            if raw and len(raw) > 100 and mode != AnalysisMode.EMOJI:
+                try:
+                    gate_runner = self._get_gate_runner()
+                    original_embedding = await self._get_or_compute_embedding(task_id, image_bytes)
+                    sp_gates: dict[str, float] = {
+                        "aesthetic_score": settings.aesthetic_threshold,
+                    }
+                    if settings.photorealism_enabled:
+                        sp_gates["photorealism"] = settings.photorealism_threshold
+                    sp_gates["niqe"] = 5.0
+
+                    with _trace_step(trace, "single_pass_gates") as sp_entry:
+                        sp_passed, sp_results, sp_report = await gate_runner.run_global_gates(
+                            sp_gates, image_bytes, raw, original_embedding,
+                        )
+                        sp_entry["gates"] = [
+                            {"gate": gr.gate_name, "passed": gr.passed, "value": gr.value}
+                            for gr in sp_results
+                        ]
+                    result_dict["quality_report"] = sp_report
+                    if not sp_passed:
+                        logger.warning(
+                            "Single-pass quality gates failed for task=%s: %s",
+                            task_id, sp_report.get("gates_failed"),
+                        )
+                        result_dict["quality_warning"] = True
+
+                    await self._record_ab_metrics(task_id, sp_report)
+                except Exception:
+                    logger.warning("Single-pass quality gates error for task=%s, skipping", task_id, exc_info=True)
+
             if raw and len(raw) > 100:
+                with _trace_step(trace, "postprocess") as pp_entry:
+                    raw = await postprocess_for_realism(
+                        raw,
+                        original_bytes=image_bytes,
+                        enable_skin_transfer=True,
+                    )
+                    pp_entry["size_bytes"] = len(raw)
+
                 gkey = f"generated/{user_id}/{task_id}.jpg"
                 await self._storage.upload(gkey, raw)
                 gen_url = await self._storage.get_url(gkey)

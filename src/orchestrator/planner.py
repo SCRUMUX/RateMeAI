@@ -58,6 +58,7 @@ _DEFAULT_GLOBAL_GATES = {
     "photorealism": 0.5,
     "naturalness": 1.0,
     "anatomy": 1.0,
+    "niqe": 5.0,
 }
 
 _DATING_STEPS = [

@@ -1,18 +1,60 @@
-"""Quality gate runner: face similarity, aesthetic score, artifact ratio, photorealism.
+"""Quality gate runner: face similarity, aesthetic score, artifact ratio, photorealism, NIQE.
 
 Aesthetic, artifact, and photorealism checks are combined into a single LLM call
 for cost efficiency. Face similarity uses the existing IdentityService.
+NIQE (Natural Image Quality Evaluator) is a pixel-level naturalness metric.
 """
 from __future__ import annotations
 
+import io
 import logging
 from dataclasses import dataclass
 
 import numpy as np
+from PIL import Image
 
 from src.providers.base import LLMProvider
 
 logger = logging.getLogger(__name__)
+
+_niqe_metric = None
+_niqe_available: bool | None = None
+
+
+def _get_niqe():
+    """Lazy-load pyiqa NIQE metric. Returns None if pyiqa is not installed."""
+    global _niqe_metric, _niqe_available
+    if _niqe_available is False:
+        return None
+    if _niqe_metric is not None:
+        return _niqe_metric
+    try:
+        import pyiqa
+        _niqe_metric = pyiqa.create_metric("niqe", device="cpu")
+        _niqe_available = True
+        logger.info("pyiqa NIQE metric loaded successfully")
+        return _niqe_metric
+    except (ImportError, Exception):
+        _niqe_available = False
+        logger.info("pyiqa not available — NIQE gate will use LLM fallback")
+        return None
+
+
+def compute_niqe_score(image_bytes: bytes) -> float | None:
+    """Compute NIQE score for an image. Lower is better (natural range ~3-5)."""
+    metric = _get_niqe()
+    if metric is None:
+        return None
+    try:
+        import torch
+        img = Image.open(io.BytesIO(image_bytes)).convert("RGB")
+        arr = np.array(img).astype(np.float32) / 255.0
+        tensor = torch.from_numpy(arr).permute(2, 0, 1).unsqueeze(0)
+        score = metric(tensor).item()
+        return round(score, 3)
+    except Exception:
+        logger.debug("NIQE computation failed")
+        return None
 
 QUALITY_CHECK_PROMPT = (
     "Analyze this AI-enhanced photo for quality. Return ONLY a JSON object:\n"
@@ -66,6 +108,12 @@ class QualityGateRunner:
                 gate_spec["face_similarity"], original_bytes, generated_bytes, original_embedding,
             ))
 
+        if "niqe" in gate_spec:
+            niqe_score = compute_niqe_score(generated_bytes)
+            if niqe_score is not None:
+                thr = gate_spec["niqe"]
+                results.append(GateResult("niqe", niqe_score <= thr, niqe_score, thr))
+
         _LLM_GATE_KEYS = ("aesthetic_score", "artifact_ratio", "photorealism", "naturalness", "anatomy")
         llm_gates = {k: v for k, v in gate_spec.items() if k in _LLM_GATE_KEYS}
         if llm_gates and self._llm is not None:
@@ -116,9 +164,11 @@ class QualityGateRunner:
 
         report = {
             "face_similarity": next((r.value for r in results if r.gate_name == "face_similarity"), None),
+            "niqe_score": next((r.value for r in results if r.gate_name == "niqe"), None),
             "aesthetic_score": quality.get("aesthetic_score"),
             "artifact_ratio": quality.get("artifact_ratio"),
             "is_photorealistic": quality.get("is_photorealistic"),
+            "photorealism_confidence": quality.get("photorealism_confidence"),
             "teeth_natural": quality.get("teeth_natural"),
             "expression_altered": quality.get("expression_altered"),
             "proportions_natural": quality.get("proportions_natural"),

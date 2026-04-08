@@ -33,14 +33,15 @@ SKIN_FIX = (
 )
 
 CAMERA = (
-    "Shot on Canon EOS R5, 50mm f/5.6, deep depth of field with sharp "
-    "background details. Natural color grading, Kodak Portra 400 tones."
+    "Shot on Canon EOS R5, 50mm f/8, natural depth of field with "
+    "environmental context in focus. Kodak Portra 400 color response, "
+    "ISO 200, subtle film texture."
 )
 
 REALISM = (
-    "Raw photograph aesthetic, real skin pores, natural film grain. "
-    "No AI artifacts, no plastic skin, no over-smoothing, no airbrushing. "
-    "Imperfect and authentic. Indistinguishable from a real unedited photo."
+    "Authentic raw photograph with visible skin pores, natural micro-imperfections, "
+    "and real film grain. Imperfect and genuine, indistinguishable from an "
+    "unedited camera photo."
 )
 
 # ---------------------------------------------------------------------------
@@ -898,10 +899,8 @@ def build_dating_prompt(style: str = "") -> str:
         f"{IDENTITY_FIRST} "
         f"Enhance into a dating profile photo. "
         f"Change background, lighting, and clothing style. "
-        f"Brighten eye whites subtly, add soft flattering golden-hour light. "
         f"{s} {p} "
-        f"{FACE_ANCHOR} {BODY_ANCHOR} "
-        f"{SKIN_FIX} {CAMERA} {REALISM}"
+        f"{FACE_ANCHOR} {SKIN_FIX} {CAMERA} {REALISM}"
     )
 
 
@@ -911,11 +910,9 @@ def build_cv_prompt(style: str = "") -> str:
     return (
         f"{IDENTITY_FIRST} "
         f"Enhance into a professional headshot. "
-        f"Change background to studio or office, clothing to professional attire, "
-        f"add even soft studio lighting, groom hair neatly, add catchlights in eyes. "
+        f"Change background, clothing to professional attire, add soft studio lighting. "
         f"{s} {p} "
-        f"{FACE_ANCHOR} {BODY_ANCHOR} "
-        f"{SKIN_FIX} {CAMERA} {REALISM}"
+        f"{FACE_ANCHOR} {SKIN_FIX} {CAMERA} {REALISM}"
     )
 
 
@@ -925,11 +922,9 @@ def build_social_prompt(style: str = "") -> str:
     return (
         f"{IDENTITY_FIRST} "
         f"Enhance into a social media photo. "
-        f"Change background, lighting, colors, and clothing per style. "
-        f"Vibrant modern aesthetic, crisp detail. "
+        f"Change background, lighting, and clothing per style. "
         f"{s} {p} "
-        f"{FACE_ANCHOR} {BODY_ANCHOR} "
-        f"{SKIN_FIX} {CAMERA} {REALISM}"
+        f"{FACE_ANCHOR} {SKIN_FIX} {CAMERA} {REALISM}"
     )
 
 
@@ -941,47 +936,38 @@ STEP_TEMPLATES: dict[str, str] = {
     "background_edit": (
         f"{IDENTITY_FIRST} "
         "Change ONLY the background: {description}. "
-        "Create a context that naturally enhances perceived presence and visual appeal. "
         "Keep the person, clothing, pose, and body proportions identical. "
-        f"{FACE_ANCHOR} {BODY_ANCHOR} {CAMERA} {REALISM}"
+        f"{FACE_ANCHOR} {CAMERA} {REALISM}"
     ),
     "clothing_edit": (
         f"{IDENTITY_FIRST} "
-        "Change ONLY the clothing and outfit: {description}. "
-        "Choose attire that communicates confidence and composed presence. "
+        "Change ONLY the clothing: {description}. "
         "Keep face, background, pose, and body proportions identical. "
-        f"{FACE_ANCHOR} {BODY_ANCHOR} {CAMERA} {REALISM}"
+        f"{FACE_ANCHOR} {CAMERA} {REALISM}"
     ),
     "lighting_adjust": (
         f"{IDENTITY_FIRST} "
-        "Improve ONLY the lighting and color grading: {description}. "
-        "Warm flattering light that naturally enhances perceived warmth and visual appeal. "
-        "Natural studio quality, even skin tones. "
-        "Keep body, pose, and proportions identical. "
-        f"{FACE_ANCHOR} {BODY_ANCHOR} {CAMERA} {REALISM}"
+        "Improve ONLY lighting and color grading: {description}. "
+        "Warm flattering light, natural studio quality, even skin tones. "
+        f"{FACE_ANCHOR} {CAMERA} {REALISM}"
     ),
     "expression_hint": (
         f"{IDENTITY_FIRST} "
         "Subtle expression adjustment: {description}. "
-        "Aim for an expression that communicates warmth and quiet confidence. "
         "Keep face shape, features, and original mouth identical. "
-        "Keep body pose and proportions identical. "
-        f"{FACE_ANCHOR} {BODY_ANCHOR} {SKIN_FIX} {CAMERA} {REALISM}"
+        f"{FACE_ANCHOR} {SKIN_FIX} {CAMERA} {REALISM}"
     ),
     "skin_correction": (
         f"{IDENTITY_FIRST} "
         "Minor skin tone correction and blemish removal. "
         "Keep all facial features identical. "
-        "Keep body pose and proportions identical. "
-        f"{FACE_ANCHOR} {BODY_ANCHOR} {SKIN_FIX} {CAMERA} {REALISM}"
+        f"{FACE_ANCHOR} {SKIN_FIX} {CAMERA} {REALISM}"
     ),
     "style_overall": (
         f"{IDENTITY_FIRST} "
         "Apply overall style enhancement: {description}. "
-        "Cohesive style that maximizes overall visual appeal and presence. "
-        "Vibrant modern aesthetic, crisp detail. "
-        "Keep body proportions and pose identical. "
-        f"{FACE_ANCHOR} {BODY_ANCHOR} {CAMERA} {REALISM}"
+        "Cohesive style, crisp detail. Keep body proportions and pose identical. "
+        f"{FACE_ANCHOR} {CAMERA} {REALISM}"
     ),
 }
 

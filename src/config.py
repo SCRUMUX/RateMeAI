@@ -61,7 +61,7 @@ class Settings(BaseSettings):
     api_key_pepper: str = ""
 
     # Identity gate (face similarity — logged for telemetry, no retries in edit mode)
-    identity_threshold: float = 0.5
+    identity_threshold: float = 0.68
     identity_max_retries: int = 0
 
     # Multi-pass pipeline / segmentation

@@ -76,7 +76,8 @@ class ReveImageGen(ImageGenProvider):
         )
         options = self._build_options(params)
 
-        has_mask = bool(params and params.get("mask_image"))
+        mask_image_bytes = params.get("mask_image") if params else None
+        has_mask = bool(mask_image_bytes)
         use_edit = bool(params and params.get("use_edit")) or has_mask
 
         if has_mask:
@@ -91,12 +92,15 @@ class ReveImageGen(ImageGenProvider):
         for attempt in range(_MAX_RETRIES):
             try:
                 if reference_image and use_edit:
-                    resp = edit(
-                        edit_instruction=prompt,
-                        reference_image=reference_image,
-                        client=client,
+                    edit_kwargs: dict[str, Any] = {
+                        "edit_instruction": prompt,
+                        "reference_image": reference_image,
+                        "client": client,
                         **options,
-                    )
+                    }
+                    if mask_image_bytes:
+                        edit_kwargs["mask_image"] = mask_image_bytes
+                    resp = edit(**edit_kwargs)
                 elif reference_image:
                     resp = remix(
                         prompt,
