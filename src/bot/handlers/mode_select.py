@@ -37,8 +37,17 @@ def _build_display_names() -> dict[str, dict[str, str]]:
 
 _STYLE_DISPLAY_NAMES: dict[str, dict[str, str]] = _build_display_names()
 _PROCESSING_LOCK = "ratemeai:processing:{}"
-_LOCK_TTL = 60
+_LOCK_TTL = 300
 DEPTH_KEY = "ratemeai:depth:{}:{}"
+
+# Task polling (_poll_task): must cover worker latency + DB commit lag + slow image gen (Replicate).
+# When Redis publishes task_done, we only need to wait until GET /tasks returns completed — often a few
+# extra seconds; 3 HTTP retries was too few and showed "too long" while credits were already deducted.
+_PUBSUB_ITERATIONS = 180
+_POLL_MAX_IF_NOTIFIED = 45
+_POLL_MAX_IF_NOT_NOTIFIED = 70
+_POLL_SLEEP_NOTIFIED = 1.0
+_POLL_SLEEP_FALLBACK = 3.0
 
 
 @router.callback_query(F.data.startswith("pick_style:"))
@@ -412,7 +421,7 @@ async def _poll_task(bot, api_base_url: str, user_id: int, task_id: str, chat_id
         pubsub = redis.pubsub()
         await pubsub.subscribe(done_channel, progress_channel)
         try:
-            for _ in range(120):
+            for _ in range(_PUBSUB_ITERATIONS):
                 msg = await pubsub.get_message(ignore_subscribe_messages=True, timeout=1.0)
                 if msg and msg.get("type") == "message":
                     ch = msg.get("channel", "")
@@ -432,50 +441,77 @@ async def _poll_task(bot, api_base_url: str, user_id: int, task_id: str, chat_id
     except Exception:
         logger.warning("Pub/Sub failed for task %s, falling back to polling", task_id)
 
-    async with httpx.AsyncClient(timeout=15.0) as client:
-        max_polls = 3 if notified else 30
-        sleep_interval = 1 if notified else 3
+    async def _fetch_task_status():
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            resp = await client.get(
+                f"{api_base_url}/api/v1/tasks/{task_id}",
+                headers={"X-Telegram-Id": str(user_id)},
+            )
+            if resp.status_code != 200:
+                return None
+            return resp.json()
 
-        for attempt in range(max_polls):
-            if not notified:
-                await asyncio.sleep(sleep_interval)
-            try:
-                resp = await client.get(
-                    f"{api_base_url}/api/v1/tasks/{task_id}",
-                    headers={"X-Telegram-Id": str(user_id)},
+    max_polls = _POLL_MAX_IF_NOTIFIED if notified else _POLL_MAX_IF_NOT_NOTIFIED
+    sleep_interval = _POLL_SLEEP_NOTIFIED if notified else _POLL_SLEEP_FALLBACK
+
+    for attempt in range(max_polls):
+        if not notified:
+            await asyncio.sleep(sleep_interval)
+        try:
+            data = await _fetch_task_status()
+            if data is None:
+                if notified:
+                    await asyncio.sleep(_POLL_SLEEP_NOTIFIED)
+                continue
+
+            status = data.get("status")
+
+            if status == "completed":
+                await redis.delete(lock_key)
+                await deliver_result(bot, chat_id, status_msg_id, data, user_id, redis)
+                return
+            if status == "failed":
+                await redis.delete(lock_key)
+                await bot.edit_message_text(
+                    "\u274c Не удалось обработать фото. Попробуй загрузить другое фото.",
+                    chat_id=chat_id,
+                    message_id=status_msg_id,
+                    reply_markup=error_keyboard(),
                 )
-                if resp.status_code != 200:
-                    if notified:
-                        await asyncio.sleep(1)
-                    continue
+                return
 
-                data = resp.json()
-                status = data.get("status")
+        except Exception:
+            logger.exception("Poll error for task %s", task_id)
 
-                if status == "completed":
-                    await redis.delete(lock_key)
-                    await deliver_result(bot, chat_id, status_msg_id, data, user_id, redis)
-                    return
-                elif status == "failed":
-                    await redis.delete(lock_key)
-                    await bot.edit_message_text(
-                        "\u274c Не удалось обработать фото. Попробуй загрузить другое фото.",
-                        chat_id=chat_id,
-                        message_id=status_msg_id,
-                        reply_markup=error_keyboard(),
-                    )
-                    return
+        if notified:
+            await asyncio.sleep(_POLL_SLEEP_NOTIFIED)
 
-            except Exception:
-                logger.exception("Poll error for task %s", task_id)
+    # Grace window: task may commit to DB right after last poll (race with worker).
+    for _ in range(3):
+        await asyncio.sleep(2.0)
+        try:
+            data = await _fetch_task_status()
+            if data and data.get("status") == "completed":
+                await redis.delete(lock_key)
+                await deliver_result(bot, chat_id, status_msg_id, data, user_id, redis)
+                return
+            if data and data.get("status") == "failed":
+                await redis.delete(lock_key)
+                await bot.edit_message_text(
+                    "\u274c Не удалось обработать фото. Попробуй загрузить другое фото.",
+                    chat_id=chat_id,
+                    message_id=status_msg_id,
+                    reply_markup=error_keyboard(),
+                )
+                return
+        except Exception:
+            logger.exception("Grace poll error for task %s", task_id)
 
-            if notified:
-                await asyncio.sleep(1)
-
-        await redis.delete(lock_key)
-        await bot.edit_message_text(
-            "\u23f0 Обработка занимает слишком долго. Попробуй позже.",
-            chat_id=chat_id,
-            message_id=status_msg_id,
-            reply_markup=error_keyboard(),
-        )
+    await redis.delete(lock_key)
+    await bot.edit_message_text(
+        "\u23f0 Обработка занимает слишком долго. Попробуй позже или проверь /balance — "
+        "результат мог прийти с задержкой.",
+        chat_id=chat_id,
+        message_id=status_msg_id,
+        reply_markup=error_keyboard(),
+    )
