@@ -11,3 +11,7 @@ def gen_image_cache_key(task_id: str) -> str:
 
 def embedding_cache_key(task_id: str) -> str:
     return f"ratemeai:embedding:{task_id}"
+
+
+def preanalysis_cache_key(pre_analysis_id: str) -> str:
+    return f"ratemeai:preanalysis:{pre_analysis_id}"

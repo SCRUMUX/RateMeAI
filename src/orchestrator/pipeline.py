@@ -18,7 +18,7 @@ from src.providers.base import ImageGenProvider, LLMProvider, StorageProvider
 from src.prompts.engine import PromptEngine
 from src.services.share import ShareCardGenerator
 from src.utils.image import validate_and_normalize, has_face_heuristic, estimate_blur_score
-from src.utils.redis_keys import embedding_cache_key
+from src.utils.redis_keys import embedding_cache_key, preanalysis_cache_key
 from src.utils.security import extract_nsfw_from_analysis
 
 logger = logging.getLogger(__name__)
@@ -170,24 +170,46 @@ class AnalysisPipeline:
             image_bytes, img_meta = await self._preprocess(image_bytes)
 
         with _trace_step(trace, "analyze"):
-            result, result_dict = await self._analyze(mode, image_bytes, context)
+            pre_id = (context or {}).get("pre_analysis_id")
+            cached_pre = None
+            if pre_id and self._redis:
+                try:
+                    import json as _json
+                    raw = await self._redis.get(preanalysis_cache_key(pre_id))
+                    if raw:
+                        cached_pre = _json.loads(raw)
+                except Exception:
+                    logger.warning("Failed to load cached pre-analysis %s, falling back to LLM", pre_id)
 
-        for sk in _SCORE_KEYS:
-            if sk in result_dict and isinstance(result_dict[sk], (int, float)):
-                result_dict[sk] = _humanize_score(float(result_dict[sk]), f"{task_id}:{sk}")
+            if cached_pre is not None:
+                result = cached_pre
+                result_dict = cached_pre
+                trace["decisions"].append({
+                    "phase": "analyze",
+                    "decision": "Used cached pre-analysis",
+                    "reason": f"pre_analysis_id={pre_id}",
+                })
+            else:
+                result, result_dict = await self._analyze(mode, image_bytes, context)
 
-        ps = result_dict.get("perception_scores")
-        if isinstance(ps, dict):
-            for pk in _PERCEPTION_KEYS:
-                if pk in ps and isinstance(ps[pk], (int, float)):
-                    ps[pk] = _humanize_score(float(ps[pk]), f"{task_id}:p:{pk}", floor=_PERCEPTION_FLOOR)
-            result_dict["perception_scores"] = ps
-        elif hasattr(ps, "model_dump"):
-            ps_dict = ps.model_dump()
-            for pk in _PERCEPTION_KEYS:
-                if pk in ps_dict and isinstance(ps_dict[pk], (int, float)):
-                    ps_dict[pk] = _humanize_score(float(ps_dict[pk]), f"{task_id}:p:{pk}", floor=_PERCEPTION_FLOOR)
-            result_dict["perception_scores"] = ps_dict
+        already_humanized = result_dict.get("_scores_humanized", False)
+        if not already_humanized:
+            for sk in _SCORE_KEYS:
+                if sk in result_dict and isinstance(result_dict[sk], (int, float)):
+                    result_dict[sk] = _humanize_score(float(result_dict[sk]), f"{task_id}:{sk}")
+
+            ps = result_dict.get("perception_scores")
+            if isinstance(ps, dict):
+                for pk in _PERCEPTION_KEYS:
+                    if pk in ps and isinstance(ps[pk], (int, float)):
+                        ps[pk] = _humanize_score(float(ps[pk]), f"{task_id}:p:{pk}", floor=_PERCEPTION_FLOOR)
+                result_dict["perception_scores"] = ps
+            elif hasattr(ps, "model_dump"):
+                ps_dict = ps.model_dump()
+                for pk in _PERCEPTION_KEYS:
+                    if pk in ps_dict and isinstance(ps_dict[pk], (int, float)):
+                        ps_dict[pk] = _humanize_score(float(ps_dict[pk]), f"{task_id}:p:{pk}", floor=_PERCEPTION_FLOOR)
+                result_dict["perception_scores"] = ps_dict
 
         warnings: list[str] = result_dict.setdefault("generation_warnings", [])
         orig_w = img_meta.get("original_width", 0)

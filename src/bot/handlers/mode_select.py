@@ -16,8 +16,11 @@ from src.bot.keyboards import (
     style_keyboard,
     STYLE_CATALOG,
 )
+from src.services.enhancement_advisor import build_enhancement_preview, predict_style_delta, _PARAM_DISPLAY
+
 logger = logging.getLogger(__name__)
 router = Router()
+PRE_ANALYSIS_REF_KEY = "ratemeai:preanalysis_ref:{}"
 
 LAST_GEN_KEY = "ratemeai:last_gen:{}"
 USED_STYLES_KEY = "ratemeai:used_styles:{}:{}"
@@ -27,7 +30,7 @@ def _build_display_names() -> dict[str, dict[str, str]]:
     result: dict[str, dict[str, str]] = {}
     for mode, items in STYLE_CATALOG.items():
         mapping: dict[str, str] = {}
-        for key, label, _hook in items:
+        for key, label, _hook, *_rest in items:
             clean = label.lstrip()
             parts = clean.split(" ", 1)
             mapping[key] = parts[1] if len(parts) > 1 else parts[0]
@@ -51,8 +54,8 @@ _POLL_SLEEP_FALLBACK = 3.0
 
 
 @router.callback_query(F.data.startswith("pick_style:"))
-async def on_pick_style(callback: CallbackQuery, redis: Redis):
-    """Show hook_text previews from catalog + style selection keyboard."""
+async def on_pick_style(callback: CallbackQuery, api_base_url: str, redis: Redis):
+    """Call pre-analyze, show scores + perception profile + style suggestions."""
     kind = callback.data.split(":", 1)[1]
     user_id = callback.from_user.id
     file_id = await redis.get(PHOTO_KEY.format(user_id))
@@ -61,8 +64,9 @@ async def on_pick_style(callback: CallbackQuery, redis: Redis):
         return
     await callback.answer()
 
-    catalog = STYLE_CATALOG.get(kind, [])
-    hooks = [f"\u2022 {label} \u2014 {hook}" for _key, label, hook in catalog[:3]]
+    if kind not in ("dating", "cv", "social"):
+        await callback.message.answer("Выбери направление:", reply_markup=scenario_keyboard())
+        return
 
     mode_headers = {
         "dating": "\U0001f495 *Образ для знакомств*",
@@ -70,17 +74,36 @@ async def on_pick_style(callback: CallbackQuery, redis: Redis):
         "social": "\U0001f4f8 *Образ для соцсетей*",
     }
     header = mode_headers.get(kind, "\u2728 *Твой образ*")
-    text = (
-        f"{header}\n\n"
-        "\U0001f680 *Что можно усилить:*\n"
-        + "\n".join(hooks)
-        + "\n\n*Выбери стиль:*"
-    )
 
-    if kind in ("dating", "cv", "social"):
+    status_msg = await callback.message.answer(f"{header}\n\n\U0001f50d Анализирую твоё фото...")
+
+    pre_analysis = await _call_pre_analyze(callback.bot, api_base_url, user_id, file_id, kind)
+
+    if pre_analysis is None:
+        catalog = STYLE_CATALOG.get(kind, [])
+        hooks = [f"\u2022 {label} \u2014 {hook}" for _key, label, hook, *_rest in catalog[:3]]
+        text = (
+            f"{header}\n\n"
+            "\U0001f680 *Что можно усилить:*\n"
+            + "\n".join(hooks)
+            + "\n\n*Выбери стиль:*"
+        )
+        try:
+            await status_msg.edit_text(text, parse_mode="Markdown", reply_markup=style_keyboard(kind))
+        except Exception:
+            await callback.message.answer(text, parse_mode="Markdown", reply_markup=style_keyboard(kind))
+        return
+
+    pre_id = pre_analysis.get("pre_analysis_id", "")
+    if pre_id:
+        await redis.set(PRE_ANALYSIS_REF_KEY.format(user_id), pre_id, ex=1800)
+
+    text = _format_pre_analysis_message(header, kind, user_id, pre_analysis)
+
+    try:
+        await status_msg.edit_text(text, parse_mode="Markdown", reply_markup=style_keyboard(kind))
+    except Exception:
         await callback.message.answer(text, parse_mode="Markdown", reply_markup=style_keyboard(kind))
-    else:
-        await callback.message.answer("Выбери направление:", reply_markup=scenario_keyboard())
 
 
 @router.callback_query(F.data.startswith("style:"))
@@ -160,6 +183,74 @@ async def on_retry(callback: CallbackQuery, api_base_url: str, redis: Redis):
     await _submit_analysis(callback, api_base_url, redis, mode, style)
 
 
+async def _call_pre_analyze(bot, api_base_url: str, user_id: int, file_id: str, mode: str) -> dict | None:
+    """Download the user's photo and call POST /api/v1/pre-analyze. Returns response dict or None on failure."""
+    try:
+        if isinstance(file_id, bytes):
+            file_id = file_id.decode()
+        file_obj = await bot.get_file(file_id)
+        file_bytes = io.BytesIO()
+        await bot.download_file(file_obj.file_path, file_bytes)
+        file_bytes.seek(0)
+        image_data = file_bytes.read()
+
+        async with httpx.AsyncClient(timeout=20.0) as client:
+            resp = await client.post(
+                f"{api_base_url}/api/v1/pre-analyze",
+                files={"image": ("photo.jpg", image_data, "image/jpeg")},
+                data={"mode": mode},
+                headers={"X-Telegram-Id": str(user_id)},
+            )
+        if resp.status_code == 200:
+            return resp.json()
+        logger.warning("pre-analyze returned %s: %s", resp.status_code, resp.text[:200])
+    except Exception:
+        logger.exception("pre-analyze call failed for user %s", user_id)
+    return None
+
+
+def _format_pre_analysis_message(header: str, kind: str, user_id: int, data: dict) -> str:
+    """Format the pre-analysis scores + suggestions into a Telegram message."""
+    first_impression = data.get("first_impression", "")
+    score = data.get("score", 0)
+    ps = data.get("perception_scores", {})
+
+    lines = [header]
+    if first_impression:
+        lines.append(first_impression)
+    lines.append("")
+    lines.append(f"\U0001f4ca *Твой скор: {score:.2f} / 10*")
+    lines.append("")
+
+    warmth = ps.get("warmth", 0)
+    presence = ps.get("presence", 0)
+    appeal = ps.get("appeal", 0)
+    lines.append("*Профиль восприятия:*")
+    lines.append(
+        f"\u2600\ufe0f Теплота: {warmth:.2f} \u2022 "
+        f"\u26a1 Уверенность: {presence:.2f} \u2022 "
+        f"\u2728 Привлекательность: {appeal:.2f}"
+    )
+
+    opportunities = data.get("enhancement_opportunities", [])
+    if opportunities:
+        lines.append("")
+        lines.append("\U0001f4a1 *Рекомендации:*")
+        for opp in opportunities[:3]:
+            lines.append(f"\u2022 {opp}")
+
+    preview = build_enhancement_preview(kind, user_id, depth=1, count=3)
+    if preview.suggestions:
+        lines.append("")
+        lines.append("\U0001f680 *Как усилить:*")
+        for s in preview.suggestions[:3]:
+            lines.append(f"\u2022 {s.line}")
+
+    lines.append("")
+    lines.append("*Выбери стиль:*")
+    return "\n".join(lines)
+
+
 async def _submit_analysis(callback: CallbackQuery, api_base_url: str, redis: Redis, mode: str, style: str):
     user_id = callback.from_user.id
     bot = callback.bot
@@ -204,6 +295,12 @@ async def _submit_analysis(callback: CallbackQuery, api_base_url: str, redis: Re
         form_data = {"mode": mode, "enhancement_level": str(enh_level)}
         if style:
             form_data["style"] = style
+
+        pre_id = await redis.get(PRE_ANALYSIS_REF_KEY.format(user_id))
+        if pre_id:
+            if isinstance(pre_id, bytes):
+                pre_id = pre_id.decode()
+            form_data["pre_analysis_id"] = pre_id
 
         async with httpx.AsyncClient(timeout=30.0) as client:
             resp = await client.post(

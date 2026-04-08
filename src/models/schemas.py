@@ -172,3 +172,15 @@ class VKAuthRequest(BaseModel):
 
 class WebAuthRequest(BaseModel):
     device_id: str
+
+
+# ── Pre-Analysis ──
+
+class PreAnalysisResponse(BaseModel):
+    pre_analysis_id: str
+    mode: AnalysisMode
+    first_impression: str = ""
+    score: float
+    perception_scores: dict
+    perception_insights: list[dict] = Field(default_factory=list)
+    enhancement_opportunities: list[str] = Field(default_factory=list)
