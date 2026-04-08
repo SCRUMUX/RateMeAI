@@ -8,6 +8,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
+from starlette.middleware.base import BaseHTTPMiddleware as _BaseHTTP
+from starlette.requests import Request as _Req
+from starlette.responses import Response as _Resp
 
 from prometheus_fastapi_instrumentator import Instrumentator
 
@@ -112,9 +115,6 @@ else:
         allow_methods=["*"],
         allow_headers=["*"],
     )
-from starlette.middleware.base import BaseHTTPMiddleware as _BaseHTTP
-from starlette.requests import Request as _Req
-from starlette.responses import Response as _Resp
 
 
 class _IframeHeadersMiddleware(_BaseHTTP):

@@ -6,9 +6,7 @@ through each channel that supports server-initiated push.
 from __future__ import annotations
 
 import logging
-import uuid
 
-from redis.asyncio import Redis
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 

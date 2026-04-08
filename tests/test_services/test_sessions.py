@@ -4,7 +4,6 @@ from __future__ import annotations
 import uuid
 
 import pytest
-import pytest_asyncio
 
 from src.services.sessions import create_session, resolve_session, revoke_session
 

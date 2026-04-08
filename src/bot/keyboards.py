@@ -1,5 +1,7 @@
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
+from src.services.style_catalog import STYLE_CATALOG
+
 
 def scenario_keyboard() -> InlineKeyboardMarkup:
     """Primary 3-button scenario selection (no Rating in main flow)."""
@@ -12,11 +14,6 @@ def scenario_keyboard() -> InlineKeyboardMarkup:
 
 # Legacy alias — some handlers still reference this
 mode_selection_keyboard = scenario_keyboard
-
-# ---------------------------------------------------------------------------
-# Full style catalogs — imported from shared module
-# ---------------------------------------------------------------------------
-from src.services.style_catalog import STYLE_CATALOG
 
 _PAGE_SIZE = 6
 
