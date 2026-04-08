@@ -9,11 +9,16 @@ logger = logging.getLogger(__name__)
 
 MAX_DIMENSION = 2048
 MIN_DIMENSION = 100
+OPTIMAL_MIN_DIMENSION = 1024
 SUPPORTED_FORMATS = {"JPEG", "PNG", "WEBP", "GIF"}
 
 
 def validate_and_normalize(image_bytes: bytes) -> tuple[bytes, dict]:
-    """Validate image, resize if needed, return normalized JPEG bytes and metadata."""
+    """Validate image, resize if needed, return normalized JPEG bytes and metadata.
+
+    Ensures the image is at least OPTIMAL_MIN_DIMENSION on the longest side
+    for best results with image generation APIs, and caps at MAX_DIMENSION.
+    """
     try:
         img = Image.open(io.BytesIO(image_bytes))
     except Exception as e:
@@ -30,10 +35,19 @@ def validate_and_normalize(image_bytes: bytes) -> tuple[bytes, dict]:
 
     if width > MAX_DIMENSION or height > MAX_DIMENSION:
         img.thumbnail((MAX_DIMENSION, MAX_DIMENSION), Image.LANCZOS)
-        logger.info("Resized image from %dx%d to %dx%d", width, height, *img.size)
+        logger.info("Downscaled image from %dx%d to %dx%d", width, height, *img.size)
+
+    long_side = max(img.size)
+    if long_side < OPTIMAL_MIN_DIMENSION:
+        scale = OPTIMAL_MIN_DIMENSION / long_side
+        new_w = round(img.size[0] * scale)
+        new_h = round(img.size[1] * scale)
+        img = img.resize((new_w, new_h), Image.LANCZOS)
+        logger.info("Upscaled small image from %dx%d to %dx%d for better generation quality",
+                     width, height, new_w, new_h)
 
     buf = io.BytesIO()
-    img.save(buf, format="JPEG", quality=90)
+    img.save(buf, format="JPEG", quality=95)
     buf.seek(0)
 
     metadata = {

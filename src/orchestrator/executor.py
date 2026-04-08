@@ -246,6 +246,7 @@ class ImageGenerationExecutor:
                 "aspect_ratio": "auto",
                 "test_time_scaling": tts,
                 "use_edit": True,
+                "postprocessing": [{"process": "upscale", "upscale_factor": 2}],
             }
             params.update(extra_params)
             if step.region != "full":
@@ -310,6 +311,7 @@ class ImageGenerationExecutor:
                     "aspect_ratio": "auto",
                     "test_time_scaling": settings.reve_test_time_scaling,
                     "use_edit": True,
+                    "postprocessing": [{"process": "upscale", "upscale_factor": 2}],
                 }
 
             raw = None

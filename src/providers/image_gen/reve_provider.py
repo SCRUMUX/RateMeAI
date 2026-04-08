@@ -31,6 +31,7 @@ class ReveImageGen(ImageGenProvider):
         self._aspect_ratio = aspect_ratio
         self._version = version
         self._test_time_scaling = test_time_scaling
+        self._effects_logged = False
 
     async def close(self) -> None:
         pass
@@ -60,6 +61,22 @@ class ReveImageGen(ImageGenProvider):
         }
         return hints.get(region, "")
 
+    def _log_available_effects(self, client: Any) -> None:
+        """Log available Reve effects once for debugging."""
+        if self._effects_logged:
+            return
+        self._effects_logged = True
+        try:
+            from reve.v1.image import list_effects
+            effects = list_effects(client=client)
+            if effects:
+                names = [e.get("name", "?") for e in effects]
+                logger.info("Reve available effects: %s", ", ".join(names))
+            else:
+                logger.info("Reve: no effects available")
+        except Exception:
+            logger.debug("Failed to list Reve effects", exc_info=True)
+
     def _generate_sync(
         self,
         prompt: str,
@@ -74,6 +91,7 @@ class ReveImageGen(ImageGenProvider):
             api_token=self._token,
             api_url=self._host or None,
         )
+        self._log_available_effects(client)
         options = self._build_options(params)
 
         mask_image_bytes = params.get("mask_image") if params else None
