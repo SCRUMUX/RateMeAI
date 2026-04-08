@@ -99,20 +99,13 @@ async def process_analysis(ctx: dict, task_id: str):
             else:
                 image_bytes = await storage.download(task.input_image_path)
 
-            style_key = f"ratemeai:style:{task_id}"
-            style = await redis.get(style_key) or ""
-            if style:
-                await redis.delete(style_key)
-
             u_row = await db.execute(
-                select(User).where(User.id == task.user_id).with_for_update()
+                select(User).where(User.id == task.user_id)
             )
             task_user = u_row.scalar_one()
             has_credits = task_user.image_credits > 0
 
             context: dict = dict(task.context or {})
-            if style and "style" not in context:
-                context["style"] = style
             if not has_credits:
                 context["skip_image_gen"] = True
 
@@ -137,17 +130,26 @@ async def process_analysis(ctx: dict, task_id: str):
             gen_url = analysis_result.get("generated_image_url")
             if gen_url:
                 gkey = f"generated/{task.user_id}/{task.id}.jpg"
-                try:
-                    gen_bytes = await storage.download(gkey)
-                    b64_gen = base64.b64encode(gen_bytes).decode()
-                    await redis.set(
-                        gen_image_cache_key(str(task.id)),
-                        b64_gen,
-                        ex=settings.task_input_redis_ttl_seconds,
+                staged = False
+                for _attempt in range(2):
+                    try:
+                        gen_bytes = await storage.download(gkey)
+                        b64_gen = base64.b64encode(gen_bytes).decode()
+                        await redis.set(
+                            gen_image_cache_key(str(task.id)),
+                            b64_gen,
+                            ex=settings.task_input_redis_ttl_seconds,
+                        )
+                        logger.info("Staged generated image in Redis for task %s (%d bytes)", task_id, len(gen_bytes))
+                        staged = True
+                        break
+                    except Exception:
+                        logger.exception("Redis staging attempt %d failed for task %s", _attempt + 1, task_id)
+                if not staged:
+                    logger.error(
+                        "All Redis staging attempts failed for task %s — bot will use URL fallback: %s",
+                        task_id, gen_url,
                     )
-                    logger.info("Staged generated image in Redis for task %s (%d bytes)", task_id, len(gen_bytes))
-                except Exception:
-                    logger.exception("Failed to stage generated image in Redis for task %s", task_id)
 
                 try:
                     u = await db.execute(
@@ -164,7 +166,10 @@ async def process_analysis(ctx: dict, task_id: str):
                         ))
                         CREDITS_USED.inc()
                         logger.info("Deducted 1 image credit for user %s, remaining=%d", task.user_id, user.image_credits)
-                    analysis_result["credit_deducted"] = True
+                        analysis_result["credit_deducted"] = True
+                    else:
+                        logger.warning("No credits to deduct for user %s (balance=0), image was generated for free", task.user_id)
+                        analysis_result["credit_deducted"] = False
                 except Exception:
                     logger.exception("Failed to deduct image credit for task %s", task_id)
                     analysis_result["credit_deducted"] = False
