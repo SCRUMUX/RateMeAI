@@ -8,7 +8,6 @@ import uuid
 from fastapi import APIRouter, Depends, UploadFile, File, Form, HTTPException
 from redis.asyncio import Redis
 
-from src.config import settings
 from src.models.db import User
 from src.models.enums import AnalysisMode
 from src.models.schemas import PreAnalysisResponse, RatingResult

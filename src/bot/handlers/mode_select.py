@@ -16,7 +16,7 @@ from src.bot.keyboards import (
     style_keyboard,
     STYLE_CATALOG,
 )
-from src.services.enhancement_advisor import build_enhancement_preview, predict_style_delta, _PARAM_DISPLAY
+from src.services.enhancement_advisor import build_enhancement_preview
 
 logger = logging.getLogger(__name__)
 router = Router()

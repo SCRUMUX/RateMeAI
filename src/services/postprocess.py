@@ -142,8 +142,6 @@ def _build_minimal_exif(dt: datetime | None = None) -> bytes:
     make = b"Canon\x00"
     model = b"Canon EOS R5\x00"
 
-    ifd0_entries = []
-
     def _short(tag: int, val: int) -> bytes:
         return struct.pack(">HHI", tag, 3, 1) + struct.pack(">HH", val, 0)
 

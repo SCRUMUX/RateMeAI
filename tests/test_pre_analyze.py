@@ -4,8 +4,6 @@ from __future__ import annotations
 import json
 from unittest.mock import AsyncMock, MagicMock, patch
 
-import pytest
-
 from src.models.enums import AnalysisMode
 
 
@@ -153,7 +151,7 @@ def test_pipeline_uses_cached_pre_analysis(mock_nsfw, mock_norm, mock_face, mock
     pipeline._merger.merge.return_value = {"dating_score": 7.5, "cached": True}
 
     import asyncio
-    result = asyncio.get_event_loop().run_until_complete(
+    asyncio.get_event_loop().run_until_complete(
         pipeline.execute(
             mode=AnalysisMode.DATING,
             image_bytes=_JPEG_STUB,
