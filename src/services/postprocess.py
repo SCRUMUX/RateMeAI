@@ -23,8 +23,8 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 
 _GRAIN_ALPHA_RANGE = {
-    "portra400": (0.025, 0.045),
-    "default": (0.03, 0.05),
+    "portra400": (0.005, 0.012),
+    "default": (0.005, 0.012),
 }
 
 
@@ -53,7 +53,7 @@ def _apply_film_grain(
 # Vignette  (radial darkening, mimics real lens light fall-off)
 # ---------------------------------------------------------------------------
 
-def _apply_vignette(img: Image.Image, strength: float = 0.08) -> Image.Image:
+def _apply_vignette(img: Image.Image, strength: float = 0.03) -> Image.Image:
     w, h = img.size
     arr = np.array(img, dtype=np.float32)
 
@@ -77,7 +77,7 @@ def _apply_vignette(img: Image.Image, strength: float = 0.08) -> Image.Image:
 # Chromatic aberration  (subtle R/B channel shift at edges, ~0.5-1.0 px)
 # ---------------------------------------------------------------------------
 
-def _apply_chromatic_aberration(img: Image.Image, shift_px: float = 0.7) -> Image.Image:
+def _apply_chromatic_aberration(img: Image.Image, shift_px: float = 0.0) -> Image.Image:
     """Shift red channel outward and blue channel inward by `shift_px` at edges."""
     w, h = img.size
     if w < 200 or h < 200:
@@ -351,9 +351,9 @@ async def postprocess_for_realism(
     image_bytes: bytes,
     original_bytes: bytes | None = None,
     film_stock: str = "portra400",
-    enable_color_grade: bool = True,
+    enable_color_grade: bool = False,
     enable_skin_transfer: bool = False,
-    jpeg_quality: int = 90,
+    jpeg_quality: int = 94,
 ) -> bytes:
     """Full post-processing pipeline. Runs CPU-bound work in a thread."""
     return await asyncio.to_thread(
@@ -394,8 +394,8 @@ def _postprocess_sync(
             logger.debug("Skin detail transfer failed, skipping")
 
     img = _apply_film_grain(img, film_stock=film_stock, seed=seed)
-    img = _apply_vignette(img, strength=0.08)
-    img = _apply_chromatic_aberration(img, shift_px=0.7)
+    img = _apply_vignette(img, strength=0.03)
+    img = _apply_chromatic_aberration(img, shift_px=0.0)
 
     jpeg = _jpeg_reencode(img, quality=jpeg_quality)
     jpeg = _inject_exif(jpeg)

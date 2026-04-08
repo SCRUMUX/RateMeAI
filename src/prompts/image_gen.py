@@ -34,14 +34,14 @@ SKIN_FIX = (
 
 CAMERA = (
     "Shot on Canon EOS R5, 50mm f/8, natural depth of field with "
-    "environmental context in focus. Kodak Portra 400 color response, "
-    "ISO 200, subtle film texture."
+    "environmental context in focus. Clean digital color, ISO 200. "
+    "Sharp background, no bokeh blur."
 )
 
 REALISM = (
-    "Authentic raw photograph with visible skin pores, natural micro-imperfections, "
-    "and real film grain. Imperfect and genuine, indistinguishable from an "
-    "unedited camera photo."
+    "Authentic photograph with visible skin pores and natural micro-imperfections. "
+    "Clean, sharp, and genuine. Indistinguishable from an unedited high-quality "
+    "digital camera photo."
 )
 
 # ---------------------------------------------------------------------------

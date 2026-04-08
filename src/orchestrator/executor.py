@@ -175,7 +175,7 @@ class ImageGenerationExecutor:
                     current_image = await postprocess_for_realism(
                         current_image,
                         original_bytes=image_bytes,
-                        enable_skin_transfer=True,
+                        enable_skin_transfer=False,
                     )
                     pp_entry["size_bytes"] = len(current_image)
 
@@ -425,7 +425,7 @@ class ImageGenerationExecutor:
                     raw = await postprocess_for_realism(
                         raw,
                         original_bytes=image_bytes,
-                        enable_skin_transfer=True,
+                        enable_skin_transfer=False,
                     )
                     pp_entry["size_bytes"] = len(raw)
 
