@@ -184,7 +184,8 @@ async def process_analysis(ctx: dict, task_id: str):
             await db.execute(stmt)
 
             logger.info("Task %s completed", task_id)
-
+            # Commit before Redis notify so GET /tasks sees final status when clients poll.
+            await db.commit()
             try:
                 await redis.publish(f"ratemeai:task_done:{task_id}", "completed")
             except Exception:
@@ -194,12 +195,11 @@ async def process_analysis(ctx: dict, task_id: str):
             logger.exception("Task %s failed", task_id)
             task.status = TaskStatus.FAILED.value
             task.error_message = str(e)[:500]
+            await db.commit()
             try:
                 await redis.publish(f"ratemeai:task_done:{task_id}", "failed")
             except Exception:
                 logger.warning("Failed to publish task_done (failed) for %s", task_id)
-
-        await db.commit()
 
 
 class WorkerSettings:

@@ -454,6 +454,7 @@ async def _poll_task(bot, api_base_url: str, user_id: int, task_id: str, chat_id
     max_polls = _POLL_MAX_IF_NOTIFIED if notified else _POLL_MAX_IF_NOT_NOTIFIED
     sleep_interval = _POLL_SLEEP_NOTIFIED if notified else _POLL_SLEEP_FALLBACK
 
+    last_status: str | None = None
     for attempt in range(max_polls):
         if not notified:
             await asyncio.sleep(sleep_interval)
@@ -465,6 +466,8 @@ async def _poll_task(bot, api_base_url: str, user_id: int, task_id: str, chat_id
                 continue
 
             status = data.get("status")
+            if status is not None:
+                last_status = status
 
             if status == "completed":
                 await redis.delete(lock_key)
@@ -491,6 +494,8 @@ async def _poll_task(bot, api_base_url: str, user_id: int, task_id: str, chat_id
         await asyncio.sleep(2.0)
         try:
             data = await _fetch_task_status()
+            if data and data.get("status") is not None:
+                last_status = data.get("status")
             if data and data.get("status") == "completed":
                 await redis.delete(lock_key)
                 await deliver_result(bot, chat_id, status_msg_id, data, user_id, redis)
@@ -507,6 +512,13 @@ async def _poll_task(bot, api_base_url: str, user_id: int, task_id: str, chat_id
         except Exception:
             logger.exception("Grace poll error for task %s", task_id)
 
+    logger.warning(
+        "Task poll timeout task_id=%s user_id=%s last_status=%s redis_notified=%s",
+        task_id,
+        user_id,
+        last_status,
+        notified,
+    )
     await redis.delete(lock_key)
     await bot.edit_message_text(
         "\u23f0 Обработка занимает слишком долго. Попробуй позже или проверь /balance — "
