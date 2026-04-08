@@ -42,7 +42,7 @@ class Settings(BaseSettings):
     reve_api_host: str = "https://api.reve.com"
     reve_aspect_ratio: str = "1:1"
     reve_version: str = "latest"
-    reve_test_time_scaling: int = 3
+    reve_test_time_scaling: int = 4
 
     # Replicate (image generation)
     replicate_api_token: str = ""

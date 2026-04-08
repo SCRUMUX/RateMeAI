@@ -343,6 +343,14 @@ def _portra400_color_grade(img: Image.Image) -> Image.Image:
     return Image.fromarray((arr * 255).astype(np.uint8))
 
 
+def inject_exif_only(image_bytes: bytes) -> bytes:
+    """Inject EXIF metadata into image bytes without any other processing."""
+    try:
+        return _inject_exif(image_bytes)
+    except Exception:
+        return image_bytes
+
+
 # ---------------------------------------------------------------------------
 # Public API
 # ---------------------------------------------------------------------------

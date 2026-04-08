@@ -33,15 +33,14 @@ SKIN_FIX = (
 )
 
 CAMERA = (
-    "Shot on Canon EOS R5, 50mm f/8, natural depth of field with "
-    "environmental context in focus. Clean digital color, ISO 200. "
-    "Sharp background, no bokeh blur."
+    "High-quality digital photograph. Sharp focus across entire image "
+    "including background. No blur, no bokeh, no depth-of-field effect. "
+    "Clean natural colors."
 )
 
 REALISM = (
-    "Authentic photograph with visible skin pores and natural micro-imperfections. "
-    "Clean, sharp, and genuine. Indistinguishable from an unedited high-quality "
-    "digital camera photo."
+    "Photorealistic result. Natural skin texture. Sharp and clean. "
+    "Looks like a real unedited photo."
 )
 
 # ---------------------------------------------------------------------------
@@ -323,62 +322,62 @@ DATING_STYLES: dict[str, str] = {
 
 DATING_PERSONALITIES: dict[str, str] = {
     "warm_outdoor": "Soft relaxed eyes, warm approachable look, gentle natural expression.",
-    "studio_elegant": "Strong direct gaze, squared shoulders, calm self-assured energy.",
-    "near_car": "Confident relaxed lean, one hand resting on car roof, direct assured gaze with subtle half-smile, squared shoulders.",
-    "in_car": "One hand on steering wheel, relaxed driver posture, warm natural smile catching light from side window, easy confident energy.",
-    "motorcycle": "Standing beside motorcycle, arms relaxed at sides, strong direct gaze, calm rugged confidence.",
-    "yacht": "Relaxed seaside posture, wind-touched hair, warm bright smile, open carefree energy.",
-    "rooftop_city": "Standing at railing edge, city behind, composed sophisticated gaze, subtle confident smile.",
-    "gym_fitness": "Athletic stance, arms naturally at sides, healthy glow, energetic direct look with determined confident expression.",
-    "running": "Mid-stride or standing pause, light sweat glow on skin, fresh energetic expression, bright alert eyes.",
-    "tennis": "Racket held casually at side, relaxed athletic posture, confident sporty smile, sun-kissed healthy look.",
-    "swimming_pool": "Relaxed seated or standing at pool edge, natural tanned skin, warm easy smile, vacation energy.",
-    "hiking": "Standing at overlook, wind in hair, accomplished peaceful expression, adventurous bright-eyed energy.",
-    "cafe": "Bright engaging eyes, magnetic energy, open relaxed posture.",
-    "coffee_date": "Seated at small table, hands around warm cup, gentle attentive smile, warm inviting eye contact.",
-    "restaurant": "Seated or leaning at table, soft amber light on face, charming engaged expression, sophisticated relaxed energy.",
-    "bar_lounge": "Leaning at bar or seated in lounge chair, cocktail nearby, mysterious half-smile, magnetic confident energy.",
-    "cooking": "Hands active with food preparation, genuine warm smile, approachable domestic charm, playful engaging eyes.",
-    "dog_lover": "Kneeling or crouching near a friendly dog, genuine bright laugh, warm open expression, kind approachable energy.",
-    "travel": "Standing with boarding pass or phone, confident world-traveler posture, easy composed smile, cosmopolitan energy.",
-    "beach_sunset": "Walking along shoreline or standing at water edge, warm sunset light on face, peaceful genuine smile, free relaxed energy.",
-    "art_gallery": "Standing thoughtfully near artwork, intellectual composed expression, subtle confident gaze, cultured refined energy.",
-    "street_urban": "Walking confidently mid-stride, hands in pockets, effortless cool expression, bold urban energy.",
-    "concert": "Guitar in hands or leaning against wall near instruments, passionate creative expression, magnetic artistic energy.",
+    "studio_elegant": "Strong direct gaze, calm self-assured energy, confident expression.",
+    "near_car": "Direct assured gaze, subtle half-smile, confident relaxed energy.",
+    "in_car": "Warm natural smile, easy confident energy, relaxed expression.",
+    "motorcycle": "Strong direct gaze, calm rugged confidence, bold energy.",
+    "yacht": "Wind-touched hair, warm bright smile, open carefree energy.",
+    "rooftop_city": "Composed sophisticated gaze, subtle confident smile, polished energy.",
+    "gym_fitness": "Healthy glow, energetic direct look, determined confident expression.",
+    "running": "Fresh energetic expression, bright alert eyes, healthy athletic glow.",
+    "tennis": "Confident sporty smile, sun-kissed healthy look, athletic energy.",
+    "swimming_pool": "Natural tanned skin, warm easy smile, vacation energy.",
+    "hiking": "Accomplished peaceful expression, adventurous bright-eyed energy.",
+    "cafe": "Bright engaging eyes, magnetic energy, relaxed warm expression.",
+    "coffee_date": "Gentle attentive smile, warm inviting eye contact, cozy energy.",
+    "restaurant": "Charming engaged expression, sophisticated relaxed energy, warm gaze.",
+    "bar_lounge": "Mysterious half-smile, magnetic confident energy, alluring gaze.",
+    "cooking": "Genuine warm smile, approachable domestic charm, playful engaging eyes.",
+    "dog_lover": "Genuine bright laugh, warm open expression, kind approachable energy.",
+    "travel": "Easy composed smile, cosmopolitan energy, confident worldly expression.",
+    "beach_sunset": "Warm sunset light on face, peaceful genuine smile, free relaxed energy.",
+    "art_gallery": "Intellectual composed expression, subtle confident gaze, cultured refined energy.",
+    "street_urban": "Effortless cool expression, bold urban energy, confident gaze.",
+    "concert": "Passionate creative expression, magnetic artistic energy, soulful gaze.",
     # Landmarks
-    "paris_eiffel": "Seated at cafe table, relaxed morning gaze toward tower, warm genuine smile, worldly romantic energy.",
-    "nyc_brooklyn_bridge": "Walking along bridge, wind in hair, warm sunset glow on face, adventurous confident smile.",
-    "rome_colosseum": "Leaning back in cafe chair, relaxed Mediterranean expression, warm open charm, easy-going Italian energy.",
-    "dubai_burj_khalifa": "Standing with city behind, composed modern gaze, subtle power smile, cosmopolitan confident energy.",
-    "nyc_times_square": "Hands in pockets mid-stride, bold confident expression, urban energy, effortless cool neon-lit look.",
-    "barcelona_sagrada": "Seated at terrace breakfast, relaxed sun-kissed expression, bright genuine smile, warm Mediterranean morning.",
-    "london_eye": "Walking along embankment, thoughtful composed expression, subtle warm smile, elegant understated energy.",
-    "sydney_opera": "Relaxed harbour-side posture, bright warm smile, fresh natural look, open confident Australian energy.",
-    "tokyo_tower": "Standing in clean urban setting, calm composed gaze, subtle confident expression, minimalist refined energy.",
-    "sf_golden_gate": "Standing at viewpoint, wind-touched hair, peaceful awe-inspired expression, adventurous warm smile.",
-    "athens_acropolis": "Walking through narrow street, relaxed thoughtful expression, warm gentle smile, cultural explorer energy.",
-    "singapore_marina_bay": "Standing with skyline behind, polished confident gaze, subtle sophisticated smile, modern cosmopolitan energy.",
-    "venice_san_marco": "Walking through piazza, romantic composed expression, warm charming smile, elegant European energy.",
-    "nyc_central_park": "Relaxed walking pose, genuine bright smile, warm approachable look, easy natural park energy.",
-    "london_big_ben": "Standing with landmark behind, composed British elegance, subtle confident smile, refined worldly energy.",
+    "paris_eiffel": "Warm genuine smile, worldly romantic energy, relaxed morning gaze.",
+    "nyc_brooklyn_bridge": "Wind in hair, warm sunset glow on face, adventurous confident smile.",
+    "rome_colosseum": "Relaxed Mediterranean expression, warm open charm, easy-going energy.",
+    "dubai_burj_khalifa": "Composed modern gaze, subtle power smile, cosmopolitan confident energy.",
+    "nyc_times_square": "Bold confident expression, urban energy, effortless cool look.",
+    "barcelona_sagrada": "Relaxed sun-kissed expression, bright genuine smile, warm Mediterranean energy.",
+    "london_eye": "Thoughtful composed expression, subtle warm smile, elegant understated energy.",
+    "sydney_opera": "Bright warm smile, fresh natural look, open confident energy.",
+    "tokyo_tower": "Calm composed gaze, subtle confident expression, minimalist refined energy.",
+    "sf_golden_gate": "Wind-touched hair, peaceful awe-inspired expression, adventurous warm smile.",
+    "athens_acropolis": "Relaxed thoughtful expression, warm gentle smile, cultural explorer energy.",
+    "singapore_marina_bay": "Polished confident gaze, subtle sophisticated smile, modern cosmopolitan energy.",
+    "venice_san_marco": "Romantic composed expression, warm charming smile, elegant European energy.",
+    "nyc_central_park": "Genuine bright smile, warm approachable look, easy natural energy.",
+    "london_big_ben": "Composed British elegance, subtle confident smile, refined worldly energy.",
     # Travel expanded
-    "airplane_window": "Seated with window view, relaxed contemplative gaze outside, calm easy smile, excited traveler energy.",
-    "train_journey": "Working or gazing out window, focused relaxed expression, calm productivity, modern explorer energy.",
-    "hotel_checkin": "Standing in lobby, confident composed posture, warm arrival smile, polished traveler energy.",
-    "hotel_breakfast": "Seated at panoramic table, relaxed morning expression, warm genuine smile, luxury morning energy.",
-    "sea_balcony": "Standing at railing, wind in hair, peaceful bright smile, warm morning sea-breeze energy.",
-    "old_town_walk": "Walking on cobblestones, curious warm expression, gentle smile, cultural wanderer energy.",
-    "street_market": "Engaged with surroundings, bright curious expression, warm genuine smile, adventurous explorer energy.",
+    "airplane_window": "Relaxed contemplative gaze, calm easy smile, excited traveler energy.",
+    "train_journey": "Focused relaxed expression, calm thoughtful energy, modern explorer vibe.",
+    "hotel_checkin": "Warm confident smile, polished traveler energy, composed expression.",
+    "hotel_breakfast": "Relaxed morning expression, warm genuine smile, luxury morning energy.",
+    "sea_balcony": "Wind in hair, peaceful bright smile, warm morning energy.",
+    "old_town_walk": "Curious warm expression, gentle smile, cultural wanderer energy.",
+    "street_market": "Bright curious expression, warm genuine smile, adventurous explorer energy.",
     # Atmosphere expanded
-    "rainy_day": "Walking in rain, contemplative gaze, mysterious half-smile, cinematic moody confidence.",
-    "night_coffee": "Seated with cup, warm intimate gaze, gentle smile, cozy late-night thoughtful energy.",
-    "evening_home": "Relaxed at home, calm contented expression, warm genuine smile, comfortable domestic confidence.",
+    "rainy_day": "Contemplative gaze, mysterious half-smile, cinematic moody confidence.",
+    "night_coffee": "Warm intimate gaze, gentle smile, cozy late-night thoughtful energy.",
+    "evening_home": "Calm contented expression, warm genuine smile, comfortable domestic confidence.",
     # Status
-    "car_exit": "Stepping from car, confident direct gaze, purposeful composed expression, polished arrival energy.",
-    "travel_luxury": "Standing in premium interior, composed confident posture, subtle assured smile, elevated travel energy.",
+    "car_exit": "Confident direct gaze, purposeful composed expression, polished energy.",
+    "travel_luxury": "Composed confident expression, subtle assured smile, elevated energy.",
     # Sport expanded
-    "yoga_outdoor": "Balanced peaceful pose, serene calm expression, gentle focused energy, healthy mindful glow.",
-    "cycling": "Standing beside bike, fresh energetic expression, bright confident smile, active outdoor energy.",
+    "yoga_outdoor": "Serene calm expression, gentle focused energy, healthy mindful glow.",
+    "cycling": "Fresh energetic expression, bright confident smile, active outdoor energy.",
 }
 
 CV_STYLES: dict[str, str] = {
@@ -557,42 +556,42 @@ CV_STYLES: dict[str, str] = {
 }
 
 CV_PERSONALITIES: dict[str, str] = {
-    "corporate": "Composed upright posture, trustworthy direct gaze, professional confident half-smile.",
-    "boardroom": "Seated at head of table or standing at presentation position, authoritative composed expression, leadership energy.",
-    "formal_portrait": "Straight-on or slight 3/4 turn, steady composed direct gaze, neutral professional expression, timeless authority.",
-    "creative": "Bold, expressive, artistic energy with confident posture.",
-    "startup_casual": "Standing near whiteboard or laptop, approachable energetic expression, relaxed innovative confidence.",
-    "coworking": "Seated at shared table with laptop, collaborative friendly expression, modern entrepreneurial energy.",
-    "standing_desk": "Standing at desk, one hand on surface, focused productive expression, tech-savvy composed confidence.",
+    "corporate": "Trustworthy direct gaze, professional confident half-smile, composed energy.",
+    "boardroom": "Authoritative composed expression, leadership energy, strong confident gaze.",
+    "formal_portrait": "Steady composed direct gaze, neutral professional expression, timeless authority.",
+    "creative": "Bold expressive energy, artistic confident expression.",
+    "startup_casual": "Approachable energetic expression, relaxed innovative confidence.",
+    "coworking": "Collaborative friendly expression, modern entrepreneurial energy.",
+    "standing_desk": "Focused productive expression, tech-savvy composed confidence.",
     "neutral": "Relaxed, approachable, open and friendly gaze.",
-    "tech_developer": "Seated at workstation, alert focused expression, intelligent confident gaze, calm technical authority.",
-    "creative_director": "Arms crossed or one hand on chin, intense creative gaze, visionary confident expression, artistic authority.",
-    "medical": "Standing confidently, warm empathetic expression, trustworthy caring gaze, calm medical authority.",
-    "legal_finance": "Seated at mahogany desk or standing near bookshelf, authoritative steady expression, distinguished gravitas.",
-    "architect": "Standing over plans or holding rolled blueprint, precise analytical gaze, creative professional confidence.",
-    "speaker_stage": "Hands in gesture mid-presentation, engaging animated expression, commanding charismatic stage presence.",
-    "podcast": "Seated at mic, natural animated expression, engaging conversational energy, authentic approachable authority.",
-    "mentor": "Leaning forward in engaged conversation pose, warm encouraging expression, wise approachable mentor energy.",
-    "outdoor_business": "Seated with laptop and coffee, confident relaxed smile, modern flexible professional energy.",
+    "tech_developer": "Alert focused expression, intelligent confident gaze, calm technical authority.",
+    "creative_director": "Intense creative gaze, visionary confident expression, artistic authority.",
+    "medical": "Warm empathetic expression, trustworthy caring gaze, calm medical authority.",
+    "legal_finance": "Authoritative steady expression, distinguished gravitas, composed gaze.",
+    "architect": "Precise analytical gaze, creative professional confidence, thoughtful expression.",
+    "speaker_stage": "Engaging animated expression, commanding charismatic presence, confident energy.",
+    "podcast": "Natural animated expression, engaging conversational energy, authentic approachable authority.",
+    "mentor": "Warm encouraging expression, wise approachable mentor energy, attentive gaze.",
+    "outdoor_business": "Confident relaxed smile, modern flexible professional energy.",
     # Career expanded
-    "video_call": "Facing camera with engaged expression, warm professional smile, confident screen presence, trustworthy energy.",
-    "glass_wall_pose": "Standing confidently at glass wall, arms relaxed, composed powerful gaze, modern executive energy.",
-    "analytics_review": "Focused on data, sharp analytical expression, slight concentration furrow, intelligent authority.",
-    "tablet_stylus": "Working with tablet, focused creative expression, innovative gaze, modern productive energy.",
-    "notebook_ideas": "Writing in notebook, thoughtful inspired expression, subtle focused smile, creative productive energy.",
-    "coffee_break_work": "Holding coffee, relaxed confident smile, approachable warm expression, human professional energy.",
-    "late_hustle": "Focused determined expression, subtle jaw set, intense productive gaze, ambitious driven energy.",
+    "video_call": "Engaged expression, warm professional smile, confident screen presence, trustworthy energy.",
+    "glass_wall_pose": "Composed powerful gaze, modern executive energy, confident expression.",
+    "analytics_review": "Sharp analytical expression, slight concentration furrow, intelligent authority.",
+    "tablet_stylus": "Focused creative expression, innovative gaze, modern productive energy.",
+    "notebook_ideas": "Thoughtful inspired expression, subtle focused smile, creative productive energy.",
+    "coffee_break_work": "Relaxed confident smile, approachable warm expression, human professional energy.",
+    "late_hustle": "Focused determined expression, intense productive gaze, ambitious driven energy.",
     # Archetypes
-    "quiet_expert": "Seated with book, calm wise expression, subtle knowing smile, deep understated authority.",
-    "digital_nomad": "Relaxed at laptop with view, easy confident smile, free productive expression, location-independent energy.",
-    "entrepreneur_on_move": "Walking with purpose, phone in hand, dynamic confident expression, unstoppable momentum energy.",
-    "intellectual": "Thoughtful composed gaze, slight head tilt, deep contemplative expression, scholarly refined energy.",
-    "man_with_mission": "Standing with purpose, strong direct gaze, determined composed expression, visionary leadership energy.",
+    "quiet_expert": "Calm wise expression, subtle knowing smile, deep understated authority.",
+    "digital_nomad": "Easy confident smile, free productive expression, relaxed modern energy.",
+    "entrepreneur_on_move": "Dynamic confident expression, unstoppable momentum energy, sharp gaze.",
+    "intellectual": "Thoughtful composed gaze, deep contemplative expression, scholarly refined energy.",
+    "man_with_mission": "Strong direct gaze, determined composed expression, visionary leadership energy.",
     # Professional moments
-    "before_meeting": "Ready confident posture, focused composed gaze, subtle prepared smile, polished professional energy.",
-    "between_meetings": "Checking phone, relaxed but alert expression, composed ease, efficient professional energy.",
-    "business_lounge": "Seated with laptop, composed traveler expression, confident relaxed smile, premium professional energy.",
-    "decision_moment": "Contemplating cityscape, strong thoughtful profile, composed decisive expression, executive vision energy.",
+    "before_meeting": "Focused composed gaze, subtle prepared smile, polished professional energy.",
+    "between_meetings": "Relaxed but alert expression, composed ease, efficient professional energy.",
+    "business_lounge": "Composed traveler expression, confident relaxed smile, premium professional energy.",
+    "decision_moment": "Strong thoughtful expression, composed decisive energy, executive vision.",
 }
 
 SOCIAL_STYLES: dict[str, str] = {
@@ -835,56 +834,56 @@ SOCIAL_STYLES: dict[str, str] = {
 
 SOCIAL_PERSONALITIES: dict[str, str] = {
     "influencer": "Bright confident look, engaging direct eye contact, charismatic energy.",
-    "influencer_urban": "Confident power pose, engaging direct eye contact, charismatic high-energy expression.",
-    "influencer_minimal": "Poised centered stance, calm confident gaze, serene sophisticated energy.",
-    "influencer_luxury": "Elegant composed posture, mysterious allure, sophisticated calm expression.",
-    "luxury": "Elegant poise, mysterious allure, sophisticated calm expression.",
+    "influencer_urban": "Engaging direct eye contact, charismatic high-energy expression, bold confidence.",
+    "influencer_minimal": "Calm confident gaze, serene sophisticated energy, poised expression.",
+    "influencer_luxury": "Mysterious allure, sophisticated calm expression, elegant energy.",
+    "luxury": "Elegant mysterious allure, sophisticated calm expression.",
     "casual": "Genuine relaxed look, warm natural feel, approachable open vibe.",
-    "morning_routine": "Holding coffee mug near window, peaceful fresh morning expression, warm genuine relaxed smile.",
-    "fitness_lifestyle": "Post-workout confident stance, healthy glow, energetic bright expression, motivational energy.",
-    "food_blogger": "Smiling over beautiful dish, hands presenting food, warm engaging foodie expression, inviting energy.",
-    "travel_blogger": "Arms open or pointing at view, excited adventurous expression, bright wanderlust energy.",
+    "morning_routine": "Peaceful fresh morning expression, warm genuine relaxed smile.",
+    "fitness_lifestyle": "Healthy glow, energetic bright expression, motivational confident energy.",
+    "food_blogger": "Warm engaging expression, inviting energy, bright genuine smile.",
+    "travel_blogger": "Excited adventurous expression, bright wanderlust energy, open smile.",
     "artistic": "Thoughtful creative gaze, expressive intensity, unconventional character.",
-    "golden_hour": "Soft dreamy gaze into distance, warm peaceful expression, ethereal golden-lit energy.",
-    "neon_night": "Bold confident stance, intense direct gaze, cinematic edgy energy.",
+    "golden_hour": "Soft dreamy gaze, warm peaceful expression, ethereal golden-lit energy.",
+    "neon_night": "Intense direct gaze, cinematic edgy energy, bold confident expression.",
     "vintage_film": "Nostalgic thoughtful gaze, gentle analog expression, timeless romantic energy.",
     "dark_moody": "Dramatic shadow-play on face, intense mysterious gaze, powerful brooding energy.",
     "pastel_soft": "Gentle soft smile, relaxed gentle energy, light airy expression.",
-    "youtube_creator": "Animated engaging expression, hands in gesture, bright enthusiastic creator energy.",
-    "linkedin_premium": "Confident approachable headshot pose, warm professional smile, trustworthy LinkedIn-ready energy.",
-    "tinder_top": "Natural genuine smile, relaxed approachable posture, warm attractive easy-going energy.",
-    "instagram_aesthetic": "Artfully posed, editorial confident expression, Instagram-worthy polished energy.",
-    "podcast_host": "Seated at mic setup, natural conversational smile, engaging authentic host energy.",
-    "creative_portrait": "Unconventional pose or angle, intense expressive gaze, bold artistic energy.",
+    "youtube_creator": "Animated engaging expression, bright enthusiastic creator energy.",
+    "linkedin_premium": "Warm professional smile, trustworthy confident energy, approachable gaze.",
+    "tinder_top": "Natural genuine smile, warm attractive easy-going energy.",
+    "instagram_aesthetic": "Editorial confident expression, polished energy, striking gaze.",
+    "podcast_host": "Natural conversational smile, engaging authentic host energy.",
+    "creative_portrait": "Intense expressive gaze, bold artistic energy, striking expression.",
     # Social aesthetic
-    "mirror_aesthetic": "Composed mirror selfie pose, calm confident gaze at reflection, effortless polished energy.",
-    "elevator_clean": "Clean confident stance, direct gaze, composed minimal expression, sharp modern energy.",
-    "book_and_coffee": "Relaxed with book, warm thoughtful expression, gentle intellectual smile, cozy wisdom energy.",
-    "shopfront": "Walking past or pausing, natural fashion expression, confident modern street-style energy.",
-    "candid_street": "Natural mid-action expression, genuine unposed look, authentic spontaneous energy.",
+    "mirror_aesthetic": "Calm confident gaze, effortless polished energy, composed expression.",
+    "elevator_clean": "Direct gaze, composed minimal expression, sharp modern energy.",
+    "book_and_coffee": "Warm thoughtful expression, gentle intellectual smile, cozy wisdom energy.",
+    "shopfront": "Natural fashion expression, confident modern street-style energy.",
+    "candid_street": "Genuine unposed look, authentic spontaneous energy, natural expression.",
     # Hobbies
-    "reading_home": "Absorbed in book, peaceful concentrated expression, warm genuine comfort, domestic intellectual energy.",
-    "reading_cafe": "Reading with coffee, thoughtful calm expression, gentle content smile, quiet cultured energy.",
-    "sketching": "Focused on drawing, creative concentrated expression, passionate hands at work, artistic flow energy.",
-    "photographer": "Looking through viewfinder or reviewing shot, focused creative expression, professional artistic energy.",
-    "meditation": "Eyes closed or soft focus, serene peaceful expression, calm balanced energy, mindful presence.",
-    "online_learning": "Focused on screen, engaged curious expression, productive concentration, growth-minded energy.",
+    "reading_home": "Peaceful concentrated expression, warm genuine comfort, domestic intellectual energy.",
+    "reading_cafe": "Thoughtful calm expression, gentle content smile, quiet cultured energy.",
+    "sketching": "Creative concentrated expression, artistic flow energy, focused gaze.",
+    "photographer": "Focused creative expression, professional artistic energy, sharp gaze.",
+    "meditation": "Serene peaceful expression, calm balanced energy, mindful presence.",
+    "online_learning": "Engaged curious expression, productive concentration, growth-minded energy.",
     # Sport social
-    "yoga_social": "Balanced pose, serene calm expression, healthy glow, peaceful mindful athletic energy.",
-    "cycling_social": "Fresh active expression, bright confident smile, healthy outdoor glow, athletic lifestyle energy.",
+    "yoga_social": "Serene calm expression, healthy glow, peaceful mindful energy.",
+    "cycling_social": "Fresh active expression, bright confident smile, healthy outdoor glow.",
     # Cinematic
-    "panoramic_window": "Standing before panorama, contemplative silhouette expression, profound calm gaze, cinematic scale energy.",
-    "in_motion": "Dynamic walking expression, confident forward gaze, kinetic unstoppable energy.",
-    "creative_insight": "Excited eureka expression, bright inspired eyes, energetic creative breakthrough energy.",
-    "architecture_shadow": "Face partially in shadow, mysterious confident expression, dramatic artistic presence.",
-    "achievement_moment": "Genuine bright celebration expression, relieved proud smile, triumphant authentic energy.",
+    "panoramic_window": "Contemplative expression, profound calm gaze, cinematic scale energy.",
+    "in_motion": "Confident forward gaze, dynamic unstoppable energy, bold expression.",
+    "creative_insight": "Excited eureka expression, bright inspired eyes, energetic creative energy.",
+    "architecture_shadow": "Mysterious confident expression, dramatic artistic presence, partial shadow.",
+    "achievement_moment": "Genuine bright celebration expression, relieved proud smile, triumphant energy.",
     # Evening social
-    "skyscraper_view": "Contemplating city lights, composed serene expression, elevated sophisticated energy.",
+    "skyscraper_view": "Composed serene expression, elevated sophisticated energy, calm gaze.",
     "after_work": "Relaxed relief expression, easy warm smile, comfortable end-of-day energy.",
     "evening_planning": "Focused calm expression, quiet determination, productive evening energy.",
     # Mood
-    "focused_mood": "Intense concentrated gaze, slight furrow, powerful focused presence, magnetic intensity.",
-    "light_irony": "Subtle smirk, one eyebrow slightly raised, playful knowing expression, witty confident energy.",
+    "focused_mood": "Intense concentrated gaze, powerful focused presence, magnetic intensity.",
+    "light_irony": "Subtle smirk, playful knowing expression, witty confident energy.",
 }
 
 
@@ -897,10 +896,9 @@ def build_dating_prompt(style: str = "") -> str:
     p = DATING_PERSONALITIES.get(style, DATING_PERSONALITIES["warm_outdoor"])
     return (
         f"{IDENTITY_FIRST} "
-        f"Enhance into a dating profile photo. "
-        f"Change background, lighting, and clothing style. "
+        f"Change ONLY background and clothing. Keep the person's face, pose, and body identical. "
         f"{s} {p} "
-        f"{FACE_ANCHOR} {SKIN_FIX} {CAMERA} {REALISM}"
+        f"{FACE_ANCHOR} {CAMERA} {REALISM}"
     )
 
 
@@ -909,10 +907,9 @@ def build_cv_prompt(style: str = "") -> str:
     p = CV_PERSONALITIES.get(style, CV_PERSONALITIES["corporate"])
     return (
         f"{IDENTITY_FIRST} "
-        f"Enhance into a professional headshot. "
-        f"Change background, clothing to professional attire, add soft studio lighting. "
+        f"Change ONLY background and clothing to professional attire. Keep the person's face, pose, and body identical. "
         f"{s} {p} "
-        f"{FACE_ANCHOR} {SKIN_FIX} {CAMERA} {REALISM}"
+        f"{FACE_ANCHOR} {CAMERA} {REALISM}"
     )
 
 
@@ -921,10 +918,9 @@ def build_social_prompt(style: str = "") -> str:
     p = SOCIAL_PERSONALITIES.get(style, SOCIAL_PERSONALITIES["influencer"])
     return (
         f"{IDENTITY_FIRST} "
-        f"Enhance into a social media photo. "
-        f"Change background, lighting, and clothing per style. "
+        f"Change ONLY background and clothing. Keep the person's face, pose, and body identical. "
         f"{s} {p} "
-        f"{FACE_ANCHOR} {SKIN_FIX} {CAMERA} {REALISM}"
+        f"{FACE_ANCHOR} {CAMERA} {REALISM}"
     )
 
 
@@ -955,13 +951,13 @@ STEP_TEMPLATES: dict[str, str] = {
         f"{IDENTITY_FIRST} "
         "Subtle expression adjustment: {description}. "
         "Keep face shape, features, and original mouth identical. "
-        f"{FACE_ANCHOR} {SKIN_FIX} {CAMERA} {REALISM}"
+        f"{FACE_ANCHOR} {CAMERA} {REALISM}"
     ),
     "skin_correction": (
         f"{IDENTITY_FIRST} "
         "Minor skin tone correction and blemish removal. "
         "Keep all facial features identical. "
-        f"{FACE_ANCHOR} {SKIN_FIX} {CAMERA} {REALISM}"
+        f"{FACE_ANCHOR} {CAMERA} {REALISM}"
     ),
     "style_overall": (
         f"{IDENTITY_FIRST} "

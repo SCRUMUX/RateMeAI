@@ -18,12 +18,12 @@ from src.orchestrator.model_router import ModelRouter
 from src.orchestrator.planner import PipelinePlan
 from src.prompts.engine import PromptEngine
 from src.providers.base import ImageGenProvider, StorageProvider
-from src.services.postprocess import postprocess_for_realism, composite_face_region
+from src.services.postprocess import composite_face_region, inject_exif_only
 from src.services.prompt_ab import get_active_experiments, assign_variant, record_result
 
 _LEVEL_TO_TTS: dict[int, int] = {
-    1: 2,
-    2: 3,
+    1: 3,
+    2: 4,
     3: 4,
     4: 5,
 }
@@ -171,13 +171,7 @@ class ImageGenerationExecutor:
 
                 await self._record_ab_metrics(task_id, quality_report)
 
-                with _trace_step(trace, "postprocess") as pp_entry:
-                    current_image = await postprocess_for_realism(
-                        current_image,
-                        original_bytes=image_bytes,
-                        enable_skin_transfer=False,
-                    )
-                    pp_entry["size_bytes"] = len(current_image)
+                current_image = inject_exif_only(current_image)
 
                 gkey = f"generated/{user_id}/{task_id}.jpg"
                 await self._storage.upload(gkey, current_image)
@@ -421,13 +415,7 @@ class ImageGenerationExecutor:
                     logger.warning("Single-pass quality gates error for task=%s, skipping", task_id, exc_info=True)
 
             if raw and len(raw) > 100:
-                with _trace_step(trace, "postprocess") as pp_entry:
-                    raw = await postprocess_for_realism(
-                        raw,
-                        original_bytes=image_bytes,
-                        enable_skin_transfer=False,
-                    )
-                    pp_entry["size_bytes"] = len(raw)
+                raw = inject_exif_only(raw)
 
                 gkey = f"generated/{user_id}/{task_id}.jpg"
                 await self._storage.upload(gkey, raw)
