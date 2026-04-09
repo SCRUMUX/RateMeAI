@@ -1,6 +1,6 @@
 ---
-description: RateMeAI deployment, testing, and Telegram bot constraints
-globs: src/**,docker-compose.yml,Dockerfile,.env.example,src/version.py
+description: RateMeAI project architecture, Telegram constraints, data flow
+globs: src/**,docker-compose.yml,Dockerfile
 alwaysApply: false
 ---
 
@@ -11,14 +11,7 @@ alwaysApply: false
 - app/worker/bot собираются из ОДНОГО Dockerfile и ОБЯЗАНЫ быть ОДНОЙ версии
 - Версия в `src/version.py` — BUMP при каждом деплое
 - `GET /health` возвращает `version` и опционально `git` SHA
-
-## Деплой — чеклист
-1. Bump `src/version.py`
-2. `python -m pytest tests/ -v` — тесты должны пройти
-3. `git push origin main` — CI + автодеплой
-4. Проверить `GET /health` — version совпадает
-5. Проверить логи worker и bot — та же version
-6. Smoke: фото в бот, все 4 режима (rating, dating, cv, emoji)
+- Деплой и чеклист — см. `.cursor/rules/deploy.mdc` (alwaysApply)
 
 ## Telegram лимиты (КРИТИЧНО)
 - Photo caption: МАКС **1024** символов — если длиннее, send_photo ПАДАЕТ
@@ -39,12 +32,12 @@ alwaysApply: false
 Bot → POST /api/v1/analyze → Redis input cache + DB task → ARQ
 Worker: Redis→image → LLM → Reve image gen → Storage + Redis gen cache → DB
 Bot: poll GET /tasks/{id} → Redis gen image → send_photo(≤1024) + send_message
+Web: POST /api/v1/analyze → poll GET /tasks/{id} → /storage/ (Redis fallback) → img
 ```
 
 ## Частые ошибки
 - Забыть определить переменную → NameError в рантайме
 - Длинный caption > 1024 → Telegram отклоняет → "картинки пропали"
 - `**bold**` вместо `*bold*` → Markdown V1 parse error
-- Обновить app без worker → рассинхрон версий
+- Обновить app без worker → рассинхрон версий (деплой через CI решает это)
 - `API_BASE_URL=localhost` в проде → Telegram не скачает файлы
-- На Windows: shell = PowerShell, НЕ поддерживает `&&` и HEREDOC (`<<'EOF'`)

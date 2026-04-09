@@ -1,12 +1,17 @@
-name: CI
+name: CI / CD
 
 on:
   push:
-    branches: [main, master]
+    branches: [main]
   pull_request:
-    branches: [main, master]
+    branches: [main]
+
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
+  # ─── Test & Lint ────────────────────────────────────────────
   test:
     runs-on: ubuntu-latest
     services:
@@ -41,7 +46,7 @@ jobs:
           python-version: "3.12"
           cache: pip
 
-      - name: Install dependencies
+      - name: Install Python dependencies
         run: |
           pip install -r requirements-dev.txt
           pip install opencv-python-headless>=4.6.0
@@ -57,16 +62,14 @@ jobs:
           API_BASE_URL: http://127.0.0.1:8000
         run: python -m pytest tests/ -v --tb=short
 
-  docker-build:
-    runs-on: ubuntu-latest
-    continue-on-error: true
-    steps:
-      - uses: actions/checkout@v4
+      - name: Typecheck frontend
+        working-directory: web
+        run: |
+          npm ci
+          npx tsc --noEmit
 
-      - name: Build Docker image
-        run: docker build -t ratemeai:ci .
-
-  deploy:
+  # ─── Deploy backend (Railway: app + worker + bot) ───────────
+  deploy-backend:
     needs: [test]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
@@ -76,25 +79,68 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Check Railway token
+      - name: Validate secrets
         run: |
+          ok=true
           if [ -z "$RAILWAY_TOKEN" ]; then
-            echo "::error::RAILWAY_TOKEN secret is not set — go to repo Settings > Secrets > Actions"
-            exit 1
+            echo "::error::RAILWAY_TOKEN is not set"
+            ok=false
           fi
           if [ -z "$RAILWAY_PROJECT_ID" ]; then
-            echo "::error::RAILWAY_PROJECT_ID secret is not set"
-            exit 1
+            echo "::error::RAILWAY_PROJECT_ID is not set"
+            ok=false
           fi
+          [ "$ok" = true ] || exit 1
 
       - name: Install Railway CLI
         run: npm install -g @railway/cli
 
-      - name: Deploy app
-        run: railway up -s app -d -e production
+      - name: Deploy all services in parallel
+        run: |
+          railway up -s app    -d -e production &
+          PID_APP=$!
+          railway up -s worker -d -e production &
+          PID_WORKER=$!
+          railway up -s bot    -d -e production &
+          PID_BOT=$!
 
-      - name: Deploy worker
-        run: railway up -s worker -d -e production
+          FAIL=0
+          wait $PID_APP    || { echo "::error::app deploy failed";    FAIL=1; }
+          wait $PID_WORKER || { echo "::error::worker deploy failed"; FAIL=1; }
+          wait $PID_BOT    || { echo "::error::bot deploy failed";    FAIL=1; }
+          exit $FAIL
 
-      - name: Deploy bot
-        run: railway up -s bot -d -e production
+      - name: Wait for Railway build & deploy
+        run: sleep 120
+
+      - name: Health check
+        run: |
+          API_URL="https://app-production-6986.up.railway.app"
+          echo "Checking $API_URL/health ..."
+          for i in 1 2 3 4 5; do
+            RESP=$(curl -sf "$API_URL/health" || echo "FAIL")
+            echo "Attempt $i: $RESP"
+            if echo "$RESP" | grep -q '"ok"'; then
+              echo "Health check passed"
+              break
+            fi
+            if [ "$i" -eq 5 ]; then
+              echo "::error::Health check failed after 5 attempts"
+              exit 1
+            fi
+            sleep 30
+          done
+
+      - name: Deploy summary
+        if: always()
+        run: |
+          SHORT_SHA="${GITHUB_SHA:0:12}"
+          echo "## Deploy Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Item | Value |" >> $GITHUB_STEP_SUMMARY
+          echo "|------|-------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Commit | \`$SHORT_SHA\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Branch | \`${{ github.ref_name }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Backend | [Railway Dashboard](https://railway.com/project/${{ secrets.RAILWAY_PROJECT_ID }}) |" >> $GITHUB_STEP_SUMMARY
+          echo "| Frontend | [Vercel](https://ailookstudio.vercel.app) |" >> $GITHUB_STEP_SUMMARY
+          echo "| API Health | [/health](https://app-production-6986.up.railway.app/health) |" >> $GITHUB_STEP_SUMMARY

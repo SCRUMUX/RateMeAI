@@ -1,0 +1,89 @@
+---
+description: Deployment rules, commands, and checklist for RateMeAI
+globs:
+alwaysApply: true
+---
+
+# RateMeAI — Деплой и сборка
+
+## Архитектура деплоя
+
+- **Backend (Railway)**: 3 сервиса — `app` (FastAPI), `worker` (ARQ), `bot` (aiogram). Один Dockerfile, разные start commands.
+- **Frontend (Vercel)**: React SPA из `web/`, автодеплой при push в main.
+- **CI/CD**: GitHub Actions — тесты + параллельный деплой всех Railway-сервисов.
+
+## КРИТИЧНО: PowerShell (Windows)
+
+Разработка ведётся на Windows (PowerShell). PowerShell НЕ поддерживает:
+- `&&` между командами — используй `;` или отдельные вызовы Shell
+- heredoc `<<'EOF'` — используй простой `-m "message"` для git commit
+- `head`, `tail` — используй `Select-Object -First N`
+
+Примеры правильных команд:
+```powershell
+# Коммит
+git add -A; git commit -m "fix: description"
+
+# Пуш (запускает CI/CD автоматически)
+git push origin main
+
+# Проверка здоровья API
+Invoke-RestMethod -Uri "https://app-production-6986.up.railway.app/health" | ConvertTo-Json
+
+# Typecheck фронтенда (из папки web)
+npx tsc --noEmit
+
+# Проверка синтаксиса Python
+python -c "import py_compile; py_compile.compile(r'src\main.py', doraise=True)"
+```
+
+## Как деплоить
+
+1. **Только через `git push origin main`** — CI сделает всё автоматически
+2. **НЕ использовать `railway up` вручную** — это деплоит один сервис, забывая остальные
+3. CI параллельно деплоит app + worker + bot, затем проверяет health
+
+## Чеклист перед коммитом/пушем
+
+1. Typecheck фронтенда: `npx tsc --noEmit` (в папке `web`)
+2. Проверить синтаксис Python: `python -c "import py_compile; py_compile.compile(r'src\main.py', doraise=True)"`
+3. Проверить линтер: `ReadLints` на изменённых файлах
+4. Коммит: `git add <files>; git commit -m "тип: описание"`
+5. Пуш: `git push origin main`
+
+## Проверка после деплоя
+
+```powershell
+# Health check (должен вернуть status: ok и актуальную version)
+Invoke-RestMethod -Uri "https://app-production-6986.up.railway.app/health" | ConvertTo-Json
+
+# Проверить Vercel (фронтенд)
+Invoke-WebRequest -Uri "https://ailookstudio.vercel.app" -UseBasicParsing | Select-Object StatusCode
+```
+
+## URL-ы сервисов
+
+| Сервис | URL |
+|--------|-----|
+| API (prod) | https://app-production-6986.up.railway.app |
+| Frontend (Vercel) | https://ailookstudio.vercel.app |
+| Frontend (домен) | https://ailookstudio.ru |
+| Railway Dashboard | https://railway.com/project/abb23754-4c0e-4e96-a2f4-39529bf3b90e |
+| GitHub Actions | https://github.com/SCRUMUX/RateMeAI/actions |
+
+## Переменные окружения (ключевые)
+
+- `APP_ENV=prod` — включает Alembic миграции, production CORS
+- `API_BASE_URL` — публичный HTTPS URL API (для storage URLs)
+- `DATABASE_URL` — PostgreSQL (Railway internal)
+- `REDIS_URL` — Redis (Railway internal)
+- `VITE_API_BASE_URL` — API endpoint для фронтенда (Vercel env var)
+- `DEPLOY_GIT_SHA` — автоматически из CI (не ставить вручную)
+
+## Частые ошибки
+
+- Обновить app без worker/bot — рассинхрон версий, сломанный пайплайн
+- `railway up` вручную — деплоит только один сервис
+- `&&` в PowerShell — синтаксическая ошибка
+- Heredoc в PowerShell — синтаксическая ошибка
+- Забыть `VITE_API_BASE_URL` на Vercel — фронтенд не видит API
