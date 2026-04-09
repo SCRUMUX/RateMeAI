@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -14,14 +15,24 @@ from src.api.deps import get_db, get_current_user
 
 router = APIRouter()
 
+_STORAGE_PATH_RE = re.compile(r"/storage/.+")
 
-def _build_image_url(path: str | None) -> str:
-    if not path:
+
+def _normalize_storage_url(url: str) -> str:
+    """Rewrite any storage URL to use current api_base_url.
+
+    Handles URLs stored in DB with outdated base (e.g. http://localhost:8000).
+    """
+    if not url:
         return ""
-    if path.startswith("http"):
-        return path
+    m = _STORAGE_PATH_RE.search(url)
+    if m:
+        base = settings.api_base_url.rstrip("/")
+        return f"{base}{m.group(0)}"
+    if url.startswith("http"):
+        return url
     base = settings.api_base_url.rstrip("/")
-    return f"{base}/storage/{path.lstrip('/')}"
+    return f"{base}/storage/{url.lstrip('/')}"
 
 
 @router.get("", response_model=TaskHistoryResponse)
@@ -55,8 +66,9 @@ async def list_tasks(
         ctx = t.context or {}
 
         gen_url = r.get("generated_image_url") or r.get("image_url") or ""
-        if gen_url and gen_url.startswith("/"):
-            gen_url = f"{settings.api_base_url.rstrip('/')}{gen_url}"
+        gen_url = _normalize_storage_url(gen_url)
+        if not gen_url:
+            gen_url = _normalize_storage_url(r.get("generated_image_path", ""))
 
         score_after = (
             r.get("dating_score")
@@ -71,8 +83,8 @@ async def list_tasks(
             mode=t.mode,
             style=ctx.get("style", ""),
             completed_at=t.completed_at,
-            input_image_url=_build_image_url(t.input_image_path),
-            generated_image_url=gen_url if gen_url else _build_image_url(r.get("generated_image_path")),
+            input_image_url=_normalize_storage_url(t.input_image_path or ""),
+            generated_image_url=gen_url,
             score_before=float(score_before) if score_before is not None else None,
             score_after=float(score_after) if score_after is not None else None,
             perception_scores=ps if isinstance(ps, dict) else None,
