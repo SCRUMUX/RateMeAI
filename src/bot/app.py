@@ -44,6 +44,23 @@ def create_dispatcher(redis: Redis) -> Dispatcher:
     return dp
 
 
+async def _health_handler(_request: web.Request) -> web.Response:
+    return web.json_response({"status": "ok", "service": "bot", "version": APP_VERSION})
+
+
+async def _start_health_server(app: web.Application | None = None) -> None:
+    """Start a minimal HTTP server for Railway health checks."""
+    if app is None:
+        app = web.Application()
+    app.router.add_get("/health", _health_handler)
+    port = int(os.environ.get("PORT", "8080"))
+    runner = web.AppRunner(app)
+    await runner.setup()
+    site = web.TCPSite(runner, "0.0.0.0", port)
+    await site.start()
+    return runner
+
+
 async def main():
     sha = (settings.deploy_git_sha or "").strip()
     logger.info(
@@ -76,14 +93,12 @@ async def main():
         ).register(app, path=wh_path)
         setup_application(app, dp, bot=bot)
 
-        port = int(os.environ.get("PORT", "8080"))
-        runner = web.AppRunner(app)
-        await runner.setup()
-        site = web.TCPSite(runner, "0.0.0.0", port)
-        await site.start()
-        logger.info("Bot webhook listening on 0.0.0.0:%s%s", port, wh_path)
+        await _start_health_server(app)
+        logger.info("Bot webhook listening on 0.0.0.0:%s%s", int(os.environ.get("PORT", "8080")), wh_path)
         await asyncio.Event().wait()
     else:
+        await _start_health_server()
+        logger.info("Bot health server started on 0.0.0.0:%s", os.environ.get("PORT", "8080"))
         await bot.delete_webhook(drop_pending_updates=True)
         logger.info("Starting bot in polling mode (single replica recommended).")
         await dp.start_polling(bot)
