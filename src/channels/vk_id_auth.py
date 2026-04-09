@@ -57,6 +57,7 @@ async def exchange_code(
                 "grant_type": "authorization_code",
                 "code": code,
                 "client_id": settings.vk_id_app_id,
+                "client_secret": settings.vk_id_app_secret,
                 "code_verifier": code_verifier,
                 "device_id": device_id,
                 "state": state,

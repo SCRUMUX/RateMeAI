@@ -23,7 +23,6 @@ from src.models.schemas import (
     WebAuthRequest,
     OAuthInitRequest,
     OAuthInitResponse,
-    OAuthCallbackRequest,
 )
 from src.api.deps import get_db, get_auth_user, get_redis
 from src.utils.auth_tokens import hash_api_key
@@ -309,7 +308,7 @@ async def yandex_oauth_callback(
 
     web_base = settings.web_base_url or settings.api_base_url
     return RedirectResponse(
-        url=f"{web_base}/auth/callback?token={token}&provider=yandex",
+        url=f"{web_base}/auth/callback?token={token}&provider=yandex&user_id={user.id}",
     )
 
 
@@ -381,5 +380,5 @@ async def vk_id_oauth_callback(
 
     web_base = settings.web_base_url or settings.api_base_url
     return RedirectResponse(
-        url=f"{web_base}/auth/callback?token={token}&provider=vk_id",
+        url=f"{web_base}/auth/callback?token={token}&provider=vk_id&user_id={user.id}",
     )

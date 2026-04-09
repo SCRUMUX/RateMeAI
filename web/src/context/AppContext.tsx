@@ -39,7 +39,7 @@ interface AppActions {
   startSimulation: () => void;
   authenticateUser: (email: string) => Promise<void>;
   loginWithOAuth: (provider: 'yandex' | 'vk-id') => Promise<void>;
-  loginWithToken: (token: string) => Promise<void>;
+  loginWithToken: (token: string, userId?: string) => Promise<void>;
 }
 
 const Ctx = createContext<(AppState & AppActions) | null>(null);
@@ -133,7 +133,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     await startOAuth(provider);
   }, []);
 
-  const loginWithToken = useCallback(async (token: string) => {
+  const loginWithToken = useCallback(async (token: string, userId?: string) => {
     api.setToken(token);
     try {
       const b = await api.getBalance();
@@ -142,7 +142,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const usage = await api.getUsage().catch(() => ({
       daily_limit: 3, used: 0, remaining: 3, is_premium: false,
     }));
-    setSession({ token, userId: '', usage });
+    setSession({ token, userId: userId || '', usage });
     setIsAuthenticated(true);
   }, []);
 
