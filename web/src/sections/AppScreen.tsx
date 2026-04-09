@@ -259,10 +259,10 @@ export default function AppScreen() {
           {/* Top area: photos + analysis */}
           <div className="flex gap-[var(--space-32)] mb-[var(--space-32)]">
             {/* Photo cards */}
-            <div className="flex gap-[70px] shrink-0">
+            <div className="flex gap-[var(--space-32)] shrink-0">
               {/* Original photo */}
-              <div className="gradient-border-card glass-card flex flex-col w-[236px] h-[440px] rounded-[var(--radius-12)] overflow-hidden">
-                <div className="w-[236px] h-[315px] shrink-0 bg-[rgba(255,255,255,0.02)] overflow-hidden">
+              <div className="gradient-border-card glass-card flex flex-col w-[260px] h-[472px] rounded-[var(--radius-12)] overflow-hidden">
+                <div className="w-[260px] h-[347px] shrink-0 bg-[rgba(255,255,255,0.02)] overflow-hidden">
                   {app.photo ? (
                     <img src={app.photo.preview} alt="Original" className="w-full h-full object-cover" />
                   ) : (
@@ -292,8 +292,8 @@ export default function AppScreen() {
               </div>
 
               {/* Generated photo */}
-              <div className="gradient-border-card glass-card flex flex-col w-[236px] h-[440px] rounded-[var(--radius-12)] overflow-hidden">
-                <div className="w-[236px] h-[315px] shrink-0 bg-[rgba(255,255,255,0.02)] overflow-hidden relative">
+              <div className="gradient-border-card glass-card flex flex-col w-[260px] h-[472px] rounded-[var(--radius-12)] overflow-hidden">
+                <div className="w-[260px] h-[347px] shrink-0 bg-[rgba(255,255,255,0.02)] overflow-hidden relative">
                   {/* Real result */}
                   {hasGenResult && (
                     <img
@@ -564,13 +564,6 @@ export default function AppScreen() {
 
               {/* === STATE 0: No photo uploaded === */}
               {!app.photo && !app.isAuthenticated && (
-                <div className="gradient-border-card glass-card flex flex-col gap-[var(--space-12)] rounded-[var(--radius-12)] p-[var(--space-12)]">
-                  <div className="text-[14px] text-[var(--color-text-muted)] text-center py-[var(--space-12)]">
-                    Загрузите фото для анализа
-                  </div>
-                </div>
-              )}
-              {!app.photo && app.isAuthenticated && !displayParams && (
                 <div className="gradient-border-card glass-card flex flex-col gap-[var(--space-12)] rounded-[var(--radius-12)] p-[var(--space-12)]">
                   <div className="text-[14px] text-[var(--color-text-muted)] text-center py-[var(--space-12)]">
                     Загрузите фото для анализа

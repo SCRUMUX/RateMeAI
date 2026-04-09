@@ -10,9 +10,9 @@ from src.config import settings
 
 logger = logging.getLogger(__name__)
 
-AUTHORIZE_URL = "https://id.vk.com/authorize"
-TOKEN_URL = "https://id.vk.com/oauth2/auth"
-USER_INFO_URL = "https://id.vk.com/oauth2/user_info"
+AUTHORIZE_URL = "https://id.vk.ru/authorize"
+TOKEN_URL = "https://id.vk.ru/oauth2/auth"
+USER_INFO_URL = "https://id.vk.ru/oauth2/user_info"
 
 
 @dataclass
