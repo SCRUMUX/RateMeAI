@@ -5,7 +5,7 @@ import { API_BASE } from '../lib/api';
 import type { CategoryId } from '../data/styles';
 import { restorePhotoAfterOAuth, clearPersistedPhoto } from '../lib/photo-persist';
 
-interface Session { token: string; userId: string; usage: api.ChannelAuthResponse['usage'] }
+interface Session { token: string; userId: string; provider: string; usage: api.ChannelAuthResponse['usage'] }
 
 interface PhotoState { file: File; preview: string }
 
@@ -41,7 +41,7 @@ interface AppActions {
   startSimulation: () => void;
   authenticateUser: (email: string) => Promise<void>;
   loginWithOAuth: (provider: 'yandex' | 'vk-id') => Promise<void>;
-  loginWithToken: (token: string, userId?: string) => Promise<void>;
+  loginWithToken: (token: string, userId?: string, provider?: string) => Promise<void>;
 }
 
 const Ctx = createContext<(AppState & AppActions) | null>(null);
@@ -122,7 +122,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     localStorage.setItem(EMAIL_KEY, email);
     try {
       const res = await login();
-      setSession({ token: res.session_token, userId: res.user_id, usage: res.usage });
+      setSession({ token: res.session_token, userId: res.user_id, provider: 'web', usage: res.usage });
       const b = await api.getBalance();
       setBalance(b.image_credits);
       setIsAuthenticated(true);
@@ -139,8 +139,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
     } : undefined);
   }, [photo, activeCategory, selectedStyleKey]);
 
-  const loginWithToken = useCallback(async (token: string, userId?: string) => {
+  const loginWithToken = useCallback(async (token: string, userId?: string, provider?: string) => {
     api.setToken(token);
+    const prov = provider || localStorage.getItem('ailook_provider') || '';
+    if (provider) localStorage.setItem('ailook_provider', provider);
     try {
       const b = await api.getBalance();
       setBalance(b.image_credits);
@@ -148,7 +150,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const usage = await api.getUsage().catch(() => ({
       daily_limit: 3, used: 0, remaining: 3, is_premium: false,
     }));
-    setSession({ token, userId: userId || '', usage });
+    setSession({ token, userId: userId || '', provider: prov, usage });
     setIsAuthenticated(true);
 
     const restored = await restorePhotoAfterOAuth();

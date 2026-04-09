@@ -1,8 +1,16 @@
 import { AicaIcon, GlobeIcon, CoinIcon } from '@ai-ds/core/icons';
 import { useApp } from '../context/AppContext';
 
+const PROVIDER_LABELS: Record<string, { icon: string; name: string }> = {
+  yandex: { icon: 'Я', name: 'Яндекс' },
+  vk_id: { icon: 'VK', name: 'ВКонтакте' },
+  web: { icon: '🌐', name: 'Web' },
+};
+
 export default function NavBar() {
   const { session, balance } = useApp();
+
+  const prov = session?.provider ? PROVIDER_LABELS[session.provider] : null;
 
   return (
     <nav className="fixed top-0 left-0 right-0 z-[100] glass-nav">
@@ -27,9 +35,17 @@ export default function NavBar() {
           ))}
 
           {session && (
-            <div className="glass-btn-ghost flex items-center gap-[var(--space-4)] px-[var(--space-12)] py-[var(--space-6)] text-[14px] leading-[20px] font-medium text-[#E6EEF8] rounded-[var(--radius-12)]">
-              <CoinIcon size={16} className="text-[var(--color-brand-primary)]" />
-              <span>{balance}</span>
+            <div className="flex items-center gap-[var(--space-8)]">
+              <div className="glass-btn-ghost flex items-center gap-[var(--space-4)] px-[var(--space-12)] py-[var(--space-6)] text-[14px] leading-[20px] font-medium text-[#E6EEF8] rounded-[var(--radius-12)]">
+                <CoinIcon size={16} className="text-[var(--color-brand-primary)]" />
+                <span>{balance}</span>
+              </div>
+              {prov && (
+                <div className="glass-btn-ghost flex items-center gap-[var(--space-6)] px-[var(--space-10)] py-[var(--space-6)] text-[13px] leading-[18px] font-medium text-[var(--color-text-secondary)] rounded-[var(--radius-12)]">
+                  <span className="text-[13px] leading-none">{prov.icon}</span>
+                  <span>{prov.name}</span>
+                </div>
+              )}
             </div>
           )}
 

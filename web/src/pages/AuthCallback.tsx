@@ -16,6 +16,7 @@ export default function AuthCallback() {
 
     const token = params.get('token');
     const userId = params.get('user_id') ?? '';
+    const provider = params.get('provider') ?? '';
     const oauthError = params.get('error');
 
     if (oauthError) {
@@ -25,7 +26,7 @@ export default function AuthCallback() {
 
     if (token) {
       setToken(token);
-      loginWithToken(token, userId)
+      loginWithToken(token, userId, provider)
         .catch(() => setError('Не удалось завершить авторизацию. Попробуйте снова.'))
         .then(() => navigate('/', { replace: true }));
     } else {
