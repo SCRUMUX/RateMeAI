@@ -71,6 +71,12 @@ async def lifespan(app: FastAPI):
         log.error(
             "OPENROUTER_API_KEY is empty — configure env before accepting traffic",
         )
+    if settings.is_production and "localhost" in settings.api_base_url:
+        log.error(
+            "API_BASE_URL contains 'localhost' in production (%s) — "
+            "image URLs will be broken for clients",
+            settings.api_base_url,
+        )
     sha = (settings.deploy_git_sha or "").strip()
     log.info(
         "RateMeAI API starting version=%s%s",
@@ -150,10 +156,16 @@ async def serve_storage(file_path: str, download: int = 0):
     from fastapi.responses import Response
     from src.utils.redis_keys import gen_image_cache_key
 
-    def _headers(filename: str) -> dict[str, str]:
+    _CORS_HEADERS = {"Access-Control-Allow-Origin": "*"}
+    _CACHE_IMMUTABLE = "public, max-age=86400, immutable"
+
+    def _headers(filename: str, *, cache: bool = True) -> dict[str, str]:
+        h: dict[str, str] = {**_CORS_HEADERS}
+        if cache:
+            h["Cache-Control"] = _CACHE_IMMUTABLE
         if download:
-            return {"Content-Disposition": f'attachment; filename="{filename}"'}
-        return {}
+            h["Content-Disposition"] = f'attachment; filename="{filename}"'
+        return h
 
     local_path = storage_dir / file_path
     if local_path.exists() and local_path.is_file():
@@ -168,6 +180,7 @@ async def serve_storage(file_path: str, download: int = 0):
     m = re.search(r"generated/[^/]+/([0-9a-f\-]{36})\.jpg", file_path)
     if m:
         task_id = m.group(1)
+
         redis: Redis = app.state.redis
         b64 = await redis.get(gen_image_cache_key(task_id))
         if b64:
@@ -178,8 +191,6 @@ async def serve_storage(file_path: str, download: int = 0):
                 headers=_headers(f"{task_id}.jpg"),
             )
 
-    if m:
-        task_id = m.group(1)
         try:
             from sqlalchemy import select as sa_select
             from src.models.db import Task
@@ -201,7 +212,11 @@ async def serve_storage(file_path: str, download: int = 0):
             logging.getLogger(__name__).exception("DB fallback failed for %s", task_id)
 
     from fastapi.responses import JSONResponse
-    return JSONResponse({"detail": "Not found"}, status_code=404)
+    return JSONResponse(
+        {"detail": "Not found"},
+        status_code=404,
+        headers=_CORS_HEADERS,
+    )
 
 
 @app.get("/health")

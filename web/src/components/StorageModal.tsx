@@ -2,7 +2,8 @@ import { useState, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import type { TaskHistoryItem } from '../lib/api';
-import { createShare, API_BASE } from '../lib/api';
+import { createShare } from '../lib/api';
+import { normalizeImageUrl } from '../lib/image-url';
 
 interface Props {
   items: TaskHistoryItem[];
@@ -30,6 +31,8 @@ export default function StorageModal({ items, open, onClose }: Props) {
   const [idx, setIdx] = useState(0);
   const [dir, setDir] = useState(0);
   const [sharing, setSharing] = useState(false);
+  const [downloadError, setDownloadError] = useState(false);
+  const [imgErrors, setImgErrors] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     if (open) setIdx(0);
@@ -68,12 +71,15 @@ export default function StorageModal({ items, open, onClose }: Props) {
 
   async function handleDownload() {
     if (!item?.generated_image_url) return;
-    const url = item.generated_image_url.startsWith('http')
-      ? item.generated_image_url
-      : `${API_BASE}${item.generated_image_url}`;
+    setDownloadError(false);
+    const url = normalizeImageUrl(item.generated_image_url);
     const downloadUrl = url.includes('?') ? `${url}&download=1` : `${url}?download=1`;
     try {
-      const res = await fetch(downloadUrl);
+      const res = await fetch(downloadUrl, { credentials: 'omit' });
+      if (!res.ok) {
+        setDownloadError(true);
+        return;
+      }
       const blob = await res.blob();
       const a = document.createElement('a');
       a.href = URL.createObjectURL(blob);
@@ -81,7 +87,7 @@ export default function StorageModal({ items, open, onClose }: Props) {
       a.click();
       URL.revokeObjectURL(a.href);
     } catch {
-      window.open(downloadUrl, '_blank');
+      setDownloadError(true);
     }
   }
 
@@ -180,10 +186,17 @@ export default function StorageModal({ items, open, onClose }: Props) {
                 <div className="flex gap-[var(--space-24)] mt-[var(--space-8)]">
                   <div className="flex-1 flex flex-col gap-[var(--space-12)]">
                     <div className="relative rounded-[var(--radius-12)] overflow-hidden aspect-[3/4] bg-[rgba(255,255,255,0.02)]">
-                      {item.input_image_url ? (
-                        <img src={item.input_image_url} alt="До" className="w-full h-full object-cover" />
+                      {item.input_image_url && !imgErrors[`input_${item.task_id}`] ? (
+                        <img
+                          src={normalizeImageUrl(item.input_image_url)}
+                          alt="До"
+                          className="w-full h-full object-cover"
+                          onError={() => setImgErrors(p => ({ ...p, [`input_${item.task_id}`]: true }))}
+                        />
                       ) : (
-                        <div className="w-full h-full flex items-center justify-center text-[var(--color-text-muted)] text-[14px]">Нет фото</div>
+                        <div className="w-full h-full flex items-center justify-center text-[var(--color-text-muted)] text-[14px]">
+                          {imgErrors[`input_${item.task_id}`] ? 'Фото недоступно' : 'Нет фото'}
+                        </div>
                       )}
                       <span className="absolute top-[var(--space-8)] left-[var(--space-8)] glass-badge-cyan px-[var(--space-8)] py-[2px] rounded-[var(--radius-pill)] text-[11px] leading-[14px] font-medium text-[#E6EEF8]">
                         До
@@ -207,10 +220,17 @@ export default function StorageModal({ items, open, onClose }: Props) {
 
                   <div className="flex-1 flex flex-col gap-[var(--space-12)]">
                     <div className="relative rounded-[var(--radius-12)] overflow-hidden aspect-[3/4] bg-[rgba(255,255,255,0.02)]">
-                      {item.generated_image_url ? (
-                        <img src={item.generated_image_url} alt="После" className="w-full h-full object-cover" />
+                      {item.generated_image_url && !imgErrors[`gen_${item.task_id}`] ? (
+                        <img
+                          src={normalizeImageUrl(item.generated_image_url)}
+                          alt="После"
+                          className="w-full h-full object-cover"
+                          onError={() => setImgErrors(p => ({ ...p, [`gen_${item.task_id}`]: true }))}
+                        />
                       ) : (
-                        <div className="w-full h-full flex items-center justify-center text-[var(--color-text-muted)] text-[14px]">Нет фото</div>
+                        <div className="w-full h-full flex items-center justify-center text-[var(--color-text-muted)] text-[14px]">
+                          {imgErrors[`gen_${item.task_id}`] ? 'Фото недоступно' : 'Нет фото'}
+                        </div>
                       )}
                       <span className="absolute top-[var(--space-8)] left-[var(--space-8)] glass-badge-success px-[var(--space-8)] py-[2px] rounded-[var(--radius-pill)] text-[11px] leading-[14px] font-medium text-[#E6EEF8]">
                         После
@@ -263,6 +283,12 @@ export default function StorageModal({ items, open, onClose }: Props) {
                         </div>
                       ))}
                   </div>
+                )}
+
+                {downloadError && (
+                  <p className="text-[13px] text-red-400 text-center">
+                    Не удалось скачать файл. Попробуйте позже.
+                  </p>
                 )}
 
                 {/* Actions */}

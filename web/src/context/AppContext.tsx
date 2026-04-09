@@ -1,9 +1,9 @@
 import { createContext, useContext, useEffect, useState, useCallback, useRef, type ReactNode } from 'react';
 import { login, restoreToken, startOAuth, logout as authLogout } from '../lib/auth';
 import * as api from '../lib/api';
-import { API_BASE } from '../lib/api';
 import type { CategoryId } from '../data/styles';
 import { restorePhotoAfterOAuth, clearPersistedPhoto } from '../lib/photo-persist';
+import { normalizeImageUrl } from '../lib/image-url';
 
 interface Session { token: string; userId: string; provider: string; usage: api.ChannelAuthResponse['usage'] }
 
@@ -226,9 +226,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const verifyImageUrl = useCallback(async (url: string, retries = 3, delayMs = 2000): Promise<boolean> => {
     for (let i = 0; i < retries; i++) {
       try {
-        const res = await fetch(url, { method: 'HEAD' });
-        if (res.ok) return true;
-      } catch { /* network error, retry */ }
+        const ok = await new Promise<boolean>((resolve) => {
+          const img = new Image();
+          const cleanup = () => { img.onload = null; img.onerror = null; };
+          img.onload = () => { cleanup(); resolve(true); };
+          img.onerror = () => { cleanup(); resolve(false); };
+          img.src = url;
+        });
+        if (ok) return true;
+      } catch { /* retry */ }
       if (i < retries - 1) await new Promise(r => setTimeout(r, delayMs * (i + 1)));
     }
     return false;
@@ -255,10 +261,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
           stopPolling();
           const r = t.result as Record<string, unknown> | null;
           if (r) {
-            let imgUrl = (r.generated_image_url ?? r.image_url ?? '') as string;
-            if (imgUrl && imgUrl.startsWith('/')) {
-              imgUrl = `${API_BASE}${imgUrl}`;
-            }
+            let imgUrl = normalizeImageUrl(
+              (r.generated_image_url ?? r.image_url ?? '') as string,
+            );
             if (imgUrl) {
               const available = await verifyImageUrl(imgUrl);
               if (available) {
