@@ -83,3 +83,5 @@ jobs:
         run: railway up -s worker -d
       - name: Deploy bot
         run: railway up -s bot -d
+      - name: Deploy web
+        run: railway up -s web -d

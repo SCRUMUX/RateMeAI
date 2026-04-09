@@ -21,6 +21,9 @@ from src.models.schemas import (
     OKAuthRequest,
     VKAuthRequest,
     WebAuthRequest,
+    OAuthInitRequest,
+    OAuthInitResponse,
+    OAuthCallbackRequest,
 )
 from src.api.deps import get_db, get_auth_user, get_redis
 from src.utils.auth_tokens import hash_api_key
@@ -252,3 +255,131 @@ async def auth_web(
 ):
     user = await _find_or_create_by_identity(db, "web", body.device_id)
     return await _auth_response(user, db, redis)
+
+
+# ------------------------------------------------------------------
+# Yandex ID OAuth
+# ------------------------------------------------------------------
+
+@router.post("/auth/yandex/init", response_model=OAuthInitResponse)
+async def yandex_oauth_init(
+    body: OAuthInitRequest,
+    redis: Redis = Depends(get_redis),
+):
+    from src.channels.yandex_auth import build_authorize_url
+    from src.services.oauth_state import save_oauth_state
+
+    state = secrets.token_urlsafe(32)
+    redirect_uri = f"{settings.api_base_url}/api/v1/auth/yandex/callback"
+
+    await save_oauth_state(redis, state, provider="yandex", device_id=body.device_id)
+
+    url = build_authorize_url(state, redirect_uri)
+    return OAuthInitResponse(authorize_url=url)
+
+
+@router.get("/auth/yandex/callback")
+async def yandex_oauth_callback(
+    code: str,
+    state: str,
+    db: AsyncSession = Depends(get_db),
+    redis: Redis = Depends(get_redis),
+):
+    from src.channels.yandex_auth import exchange_code, get_user_info
+    from src.services.oauth_state import pop_oauth_state
+    from fastapi.responses import RedirectResponse
+
+    stored = await pop_oauth_state(redis, state)
+    if stored is None or stored.get("provider") != "yandex":
+        raise HTTPException(status_code=400, detail="Invalid or expired OAuth state")
+
+    redirect_uri = f"{settings.api_base_url}/api/v1/auth/yandex/callback"
+    access_token = await exchange_code(code, redirect_uri)
+    if not access_token:
+        raise HTTPException(status_code=401, detail="Yandex token exchange failed")
+
+    yandex_user = await get_user_info(access_token)
+    if yandex_user is None or not yandex_user.id:
+        raise HTTPException(status_code=401, detail="Failed to fetch Yandex user info")
+
+    user = await _find_or_create_by_identity(
+        db, "yandex", yandex_user.id, display_name=yandex_user.display_name,
+    )
+    token = await create_session(redis, user.id)
+
+    web_base = settings.web_base_url or settings.api_base_url
+    return RedirectResponse(
+        url=f"{web_base}/auth/callback?token={token}&provider=yandex",
+    )
+
+
+# ------------------------------------------------------------------
+# VK ID OAuth
+# ------------------------------------------------------------------
+
+@router.post("/auth/vk-id/init", response_model=OAuthInitResponse)
+async def vk_id_oauth_init(
+    body: OAuthInitRequest,
+    redis: Redis = Depends(get_redis),
+):
+    from src.channels.vk_id_auth import build_authorize_url
+    from src.services.oauth_state import generate_pkce, save_oauth_state
+
+    state = secrets.token_urlsafe(32)
+    code_verifier, code_challenge = generate_pkce()
+    redirect_uri = f"{settings.api_base_url}/api/v1/auth/vk-id/callback"
+    device_id = body.device_id or secrets.token_urlsafe(16)
+
+    await save_oauth_state(
+        redis, state,
+        provider="vk_id",
+        code_verifier=code_verifier,
+        device_id=device_id,
+    )
+
+    url = build_authorize_url(state, redirect_uri, code_challenge, device_id)
+    return OAuthInitResponse(authorize_url=url)
+
+
+@router.get("/auth/vk-id/callback")
+async def vk_id_oauth_callback(
+    code: str,
+    state: str,
+    device_id: str = "",
+    db: AsyncSession = Depends(get_db),
+    redis: Redis = Depends(get_redis),
+):
+    from src.channels.vk_id_auth import exchange_code, get_user_info
+    from src.services.oauth_state import pop_oauth_state
+    from fastapi.responses import RedirectResponse
+
+    stored = await pop_oauth_state(redis, state)
+    if stored is None or stored.get("provider") != "vk_id":
+        raise HTTPException(status_code=400, detail="Invalid or expired OAuth state")
+
+    code_verifier = stored.get("code_verifier", "")
+    stored_device_id = device_id or stored.get("device_id", "")
+    redirect_uri = f"{settings.api_base_url}/api/v1/auth/vk-id/callback"
+
+    access_token = await exchange_code(
+        code, redirect_uri, code_verifier, stored_device_id, state,
+    )
+    if not access_token:
+        raise HTTPException(status_code=401, detail="VK ID token exchange failed")
+
+    vk_user = await get_user_info(access_token)
+    if vk_user is None or not vk_user.user_id:
+        raise HTTPException(status_code=401, detail="Failed to fetch VK ID user info")
+
+    display = " ".join(
+        n for n in (vk_user.first_name, vk_user.last_name) if n
+    ) or None
+    user = await _find_or_create_by_identity(
+        db, "vk_id", vk_user.user_id, display_name=display,
+    )
+    token = await create_session(redis, user.id)
+
+    web_base = settings.web_base_url or settings.api_base_url
+    return RedirectResponse(
+        url=f"{web_base}/auth/callback?token={token}&provider=vk_id",
+    )

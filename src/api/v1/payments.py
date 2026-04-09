@@ -126,6 +126,25 @@ async def yookassa_webhook(
     return {"status": "ok", "credits_added": pack_qty, "balance": user.image_credits}
 
 
+@router.post("/create")
+async def create_payment_link(
+    request: Request,
+    user: User = Depends(get_auth_user),
+):
+    """Create a YooKassa payment and return the confirmation URL for web checkout."""
+    body = await request.json()
+    pack_qty = body.get("pack_qty")
+    if not pack_qty or not isinstance(pack_qty, int):
+        raise HTTPException(status_code=400, detail="pack_qty is required (integer)")
+
+    from src.services.payments import create_payment as _create
+    result = await _create(str(user.id), pack_qty, return_channel="web")
+    if not result:
+        raise HTTPException(status_code=500, detail="Payment creation failed")
+    payment_id, confirmation_url = result
+    return {"payment_id": payment_id, "confirmation_url": confirmation_url}
+
+
 @router.get("/balance")
 async def get_balance(
     user: User = Depends(get_auth_user),

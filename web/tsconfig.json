@@ -1,0 +1,32 @@
+{
+  "compilerOptions": {
+    "target": "ES2020",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "jsx": "react-jsx",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "noEmit": true,
+    "types": ["vite/client"],
+    "baseUrl": ".",
+    "paths": {
+      "@ai-ds/core": ["../AICADS-/packages/core/src/index.ts"],
+      "@ai-ds/core/components": ["../AICADS-/packages/core/components/index.ts"],
+      "@ai-ds/core/components/*": ["../AICADS-/packages/core/components/primitives/*/index.ts"],
+      "@ai-ds/core/icons": ["../AICADS-/packages/core/components/icons/index.tsx"],
+      "@ai-ds/core/hooks": ["../AICADS-/packages/core/hooks/index.ts"],
+      "@ai-ds/core/shared": ["../AICADS-/packages/core/components/primitives/_shared/index.ts"],
+      "@ai-ds/core/blocks": ["../AICADS-/packages/core/components/blocks/index.ts"],
+      "@ai-ds/core/blocks/*": ["../AICADS-/packages/core/components/blocks/*/index.ts"],
+      "@ai-ds/core/layout": ["../AICADS-/packages/core/layout/index.ts"],
+      "@ai-ds/core/behaviors": ["../AICADS-/packages/core/behaviors/index.ts"],
+      "@ai-ds/core/utils": ["../AICADS-/packages/core/utils/token-resolver.ts"]
+    }
+  },
+  "include": ["src/**/*.ts", "src/**/*.tsx"],
+  "exclude": ["node_modules", "dist"]
+}

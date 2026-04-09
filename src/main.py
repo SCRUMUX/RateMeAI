@@ -94,7 +94,12 @@ app = FastAPI(
 
 app.add_middleware(RequestLoggingMiddleware)
 if settings.is_production:
-    _origins = ["https://ratemeai.com"]
+    _origins = [
+        "https://ratemeai.com",
+        "https://ailookstudio.ru",
+        "https://www.ailookstudio.ru",
+        "https://ailookstudio.vercel.app",
+    ]
     if settings.cors_extra_origins:
         _origins.extend(
             o.strip() for o in settings.cors_extra_origins.split(",") if o.strip()

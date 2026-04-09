@@ -106,6 +106,14 @@ class Settings(BaseSettings):
     vk_app_secret: str = ""
     vk_service_token: str = ""
 
+    # Yandex ID OAuth
+    yandex_client_id: str = ""
+    yandex_client_secret: str = ""
+
+    # VK ID OAuth (web site login, separate from VK Mini App)
+    vk_id_app_id: str = ""
+    vk_id_app_secret: str = ""
+
     # WhatsApp Business API
     whatsapp_api_token: str = ""
     whatsapp_verify_token: str = ""

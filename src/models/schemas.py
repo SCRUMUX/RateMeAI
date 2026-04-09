@@ -174,6 +174,20 @@ class WebAuthRequest(BaseModel):
     device_id: str
 
 
+class OAuthInitRequest(BaseModel):
+    device_id: str = ""
+
+
+class OAuthInitResponse(BaseModel):
+    authorize_url: str
+
+
+class OAuthCallbackRequest(BaseModel):
+    code: str
+    state: str
+    device_id: str = ""
+
+
 # ── Pre-Analysis ──
 
 class PreAnalysisResponse(BaseModel):
