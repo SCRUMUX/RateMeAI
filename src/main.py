@@ -141,7 +141,33 @@ Instrumentator().instrument(app).expose(app, endpoint="/metrics")
 
 storage_dir = Path(settings.storage_local_path).resolve()
 storage_dir.mkdir(parents=True, exist_ok=True)
-app.mount("/storage", StaticFiles(directory=str(storage_dir)), name="storage")
+
+
+@app.get("/storage/{file_path:path}")
+async def serve_storage(file_path: str):
+    """Serve files from local storage with Redis fallback for generated images."""
+    import base64
+    import re
+    from fastapi.responses import Response
+    from src.utils.redis_keys import gen_image_cache_key
+
+    local_path = storage_dir / file_path
+    if local_path.exists() and local_path.is_file():
+        import mimetypes
+        ct = mimetypes.guess_type(str(local_path))[0] or "application/octet-stream"
+        return Response(content=local_path.read_bytes(), media_type=ct)
+
+    m = re.search(r"generated/[^/]+/([0-9a-f\-]{36})\.jpg", file_path)
+    if m:
+        task_id = m.group(1)
+        redis: Redis = app.state.redis
+        b64 = await redis.get(gen_image_cache_key(task_id))
+        if b64:
+            data = base64.b64decode(b64)
+            return Response(content=data, media_type="image/jpeg")
+
+    from fastapi.responses import JSONResponse
+    return JSONResponse({"detail": "Not found"}, status_code=404)
 
 
 @app.get("/health")

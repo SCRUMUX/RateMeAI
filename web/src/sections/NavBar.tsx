@@ -1,3 +1,4 @@
+import { useState, useRef, useEffect } from 'react';
 import { AicaIcon, GlobeIcon, CoinIcon } from '@ai-ds/core/icons';
 import { useApp } from '../context/AppContext';
 
@@ -8,7 +9,20 @@ const PROVIDER_LABELS: Record<string, { icon: string; name: string }> = {
 };
 
 export default function NavBar() {
-  const { session, balance } = useApp();
+  const { session, balance, logout } = useApp();
+  const [showLogout, setShowLogout] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!showLogout) return;
+    const handler = (e: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setShowLogout(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [showLogout]);
 
   const prov = session?.provider ? PROVIDER_LABELS[session.provider] : null;
 
@@ -41,9 +55,24 @@ export default function NavBar() {
                 <span>{balance}</span>
               </div>
               {prov && (
-                <div className="glass-btn-ghost flex items-center gap-[var(--space-6)] px-[var(--space-10)] py-[var(--space-6)] text-[13px] leading-[18px] font-medium text-[var(--color-text-secondary)] rounded-[var(--radius-12)]">
-                  <span className="text-[13px] leading-none">{prov.icon}</span>
-                  <span>{prov.name}</span>
+                <div className="relative" ref={dropdownRef}>
+                  <button
+                    onClick={() => setShowLogout(prev => !prev)}
+                    className="glass-btn-ghost flex items-center gap-[var(--space-6)] px-[var(--space-10)] py-[var(--space-6)] text-[13px] leading-[18px] font-medium text-[var(--color-text-secondary)] rounded-[var(--radius-12)] cursor-pointer hover:text-[#E6EEF8] transition-colors"
+                  >
+                    <span className="text-[13px] leading-none">{prov.icon}</span>
+                    <span>{prov.name}</span>
+                  </button>
+                  {showLogout && (
+                    <div className="absolute top-full right-0 mt-2 glass-card rounded-[var(--radius-12)] shadow-lg overflow-hidden z-50 min-w-[140px]">
+                      <button
+                        onClick={() => { logout(); setShowLogout(false); }}
+                        className="w-full px-4 py-2.5 text-left text-[13px] font-medium text-[var(--color-text-secondary)] hover:text-[#E6EEF8] hover:bg-white/5 transition-colors"
+                      >
+                        Выйти
+                      </button>
+                    </div>
+                  )}
                 </div>
               )}
             </div>

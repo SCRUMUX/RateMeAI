@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useState, useCallback, useRef, type ReactNode } from 'react';
-import { login, restoreToken, startOAuth } from '../lib/auth';
+import { login, restoreToken, startOAuth, logout as authLogout } from '../lib/auth';
 import * as api from '../lib/api';
 import { API_BASE } from '../lib/api';
 import type { CategoryId } from '../data/styles';
@@ -34,14 +34,16 @@ interface AppActions {
   setSelectedStyleKey: (k: string) => void;
   uploadPhoto: (f: File) => void;
   runPreAnalyze: () => Promise<void>;
-  generate: () => Promise<void>;
+  generate: (onTaskCreated?: () => void) => Promise<void>;
   share: () => Promise<api.ShareResponse | null>;
   refreshBalance: () => Promise<void>;
   clearError: () => void;
+  clearGeneratedImage: () => void;
   startSimulation: () => void;
   authenticateUser: (email: string) => Promise<void>;
   loginWithOAuth: (provider: 'yandex' | 'vk-id') => Promise<void>;
   loginWithToken: (token: string, userId?: string, provider?: string) => Promise<void>;
+  logout: () => void;
 }
 
 const Ctx = createContext<(AppState & AppActions) | null>(null);
@@ -163,6 +165,22 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  const logout = useCallback(() => {
+    authLogout();
+    localStorage.removeItem('ailook_provider');
+    setSession(null);
+    setIsAuthenticated(false);
+    setBalance(0);
+    setPhoto(null);
+    setGeneratedImageUrl(null);
+    setCurrentTask(null);
+    setPreAnalysis(null);
+    setAfterScore(null);
+    setAfterPerception(null);
+    setError(null);
+    setIsGenerating(false);
+  }, []);
+
   useEffect(() => {
     const saved = restoreToken();
     if (saved) {
@@ -186,9 +204,20 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const startPolling = useCallback((taskId: string) => {
     stopPolling();
+    let errorCount = 0;
+    const MAX_ERRORS = 5;
+    const TIMEOUT_MS = 5 * 60 * 1000;
+    const startedAt = Date.now();
     pollingRef.current = setInterval(async () => {
+      if (Date.now() - startedAt > TIMEOUT_MS) {
+        stopPolling();
+        setIsGenerating(false);
+        setError('Превышено время ожидания результата. Попробуйте снова.');
+        return;
+      }
       try {
         const t = await api.getTask(taskId);
+        errorCount = 0;
         setCurrentTask({ taskId: t.task_id, status: t.status, result: t.result });
         if (t.status === 'completed') {
           stopPolling();
@@ -211,24 +240,28 @@ export function AppProvider({ children }: { children: ReactNode }) {
           setIsGenerating(false);
           setError(t.error_message ?? 'Generation failed');
         }
-      } catch { /* retry on next tick */ }
+      } catch {
+        errorCount++;
+        if (errorCount >= MAX_ERRORS) {
+          stopPolling();
+          setIsGenerating(false);
+          setError('Не удалось получить результат. Проверьте подключение и попробуйте снова.');
+        }
+      }
     }, 2000);
   }, [stopPolling, refreshBalance]);
 
   useEffect(() => () => stopPolling(), [stopPolling]);
 
-  const generate = useCallback(async () => {
+  const generate = useCallback(async (onTaskCreated?: () => void) => {
     if (!photo || !selectedStyleKey) return;
-    if (balance <= 0) {
-      setError('Недостаточно кредитов. Пополните баланс в разделе Тарифы.');
-      return;
-    }
     setIsGenerating(true);
     setError(null);
     setGeneratedImageUrl(null);
     setAfterScore(null);
     setAfterPerception(null);
     try {
+      await refreshBalance();
       const modeMap: Record<CategoryId, string> = { social: 'social', cv: 'cv', dating: 'dating' };
       const res = await api.analyze(
         photo.file,
@@ -237,12 +270,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
         preAnalysis?.pre_analysis_id,
       );
       setCurrentTask({ taskId: res.task_id, status: res.status, result: null });
+      onTaskCreated?.();
       startPolling(res.task_id);
     } catch (e) {
       setIsGenerating(false);
       setError(e instanceof api.ApiError ? e.body : 'Generation failed');
     }
-  }, [photo, selectedStyleKey, balance, activeCategory, preAnalysis, startPolling]);
+  }, [photo, selectedStyleKey, activeCategory, preAnalysis, startPolling, refreshBalance]);
 
   const share = useCallback(async () => {
     if (!currentTask?.taskId) return null;
@@ -254,14 +288,19 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, [currentTask]);
 
   const clearError = useCallback(() => setError(null), []);
+  const clearGeneratedImage = useCallback(() => {
+    setGeneratedImageUrl(null);
+    setCurrentTask(null);
+    setIsGenerating(false);
+  }, []);
 
   const value: AppState & AppActions = {
     session, balance, photo, preAnalysis, activeCategory, selectedStyleKey,
     currentTask, isGenerating, error, generatedImageUrl, afterScore, afterPerception,
     isAuthenticated, isSimulating, simulationDone,
     setActiveCategory, setSelectedStyleKey, uploadPhoto, runPreAnalyze,
-    generate, share, refreshBalance, clearError, startSimulation, authenticateUser,
-    loginWithOAuth, loginWithToken,
+    generate, share, refreshBalance, clearError, clearGeneratedImage, startSimulation, authenticateUser,
+    loginWithOAuth, loginWithToken, logout,
   };
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;

@@ -40,7 +40,8 @@ export default function AppScreen() {
   const beforeScore = hasRealScores ? app.preAnalysis!.score : 5.99;
   const beforePerception = hasRealScores ? app.preAnalysis!.perception_scores : null;
 
-  const hasGenResult = !!app.generatedImageUrl;
+  const [imageLoadError, setImageLoadError] = useState(false);
+  const hasGenResult = !!app.generatedImageUrl && !imageLoadError;
   const genAfterScore = app.afterScore;
 
   const predictedDelta = (selectedStyle.deltaRange[0] + selectedStyle.deltaRange[1]) / 2;
@@ -199,9 +200,10 @@ export default function AppScreen() {
       startGenSimulation();
       return;
     }
-    startGenSimulation();
-    await app.generate();
+    await app.generate(() => startGenSimulation());
   }
+
+  useEffect(() => { setImageLoadError(false); }, [app.generatedImageUrl]);
 
   // Auto-finish simulation when real result arrives or generation fails
   useEffect(() => {
@@ -300,17 +302,20 @@ export default function AppScreen() {
                       src={app.generatedImageUrl!}
                       alt="Generated"
                       className="w-full h-full object-cover"
-                      onError={(e: SyntheticEvent<HTMLImageElement>) => {
-                        e.currentTarget.style.display = 'none';
-                        const parent = e.currentTarget.parentElement;
-                        if (parent && !parent.querySelector('.img-error-msg')) {
-                          const msg = document.createElement('div');
-                          msg.className = 'img-error-msg w-full h-full flex items-center justify-center text-[14px] text-[var(--color-text-muted)] text-center p-4';
-                          msg.textContent = 'Не удалось загрузить изображение';
-                          parent.appendChild(msg);
-                        }
-                      }}
+                      onError={() => setImageLoadError(true)}
                     />
+                  )}
+                  {/* Image load error with retry */}
+                  {imageLoadError && app.generatedImageUrl && (
+                    <div className="w-full h-full flex flex-col items-center justify-center gap-3 text-center p-4">
+                      <p className="text-[14px] text-[var(--color-text-muted)]">Не удалось загрузить изображение</p>
+                      <button
+                        className="px-4 py-2 rounded-lg text-[13px] font-medium glass-card hover:opacity-80 transition-opacity"
+                        onClick={() => { app.clearGeneratedImage(); setImageLoadError(false); }}
+                      >
+                        Повторить генерацию
+                      </button>
+                    </div>
                   )}
                   {/* Real generation spinner (only when no sim running) */}
                   {!hasGenResult && app.isGenerating && !genSimulating && (
