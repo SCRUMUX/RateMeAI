@@ -1,4 +1,4 @@
-const coreConfig = require('../AICADS-/packages/core/config/tailwind/tailwind.config.cjs');
+const coreConfig = require('./tailwind-core.config.cjs');
 
 /** @type {import('tailwindcss').Config} */
 module.exports = {
@@ -8,7 +8,6 @@ module.exports = {
     files: [
       './src/**/*.{js,ts,jsx,tsx}',
       './index.html',
-      '../AICADS-/packages/core/components/**/*.{js,ts,jsx,tsx}',
     ],
   },
   darkMode: ['class', '[data-theme="dark"]'],
