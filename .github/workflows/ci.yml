@@ -75,13 +75,28 @@ jobs:
       RAILWAY_PROJECT_ID: ${{ secrets.RAILWAY_PROJECT_ID }}
     steps:
       - uses: actions/checkout@v4
+
+      - name: Check Railway token
+        run: |
+          if [ -z "$RAILWAY_TOKEN" ]; then
+            echo "::error::RAILWAY_TOKEN secret is not set — go to repo Settings > Secrets > Actions"
+            exit 1
+          fi
+          if [ -z "$RAILWAY_PROJECT_ID" ]; then
+            echo "::error::RAILWAY_PROJECT_ID secret is not set"
+            exit 1
+          fi
+
       - name: Install Railway CLI
         run: npm install -g @railway/cli
+
       - name: Deploy app
         run: railway up -s app -d
+
       - name: Deploy worker
+        if: success() || failure()
         run: railway up -s worker -d
+
       - name: Deploy bot
+        if: success() || failure()
         run: railway up -s bot -d
-      - name: Deploy web
-        run: railway up -s web -d
