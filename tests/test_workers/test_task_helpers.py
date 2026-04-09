@@ -1,8 +1,6 @@
 """Tests for worker helper functions and result enrichment logic."""
 from __future__ import annotations
 
-import pytest
-
 from src.workers.tasks import _is_transient
 
 

@@ -45,11 +45,12 @@ python -c "import py_compile; py_compile.compile(r'src\main.py', doraise=True)"
 
 ## Чеклист перед коммитом/пушем
 
-1. Typecheck фронтенда: `npx tsc --noEmit` (в папке `web`)
-2. Проверить синтаксис Python: `python -c "import py_compile; py_compile.compile(r'src\main.py', doraise=True)"`
-3. Проверить линтер: `ReadLints` на изменённых файлах
-4. Коммит: `git add <files>; git commit -m "тип: описание"`
-5. Пуш: `git push origin main`
+1. **Ruff lint** (точно как в CI): `python -m ruff check src/ tests/ --select=E,F,W --ignore=E501`
+2. Typecheck фронтенда: `npx tsc --noEmit` (в папке `web`)
+3. Проверить синтаксис Python: `python -c "import py_compile; py_compile.compile(r'src\main.py', doraise=True)"`
+4. Проверить линтер: `ReadLints` на изменённых файлах
+5. Коммит: `git add <files>; git commit -m "тип: описание"`
+6. Пуш: `git push origin main`
 
 ## Проверка после деплоя
 
@@ -87,3 +88,4 @@ Invoke-WebRequest -Uri "https://ailookstudio.vercel.app" -UseBasicParsing | Sele
 - `&&` в PowerShell — синтаксическая ошибка
 - Heredoc в PowerShell — синтаксическая ошибка
 - Забыть `VITE_API_BASE_URL` на Vercel — фронтенд не видит API
+- **Не запустить ruff перед коммитом** — CI падает на lint, деплой не запускается

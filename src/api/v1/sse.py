@@ -36,7 +36,7 @@ async def task_progress_stream(
     task = result.scalar_one_or_none()
     if task is None or task.user_id != user.id:
         return StreamingResponse(
-            iter([f"data: {{\"error\": \"task_not_found\"}}\n\n"]),
+            iter(["data: {\"error\": \"task_not_found\"}\n\n"]),
             media_type="text/event-stream",
             status_code=404,
         )
