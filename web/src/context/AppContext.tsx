@@ -27,6 +27,9 @@ interface AppState {
   isAuthenticated: boolean;
   isSimulating: boolean;
   simulationDone: boolean;
+  noCreditsError: boolean;
+  taskHistory: api.TaskHistoryItem[];
+  taskHistoryCount: number;
 }
 
 interface AppActions {
@@ -34,11 +37,13 @@ interface AppActions {
   setSelectedStyleKey: (k: string) => void;
   uploadPhoto: (f: File) => void;
   runPreAnalyze: () => Promise<void>;
-  generate: (onTaskCreated?: () => void) => Promise<void>;
+  generate: (onTaskCreated?: () => void, styleKeyOverride?: string) => Promise<void>;
   share: () => Promise<api.ShareResponse | null>;
   refreshBalance: () => Promise<void>;
   clearError: () => void;
   clearGeneratedImage: () => void;
+  clearNoCreditsError: () => void;
+  fetchTaskHistory: () => Promise<void>;
   startSimulation: () => void;
   authenticateUser: (email: string) => Promise<void>;
   loginWithOAuth: (provider: 'yandex' | 'vk-id') => Promise<void>;
@@ -73,6 +78,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isSimulating, setIsSimulating] = useState(false);
   const [simulationDone, setSimulationDone] = useState(false);
+  const [noCreditsError, setNoCreditsError] = useState(false);
+  const [taskHistory, setTaskHistory] = useState<api.TaskHistoryItem[]>([]);
+  const [taskHistoryCount, setTaskHistoryCount] = useState(0);
 
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const simTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -81,6 +89,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
     try {
       const b = await api.getBalance();
       setBalance(b.image_credits);
+    } catch { /* ignore */ }
+  }, []);
+
+  const fetchTaskHistory = useCallback(async () => {
+    try {
+      const res = await api.getTaskHistory(100, 0);
+      setTaskHistory(res.items);
+      setTaskHistoryCount(res.total_count);
     } catch { /* ignore */ }
   }, []);
 
@@ -155,6 +171,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setSession({ token, userId: userId || '', provider: prov, usage });
     setIsAuthenticated(true);
 
+    api.getTaskHistory(100, 0).then(res => {
+      setTaskHistory(res.items);
+      setTaskHistoryCount(res.total_count);
+    }).catch(() => {});
+
     const restored = await restorePhotoAfterOAuth();
     if (restored) {
       const preview = URL.createObjectURL(restored.file);
@@ -228,13 +249,25 @@ export function AppProvider({ children }: { children: ReactNode }) {
             if (imgUrl && imgUrl.startsWith('/')) {
               imgUrl = `${API_BASE}${imgUrl}`;
             }
-            if (imgUrl) setGeneratedImageUrl(imgUrl);
+            if (imgUrl) {
+              setGeneratedImageUrl(imgUrl);
+            } else {
+              const reason = r.no_image_reason as string | undefined;
+              const NO_IMAGE_MESSAGES: Record<string, string> = {
+                no_credits: 'Недостаточно кредитов для генерации изображения. Пополните баланс.',
+                generation_error: 'Не удалось сгенерировать изображение. Попробуйте другой стиль или фото.',
+                upgrade_required: 'Для генерации изображения необходимо пополнить баланс.',
+                not_applicable: 'Для данного режима генерация изображения недоступна.',
+              };
+              setError(NO_IMAGE_MESSAGES[reason ?? ''] ?? 'Анализ завершён без изображения.');
+            }
             const score = (r.dating_score ?? r.social_score ?? r.score ?? null) as number | null;
             if (score != null) setAfterScore(score);
             const ps = r.perception_scores as Record<string, number> | undefined;
             if (ps) setAfterPerception(ps);
           }
           refreshBalance();
+          fetchTaskHistory();
         } else if (t.status === 'failed') {
           stopPolling();
           setIsGenerating(false);
@@ -249,12 +282,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
         }
       }
     }, 2000);
-  }, [stopPolling, refreshBalance]);
+  }, [stopPolling, refreshBalance, fetchTaskHistory]);
 
   useEffect(() => () => stopPolling(), [stopPolling]);
 
-  const generate = useCallback(async (onTaskCreated?: () => void) => {
-    if (!photo || !selectedStyleKey) return;
+  const generate = useCallback(async (onTaskCreated?: () => void, styleKeyOverride?: string) => {
+    const effectiveStyle = styleKeyOverride || selectedStyleKey;
+    if (!photo || !effectiveStyle || isGenerating) return;
     setIsGenerating(true);
     setError(null);
     setGeneratedImageUrl(null);
@@ -263,20 +297,26 @@ export function AppProvider({ children }: { children: ReactNode }) {
     try {
       await refreshBalance();
       const modeMap: Record<CategoryId, string> = { social: 'social', cv: 'cv', dating: 'dating' };
+      const enhancementLevel = 1;
       const res = await api.analyze(
         photo.file,
         modeMap[activeCategory],
-        selectedStyleKey,
+        effectiveStyle,
         preAnalysis?.pre_analysis_id,
+        enhancementLevel,
       );
       setCurrentTask({ taskId: res.task_id, status: res.status, result: null });
       onTaskCreated?.();
       startPolling(res.task_id);
     } catch (e) {
       setIsGenerating(false);
-      setError(e instanceof api.ApiError ? e.body : 'Generation failed');
+      if (e instanceof api.ApiError && e.status === 402) {
+        setNoCreditsError(true);
+      } else {
+        setError(e instanceof api.ApiError ? e.body : 'Generation failed');
+      }
     }
-  }, [photo, selectedStyleKey, activeCategory, preAnalysis, startPolling, refreshBalance]);
+  }, [photo, selectedStyleKey, activeCategory, preAnalysis, startPolling, refreshBalance, isGenerating]);
 
   const share = useCallback(async () => {
     if (!currentTask?.taskId) return null;
@@ -288,6 +328,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, [currentTask]);
 
   const clearError = useCallback(() => setError(null), []);
+  const clearNoCreditsError = useCallback(() => setNoCreditsError(false), []);
   const clearGeneratedImage = useCallback(() => {
     setGeneratedImageUrl(null);
     setCurrentTask(null);
@@ -298,8 +339,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
     session, balance, photo, preAnalysis, activeCategory, selectedStyleKey,
     currentTask, isGenerating, error, generatedImageUrl, afterScore, afterPerception,
     isAuthenticated, isSimulating, simulationDone,
+    noCreditsError, taskHistory, taskHistoryCount,
     setActiveCategory, setSelectedStyleKey, uploadPhoto, runPreAnalyze,
-    generate, share, refreshBalance, clearError, clearGeneratedImage, startSimulation, authenticateUser,
+    generate, share, refreshBalance, clearError, clearGeneratedImage, clearNoCreditsError,
+    fetchTaskHistory, startSimulation, authenticateUser,
     loginWithOAuth, loginWithToken, logout,
   };
 

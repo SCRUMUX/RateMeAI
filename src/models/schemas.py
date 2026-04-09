@@ -46,6 +46,23 @@ class TaskCreated(BaseModel):
     estimated_seconds: int = 15
 
 
+class TaskHistoryItem(BaseModel):
+    task_id: uuid.UUID
+    mode: str
+    style: str = ""
+    completed_at: datetime | None = None
+    input_image_url: str = ""
+    generated_image_url: str = ""
+    score_before: float | None = None
+    score_after: float | None = None
+    perception_scores: dict | None = None
+
+
+class TaskHistoryResponse(BaseModel):
+    items: list[TaskHistoryItem]
+    total_count: int
+
+
 # ── Perception Scores (unified across all modes) ──
 
 class PerceptionScores(BaseModel):

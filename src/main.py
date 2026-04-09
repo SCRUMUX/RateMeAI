@@ -143,18 +143,27 @@ storage_dir.mkdir(parents=True, exist_ok=True)
 
 
 @app.get("/storage/{file_path:path}")
-async def serve_storage(file_path: str):
+async def serve_storage(file_path: str, download: int = 0):
     """Serve files from local storage with Redis fallback for generated images."""
     import base64
     import re
     from fastapi.responses import Response
     from src.utils.redis_keys import gen_image_cache_key
 
+    def _headers(filename: str) -> dict[str, str]:
+        if download:
+            return {"Content-Disposition": f'attachment; filename="{filename}"'}
+        return {}
+
     local_path = storage_dir / file_path
     if local_path.exists() and local_path.is_file():
         import mimetypes
         ct = mimetypes.guess_type(str(local_path))[0] or "application/octet-stream"
-        return Response(content=local_path.read_bytes(), media_type=ct)
+        return Response(
+            content=local_path.read_bytes(),
+            media_type=ct,
+            headers=_headers(local_path.name),
+        )
 
     m = re.search(r"generated/[^/]+/([0-9a-f\-]{36})\.jpg", file_path)
     if m:
@@ -163,7 +172,11 @@ async def serve_storage(file_path: str):
         b64 = await redis.get(gen_image_cache_key(task_id))
         if b64:
             data = base64.b64decode(b64)
-            return Response(content=data, media_type="image/jpeg")
+            return Response(
+                content=data,
+                media_type="image/jpeg",
+                headers=_headers(f"{task_id}.jpg"),
+            )
 
     from fastapi.responses import JSONResponse
     return JSONResponse({"detail": "Not found"}, status_code=404)

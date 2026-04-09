@@ -3,6 +3,7 @@ import { AicaIcon, ChevronLeftIcon, ChevronRightIcon, CoinIcon, ImageIcon } from
 import { STYLES_BY_CATEGORY, PARAMS_BY_MODE, getMockDelta, type CategoryId } from '../data/styles';
 import CategoryTabs from '../components/CategoryTabs';
 import AuthModal from '../components/AuthModal';
+import StorageModal from '../components/StorageModal';
 import { useApp } from '../context/AppContext';
 
 const STYLES_PER_PAGE = 8;
@@ -87,6 +88,7 @@ export default function AppScreen() {
   }, [app]);
 
   const [authModalOpen, setAuthModalOpen] = useState(false);
+  const [storageModalOpen, setStorageModalOpen] = useState(false);
   const [simStep, setSimStep] = useState(0);
   const [streamedText, setStreamedText] = useState('');
 
@@ -193,14 +195,15 @@ export default function AppScreen() {
       fileInputRef.current?.click();
       return;
     }
-    if (!app.selectedStyleKey) {
-      app.setSelectedStyleKey(styles[0]?.key ?? '');
+    const effectiveStyle = app.selectedStyleKey || styles[0]?.key || '';
+    if (!app.selectedStyleKey && effectiveStyle) {
+      app.setSelectedStyleKey(effectiveStyle);
     }
     if (!app.isAuthenticated) {
       startGenSimulation();
       return;
     }
-    await app.generate(() => startGenSimulation());
+    await app.generate(() => startGenSimulation(), effectiveStyle);
   }
 
   useEffect(() => { setImageLoadError(false); }, [app.generatedImageUrl]);
@@ -419,12 +422,15 @@ export default function AppScreen() {
                     <CoinIcon size={16} className="text-[var(--color-brand-primary)]" />
                     <span className="text-[14px] leading-[20px] font-medium text-[#E6EEF8]">Баланс {app.balance}</span>
                   </div>
-                  <div className="glass-btn-ghost flex items-center gap-[var(--space-6)] px-[var(--space-12)] py-[var(--space-4)] rounded-[var(--radius-12)]">
+                  <button
+                    onClick={() => setStorageModalOpen(true)}
+                    className="glass-btn-ghost flex items-center gap-[var(--space-6)] px-[var(--space-12)] py-[var(--space-4)] rounded-[var(--radius-12)] cursor-pointer"
+                  >
                     <ImageIcon size={16} className="text-[var(--color-brand-primary)]" />
                     <span className="text-[14px] leading-[20px] font-medium text-[#E6EEF8]">
-                      {app.session ? `Лимит ${app.session.usage.remaining}` : 'Хранилище'}
+                      Хранилище {app.taskHistoryCount}
                     </span>
-                  </div>
+                  </button>
                 </div>
 
                 {/* Section heading */}
@@ -668,6 +674,41 @@ export default function AppScreen() {
           await app.loginWithOAuth(provider);
         }}
       />
+
+      <StorageModal
+        open={storageModalOpen}
+        onClose={() => setStorageModalOpen(false)}
+        items={app.taskHistory}
+      />
+
+      {app.noCreditsError && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+          <div className="glass-card rounded-[var(--radius-16)] p-[var(--space-24)] max-w-sm w-full mx-4 flex flex-col items-center gap-[var(--space-16)] text-center">
+            <CoinIcon size={40} className="text-[var(--color-brand-primary)]" />
+            <h3 className="text-[18px] font-semibold text-[#E6EEF8]">Кредиты закончились</h3>
+            <p className="text-[14px] text-[var(--color-text-secondary)]">
+              Для генерации изображений необходимо пополнить баланс.
+            </p>
+            <div className="flex gap-[var(--space-12)] w-full">
+              <button
+                className="flex-1 glass-btn-ghost rounded-[var(--radius-12)] py-[var(--space-10)] text-[14px] font-medium text-[#E6EEF8]"
+                onClick={() => app.clearNoCreditsError()}
+              >
+                Закрыть
+              </button>
+              <button
+                className="flex-1 glass-btn-primary rounded-[var(--radius-12)] py-[var(--space-10)] text-[14px] font-semibold text-white"
+                onClick={() => {
+                  app.clearNoCreditsError();
+                  document.getElementById('тарифы')?.scrollIntoView({ behavior: 'smooth' });
+                }}
+              >
+                Пополнить баланс
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </section>
   );
 }

@@ -16,7 +16,12 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
 
   if (!res.ok) {
     const text = await res.text().catch(() => '');
-    throw new ApiError(res.status, text);
+    let detail = text;
+    try {
+      const json = JSON.parse(text);
+      detail = json.detail ?? json.message ?? text;
+    } catch { /* not JSON — keep raw text */ }
+    throw new ApiError(res.status, detail);
   }
   return res.json() as Promise<T>;
 }
@@ -130,6 +135,29 @@ export interface TaskResponse {
 
 export function getTask(taskId: string) {
   return request<TaskResponse>(`/api/v1/tasks/${taskId}`);
+}
+
+// -- Task History (Storage) --
+
+export interface TaskHistoryItem {
+  task_id: string;
+  mode: string;
+  style: string;
+  completed_at: string | null;
+  input_image_url: string;
+  generated_image_url: string;
+  score_before: number | null;
+  score_after: number | null;
+  perception_scores: Record<string, number> | null;
+}
+
+export interface TaskHistoryResponse {
+  items: TaskHistoryItem[];
+  total_count: number;
+}
+
+export function getTaskHistory(limit = 20, offset = 0) {
+  return request<TaskHistoryResponse>(`/api/v1/tasks?limit=${limit}&offset=${offset}`);
 }
 
 // -- Share --

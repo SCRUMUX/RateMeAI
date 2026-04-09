@@ -1,11 +1,13 @@
 from __future__ import annotations
 
+import asyncio
 import base64
 import logging
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timezone, timedelta
 
 import redis.asyncio as redis_async
 from arq.connections import RedisSettings
+from arq.cron import cron
 from sqlalchemy import select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
@@ -16,10 +18,25 @@ from src.models.enums import AnalysisMode, TaskStatus
 from src.orchestrator.pipeline import AnalysisPipeline
 from src.providers.factory import get_image_gen, get_llm, get_storage
 from src.utils.redis_keys import gen_image_cache_key, task_input_cache_key
-from src.metrics import CREDITS_USED
+from src.metrics import (
+    CREDITS_USED, TASKS_COMPLETED, TASKS_FAILED, TASKS_RECONCILED,
+    PIPELINE_RETRIES, TASKS_IN_PROCESSING, COMPLETED_WITHOUT_IMAGE,
+)
 from src.version import APP_VERSION
 
 logger = logging.getLogger(__name__)
+
+_MAX_PIPELINE_RETRIES = 2
+_RETRY_BACKOFF_BASE = 3.0
+_TRANSIENT_MARKERS = ("rate limit", "timeout", "connect", "temporarily", "503", "429")
+STUCK_TASK_THRESHOLD_MINUTES = 10
+
+
+def _is_transient(exc: Exception) -> bool:
+    msg = str(exc).lower()
+    if isinstance(exc, (TimeoutError, ConnectionError, OSError)):
+        return True
+    return any(marker in msg for marker in _TRANSIENT_MARKERS)
 
 
 async def startup(ctx: dict):
@@ -118,14 +135,33 @@ async def process_analysis(ctx: dict, task_id: str):
                 except Exception:
                     pass
 
-            analysis_result = await pipeline.execute(
-                mode=AnalysisMode(task.mode),
-                image_bytes=image_bytes,
-                user_id=str(task.user_id),
-                task_id=str(task.id),
-                context=context or None,
-                progress_callback=_progress_cb,
-            )
+            last_exc: Exception | None = None
+            analysis_result = None
+            for attempt in range(_MAX_PIPELINE_RETRIES + 1):
+                try:
+                    analysis_result = await pipeline.execute(
+                        mode=AnalysisMode(task.mode),
+                        image_bytes=image_bytes,
+                        user_id=str(task.user_id),
+                        task_id=str(task.id),
+                        context=context or None,
+                        progress_callback=_progress_cb,
+                    )
+                    break
+                except Exception as exc:
+                    last_exc = exc
+                    if attempt < _MAX_PIPELINE_RETRIES and _is_transient(exc):
+                        PIPELINE_RETRIES.inc()
+                        wait = _RETRY_BACKOFF_BASE * (2 ** attempt)
+                        logger.warning(
+                            "Task %s transient error (attempt %d/%d), retrying in %.1fs: %s",
+                            task_id, attempt + 1, _MAX_PIPELINE_RETRIES + 1, wait, exc,
+                        )
+                        await asyncio.sleep(wait)
+                    else:
+                        raise
+            if analysis_result is None:
+                raise last_exc or RuntimeError("Pipeline returned no result")
 
             gen_url = analysis_result.get("generated_image_url")
             if gen_url:
@@ -174,6 +210,20 @@ async def process_analysis(ctx: dict, task_id: str):
                     logger.exception("Failed to deduct image credit for task %s", task_id)
                     analysis_result["credit_deducted"] = False
 
+            analysis_result["enhancement_level"] = context.get("enhancement_level", 0)
+
+            gen_url = analysis_result.get("generated_image_url")
+            analysis_result["has_generated_image"] = bool(gen_url)
+            if not gen_url:
+                if context.get("skip_image_gen"):
+                    analysis_result["no_image_reason"] = "no_credits"
+                elif analysis_result.get("image_gen_error"):
+                    analysis_result["no_image_reason"] = "generation_error"
+                elif analysis_result.get("upgrade_prompt"):
+                    analysis_result["no_image_reason"] = "upgrade_required"
+                else:
+                    analysis_result["no_image_reason"] = "not_applicable"
+
             task.result = analysis_result
             task.share_card_path = analysis_result.get("share", {}).get("card_url")
             task.status = TaskStatus.COMPLETED.value
@@ -188,8 +238,13 @@ async def process_analysis(ctx: dict, task_id: str):
             )
             await db.execute(stmt)
 
-            logger.info("Task %s completed", task_id)
-            # Commit before Redis notify so GET /tasks sees final status when clients poll.
+            has_image = bool(analysis_result.get("generated_image_url"))
+            TASKS_COMPLETED.labels(has_image=str(has_image).lower()).inc()
+            if not has_image:
+                reason = analysis_result.get("no_image_reason", "unknown")
+                COMPLETED_WITHOUT_IMAGE.labels(reason=reason).inc()
+
+            logger.info("Task %s completed (has_image=%s)", task_id, has_image)
             await db.commit()
             try:
                 await redis.publish(f"ratemeai:task_done:{task_id}", "completed")
@@ -200,6 +255,8 @@ async def process_analysis(ctx: dict, task_id: str):
             logger.exception("Task %s failed", task_id)
             task.status = TaskStatus.FAILED.value
             task.error_message = str(e)[:500]
+            fail_reason = "transient" if _is_transient(e) else "permanent"
+            TASKS_FAILED.labels(reason=fail_reason).inc()
             await db.commit()
             try:
                 await redis.publish(f"ratemeai:task_done:{task_id}", "failed")
@@ -207,8 +264,48 @@ async def process_analysis(ctx: dict, task_id: str):
                 logger.warning("Failed to publish task_done (failed) for %s", task_id)
 
 
+async def reconcile_stuck_tasks(ctx: dict):
+    """Find tasks stuck in 'processing' beyond the SLA and mark them failed."""
+    db_sessionmaker = ctx["db_sessionmaker"]
+    redis = ctx["redis"]
+    threshold = datetime.now(timezone.utc) - timedelta(minutes=STUCK_TASK_THRESHOLD_MINUTES)
+
+    async with db_sessionmaker() as db:
+        all_processing = await db.execute(
+            select(Task).where(Task.status == TaskStatus.PROCESSING.value)
+        )
+        TASKS_IN_PROCESSING.set(len(all_processing.scalars().all()))
+
+        rows = await db.execute(
+            select(Task).where(
+                Task.status == TaskStatus.PROCESSING.value,
+                Task.created_at < threshold,
+            )
+        )
+        stuck_tasks = rows.scalars().all()
+        for task in stuck_tasks:
+            task.status = TaskStatus.FAILED.value
+            task.error_message = (
+                f"Task exceeded {STUCK_TASK_THRESHOLD_MINUTES}min processing SLA "
+                f"and was marked failed by reconciler."
+            )
+            TASKS_RECONCILED.inc()
+            TASKS_FAILED.labels(reason="stuck_timeout").inc()
+            logger.warning("Reconciler: task %s stuck since %s, marking failed", task.id, task.created_at)
+            try:
+                await redis.publish(f"ratemeai:task_done:{task.id}", "failed")
+            except Exception:
+                pass
+        if stuck_tasks:
+            await db.commit()
+            logger.info("Reconciler: marked %d stuck tasks as failed", len(stuck_tasks))
+
+
 class WorkerSettings:
     functions = [process_analysis]
+    cron_jobs = [
+        cron(reconcile_stuck_tasks, minute={0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55}),
+    ]
     on_startup = startup
     on_shutdown = shutdown
     redis_settings = RedisSettings.from_dsn(settings.redis_url)

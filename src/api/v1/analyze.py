@@ -14,9 +14,16 @@ from src.config import settings
 from src.models.db import Task, User
 from src.models.enums import AnalysisMode, TaskStatus
 from src.models.schemas import TaskCreated
-from src.api.deps import get_db, get_redis, check_rate_limit
+from src.api.deps import get_db, get_redis, check_credits
 from src.providers.factory import get_storage
 from src.utils.redis_keys import task_input_cache_key
+from prometheus_client import Counter
+
+ANALYZE_REQUESTS = Counter(
+    "ratemeai_analyze_requests_total",
+    "Total POST /analyze requests (task creation attempts)",
+    labelnames=["mode", "has_style", "has_enhancement_level"],
+)
 
 logger = logging.getLogger(__name__)
 
@@ -40,10 +47,16 @@ async def create_analysis(
     profession: str = Form(""),
     enhancement_level: int = Form(0),
     pre_analysis_id: str = Form(""),
-    user: User = Depends(check_rate_limit),
+    user: User = Depends(check_credits),
     db: AsyncSession = Depends(get_db),
     redis: Redis = Depends(get_redis),
 ):
+    ANALYZE_REQUESTS.labels(
+        mode=mode.value,
+        has_style=str(bool(style.strip())).lower(),
+        has_enhancement_level=str(enhancement_level > 0).lower(),
+    ).inc()
+
     content_type = image.content_type or ""
     if not content_type.startswith("image/"):
         raise HTTPException(status_code=400, detail="File must be an image")
@@ -98,11 +111,10 @@ async def create_analysis(
     arq = await _get_arq()
     await arq.enqueue_job("process_analysis", str(task.id))
 
-    rl = getattr(user, "_rate_limit_info", None)
+    credits_remaining = getattr(user, "_credits_remaining", None)
     headers = {}
-    if rl:
-        headers["X-RateLimit-Limit"] = str(rl["limit"])
-        headers["X-RateLimit-Remaining"] = str(rl["remaining"])
+    if credits_remaining is not None:
+        headers["X-Credits-Remaining"] = str(max(0, credits_remaining - 1))
 
     body = TaskCreated(task_id=task.id, status=TaskStatus.PENDING, estimated_seconds=15)
     return JSONResponse(

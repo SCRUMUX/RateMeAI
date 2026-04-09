@@ -103,6 +103,22 @@ async def get_current_user(user: User = Depends(get_auth_user)) -> User:
     return user
 
 
+async def check_credits(
+    user: User = Depends(get_auth_user),
+    db: AsyncSession = Depends(get_db),
+) -> User:
+    """Verify user has image credits. Returns 402 when balance is zero."""
+    await db.refresh(user, ["image_credits"])
+    if user.image_credits <= 0:
+        raise HTTPException(
+            status_code=402,
+            detail="no_credits",
+            headers={"X-Credits-Remaining": "0"},
+        )
+    user._credits_remaining = user.image_credits
+    return user
+
+
 async def check_rate_limit(
     user: User = Depends(get_auth_user),
     db: AsyncSession = Depends(get_db),

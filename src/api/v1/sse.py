@@ -7,11 +7,13 @@ from __future__ import annotations
 import asyncio
 import logging
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, Query, Request
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.responses import StreamingResponse
 
-from src.api.deps import get_auth_user
-from src.models.db import User
+from src.api.deps import get_auth_user, get_db
+from src.models.db import Task, User
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -20,19 +22,32 @@ router = APIRouter()
 @router.get("/progress")
 async def task_progress_stream(
     request: Request,
+    task_id: str = Query(..., description="Task ID to subscribe to"),
     user: User = Depends(get_auth_user),
+    db: AsyncSession = Depends(get_db),
 ):
-    """SSE stream of task progress and completion events for the authenticated user.
+    """SSE stream of task progress and completion events.
 
-    Subscribes to Redis PubSub channel `ratemeai:progress:<user_id>`.
-    Messages are forwarded as SSE events.
+    Subscribes to Redis PubSub channels:
+    - ``ratemeai:progress:<task_id>`` for step-level progress
+    - ``ratemeai:task_done:<task_id>`` for completion/failure signal
     """
+    result = await db.execute(select(Task).where(Task.id == task_id))
+    task = result.scalar_one_or_none()
+    if task is None or task.user_id != user.id:
+        return StreamingResponse(
+            iter([f"data: {{\"error\": \"task_not_found\"}}\n\n"]),
+            media_type="text/event-stream",
+            status_code=404,
+        )
+
     redis = request.app.state.redis
-    channel_name = f"ratemeai:progress:{user.id}"
+    progress_channel = f"ratemeai:progress:{task_id}"
+    done_channel = f"ratemeai:task_done:{task_id}"
 
     async def event_generator():
         pubsub = redis.pubsub()
-        await pubsub.subscribe(channel_name)
+        await pubsub.subscribe(progress_channel, done_channel)
         try:
             while True:
                 if await request.is_disconnected():
@@ -42,12 +57,19 @@ async def task_progress_stream(
                     data = msg["data"]
                     if isinstance(data, bytes):
                         data = data.decode()
-                    yield f"data: {data}\n\n"
+                    channel = msg["channel"]
+                    if isinstance(channel, bytes):
+                        channel = channel.decode()
+                    if channel == done_channel:
+                        yield f"event: done\ndata: {data}\n\n"
+                        break
+                    else:
+                        yield f"event: progress\ndata: {data}\n\n"
                 else:
                     yield ": heartbeat\n\n"
                     await asyncio.sleep(2)
         finally:
-            await pubsub.unsubscribe(channel_name)
+            await pubsub.unsubscribe(progress_channel, done_channel)
             await pubsub.close()
 
     return StreamingResponse(

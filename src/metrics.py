@@ -1,7 +1,7 @@
 """Prometheus metrics for RateMeAI pipeline observability."""
 from __future__ import annotations
 
-from prometheus_client import Counter, Histogram
+from prometheus_client import Counter, Histogram, Gauge
 
 PIPELINE_DURATION = Histogram(
     "ratemeai_pipeline_duration_seconds",
@@ -31,4 +31,37 @@ IDENTITY_SCORE = Histogram(
 CREDITS_USED = Counter(
     "ratemeai_credits_used_total",
     "Total image credits consumed",
+)
+
+TASKS_COMPLETED = Counter(
+    "ratemeai_tasks_completed_total",
+    "Tasks that reached completed status",
+    labelnames=["has_image"],
+)
+
+TASKS_FAILED = Counter(
+    "ratemeai_tasks_failed_total",
+    "Tasks that reached failed status",
+    labelnames=["reason"],
+)
+
+TASKS_RECONCILED = Counter(
+    "ratemeai_tasks_reconciled_total",
+    "Tasks force-failed by the stuck-task reconciler",
+)
+
+PIPELINE_RETRIES = Counter(
+    "ratemeai_pipeline_retries_total",
+    "Transient pipeline errors that triggered a retry",
+)
+
+TASKS_IN_PROCESSING = Gauge(
+    "ratemeai_tasks_in_processing",
+    "Current number of tasks in processing state (updated by reconciler)",
+)
+
+COMPLETED_WITHOUT_IMAGE = Counter(
+    "ratemeai_completed_without_image_total",
+    "Tasks completed without a generated image",
+    labelnames=["reason"],
 )
