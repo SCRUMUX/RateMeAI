@@ -5,12 +5,12 @@ import { AnimatePresence, motion } from 'framer-motion';
 interface Props {
   open: boolean;
   onClose: () => void;
-  onAuth: (email: string) => Promise<void>;
+  onAuth: (phone: string) => Promise<void>;
   onOAuth?: (provider: 'yandex' | 'vk-id') => Promise<void>;
 }
 
 export default function AuthModal({ open, onClose, onAuth, onOAuth }: Props) {
-  const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
   const [loading, setLoading] = useState(false);
   const [oauthLoading, setOauthLoading] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -30,19 +30,19 @@ export default function AuthModal({ open, onClose, onAuth, onOAuth }: Props) {
 
   const handleSubmit = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
-    const trimmed = email.trim();
-    if (!trimmed) { setError('Введите email'); return; }
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) { setError('Некорректный email'); return; }
+    const digits = phone.replace(/\D/g, '');
+    if (!digits) { setError('Введите номер телефона'); return; }
+    if (digits.length < 10) { setError('Некорректный номер телефона'); return; }
     setLoading(true);
     setError(null);
     try {
-      await onAuth(trimmed);
+      await onAuth(digits);
     } catch {
-      setError('Не удалось войти. Попробуйте снова.');
+      setError('Вход по телефону пока недоступен. Войдите через Яндекс или ВКонтакте.');
     } finally {
       setLoading(false);
     }
-  }, [email, onAuth]);
+  }, [phone, onAuth]);
 
   const handleOAuth = useCallback(async (provider: 'yandex' | 'vk-id') => {
     if (!onOAuth) return;
@@ -142,10 +142,10 @@ export default function AuthModal({ open, onClose, onAuth, onOAuth }: Props) {
             <form onSubmit={handleSubmit} className="flex flex-col gap-[var(--space-16)]">
               <div className="flex flex-col gap-[var(--space-8)]">
                 <input
-                  type="email"
-                  value={email}
-                  onChange={(e) => { setEmail(e.target.value); setError(null); }}
-                  placeholder="your@email.com"
+                  type="tel"
+                  value={phone}
+                  onChange={(e) => { setPhone(e.target.value); setError(null); }}
+                  placeholder="+7 (999) 123-45-67"
                   className="w-full px-[var(--space-16)] py-[var(--space-12)] rounded-[var(--radius-12)] text-[15px] leading-[22px] text-[#E6EEF8] placeholder:text-[var(--color-text-muted)] outline-none transition-all"
                   style={{
                     background: 'rgba(255,255,255,0.04)',
@@ -165,7 +165,7 @@ export default function AuthModal({ open, onClose, onAuth, onOAuth }: Props) {
                 disabled={loading}
                 className="glass-btn-primary w-full px-[var(--space-20)] py-[var(--space-12)] text-[16px] leading-[24px] rounded-[var(--radius-12)] disabled:opacity-50"
               >
-                {loading ? 'Подключение...' : 'Продолжить с email'}
+                {loading ? 'Подключение...' : 'Продолжить с телефоном'}
               </button>
             </form>
 
