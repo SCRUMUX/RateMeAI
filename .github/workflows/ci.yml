@@ -90,17 +90,11 @@ jobs:
       - name: Install Railway CLI
         run: npm install -g @railway/cli
 
-      - name: Verify Railway auth
-        run: |
-          echo "RAILWAY_TOKEN length: ${#RAILWAY_TOKEN}"
-          echo "RAILWAY_PROJECT_ID: $RAILWAY_PROJECT_ID"
-          railway environment
-
       - name: Deploy app
-        run: railway up -s app -d
+        run: railway up -s app -d -e production
 
       - name: Deploy worker
-        run: railway up -s worker -d
+        run: railway up -s worker -d -e production
 
       - name: Deploy bot
-        run: railway up -s bot -d
+        run: railway up -s bot -d -e production
