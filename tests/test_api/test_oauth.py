@@ -79,7 +79,7 @@ def test_vk_id_init_returns_authorize_url(client):
     data = r.json()
     assert "authorize_url" in data
     url = data["authorize_url"]
-    assert "id.vk.com/authorize" in url
+    assert "id.vk.ru/authorize" in url
     assert "code_challenge=" in url
     assert "code_challenge_method=S256" in url
 
