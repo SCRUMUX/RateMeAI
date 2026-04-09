@@ -69,6 +69,9 @@ async def exchange_code(
         logger.error("VK ID token exchange failed: %s %s", resp.status_code, resp.text)
         return ""
     data = resp.json()
+    if "error" in data:
+        logger.error("VK ID token exchange error: %s", data)
+        return ""
     return data.get("access_token", "")
 
 
@@ -83,7 +86,11 @@ async def get_user_info(access_token: str) -> VKIDUser | None:
     if resp.status_code != 200:
         logger.error("VK ID user info failed: %s %s", resp.status_code, resp.text)
         return None
-    data = resp.json().get("user", resp.json())
+    parsed = resp.json()
+    if "error" in parsed:
+        logger.error("VK ID user info error: %s", parsed)
+        return None
+    data = parsed.get("user") or parsed
     return VKIDUser(
         user_id=str(data.get("user_id", "")),
         first_name=data.get("first_name"),

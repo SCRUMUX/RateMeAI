@@ -1,7 +1,9 @@
 import { createContext, useContext, useEffect, useState, useCallback, useRef, type ReactNode } from 'react';
 import { login, restoreToken, startOAuth } from '../lib/auth';
 import * as api from '../lib/api';
+import { API_BASE } from '../lib/api';
 import type { CategoryId } from '../data/styles';
+import { restorePhotoAfterOAuth, clearPersistedPhoto } from '../lib/photo-persist';
 
 interface Session { token: string; userId: string; usage: api.ChannelAuthResponse['usage'] }
 
@@ -130,8 +132,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const loginWithOAuth = useCallback(async (provider: 'yandex' | 'vk-id') => {
-    await startOAuth(provider);
-  }, []);
+    await startOAuth(provider, photo ? {
+      file: photo.file,
+      mode: activeCategory,
+      style: selectedStyleKey,
+    } : undefined);
+  }, [photo, activeCategory, selectedStyleKey]);
 
   const loginWithToken = useCallback(async (token: string, userId?: string) => {
     api.setToken(token);
@@ -144,6 +150,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }));
     setSession({ token, userId: userId || '', usage });
     setIsAuthenticated(true);
+
+    const restored = await restorePhotoAfterOAuth();
+    if (restored) {
+      const preview = URL.createObjectURL(restored.file);
+      setPhoto({ file: restored.file, preview });
+      if (restored.mode) setActiveCategory(restored.mode as CategoryId);
+      if (restored.style) setSelectedStyleKey(restored.style);
+      await clearPersistedPhoto();
+    }
   }, []);
 
   useEffect(() => {
@@ -178,7 +193,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
           setIsGenerating(false);
           const r = t.result as Record<string, unknown> | null;
           if (r) {
-            const imgUrl = (r.generated_image_url ?? r.image_url ?? '') as string;
+            let imgUrl = (r.generated_image_url ?? r.image_url ?? '') as string;
+            if (imgUrl && imgUrl.startsWith('/')) {
+              imgUrl = `${API_BASE}${imgUrl}`;
+            }
             if (imgUrl) setGeneratedImageUrl(imgUrl);
             const score = (r.dating_score ?? r.social_score ?? r.score ?? null) as number | null;
             if (score != null) setAfterScore(score);

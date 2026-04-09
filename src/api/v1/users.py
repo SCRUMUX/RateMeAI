@@ -342,15 +342,29 @@ async def vk_id_oauth_init(
 
 @router.get("/auth/vk-id/callback")
 async def vk_id_oauth_callback(
-    code: str,
-    state: str,
+    code: str = "",
+    state: str = "",
     device_id: str = "",
+    payload: str = "",
     db: AsyncSession = Depends(get_db),
     redis: Redis = Depends(get_redis),
 ):
+    import json as _json
     from src.channels.vk_id_auth import exchange_code, get_user_info
     from src.services.oauth_state import pop_oauth_state
     from fastapi.responses import RedirectResponse
+
+    if payload:
+        try:
+            pl = _json.loads(payload)
+            code = code or pl.get("code", "")
+            state = state or pl.get("state", "")
+            device_id = device_id or pl.get("device_id", "")
+        except (ValueError, TypeError):
+            pass
+
+    if not code or not state:
+        raise HTTPException(status_code=400, detail="Missing code or state")
 
     stored = await pop_oauth_state(redis, state)
     if stored is None or stored.get("provider") != "vk_id":

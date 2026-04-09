@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect, useCallback, type SyntheticEvent } from 'react';
 import { AicaIcon, ChevronLeftIcon, ChevronRightIcon, CoinIcon, ImageIcon } from '@ai-ds/core/icons';
 import { STYLES_BY_CATEGORY, PARAMS_BY_MODE, getMockDelta, type CategoryId } from '../data/styles';
 import CategoryTabs from '../components/CategoryTabs';
@@ -199,8 +199,21 @@ export default function AppScreen() {
       startGenSimulation();
       return;
     }
+    startGenSimulation();
     await app.generate();
   }
+
+  // Auto-finish simulation when real result arrives or generation fails
+  useEffect(() => {
+    if (!genSimulating) return;
+    if (app.generatedImageUrl || (app.error && !app.isGenerating)) {
+      if (genSimRef.current) { clearInterval(genSimRef.current); genSimRef.current = null; }
+      setGenSimProgress(100);
+      setGenSimParamIdx(GEN_SIM_STEPS.length - 1);
+      setGenSimulating(false);
+      setGenSimDone(true);
+    }
+  }, [app.generatedImageUrl, app.error, app.isGenerating, genSimulating]);
 
   async function handleShare() {
     const res = await app.share();
@@ -283,10 +296,24 @@ export default function AppScreen() {
                 <div className="w-[236px] h-[315px] shrink-0 bg-[rgba(255,255,255,0.02)] overflow-hidden relative">
                   {/* Real result */}
                   {hasGenResult && (
-                    <img src={app.generatedImageUrl!} alt="Generated" className="w-full h-full object-cover" />
+                    <img
+                      src={app.generatedImageUrl!}
+                      alt="Generated"
+                      className="w-full h-full object-cover"
+                      onError={(e: SyntheticEvent<HTMLImageElement>) => {
+                        e.currentTarget.style.display = 'none';
+                        const parent = e.currentTarget.parentElement;
+                        if (parent && !parent.querySelector('.img-error-msg')) {
+                          const msg = document.createElement('div');
+                          msg.className = 'img-error-msg w-full h-full flex items-center justify-center text-[14px] text-[var(--color-text-muted)] text-center p-4';
+                          msg.textContent = 'Не удалось загрузить изображение';
+                          parent.appendChild(msg);
+                        }
+                      }}
+                    />
                   )}
-                  {/* Real generation spinner */}
-                  {!hasGenResult && app.isGenerating && (
+                  {/* Real generation spinner (only when no sim running) */}
+                  {!hasGenResult && app.isGenerating && !genSimulating && (
                     <div className="w-full h-full flex items-center justify-center absolute inset-0 bg-[rgba(0,0,0,0.5)] z-10">
                       <div className="w-8 h-8 border-2 border-t-transparent rounded-full animate-spin" style={{ borderColor: 'rgba(var(--accent-r), var(--accent-g), var(--accent-b), 0.5)', borderTopColor: 'transparent' }} />
                     </div>

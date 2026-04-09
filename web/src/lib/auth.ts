@@ -1,4 +1,5 @@
 import { authWeb, setToken as apiSetToken, getToken, oauthInit, type ChannelAuthResponse } from './api';
+import { savePhotoBeforeOAuth } from './photo-persist';
 
 const DEVICE_ID_KEY = 'ailook_device_id';
 const TOKEN_KEY = 'ailook_session_token';
@@ -34,8 +35,17 @@ export async function login(): Promise<ChannelAuthResponse> {
   return res;
 }
 
-export async function startOAuth(provider: 'yandex' | 'vk-id') {
+export async function startOAuth(
+  provider: 'yandex' | 'vk-id',
+  photoCtx?: { file: File; mode: string; style: string },
+) {
   const deviceId = getDeviceId();
+  if (photoCtx?.file) {
+    await savePhotoBeforeOAuth(photoCtx.file, {
+      mode: photoCtx.mode,
+      style: photoCtx.style,
+    });
+  }
   const res = await oauthInit(provider, deviceId);
   window.location.href = res.authorize_url;
 }
