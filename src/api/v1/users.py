@@ -77,47 +77,6 @@ async def auth_telegram(
     )
 
 
-@router.post("/admin/add-credits")
-async def admin_add_credits(
-    x_admin_secret: str = Header(..., alias="X-Admin-Secret"),
-    provider: str = Header("yandex"),
-    external_id: str = Header(""),
-    amount: int = Header(50),
-    db: AsyncSession = Depends(get_db),
-):
-    if not settings.admin_secret or x_admin_secret != settings.admin_secret:
-        raise HTTPException(status_code=403, detail="Invalid admin secret")
-    from src.models.db import CreditTransaction
-    q = select(UserIdentity).where(UserIdentity.provider == provider)
-    if external_id:
-        q = q.where(UserIdentity.external_id == external_id)
-    result = await db.execute(q)
-    identities = result.scalars().all()
-    if not identities:
-        all_ids = await db.execute(select(UserIdentity))
-        return {"error": "not found", "all_identities": [
-            {"provider": i.provider, "external_id": i.external_id, "user_id": str(i.user_id)}
-            for i in all_ids.scalars().all()
-        ]}
-    ident = identities[0]
-    user = await db.get(User, ident.user_id)
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
-    user.image_credits += amount
-    db.add(CreditTransaction(
-        user_id=user.id, amount=amount,
-        balance_after=user.image_credits, tx_type="admin_grant",
-    ))
-    await db.commit()
-    return {
-        "user_id": str(user.id),
-        "provider": ident.provider,
-        "external_id": ident.external_id,
-        "credits_added": amount,
-        "new_balance": user.image_credits,
-    }
-
-
 @router.post("/auth/api-client", response_model=ApiClientCreatedResponse)
 async def create_api_client(
     body: ApiClientCreateRequest,
