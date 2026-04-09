@@ -1,4 +1,4 @@
-@import url('../../AICADS-/packages/core/config/css-variables/tokens.css');
+@import url('./design-tokens.css');
 
 @tailwind base;
 @tailwind components;
