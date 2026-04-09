@@ -178,6 +178,28 @@ async def serve_storage(file_path: str, download: int = 0):
                 headers=_headers(f"{task_id}.jpg"),
             )
 
+    if m:
+        task_id = m.group(1)
+        try:
+            from sqlalchemy import select as sa_select
+            from src.models.db import Task
+            async with app.state.db_sessionmaker() as db:
+                row = await db.execute(
+                    sa_select(Task).where(Task.id == task_id)
+                )
+                task_obj = row.scalar_one_or_none()
+                if task_obj and task_obj.result:
+                    b64_fb = task_obj.result.get("generated_image_b64")
+                    if b64_fb:
+                        data = base64.b64decode(b64_fb)
+                        return Response(
+                            content=data,
+                            media_type="image/jpeg",
+                            headers=_headers(f"{task_id}.jpg"),
+                        )
+        except Exception:
+            logging.getLogger(__name__).exception("DB fallback failed for %s", task_id)
+
     from fastapi.responses import JSONResponse
     return JSONResponse({"detail": "Not found"}, status_code=404)
 

@@ -223,6 +223,17 @@ export function AppProvider({ children }: { children: ReactNode }) {
     if (pollingRef.current) { clearInterval(pollingRef.current); pollingRef.current = null; }
   }, []);
 
+  const verifyImageUrl = useCallback(async (url: string, retries = 3, delayMs = 2000): Promise<boolean> => {
+    for (let i = 0; i < retries; i++) {
+      try {
+        const res = await fetch(url, { method: 'HEAD' });
+        if (res.ok) return true;
+      } catch { /* network error, retry */ }
+      if (i < retries - 1) await new Promise(r => setTimeout(r, delayMs * (i + 1)));
+    }
+    return false;
+  }, []);
+
   const startPolling = useCallback((taskId: string) => {
     stopPolling();
     let errorCount = 0;
@@ -242,7 +253,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
         setCurrentTask({ taskId: t.task_id, status: t.status, result: t.result });
         if (t.status === 'completed') {
           stopPolling();
-          setIsGenerating(false);
           const r = t.result as Record<string, unknown> | null;
           if (r) {
             let imgUrl = (r.generated_image_url ?? r.image_url ?? '') as string;
@@ -250,7 +260,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
               imgUrl = `${API_BASE}${imgUrl}`;
             }
             if (imgUrl) {
-              setGeneratedImageUrl(imgUrl);
+              const available = await verifyImageUrl(imgUrl);
+              if (available) {
+                setGeneratedImageUrl(imgUrl);
+              } else {
+                setError('Не удалось загрузить сгенерированное изображение. Попробуйте снова.');
+              }
             } else {
               const reason = r.no_image_reason as string | undefined;
               const NO_IMAGE_MESSAGES: Record<string, string> = {
@@ -266,6 +281,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
             const ps = r.perception_scores as Record<string, number> | undefined;
             if (ps) setAfterPerception(ps);
           }
+          setIsGenerating(false);
           refreshBalance();
           fetchTaskHistory();
         } else if (t.status === 'failed') {
@@ -282,7 +298,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         }
       }
     }, 2000);
-  }, [stopPolling, refreshBalance, fetchTaskHistory]);
+  }, [stopPolling, refreshBalance, fetchTaskHistory, verifyImageUrl]);
 
   useEffect(() => () => stopPolling(), [stopPolling]);
 
@@ -295,7 +311,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setAfterScore(null);
     setAfterPerception(null);
     try {
-      await refreshBalance();
       const modeMap: Record<CategoryId, string> = { social: 'social', cv: 'cv', dating: 'dating' };
       const enhancementLevel = 1;
       const res = await api.analyze(
@@ -316,7 +331,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         setError(e instanceof api.ApiError ? e.body : 'Generation failed');
       }
     }
-  }, [photo, selectedStyleKey, activeCategory, preAnalysis, startPolling, refreshBalance, isGenerating]);
+  }, [photo, selectedStyleKey, activeCategory, preAnalysis, startPolling, isGenerating]);
 
   const share = useCallback(async () => {
     if (!currentTask?.taskId) return null;

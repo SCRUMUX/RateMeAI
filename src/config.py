@@ -20,6 +20,8 @@ class Settings(BaseSettings):
     redis_url: str = "redis://localhost:6379/0"
     # Staged upload bytes for worker (same Redis as ARQ); avoids broken bind-mounts between API/worker
     task_input_redis_ttl_seconds: int = 3600
+    # TTL for generated image cache in Redis (seconds); bridges worker→app on Railway (3 days default)
+    gen_image_redis_ttl_seconds: int = 259200
 
     # Storage
     storage_provider: str = "local"

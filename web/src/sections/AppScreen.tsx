@@ -1,10 +1,13 @@
-import { useState, useRef, useEffect, useCallback, type SyntheticEvent } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { AicaIcon, ChevronLeftIcon, ChevronRightIcon, CoinIcon, ImageIcon } from '@ai-ds/core/icons';
 import { STYLES_BY_CATEGORY, PARAMS_BY_MODE, getMockDelta, type CategoryId } from '../data/styles';
+import { AI_FACTS, getRandomFact } from '../data/ai-facts';
 import CategoryTabs from '../components/CategoryTabs';
 import AuthModal from '../components/AuthModal';
 import StorageModal from '../components/StorageModal';
 import { useApp } from '../context/AppContext';
+
+type GenSimMode = 'demo' | 'no_credits' | 'real';
 
 const STYLES_PER_PAGE = 8;
 
@@ -98,10 +101,13 @@ export default function AppScreen() {
   const [genSimElapsed, setGenSimElapsed] = useState(0);
   const [genSimDone, setGenSimDone] = useState(false);
   const [genSimParamIdx, setGenSimParamIdx] = useState(0);
+  const [genSimMode, setGenSimMode] = useState<GenSimMode>('demo');
+  const [currentFact, setCurrentFact] = useState(() => AI_FACTS[0]);
   const genSimRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const factIdxRef = useRef(0);
   const [frozenStyle, setFrozenStyle] = useState<{ name: string; score: number } | null>(null);
 
-  const GEN_DURATION = 27;
+  const FIXED_DURATION = 27;
 
   const GEN_SIM_STEPS = [
     'Загрузка нейросети...',
@@ -140,26 +146,49 @@ export default function AppScreen() {
     setGenSimElapsed(0);
     setGenSimDone(false);
     setGenSimParamIdx(0);
+    setGenSimMode('demo');
     if (genSimRef.current) { clearInterval(genSimRef.current); genSimRef.current = null; }
   }
 
-  function startGenSimulation() {
+  function startGenSimulation(mode: GenSimMode) {
     resetGenSim();
+    setGenSimMode(mode);
     setFrozenStyle({ name: selectedStyle.name, score: predictedAfterScore });
     setGenSimulating(true);
+    factIdxRef.current = 0;
+    setCurrentFact(AI_FACTS[0]);
     const start = Date.now();
+    let lastFactChange = 0;
+
     genSimRef.current = setInterval(() => {
       const elapsed = (Date.now() - start) / 1000;
-      const progress = Math.min((elapsed / GEN_DURATION) * 100, 100);
       setGenSimElapsed(Math.floor(elapsed));
-      setGenSimProgress(progress);
-      setGenSimParamIdx(Math.min(Math.floor(elapsed / (GEN_DURATION / GEN_SIM_STEPS.length)), GEN_SIM_STEPS.length - 1));
-      if (elapsed >= GEN_DURATION) {
-        clearInterval(genSimRef.current!);
-        genSimRef.current = null;
-        setGenSimulating(false);
-        setGenSimDone(true);
-        setGenSimProgress(100);
+
+      if (mode === 'demo' || mode === 'no_credits') {
+        const progress = Math.min((elapsed / FIXED_DURATION) * 100, 100);
+        setGenSimProgress(progress);
+        setGenSimParamIdx(Math.min(Math.floor(elapsed / (FIXED_DURATION / GEN_SIM_STEPS.length)), GEN_SIM_STEPS.length - 1));
+        if (elapsed >= FIXED_DURATION) {
+          clearInterval(genSimRef.current!);
+          genSimRef.current = null;
+          setGenSimulating(false);
+          setGenSimDone(true);
+          setGenSimProgress(100);
+        }
+      } else {
+        // mode === 'real': asymptotic progress, never reaches 100 until result arrives
+        const progress = Math.min(95, 60 + 35 * (1 - Math.exp(-elapsed / 60)));
+        setGenSimProgress(progress);
+        const stepIdx = Math.floor(elapsed / 5) % GEN_SIM_STEPS.length;
+        setGenSimParamIdx(stepIdx);
+      }
+
+      // Rotate facts every 5 seconds for all modes
+      if (elapsed - lastFactChange >= 5) {
+        lastFactChange = elapsed;
+        const { fact, index } = getRandomFact(factIdxRef.current);
+        factIdxRef.current = index;
+        setCurrentFact(fact);
       }
     }, 200);
   }
@@ -199,18 +228,25 @@ export default function AppScreen() {
     if (!app.selectedStyleKey && effectiveStyle) {
       app.setSelectedStyleKey(effectiveStyle);
     }
+
     if (!app.isAuthenticated) {
-      startGenSimulation();
+      startGenSimulation('demo');
       return;
     }
-    await app.generate(() => startGenSimulation(), effectiveStyle);
+
+    if (app.balance <= 0) {
+      startGenSimulation('no_credits');
+      return;
+    }
+
+    await app.generate(() => startGenSimulation('real'), effectiveStyle);
   }
 
   useEffect(() => { setImageLoadError(false); }, [app.generatedImageUrl]);
 
-  // Auto-finish simulation when real result arrives or generation fails
+  // Auto-finish 'real' simulation when result arrives or generation fails
   useEffect(() => {
-    if (!genSimulating) return;
+    if (!genSimulating || genSimMode !== 'real') return;
     if (app.generatedImageUrl || (app.error && !app.isGenerating)) {
       if (genSimRef.current) { clearInterval(genSimRef.current); genSimRef.current = null; }
       setGenSimProgress(100);
@@ -218,7 +254,7 @@ export default function AppScreen() {
       setGenSimulating(false);
       setGenSimDone(true);
     }
-  }, [app.generatedImageUrl, app.error, app.isGenerating, genSimulating]);
+  }, [app.generatedImageUrl, app.error, app.isGenerating, genSimulating, genSimMode]);
 
   async function handleShare() {
     const res = await app.share();
@@ -335,6 +371,9 @@ export default function AppScreen() {
                         <span className="text-[12px] leading-[16px] text-[#E6EEF8] font-medium text-center px-[var(--space-8)]">
                           {GEN_SIM_STEPS[genSimParamIdx]}
                         </span>
+                        <span className="text-[10px] leading-[14px] text-[var(--color-text-secondary)] text-center px-[var(--space-12)] italic max-w-[220px]">
+                          {currentFact.type === 'tip' ? '💡 ' : '🧠 '}{currentFact.text}
+                        </span>
                         <span className="text-[11px] leading-[14px] text-[var(--color-text-muted)] tabular-nums">
                           {genSimElapsed}с
                         </span>
@@ -392,12 +431,22 @@ export default function AppScreen() {
                       <ProgressBar value={predictedAfterScore} accent />
                     ) : null}
                   </div>
-                  {genSimDone && !app.isAuthenticated ? (
+                  {genSimDone && genSimMode === 'demo' ? (
                     <button
                       onClick={() => setAuthModalOpen(true)}
                       className="glass-btn-primary px-[var(--space-20)] py-[var(--space-10)] text-[14px] leading-[20px] rounded-[var(--radius-pill)]"
                     >
-                      Разблокировать доступ
+                      Зарегистрироваться
+                    </button>
+                  ) : genSimDone && genSimMode === 'no_credits' ? (
+                    <button
+                      onClick={() => {
+                        resetGenSim();
+                        document.getElementById('тарифы')?.scrollIntoView({ behavior: 'smooth' });
+                      }}
+                      className="glass-btn-primary px-[var(--space-20)] py-[var(--space-10)] text-[14px] leading-[20px] rounded-[var(--radius-pill)]"
+                    >
+                      Пополнить баланс
                     </button>
                   ) : (
                     <button

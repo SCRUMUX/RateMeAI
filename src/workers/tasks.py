@@ -174,7 +174,7 @@ async def process_analysis(ctx: dict, task_id: str):
                         await redis.set(
                             gen_image_cache_key(str(task.id)),
                             b64_gen,
-                            ex=settings.task_input_redis_ttl_seconds,
+                            ex=settings.gen_image_redis_ttl_seconds,
                         )
                         logger.info("Staged generated image in Redis for task %s (%d bytes)", task_id, len(gen_bytes))
                         staged = True
@@ -183,9 +183,14 @@ async def process_analysis(ctx: dict, task_id: str):
                         logger.exception("Redis staging attempt %d failed for task %s", _attempt + 1, task_id)
                 if not staged:
                     logger.error(
-                        "All Redis staging attempts failed for task %s — bot will use URL fallback: %s",
-                        task_id, gen_url,
+                        "All Redis staging attempts failed for task %s — saving b64 to DB as fallback",
+                        task_id,
                     )
+                    try:
+                        gen_bytes_fb = await storage.download(gkey)
+                        analysis_result["generated_image_b64"] = base64.b64encode(gen_bytes_fb).decode()
+                    except Exception:
+                        logger.exception("DB b64 fallback also failed for task %s", task_id)
 
                 try:
                     u = await db.execute(
