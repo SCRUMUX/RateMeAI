@@ -1,11 +1,11 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
+import { AnimatePresence, motion } from 'framer-motion';
 import { AicaIcon, ChevronLeftIcon, ChevronRightIcon, CoinIcon, ImageIcon } from '@ai-ds/core/icons';
-import { STYLES_BY_CATEGORY, PARAMS_BY_MODE, getMockDelta, type CategoryId } from '../data/styles';
+import { STYLES_BY_CATEGORY, PARAMS_BY_MODE, getMockDelta, type CategoryId, type StyleItem } from '../data/styles';
 import { PERCEPTION_FACTS, getRandomFact } from '../data/ai-facts';
 import CategoryTabs from '../components/CategoryTabs';
 import AuthModal from '../components/AuthModal';
 import StorageModal from '../components/StorageModal';
-import { useToast } from '../components/Toast';
 import { useApp } from '../context/AppContext';
 
 type GenSimMode = 'demo' | 'no_credits' | 'real';
@@ -23,9 +23,22 @@ function ProgressBar({ value, max = 10, accent = false }: { value: number; max?:
   );
 }
 
+function computeStyleDeltas(style: StyleItem, tab: CategoryId): Record<string, number> {
+  const avgDelta = (style.deltaRange[0] + style.deltaRange[1]) / 2;
+  const params = PARAMS_BY_MODE[tab];
+  const result: Record<string, number> = {};
+  const primaryShare = 0.6;
+  const othersShare = 0.4 / Math.max(params.length - 1, 1);
+  for (const p of params) {
+    result[p.key] = p.key === style.param
+      ? +(avgDelta * primaryShare).toFixed(2)
+      : +(avgDelta * othersShare).toFixed(2);
+  }
+  return result;
+}
+
 export default function AppScreen() {
   const app = useApp();
-  const toast = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [page, setPage] = useState(0);
 
@@ -46,6 +59,9 @@ export default function AppScreen() {
   const beforeScore = hasRealScores ? app.preAnalysis!.score : 5.99;
   const beforePerception = hasRealScores ? app.preAnalysis!.perception_scores : null;
 
+  const [analysisRequested, setAnalysisRequested] = useState(false);
+  const [movedToStorageModal, setMovedToStorageModal] = useState(false);
+  const [streamedFact, setStreamedFact] = useState('');
   const [imageLoadError, setImageLoadError] = useState(false);
   const hasGenResult = !!app.generatedImageUrl && !imageLoadError;
   const genAfterScore = app.afterScore;
@@ -71,17 +87,20 @@ export default function AppScreen() {
         }))
     : null;
 
+  const styleDelta = selectedStyle ? computeStyleDeltas(selectedStyle, activeTab) : null;
+
   function handleTabChange(id: CategoryId) {
     if (app.generationMode && app.generationMode !== id) {
       app.resetGeneration();
       resetGenSim();
       setFrozenStyle(null);
-      toast.show('Предыдущий результат сохранён в хранилище', 'info');
+      setMovedToStorageModal(true);
+      setTimeout(() => setMovedToStorageModal(false), 3500);
     }
     app.setActiveCategory(id);
     app.setSelectedStyleKey('');
     setPage(0);
-    if (app.photo) app.runPreAnalyze();
+    if (app.photo && analysisRequested) app.runPreAnalyze();
   }
 
   function handleStyleClick(key: string) {
@@ -89,7 +108,8 @@ export default function AppScreen() {
       app.resetGeneration();
       resetGenSim();
       setFrozenStyle(null);
-      toast.show('Нажмите «Улучшить» для генерации в новом стиле', 'info');
+      setMovedToStorageModal(true);
+      setTimeout(() => setMovedToStorageModal(false), 3500);
     }
     app.setSelectedStyleKey(key);
   }
@@ -140,19 +160,30 @@ export default function AppScreen() {
     4: 'Произведён анализ фото с точки зрения психологии восприятия. Подобраны оптимальные параметры улучшения для выбранного контекста.',
   };
 
-  // When photo uploaded or replaced: restart analysis from scratch
   useEffect(() => {
-    if (!app.photo) { setSimStep(0); setStreamedText(''); resetGenSim(); setFrozenStyle(null); return; }
+    if (!app.photo) {
+      setSimStep(0); setStreamedText(''); resetGenSim(); setFrozenStyle(null);
+      setAnalysisRequested(false);
+      return;
+    }
+    setAnalysisRequested(false);
+    setSimStep(0);
+    setStreamedText('');
+    resetGenSim();
+    setFrozenStyle(null);
+  }, [app.photo]);
+
+  function handleStartAnalysis() {
+    if (!app.photo) return;
+    setAnalysisRequested(true);
     if (app.isAuthenticated) {
       app.runPreAnalyze();
     } else {
       app.startSimulation();
       setSimStep(0);
       setStreamedText('');
-      resetGenSim();
-      setFrozenStyle(null);
     }
-  }, [app.photo]);
+  }
 
   function resetGenSim() {
     setGenSimulating(false);
@@ -208,14 +239,6 @@ export default function AppScreen() {
 
   useEffect(() => () => { if (genSimRef.current) clearInterval(genSimRef.current); }, []);
 
-  const prevGenUrlRef = useRef(app.generatedImageUrl);
-  useEffect(() => {
-    if (app.generatedImageUrl && !prevGenUrlRef.current) {
-      toast.show('Результат сохранён в хранилище', 'success');
-    }
-    prevGenUrlRef.current = app.generatedImageUrl;
-  }, [app.generatedImageUrl]);
-
   // Step-by-step simulation timer
   useEffect(() => {
     if (!app.isSimulating) return;
@@ -239,6 +262,22 @@ export default function AppScreen() {
     }, 20);
     return () => clearInterval(iv);
   }, [simStep, app.simulationDone]);
+
+  useEffect(() => {
+    if (!currentFact?.text || (!genSimulating && !app.isGenerating)) {
+      setStreamedFact('');
+      return;
+    }
+    setStreamedFact('');
+    let idx = 0;
+    const target = currentFact.text;
+    const iv = setInterval(() => {
+      idx++;
+      setStreamedFact(target.slice(0, idx));
+      if (idx >= target.length) clearInterval(iv);
+    }, 25);
+    return () => clearInterval(iv);
+  }, [currentFact, genSimulating, app.isGenerating]);
 
   async function handleGenerate() {
     if (!app.photo) {
@@ -529,149 +568,156 @@ export default function AppScreen() {
 
                 <p className="text-[14px] leading-[20px] text-[var(--color-text-secondary)] max-w-[440px] min-h-[40px]">
                   {app.preAnalysis?.first_impression
-                    || (app.photo && !app.isAuthenticated && (app.isSimulating || app.simulationDone) ? (
+                    || (app.photo && !app.isAuthenticated && analysisRequested && (app.isSimulating || app.simulationDone) ? (
                       <>{streamedText}<span className="inline-block w-[2px] h-[14px] bg-[var(--color-brand-primary)] ml-[2px] align-middle animate-pulse" /></>
                     ) : SIM_TEXTS[0])}
                 </p>
-              </div>
 
-              {/* Spacer pushes bottom group down */}
-              <div className="flex-1" />
+                {/* Analysis button — shown when photo loaded but analysis not started */}
+                {app.photo && !analysisRequested && (
+                  <button
+                    onClick={handleStartAnalysis}
+                    className="glass-btn-primary w-full py-[var(--space-12)] text-[15px] leading-[22px] rounded-[var(--radius-12)] font-medium"
+                  >
+                    Запустить анализ
+                  </button>
+                )}
 
-              {/* Bottom group — pinned to bottom of photo cards */}
-              {/* === STATE 1: Simulating analysis (not authenticated, photo uploaded) === */}
-              {app.photo && !app.isAuthenticated && app.isSimulating && (
-                <div className="gradient-border-card glass-card flex flex-col gap-[var(--space-16)] rounded-[var(--radius-12)] p-[var(--space-20)]">
-                  {[
-                    { step: 1, label: 'Анализ лица...' },
-                    { step: 2, label: 'Оценка параметров...' },
-                    { step: 3, label: 'Формирование результата...' },
-                  ].map((s) => (
-                    <div
-                      key={s.step}
-                      className="flex items-center gap-[var(--space-12)] transition-opacity duration-500"
-                      style={{ opacity: simStep >= s.step ? 1 : 0.2 }}
-                    >
-                      {simStep > s.step ? (
-                        <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><circle cx="9" cy="9" r="9" fill="rgba(var(--accent-r),var(--accent-g),var(--accent-b),0.15)"/><path d="M5.5 9.5L7.5 11.5L12.5 6.5" stroke="rgb(var(--accent-r),var(--accent-g),var(--accent-b))" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
-                      ) : simStep === s.step ? (
-                        <div className="w-[18px] h-[18px] border-2 border-t-transparent rounded-full animate-spin shrink-0" style={{ borderColor: 'rgba(var(--accent-r),var(--accent-g),var(--accent-b),0.5)', borderTopColor: 'transparent' }} />
-                      ) : (
-                        <div className="w-[18px] h-[18px] rounded-full border border-[rgba(255,255,255,0.1)]" />
-                      )}
-                      <span className={`text-[14px] leading-[20px] ${simStep >= s.step ? 'text-[#E6EEF8]' : 'text-[var(--color-text-muted)]'}`}>
-                        {s.label}
-                      </span>
-                    </div>
-                  ))}
-                  <div className="h-1.5 rounded-full glass-progress-track overflow-hidden mt-[var(--space-4)]">
-                    <div
-                      className="h-full rounded-full glass-progress-fill transition-all duration-1000 ease-out"
-                      style={{ width: `${Math.min(simStep * 33.3, 100)}%` }}
-                    />
-                  </div>
-                </div>
-              )}
-
-              {/* === STATE 2: Blurred fake results + CTA (simulation done, not authenticated) === */}
-              {app.photo && !app.isAuthenticated && app.simulationDone && (
-                <div className="relative">
-                  <div className="gradient-border-card glass-card flex flex-col gap-[var(--space-12)] rounded-[var(--radius-12)] p-[var(--space-12)]" style={{ filter: 'blur(6px)' }}>
-                    {PARAMS_BY_MODE[activeTab].map((p) => (
-                      <div key={p.key} className="flex flex-col gap-[var(--space-8)]">
-                        <div className="flex items-center justify-between">
-                          <span className="text-[14px] leading-[20px] text-[#E6EEF8]">{p.label}</span>
-                          <span className="flex items-center gap-[var(--space-8)] text-[14px] leading-[20px] tabular-nums">
-                            <span className="text-[var(--color-text-muted)]">{p.before.toFixed(2)}</span>
-                            <span className="text-[11px] leading-[14px] text-[var(--color-text-muted)]">/ 10</span>
-                          </span>
-                        </div>
-                        <ProgressBar value={p.before} />
+                {/* === STATE 1: Simulating analysis (not authenticated, photo uploaded) === */}
+                {app.photo && !app.isAuthenticated && analysisRequested && app.isSimulating && (
+                  <div className="gradient-border-card glass-card flex flex-col gap-[var(--space-16)] rounded-[var(--radius-12)] p-[var(--space-20)]">
+                    {[
+                      { step: 1, label: 'Анализ лица...' },
+                      { step: 2, label: 'Оценка параметров...' },
+                      { step: 3, label: 'Формирование результата...' },
+                    ].map((s) => (
+                      <div
+                        key={s.step}
+                        className="flex items-center gap-[var(--space-12)] transition-opacity duration-500"
+                        style={{ opacity: simStep >= s.step ? 1 : 0.2 }}
+                      >
+                        {simStep > s.step ? (
+                          <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><circle cx="9" cy="9" r="9" fill="rgba(var(--accent-r),var(--accent-g),var(--accent-b),0.15)"/><path d="M5.5 9.5L7.5 11.5L12.5 6.5" stroke="rgb(var(--accent-r),var(--accent-g),var(--accent-b))" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                        ) : simStep === s.step ? (
+                          <div className="w-[18px] h-[18px] border-2 border-t-transparent rounded-full animate-spin shrink-0" style={{ borderColor: 'rgba(var(--accent-r),var(--accent-g),var(--accent-b),0.5)', borderTopColor: 'transparent' }} />
+                        ) : (
+                          <div className="w-[18px] h-[18px] rounded-full border border-[rgba(255,255,255,0.1)]" />
+                        )}
+                        <span className={`text-[14px] leading-[20px] ${simStep >= s.step ? 'text-[#E6EEF8]' : 'text-[var(--color-text-muted)]'}`}>
+                          {s.label}
+                        </span>
                       </div>
                     ))}
+                    <div className="h-1.5 rounded-full glass-progress-track overflow-hidden mt-[var(--space-4)]">
+                      <div
+                        className="h-full rounded-full glass-progress-fill transition-all duration-1000 ease-out"
+                        style={{ width: `${Math.min(simStep * 33.3, 100)}%` }}
+                      />
+                    </div>
                   </div>
-                  <div className="absolute inset-0 flex flex-col items-center justify-center gap-[var(--space-12)] rounded-[var(--radius-12)]">
-                    <span className="text-[18px] font-semibold leading-[24px] text-[#E6EEF8]">Результаты готовы</span>
-                    <span className="text-[14px] leading-[20px] text-[var(--color-text-secondary)] text-center max-w-[300px]">
-                      Зарегистрируйтесь, чтобы увидеть полный анализ восприятия
-                    </span>
-                    <button
-                      onClick={() => setAuthModalOpen(true)}
-                      className="glass-btn-primary px-[var(--space-24)] py-[var(--space-12)] text-[16px] leading-[24px] rounded-[var(--radius-12)]"
-                    >
-                      Получить доступ
-                    </button>
-                  </div>
-                </div>
-              )}
+                )}
 
-              {/* === STATE 3: Real results (authenticated) === */}
-              {app.isAuthenticated && (
-                <>
-                  <div className="gradient-border-card glass-card flex flex-col gap-[var(--space-12)] rounded-[var(--radius-12)] p-[var(--space-12)]">
-                    {displayParams ? displayParams.map((p) => {
-                      const after = p.after;
-                      const d = after != null ? +(after - p.before).toFixed(2) : null;
-                      return (
+                {/* === STATE 2: Blurred fake results + CTA (simulation done, not authenticated) === */}
+                {app.photo && !app.isAuthenticated && analysisRequested && app.simulationDone && (
+                  <div className="relative">
+                    <div className="gradient-border-card glass-card flex flex-col gap-[var(--space-12)] rounded-[var(--radius-12)] p-[var(--space-12)]" style={{ filter: 'blur(6px)' }}>
+                      {PARAMS_BY_MODE[activeTab].map((p) => (
                         <div key={p.key} className="flex flex-col gap-[var(--space-8)]">
                           <div className="flex items-center justify-between">
                             <span className="text-[14px] leading-[20px] text-[#E6EEF8]">{p.label}</span>
                             <span className="flex items-center gap-[var(--space-8)] text-[14px] leading-[20px] tabular-nums">
                               <span className="text-[var(--color-text-muted)]">{p.before.toFixed(2)}</span>
-                              {after != null && (
-                                <>
-                                  <span className="text-[var(--color-text-muted)]">→</span>
-                                  <span className="text-[var(--color-brand-primary)] font-semibold">{after.toFixed(2)}</span>
-                                  <span className="text-[var(--color-success-base)] text-[12px]">(+{d!.toFixed(2)})</span>
-                                </>
-                              )}
-                              {after == null && <span className="text-[11px] leading-[14px] text-[var(--color-text-muted)]">/ 10</span>}
+                              <span className="text-[11px] leading-[14px] text-[var(--color-text-muted)]">/ 10</span>
                             </span>
                           </div>
-                          <div className="relative">
-                            <ProgressBar value={p.before} />
-                            {after != null && (
-                              <div className="absolute inset-0"><ProgressBar value={after} accent /></div>
-                            )}
-                          </div>
+                          <ProgressBar value={p.before} />
                         </div>
-                      );
-                    }) : (
-                      <div className="text-[14px] text-[var(--color-text-muted)] text-center py-[var(--space-12)]">
-                        {app.photo ? 'Анализируем...' : 'Загрузите фото для анализа'}
-                      </div>
-                    )}
-                  </div>
-
-                  {(genSimulating || (app.isGenerating && !genSimDone)) && (
-                    <div className="gradient-border-card glass-card rounded-[var(--radius-12)] p-[var(--space-12)] flex items-start gap-[var(--space-8)]">
-                      <span className="text-[16px] leading-none shrink-0 mt-[2px]">🧠</span>
-                      <p className="text-[13px] leading-[18px] text-[var(--color-text-secondary)] italic">
-                        {currentFact.text}
-                        <span className="inline-block w-[2px] h-[13px] bg-[var(--color-brand-primary)] ml-[2px] align-middle animate-pulse" />
-                      </p>
-                    </div>
-                  )}
-
-                  {app.preAnalysis?.enhancement_opportunities && app.preAnalysis.enhancement_opportunities.length > 0 && !genSimulating && !(app.isGenerating && !genSimDone) && (
-                    <div className="flex flex-col gap-[var(--space-4)]">
-                      <span className="text-[12px] font-medium text-[var(--color-text-muted)]">Возможности улучшения:</span>
-                      {app.preAnalysis.enhancement_opportunities.slice(0, 3).map((opp, i) => (
-                        <span key={i} className="text-[12px] text-[var(--color-text-secondary)]">• {opp}</span>
                       ))}
                     </div>
-                  )}
-                </>
-              )}
-
-              {/* === STATE 0: No photo uploaded === */}
-              {!app.photo && !app.isAuthenticated && (
-                <div className="gradient-border-card glass-card flex flex-col gap-[var(--space-12)] rounded-[var(--radius-12)] p-[var(--space-12)]">
-                  <div className="text-[14px] text-[var(--color-text-muted)] text-center py-[var(--space-12)]">
-                    Загрузите фото для анализа
+                    <div className="absolute inset-0 flex flex-col items-center justify-center gap-[var(--space-12)] rounded-[var(--radius-12)]">
+                      <span className="text-[18px] font-semibold leading-[24px] text-[#E6EEF8]">Результаты готовы</span>
+                      <span className="text-[14px] leading-[20px] text-[var(--color-text-secondary)] text-center max-w-[300px]">
+                        Зарегистрируйтесь, чтобы увидеть полный анализ восприятия
+                      </span>
+                      <button
+                        onClick={() => setAuthModalOpen(true)}
+                        className="glass-btn-primary px-[var(--space-24)] py-[var(--space-12)] text-[16px] leading-[24px] rounded-[var(--radius-12)]"
+                      >
+                        Получить доступ
+                      </button>
+                    </div>
                   </div>
-                </div>
-              )}
+                )}
+
+                {/* === STATE 3: Real results (authenticated) === */}
+                {app.isAuthenticated && analysisRequested && (
+                  <>
+                    <div className="gradient-border-card glass-card flex flex-col gap-[var(--space-12)] rounded-[var(--radius-12)] p-[var(--space-12)]">
+                      {displayParams ? displayParams.map((p) => {
+                        const after = p.after;
+                        const d = after != null ? +(after - p.before).toFixed(2) : null;
+                        const predicted = styleDelta?.[p.key] ?? null;
+                        return (
+                          <div key={p.key} className="flex flex-col gap-[var(--space-8)]">
+                            <div className="flex items-center justify-between">
+                              <span className="text-[14px] leading-[20px] text-[#E6EEF8]">{p.label}</span>
+                              <span className="flex items-center gap-[var(--space-8)] text-[14px] leading-[20px] tabular-nums">
+                                <span className="text-[var(--color-text-muted)]">{p.before.toFixed(2)}</span>
+                                {after != null && (
+                                  <>
+                                    <span className="text-[var(--color-text-muted)]">{'\u2192'}</span>
+                                    <span className="text-[var(--color-brand-primary)] font-semibold">{after.toFixed(2)}</span>
+                                    <span className="text-[var(--color-success-base)] text-[12px]">(+{d!.toFixed(2)})</span>
+                                  </>
+                                )}
+                                {after == null && predicted != null && predicted > 0 && (
+                                  <span className="text-[var(--color-success-base)] text-[12px] font-medium">+{predicted.toFixed(2)}</span>
+                                )}
+                                {after == null && !predicted && <span className="text-[11px] leading-[14px] text-[var(--color-text-muted)]">/ 10</span>}
+                              </span>
+                            </div>
+                            <div className="relative">
+                              <ProgressBar value={p.before} />
+                              {after != null && (
+                                <div className="absolute inset-0"><ProgressBar value={after} accent /></div>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      }) : (
+                        <div className="text-[14px] text-[var(--color-text-muted)] text-center py-[var(--space-12)]">
+                          {app.photo ? 'Анализируем...' : 'Загрузите фото для анализа'}
+                        </div>
+                      )}
+                    </div>
+
+                    {(genSimulating || (app.isGenerating && !genSimDone)) && (
+                      <p className="text-[13px] leading-[18px] text-[var(--color-text-secondary)] italic">
+                        {streamedFact}
+                        <span className="inline-block w-[2px] h-[13px] bg-[var(--color-brand-primary)] ml-[2px] align-middle animate-pulse" />
+                      </p>
+                    )}
+
+                    {app.preAnalysis?.enhancement_opportunities && app.preAnalysis.enhancement_opportunities.length > 0 && !genSimulating && !(app.isGenerating && !genSimDone) && (
+                      <div className="flex flex-col gap-[var(--space-4)]">
+                        <span className="text-[12px] font-medium text-[var(--color-text-muted)]">Возможности улучшения:</span>
+                        {app.preAnalysis.enhancement_opportunities.slice(0, 3).map((opp, i) => (
+                          <span key={i} className="text-[12px] text-[var(--color-text-secondary)]">{'\u2022'} {opp}</span>
+                        ))}
+                      </div>
+                    )}
+                  </>
+                )}
+
+                {/* === STATE 0: No photo uploaded === */}
+                {!app.photo && (
+                  <div className="gradient-border-card glass-card flex flex-col gap-[var(--space-12)] rounded-[var(--radius-12)] p-[var(--space-12)]">
+                    <div className="text-[14px] text-[var(--color-text-muted)] text-center py-[var(--space-12)]">
+                      Загрузите фото для анализа
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
 
@@ -771,6 +817,33 @@ export default function AppScreen() {
         onClose={() => setStorageModalOpen(false)}
         items={app.taskHistory}
       />
+
+      <AnimatePresence>
+        {movedToStorageModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
+            onClick={() => setMovedToStorageModal(false)}
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.9 }}
+              transition={{ duration: 0.25 }}
+              className="glass-card rounded-[var(--radius-16)] p-[var(--space-24)] max-w-sm w-full mx-4 flex flex-col items-center gap-[var(--space-16)] text-center"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <ImageIcon size={40} className="text-[var(--color-brand-primary)]" />
+              <p className="text-[16px] font-semibold text-[#E6EEF8]">
+                Сгенерированное фото перемещено в хранилище
+              </p>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {app.noCreditsError && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
