@@ -100,7 +100,7 @@ export default function AppScreen() {
     app.setActiveCategory(id);
     app.setSelectedStyleKey('');
     setPage(0);
-    if (app.photo && analysisRequested) app.runPreAnalyze();
+    setAnalysisRequested(false);
   }
 
   function handleStyleClick(key: string) {
@@ -522,8 +522,8 @@ export default function AppScreen() {
                   ) : (
                     <button
                       onClick={handleGenerate}
-                      disabled={app.isGenerating || genSimulating || !app.photo}
-                      className="glass-btn-primary px-[var(--space-20)] py-[var(--space-10)] text-[14px] leading-[20px] rounded-[var(--radius-pill)] disabled:opacity-40 disabled:cursor-not-allowed"
+                      disabled={app.isGenerating || genSimulating || !app.photo || !hasRealScores}
+                      className={`${hasRealScores ? 'glass-btn-primary' : 'glass-btn-ghost'} px-[var(--space-20)] py-[var(--space-10)] text-[14px] leading-[20px] rounded-[var(--radius-pill)] disabled:opacity-40 disabled:cursor-not-allowed`}
                     >
                       {app.isGenerating || genSimulating ? 'Обработка...' : 'Улучшить'}
                     </button>

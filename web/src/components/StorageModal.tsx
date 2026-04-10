@@ -4,6 +4,14 @@ import { AnimatePresence, motion } from 'framer-motion';
 import type { TaskHistoryItem } from '../lib/api';
 import { createShare } from '../lib/api';
 import { normalizeImageUrl } from '../lib/image-url';
+import { STYLES_BY_CATEGORY } from '../data/styles';
+
+const STYLE_LOOKUP: Record<string, { name: string; icon: string }> = {};
+for (const styles of Object.values(STYLES_BY_CATEGORY)) {
+  for (const s of styles) {
+    STYLE_LOOKUP[s.key] = { name: s.name, icon: s.icon };
+  }
+}
 
 interface Props {
   items: TaskHistoryItem[];
@@ -39,6 +47,7 @@ export default function StorageModal({ items, open, onClose }: Props) {
   }, [open]);
 
   const item = items[idx];
+  const styleInfo = item ? STYLE_LOOKUP[item.style] : null;
   const canPrev = idx > 0;
   const canNext = idx < items.length - 1;
 
@@ -205,7 +214,7 @@ export default function StorageModal({ items, open, onClose }: Props) {
                     {item.score_before != null && (
                       <>
                         <div className="flex items-center justify-between">
-                          <span className="text-[14px] leading-[20px] text-[#E6EEF8] font-medium">Исходное</span>
+                          <span className="text-[14px] leading-[20px] text-[#E6EEF8] font-medium">Исходное фото</span>
                           <span className="flex items-center gap-1">
                             <span className="text-[14px] leading-[20px] text-[var(--color-text-secondary)] tabular-nums">{item.score_before.toFixed(2)}</span>
                             <span className="text-[11px] leading-[14px] text-[var(--color-text-muted)]">/ 10</span>
@@ -233,13 +242,13 @@ export default function StorageModal({ items, open, onClose }: Props) {
                         </div>
                       )}
                       <span className="absolute top-[var(--space-8)] left-[var(--space-8)] glass-badge-success px-[var(--space-8)] py-[2px] rounded-[var(--radius-pill)] text-[11px] leading-[14px] font-medium text-[#E6EEF8]">
-                        После
+                        {styleInfo ? `${styleInfo.icon} ${styleInfo.name}` : 'После'}
                       </span>
                     </div>
                     {item.score_after != null && (
                       <>
                         <div className="flex items-center justify-between">
-                          <span className="text-[14px] leading-[20px] text-[#E6EEF8] font-medium">{item.style || item.mode}</span>
+                          <span className="text-[14px] leading-[20px] text-[#E6EEF8] font-medium">{styleInfo ? `${styleInfo.icon} ${styleInfo.name}` : (item.style || item.mode)}</span>
                           <span className="flex items-center gap-1">
                             <span className="text-[14px] leading-[20px] text-[var(--color-brand-primary)] font-semibold tabular-nums">{item.score_after.toFixed(2)}</span>
                             <span className="text-[11px] leading-[14px] text-[var(--color-text-muted)]">/ 10</span>
