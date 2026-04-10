@@ -448,13 +448,29 @@ export default function AppScreen() {
                     >
                       Пополнить баланс
                     </button>
+                  ) : hasGenResult ? (
+                    <div className="flex gap-[var(--space-8)]">
+                      <button
+                        onClick={handleGenerate}
+                        disabled={app.isGenerating || genSimulating}
+                        className="flex-1 glass-btn-ghost px-[var(--space-12)] py-[var(--space-10)] text-[14px] leading-[20px] rounded-[var(--radius-pill)] disabled:opacity-40 disabled:cursor-not-allowed"
+                      >
+                        Улучшить
+                      </button>
+                      <button
+                        onClick={handleShare}
+                        className="flex-1 glass-btn-primary px-[var(--space-12)] py-[var(--space-10)] text-[14px] leading-[20px] rounded-[var(--radius-pill)]"
+                      >
+                        Поделиться
+                      </button>
+                    </div>
                   ) : (
                     <button
-                      onClick={hasGenResult ? handleShare : handleGenerate}
+                      onClick={handleGenerate}
                       disabled={app.isGenerating || genSimulating || !app.photo}
                       className="glass-btn-primary px-[var(--space-20)] py-[var(--space-10)] text-[14px] leading-[20px] rounded-[var(--radius-pill)] disabled:opacity-40 disabled:cursor-not-allowed"
                     >
-                      {app.isGenerating || genSimulating ? 'Обработка...' : hasGenResult ? 'Поделиться' : 'Улучшить'}
+                      {app.isGenerating || genSimulating ? 'Обработка...' : 'Улучшить'}
                     </button>
                   )}
                 </div>
