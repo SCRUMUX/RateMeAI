@@ -29,6 +29,7 @@ interface AppState {
   isSimulating: boolean;
   simulationDone: boolean;
   noCreditsError: boolean;
+  preAnalyzeError: boolean;
   taskHistory: api.TaskHistoryItem[];
   taskHistoryCount: number;
 }
@@ -115,6 +116,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [isSimulating, setIsSimulating] = useState(false);
   const [simulationDone, setSimulationDone] = useState(false);
   const [noCreditsError, setNoCreditsError] = useState(false);
+  const [preAnalyzeError, setPreAnalyzeError] = useState(false);
   const [taskHistory, setTaskHistory] = useState<api.TaskHistoryItem[]>([]);
   const [taskHistoryCount, setTaskHistoryCount] = useState(0);
 
@@ -141,6 +143,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const preview = URL.createObjectURL(f);
     setPhoto({ file: f, preview });
     setPreAnalysis(null);
+    setPreAnalyzeError(false);
     preAnalysisCacheRef.current = {};
     setCurrentTask(null);
     setGeneratedImageUrl(null);
@@ -163,11 +166,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
 
     setPreAnalysis(null);
+    setPreAnalyzeError(false);
     try {
       const res = await api.preAnalyze(photo.file, mode);
       preAnalysisCacheRef.current[mode] = res;
       setPreAnalysis(res);
     } catch (e) {
+      setPreAnalyzeError(true);
       setError(e instanceof api.ApiError ? e.body : 'Pre-analyze failed');
     }
   }, [photo, activeCategory]);
@@ -418,7 +423,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     session, balance, photo, preAnalysis, activeCategory, selectedStyleKey,
     currentTask, isGenerating, error, generatedImageUrl, afterScore, afterPerception,
     generationMode, isAuthenticated, isSimulating, simulationDone,
-    noCreditsError, taskHistory, taskHistoryCount,
+    noCreditsError, preAnalyzeError, taskHistory, taskHistoryCount,
     setActiveCategory, setSelectedStyleKey, uploadPhoto, runPreAnalyze,
     generate, share, refreshBalance, clearError, clearGeneratedImage, clearNoCreditsError,
     resetGeneration, fetchTaskHistory, startSimulation, authenticateUser,

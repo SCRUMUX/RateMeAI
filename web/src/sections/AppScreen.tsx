@@ -452,11 +452,17 @@ export default function AppScreen() {
                       </div>
                     </>
                   )}
-                  {/* Gen simulation done: blurred mock result */}
+                  {/* Gen simulation done: blurred mock result or error overlay */}
                   {!hasGenResult && genSimDone && (
                     <div className="w-full h-full relative">
                       <img src="/img/placeholder-upgrade.png" alt="" className="w-full h-full object-cover" style={{ filter: 'blur(16px) saturate(1.6) brightness(0.6)', transform: 'scale(1.1)' }} />
                       <div className="absolute inset-0" style={{ background: 'linear-gradient(135deg, rgba(var(--accent-r),var(--accent-g),var(--accent-b),0.25) 0%, rgba(0,0,0,0.3) 100%)' }} />
+                      {genSimMode === 'real' && app.error && (
+                        <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-[var(--space-8)] text-center px-[var(--space-12)]">
+                          <svg width="32" height="32" viewBox="0 0 32 32" fill="none"><circle cx="16" cy="16" r="14" stroke="rgba(255,255,255,0.3)" strokeWidth="1.5"/><path d="M16 10v8M16 22h.01" stroke="#E6EEF8" strokeWidth="2" strokeLinecap="round"/></svg>
+                          <span className="text-[13px] leading-[18px] text-[#E6EEF8] font-medium">Не удалось сгенерировать</span>
+                        </div>
+                      )}
                     </div>
                   )}
                   {/* Default placeholder */}
@@ -533,6 +539,13 @@ export default function AppScreen() {
                         Поделиться
                       </button>
                     </div>
+                  ) : genSimDone && genSimMode === 'real' ? (
+                    <button
+                      onClick={() => { app.clearError(); resetGenSim(); handleGenerate(); }}
+                      className="glass-btn-primary px-[var(--space-20)] py-[var(--space-10)] text-[14px] leading-[20px] rounded-[var(--radius-pill)]"
+                    >
+                      Повторить генерацию
+                    </button>
                   ) : (
                     <button
                       onClick={handleGenerate}
@@ -732,9 +745,26 @@ export default function AppScreen() {
                             </div>
                           </div>
                         );
-                      }) : (
-                        <div className="text-[14px] text-[var(--color-text-muted)] text-center py-[var(--space-12)]">
-                          {app.photo ? 'Анализируем...' : 'Загрузите фото для анализа'}
+                      }                      ) : (
+                        <div className="flex flex-col items-center gap-[var(--space-8)] text-center py-[var(--space-12)]">
+                          {app.preAnalyzeError ? (
+                            <>
+                              <span className="text-[14px] text-[var(--color-text-muted)]">Не удалось загрузить анализ</span>
+                              <button
+                                onClick={() => { app.runPreAnalyze(); }}
+                                className="glass-btn-ghost px-[var(--space-16)] py-[var(--space-6)] text-[13px] text-[#E6EEF8] rounded-[var(--radius-pill)]"
+                              >
+                                Повторить
+                              </button>
+                            </>
+                          ) : app.photo ? (
+                            <div className="flex items-center gap-[var(--space-8)]">
+                              <div className="w-4 h-4 border-2 border-t-transparent rounded-full animate-spin shrink-0" style={{ borderColor: 'rgba(var(--accent-r),var(--accent-g),var(--accent-b),0.5)', borderTopColor: 'transparent' }} />
+                              <span className="text-[14px] text-[var(--color-text-muted)]">Анализируем...</span>
+                            </div>
+                          ) : (
+                            <span className="text-[14px] text-[var(--color-text-muted)]">Загрузите фото для анализа</span>
+                          )}
                         </div>
                       )}
                     </div>
