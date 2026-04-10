@@ -4,14 +4,15 @@ from __future__ import annotations
 from unittest.mock import AsyncMock, patch
 
 
-def _register_user(client, telegram_id: int = 888001) -> str:
-    """Register user and return their internal UUID."""
+def _register_user(client, telegram_id: int = 888001) -> tuple[str, str]:
+    """Register user and return (user_id, session_token)."""
     r = client.post(
         "/api/v1/auth/telegram",
         json={"telegram_id": telegram_id, "username": "pay_tester", "first_name": "Pay"},
     )
     assert r.status_code == 200, r.text
-    return r.json()["user_id"]
+    data = r.json()
+    return data["user_id"], data["session_token"]
 
 
 def _webhook_body(payment_id: str, user_id: str, pack_qty: int) -> dict:
@@ -33,7 +34,7 @@ def _webhook_body(payment_id: str, user_id: str, pack_qty: int) -> dict:
 @patch("src.api.v1.payments._is_trusted_ip", return_value=True)
 def test_webhook_credits_user(mock_ip, mock_notify, client):
     tg_id = 888001
-    user_id = _register_user(client, tg_id)
+    user_id, token = _register_user(client, tg_id)
 
     body = _webhook_body("pay_test_001", user_id, 5)
     r = client.post("/api/v1/payments/yookassa/webhook", json=body)
@@ -44,7 +45,7 @@ def test_webhook_credits_user(mock_ip, mock_notify, client):
 
     r2 = client.get(
         "/api/v1/payments/balance",
-        headers={"X-Telegram-Id": str(tg_id)},
+        headers={"Authorization": f"Bearer {token}"},
     )
     assert r2.status_code == 200
     assert r2.json()["image_credits"] >= 5
@@ -54,7 +55,7 @@ def test_webhook_credits_user(mock_ip, mock_notify, client):
 @patch("src.api.v1.payments._is_trusted_ip", return_value=True)
 def test_webhook_duplicate_rejected(mock_ip, mock_notify, client):
     tg_id = 888002
-    user_id = _register_user(client, tg_id)
+    user_id, _token = _register_user(client, tg_id)
 
     body = _webhook_body("pay_dup_001", user_id, 10)
     r1 = client.post("/api/v1/payments/yookassa/webhook", json=body)
@@ -93,6 +94,6 @@ def test_balance_missing_header(client):
 def test_balance_unknown_user(client):
     r = client.get(
         "/api/v1/payments/balance",
-        headers={"X-Telegram-Id": "999999999"},
+        headers={"Authorization": "Bearer invalid_token_for_unknown_user"},
     )
     assert r.status_code == 401

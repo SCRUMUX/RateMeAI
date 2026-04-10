@@ -9,12 +9,14 @@ _MIN_JPEG = (
 )
 
 
-def _register_user(client, telegram_id: int = 888001) -> None:
+def _register_user(client, telegram_id: int = 888001) -> str:
+    """Register user and return Bearer token."""
     r = client.post(
         "/api/v1/auth/telegram",
         json={"telegram_id": telegram_id, "username": "tester", "first_name": "Test"},
     )
     assert r.status_code == 200, r.text
+    return r.json()["session_token"]
 
 
 @patch("src.api.v1.analyze._get_arq", new_callable=AsyncMock)
@@ -28,18 +30,18 @@ def test_analyze_stores_enhancement_level_in_context(mock_get_storage, mock_get_
     mock_get_arq.return_value = pool
 
     tid = 888001
-    _register_user(client, telegram_id=tid)
+    token = _register_user(client, telegram_id=tid)
 
     r = client.post(
         "/api/v1/analyze",
         files={"image": ("x.jpg", _MIN_JPEG, "image/jpeg")},
         data={"mode": "social", "style": "influencer", "enhancement_level": "1"},
-        headers={"X-Telegram-Id": str(tid)},
+        headers={"Authorization": f"Bearer {token}"},
     )
     assert r.status_code == 202, r.text
     task_id = r.json()["task_id"]
 
-    r2 = client.get(f"/api/v1/tasks/{task_id}", headers={"X-Telegram-Id": str(tid)})
+    r2 = client.get(f"/api/v1/tasks/{task_id}", headers={"Authorization": f"Bearer {token}"})
     assert r2.status_code == 200
     data = r2.json()
     assert data["status"] == "pending"
@@ -57,12 +59,12 @@ def test_analyze_default_enhancement_level_not_in_context(mock_get_storage, mock
     mock_get_arq.return_value = pool
 
     tid = 888002
-    _register_user(client, telegram_id=tid)
+    token = _register_user(client, telegram_id=tid)
 
     r = client.post(
         "/api/v1/analyze",
         files={"image": ("x.jpg", _MIN_JPEG, "image/jpeg")},
         data={"mode": "dating", "style": "studio"},
-        headers={"X-Telegram-Id": str(tid)},
+        headers={"Authorization": f"Bearer {token}"},
     )
     assert r.status_code == 202, r.text
