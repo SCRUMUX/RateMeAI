@@ -31,9 +31,12 @@ export default function NavBar() {
       <div className="max-w-[1200px] mx-auto flex items-center justify-between h-[60px] px-[var(--space-24)]">
         {/* Logo */}
         <div className="flex items-center gap-[var(--space-8)] px-[var(--space-8)] py-[var(--space-4)]">
-          <img src="/img/logo.png" alt="AI Look Studio" className="w-11 h-11 rounded-xl object-contain" style={{ mixBlendMode: 'lighten' }} />
+          <div className="relative w-11 h-11 shrink-0">
+            <div className="absolute inset-0 rounded-xl" style={{ background: 'rgba(var(--accent-r), var(--accent-g), var(--accent-b), 0.4)' }} />
+            <img src="/img/logo.png" alt="AI Look Studio" className="relative w-full h-full rounded-xl object-contain" style={{ mixBlendMode: 'lighten' }} />
+          </div>
           <span className="text-[22px] leading-[30px] font-bold whitespace-nowrap tracking-tight">
-            <span className="text-[var(--color-brand-primary)]">AI</span>
+            <span className="text-[#E6EEF8]">AI</span>
             <span className="text-[var(--color-text-primary)]"> Look Studio</span>
           </span>
         </div>
