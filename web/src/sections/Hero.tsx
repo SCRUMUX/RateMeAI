@@ -8,11 +8,12 @@ interface PlatformDef {
   opacity: number;
   iconColor: string;
   Icon: FC<{ size?: number | string; className?: string; style?: React.CSSProperties }>;
+  href?: string;
 }
 
 const PLATFORMS: PlatformDef[] = [
-  { name: 'WEB APP', sub: 'Прямо здесь', border: 'var(--color-brand-primary)', opacity: 1, iconColor: 'var(--color-brand-primary)', Icon: ({ size, className }) => <AicaIcon size={size} className={`${className ?? ''} -rotate-45`} /> },
-  { name: 'Telegram', sub: 'Уже запущен', border: '#229ED9', opacity: 1, iconColor: '#229ED9', Icon: TelegramIcon },
+  { name: 'WEB APP', sub: 'Прямо здесь', border: 'var(--color-brand-primary)', opacity: 1, iconColor: 'var(--color-brand-primary)', Icon: ({ size, className }) => <AicaIcon size={size} className={`${className ?? ''} -rotate-45`} />, href: '#app' },
+  { name: 'Telegram', sub: 'Уже запущен', border: '#229ED9', opacity: 1, iconColor: '#229ED9', Icon: TelegramIcon, href: 'https://t.me/RateMeAIBot' },
   { name: 'Одноклассники', sub: 'Скоро', border: '#EE8208', opacity: 0.5, iconColor: '#EE8208', Icon: OkIcon },
   { name: 'Вконтакте', sub: 'Скоро', border: '#0077FF', opacity: 0.5, iconColor: '#0077FF', Icon: VkIcon },
   { name: 'WhatsApp', sub: 'Скоро', border: '#25D366', opacity: 0.5, iconColor: '#25D366', Icon: WhatsappIcon },
@@ -54,25 +55,37 @@ export default function Hero() {
           Выбери удобный способ:
         </p>
         <div className="flex flex-wrap items-center justify-center gap-[var(--space-12)]">
-          {PLATFORMS.map((p) => (
-            <div key={p.name}
-              className="gradient-border-item glass-btn-ghost flex items-center gap-[var(--space-4)] px-[var(--space-16)] py-[var(--space-8)] min-h-[36px] rounded-[var(--radius-12)] cursor-pointer"
-              style={{ opacity: p.opacity, '--gb-color': p.border } as React.CSSProperties}
-            >
-              <div className="flex items-center gap-[6px]">
-                <p.Icon size={20} style={{ color: p.iconColor }} />
-                <div className="flex flex-col gap-[2px]">
-                  <span className="text-[12px] leading-[16px] text-[#E6EEF8]">{p.name}</span>
-                  <span className="text-[11px] leading-[14px]"
-                    style={{ color: p.sub === 'Скоро' ? 'var(--color-text-muted)' : 'var(--color-brand-primary)' }}
-                  >
-                    {p.sub}
-                  </span>
+          {PLATFORMS.map((p) => {
+            const cls = "gradient-border-item glass-btn-ghost flex items-center gap-[var(--space-4)] px-[var(--space-16)] py-[var(--space-8)] min-h-[36px] rounded-[var(--radius-12)] cursor-pointer no-underline";
+            const style = { opacity: p.opacity, '--gb-color': p.border } as React.CSSProperties;
+            const inner = (
+              <>
+                <div className="flex items-center gap-[6px]">
+                  <p.Icon size={20} style={{ color: p.iconColor }} />
+                  <div className="flex flex-col gap-[2px]">
+                    <span className="text-[12px] leading-[16px] text-[#E6EEF8]">{p.name}</span>
+                    <span className="text-[11px] leading-[14px]"
+                      style={{ color: p.sub === 'Скоро' ? 'var(--color-text-muted)' : 'var(--color-brand-primary)' }}
+                    >
+                      {p.sub}
+                    </span>
+                  </div>
                 </div>
+                <ChevronRightIcon size={20} className="text-[var(--color-text-muted)] ml-1" />
+              </>
+            );
+            return p.href ? (
+              <a key={p.name} href={p.href} className={cls} style={style}
+                {...(p.href.startsWith('http') ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
+              >
+                {inner}
+              </a>
+            ) : (
+              <div key={p.name} className={cls} style={style}>
+                {inner}
               </div>
-              <ChevronRightIcon size={20} className="text-[var(--color-text-muted)] ml-1" />
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
     </section>

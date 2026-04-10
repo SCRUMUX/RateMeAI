@@ -27,7 +27,6 @@ def build_authorize_url(
     state: str,
     redirect_uri: str,
     code_challenge: str,
-    device_id: str,
 ) -> str:
     params = {
         "response_type": "code",
@@ -37,7 +36,6 @@ def build_authorize_url(
         "code_challenge": code_challenge,
         "code_challenge_method": "S256",
         "scope": "email",
-        "device_id": device_id,
     }
     return str(httpx.URL(AUTHORIZE_URL, params=params))
 
@@ -57,7 +55,6 @@ async def exchange_code(
                 "grant_type": "authorization_code",
                 "code": code,
                 "client_id": settings.vk_id_app_id,
-                "client_secret": settings.vk_id_app_secret,
                 "code_verifier": code_verifier,
                 "device_id": device_id,
                 "state": state,

@@ -77,6 +77,10 @@ async def lifespan(app: FastAPI):
             "image URLs will be broken for clients",
             settings.api_base_url,
         )
+    if settings.is_production and not settings.vk_id_app_id.strip():
+        log.warning(
+            "VK_ID_APP_ID is empty — VK ID OAuth login will not work",
+        )
     sha = (settings.deploy_git_sha or "").strip()
     log.info(
         "RateMeAI API starting version=%s%s",

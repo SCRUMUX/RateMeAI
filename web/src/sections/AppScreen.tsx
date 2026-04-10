@@ -4,7 +4,6 @@ import { ChevronLeftIcon, ChevronRightIcon, CoinIcon, ImageIcon } from '@ai-ds/c
 import { STYLES_BY_CATEGORY, PARAMS_BY_MODE, getMockDelta, type CategoryId, type StyleItem } from '../data/styles';
 import { PERCEPTION_FACTS, getRandomFact } from '../data/ai-facts';
 import CategoryTabs from '../components/CategoryTabs';
-import AuthModal from '../components/AuthModal';
 import StorageModal from '../components/StorageModal';
 import { useApp } from '../context/AppContext';
 
@@ -37,7 +36,7 @@ function computeStyleDeltas(style: StyleItem, tab: CategoryId): Record<string, n
   return result;
 }
 
-export default function AppScreen() {
+export default function AppScreen({ onOpenAuthModal }: { onOpenAuthModal?: () => void }) {
   const app = useApp();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [page, setPage] = useState(0);
@@ -124,7 +123,6 @@ export default function AppScreen() {
     app.uploadPhoto(f);
   }, [app]);
 
-  const [authModalOpen, setAuthModalOpen] = useState(false);
   const [storageModalOpen, setStorageModalOpen] = useState(false);
   const [simStep, setSimStep] = useState(0);
   const [streamedText, setStreamedText] = useState('');
@@ -508,7 +506,7 @@ export default function AppScreen() {
                   </div>
                   {genSimDone && genSimMode === 'demo' ? (
                     <button
-                      onClick={() => setAuthModalOpen(true)}
+                      onClick={onOpenAuthModal}
                       className="glass-btn-primary px-[var(--space-20)] py-[var(--space-10)] text-[14px] leading-[20px] rounded-[var(--radius-pill)]"
                     >
                       Зарегистрироваться
@@ -667,7 +665,7 @@ export default function AppScreen() {
                         Зарегистрируйтесь, чтобы увидеть полный анализ восприятия
                       </span>
                       <button
-                        onClick={() => setAuthModalOpen(true)}
+                        onClick={onOpenAuthModal}
                         className="glass-btn-primary px-[var(--space-24)] py-[var(--space-12)] text-[16px] leading-[24px] rounded-[var(--radius-12)]"
                       >
                         Получить доступ
@@ -877,18 +875,6 @@ export default function AppScreen() {
           )}
         </div>
       </div>
-
-      <AuthModal
-        open={authModalOpen}
-        onClose={() => setAuthModalOpen(false)}
-        onAuth={async (email) => {
-          await app.authenticateUser(email);
-          setAuthModalOpen(false);
-        }}
-        onOAuth={async (provider) => {
-          await app.loginWithOAuth(provider);
-        }}
-      />
 
       <StorageModal
         open={storageModalOpen}

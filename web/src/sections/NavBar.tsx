@@ -1,7 +1,11 @@
 import { GlobeIcon, CoinIcon } from '@ai-ds/core/icons';
 import { useApp } from '../context/AppContext';
 
-export default function NavBar() {
+interface Props {
+  onLoginClick?: () => void;
+}
+
+export default function NavBar({ onLoginClick }: Props) {
   const { session, balance, logout } = useApp();
 
   return (
@@ -44,12 +48,13 @@ export default function NavBar() {
               </button>
             </div>
           ) : (
-            <a href="#app"
-              className="glass-btn-ghost flex items-center gap-[var(--space-6)] px-[var(--space-12)] py-[var(--space-6)] text-[14px] leading-[20px] font-medium text-[#E6EEF8] rounded-[var(--radius-12)] border border-[rgba(255,255,255,0.15)]"
+            <button
+              onClick={onLoginClick}
+              className="glass-btn-ghost flex items-center gap-[var(--space-6)] px-[var(--space-12)] py-[var(--space-6)] text-[14px] leading-[20px] font-medium text-[#E6EEF8] rounded-[var(--radius-12)] border border-[rgba(255,255,255,0.15)] cursor-pointer"
             >
               <svg width="16" height="16" viewBox="0 0 16 16" fill="none" className="text-[var(--color-brand-primary)]"><path d="M10 2h2.667A1.333 1.333 0 0114 3.333v9.334A1.333 1.333 0 0112.667 14H10M6.667 11.333L10 8m0 0L6.667 4.667M10 8H2" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/></svg>
               Войти
-            </a>
+            </button>
           )}
 
           <button className="glass-btn-ghost flex items-center gap-[var(--space-4)] px-[var(--space-12)] py-[var(--space-6)] text-[14px] leading-[20px] font-medium text-[#E6EEF8] rounded-[var(--radius-12)]">

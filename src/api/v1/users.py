@@ -336,7 +336,7 @@ async def vk_id_oauth_init(
         device_id=device_id,
     )
 
-    url = build_authorize_url(state, redirect_uri, code_challenge, device_id)
+    url = build_authorize_url(state, redirect_uri, code_challenge)
     return OAuthInitResponse(authorize_url=url)
 
 
@@ -371,11 +371,14 @@ async def vk_id_oauth_callback(
         raise HTTPException(status_code=400, detail="Invalid or expired OAuth state")
 
     code_verifier = stored.get("code_verifier", "")
-    stored_device_id = device_id or stored.get("device_id", "")
+    vk_device_id = device_id or stored.get("device_id", "")
     redirect_uri = f"{settings.api_base_url}/api/v1/auth/vk-id/callback"
 
+    if not device_id:
+        logger.warning("VK ID callback: device_id not returned by VK, using stored fallback")
+
     access_token = await exchange_code(
-        code, redirect_uri, code_verifier, stored_device_id, state,
+        code, redirect_uri, code_verifier, vk_device_id, state,
     )
     if not access_token:
         raise HTTPException(status_code=401, detail="VK ID token exchange failed")

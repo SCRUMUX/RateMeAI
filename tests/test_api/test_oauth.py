@@ -82,6 +82,7 @@ def test_vk_id_init_returns_authorize_url(client):
     assert "id.vk.ru/authorize" in url
     assert "code_challenge=" in url
     assert "code_challenge_method=S256" in url
+    assert "device_id" not in url, "device_id must not be in authorize URL per VK ID docs"
 
 
 def test_vk_id_callback_invalid_state(client):
