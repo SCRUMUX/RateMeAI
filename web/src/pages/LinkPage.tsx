@@ -111,6 +111,13 @@ export default function LinkPage() {
             className="w-full px-4 py-3 rounded-[var(--radius-8)] text-[18px] text-center text-[#E6EEF8] font-mono tracking-[0.3em] placeholder:text-[var(--color-text-muted)] outline-none uppercase"
             style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)' }}
           />
+          <p className="text-[11px] text-[var(--color-text-muted)] text-center mt-1">
+            Откуда взять код? В Telegram-боте{' '}
+            <a href="https://t.me/RateMeAIBot" target="_blank" rel="noopener noreferrer" className="underline hover:text-[var(--color-text-secondary)]">
+              @RateMeAIBot
+            </a>
+            {' '}нажми &laquo;Привязать аккаунт&raquo; &rarr; &laquo;Хочу войти на сайт через бот&raquo;
+          </p>
         </div>
 
         <div className="flex flex-col gap-3">

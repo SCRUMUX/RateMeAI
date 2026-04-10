@@ -65,6 +65,14 @@ export default function NavBar({ onLoginClick }: Props) {
                   style={{ border: '1px solid rgba(255,255,255,0.08)' }}
                 >
                   <LinkedAccountsPanel />
+                  <a
+                    href="/link"
+                    onClick={() => setMenuOpen(false)}
+                    className="flex items-center gap-[var(--space-6)] px-[var(--space-12)] py-[var(--space-8)] text-[14px] leading-[20px] font-medium text-[#E6EEF8] rounded-[var(--radius-8)] hover:bg-[rgba(255,255,255,0.06)] transition-all cursor-pointer no-underline"
+                  >
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M6.667 8.667a3.333 3.333 0 005.026.36l2-2a3.334 3.334 0 00-4.714-4.714L8.053 3.24" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/><path d="M9.333 7.333a3.333 3.333 0 00-5.026-.36l-2 2a3.334 3.334 0 004.714 4.714l.927-.926" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                    Привязать аккаунт
+                  </a>
                   <div className="h-px" style={{ background: 'rgba(255,255,255,0.08)' }} />
                   <button
                     onClick={() => { setMenuOpen(false); logout(); }}

@@ -133,4 +133,25 @@ def back_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="\U0001f4f8 Загрузить фото", callback_data="new_photo")],
         [InlineKeyboardButton(text="\U0001f4b3 Пополнить баланс", callback_data="topup")],
+        [InlineKeyboardButton(text="\U0001f517 Привязать аккаунт", callback_data="link_account")],
+    ])
+
+
+def link_wizard_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(
+            text="\U0001f310 У меня есть аккаунт на сайте",
+            callback_data="link_have_web",
+        )],
+        [InlineKeyboardButton(
+            text="\U0001f4f2 Хочу войти на сайт через бот",
+            callback_data="link_to_web",
+        )],
+        [InlineKeyboardButton(text="\u2b05 Назад", callback_data="link_cancel")],
+    ])
+
+
+def link_waiting_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="\u274c Отмена", callback_data="link_cancel")],
     ])
