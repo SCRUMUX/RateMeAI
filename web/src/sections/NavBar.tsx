@@ -32,7 +32,7 @@ export default function NavBar() {
         {/* Logo */}
         <div className="flex items-center gap-[var(--space-8)] px-[var(--space-8)] py-[var(--space-4)]">
           <div className="relative w-11 h-11 shrink-0">
-            <div className="absolute inset-0 rounded-xl" style={{ background: 'rgba(var(--accent-r), var(--accent-g), var(--accent-b), 0.4)' }} />
+            <div className="absolute inset-0 rounded-xl" style={{ background: 'rgba(var(--accent-r), var(--accent-g), var(--accent-b), 0.18)' }} />
             <img src="/img/logo.png" alt="AI Look Studio" className="relative w-full h-full rounded-xl object-contain" style={{ mixBlendMode: 'lighten' }} />
           </div>
           <span className="text-[22px] leading-[30px] font-bold whitespace-nowrap tracking-tight">
