@@ -37,10 +37,14 @@ SKIN_FIX = (
     "Do not smooth or airbrush the skin. Minimal cleanup only."
 )
 
+BACKGROUND_FOCUS = (
+    "BACKGROUND FOCUS: sharp and in-focus background, fully detailed, "
+    "deep depth of field. The background must be as crisp as the subject."
+)
+
 CAMERA = (
-    "High-quality digital photograph. Sharp focus across entire frame "
-    "including background. Deep depth-of-field, everything in clear focus "
-    "from foreground to background. Clean natural colors, crisp detail throughout."
+    "High-quality digital photograph. Crisp detail throughout entire frame. "
+    "Clean natural colors."
 )
 
 REALISM = (
@@ -56,11 +60,11 @@ DATING_STYLES: dict[str, str] = {
     # --- Lifestyle ---
     "warm_outdoor": (
         "Background: golden-hour park or waterfront, warm backlight with "
-        "soft rim light, natural green and water textures visible in background. "
+        "subtle rim light, natural green and water textures visible in background. "
         "Clothing: stylish casual, fitted, clean fabrics."
     ),
     "studio_elegant": (
-        "Background: studio with soft gradient lighting, charcoal-to-warm-grey "
+        "Background: studio with smooth gradient lighting, charcoal-to-warm-grey "
         "backdrop, subtle vignette. "
         "Clothing: elegant evening wear, dark tones, silk or fine wool textures."
     ),
@@ -71,7 +75,7 @@ DATING_STYLES: dict[str, str] = {
         "aviator sunglasses pushed up on head."
     ),
     "in_car": (
-        "Background: interior of modern car, soft window light streaming through "
+        "Background: interior of modern car, diffused window light streaming through "
         "windshield, leather steering wheel and dashboard visible. "
         "Clothing: casual button-down shirt with rolled sleeves, subtle wrist accessory."
     ),
@@ -97,7 +101,7 @@ DATING_STYLES: dict[str, str] = {
         "Clothing: fitted athletic tank top or compression shirt, athletic shorts, training shoes."
     ),
     "running": (
-        "Background: tree-lined park path at early morning, soft diffused golden light, "
+        "Background: tree-lined park path at early morning, diffused golden light, "
         "green foliage with dew. "
         "Clothing: lightweight running shirt, athletic shorts, running shoes, sport watch."
     ),
@@ -143,7 +147,7 @@ DATING_STYLES: dict[str, str] = {
         "Clothing: clean apron over casual shirt, rolled sleeves, natural domestic setting."
     ),
     "dog_lover": (
-        "Background: sunlit park with green grass and trees, soft golden backlight, "
+        "Background: sunlit park with green grass and trees, warm golden backlight, "
         "open natural landscape. "
         "Clothing: relaxed casual outfit, fitted jeans, comfortable cotton shirt."
     ),
@@ -160,7 +164,7 @@ DATING_STYLES: dict[str, str] = {
     ),
     "art_gallery": (
         "Background: contemporary art gallery, white walls with large paintings visible, "
-        "track lighting creating soft directional light. "
+        "track lighting creating directional light. "
         "Clothing: smart turtleneck or fitted dark shirt, tailored trousers, minimalist style."
     ),
     "street_urban": (
@@ -216,7 +220,7 @@ DATING_STYLES: dict[str, str] = {
     ),
     "tokyo_tower": (
         "Background: minimalist Tokyo street with Tokyo Tower visible behind, "
-        "cherry blossoms or clean urban aesthetic, soft diffused light. "
+        "cherry blossoms or clean urban aesthetic, diffused light. "
         "Clothing: minimal Japanese-inspired outfit, clean dark fitted layers."
     ),
     "sf_golden_gate": (
@@ -241,7 +245,7 @@ DATING_STYLES: dict[str, str] = {
     ),
     "nyc_central_park": (
         "Background: Central Park with autumn foliage in warm tones, "
-        "soft dappled sunlight through trees, green lawns and pathway. "
+        "dappled sunlight through trees, green lawns and pathway. "
         "Clothing: casual fitted sweater, dark jeans, clean casual sneakers."
     ),
     "london_big_ben": (
@@ -252,7 +256,7 @@ DATING_STYLES: dict[str, str] = {
     # --- Travel expanded ---
     "airplane_window": (
         "Background: airplane window seat with clouds and blue sky visible outside, "
-        "soft cabin light, tray table with book or headphones. "
+        "dim cabin light, tray table with book or headphones. "
         "Clothing: comfortable travel outfit, quality hoodie or fitted sweater, headphones."
     ),
     "train_journey": (
@@ -309,13 +313,13 @@ DATING_STYLES: dict[str, str] = {
     ),
     "travel_luxury": (
         "Background: first-class airport lounge or luxury resort entrance, "
-        "marble and brass details, soft ambient warm lighting, premium interior. "
+        "marble and brass details, warm ambient lighting, premium interior. "
         "Clothing: elevated travel outfit, quality fabrics, leather accessories, luxury watch."
     ),
     # --- Sport expanded ---
     "yoga_outdoor": (
         "Background: outdoor yoga mat on green grass or beach at sunrise, "
-        "soft morning golden light, serene natural landscape, calm atmosphere. "
+        "gentle morning golden light, serene natural landscape, calm atmosphere. "
         "Clothing: fitted clean athletic wear, barefoot, minimal yoga outfit."
     ),
     "cycling": (
@@ -388,7 +392,7 @@ DATING_PERSONALITIES: dict[str, str] = {
 CV_STYLES: dict[str, str] = {
     # --- Classic ---
     "corporate": (
-        "Background: modern corner office, floor-to-ceiling windows with soft "
+        "Background: modern corner office, floor-to-ceiling windows with diffused "
         "diffused daylight, neutral beige wall, clean minimalist interior. "
         "Clothing: tailored formal charcoal suit, crisp white shirt, subtle tie or silk scarf."
     ),
@@ -399,7 +403,7 @@ CV_STYLES: dict[str, str] = {
     ),
     "formal_portrait": (
         "Background: neutral gradient studio backdrop charcoal-to-grey, classic Rembrandt "
-        "lighting with soft fill. "
+        "lighting with gentle fill. "
         "Clothing: dark formal suit, white shirt, conservative tie, clean grooming."
     ),
     # --- Modern business ---
@@ -424,7 +428,7 @@ CV_STYLES: dict[str, str] = {
         "Clothing: premium fitted polo or cashmere sweater, clean minimalist style."
     ),
     "neutral": (
-        "Background: light-grey studio backdrop, even soft lighting from both sides, "
+        "Background: light-grey studio backdrop, even lighting from both sides, "
         "clean and distraction-free. "
         "Clothing: classic professional attire, solid neutral colors."
     ),
@@ -478,7 +482,7 @@ CV_STYLES: dict[str, str] = {
     # --- Career expanded ---
     "video_call": (
         "Background: clean home office with ring light or monitor glow, "
-        "neat bookshelves behind, webcam-friendly framing, even soft lighting. "
+        "neat bookshelves behind, webcam-friendly framing, even lighting. "
         "Clothing: professional fitted shirt, crisp collar, clean grooming visible above desk."
     ),
     "glass_wall_pose": (
@@ -493,7 +497,7 @@ CV_STYLES: dict[str, str] = {
     ),
     "tablet_stylus": (
         "Background: creative workspace, digital tablet on desk with sketches visible, "
-        "clean modern interior, soft directional task light. "
+        "clean modern interior, directional task light. "
         "Clothing: smart-casual fitted dark sweater, creative professional look."
     ),
     "notebook_ideas": (
@@ -550,7 +554,7 @@ CV_STYLES: dict[str, str] = {
     ),
     "business_lounge": (
         "Background: premium airport or hotel business lounge, marble and leather surfaces, "
-        "soft warm lighting, laptop and documents on table. "
+        "warm lighting, laptop and documents on table. "
         "Clothing: business-casual travel outfit, quality fabrics, polished accessories."
     ),
     "decision_moment": (
@@ -617,13 +621,13 @@ SOCIAL_STYLES: dict[str, str] = {
         "Clothing: monochrome fitted outfit, one statement accessory, clean lines."
     ),
     "influencer_luxury": (
-        "Background: upscale hotel lobby or lounge, marble surfaces, soft amber light, "
+        "Background: upscale hotel lobby or lounge, marble surfaces, warm amber light, "
         "velvet and brass details. "
         "Clothing: designer outfit, fine fabrics, luxury watch or minimal gold jewelry."
     ),
     # --- Lifestyle ---
     "luxury": (
-        "Background: upscale lounge with marble surfaces, soft amber ambient "
+        "Background: upscale lounge with marble surfaces, warm amber ambient "
         "light, velvet and brass details in background. "
         "Clothing: designer outfit, fine fabrics, watches or minimal jewelry."
     ),
@@ -633,7 +637,7 @@ SOCIAL_STYLES: dict[str, str] = {
         "Clothing: relaxed casual wear, natural cotton and linen fabrics."
     ),
     "morning_routine": (
-        "Background: bright modern bedroom or bathroom, soft morning window light, "
+        "Background: bright modern bedroom or bathroom, bright morning window light, "
         "white linens, plant on nightstand. "
         "Clothing: clean loungewear or casual morning outfit, fresh natural look."
     ),
@@ -680,7 +684,7 @@ SOCIAL_STYLES: dict[str, str] = {
     ),
     "pastel_soft": (
         "Background: light pastel-colored wall, bright even diffused light, "
-        "soft warm tones, clean minimal setting. "
+        "warm tones, clean minimal setting. "
         "Clothing: light-colored fitted shirt, clean neutral trousers, minimal accessories."
     ),
     # --- Platforms ---
@@ -695,7 +699,7 @@ SOCIAL_STYLES: dict[str, str] = {
         "Clothing: business casual, fitted blazer over quality shirt, professional but modern."
     ),
     "tinder_top": (
-        "Background: natural outdoor setting with soft golden-hour backlight, "
+        "Background: natural outdoor setting with warm golden-hour backlight, "
         "simple uncluttered composition, warm tones. "
         "Clothing: casual fitted outfit that shows personality, clean attractive look."
     ),
@@ -716,7 +720,7 @@ SOCIAL_STYLES: dict[str, str] = {
     ),
     # --- Social aesthetic ---
     "mirror_aesthetic": (
-        "Background: clean modern minimalist room, soft indirect lighting, "
+        "Background: clean modern minimalist room, indirect lighting, "
         "neutral walls, warm ambient glow, polished interior. "
         "Clothing: curated outfit with clean lines, one statement piece, polished silhouette."
     ),
@@ -727,7 +731,7 @@ SOCIAL_STYLES: dict[str, str] = {
     ),
     "book_and_coffee": (
         "Background: cozy aesthetic table setting with open book and coffee cup, "
-        "soft warm light, textured surfaces, neutral tones. "
+        "warm light, textured surfaces, neutral tones. "
         "Clothing: comfortable stylish layers, quality sweater, relaxed intellectual vibe."
     ),
     "shopfront": (
@@ -742,7 +746,7 @@ SOCIAL_STYLES: dict[str, str] = {
     ),
     # --- Hobbies ---
     "reading_home": (
-        "Background: cozy home corner with soft window light, comfortable armchair, "
+        "Background: cozy home corner with diffused window light, comfortable armchair, "
         "bookshelves behind, warm domestic atmosphere. "
         "Clothing: comfortable quality loungewear, cozy socks, relaxed domestic style."
     ),
@@ -763,7 +767,7 @@ SOCIAL_STYLES: dict[str, str] = {
     ),
     "meditation": (
         "Background: serene outdoor garden or minimalist bright room, "
-        "soft natural light, plants, calm zen atmosphere. "
+        "natural light, plants, calm zen atmosphere. "
         "Clothing: comfortable clean neutral outfit, natural tones, peaceful energy."
     ),
     "online_learning": (
@@ -821,7 +825,7 @@ SOCIAL_STYLES: dict[str, str] = {
     ),
     "evening_planning": (
         "Background: home desk at evening, warm desk lamp light, notebook and tea, "
-        "calm productivity atmosphere, soft window twilight behind. "
+        "calm productivity atmosphere, dim window twilight behind. "
         "Clothing: comfortable smart-casual loungewear, focused domestic vibe."
     ),
     # --- Mood ---
@@ -976,14 +980,14 @@ def _build_mode_prompt(mode: str, style: str, gender: str, change_instruction: s
         return (
             f"{IDENTITY_FIRST} "
             f"{change_instruction} "
-            f"Background: {bg}. Clothing: {clothing}. "
+            f"{BACKGROUND_FOCUS} Background: {bg}. Clothing: {clothing}. "
             f"{spec.expression} "
             f"{BODY_ANCHOR} {SKIN_FIX} {FACE_ANCHOR} {CAMERA} {REALISM}"
         )
     return (
         f"{IDENTITY_FIRST} "
         f"{change_instruction} "
-        f"Background: {spec.background}. Clothing: {clothing}. "
+        f"{BACKGROUND_FOCUS} Background: {spec.background}. Clothing: {clothing}. "
         f"{spec.expression} "
         f"{BODY_ANCHOR} {SKIN_FIX} {FACE_ANCHOR} {CAMERA} {REALISM}"
     )
@@ -1019,36 +1023,42 @@ STEP_TEMPLATES: dict[str, str] = {
     "background_edit": (
         f"{IDENTITY_FIRST} "
         "Change ONLY the background: {description}. "
+        f"{BACKGROUND_FOCUS} "
         "Keep the person, clothing, pose, and body proportions identical. "
         f"{BODY_ANCHOR} {FACE_ANCHOR} {CAMERA} {REALISM}"
     ),
     "clothing_edit": (
         f"{IDENTITY_FIRST} "
         "Change ONLY the clothing: {description}. "
+        f"{BACKGROUND_FOCUS} "
         "Keep face, background, pose, and body proportions identical. "
         f"{BODY_ANCHOR} {FACE_ANCHOR} {CAMERA} {REALISM}"
     ),
     "lighting_adjust": (
         f"{IDENTITY_FIRST} "
         "Improve ONLY lighting and color grading: {description}. "
+        f"{BACKGROUND_FOCUS} "
         "Warm flattering light, natural studio quality, even skin tones. "
         f"{BODY_ANCHOR} {FACE_ANCHOR} {CAMERA} {REALISM}"
     ),
     "expression_hint": (
         f"{IDENTITY_FIRST} "
         "Subtle expression adjustment: {description}. "
+        f"{BACKGROUND_FOCUS} "
         "Keep face shape, features, and original mouth identical. "
         f"{BODY_ANCHOR} {FACE_ANCHOR} {CAMERA} {REALISM}"
     ),
     "skin_correction": (
         f"{IDENTITY_FIRST} "
         "Minor skin tone correction and blemish removal. "
+        f"{BACKGROUND_FOCUS} "
         "Keep all facial features identical. "
         f"{BODY_ANCHOR} {SKIN_FIX} {FACE_ANCHOR} {CAMERA} {REALISM}"
     ),
     "style_overall": (
         f"{IDENTITY_FIRST} "
         "Apply overall style enhancement: {description}. "
+        f"{BACKGROUND_FOCUS} "
         "Cohesive style, crisp detail. Keep body proportions and pose identical. "
         f"{BODY_ANCHOR} {FACE_ANCHOR} {CAMERA} {REALISM}"
     ),
