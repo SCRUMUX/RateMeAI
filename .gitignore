@@ -1,4 +1,5 @@
 .env
+AICADS-/
 __pycache__/
 *.pyc
 *.pyo
