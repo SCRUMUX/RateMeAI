@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { AicaIcon, ChevronLeftIcon, ChevronRightIcon, CoinIcon, ImageIcon } from '@ai-ds/core/icons';
+import { ChevronLeftIcon, ChevronRightIcon, CoinIcon, ImageIcon } from '@ai-ds/core/icons';
 import { STYLES_BY_CATEGORY, PARAMS_BY_MODE, getMockDelta, type CategoryId, type StyleItem } from '../data/styles';
 import { PERCEPTION_FACTS, getRandomFact } from '../data/ai-facts';
 import CategoryTabs from '../components/CategoryTabs';
@@ -331,7 +331,10 @@ export default function AppScreen() {
       {/* Brand heading */}
       <div className="relative flex items-center justify-center gap-[var(--space-24)] w-full max-w-[1200px]">
         <div className="brand-glow-backdrop" />
-        <AicaIcon size={128} className="brand-glow-icon text-[var(--color-brand-primary)] -rotate-45 shrink-0" />
+        <div className="relative w-[140px] h-[140px] shrink-0 brand-glow-icon">
+          <div className="absolute inset-0 rounded-[28px]" style={{ background: 'rgb(var(--accent-r), var(--accent-g), var(--accent-b))' }} />
+          <img src="/img/logo.png" alt="AI Look Studio" className="relative w-full h-full object-contain rounded-[28px]" style={{ mixBlendMode: 'lighten' }} />
+        </div>
         <span className="brand-glow-text text-[120px] leading-[1] font-extrabold whitespace-nowrap">
           AI Look Studio
         </span>
