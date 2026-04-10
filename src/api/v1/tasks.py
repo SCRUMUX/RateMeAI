@@ -2,18 +2,23 @@ from __future__ import annotations
 
 import re
 import uuid
+from pathlib import Path
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import select, func as sa_func
+from redis.asyncio import Redis
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.config import settings
 from src.models.db import Task, User
 from src.models.enums import TaskStatus, AnalysisMode
 from src.models.schemas import TaskResponse, TaskHistoryItem, TaskHistoryResponse
-from src.api.deps import get_db, get_current_user
+from src.api.deps import get_db, get_current_user, get_redis
+from src.utils.redis_keys import gen_image_cache_key
 
 router = APIRouter()
+
+_storage_dir = Path(settings.storage_local_path).resolve()
 
 _STORAGE_PATH_RE = re.compile(r"/storage/.+")
 
@@ -35,10 +40,38 @@ def _normalize_storage_url(url: str) -> str:
     return f"{base}/storage/{url.lstrip('/')}"
 
 
+async def _image_available(task: Task, redis: Redis) -> bool:
+    """Check whether generated image data is still reachable."""
+    r = task.result or {}
+
+    # 1. local file
+    for key in ("generated_image_url", "image_url", "generated_image_path"):
+        raw = r.get(key, "")
+        if not raw:
+            continue
+        m = _STORAGE_PATH_RE.search(raw)
+        if m:
+            rel = m.group(0).lstrip("/")  # "storage/gen/..."
+            if (_storage_dir.parent / rel).is_file():
+                return True
+
+    # 2. Redis cache
+    cache_key = gen_image_cache_key(str(task.id))
+    if await redis.exists(cache_key):
+        return True
+
+    # 3. DB base64 fallback
+    if r.get("generated_image_b64"):
+        return True
+
+    return False
+
+
 @router.get("", response_model=TaskHistoryResponse)
 async def list_tasks(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
+    redis: Redis = Depends(get_redis),
     limit: int = Query(20, ge=1, le=100),
     offset: int = Query(0, ge=0),
 ):
@@ -52,16 +85,15 @@ async def list_tasks(
         .order_by(Task.completed_at.desc())
     )
 
-    count_q = select(sa_func.count()).select_from(
-        base_q.with_only_columns(Task.id).subquery()
-    )
-    total = (await db.execute(count_q)).scalar() or 0
-
-    rows = await db.execute(base_q.limit(limit).offset(offset))
+    # Fetch more rows than needed so we can filter unavailable and still fill the page
+    rows = await db.execute(base_q.limit(limit * 3).offset(offset))
     tasks = rows.scalars().all()
 
     items: list[TaskHistoryItem] = []
     for t in tasks:
+        if not await _image_available(t, redis):
+            continue
+
         r = t.result or {}
         ctx = t.context or {}
 
@@ -90,7 +122,10 @@ async def list_tasks(
             perception_scores=ps if isinstance(ps, dict) else None,
         ))
 
-    return TaskHistoryResponse(items=items, total_count=total)
+        if len(items) >= limit:
+            break
+
+    return TaskHistoryResponse(items=items, total_count=len(items))
 
 
 @router.get("/{task_id}", response_model=TaskResponse)

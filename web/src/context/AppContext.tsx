@@ -84,6 +84,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const simTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const preAnalysisCacheRef = useRef<Record<string, api.PreAnalysisResponse>>({});
 
   const refreshBalance = useCallback(async () => {
     try {
@@ -104,6 +105,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const preview = URL.createObjectURL(f);
     setPhoto({ file: f, preview });
     setPreAnalysis(null);
+    preAnalysisCacheRef.current = {};
     setCurrentTask(null);
     setGeneratedImageUrl(null);
     setAfterScore(null);
@@ -114,10 +116,19 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const runPreAnalyze = useCallback(async () => {
     if (!photo) return;
+    const modeMap: Record<CategoryId, string> = { social: 'social', cv: 'cv', dating: 'dating' };
+    const mode = modeMap[activeCategory];
+
+    const cached = preAnalysisCacheRef.current[mode];
+    if (cached) {
+      setPreAnalysis(cached);
+      return;
+    }
+
     setPreAnalysis(null);
     try {
-      const modeMap: Record<CategoryId, string> = { social: 'social', cv: 'cv', dating: 'dating' };
-      const res = await api.preAnalyze(photo.file, modeMap[activeCategory]);
+      const res = await api.preAnalyze(photo.file, mode);
+      preAnalysisCacheRef.current[mode] = res;
       setPreAnalysis(res);
     } catch (e) {
       setError(e instanceof api.ApiError ? e.body : 'Pre-analyze failed');

@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { AicaIcon, ChevronLeftIcon, ChevronRightIcon, CoinIcon, ImageIcon } from '@ai-ds/core/icons';
 import { STYLES_BY_CATEGORY, PARAMS_BY_MODE, getMockDelta, type CategoryId } from '../data/styles';
-import { AI_FACTS, getRandomFact } from '../data/ai-facts';
+import { PERCEPTION_FACTS, getRandomFact } from '../data/ai-facts';
 import CategoryTabs from '../components/CategoryTabs';
 import AuthModal from '../components/AuthModal';
 import StorageModal from '../components/StorageModal';
@@ -102,7 +102,7 @@ export default function AppScreen() {
   const [genSimDone, setGenSimDone] = useState(false);
   const [genSimParamIdx, setGenSimParamIdx] = useState(0);
   const [genSimMode, setGenSimMode] = useState<GenSimMode>('demo');
-  const [currentFact, setCurrentFact] = useState(() => AI_FACTS[0]);
+  const [currentFact, setCurrentFact] = useState(() => PERCEPTION_FACTS.social[0]);
   const genSimRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const factIdxRef = useRef(0);
   const [frozenStyle, setFrozenStyle] = useState<{ name: string; score: number } | null>(null);
@@ -156,7 +156,8 @@ export default function AppScreen() {
     setFrozenStyle({ name: selectedStyle.name, score: predictedAfterScore });
     setGenSimulating(true);
     factIdxRef.current = 0;
-    setCurrentFact(AI_FACTS[0]);
+    const categoryFacts = PERCEPTION_FACTS[activeTab];
+    setCurrentFact(categoryFacts[0]);
     const start = Date.now();
     let lastFactChange = 0;
 
@@ -176,17 +177,15 @@ export default function AppScreen() {
           setGenSimProgress(100);
         }
       } else {
-        // mode === 'real': asymptotic progress, never reaches 100 until result arrives
         const progress = Math.min(95, 60 + 35 * (1 - Math.exp(-elapsed / 60)));
         setGenSimProgress(progress);
         const stepIdx = Math.floor(elapsed / 5) % GEN_SIM_STEPS.length;
         setGenSimParamIdx(stepIdx);
       }
 
-      // Rotate facts every 5 seconds for all modes
       if (elapsed - lastFactChange >= 5) {
         lastFactChange = elapsed;
-        const { fact, index } = getRandomFact(factIdxRef.current);
+        const { fact, index } = getRandomFact(factIdxRef.current, activeTab);
         factIdxRef.current = index;
         setCurrentFact(fact);
       }
@@ -340,7 +339,8 @@ export default function AppScreen() {
                     <img
                       src={app.generatedImageUrl!}
                       alt="Generated"
-                      className="w-full h-full object-cover"
+                      className="w-full h-full object-cover cursor-pointer"
+                      onClick={() => setStorageModalOpen(true)}
                       onError={() => setImageLoadError(true)}
                     />
                   )}
@@ -370,12 +370,6 @@ export default function AppScreen() {
                         <div className="w-6 h-6 border-2 border-t-transparent rounded-full animate-spin" style={{ borderColor: 'rgba(var(--accent-r),var(--accent-g),var(--accent-b),0.6)', borderTopColor: 'transparent' }} />
                         <span className="text-[12px] leading-[16px] text-[#E6EEF8] font-medium text-center px-[var(--space-8)]">
                           {GEN_SIM_STEPS[genSimParamIdx]}
-                        </span>
-                        <span className="text-[10px] leading-[14px] text-[var(--color-text-secondary)] text-center px-[var(--space-12)] italic max-w-[220px]">
-                          {currentFact.type === 'tip' ? '💡 ' : '🧠 '}{currentFact.text}
-                        </span>
-                        <span className="text-[11px] leading-[14px] text-[var(--color-text-muted)] tabular-nums">
-                          {genSimElapsed}с
                         </span>
                         <div className="w-[80%] h-1 rounded-full glass-progress-track overflow-hidden">
                           <div className="h-full rounded-full glass-progress-fill transition-all duration-200" style={{ width: `${genSimProgress}%` }} />
@@ -627,7 +621,17 @@ export default function AppScreen() {
                     )}
                   </div>
 
-                  {app.preAnalysis?.enhancement_opportunities && app.preAnalysis.enhancement_opportunities.length > 0 && (
+                  {(genSimulating || (app.isGenerating && !genSimDone)) && (
+                    <div className="gradient-border-card glass-card rounded-[var(--radius-12)] p-[var(--space-12)] flex items-start gap-[var(--space-8)]">
+                      <span className="text-[16px] leading-none shrink-0 mt-[2px]">🧠</span>
+                      <p className="text-[13px] leading-[18px] text-[var(--color-text-secondary)] italic">
+                        {currentFact.text}
+                        <span className="inline-block w-[2px] h-[13px] bg-[var(--color-brand-primary)] ml-[2px] align-middle animate-pulse" />
+                      </p>
+                    </div>
+                  )}
+
+                  {app.preAnalysis?.enhancement_opportunities && app.preAnalysis.enhancement_opportunities.length > 0 && !genSimulating && !(app.isGenerating && !genSimDone) && (
                     <div className="flex flex-col gap-[var(--space-4)]">
                       <span className="text-[12px] font-medium text-[var(--color-text-muted)]">Возможности улучшения:</span>
                       {app.preAnalysis.enhancement_opportunities.slice(0, 3).map((opp, i) => (
