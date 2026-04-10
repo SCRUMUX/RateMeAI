@@ -14,10 +14,10 @@ _PROMPT_MAP = {
 }
 
 _IMAGE_PROMPT_MAP = {
-    AnalysisMode.DATING: lambda style, _desc: ig.build_dating_prompt(style),
-    AnalysisMode.CV: lambda style, _desc: ig.build_cv_prompt(style),
-    AnalysisMode.SOCIAL: lambda style, _desc: ig.build_social_prompt(style),
-    AnalysisMode.EMOJI: lambda _style, desc: ig.build_emoji_prompt(desc),
+    AnalysisMode.DATING: lambda style, _desc, gender: ig.build_dating_prompt(style, gender),
+    AnalysisMode.CV: lambda style, _desc, gender: ig.build_cv_prompt(style, gender),
+    AnalysisMode.SOCIAL: lambda style, _desc, gender: ig.build_social_prompt(style, gender),
+    AnalysisMode.EMOJI: lambda _style, desc, _gender: ig.build_emoji_prompt(desc),
 }
 
 _MODE_STYLE_DICTS: dict[AnalysisMode, dict[str, str]] = {
@@ -32,7 +32,11 @@ _MODE_PERSONALITY_DICTS: dict[AnalysisMode, dict[str, str]] = {
     AnalysisMode.SOCIAL: ig.SOCIAL_PERSONALITIES,
 }
 
-_EXPRESSION_STEPS = {"expression_hint"}
+_MODE_VALUE_MAP: dict[AnalysisMode, str] = {
+    AnalysisMode.DATING: "dating",
+    AnalysisMode.CV: "cv",
+    AnalysisMode.SOCIAL: "social",
+}
 
 
 class PromptEngine:
@@ -42,16 +46,22 @@ class PromptEngine:
             raise ValueError(f"Unknown mode: {mode}")
         return builder(context or {})
 
-    def build_image_prompt(self, mode: AnalysisMode, style: str = "", base_description: str = "") -> str:
+    def build_image_prompt(
+        self, mode: AnalysisMode, style: str = "",
+        base_description: str = "", gender: str = "male",
+    ) -> str:
         builder = _IMAGE_PROMPT_MAP.get(mode)
         if builder is None:
             raise ValueError(f"No image prompt for mode: {mode}")
-        return builder(style, base_description)
+        return builder(style, base_description, gender)
 
-    def build_step_prompt(self, step_template: str, style: str, mode: AnalysisMode, enhancement_level: int = 0) -> str:
+    def build_step_prompt(
+        self, step_template: str, style: str, mode: AnalysisMode,
+        enhancement_level: int = 0, gender: str = "male",
+    ) -> str:
         """Build a prompt for a single multi-pass pipeline step."""
-        if step_template in _EXPRESSION_STEPS:
-            mode_dict = _MODE_PERSONALITY_DICTS.get(mode)
-        else:
-            mode_dict = _MODE_STYLE_DICTS.get(mode)
-        return ig.build_step_prompt(step_template, style, mode_dict, enhancement_level=enhancement_level)
+        mode_str = _MODE_VALUE_MAP.get(mode, mode.value)
+        return ig.build_step_prompt(
+            step_template, style, mode_str,
+            gender=gender, enhancement_level=enhancement_level,
+        )

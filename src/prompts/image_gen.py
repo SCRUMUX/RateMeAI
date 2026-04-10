@@ -6,6 +6,11 @@ Constants use positive framing to avoid diffusion "NO Syndrome".
 """
 from __future__ import annotations
 
+from src.prompts.style_spec import (
+    StyleRegistry,
+    build_spec_from_legacy,
+)
+
 # ---------------------------------------------------------------------------
 # Core anchors — positive framing, no negation overload
 # ---------------------------------------------------------------------------
@@ -33,9 +38,9 @@ SKIN_FIX = (
 )
 
 CAMERA = (
-    "High-quality digital photograph. Sharp focus across entire image "
-    "including background. No blur, no bokeh, no depth-of-field effect. "
-    "Clean natural colors."
+    "High-quality digital photograph. Sharp focus across entire frame "
+    "including background. Deep depth-of-field, everything in clear focus "
+    "from foreground to background. Clean natural colors, crisp detail throughout."
 )
 
 REALISM = (
@@ -154,7 +159,7 @@ DATING_STYLES: dict[str, str] = {
         "Clothing: unbuttoned linen shirt over tee, rolled chinos or shorts, bare feet."
     ),
     "art_gallery": (
-        "Background: contemporary art gallery, white walls with abstract art visible, "
+        "Background: contemporary art gallery, white walls with large paintings visible, "
         "track lighting creating soft directional light. "
         "Clothing: smart turtleneck or fitted dark shirt, tailored trousers, minimalist style."
     ),
@@ -406,7 +411,7 @@ CV_STYLES: dict[str, str] = {
     "startup_casual": (
         "Background: open-plan startup office, standing desks, plants, glass partitions, "
         "bright natural light. "
-        "Clothing: smart casual, fitted chinos, clean button-down with rolled sleeves, no tie."
+        "Clothing: smart casual, fitted chinos, clean button-down with rolled sleeves, open collar."
     ),
     "coworking": (
         "Background: trendy coworking loft, exposed brick, industrial lighting, "
@@ -502,9 +507,9 @@ CV_STYLES: dict[str, str] = {
         "Clothing: professional attire slightly relaxed, sleeves rolled, coffee cup in hand."
     ),
     "late_hustle": (
-        "Background: dimly lit office at night, monitor glow on face, city lights through "
-        "window behind, focused determined atmosphere. "
-        "Clothing: professional shirt with loosened collar, tie undone, determined focused look."
+        "Background: modern office at evening, warm desk lamp light, city lights visible "
+        "through window behind, focused productive workspace atmosphere. "
+        "Clothing: professional shirt with loosened collar, sleeves rolled, focused work look."
     ),
     # --- Archetypes ---
     "quiet_expert": (
@@ -649,14 +654,14 @@ SOCIAL_STYLES: dict[str, str] = {
     ),
     # --- Aesthetic ---
     "artistic": (
-        "Background: art gallery with textured walls, or vivid mural, "
-        "dramatic side lighting with deep shadows. "
-        "Clothing: eclectic artistic mix, bold colors, unique layering."
+        "Background: art gallery with large colorful paintings on white walls, "
+        "warm track lighting from above, polished concrete floor. "
+        "Clothing: dark fitted jacket over quality tee, dark jeans, clean artistic style."
     ),
     "golden_hour": (
-        "Background: open field or waterfront at golden hour, warm orange-pink backlight, "
-        "lens flare, silhouetted trees. "
-        "Clothing: earthy neutral tones, flowing natural fabrics, bohemian or classic casual."
+        "Background: open meadow at golden hour, warm orange sunset light, "
+        "tall grass and distant trees in sharp focus, clear sky. "
+        "Clothing: fitted earth-tone cotton jacket over quality tee, dark jeans, clean classic casual."
     ),
     "neon_night": (
         "Background: city street at night with neon signs, vibrant pink-blue-purple "
@@ -674,9 +679,9 @@ SOCIAL_STYLES: dict[str, str] = {
         "Clothing: all-black fitted outfit, dark layers, minimal accessories."
     ),
     "pastel_soft": (
-        "Background: pastel-colored wall or soft floral setting, bright even diffused light, "
-        "airy cotton-candy aesthetic. "
-        "Clothing: light pastel outfit, soft fabrics, delicate accessories."
+        "Background: light pastel-colored wall, bright even diffused light, "
+        "soft warm tones, clean minimal setting. "
+        "Clothing: light-colored fitted shirt, clean neutral trousers, minimal accessories."
     ),
     # --- Platforms ---
     "youtube_creator": (
@@ -705,14 +710,14 @@ SOCIAL_STYLES: dict[str, str] = {
         "Clothing: smart casual, comfortable quality fabrics, clean modern look."
     ),
     "creative_portrait": (
-        "Background: abstract or textured wall, dramatic split lighting, "
-        "bold color accent, artistic composition. "
-        "Clothing: eclectic creative outfit, bold patterns or statement piece, unconventional style."
+        "Background: textured concrete wall with warm directional side lighting, "
+        "natural shadow patterns, clean composition. "
+        "Clothing: dark fitted turtleneck, one statement ring, clean minimalist creative style."
     ),
     # --- Social aesthetic ---
     "mirror_aesthetic": (
-        "Background: clean modern full-length mirror, soft indirect lighting, "
-        "minimal decor, aesthetically composed reflection setting. "
+        "Background: clean modern minimalist room, soft indirect lighting, "
+        "neutral walls, warm ambient glow, polished interior. "
         "Clothing: curated outfit with clean lines, one statement piece, polished silhouette."
     ),
     "elevator_clean": (
@@ -789,9 +794,9 @@ SOCIAL_STYLES: dict[str, str] = {
         "Clothing: stylish casual outfit with flowing jacket or coat, dynamic movement."
     ),
     "creative_insight": (
-        "Background: creative workspace with mood boards and inspiration pinned around, "
-        "warm intimate golden lamp lighting, eureka-moment atmosphere. "
-        "Clothing: casual creative outfit, sleeves rolled, passionate engaged energy."
+        "Background: creative workspace with cork board and sketches on wall, "
+        "warm desk lamp lighting, wooden desk with art supplies, cozy studio. "
+        "Clothing: casual fitted dark shirt with rolled sleeves, dark jeans, clean creative style."
     ),
     "architecture_shadow": (
         "Background: dramatic architectural shadows and geometric light patterns, "
@@ -888,39 +893,121 @@ SOCIAL_PERSONALITIES: dict[str, str] = {
 
 
 # ---------------------------------------------------------------------------
-# Prompt builders — Change -> Preserve -> Quality order
+# Typed style registry — built from the raw dicts above
 # ---------------------------------------------------------------------------
 
-def build_dating_prompt(style: str = "") -> str:
-    s = DATING_STYLES.get(style, DATING_STYLES["warm_outdoor"])
-    p = DATING_PERSONALITIES.get(style, DATING_PERSONALITIES["warm_outdoor"])
+STYLE_REGISTRY = StyleRegistry()
+
+_STYLE_OVERRIDES: dict[tuple[str, str], dict] = {
+    # Edit-incompatible: require impossible pose/geometry changes
+    ("social", "mirror_aesthetic"): {"edit_compatible": False},
+    ("social", "cycling_social"): {"edit_compatible": False},
+    ("dating", "cycling"): {"edit_compatible": False},
+    ("social", "in_motion"): {"edit_compatible": False},
+    # Gender-specific female clothing overrides
+    ("social", "pastel_soft"): {
+        "clothing_female_override": (
+            "light pastel blouse or fitted dress, soft fabrics, "
+            "delicate gold accessories, feminine elegant style"
+        ),
+    },
+    ("dating", "swimming_pool"): {
+        "clothing_female_override": (
+            "elegant one-piece swimsuit, optional sunglasses, "
+            "light sarong or cover-up"
+        ),
+    },
+    ("dating", "gym_fitness"): {
+        "clothing_female_override": (
+            "fitted athletic top, athletic leggings, training shoes, "
+            "sport watch"
+        ),
+    },
+    ("social", "fitness_lifestyle"): {
+        "clothing_female_override": (
+            "premium fitted athletic top, athletic leggings, "
+            "sport watch, clean sneakers, headphones around neck"
+        ),
+    },
+}
+
+for _key, _text in DATING_STYLES.items():
+    _pers = DATING_PERSONALITIES.get(_key, "")
+    _ovr = _STYLE_OVERRIDES.get(("dating", _key), {})
+    STYLE_REGISTRY.register(build_spec_from_legacy(
+        _key, "dating", _text, _pers,
+        clothing_female_override=_ovr.get("clothing_female_override", ""),
+        edit_compatible=_ovr.get("edit_compatible", True),
+        complexity=_ovr.get("complexity", "simple"),
+    ))
+
+for _key, _text in CV_STYLES.items():
+    _pers = CV_PERSONALITIES.get(_key, "")
+    _ovr = _STYLE_OVERRIDES.get(("cv", _key), {})
+    STYLE_REGISTRY.register(build_spec_from_legacy(
+        _key, "cv", _text, _pers,
+        clothing_female_override=_ovr.get("clothing_female_override", ""),
+        edit_compatible=_ovr.get("edit_compatible", True),
+        complexity=_ovr.get("complexity", "simple"),
+    ))
+
+for _key, _text in SOCIAL_STYLES.items():
+    _pers = SOCIAL_PERSONALITIES.get(_key, "")
+    _ovr = _STYLE_OVERRIDES.get(("social", _key), {})
+    STYLE_REGISTRY.register(build_spec_from_legacy(
+        _key, "social", _text, _pers,
+        clothing_female_override=_ovr.get("clothing_female_override", ""),
+        edit_compatible=_ovr.get("edit_compatible", True),
+        complexity=_ovr.get("complexity", "simple"),
+    ))
+
+
+# ---------------------------------------------------------------------------
+# Prompt builders — Change -> Preserve -> Quality order
+# Uses StyleSpec for structured, gender-aware prompt construction.
+# ---------------------------------------------------------------------------
+
+def _build_mode_prompt(mode: str, style: str, gender: str, change_instruction: str) -> str:
+    """Shared builder logic for all modes using the typed StyleSpec registry."""
+    spec = STYLE_REGISTRY.get_or_default(mode, style)
+    clothing = spec.clothing_for(gender)
+    if not spec.edit_compatible:
+        bg = spec.background.split(",")[0] if "," in spec.background else spec.background
+        return (
+            f"{IDENTITY_FIRST} "
+            f"{change_instruction} "
+            f"Background: {bg}. Clothing: {clothing}. "
+            f"{spec.expression} "
+            f"{BODY_ANCHOR} {SKIN_FIX} {FACE_ANCHOR} {CAMERA} {REALISM}"
+        )
     return (
         f"{IDENTITY_FIRST} "
-        f"Change ONLY background and clothing. Keep the person's face, pose, and body identical. "
-        f"{s} {p} "
-        f"{FACE_ANCHOR} {CAMERA} {REALISM}"
+        f"{change_instruction} "
+        f"Background: {spec.background}. Clothing: {clothing}. "
+        f"{spec.expression} "
+        f"{BODY_ANCHOR} {SKIN_FIX} {FACE_ANCHOR} {CAMERA} {REALISM}"
     )
 
 
-def build_cv_prompt(style: str = "") -> str:
-    s = CV_STYLES.get(style, CV_STYLES["corporate"])
-    p = CV_PERSONALITIES.get(style, CV_PERSONALITIES["corporate"])
-    return (
-        f"{IDENTITY_FIRST} "
-        f"Change ONLY background and clothing to professional attire. Keep the person's face, pose, and body identical. "
-        f"{s} {p} "
-        f"{FACE_ANCHOR} {CAMERA} {REALISM}"
+def build_dating_prompt(style: str = "", gender: str = "male") -> str:
+    return _build_mode_prompt(
+        "dating", style, gender,
+        "Change ONLY background and clothing. Keep the person's face, pose, and body identical.",
     )
 
 
-def build_social_prompt(style: str = "") -> str:
-    s = SOCIAL_STYLES.get(style, SOCIAL_STYLES["influencer"])
-    p = SOCIAL_PERSONALITIES.get(style, SOCIAL_PERSONALITIES["influencer"])
-    return (
-        f"{IDENTITY_FIRST} "
-        f"Change ONLY background and clothing. Keep the person's face, pose, and body identical. "
-        f"{s} {p} "
-        f"{FACE_ANCHOR} {CAMERA} {REALISM}"
+def build_cv_prompt(style: str = "", gender: str = "male") -> str:
+    return _build_mode_prompt(
+        "cv", style, gender,
+        "Change ONLY background and clothing to professional attire. "
+        "Keep the person's face, pose, and body identical.",
+    )
+
+
+def build_social_prompt(style: str = "", gender: str = "male") -> str:
+    return _build_mode_prompt(
+        "social", style, gender,
+        "Change ONLY background and clothing. Keep the person's face, pose, and body identical.",
     )
 
 
@@ -933,37 +1020,37 @@ STEP_TEMPLATES: dict[str, str] = {
         f"{IDENTITY_FIRST} "
         "Change ONLY the background: {description}. "
         "Keep the person, clothing, pose, and body proportions identical. "
-        f"{FACE_ANCHOR} {CAMERA} {REALISM}"
+        f"{BODY_ANCHOR} {FACE_ANCHOR} {CAMERA} {REALISM}"
     ),
     "clothing_edit": (
         f"{IDENTITY_FIRST} "
         "Change ONLY the clothing: {description}. "
         "Keep face, background, pose, and body proportions identical. "
-        f"{FACE_ANCHOR} {CAMERA} {REALISM}"
+        f"{BODY_ANCHOR} {FACE_ANCHOR} {CAMERA} {REALISM}"
     ),
     "lighting_adjust": (
         f"{IDENTITY_FIRST} "
         "Improve ONLY lighting and color grading: {description}. "
         "Warm flattering light, natural studio quality, even skin tones. "
-        f"{FACE_ANCHOR} {CAMERA} {REALISM}"
+        f"{BODY_ANCHOR} {FACE_ANCHOR} {CAMERA} {REALISM}"
     ),
     "expression_hint": (
         f"{IDENTITY_FIRST} "
         "Subtle expression adjustment: {description}. "
         "Keep face shape, features, and original mouth identical. "
-        f"{FACE_ANCHOR} {CAMERA} {REALISM}"
+        f"{BODY_ANCHOR} {FACE_ANCHOR} {CAMERA} {REALISM}"
     ),
     "skin_correction": (
         f"{IDENTITY_FIRST} "
         "Minor skin tone correction and blemish removal. "
         "Keep all facial features identical. "
-        f"{FACE_ANCHOR} {CAMERA} {REALISM}"
+        f"{BODY_ANCHOR} {SKIN_FIX} {FACE_ANCHOR} {CAMERA} {REALISM}"
     ),
     "style_overall": (
         f"{IDENTITY_FIRST} "
         "Apply overall style enhancement: {description}. "
         "Cohesive style, crisp detail. Keep body proportions and pose identical. "
-        f"{FACE_ANCHOR} {CAMERA} {REALISM}"
+        f"{BODY_ANCHOR} {FACE_ANCHOR} {CAMERA} {REALISM}"
     ),
 }
 
@@ -979,14 +1066,18 @@ ENHANCEMENT_LEVEL_MODIFIERS: dict[int, str] = {
 def build_step_prompt(
     step_template: str,
     style: str,
-    mode_styles: dict[str, str] | None = None,
+    mode: str = "dating",
+    gender: str = "male",
     enhancement_level: int = 0,
 ) -> str:
-    """Build a prompt for a single pipeline step, filling {description} from style dicts."""
+    """Build a prompt for a single pipeline step using the StyleSpec registry."""
     template = STEP_TEMPLATES.get(step_template, STEP_TEMPLATES.get("style_overall", ""))
-    description = ""
-    if mode_styles:
-        description = mode_styles.get(style, next(iter(mode_styles.values()), ""))
+    spec = STYLE_REGISTRY.get_or_default(mode, style)
+    if step_template == "expression_hint":
+        description = spec.expression
+    else:
+        clothing = spec.clothing_for(gender)
+        description = f"Background: {spec.background}. Clothing: {clothing}."
     prompt = template.replace("{description}", description)
     if enhancement_level and enhancement_level in ENHANCEMENT_LEVEL_MODIFIERS:
         prompt += " " + ENHANCEMENT_LEVEL_MODIFIERS[enhancement_level]

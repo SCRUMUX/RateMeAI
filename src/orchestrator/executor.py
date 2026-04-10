@@ -92,6 +92,7 @@ class ImageGenerationExecutor:
         trace: dict,
         enhancement_level: int = 0,
         progress_callback: ProgressCallback | None = None,
+        gender: str = "male",
     ) -> None:
         gate_runner = self._get_gate_runner()
         original_embedding = await self._get_or_compute_embedding(task_id, image_bytes)
@@ -112,7 +113,7 @@ class ImageGenerationExecutor:
                 raw, cost = await self._run_single_step(
                     step, i, plan, mode, style, current_image, image_bytes,
                     original_embedding, gate_runner, remaining_budget, trace,
-                    enhancement_level,
+                    enhancement_level, gender=gender,
                 )
                 remaining_budget -= cost
                 trace["total_cost_usd"] = round(plan.cost_budget - remaining_budget, 4)
@@ -200,6 +201,7 @@ class ImageGenerationExecutor:
                 })
                 await self.single_pass(
                     mode, style, image_bytes, result_dict, user_id, task_id, trace,
+                    gender=gender,
                 )
 
         except Exception:
@@ -209,17 +211,19 @@ class ImageGenerationExecutor:
                 "decision": "Fallback to single-pass after multi-pass failure",
                 "reason": "exception during multi-pass execution",
             })
-            await self.single_pass(mode, style, image_bytes, result_dict, user_id, task_id, trace)
+            await self.single_pass(mode, style, image_bytes, result_dict, user_id, task_id, trace, gender=gender)
 
     async def _run_single_step(
         self, step, i: int, plan, mode, style, current_image, original_image,
         original_embedding, gate_runner, budget, trace, enhancement_level: int = 0,
+        gender: str = "male",
     ) -> tuple[bytes | None, float]:
         """Execute one pipeline step. Returns (output_bytes, cost_spent)."""
         with _trace_step(trace, f"step_{i}_{step.step}") as step_entry:
             prompt = self._prompt_engine.build_step_prompt(
                 step.prompt_template, style, mode,
                 enhancement_level=enhancement_level,
+                gender=gender,
             )
 
             selection = self._model_router.select(step.model_preference, budget)
@@ -293,6 +297,7 @@ class ImageGenerationExecutor:
     async def single_pass(
         self, mode: AnalysisMode, style: str, image_bytes: bytes,
         result_dict: dict, user_id: str, task_id: str, trace: dict,
+        gender: str = "male",
     ) -> None:
         if mode not in (AnalysisMode.CV, AnalysisMode.EMOJI, AnalysisMode.DATING, AnalysisMode.SOCIAL):
             return
@@ -303,7 +308,7 @@ class ImageGenerationExecutor:
 
         try:
             desc = str(result_dict.get("base_description", ""))
-            prompt = self._prompt_engine.build_image_prompt(mode, style=style, base_description=desc)
+            prompt = self._prompt_engine.build_image_prompt(mode, style=style, base_description=desc, gender=gender)
 
             extra: dict = {}
             if mode in (AnalysisMode.CV, AnalysisMode.DATING, AnalysisMode.SOCIAL):

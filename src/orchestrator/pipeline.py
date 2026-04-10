@@ -198,6 +198,9 @@ class AnalysisPipeline:
         style = (context or {}).get("style", "")
         skip_gen = (context or {}).get("skip_image_gen", False)
         enhancement_level = int((context or {}).get("enhancement_level", 0))
+        gender = str(result_dict.get("detected_gender", "male")).lower()
+        if gender not in ("male", "female"):
+            gender = "male"
 
         if skip_gen:
             result_dict["upgrade_prompt"] = True
@@ -227,6 +230,7 @@ class AnalysisPipeline:
                     await self._executor.execute_plan(
                         plan, mode, style, image_bytes, result_dict,
                         user_id, task_id, trace, enhancement_level, progress_callback,
+                        gender=gender,
                     )
             else:
                 trace["decisions"].append({
@@ -237,6 +241,7 @@ class AnalysisPipeline:
                 with _trace_step(trace, "generate_image"):
                     await self._executor.single_pass(
                         mode, style, image_bytes, result_dict, user_id, task_id, trace,
+                        gender=gender,
                     )
 
             if (
