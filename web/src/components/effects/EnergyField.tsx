@@ -79,7 +79,7 @@ function EnergyBlob({ size, color, x, y, factor, scrollFactor, mx, my, scrollY }
         top: y,
         borderRadius: '50%',
         background: `radial-gradient(circle, ${color} 0%, transparent 70%)`,
-        filter: 'blur(100px)',
+        filter: 'blur(var(--blur-bg))',
         willChange: 'transform',
         x: springX,
         y: scrollOffset,
