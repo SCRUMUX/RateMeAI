@@ -49,12 +49,11 @@ async def get_redis(request: Request) -> Redis:
 
 async def get_auth_user(
     request: Request,
-    x_telegram_id: int | None = Header(None, alias="X-Telegram-Id"),
     x_api_key: str | None = Header(None, alias="X-API-Key"),
     authorization: str | None = Header(None),
     db: AsyncSession = Depends(get_db),
 ) -> User:
-    # 1) Bearer session token (web / mini apps)
+    # 1) Bearer session token (web / bot / mini apps)
     if authorization and authorization.lower().startswith("bearer "):
         token = authorization.split(" ", 1)[1].strip()
         if token:
@@ -82,20 +81,9 @@ async def get_auth_user(
             raise HTTPException(status_code=401, detail="Invalid API key")
         return user
 
-    # 3) X-Telegram-Id (legacy, backward compat for bot)
-    if x_telegram_id is not None:
-        result = await db.execute(select(User).where(User.telegram_id == x_telegram_id))
-        user = result.scalar_one_or_none()
-        if user is None:
-            raise HTTPException(
-                status_code=401,
-                detail="User not found. Register via /auth/telegram first.",
-            )
-        return user
-
     raise HTTPException(
         status_code=401,
-        detail="Provide Authorization: Bearer <token>, X-Telegram-Id, or X-API-Key header",
+        detail="Provide Authorization: Bearer <token> or X-API-Key header",
     )
 
 

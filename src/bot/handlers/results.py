@@ -14,6 +14,8 @@ from aiogram import Bot
 from aiogram.types import BufferedInputFile, FSInputFile
 from redis.asyncio import Redis
 
+from src.bot.middleware import get_bot_auth_headers
+
 from src.bot.keyboards import post_result_keyboard, upgrade_keyboard, action_keyboard
 from src.config import settings
 from src.services.enhancement_advisor import build_enhancement_preview
@@ -137,13 +139,16 @@ async def _fetch_gen_image_from_redis(redis: Redis | None, task_id: str | None) 
     return None
 
 
-async def _get_credit_balance(user_id: int) -> int | None:
+async def _get_credit_balance(user_id: int, redis: Redis | None = None) -> int | None:
     try:
+        headers: dict[str, str] = {}
+        if redis:
+            headers = await get_bot_auth_headers(redis, user_id)
         async with httpx.AsyncClient(timeout=5.0) as client:
             api_base = settings.api_base_url
             resp = await client.get(
                 f"{api_base}/api/v1/payments/balance",
-                headers={"X-Telegram-Id": str(user_id)},
+                headers=headers,
             )
         if resp.status_code == 200:
             return resp.json().get("image_credits")
@@ -210,7 +215,7 @@ async def deliver_result(bot: Bot, chat_id: int, status_msg_id: int, data: dict,
         pass
 
     uname = _bot_username()
-    credits = await _get_credit_balance(user_id)
+    credits = await _get_credit_balance(user_id, redis)
 
     needs_upgrade = result.get("upgrade_prompt", False)
     bal = _balance_line(credits)

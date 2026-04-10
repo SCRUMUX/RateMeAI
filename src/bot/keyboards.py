@@ -132,4 +132,5 @@ def upgrade_keyboard() -> InlineKeyboardMarkup:
 def back_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="\U0001f4f8 Загрузить фото", callback_data="new_photo")],
+        [InlineKeyboardButton(text="\U0001f4b3 Пополнить баланс", callback_data="topup")],
     ])

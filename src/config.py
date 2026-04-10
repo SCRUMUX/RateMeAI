@@ -116,6 +116,12 @@ class Settings(BaseSettings):
     vk_id_app_id: str = ""
     vk_id_app_secret: str = ""
 
+    # Phone SMS OTP (provider: log | sms_aero | twilio)
+    sms_provider: str = "log"
+    sms_aero_api_key: str = ""
+    sms_aero_email: str = ""
+    sms_aero_sign: str = "AI Look"
+
     # WhatsApp Business API
     whatsapp_api_token: str = ""
     whatsapp_verify_token: str = ""

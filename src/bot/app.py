@@ -13,7 +13,7 @@ from redis.asyncio import Redis
 
 from src.config import settings
 from src.version import APP_VERSION
-from src.bot.handlers import start, photo, mode_select, fallback
+from src.bot.handlers import start, photo, mode_select, fallback, link
 from src.bot.middleware import UserRegistrationMiddleware
 
 logging.basicConfig(
@@ -37,6 +37,7 @@ def create_dispatcher(redis: Redis) -> Dispatcher:
     dp.callback_query.middleware(UserRegistrationMiddleware(api_url, redis))
 
     dp.include_router(start.router)
+    dp.include_router(link.router)
     dp.include_router(photo.router)
     dp.include_router(mode_select.router)
     dp.include_router(fallback.router)  # must be last — catch-all

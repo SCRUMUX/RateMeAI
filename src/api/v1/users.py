@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 import secrets
+import string
 from datetime import date
 
 from fastapi import APIRouter, Depends, HTTPException, Header
@@ -23,6 +24,13 @@ from src.models.schemas import (
     WebAuthRequest,
     OAuthInitRequest,
     OAuthInitResponse,
+    LinkedIdentity,
+    UserIdentitiesResponse,
+    PhoneOTPRequestBody,
+    PhoneOTPVerifyBody,
+    LinkTokenResponse,
+    ClaimLinkRequest,
+    ClaimLinkResponse,
 )
 from src.api.deps import get_db, get_auth_user, get_redis
 from src.utils.auth_tokens import hash_api_key
@@ -31,51 +39,160 @@ from src.services.sessions import create_session
 logger = logging.getLogger(__name__)
 router = APIRouter()
 
+_LINK_TOKEN_PREFIX = "ratemeai:link_token:"
+_LINK_TOKEN_TTL = 600  # 10 minutes
+_LINK_TOKEN_LENGTH = 6
 
-@router.post("/auth/telegram", response_model=UserResponse)
+
+async def _resolve_link_code(redis: Redis, link_code: str) -> str | None:
+    """Peek at link code → user_id without consuming it (consumed on claim)."""
+    if not link_code:
+        return None
+    key = f"{_LINK_TOKEN_PREFIX}{link_code.upper().strip()}"
+    raw = await redis.get(key)
+    return raw if raw is None else (raw.decode() if isinstance(raw, bytes) else raw)
+
+
+# ------------------------------------------------------------------
+# Universal identity helper
+# ------------------------------------------------------------------
+
+async def _find_or_create_by_identity(
+    db: AsyncSession,
+    provider: str,
+    external_id: str,
+    display_name: str | None = None,
+    profile_data: dict | None = None,
+    *,
+    link_to_user: User | None = None,
+) -> User:
+    """Single path for all identity resolution.
+
+    - link_to_user=None  → find existing or register new user (login / register)
+    - link_to_user=<User> → attach identity to that user (link mode);
+      409 if identity already belongs to a *different* user.
+    """
+    result = await db.execute(
+        select(UserIdentity).where(
+            UserIdentity.provider == provider,
+            UserIdentity.external_id == external_id,
+        )
+    )
+    identity = result.scalar_one_or_none()
+
+    if identity is not None:
+        owner = await db.get(User, identity.user_id)
+        if owner is None:
+            raise HTTPException(status_code=500, detail="Orphan identity record")
+
+        if link_to_user is not None and identity.user_id != link_to_user.id:
+            raise HTTPException(
+                status_code=409,
+                detail=f"This {provider} account is already linked to another user",
+            )
+
+        if profile_data and identity.profile_data != profile_data:
+            identity.profile_data = profile_data
+            await db.commit()
+        return owner
+
+    if link_to_user is not None:
+        db.add(UserIdentity(
+            user_id=link_to_user.id,
+            provider=provider,
+            external_id=external_id,
+            profile_data=profile_data,
+        ))
+        if display_name and not link_to_user.username:
+            link_to_user.username = display_name
+        if display_name and not link_to_user.first_name:
+            link_to_user.first_name = display_name
+        await db.commit()
+        await db.refresh(link_to_user)
+        return link_to_user
+
+    user = User(username=display_name, first_name=display_name)
+    db.add(user)
+    await db.flush()
+
+    db.add(UserIdentity(
+        user_id=user.id,
+        provider=provider,
+        external_id=external_id,
+        profile_data=profile_data,
+    ))
+    await db.commit()
+    await db.refresh(user)
+    return user
+
+
+async def _usage_for(user: User, db: AsyncSession) -> UserUsage:
+    today = date.today()
+    r = await db.execute(
+        select(UsageLog).where(UsageLog.user_id == user.id, UsageLog.usage_date == today)
+    )
+    log = r.scalar_one_or_none()
+    used = log.count if log else 0
+    limit = settings.rate_limit_daily if not user.is_premium else settings.rate_limit_daily * 10
+    return UserUsage(
+        daily_limit=limit,
+        used=used,
+        remaining=max(0, limit - used),
+        is_premium=user.is_premium,
+    )
+
+
+async def _auth_response(user: User, db: AsyncSession, redis: Redis) -> ChannelAuthResponse:
+    token = await create_session(redis, user.id)
+    usage = await _usage_for(user, db)
+    return ChannelAuthResponse(session_token=token, user_id=user.id, usage=usage)
+
+
+async def _identities_list(db: AsyncSession, user_id) -> list[LinkedIdentity]:
+    result = await db.execute(
+        select(UserIdentity).where(UserIdentity.user_id == user_id)
+    )
+    return [
+        LinkedIdentity(
+            provider=i.provider,
+            external_id=i.external_id,
+            profile_data=i.profile_data,
+            created_at=i.created_at,
+        )
+        for i in result.scalars().all()
+    ]
+
+
+# ------------------------------------------------------------------
+# Telegram auth (identity-first, no legacy fallback)
+# ------------------------------------------------------------------
+
+@router.post("/auth/telegram", response_model=ChannelAuthResponse)
 async def auth_telegram(
     body: TelegramAuthRequest,
     db: AsyncSession = Depends(get_db),
+    redis: Redis = Depends(get_redis),
 ):
-    result = await db.execute(select(User).where(User.telegram_id == body.telegram_id))
-    user = result.scalar_one_or_none()
+    tg_id_str = str(body.telegram_id)
+    user = await _find_or_create_by_identity(
+        db, "telegram", tg_id_str,
+        display_name=body.username or body.first_name,
+        profile_data={"username": body.username, "first_name": body.first_name},
+    )
 
-    if user is None:
-        user = User(
-            telegram_id=body.telegram_id,
-            username=body.username,
-            first_name=body.first_name,
-        )
-        db.add(user)
-        await db.commit()
-        await db.refresh(user)
-    elif body.username and user.username != body.username:
+    if body.username and user.username != body.username:
         user.username = body.username
         if body.first_name is not None:
             user.first_name = body.first_name
         await db.commit()
         await db.refresh(user)
 
-    today = date.today()
-    usage_result = await db.execute(
-        select(UsageLog).where(UsageLog.user_id == user.id, UsageLog.usage_date == today)
-    )
-    log = usage_result.scalar_one_or_none()
-    used = log.count if log else 0
-    limit = settings.rate_limit_daily if not user.is_premium else settings.rate_limit_daily * 10
+    return await _auth_response(user, db, redis)
 
-    return UserResponse(
-        user_id=user.id,
-        telegram_id=user.telegram_id,
-        username=user.username,
-        usage=UserUsage(
-            daily_limit=limit,
-            used=used,
-            remaining=max(0, limit - used),
-            is_premium=user.is_premium,
-        ),
-    )
 
+# ------------------------------------------------------------------
+# API client (admin)
+# ------------------------------------------------------------------
 
 @router.post("/auth/api-client", response_model=ApiClientCreatedResponse)
 async def create_api_client(
@@ -89,11 +206,7 @@ async def create_api_client(
     raw_key = secrets.token_urlsafe(32)
     pepper = settings.api_key_pepper or settings.admin_secret or "dev-pepper"
 
-    user = User(
-        telegram_id=None,
-        username=f"api_{body.name}",
-        first_name=None,
-    )
+    user = User(username=f"api_{body.name}", first_name=None)
     db.add(user)
     await db.flush()
 
@@ -114,6 +227,10 @@ async def create_api_client(
         client_id=client.id,
     )
 
+
+# ------------------------------------------------------------------
+# Usage
+# ------------------------------------------------------------------
 
 @router.get("/users/me/usage", response_model=UserUsage)
 async def get_my_usage(
@@ -143,67 +260,6 @@ async def get_my_usage(
 
 
 # ------------------------------------------------------------------
-# Multi-channel auth helpers
-# ------------------------------------------------------------------
-
-async def _find_or_create_by_identity(
-    db: AsyncSession,
-    provider: str,
-    external_id: str,
-    display_name: str | None = None,
-) -> User:
-    """Lookup user by (provider, external_id). Create User + UserIdentity if new."""
-    result = await db.execute(
-        select(UserIdentity).where(
-            UserIdentity.provider == provider,
-            UserIdentity.external_id == external_id,
-        )
-    )
-    identity = result.scalar_one_or_none()
-
-    if identity is not None:
-        user = await db.get(User, identity.user_id)
-        if user is None:
-            raise HTTPException(status_code=500, detail="Orphan identity record")
-        return user
-
-    user = User(username=display_name, first_name=display_name)
-    db.add(user)
-    await db.flush()
-
-    db.add(UserIdentity(
-        user_id=user.id,
-        provider=provider,
-        external_id=external_id,
-    ))
-    await db.commit()
-    await db.refresh(user)
-    return user
-
-
-async def _usage_for(user: User, db: AsyncSession) -> UserUsage:
-    today = date.today()
-    r = await db.execute(
-        select(UsageLog).where(UsageLog.user_id == user.id, UsageLog.usage_date == today)
-    )
-    log = r.scalar_one_or_none()
-    used = log.count if log else 0
-    limit = settings.rate_limit_daily if not user.is_premium else settings.rate_limit_daily * 10
-    return UserUsage(
-        daily_limit=limit,
-        used=used,
-        remaining=max(0, limit - used),
-        is_premium=user.is_premium,
-    )
-
-
-async def _auth_response(user: User, db: AsyncSession, redis: Redis) -> ChannelAuthResponse:
-    token = await create_session(redis, user.id)
-    usage = await _usage_for(user, db)
-    return ChannelAuthResponse(session_token=token, user_id=user.id, usage=usage)
-
-
-# ------------------------------------------------------------------
 # OK auth
 # ------------------------------------------------------------------
 
@@ -223,7 +279,7 @@ async def auth_ok(
 
 
 # ------------------------------------------------------------------
-# VK auth
+# VK auth (mini app)
 # ------------------------------------------------------------------
 
 @router.post("/auth/vk", response_model=ChannelAuthResponse)
@@ -271,7 +327,14 @@ async def yandex_oauth_init(
     state = secrets.token_urlsafe(32)
     redirect_uri = f"{settings.api_base_url}/api/v1/auth/yandex/callback"
 
-    await save_oauth_state(redis, state, provider="yandex", device_id=body.device_id)
+    link_user_id = await _resolve_link_code(redis, body.link_code)
+
+    await save_oauth_state(
+        redis, state,
+        provider="yandex",
+        device_id=body.device_id,
+        link_user_id=link_user_id,
+    )
 
     url = build_authorize_url(state, redirect_uri)
     return OAuthInitResponse(authorize_url=url)
@@ -301,8 +364,21 @@ async def yandex_oauth_callback(
     if yandex_user is None or not yandex_user.id:
         raise HTTPException(status_code=401, detail="Failed to fetch Yandex user info")
 
+    link_user_id = stored.get("link_user_id")
+    link_to = None
+    if link_user_id:
+        import uuid as _uuid
+        link_to = await db.get(User, _uuid.UUID(link_user_id))
+
     user = await _find_or_create_by_identity(
-        db, "yandex", yandex_user.id, display_name=yandex_user.display_name,
+        db, "yandex", yandex_user.id,
+        display_name=yandex_user.display_name,
+        profile_data={
+            "login": yandex_user.login,
+            "display_name": yandex_user.display_name,
+            "email": yandex_user.default_email,
+        },
+        link_to_user=link_to,
     )
     token = await create_session(redis, user.id)
 
@@ -329,11 +405,14 @@ async def vk_id_oauth_init(
     redirect_uri = f"{settings.api_base_url}/api/v1/auth/vk-id/callback"
     device_id = body.device_id or secrets.token_urlsafe(16)
 
+    link_user_id = await _resolve_link_code(redis, body.link_code)
+
     await save_oauth_state(
         redis, state,
         provider="vk_id",
         code_verifier=code_verifier,
         device_id=device_id,
+        link_user_id=link_user_id,
     )
 
     url = build_authorize_url(state, redirect_uri, code_challenge)
@@ -390,12 +469,165 @@ async def vk_id_oauth_callback(
     display = " ".join(
         n for n in (vk_user.first_name, vk_user.last_name) if n
     ) or None
+
+    link_user_id = stored.get("link_user_id")
+    link_to = None
+    if link_user_id:
+        import uuid as _uuid
+        link_to = await db.get(User, _uuid.UUID(link_user_id))
+
     user = await _find_or_create_by_identity(
-        db, "vk_id", vk_user.user_id, display_name=display,
+        db, "vk_id", vk_user.user_id,
+        display_name=display,
+        profile_data={
+            "first_name": vk_user.first_name,
+            "last_name": vk_user.last_name,
+            "email": vk_user.email,
+        },
+        link_to_user=link_to,
     )
     token = await create_session(redis, user.id)
 
     web_base = settings.web_base_url or settings.api_base_url
     return RedirectResponse(
         url=f"{web_base}/auth/callback?token={token}&provider=vk_id&user_id={user.id}",
+    )
+
+
+# ------------------------------------------------------------------
+# Phone auth (OTP)
+# ------------------------------------------------------------------
+
+_OTP_PREFIX = "ratemeai:phone_otp:"
+_OTP_TTL = 300
+_OTP_LENGTH = 4
+
+
+@router.post("/auth/phone/send-code", status_code=200)
+async def phone_send_code(
+    body: PhoneOTPRequestBody,
+    redis: Redis = Depends(get_redis),
+):
+    import random
+
+    phone = body.phone.strip().lstrip("+")
+    code = "".join(str(random.randint(0, 9)) for _ in range(_OTP_LENGTH))
+
+    await redis.set(f"{_OTP_PREFIX}{phone}", code, ex=_OTP_TTL)
+
+    logger.info("OTP for +%s: %s (send via SMS provider)", phone, code)
+
+    return {"sent": True, "phone": phone, "ttl": _OTP_TTL}
+
+
+@router.post("/auth/phone/verify", response_model=ChannelAuthResponse)
+async def phone_verify(
+    body: PhoneOTPVerifyBody,
+    db: AsyncSession = Depends(get_db),
+    redis: Redis = Depends(get_redis),
+):
+    phone = body.phone.strip().lstrip("+")
+    key = f"{_OTP_PREFIX}{phone}"
+    stored_code = await redis.get(key)
+
+    if stored_code is None:
+        raise HTTPException(status_code=400, detail="Code expired or not requested")
+    if (stored_code.decode() if isinstance(stored_code, bytes) else stored_code) != body.code:
+        raise HTTPException(status_code=401, detail="Invalid code")
+
+    await redis.delete(key)
+
+    link_to = None
+    link_user_id = await _resolve_link_code(redis, body.link_code)
+    if link_user_id:
+        import uuid as _uuid
+        link_to = await db.get(User, _uuid.UUID(link_user_id))
+
+    user = await _find_or_create_by_identity(
+        db, "phone", phone,
+        profile_data={"phone": f"+{phone}"},
+        link_to_user=link_to,
+    )
+    return await _auth_response(user, db, redis)
+
+
+# ------------------------------------------------------------------
+# Identity listing
+# ------------------------------------------------------------------
+
+@router.get("/users/me/identities", response_model=UserIdentitiesResponse)
+async def get_my_identities(
+    user: User = Depends(get_auth_user),
+    db: AsyncSession = Depends(get_db),
+):
+    return UserIdentitiesResponse(
+        user_id=user.id,
+        identities=await _identities_list(db, user.id),
+    )
+
+
+# ------------------------------------------------------------------
+# Universal Link Token (cross-platform account linking)
+# ------------------------------------------------------------------
+
+def _generate_link_code() -> str:
+    alphabet = string.ascii_uppercase + string.digits
+    return "".join(secrets.choice(alphabet) for _ in range(_LINK_TOKEN_LENGTH))
+
+
+@router.post("/auth/link-token", response_model=LinkTokenResponse)
+async def create_link_token(
+    user: User = Depends(get_auth_user),
+    redis: Redis = Depends(get_redis),
+):
+    """Generate a 6-character code that another platform can use to link to this account."""
+    code = _generate_link_code()
+    key = f"{_LINK_TOKEN_PREFIX}{code}"
+    await redis.set(key, str(user.id), ex=_LINK_TOKEN_TTL)
+    web_base = settings.web_base_url or settings.api_base_url
+    return LinkTokenResponse(
+        code=code,
+        ttl=_LINK_TOKEN_TTL,
+        link_url=f"{web_base}/link?code={code}",
+    )
+
+
+@router.post("/auth/claim-link", response_model=ClaimLinkResponse)
+async def claim_link(
+    body: ClaimLinkRequest,
+    db: AsyncSession = Depends(get_db),
+    redis: Redis = Depends(get_redis),
+):
+    """Use a link code to attach the caller's provider identity to the code owner's account."""
+    key = f"{_LINK_TOKEN_PREFIX}{body.code.upper().strip()}"
+    raw = await redis.get(key)
+    if raw is None:
+        raise HTTPException(status_code=400, detail="Invalid or expired link code")
+
+    await redis.delete(key)
+
+    import uuid as _uuid
+    target_user_id = _uuid.UUID(raw)
+    target_user = await db.get(User, target_user_id)
+    if target_user is None:
+        raise HTTPException(status_code=404, detail="Link code owner not found")
+
+    user = await _find_or_create_by_identity(
+        db, body.provider, body.external_id,
+        profile_data=body.profile_data,
+        link_to_user=target_user,
+    )
+
+    return await _claim_link_response(user, db, redis)
+
+
+async def _claim_link_response(user: User, db: AsyncSession, redis: Redis) -> ClaimLinkResponse:
+    token = await create_session(redis, user.id)
+    usage = await _usage_for(user, db)
+    identities = await _identities_list(db, user.id)
+    return ClaimLinkResponse(
+        session_token=token,
+        user_id=user.id,
+        usage=usage,
+        identities=identities,
     )

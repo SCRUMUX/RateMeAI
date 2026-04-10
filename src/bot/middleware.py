@@ -11,10 +11,28 @@ from redis.asyncio import Redis
 logger = logging.getLogger(__name__)
 
 PHOTO_KEY = "rateme:photo:{}"
+_BOT_SESSION_KEY = "bot_session:{}"
+_BOT_SESSION_TTL = 86400 * 7  # 7 days
+
+
+async def get_bot_bearer_token(redis: Redis, telegram_id: int) -> str | None:
+    """Retrieve stored Bearer token for a Telegram user."""
+    raw = await redis.get(_BOT_SESSION_KEY.format(telegram_id))
+    if raw is None:
+        return None
+    return raw.decode() if isinstance(raw, bytes) else raw
+
+
+async def get_bot_auth_headers(redis: Redis, telegram_id: int) -> dict[str, str]:
+    """Return Authorization header dict for API calls from the bot."""
+    token = await get_bot_bearer_token(redis, telegram_id)
+    if token:
+        return {"Authorization": f"Bearer {token}"}
+    return {}
 
 
 class UserRegistrationMiddleware(BaseMiddleware):
-    """Ensures user is registered in the API before handling any update."""
+    """Ensures user is registered and has a Bearer session for API calls."""
 
     def __init__(self, api_base_url: str, redis: Redis):
         self._api_base_url = api_base_url.rstrip("/")
@@ -48,7 +66,16 @@ class UserRegistrationMiddleware(BaseMiddleware):
                 )
                 if resp.status_code == 200:
                     self._registered.add(user.id)
-                    data["api_user"] = resp.json()
+                    resp_data = resp.json()
+                    data["api_user"] = resp_data
+
+                    token = resp_data.get("session_token")
+                    if token:
+                        await self._redis.set(
+                            _BOT_SESSION_KEY.format(user.id),
+                            token,
+                            ex=_BOT_SESSION_TTL,
+                        )
             except Exception:
                 logger.exception("Failed to register user %s", user.id)
 

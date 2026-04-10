@@ -38,6 +38,7 @@ export async function login(): Promise<ChannelAuthResponse> {
 export async function startOAuth(
   provider: 'yandex' | 'vk-id',
   photoCtx?: { file: File; mode: string; style: string },
+  linkCode?: string,
 ) {
   const deviceId = getDeviceId();
   if (photoCtx?.file) {
@@ -46,7 +47,7 @@ export async function startOAuth(
       style: photoCtx.style,
     });
   }
-  const res = await oauthInit(provider, deviceId);
+  const res = await oauthInit(provider, deviceId, linkCode);
   window.location.href = res.authorize_url;
 }
 

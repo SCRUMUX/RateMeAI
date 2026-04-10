@@ -39,6 +39,10 @@ export default function Landing() {
         onOAuth={async (provider) => {
           await app.loginWithOAuth(provider);
         }}
+        onPhoneLogin={async (token, userId) => {
+          await app.loginWithToken(token, userId, 'phone');
+          setAuthModalOpen(false);
+        }}
       />
     </div>
   );

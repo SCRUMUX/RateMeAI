@@ -1,5 +1,7 @@
+import { useState, useRef, useEffect } from 'react';
 import { GlobeIcon, CoinIcon } from '@ai-ds/core/icons';
 import { useApp } from '../context/AppContext';
+import LinkedAccountsPanel from '../components/LinkedAccountsPanel';
 
 interface Props {
   onLoginClick?: () => void;
@@ -7,6 +9,17 @@ interface Props {
 
 export default function NavBar({ onLoginClick }: Props) {
   const { session, balance, logout } = useApp();
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    function handleClick(e: MouseEvent) {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) setMenuOpen(false);
+    }
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, [menuOpen]);
 
   return (
     <nav className="fixed top-0 left-0 right-0 z-[100] glass-nav">
@@ -34,18 +47,34 @@ export default function NavBar({ onLoginClick }: Props) {
           ))}
 
           {session ? (
-            <div className="flex items-center gap-[var(--space-8)]">
-              <div className="glass-btn-ghost flex items-center gap-[var(--space-4)] px-[var(--space-12)] py-[var(--space-6)] text-[14px] leading-[20px] font-medium text-[#E6EEF8] rounded-[var(--radius-12)]">
+            <div className="relative flex items-center gap-[var(--space-8)]" ref={menuRef}>
+              <button
+                onClick={() => setMenuOpen(v => !v)}
+                className="glass-btn-ghost flex items-center gap-[var(--space-4)] px-[var(--space-12)] py-[var(--space-6)] text-[14px] leading-[20px] font-medium text-[#E6EEF8] rounded-[var(--radius-12)] cursor-pointer"
+              >
                 <CoinIcon size={16} className="text-[var(--color-brand-primary)]" />
                 <span>{balance}</span>
-              </div>
-              <button
-                onClick={logout}
-                className="flex items-center gap-[var(--space-6)] px-[var(--space-12)] py-[var(--space-6)] text-[14px] leading-[20px] font-medium text-[#E6EEF8] rounded-[var(--radius-12)] border border-[rgba(255,255,255,0.15)] hover:border-[rgba(255,255,255,0.3)] bg-[rgba(255,255,255,0.04)] hover:bg-[rgba(255,255,255,0.08)] transition-all cursor-pointer"
-              >
-                <svg width="16" height="16" viewBox="0 0 16 16" fill="none" className="text-[var(--color-brand-primary)]"><path d="M6 14H3.333A1.333 1.333 0 012 12.667V3.333A1.333 1.333 0 013.333 2H6M10.667 11.333L14 8m0 0l-3.333-3.333M14 8H6" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/></svg>
-                Выйти
+                <svg width="12" height="12" viewBox="0 0 12 12" fill="none" className={`transition-transform ${menuOpen ? 'rotate-180' : ''}`}>
+                  <path d="M3 5L6 8L9 5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
               </button>
+
+              {menuOpen && (
+                <div
+                  className="absolute top-full right-0 mt-2 w-[340px] glass-card rounded-[var(--radius-12)] p-[var(--space-20)] flex flex-col gap-[var(--space-16)]"
+                  style={{ border: '1px solid rgba(255,255,255,0.08)' }}
+                >
+                  <LinkedAccountsPanel />
+                  <div className="h-px" style={{ background: 'rgba(255,255,255,0.08)' }} />
+                  <button
+                    onClick={() => { setMenuOpen(false); logout(); }}
+                    className="flex items-center gap-[var(--space-6)] px-[var(--space-12)] py-[var(--space-8)] text-[14px] leading-[20px] font-medium text-[#FF4D6A] rounded-[var(--radius-8)] hover:bg-[rgba(255,77,106,0.08)] transition-all cursor-pointer"
+                  >
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M6 14H3.333A1.333 1.333 0 012 12.667V3.333A1.333 1.333 0 013.333 2H6M10.667 11.333L14 8m0 0l-3.333-3.333M14 8H6" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                    Выйти
+                  </button>
+                </div>
+              )}
             </div>
           ) : (
             <button

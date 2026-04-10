@@ -32,6 +32,7 @@ interface AppState {
   preAnalyzeError: boolean;
   taskHistory: api.TaskHistoryItem[];
   taskHistoryCount: number;
+  identities: api.LinkedIdentity[];
 }
 
 interface AppActions {
@@ -52,6 +53,7 @@ interface AppActions {
   loginWithOAuth: (provider: 'yandex' | 'vk-id') => Promise<void>;
   loginWithToken: (token: string, userId?: string, provider?: string) => Promise<void>;
   logout: () => void;
+  refreshIdentities: () => Promise<void>;
 }
 
 const Ctx = createContext<(AppState & AppActions) | null>(null);
@@ -119,6 +121,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [preAnalyzeError, setPreAnalyzeError] = useState(false);
   const [taskHistory, setTaskHistory] = useState<api.TaskHistoryItem[]>([]);
   const [taskHistoryCount, setTaskHistoryCount] = useState(0);
+  const [identities, setIdentities] = useState<api.LinkedIdentity[]>([]);
 
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const simTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -128,6 +131,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
     try {
       const b = await api.getBalance();
       setBalance(b.image_credits);
+    } catch { /* ignore */ }
+  }, []);
+
+  const refreshIdentities = useCallback(async () => {
+    try {
+      const res = await api.getMyIdentities();
+      setIdentities(res.identities);
     } catch { /* ignore */ }
   }, []);
 
@@ -229,6 +239,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setTaskHistoryCount(res.total_count);
     }).catch(() => {});
 
+    api.getMyIdentities().then(res => {
+      setIdentities(res.identities);
+    }).catch(() => {});
+
     const restored = await restorePhotoAfterOAuth();
     if (restored) {
       const preview = URL.createObjectURL(restored.file);
@@ -254,6 +268,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setGenerationMode(null);
     setError(null);
     setIsGenerating(false);
+    setIdentities([]);
   }, []);
 
   useEffect(() => {
@@ -423,11 +438,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
     session, balance, photo, preAnalysis, activeCategory, selectedStyleKey,
     currentTask, isGenerating, error, generatedImageUrl, afterScore, afterPerception,
     generationMode, isAuthenticated, isSimulating, simulationDone,
-    noCreditsError, preAnalyzeError, taskHistory, taskHistoryCount,
+    noCreditsError, preAnalyzeError, taskHistory, taskHistoryCount, identities,
     setActiveCategory, setSelectedStyleKey, uploadPhoto, runPreAnalyze,
     generate, share, refreshBalance, clearError, clearGeneratedImage, clearNoCreditsError,
     resetGeneration, fetchTaskHistory, startSimulation, authenticateUser,
-    loginWithOAuth, loginWithToken, logout,
+    loginWithOAuth, loginWithToken, logout, refreshIdentities,
   };
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;

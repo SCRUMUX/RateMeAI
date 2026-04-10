@@ -8,7 +8,7 @@ from aiogram.types import CallbackQuery
 import httpx
 from redis.asyncio import Redis
 
-from src.bot.middleware import PHOTO_KEY
+from src.bot.middleware import PHOTO_KEY, get_bot_auth_headers
 from src.bot.keyboards import (
     error_keyboard,
     scenario_keyboard,
@@ -77,7 +77,7 @@ async def on_pick_style(callback: CallbackQuery, api_base_url: str, redis: Redis
 
     status_msg = await callback.message.answer(f"{header}\n\n\U0001f50d Анализирую твоё фото...")
 
-    pre_analysis = await _call_pre_analyze(callback.bot, api_base_url, user_id, file_id, kind)
+    pre_analysis = await _call_pre_analyze(callback.bot, api_base_url, user_id, file_id, kind, redis)
 
     if pre_analysis is None:
         catalog = STYLE_CATALOG.get(kind, [])
@@ -183,7 +183,7 @@ async def on_retry(callback: CallbackQuery, api_base_url: str, redis: Redis):
     await _submit_analysis(callback, api_base_url, redis, mode, style)
 
 
-async def _call_pre_analyze(bot, api_base_url: str, user_id: int, file_id: str, mode: str) -> dict | None:
+async def _call_pre_analyze(bot, api_base_url: str, user_id: int, file_id: str, mode: str, redis: Redis) -> dict | None:
     """Download the user's photo and call POST /api/v1/pre-analyze. Returns response dict or None on failure."""
     try:
         if isinstance(file_id, bytes):
@@ -194,12 +194,13 @@ async def _call_pre_analyze(bot, api_base_url: str, user_id: int, file_id: str, 
         file_bytes.seek(0)
         image_data = file_bytes.read()
 
+        headers = await get_bot_auth_headers(redis, user_id)
         async with httpx.AsyncClient(timeout=20.0) as client:
             resp = await client.post(
                 f"{api_base_url}/api/v1/pre-analyze",
                 files={"image": ("photo.jpg", image_data, "image/jpeg")},
                 data={"mode": mode},
-                headers={"X-Telegram-Id": str(user_id)},
+                headers=headers,
             )
         if resp.status_code == 200:
             return resp.json()
@@ -302,12 +303,13 @@ async def _submit_analysis(callback: CallbackQuery, api_base_url: str, redis: Re
                 pre_id = pre_id.decode()
             form_data["pre_analysis_id"] = pre_id
 
+        auth_headers = await get_bot_auth_headers(redis, user_id)
         async with httpx.AsyncClient(timeout=30.0) as client:
             resp = await client.post(
                 f"{api_base_url}/api/v1/analyze",
                 files={"image": ("photo.jpg", image_data, "image/jpeg")},
                 data=form_data,
-                headers={"X-Telegram-Id": str(user_id)},
+                headers=auth_headers,
             )
 
         if resp.status_code == 202:
@@ -391,15 +393,16 @@ async def on_buy(callback: CallbackQuery, api_base_url: str):
 
 
 @router.callback_query(F.data == "balance")
-async def on_balance(callback: CallbackQuery, api_base_url: str):
+async def on_balance(callback: CallbackQuery, api_base_url: str, redis: Redis):
     """Show user's current credit balance."""
     await callback.answer()
     user_id = callback.from_user.id
     try:
+        auth_headers = await get_bot_auth_headers(redis, user_id)
         async with httpx.AsyncClient(timeout=10.0) as client:
             resp = await client.get(
                 f"{api_base_url}/api/v1/payments/balance",
-                headers={"X-Telegram-Id": str(user_id)},
+                headers=auth_headers,
             )
         if resp.status_code == 200:
             data = resp.json()
@@ -420,6 +423,19 @@ async def on_balance(callback: CallbackQuery, api_base_url: str):
     except Exception:
         logger.exception("Failed to fetch balance for user %s", user_id)
         await callback.message.answer("\u274c Ошибка. Попробуй позже.", reply_markup=error_keyboard())
+
+
+@router.callback_query(F.data == "topup")
+async def on_topup(callback: CallbackQuery):
+    """Show available credit packs for purchase."""
+    await callback.answer()
+    from src.bot.keyboards import upgrade_keyboard
+    await callback.message.answer(
+        "\U0001f6d2 *Пополнить баланс*\n\n"
+        "Выбери подходящий пакет образов:",
+        parse_mode="Markdown",
+        reply_markup=upgrade_keyboard(),
+    )
 
 
 @router.callback_query(F.data == "new_photo")
@@ -539,10 +555,11 @@ async def _poll_task(bot, api_base_url: str, user_id: int, task_id: str, chat_id
         logger.warning("Pub/Sub failed for task %s, falling back to polling", task_id)
 
     async def _fetch_task_status():
+        auth_headers = await get_bot_auth_headers(redis, user_id)
         async with httpx.AsyncClient(timeout=30.0) as client:
             resp = await client.get(
                 f"{api_base_url}/api/v1/tasks/{task_id}",
-                headers={"X-Telegram-Id": str(user_id)},
+                headers=auth_headers,
             )
             if resp.status_code != 200:
                 return None

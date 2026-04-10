@@ -51,10 +51,10 @@ export interface OAuthInitResponse {
   authorize_url: string;
 }
 
-export function oauthInit(provider: 'yandex' | 'vk-id', deviceId: string) {
+export function oauthInit(provider: 'yandex' | 'vk-id', deviceId: string, linkCode?: string) {
   return request<OAuthInitResponse>(`/api/v1/auth/${provider}/init`, {
     method: 'POST',
-    body: JSON.stringify({ device_id: deviceId }),
+    body: JSON.stringify({ device_id: deviceId, link_code: linkCode || '' }),
   });
 }
 
@@ -182,5 +182,65 @@ export function createPayment(packQty: number) {
   return request<{ payment_id: string; confirmation_url: string }>('/api/v1/payments/create', {
     method: 'POST',
     body: JSON.stringify({ pack_qty: packQty }),
+  });
+}
+
+// -- Identity Linking --
+
+export interface LinkedIdentity {
+  provider: string;
+  external_id: string;
+  profile_data: Record<string, string | null> | null;
+  created_at: string | null;
+}
+
+export interface UserIdentitiesResponse {
+  user_id: string;
+  identities: LinkedIdentity[];
+}
+
+export function getMyIdentities() {
+  return request<UserIdentitiesResponse>('/api/v1/users/me/identities');
+}
+
+// -- Universal Link Token --
+
+export interface LinkTokenResponse {
+  code: string;
+  ttl: number;
+  link_url: string;
+}
+
+export function createLinkToken() {
+  return request<LinkTokenResponse>('/api/v1/auth/link-token', { method: 'POST' });
+}
+
+export interface ClaimLinkResponse {
+  session_token: string;
+  user_id: string;
+  usage: ChannelAuthResponse['usage'];
+  identities: LinkedIdentity[];
+}
+
+export function claimLink(code: string, provider: string, externalId: string, profileData?: Record<string, string>) {
+  return request<ClaimLinkResponse>('/api/v1/auth/claim-link', {
+    method: 'POST',
+    body: JSON.stringify({ code, provider, external_id: externalId, profile_data: profileData }),
+  });
+}
+
+// -- Phone OTP --
+
+export function phoneSendCode(phone: string) {
+  return request<{ sent: boolean; phone: string; ttl: number }>('/api/v1/auth/phone/send-code', {
+    method: 'POST',
+    body: JSON.stringify({ phone }),
+  });
+}
+
+export function phoneVerify(phone: string, code: string, linkCode?: string) {
+  return request<ChannelAuthResponse>('/api/v1/auth/phone/verify', {
+    method: 'POST',
+    body: JSON.stringify({ phone, code, link_code: linkCode || '' }),
   });
 }

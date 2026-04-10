@@ -193,11 +193,55 @@ class WebAuthRequest(BaseModel):
 
 class OAuthInitRequest(BaseModel):
     device_id: str = ""
+    link_code: str = ""
 
 
 class OAuthInitResponse(BaseModel):
     authorize_url: str
 
+
+# ── Identity Linking ──
+
+class LinkedIdentity(BaseModel):
+    provider: str
+    external_id: str
+    profile_data: dict | None = None
+    created_at: datetime | None = None
+
+class UserIdentitiesResponse(BaseModel):
+    user_id: uuid.UUID
+    identities: list[LinkedIdentity] = Field(default_factory=list)
+
+
+# ── Universal Link Token ──
+
+class LinkTokenResponse(BaseModel):
+    code: str
+    ttl: int
+    link_url: str
+
+class ClaimLinkRequest(BaseModel):
+    code: str
+    provider: str
+    external_id: str
+    profile_data: dict | None = None
+
+class ClaimLinkResponse(BaseModel):
+    session_token: str
+    user_id: uuid.UUID
+    usage: UserUsage
+    identities: list[LinkedIdentity] = Field(default_factory=list)
+
+
+# ── Phone Auth (OTP) ──
+
+class PhoneOTPRequestBody(BaseModel):
+    phone: str = Field(..., min_length=10, max_length=15)
+
+class PhoneOTPVerifyBody(BaseModel):
+    phone: str = Field(..., min_length=10, max_length=15)
+    code: str = Field(..., min_length=4, max_length=6)
+    link_code: str = ""
 
 
 # ── Pre-Analysis ──

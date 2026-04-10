@@ -9,6 +9,7 @@ import httpx
 from redis.asyncio import Redis
 
 from src.bot.keyboards import back_keyboard, upgrade_keyboard
+from src.bot.middleware import get_bot_auth_headers
 
 router = Router()
 logger = logging.getLogger(__name__)
@@ -30,7 +31,7 @@ REFERRAL_TEXT = """\U0001f381 Тебя пригласил друг! Отправ
 
 
 @router.message(CommandStart())
-async def cmd_start(message: Message, api_base_url: str):
+async def cmd_start(message: Message, api_base_url: str, redis: Redis):
     args = message.text.split(maxsplit=1)
     referral = None
     if len(args) > 1 and args[1].startswith("ref_"):
@@ -39,7 +40,7 @@ async def cmd_start(message: Message, api_base_url: str):
 
     text = REFERRAL_TEXT if referral else WELCOME_TEXT
 
-    balance_line = await _get_balance_line(api_base_url, message.from_user.id)
+    balance_line = await _get_balance_line(api_base_url, message.from_user.id, redis)
     if balance_line:
         text += f"\n\n{balance_line}"
 
@@ -71,13 +72,14 @@ async def cmd_rating(message: Message, redis: Redis):
 
 
 @router.message(Command("balance"))
-async def cmd_balance(message: Message, api_base_url: str):
+async def cmd_balance(message: Message, api_base_url: str, redis: Redis):
     user_id = message.from_user.id
+    headers = await get_bot_auth_headers(redis, user_id)
     try:
         async with httpx.AsyncClient(timeout=10.0) as client:
             resp = await client.get(
                 f"{api_base_url}/api/v1/payments/balance",
-                headers={"X-Telegram-Id": str(user_id)},
+                headers=headers,
             )
         if resp.status_code == 200:
             credits = resp.json().get("image_credits", 0)
@@ -95,12 +97,13 @@ async def cmd_balance(message: Message, api_base_url: str):
         await message.answer("\u274c Ошибка. Попробуй позже.", reply_markup=back_keyboard())
 
 
-async def _get_balance_line(api_base_url: str, user_id: int) -> str:
+async def _get_balance_line(api_base_url: str, user_id: int, redis: Redis) -> str:
+    headers = await get_bot_auth_headers(redis, user_id)
     try:
         async with httpx.AsyncClient(timeout=5.0) as client:
             resp = await client.get(
                 f"{api_base_url}/api/v1/payments/balance",
-                headers={"X-Telegram-Id": str(user_id)},
+                headers=headers,
             )
         if resp.status_code == 200:
             credits = resp.json().get("image_credits", 0)

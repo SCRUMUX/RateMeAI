@@ -149,7 +149,7 @@ async def create_payment_link(
 async def get_balance(
     user: User = Depends(get_auth_user),
 ):
-    """Get user's credit balance. Accepts any auth method (Bearer, X-Telegram-Id, X-API-Key)."""
+    """Get user's credit balance. Accepts Bearer or X-API-Key."""
     return {"user_id": str(user.id), "image_credits": user.image_credits}
 
 

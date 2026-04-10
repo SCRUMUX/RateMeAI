@@ -27,11 +27,13 @@ async def save_oauth_state(
     provider: str,
     code_verifier: str | None = None,
     device_id: str | None = None,
+    link_user_id: str | None = None,
 ) -> None:
     payload = json.dumps({
         "provider": provider,
         "code_verifier": code_verifier,
         "device_id": device_id,
+        "link_user_id": link_user_id,
     })
     await redis.set(f"{_PREFIX}{state}", payload, ex=_TTL)
 

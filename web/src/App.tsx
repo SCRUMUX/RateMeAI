@@ -4,6 +4,7 @@ import { ToastProvider } from './components/Toast';
 import Landing from './pages/Landing';
 import PaymentSuccess from './pages/PaymentSuccess';
 import AuthCallback from './pages/AuthCallback';
+import LinkPage from './pages/LinkPage';
 
 export default function App() {
   return (
@@ -14,6 +15,7 @@ export default function App() {
             <Route path="/" element={<Landing />} />
             <Route path="/payment-success" element={<PaymentSuccess />} />
             <Route path="/auth/callback" element={<AuthCallback />} />
+            <Route path="/link" element={<LinkPage />} />
           </Routes>
         </AppProvider>
       </ToastProvider>
