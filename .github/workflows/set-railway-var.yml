@@ -1,0 +1,32 @@
+name: Set Railway Variable
+
+on:
+  workflow_dispatch:
+    inputs:
+      service:
+        description: 'Railway service name'
+        required: true
+        default: 'app'
+      variable_name:
+        description: 'Variable name'
+        required: true
+      variable_value:
+        description: 'Variable value'
+        required: true
+
+jobs:
+  set-var:
+    runs-on: ubuntu-latest
+    env:
+      RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+      RAILWAY_PROJECT_ID: ${{ secrets.RAILWAY_PROJECT_ID }}
+    steps:
+      - name: Install Railway CLI
+        run: npm install -g @railway/cli
+
+      - name: Set variable
+        run: |
+          railway variables set "${{ inputs.variable_name }}=${{ inputs.variable_value }}" \
+            -s "${{ inputs.service }}" \
+            -e production
+          echo "Set ${{ inputs.variable_name }} on service ${{ inputs.service }}"
