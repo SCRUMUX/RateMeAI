@@ -10,7 +10,6 @@ import httpx
 from redis.asyncio import Redis
 
 from src.bot.middleware import get_bot_auth_headers
-from src.config import settings
 
 router = Router()
 logger = logging.getLogger(__name__)

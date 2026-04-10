@@ -14,7 +14,6 @@ from src.config import settings
 from src.models.db import User, UsageLog, ApiClient, UserIdentity
 from src.models.schemas import (
     TelegramAuthRequest,
-    UserResponse,
     UserUsage,
     ApiClientCreateRequest,
     ApiClientCreatedResponse,
