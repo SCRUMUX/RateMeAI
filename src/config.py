@@ -56,7 +56,7 @@ class Settings(BaseSettings):
     yookassa_return_url: str = "https://t.me/{bot_username}"
 
     # Credit packs: pack_size:price_rub (comma-separated)
-    credit_packs: str = "5:200,25:500,70:1000"
+    credit_packs: str = "1:59,5:199,15:499,30:899"
 
     # Admin (bootstrap API keys for B2B)
     admin_secret: str = ""

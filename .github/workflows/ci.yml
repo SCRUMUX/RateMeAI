@@ -95,6 +95,12 @@ jobs:
       - name: Install Railway CLI
         run: npm install -g @railway/cli
 
+      - name: Sync CREDIT_PACKS env var
+        run: |
+          for SVC in app bot worker; do
+            railway variables set CREDIT_PACKS="1:59,5:199,15:499,30:899" -s "$SVC" -e production || true
+          done
+
       - name: Deploy all services in parallel
         run: |
           railway up -s app    -d -e production &
