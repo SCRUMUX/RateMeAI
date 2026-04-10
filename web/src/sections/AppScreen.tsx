@@ -176,12 +176,11 @@ export default function AppScreen() {
   function handleStartAnalysis() {
     if (!app.photo) return;
     setAnalysisRequested(true);
+    setSimStep(0);
+    setStreamedText('');
+    app.startSimulation();
     if (app.isAuthenticated) {
       app.runPreAnalyze();
-    } else {
-      app.startSimulation();
-      setSimStep(0);
-      setStreamedText('');
     }
   }
 
@@ -326,13 +325,25 @@ export default function AppScreen() {
     }
   }
 
+  async function handleImproveFromStorage(imageUrl: string) {
+    try {
+      const res = await fetch(imageUrl, { credentials: 'omit' });
+      const blob = await res.blob();
+      const file = new File([blob], 'improve.jpg', { type: blob.type || 'image/jpeg' });
+      app.uploadPhoto(file);
+      setStorageModalOpen(false);
+    } catch {
+      /* ignore fetch errors */
+    }
+  }
+
   return (
     <section id="app" className="relative z-[2] flex flex-col items-center gap-[var(--space-40)] px-[var(--space-24)] py-[120px]">
       {/* Brand heading */}
       <div className="relative flex items-center justify-center gap-[var(--space-24)] w-full max-w-[1200px]">
         <div className="brand-glow-backdrop" />
         <div className="relative w-[140px] h-[140px] shrink-0 brand-glow-icon">
-          <div className="absolute inset-0 rounded-[28px]" style={{ background: 'rgb(var(--accent-r), var(--accent-g), var(--accent-b))' }} />
+          <div className="absolute inset-0 rounded-[28px]" style={{ background: 'rgba(var(--accent-r), var(--accent-g), var(--accent-b), 0.4)' }} />
           <img src="/img/logo.png" alt="AI Look Studio" className="relative w-full h-full object-contain rounded-[28px]" style={{ mixBlendMode: 'lighten' }} />
         </div>
         <span className="brand-glow-text text-[120px] leading-[1] font-extrabold whitespace-nowrap">
@@ -571,7 +582,7 @@ export default function AppScreen() {
 
                 <p className="text-[14px] leading-[20px] text-[var(--color-text-secondary)] max-w-[440px] min-h-[40px]">
                   {app.preAnalysis?.first_impression
-                    || (app.photo && !app.isAuthenticated && analysisRequested && (app.isSimulating || app.simulationDone) ? (
+                    || (app.photo && analysisRequested && (app.isSimulating || app.simulationDone) && !app.preAnalysis ? (
                       <>{streamedText}<span className="inline-block w-[2px] h-[14px] bg-[var(--color-brand-primary)] ml-[2px] align-middle animate-pulse" /></>
                     ) : SIM_TEXTS[0])}
                 </p>
@@ -648,6 +659,40 @@ export default function AppScreen() {
                       >
                         Получить доступ
                       </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* === STATE 3a: Streaming analysis (authenticated, waiting for result) === */}
+                {app.isAuthenticated && analysisRequested && !app.preAnalysis && app.isSimulating && (
+                  <div className="gradient-border-card glass-card flex flex-col gap-[var(--space-16)] rounded-[var(--radius-12)] p-[var(--space-20)]">
+                    {[
+                      { step: 1, label: 'Анализ лица...' },
+                      { step: 2, label: 'Оценка параметров...' },
+                      { step: 3, label: 'Формирование результата...' },
+                    ].map((s) => (
+                      <div
+                        key={s.step}
+                        className="flex items-center gap-[var(--space-12)] transition-opacity duration-500"
+                        style={{ opacity: simStep >= s.step ? 1 : 0.2 }}
+                      >
+                        {simStep > s.step ? (
+                          <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><circle cx="9" cy="9" r="9" fill="rgba(var(--accent-r),var(--accent-g),var(--accent-b),0.15)"/><path d="M5.5 9.5L7.5 11.5L12.5 6.5" stroke="rgb(var(--accent-r),var(--accent-g),var(--accent-b))" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                        ) : simStep === s.step ? (
+                          <div className="w-[18px] h-[18px] border-2 border-t-transparent rounded-full animate-spin shrink-0" style={{ borderColor: 'rgba(var(--accent-r),var(--accent-g),var(--accent-b),0.5)', borderTopColor: 'transparent' }} />
+                        ) : (
+                          <div className="w-[18px] h-[18px] rounded-full border border-[rgba(255,255,255,0.1)]" />
+                        )}
+                        <span className={`text-[14px] leading-[20px] ${simStep >= s.step ? 'text-[#E6EEF8]' : 'text-[var(--color-text-muted)]'}`}>
+                          {s.label}
+                        </span>
+                      </div>
+                    ))}
+                    <div className="h-1.5 rounded-full glass-progress-track overflow-hidden mt-[var(--space-4)]">
+                      <div
+                        className="h-full rounded-full glass-progress-fill transition-all duration-1000 ease-out"
+                        style={{ width: `${Math.min(simStep * 33.3, 100)}%` }}
+                      />
                     </div>
                   </div>
                 )}
@@ -819,6 +864,7 @@ export default function AppScreen() {
         open={storageModalOpen}
         onClose={() => setStorageModalOpen(false)}
         items={app.taskHistory}
+        onImprove={handleImproveFromStorage}
       />
 
       <AnimatePresence>

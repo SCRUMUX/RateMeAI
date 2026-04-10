@@ -17,6 +17,7 @@ interface Props {
   items: TaskHistoryItem[];
   open: boolean;
   onClose: () => void;
+  onImprove?: (imageUrl: string) => void;
 }
 
 const slideVariants = {
@@ -35,7 +36,7 @@ const PARAM_LABELS: Record<string, string> = {
   authenticity: 'Аутентичность',
 };
 
-export default function StorageModal({ items, open, onClose }: Props) {
+export default function StorageModal({ items, open, onClose, onImprove }: Props) {
   const [idx, setIdx] = useState(0);
   const [dir, setDir] = useState(0);
   const [sharing, setSharing] = useState(false);
@@ -301,23 +302,35 @@ export default function StorageModal({ items, open, onClose }: Props) {
                 )}
 
                 {/* Actions */}
-                <div className="flex gap-[var(--space-12)]">
-                  <button
-                    onClick={handleDownload}
-                    disabled={!item.generated_image_url}
-                    className="flex-1 glass-btn-ghost rounded-[var(--radius-12)] py-[var(--space-10)] text-[14px] font-medium text-[#E6EEF8] flex items-center justify-center gap-[var(--space-8)] disabled:opacity-40"
-                  >
-                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M8 2v8m0 0L5 7m3 3l3-3M3 12h10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
-                    Скачать
-                  </button>
-                  <button
-                    onClick={handleShare}
-                    disabled={sharing}
-                    className="flex-1 glass-btn-primary rounded-[var(--radius-12)] py-[var(--space-10)] text-[14px] font-semibold text-white flex items-center justify-center gap-[var(--space-8)] disabled:opacity-40"
-                  >
-                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M6 9.333l4-2.666M6 6.667l4 2.666M12 4a2 2 0 11-4 0 2 2 0 014 0zM6 8a2 2 0 11-4 0 2 2 0 014 0zM12 12a2 2 0 11-4 0 2 2 0 014 0z" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/></svg>
-                    {sharing ? 'Загрузка...' : 'Поделиться'}
-                  </button>
+                <div className="flex flex-col gap-[var(--space-8)]">
+                  {onImprove && (
+                    <button
+                      onClick={() => item.generated_image_url && onImprove(normalizeImageUrl(item.generated_image_url))}
+                      disabled={!item.generated_image_url}
+                      className="w-full glass-btn-primary rounded-[var(--radius-12)] py-[var(--space-10)] text-[14px] font-semibold text-white flex items-center justify-center gap-[var(--space-8)] disabled:opacity-40"
+                    >
+                      <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M1.333 8A6.667 6.667 0 0012 3.333M14.667 8A6.667 6.667 0 014 12.667" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/><path d="M12 1.333v2h2M4 14.667v-2H2" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                      Улучшить ещё
+                    </button>
+                  )}
+                  <div className="flex gap-[var(--space-12)]">
+                    <button
+                      onClick={handleDownload}
+                      disabled={!item.generated_image_url}
+                      className="flex-1 glass-btn-ghost rounded-[var(--radius-12)] py-[var(--space-10)] text-[14px] font-medium text-[#E6EEF8] flex items-center justify-center gap-[var(--space-8)] disabled:opacity-40"
+                    >
+                      <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M8 2v8m0 0L5 7m3 3l3-3M3 12h10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                      Скачать
+                    </button>
+                    <button
+                      onClick={handleShare}
+                      disabled={sharing}
+                      className="flex-1 glass-btn-ghost rounded-[var(--radius-12)] py-[var(--space-10)] text-[14px] font-medium text-[#E6EEF8] flex items-center justify-center gap-[var(--space-8)] disabled:opacity-40"
+                    >
+                      <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M6 9.333l4-2.666M6 6.667l4 2.666M12 4a2 2 0 11-4 0 2 2 0 014 0zM6 8a2 2 0 11-4 0 2 2 0 014 0zM12 12a2 2 0 11-4 0 2 2 0 014 0z" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                      {sharing ? 'Загрузка...' : 'Поделиться'}
+                    </button>
+                  </div>
                 </div>
               </motion.div>
             </AnimatePresence>
