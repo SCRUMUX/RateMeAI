@@ -5,6 +5,7 @@ import { PERCEPTION_FACTS, getRandomFact } from '../data/ai-facts';
 import CategoryTabs from '../components/CategoryTabs';
 import AuthModal from '../components/AuthModal';
 import StorageModal from '../components/StorageModal';
+import { useToast } from '../components/Toast';
 import { useApp } from '../context/AppContext';
 
 type GenSimMode = 'demo' | 'no_credits' | 'real';
@@ -24,6 +25,7 @@ function ProgressBar({ value, max = 10, accent = false }: { value: number; max?:
 
 export default function AppScreen() {
   const app = useApp();
+  const toast = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [page, setPage] = useState(0);
 
@@ -70,6 +72,12 @@ export default function AppScreen() {
     : null;
 
   function handleTabChange(id: CategoryId) {
+    if (app.generationMode && app.generationMode !== id) {
+      app.resetGeneration();
+      resetGenSim();
+      setFrozenStyle(null);
+      toast.show('Предыдущий результат сохранён в хранилище', 'info');
+    }
     app.setActiveCategory(id);
     app.setSelectedStyleKey('');
     setPage(0);
@@ -77,6 +85,12 @@ export default function AppScreen() {
   }
 
   function handleStyleClick(key: string) {
+    if (app.generatedImageUrl && key !== app.selectedStyleKey) {
+      app.resetGeneration();
+      resetGenSim();
+      setFrozenStyle(null);
+      toast.show('Нажмите «Улучшить» для генерации в новом стиле', 'info');
+    }
     app.setSelectedStyleKey(key);
   }
 
@@ -193,6 +207,14 @@ export default function AppScreen() {
   }
 
   useEffect(() => () => { if (genSimRef.current) clearInterval(genSimRef.current); }, []);
+
+  const prevGenUrlRef = useRef(app.generatedImageUrl);
+  useEffect(() => {
+    if (app.generatedImageUrl && !prevGenUrlRef.current) {
+      toast.show('Результат сохранён в хранилище', 'success');
+    }
+    prevGenUrlRef.current = app.generatedImageUrl;
+  }, [app.generatedImageUrl]);
 
   // Step-by-step simulation timer
   useEffect(() => {

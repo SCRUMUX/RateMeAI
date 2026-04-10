@@ -483,6 +483,9 @@ def _build_delta_entry(pre: float, raw_post: float, seed: str = "") -> dict:
     """Build a single {pre, post, delta} entry with golden-clamped delta."""
     gd = _golden_delta(raw_post - pre, seed)
     post = round(pre + gd, 2)
+    if post <= pre:
+        post = round(pre + _MIN_POSITIVE_DELTA, 2)
+        gd = round(post - pre, 2)
     return {"pre": round(pre, 2), "post": post, "delta": gd}
 
 
@@ -506,7 +509,7 @@ def _compute_authenticity(quality_report: dict) -> float:
     return round(min(9.99, max(5.0, raw)), 2)
 
 
-_SCORE_REDIS_KEY = "ratemeai:score:{}:{}"
+_SCORE_REDIS_KEY = "ratemeai:score:{}:{}:{}"  # user_id:mode:style
 _SCORE_TTL = 86400
 
 
@@ -522,30 +525,34 @@ class DeltaScorer:
         self._storage = storage
         self._redis = redis
 
-    async def _load_previous_scores(self, user_id: str, mode: AnalysisMode) -> dict | None:
+    async def _load_previous_scores(
+        self, user_id: str, mode: AnalysisMode, style: str = "default",
+    ) -> dict | None:
         if not self._redis:
             return None
         try:
             import json as _json
-            raw = await self._redis.get(_SCORE_REDIS_KEY.format(user_id, mode.value))
+            raw = await self._redis.get(_SCORE_REDIS_KEY.format(user_id, mode.value, style))
             if raw:
                 return _json.loads(raw)
         except Exception:
-            logger.debug("Failed to load previous scores for user=%s mode=%s", user_id, mode.value)
+            logger.debug("Failed to load previous scores for user=%s mode=%s style=%s", user_id, mode.value, style)
         return None
 
-    async def _save_scores(self, user_id: str, mode: AnalysisMode, scores: dict) -> None:
+    async def _save_scores(
+        self, user_id: str, mode: AnalysisMode, scores: dict, style: str = "default",
+    ) -> None:
         if not self._redis:
             return
         try:
             import json as _json
             await self._redis.set(
-                _SCORE_REDIS_KEY.format(user_id, mode.value),
+                _SCORE_REDIS_KEY.format(user_id, mode.value, style),
                 _json.dumps(scores),
                 ex=_SCORE_TTL,
             )
         except Exception:
-            logger.debug("Failed to save scores for user=%s mode=%s", user_id, mode.value)
+            logger.debug("Failed to save scores for user=%s mode=%s style=%s", user_id, mode.value, style)
 
     async def compute(
         self, mode: AnalysisMode, original_bytes: bytes,
@@ -565,12 +572,13 @@ class DeltaScorer:
 
             post_dict = post_result.model_dump() if hasattr(post_result, "model_dump") else post_result
 
-            from src.orchestrator.pipeline import _SCORE_FLOOR, _PERCEPTION_FLOOR
+            from src.utils.humanize import SCORE_FLOOR as _SCORE_FLOOR, PERCEPTION_FLOOR as _PERCEPTION_FLOOR
 
             def _floor_post(raw: float, floor: float = _SCORE_FLOOR) -> float:
                 return max(float(raw), floor)
 
-            prev = await self._load_previous_scores(user_id, mode)
+            style = result_dict.get("enhancement", {}).get("style", "default")
+            prev = await self._load_previous_scores(user_id, mode, style)
             prev_scores = prev.get("scores", {}) if prev else {}
             prev_perception = prev.get("perception", {}) if prev else {}
 
@@ -620,7 +628,7 @@ class DeltaScorer:
             await self._save_scores(user_id, mode, {
                 "scores": new_scores,
                 "perception": new_perception,
-            })
+            }, style)
 
             quality_report = result_dict.get("quality_report", {})
             if quality_report:

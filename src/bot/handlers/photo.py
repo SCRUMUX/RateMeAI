@@ -42,7 +42,15 @@ async def _reset_depth(redis: Redis, user_id: int) -> None:
     """Clear depth tracking and accumulated scores for all modes when a new photo is uploaded."""
     for mode in _DEPTH_MODES:
         await redis.delete(f"ratemeai:depth:{user_id}:{mode}")
-        await redis.delete(f"ratemeai:score:{user_id}:{mode}")
+        # Score keys include style suffix: ratemeai:score:{user}:{mode}:{style}
+        pattern = f"ratemeai:score:{user_id}:{mode}:*"
+        cursor = 0
+        while True:
+            cursor, keys = await redis.scan(cursor, match=pattern, count=100)
+            if keys:
+                await redis.delete(*keys)
+            if cursor == 0:
+                break
 
 
 @router.message(F.photo)

@@ -24,6 +24,7 @@ interface AppState {
   generatedImageUrl: string | null;
   afterScore: number | null;
   afterPerception: Record<string, number> | null;
+  generationMode: CategoryId | null;
   isAuthenticated: boolean;
   isSimulating: boolean;
   simulationDone: boolean;
@@ -43,6 +44,7 @@ interface AppActions {
   clearError: () => void;
   clearGeneratedImage: () => void;
   clearNoCreditsError: () => void;
+  resetGeneration: () => void;
   fetchTaskHistory: () => Promise<void>;
   startSimulation: () => void;
   authenticateUser: (email: string) => Promise<void>;
@@ -61,6 +63,39 @@ export function useApp() {
 
 const EMAIL_KEY = 'ailook_user_email';
 
+function extractAfterScores(result: Record<string, unknown>, mode: string) {
+  const delta = result.delta as Record<string, { pre: number; post: number; delta: number }> | undefined;
+  const percDelta = result.perception_delta as Record<string, { pre: number; post: number; delta: number }> | undefined;
+
+  let score: number | null = null;
+  if (delta) {
+    if (mode === 'dating') score = delta.dating_score?.post ?? null;
+    else if (mode === 'social') score = delta.social_score?.post ?? null;
+    else if (mode === 'cv') {
+      const vals = ['trust', 'competence', 'hireability']
+        .map(k => delta[k]?.post)
+        .filter((v): v is number => v != null);
+      score = vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : null;
+    }
+  }
+  if (score == null) {
+    score = (result.dating_score ?? result.social_score ?? result.score ?? null) as number | null;
+  }
+
+  let perception: Record<string, number> | null = null;
+  if (percDelta) {
+    perception = {};
+    for (const [k, v] of Object.entries(percDelta)) perception[k] = v.post;
+    const auth = (result.perception_scores as Record<string, number> | undefined)?.authenticity;
+    if (auth != null) perception.authenticity = auth;
+  } else {
+    const ps = result.perception_scores as Record<string, number> | undefined;
+    if (ps) perception = ps;
+  }
+
+  return { score, perception };
+}
+
 export function AppProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [balance, setBalance] = useState(0);
@@ -74,6 +109,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [generatedImageUrl, setGeneratedImageUrl] = useState<string | null>(null);
   const [afterScore, setAfterScore] = useState<number | null>(null);
   const [afterPerception, setAfterPerception] = useState<Record<string, number> | null>(null);
+  const [generationMode, setGenerationMode] = useState<CategoryId | null>(null);
 
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isSimulating, setIsSimulating] = useState(false);
@@ -110,6 +146,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setGeneratedImageUrl(null);
     setAfterScore(null);
     setAfterPerception(null);
+    setGenerationMode(null);
     setSimulationDone(false);
     setIsSimulating(false);
   }, []);
@@ -209,6 +246,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setPreAnalysis(null);
     setAfterScore(null);
     setAfterPerception(null);
+    setGenerationMode(null);
     setError(null);
     setIsGenerating(false);
   }, []);
@@ -251,8 +289,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
     return false;
   }, []);
 
-  const startPolling = useCallback((taskId: string) => {
+  const startPolling = useCallback((taskId: string, category: CategoryId) => {
     stopPolling();
+    const mode = category as string;
     let errorCount = 0;
     const MAX_ERRORS = 5;
     const TIMEOUT_MS = 5 * 60 * 1000;
@@ -292,11 +331,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
               };
               setError(NO_IMAGE_MESSAGES[reason ?? ''] ?? 'Анализ завершён без изображения.');
             }
-            const score = (r.dating_score ?? r.social_score ?? r.score ?? null) as number | null;
+            const { score, perception } = extractAfterScores(r, mode);
             if (score != null) setAfterScore(score);
-            const ps = r.perception_scores as Record<string, number> | undefined;
-            if (ps) setAfterPerception(ps);
+            if (perception) setAfterPerception(perception);
           }
+          setGenerationMode(category);
           setIsGenerating(false);
           refreshBalance();
           fetchTaskHistory();
@@ -338,7 +377,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       );
       setCurrentTask({ taskId: res.task_id, status: res.status, result: null });
       onTaskCreated?.();
-      startPolling(res.task_id);
+      startPolling(res.task_id, activeCategory);
     } catch (e) {
       setIsGenerating(false);
       if (e instanceof api.ApiError && e.status === 402) {
@@ -366,14 +405,23 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setIsGenerating(false);
   }, []);
 
+  const resetGeneration = useCallback(() => {
+    setGeneratedImageUrl(null);
+    setAfterScore(null);
+    setAfterPerception(null);
+    setCurrentTask(null);
+    setIsGenerating(false);
+    setGenerationMode(null);
+  }, []);
+
   const value: AppState & AppActions = {
     session, balance, photo, preAnalysis, activeCategory, selectedStyleKey,
     currentTask, isGenerating, error, generatedImageUrl, afterScore, afterPerception,
-    isAuthenticated, isSimulating, simulationDone,
+    generationMode, isAuthenticated, isSimulating, simulationDone,
     noCreditsError, taskHistory, taskHistoryCount,
     setActiveCategory, setSelectedStyleKey, uploadPhoto, runPreAnalyze,
     generate, share, refreshBalance, clearError, clearGeneratedImage, clearNoCreditsError,
-    fetchTaskHistory, startSimulation, authenticateUser,
+    resetGeneration, fetchTaskHistory, startSimulation, authenticateUser,
     loginWithOAuth, loginWithToken, logout,
   };
 

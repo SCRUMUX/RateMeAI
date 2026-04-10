@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import hashlib
 import logging
 import time
 from contextlib import contextmanager
@@ -17,32 +16,15 @@ from src.orchestrator.router import ModeRouter
 from src.providers.base import ImageGenProvider, LLMProvider, StorageProvider
 from src.prompts.engine import PromptEngine
 from src.services.share import ShareCardGenerator
+from src.utils.humanize import SCORE_FLOOR, PERCEPTION_FLOOR, humanize_result_scores
 from src.utils.image import validate_and_normalize, has_face_heuristic, estimate_blur_score
 from src.utils.redis_keys import embedding_cache_key, preanalysis_cache_key
 from src.utils.security import extract_nsfw_from_analysis
 
 logger = logging.getLogger(__name__)
 
-_SCORE_KEYS = ("dating_score", "trust", "competence", "hireability", "social_score")
-_PERCEPTION_KEYS = ("warmth", "presence", "appeal")
-_SCORE_FLOOR = 5.0
-_PERCEPTION_FLOOR = 3.0
-
-
-def _humanize_score(raw: float, seed: str, floor: float = _SCORE_FLOOR) -> float:
-    """Convert raw 0-10 LLM score to X.XX with natural-feeling fractional part.
-
-    Applies the given floor so users never see demoralisingly low numbers.
-    """
-    base = int(raw)
-    raw_frac = raw - base
-    h = int(hashlib.md5(seed.encode()).hexdigest()[:6], 16)
-    frac = (h % 100) / 100.0
-    if raw_frac > 0:
-        frac = round(raw_frac + (frac - 0.5) * 0.1, 2)
-    result = base + max(0.01, min(0.99, frac))
-    result = max(floor, result)
-    return round(min(9.99, result), 2)
+_SCORE_FLOOR = SCORE_FLOOR
+_PERCEPTION_FLOOR = PERCEPTION_FLOOR
 
 
 @contextmanager
@@ -195,22 +177,7 @@ class AnalysisPipeline:
 
         already_humanized = result_dict.get("_scores_humanized", False)
         if not already_humanized:
-            for sk in _SCORE_KEYS:
-                if sk in result_dict and isinstance(result_dict[sk], (int, float)):
-                    result_dict[sk] = _humanize_score(float(result_dict[sk]), f"{task_id}:{sk}")
-
-            ps = result_dict.get("perception_scores")
-            if isinstance(ps, dict):
-                for pk in _PERCEPTION_KEYS:
-                    if pk in ps and isinstance(ps[pk], (int, float)):
-                        ps[pk] = _humanize_score(float(ps[pk]), f"{task_id}:p:{pk}", floor=_PERCEPTION_FLOOR)
-                result_dict["perception_scores"] = ps
-            elif hasattr(ps, "model_dump"):
-                ps_dict = ps.model_dump()
-                for pk in _PERCEPTION_KEYS:
-                    if pk in ps_dict and isinstance(ps_dict[pk], (int, float)):
-                        ps_dict[pk] = _humanize_score(float(ps_dict[pk]), f"{task_id}:p:{pk}", floor=_PERCEPTION_FLOOR)
-                result_dict["perception_scores"] = ps_dict
+            humanize_result_scores(result_dict, task_id)
 
         warnings: list[str] = result_dict.setdefault("generation_warnings", [])
         orig_w = img_meta.get("original_width", 0)
