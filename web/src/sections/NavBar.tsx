@@ -33,6 +33,7 @@ export default function NavBar({ onLoginClick }: Props) {
   }, [mobileMenuOpen]);
 
   return (
+    <>
     <nav className="fixed top-0 left-0 right-0 z-[100] glass-nav">
       <div className="max-w-[1200px] mx-auto flex items-center justify-between h-[52px] tablet:h-[60px] px-[var(--space-16)] tablet:px-[var(--space-24)]">
         {/* Logo */}
@@ -147,84 +148,86 @@ export default function NavBar({ onLoginClick }: Props) {
         </div>
       </div>
 
-      {/* Mobile drawer — fullscreen overlay */}
-      <AnimatePresence>
-        {mobileMenuOpen && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.2 }}
-            className="tablet:hidden fixed inset-0 top-[52px] z-[99] flex flex-col gap-[var(--space-8)] p-[var(--space-20)] overflow-y-auto"
-            style={{ background: 'rgba(8, 12, 18, 0.97)', backdropFilter: 'blur(20px)' }}
-          >
-            {/* Navigation links */}
-            <div className="flex flex-col gap-[var(--space-4)]">
-              {['Стили', 'Тарифы', 'API'].map((label) => (
-                <a key={label} href={`#${label.toLowerCase()}`}
-                  onClick={() => setMobileMenuOpen(false)}
-                  className="px-[var(--space-12)] py-[var(--space-12)] text-[16px] leading-[24px] font-medium text-[var(--color-text-secondary)] hover:text-[#E6EEF8] transition-colors cursor-pointer rounded-[var(--radius-12)] hover:bg-[rgba(255,255,255,0.06)]"
-                >
-                  {label}
-                </a>
-              ))}
-            </div>
-
-            <div className="h-px" style={{ background: 'rgba(255,255,255,0.08)' }} />
-
-            {session ? (
-              <div className="flex flex-col gap-[var(--space-8)]">
-                <LinkedAccountsPanel />
-
-                <div className="h-px" style={{ background: 'rgba(255,255,255,0.08)' }} />
-
-                <a
-                  href="/link"
-                  onClick={() => setMobileMenuOpen(false)}
-                  className="flex items-center gap-[var(--space-10)] px-[var(--space-12)] py-[var(--space-12)] text-[16px] leading-[24px] font-medium text-[#E6EEF8] rounded-[var(--radius-12)] hover:bg-[rgba(255,255,255,0.06)] transition-all cursor-pointer no-underline"
-                >
-                  <svg width="18" height="18" viewBox="0 0 16 16" fill="none"><path d="M6.667 8.667a3.333 3.333 0 005.026.36l2-2a3.334 3.334 0 00-4.714-4.714L8.053 3.24" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/><path d="M9.333 7.333a3.333 3.333 0 00-5.026-.36l-2 2a3.334 3.334 0 004.714 4.714l.927-.926" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/></svg>
-                  Привязать аккаунт
-                </a>
-
-                <div className="h-px" style={{ background: 'rgba(255,255,255,0.08)' }} />
-
-                <button
-                  onClick={() => { setMobileMenuOpen(false); logout(); }}
-                  className="flex items-center gap-[var(--space-10)] px-[var(--space-12)] py-[var(--space-12)] text-[16px] leading-[24px] font-medium text-[#FF4D6A] rounded-[var(--radius-12)] hover:bg-[rgba(255,77,106,0.08)] transition-all cursor-pointer"
-                >
-                  <svg width="18" height="18" viewBox="0 0 16 16" fill="none"><path d="M6 14H3.333A1.333 1.333 0 012 12.667V3.333A1.333 1.333 0 013.333 2H6M10.667 11.333L14 8m0 0l-3.333-3.333M14 8H6" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/></svg>
-                  Выйти
-                </button>
-              </div>
-            ) : (
-              <div className="flex flex-col gap-[var(--space-8)]">
-                <button
-                  onClick={() => { setMobileMenuOpen(false); onLoginClick?.(); }}
-                  className="flex items-center gap-[var(--space-10)] px-[var(--space-12)] py-[var(--space-12)] text-[16px] leading-[24px] font-medium text-[#E6EEF8] rounded-[var(--radius-12)] hover:bg-[rgba(255,255,255,0.06)] transition-all cursor-pointer"
-                >
-                  <svg width="18" height="18" viewBox="0 0 16 16" fill="none" className="text-[var(--color-brand-primary)]"><path d="M10 2h2.667A1.333 1.333 0 0114 3.333v9.334A1.333 1.333 0 0112.667 14H10M6.667 11.333L10 8m0 0L6.667 4.667M10 8H2" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/></svg>
-                  Войти
-                </button>
-                <a
-                  href="#app"
-                  onClick={() => setMobileMenuOpen(false)}
-                  className="glass-btn-primary flex items-center justify-center px-[var(--space-16)] py-[var(--space-12)] text-[16px] leading-[24px] rounded-[var(--radius-12)] text-center"
-                >
-                  Попробовать
-                </a>
-              </div>
-            )}
-
-            <div className="h-px" style={{ background: 'rgba(255,255,255,0.08)' }} />
-
-            <button className="glass-btn-ghost flex items-center gap-[var(--space-10)] px-[var(--space-12)] py-[var(--space-12)] text-[16px] leading-[24px] font-medium text-[#E6EEF8] rounded-[var(--radius-12)]">
-              <GlobeIcon size={20} className="text-[var(--color-text-muted)]" />
-              Русский
-            </button>
-          </motion.div>
-        )}
-      </AnimatePresence>
     </nav>
+
+    {/* Mobile drawer — rendered outside nav to avoid backdrop-filter containing block */}
+    <AnimatePresence>
+      {mobileMenuOpen && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.2 }}
+          className="tablet:hidden fixed inset-0 top-[52px] z-[100] flex flex-col gap-[var(--space-8)] p-[var(--space-20)] overflow-y-auto"
+          style={{ background: 'rgb(8, 12, 18)' }}
+        >
+          {/* Navigation links */}
+          <div className="flex flex-col gap-[var(--space-4)]">
+            {['Стили', 'Тарифы', 'API'].map((label) => (
+              <a key={label} href={`#${label.toLowerCase()}`}
+                onClick={() => setMobileMenuOpen(false)}
+                className="px-[var(--space-12)] py-[var(--space-12)] text-[16px] leading-[24px] font-medium text-[var(--color-text-secondary)] hover:text-[#E6EEF8] transition-colors cursor-pointer rounded-[var(--radius-12)] hover:bg-[rgba(255,255,255,0.06)]"
+              >
+                {label}
+              </a>
+            ))}
+          </div>
+
+          <div className="h-px" style={{ background: 'rgba(255,255,255,0.08)' }} />
+
+          {session ? (
+            <div className="flex flex-col gap-[var(--space-8)]">
+              <LinkedAccountsPanel />
+
+              <div className="h-px" style={{ background: 'rgba(255,255,255,0.08)' }} />
+
+              <a
+                href="/link"
+                onClick={() => setMobileMenuOpen(false)}
+                className="flex items-center gap-[var(--space-10)] px-[var(--space-12)] py-[var(--space-12)] text-[16px] leading-[24px] font-medium text-[#E6EEF8] rounded-[var(--radius-12)] hover:bg-[rgba(255,255,255,0.06)] transition-all cursor-pointer no-underline"
+              >
+                <svg width="18" height="18" viewBox="0 0 16 16" fill="none"><path d="M6.667 8.667a3.333 3.333 0 005.026.36l2-2a3.334 3.334 0 00-4.714-4.714L8.053 3.24" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/><path d="M9.333 7.333a3.333 3.333 0 00-5.026-.36l-2 2a3.334 3.334 0 004.714 4.714l.927-.926" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                Привязать аккаунт
+              </a>
+
+              <div className="h-px" style={{ background: 'rgba(255,255,255,0.08)' }} />
+
+              <button
+                onClick={() => { setMobileMenuOpen(false); logout(); }}
+                className="flex items-center gap-[var(--space-10)] px-[var(--space-12)] py-[var(--space-12)] text-[16px] leading-[24px] font-medium text-[#FF4D6A] rounded-[var(--radius-12)] hover:bg-[rgba(255,77,106,0.08)] transition-all cursor-pointer"
+              >
+                <svg width="18" height="18" viewBox="0 0 16 16" fill="none"><path d="M6 14H3.333A1.333 1.333 0 012 12.667V3.333A1.333 1.333 0 013.333 2H6M10.667 11.333L14 8m0 0l-3.333-3.333M14 8H6" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                Выйти
+              </button>
+            </div>
+          ) : (
+            <div className="flex flex-col gap-[var(--space-8)]">
+              <button
+                onClick={() => { setMobileMenuOpen(false); onLoginClick?.(); }}
+                className="flex items-center gap-[var(--space-10)] px-[var(--space-12)] py-[var(--space-12)] text-[16px] leading-[24px] font-medium text-[#E6EEF8] rounded-[var(--radius-12)] hover:bg-[rgba(255,255,255,0.06)] transition-all cursor-pointer"
+              >
+                <svg width="18" height="18" viewBox="0 0 16 16" fill="none" className="text-[var(--color-brand-primary)]"><path d="M10 2h2.667A1.333 1.333 0 0114 3.333v9.334A1.333 1.333 0 0112.667 14H10M6.667 11.333L10 8m0 0L6.667 4.667M10 8H2" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                Войти
+              </button>
+              <a
+                href="#app"
+                onClick={() => setMobileMenuOpen(false)}
+                className="glass-btn-primary flex items-center justify-center px-[var(--space-16)] py-[var(--space-12)] text-[16px] leading-[24px] rounded-[var(--radius-12)] text-center"
+              >
+                Попробовать
+              </a>
+            </div>
+          )}
+
+          <div className="h-px" style={{ background: 'rgba(255,255,255,0.08)' }} />
+
+          <button className="glass-btn-ghost flex items-center gap-[var(--space-10)] px-[var(--space-12)] py-[var(--space-12)] text-[16px] leading-[24px] font-medium text-[#E6EEF8] rounded-[var(--radius-12)]">
+            <GlobeIcon size={20} className="text-[var(--color-text-muted)]" />
+            Русский
+          </button>
+        </motion.div>
+      )}
+    </AnimatePresence>
+    </>
   );
 }

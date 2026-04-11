@@ -40,7 +40,9 @@ export default function AppScreen({ onOpenAuthModal }: { onOpenAuthModal?: () =>
   const app = useApp();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const photoScrollRef = useRef<HTMLDivElement>(null);
+  const styleScrollRef = useRef<HTMLDivElement>(null);
   const [activePhotoIdx, setActivePhotoIdx] = useState(0);
+  const [activeStyleCol, setActiveStyleCol] = useState(0);
   const [page, setPage] = useState(0);
 
   const activeTab = app.activeCategory;
@@ -95,6 +97,13 @@ export default function AppScreen({ onOpenAuthModal }: { onOpenAuthModal?: () =>
     if (!el) return;
     const idx = Math.round(el.scrollLeft / el.offsetWidth);
     setActivePhotoIdx(idx);
+  }
+
+  function handleStyleScroll() {
+    const el = styleScrollRef.current;
+    if (!el) return;
+    const idx = Math.round(el.scrollLeft / el.offsetWidth);
+    setActiveStyleCol(idx);
   }
 
   function handleTabChange(id: CategoryId) {
@@ -823,9 +832,13 @@ export default function AppScreen({ onOpenAuthModal }: { onOpenAuthModal?: () =>
             </div>
           </div>
 
-          {/* Style list - dual column on tablet+ */}
-          <div className="flex flex-col tablet:flex-row gap-[var(--space-12)] tablet:gap-[var(--space-32)]">
-            <div className="w-full tablet:flex-1 flex flex-col gap-[var(--space-12)]">
+          {/* Style list - swipeable columns on mobile, side-by-side on tablet+ */}
+          <div
+            ref={styleScrollRef}
+            onScroll={handleStyleScroll}
+            className="flex flex-row overflow-x-auto snap-x snap-mandatory scrollbar-hide tablet:overflow-x-visible tablet:snap-none gap-[var(--space-12)] tablet:gap-[var(--space-32)]"
+          >
+            <div className="w-full min-w-full snap-center tablet:min-w-0 tablet:flex-1 flex flex-col gap-[var(--space-12)]">
               {leftCol.map((s) => {
                 const gIdx = styles.indexOf(s);
                 return (
@@ -850,7 +863,7 @@ export default function AppScreen({ onOpenAuthModal }: { onOpenAuthModal?: () =>
                 );
               })}
             </div>
-            <div className="w-full tablet:flex-1 flex flex-col gap-[var(--space-12)]">
+            <div className="w-full min-w-full snap-center tablet:min-w-0 tablet:flex-1 flex flex-col gap-[var(--space-12)]">
               {rightCol.map((s) => {
                 const gIdx = styles.indexOf(s);
                 return (
@@ -875,6 +888,20 @@ export default function AppScreen({ onOpenAuthModal }: { onOpenAuthModal?: () =>
                 );
               })}
             </div>
+          </div>
+
+          {/* Style swipe indicators (mobile only) */}
+          <div className="flex tablet:hidden items-center justify-center gap-[var(--space-8)] mt-[var(--space-8)]">
+            {[0, 1].map((i) => (
+              <button
+                key={i}
+                className={`w-2 h-2 rounded-full transition-colors ${activeStyleCol === i ? 'bg-[rgb(var(--accent-r),var(--accent-g),var(--accent-b))]' : 'bg-[rgba(255,255,255,0.25)]'}`}
+                onClick={() => {
+                  const el = styleScrollRef.current;
+                  if (el) el.scrollTo({ left: i * el.offsetWidth, behavior: 'smooth' });
+                }}
+              />
+            ))}
           </div>
 
           {/* Pagination */}
