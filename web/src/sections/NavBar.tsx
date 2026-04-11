@@ -129,17 +129,17 @@ export default function NavBar({ onLoginClick }: Props) {
           )}
           <button
             onClick={() => setMobileMenuOpen(v => !v)}
-            className="glass-btn-ghost flex items-center justify-center w-9 h-9 rounded-[var(--radius-12)] cursor-pointer"
+            className="glass-btn-ghost flex items-center justify-center w-10 h-10 rounded-[var(--radius-12)] cursor-pointer"
             aria-label="Меню"
           >
-            <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
               {mobileMenuOpen ? (
-                <path d="M5 5L15 15M15 5L5 15" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                <path d="M6 6L18 18M18 6L6 18" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
               ) : (
                 <>
-                  <path d="M3 5H17" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-                  <path d="M3 10H17" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-                  <path d="M3 15H17" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                  <path d="M3 6H21" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                  <path d="M3 12H21" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                  <path d="M3 18H21" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
                 </>
               )}
             </svg>

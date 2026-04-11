@@ -39,6 +39,8 @@ function computeStyleDeltas(style: StyleItem, tab: CategoryId): Record<string, n
 export default function AppScreen({ onOpenAuthModal }: { onOpenAuthModal?: () => void }) {
   const app = useApp();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const photoScrollRef = useRef<HTMLDivElement>(null);
+  const [activePhotoIdx, setActivePhotoIdx] = useState(0);
   const [page, setPage] = useState(0);
 
   const activeTab = app.activeCategory;
@@ -87,6 +89,13 @@ export default function AppScreen({ onOpenAuthModal }: { onOpenAuthModal?: () =>
     : null;
 
   const styleDelta = selectedStyle ? computeStyleDeltas(selectedStyle, activeTab) : null;
+
+  function handlePhotoScroll() {
+    const el = photoScrollRef.current;
+    if (!el) return;
+    const idx = Math.round(el.scrollLeft / el.offsetWidth);
+    setActivePhotoIdx(idx);
+  }
 
   function handleTabChange(id: CategoryId) {
     if (app.generationMode && app.generationMode !== id) {
@@ -372,9 +381,12 @@ export default function AppScreen({ onOpenAuthModal }: { onOpenAuthModal?: () =>
           {/* Top area: photos + analysis */}
           <div className="flex flex-col tablet:flex-row gap-[var(--space-20)] tablet:gap-[var(--space-32)] mb-[var(--space-20)] tablet:mb-[var(--space-32)]">
             {/* Photo cards */}
-            <div className="flex flex-row gap-[var(--space-12)] tablet:gap-[var(--space-32)] shrink-0">
+            <div className="flex flex-row overflow-x-auto snap-x snap-mandatory scrollbar-hide tablet:overflow-x-visible tablet:snap-none gap-0 tablet:gap-[var(--space-32)] shrink-0"
+              ref={photoScrollRef}
+              onScroll={handlePhotoScroll}
+            >
               {/* Original photo */}
-              <div className="gradient-border-card glass-card flex flex-col w-[calc(50%-var(--space-6))] tablet:w-[260px] tablet:h-[472px] rounded-[var(--radius-12)] overflow-hidden">
+              <div className="gradient-border-card glass-card flex flex-col w-full min-w-full snap-center tablet:w-[260px] tablet:min-w-0 tablet:h-[472px] rounded-[var(--radius-12)] overflow-hidden">
                 <div className="w-full aspect-[3/4] tablet:aspect-auto tablet:w-[260px] tablet:h-[347px] shrink-0 bg-[rgba(255,255,255,0.02)] overflow-hidden">
                   {app.photo ? (
                     <img src={app.photo.preview} alt="Original" className="w-full h-full object-cover" />
@@ -405,7 +417,7 @@ export default function AppScreen({ onOpenAuthModal }: { onOpenAuthModal?: () =>
               </div>
 
               {/* Generated photo */}
-              <div className="gradient-border-card glass-card flex flex-col w-[calc(50%-var(--space-6))] tablet:w-[260px] tablet:h-[472px] rounded-[var(--radius-12)] overflow-hidden">
+              <div className="gradient-border-card glass-card flex flex-col w-full min-w-full snap-center tablet:w-[260px] tablet:min-w-0 tablet:h-[472px] rounded-[var(--radius-12)] overflow-hidden">
                 <div className="w-full aspect-[3/4] tablet:aspect-auto tablet:w-[260px] tablet:h-[347px] shrink-0 bg-[rgba(255,255,255,0.02)] overflow-hidden relative">
                   {/* Real result */}
                   {hasGenResult && (
@@ -555,6 +567,20 @@ export default function AppScreen({ onOpenAuthModal }: { onOpenAuthModal?: () =>
                   )}
                 </div>
               </div>
+            </div>
+
+            {/* Swipe dot indicators (mobile only) */}
+            <div className="flex tablet:hidden items-center justify-center gap-[var(--space-8)] mt-[var(--space-8)]">
+              {[0, 1].map((i) => (
+                <button
+                  key={i}
+                  className={`w-2 h-2 rounded-full transition-colors ${activePhotoIdx === i ? 'bg-[rgb(var(--accent-r),var(--accent-g),var(--accent-b))]' : 'bg-[rgba(255,255,255,0.25)]'}`}
+                  onClick={() => {
+                    const el = photoScrollRef.current;
+                    if (el) el.scrollTo({ left: i * el.offsetWidth, behavior: 'smooth' });
+                  }}
+                />
+              ))}
             </div>
 
             {/* Analysis panel */}

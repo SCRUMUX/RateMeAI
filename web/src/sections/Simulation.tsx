@@ -71,7 +71,7 @@ export default function Simulation() {
       {/* Content: style list + photos */}
       <div className="relative flex flex-col desktop:flex-row items-stretch desktop:items-start desktop:justify-between w-full max-w-[1200px] gap-[var(--space-24)] desktop:gap-[70px]">
         {/* Style list */}
-        <div className="flex flex-col gap-[var(--space-12)] w-full desktop:flex-1 desktop:max-w-[588px]">
+        <div className="flex flex-col gap-[var(--space-12)] w-full desktop:flex-1 desktop:max-w-[588px] order-last desktop:order-first">
           {visible.map((t, i) => (
             <div key={t.id}
               onClick={() => setSelectedIdx(i)}
@@ -108,7 +108,7 @@ export default function Simulation() {
 
         {/* Photo cards */}
         <div
-          className="flex flex-row items-start gap-[var(--space-16)] tablet:gap-[70px] cursor-pointer group justify-center"
+          className="flex flex-row items-start gap-[var(--space-16)] tablet:gap-[70px] cursor-pointer group justify-center order-first desktop:order-last"
           onClick={openModal}
         >
           {/* Original photo */}
