@@ -68,6 +68,7 @@ services:
       dockerfile: web/Dockerfile
       args:
         VITE_API_BASE_URL: ${VITE_API_BASE_URL:-https://ru.ailookstudio.ru}
+        VITE_HIDE_PHONE_AUTH: "true"
     image: ratemeai-web-ru:latest
     profiles:
       - build-only
@@ -81,7 +82,7 @@ services:
     volumes:
       - ./deploy/ru/nginx.conf:/etc/nginx/conf.d/default.conf:ro
       - web_dist:/usr/share/nginx/html:ro
-      - certbot_conf:/etc/letsencrypt:ro
+      - /etc/letsencrypt:/etc/letsencrypt:ro
       - certbot_www:/var/www/certbot:ro
     depends_on:
       app:
@@ -91,7 +92,7 @@ services:
   certbot:
     image: certbot/certbot
     volumes:
-      - certbot_conf:/etc/letsencrypt
+      - /etc/letsencrypt:/etc/letsencrypt
       - certbot_www:/var/www/certbot
     profiles:
       - certbot
@@ -103,7 +104,5 @@ volumes:
     name: ratemeai_app_storage
   web_dist:
     name: ratemeai_web_dist
-  certbot_conf:
-    name: ratemeai_certbot_conf
   certbot_www:
     name: ratemeai_certbot_www

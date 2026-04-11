@@ -160,72 +160,77 @@ export default function AuthModal({ open, onClose, onAuth, onOAuth, onPhoneLogin
               </button>
             </div>
 
-            {/* Divider */}
-            <div className="flex items-center gap-3">
-              <div className="flex-1 h-px" style={{ background: 'rgba(255,255,255,0.08)' }} />
-              <span className="text-[12px] text-[var(--color-text-muted)]">или</span>
-              <div className="flex-1 h-px" style={{ background: 'rgba(255,255,255,0.08)' }} />
-            </div>
+            {import.meta.env.VITE_HIDE_PHONE_AUTH !== 'true' && (
+              <>
+                {/* Divider */}
+                <div className="flex items-center gap-3">
+                  <div className="flex-1 h-px" style={{ background: 'rgba(255,255,255,0.08)' }} />
+                  <span className="text-[12px] text-[var(--color-text-muted)]">или</span>
+                  <div className="flex-1 h-px" style={{ background: 'rgba(255,255,255,0.08)' }} />
+                </div>
 
-            {/* Form */}
-            <form onSubmit={handleSubmit} className="flex flex-col gap-[var(--space-16)]">
-              <div className="flex flex-col gap-[var(--space-8)]">
-                <input
-                  type="tel"
-                  value={phone}
-                  onChange={(e) => { setPhone(e.target.value); setError(null); }}
-                  placeholder="+7 (999) 123-45-67"
-                  disabled={otpSent}
-                  className="w-full px-[var(--space-16)] py-[var(--space-12)] rounded-[var(--radius-12)] text-[15px] leading-[22px] text-[#E6EEF8] placeholder:text-[var(--color-text-muted)] outline-none transition-all disabled:opacity-60"
-                  style={{
-                    background: 'rgba(255,255,255,0.04)',
-                    border: '1px solid rgba(255,255,255,0.10)',
-                    backdropFilter: 'blur(8px)',
-                  }}
-                  onFocus={(e) => { e.currentTarget.style.borderColor = 'rgba(var(--accent-r),var(--accent-g),var(--accent-b),0.4)'; }}
-                  onBlur={(e) => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.10)'; }}
-                />
-                {otpSent && (
-                  <input
-                    type="text"
-                    inputMode="numeric"
-                    value={otpCode}
-                    onChange={(e) => { setOtpCode(e.target.value); setError(null); }}
-                    placeholder="Код из SMS"
-                    maxLength={6}
-                    autoFocus
-                    className="w-full px-[var(--space-16)] py-[var(--space-12)] rounded-[var(--radius-12)] text-[15px] leading-[22px] text-[#E6EEF8] placeholder:text-[var(--color-text-muted)] outline-none transition-all"
-                    style={{
-                      background: 'rgba(255,255,255,0.04)',
-                      border: '1px solid rgba(255,255,255,0.10)',
-                      backdropFilter: 'blur(8px)',
-                    }}
-                    onFocus={(e) => { e.currentTarget.style.borderColor = 'rgba(var(--accent-r),var(--accent-g),var(--accent-b),0.4)'; }}
-                    onBlur={(e) => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.10)'; }}
-                  />
-                )}
-                {error && (
-                  <span className="text-[12px] leading-[16px] text-[#FF4D6A]">{error}</span>
-                )}
-              </div>
+                {/* Phone OTP form */}
+                <form onSubmit={handleSubmit} className="flex flex-col gap-[var(--space-16)]">
+                  <div className="flex flex-col gap-[var(--space-8)]">
+                    <input
+                      type="tel"
+                      value={phone}
+                      onChange={(e) => { setPhone(e.target.value); setError(null); }}
+                      placeholder="+7 (999) 123-45-67"
+                      disabled={otpSent}
+                      className="w-full px-[var(--space-16)] py-[var(--space-12)] rounded-[var(--radius-12)] text-[15px] leading-[22px] text-[#E6EEF8] placeholder:text-[var(--color-text-muted)] outline-none transition-all disabled:opacity-60"
+                      style={{
+                        background: 'rgba(255,255,255,0.04)',
+                        border: '1px solid rgba(255,255,255,0.10)',
+                        backdropFilter: 'blur(8px)',
+                      }}
+                      onFocus={(e) => { e.currentTarget.style.borderColor = 'rgba(var(--accent-r),var(--accent-g),var(--accent-b),0.4)'; }}
+                      onBlur={(e) => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.10)'; }}
+                    />
+                    {otpSent && (
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        value={otpCode}
+                        onChange={(e) => { setOtpCode(e.target.value); setError(null); }}
+                        placeholder="Код из SMS"
+                        maxLength={6}
+                        autoFocus
+                        className="w-full px-[var(--space-16)] py-[var(--space-12)] rounded-[var(--radius-12)] text-[15px] leading-[22px] text-[#E6EEF8] placeholder:text-[var(--color-text-muted)] outline-none transition-all"
+                        style={{
+                          background: 'rgba(255,255,255,0.04)',
+                          border: '1px solid rgba(255,255,255,0.10)',
+                          backdropFilter: 'blur(8px)',
+                        }}
+                        onFocus={(e) => { e.currentTarget.style.borderColor = 'rgba(var(--accent-r),var(--accent-g),var(--accent-b),0.4)'; }}
+                        onBlur={(e) => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.10)'; }}
+                      />
+                    )}
+                  </div>
 
-              <button
-                type="submit"
-                disabled={loading}
-                className="glass-btn-primary w-full px-[var(--space-20)] py-[var(--space-12)] text-[16px] leading-[24px] rounded-[var(--radius-12)] disabled:opacity-50"
-              >
-                {loading ? 'Подключение...' : otpSent ? 'Подтвердить код' : 'Получить код'}
-              </button>
-              {otpSent && (
-                <button
-                  type="button"
-                  onClick={() => { setOtpSent(false); setOtpCode(''); setError(null); }}
-                  className="text-[13px] text-[var(--color-text-muted)] hover:text-[#E6EEF8] transition-colors"
-                >
-                  Изменить номер
-                </button>
-              )}
-            </form>
+                  <button
+                    type="submit"
+                    disabled={loading}
+                    className="glass-btn-primary w-full px-[var(--space-20)] py-[var(--space-12)] text-[16px] leading-[24px] rounded-[var(--radius-12)] disabled:opacity-50"
+                  >
+                    {loading ? 'Подключение...' : otpSent ? 'Подтвердить код' : 'Получить код'}
+                  </button>
+                  {otpSent && (
+                    <button
+                      type="button"
+                      onClick={() => { setOtpSent(false); setOtpCode(''); setError(null); }}
+                      className="text-[13px] text-[var(--color-text-muted)] hover:text-[#E6EEF8] transition-colors"
+                    >
+                      Изменить номер
+                    </button>
+                  )}
+                </form>
+              </>
+            )}
+
+            {error && import.meta.env.VITE_HIDE_PHONE_AUTH === 'true' && (
+              <span className="text-[12px] leading-[16px] text-[#FF4D6A] text-center">{error}</span>
+            )}
 
             <p className="text-[12px] leading-[16px] text-[var(--color-text-muted)] text-center">
               Нажимая кнопку входа, вы соглашаетесь с условиями использования
