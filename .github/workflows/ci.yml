@@ -97,10 +97,11 @@ jobs:
 
       - name: Sync env vars to Railway services
         run: |
+          SHORT_SHA="${GITHUB_SHA:0:12}"
           for SVC in app bot worker; do
             railway variables set CREDIT_PACKS="1:59,5:199,15:499,30:899" -s "$SVC" -e production || true
+            railway variables set DEPLOY_GIT_SHA="$SHORT_SHA" -s "$SVC" -e production || true
           done
-          # Internal API key for edge (RU server) → primary (Railway) communication
           railway variables set INTERNAL_API_KEY="FK9LjLojdSmccr9zvX3qlANVP03EV3mrdJ_dWdR5Gqk" -s app -e production || true
 
       - name: Deploy all services in parallel
