@@ -8,6 +8,7 @@ from urllib.parse import urlparse
 from aiogram import Bot, Dispatcher
 from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
+from aiogram.types import ErrorEvent
 from aiohttp import web
 from redis.asyncio import Redis
 
@@ -41,6 +42,24 @@ def create_dispatcher(redis: Redis) -> Dispatcher:
     dp.include_router(photo.router)
     dp.include_router(mode_select.router)
     dp.include_router(fallback.router)  # must be last — catch-all
+
+    @dp.error()
+    async def on_handler_error(event: ErrorEvent, data: dict) -> bool:
+        logger.exception("Unhandled error in handler: %s", event.exception)
+        update = event.update
+        try:
+            if update.message:
+                await update.message.answer(
+                    "\u274c Произошла ошибка. Попробуй ещё раз или отправь /start",
+                )
+            elif update.callback_query:
+                await update.callback_query.answer(
+                    "Произошла ошибка. Попробуй ещё раз.",
+                    show_alert=True,
+                )
+        except Exception:
+            logger.debug("Could not send error reply to user")
+        return True
 
     return dp
 

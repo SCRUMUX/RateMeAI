@@ -68,7 +68,6 @@ services:
       dockerfile: web/Dockerfile
       args:
         VITE_API_BASE_URL: ${VITE_API_BASE_URL:-https://ru.ailookstudio.ru}
-        VITE_HIDE_PHONE_AUTH: "true"
     image: ratemeai-web-ru:latest
     profiles:
       - build-only

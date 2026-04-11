@@ -32,16 +32,8 @@ export default function Landing() {
       <AuthModal
         open={authModalOpen}
         onClose={() => setAuthModalOpen(false)}
-        onAuth={async (email) => {
-          await app.authenticateUser(email);
-          setAuthModalOpen(false);
-        }}
         onOAuth={async (provider) => {
           await app.loginWithOAuth(provider);
-        }}
-        onPhoneLogin={async (token, userId) => {
-          await app.loginWithToken(token, userId, 'phone');
-          setAuthModalOpen(false);
         }}
       />
     </div>
