@@ -23,7 +23,8 @@ export default function Pricing() {
     requestAnimationFrame(() => {
       const card = el.children[0]?.children[targetIdx] as HTMLElement | undefined;
       if (!card) return;
-      el.scrollTo({ left: card.offsetLeft - (el.offsetWidth - card.offsetWidth) / 2, behavior: 'instant' });
+      const scrollTarget = card.offsetLeft - 20;
+      el.scrollTo({ left: scrollTarget, behavior: 'instant' });
     });
   }, []);
 
@@ -67,19 +68,19 @@ export default function Pricing() {
       <div
         ref={scrollRef}
         className="relative w-full max-w-[1386px] overflow-x-auto tablet:overflow-x-visible snap-x snap-mandatory tablet:snap-none scrollbar-hide"
-        style={{ scrollPaddingInline: '16px' }}
+        style={{ scrollPaddingInline: '20px' }}
       >
-        <div className="flex items-start gap-[var(--space-12)] tablet:gap-[10px] tablet:justify-between px-[var(--space-16)] tablet:px-0 w-max tablet:w-full">
+        <div className="flex items-stretch gap-[var(--space-12)] tablet:gap-[10px] tablet:justify-between px-[20px] tablet:px-0 w-max tablet:w-full">
           {PLANS.map((plan, i) => (
             <div key={i}
-              className={`snap-center gradient-border-card flex flex-col gap-[var(--space-24)] tablet:gap-[var(--space-32)] p-[var(--space-20)] tablet:p-[var(--space-32)] min-w-[75vw] tablet:min-w-0 h-auto tablet:h-[480px] rounded-[var(--radius-12)] ${
+              className={`snap-center gradient-border-card flex flex-col gap-[var(--space-20)] tablet:gap-[var(--space-32)] p-[var(--space-16)] tablet:p-[var(--space-32)] w-[calc(100vw-56px)] tablet:w-auto min-w-0 tablet:min-w-0 h-auto tablet:h-[480px] rounded-[var(--radius-12)] ${
                 plan.highlighted
                   ? 'glass-card-highlight flex-none tablet:flex-[1.15]'
                   : 'glass-card flex-none tablet:flex-1'
               }`}
             >
               <div className="flex items-center gap-[var(--space-6)] px-[var(--space-8)] py-[var(--space-4)]">
-                <span className="text-style-h1 text-[#E6EEF8] whitespace-nowrap">{plan.title}</span>
+                <span className="text-style-h1 text-[#E6EEF8]">{plan.title}</span>
                 {plan.badge && (
                   <span className="glass-badge-info px-[var(--space-6)] py-[2px] text-[12px] font-medium leading-[16px] text-[#E6EEF8] rounded-full">{plan.badge}</span>
                 )}
