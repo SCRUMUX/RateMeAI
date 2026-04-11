@@ -42,7 +42,6 @@ export default function AppScreen({ onOpenAuthModal }: { onOpenAuthModal?: () =>
   const photoScrollRef = useRef<HTMLDivElement>(null);
   const styleScrollRef = useRef<HTMLDivElement>(null);
   const [activePhotoIdx, setActivePhotoIdx] = useState(0);
-  const [activeStyleCol, setActiveStyleCol] = useState(0);
   const [page, setPage] = useState(0);
 
   const activeTab = app.activeCategory;
@@ -54,6 +53,11 @@ export default function AppScreen({ onOpenAuthModal }: { onOpenAuthModal?: () =>
   const half = Math.ceil(pageStyles.length / 2);
   const leftCol = pageStyles.slice(0, half);
   const rightCol = pageStyles.slice(half);
+
+  const allPages = Array.from({ length: totalPages }, (_, p) => {
+    const start = p * STYLES_PER_PAGE;
+    return styles.slice(start, start + STYLES_PER_PAGE);
+  });
 
   const selectedStyle = styles.find(s => s.key === app.selectedStyleKey) ?? styles[0];
   const selectedIdx = styles.indexOf(selectedStyle);
@@ -103,7 +107,7 @@ export default function AppScreen({ onOpenAuthModal }: { onOpenAuthModal?: () =>
     const el = styleScrollRef.current;
     if (!el) return;
     const idx = Math.round(el.scrollLeft / el.offsetWidth);
-    setActiveStyleCol(idx);
+    setPage(idx);
   }
 
   function handleTabChange(id: CategoryId) {
@@ -832,22 +836,67 @@ export default function AppScreen({ onOpenAuthModal }: { onOpenAuthModal?: () =>
             </div>
           </div>
 
-          {/* Style list - swipeable columns on mobile, side-by-side on tablet+ */}
+          {/* Style list — mobile: all pages as horizontal swipe; tablet+: two-column for current page */}
+
+          {/* Mobile: swipeable pages */}
           <div
             ref={styleScrollRef}
             onScroll={handleStyleScroll}
-            className="flex flex-row overflow-x-auto snap-x snap-mandatory scrollbar-hide tablet:overflow-x-visible tablet:snap-none gap-[var(--space-12)] tablet:gap-[var(--space-32)]"
+            className="flex tablet:hidden flex-row overflow-x-auto snap-x snap-mandatory scrollbar-hide"
           >
-            <div className="w-full min-w-full snap-center tablet:min-w-0 tablet:flex-1 flex flex-col gap-[var(--space-12)]">
+            {allPages.map((pageItems, pageIdx) => (
+              <div key={pageIdx} className="w-full min-w-full snap-center flex flex-col gap-[var(--space-12)]">
+                {pageItems.map((s) => {
+                  const gIdx = styles.indexOf(s);
+                  return (
+                    <div key={s.key}
+                      onClick={() => handleStyleClick(s.key)}
+                      className={`gradient-border-item flex items-center w-full px-[var(--space-16)] py-[var(--space-8)] gap-[var(--space-4)] min-h-[36px] cursor-pointer rounded-[var(--radius-12)] transition-all ${
+                        selectedIdx === gIdx ? 'glass-row-active' : 'glass-row'
+                      }`}
+                      style={{ '--gb-color': selectedIdx === gIdx ? 'rgba(var(--accent-r), var(--accent-g), var(--accent-b), 0.30)' : 'rgba(255, 255, 255, 0.10)' } as React.CSSProperties}
+                    >
+                      <div className="flex items-center justify-center w-5 h-5 shrink-0 text-[18px] leading-none">{s.icon}</div>
+                      <div className="flex flex-col flex-1 min-w-0 gap-[2px]">
+                        <span className="text-[16px] leading-[24px] text-[#E6EEF8] font-medium truncate">{s.name}</span>
+                        <span className="text-[11px] leading-[14px] text-[var(--color-text-muted)] truncate">{s.desc}</span>
+                      </div>
+                      <span className="px-[var(--space-8)] py-[var(--space-4)] rounded-[var(--radius-pill)] text-[14px] leading-[20px] text-[var(--color-success-base)] font-medium tabular-nums shrink-0">
+                        {getMockDelta(s.deltaRange, s.key)}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            ))}
+          </div>
+
+          {/* Mobile: page indicators */}
+          {totalPages > 1 && (
+            <div className="flex tablet:hidden items-center justify-center gap-[6px] mt-[var(--space-8)]">
+              {allPages.map((_, i) => (
+                <button
+                  key={i}
+                  className={`w-2 h-2 rounded-full transition-colors ${clampedPage === i ? 'bg-[rgb(var(--accent-r),var(--accent-g),var(--accent-b))]' : 'bg-[rgba(255,255,255,0.25)]'}`}
+                  onClick={() => {
+                    const el = styleScrollRef.current;
+                    if (el) el.scrollTo({ left: i * el.offsetWidth, behavior: 'smooth' });
+                  }}
+                />
+              ))}
+            </div>
+          )}
+
+          {/* Tablet+: two-column layout for current page */}
+          <div className="hidden tablet:flex flex-row gap-[var(--space-32)]">
+            <div className="flex-1 flex flex-col gap-[var(--space-12)]">
               {leftCol.map((s) => {
                 const gIdx = styles.indexOf(s);
                 return (
                   <div key={s.key}
                     onClick={() => handleStyleClick(s.key)}
                     className={`gradient-border-item flex items-center w-full px-[var(--space-16)] py-[var(--space-8)] gap-[var(--space-4)] min-h-[36px] cursor-pointer rounded-[var(--radius-12)] transition-all ${
-                      selectedIdx === gIdx
-                        ? 'glass-row-active'
-                        : 'glass-row'
+                      selectedIdx === gIdx ? 'glass-row-active' : 'glass-row'
                     }`}
                     style={{ '--gb-color': selectedIdx === gIdx ? 'rgba(var(--accent-r), var(--accent-g), var(--accent-b), 0.30)' : 'rgba(255, 255, 255, 0.10)' } as React.CSSProperties}
                   >
@@ -863,16 +912,14 @@ export default function AppScreen({ onOpenAuthModal }: { onOpenAuthModal?: () =>
                 );
               })}
             </div>
-            <div className="w-full min-w-full snap-center tablet:min-w-0 tablet:flex-1 flex flex-col gap-[var(--space-12)]">
+            <div className="flex-1 flex flex-col gap-[var(--space-12)]">
               {rightCol.map((s) => {
                 const gIdx = styles.indexOf(s);
                 return (
                   <div key={s.key}
                     onClick={() => handleStyleClick(s.key)}
                     className={`gradient-border-item flex items-center w-full px-[var(--space-16)] py-[var(--space-8)] gap-[var(--space-4)] min-h-[36px] cursor-pointer rounded-[var(--radius-12)] transition-all ${
-                      selectedIdx === gIdx
-                        ? 'glass-row-active'
-                        : 'glass-row'
+                      selectedIdx === gIdx ? 'glass-row-active' : 'glass-row'
                     }`}
                     style={{ '--gb-color': selectedIdx === gIdx ? 'rgba(var(--accent-r), var(--accent-g), var(--accent-b), 0.30)' : 'rgba(255, 255, 255, 0.10)' } as React.CSSProperties}
                   >
@@ -890,23 +937,9 @@ export default function AppScreen({ onOpenAuthModal }: { onOpenAuthModal?: () =>
             </div>
           </div>
 
-          {/* Style swipe indicators (mobile only) */}
-          <div className="flex tablet:hidden items-center justify-center gap-[var(--space-8)] mt-[var(--space-8)]">
-            {[0, 1].map((i) => (
-              <button
-                key={i}
-                className={`w-2 h-2 rounded-full transition-colors ${activeStyleCol === i ? 'bg-[rgb(var(--accent-r),var(--accent-g),var(--accent-b))]' : 'bg-[rgba(255,255,255,0.25)]'}`}
-                onClick={() => {
-                  const el = styleScrollRef.current;
-                  if (el) el.scrollTo({ left: i * el.offsetWidth, behavior: 'smooth' });
-                }}
-              />
-            ))}
-          </div>
-
-          {/* Pagination */}
+          {/* Pagination — tablet+ only */}
           {totalPages > 1 && (
-            <div className="flex items-center justify-center gap-[var(--space-12)] mt-[var(--space-16)] tablet:mt-[var(--space-32)]">
+            <div className="hidden tablet:flex items-center justify-center gap-[var(--space-12)] mt-[var(--space-16)] tablet:mt-[var(--space-32)]">
               <button
                 onClick={() => handlePageChange(Math.max(0, clampedPage - 1))}
                 disabled={clampedPage === 0}
