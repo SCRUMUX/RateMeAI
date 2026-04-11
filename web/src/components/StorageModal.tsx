@@ -176,7 +176,7 @@ export default function StorageModal({ items, open, onClose, onImprove }: Props)
                 animate="center"
                 exit="exit"
                 transition={{ duration: 0.25, ease: 'easeOut' }}
-                className="relative gradient-border-card glass-card rounded-[var(--radius-12)] w-full max-w-[680px] max-h-[90vh] overflow-y-auto p-[var(--space-32)] flex flex-col gap-[var(--space-24)]"
+                className="relative gradient-border-card glass-card rounded-[var(--radius-12)] w-full max-w-[680px] max-h-[90vh] overflow-y-auto p-[var(--space-16)] tablet:p-[var(--space-32)] flex flex-col gap-[var(--space-16)] tablet:gap-[var(--space-24)]"
                 onClick={(e) => e.stopPropagation()}
               >
                 <button
@@ -193,7 +193,7 @@ export default function StorageModal({ items, open, onClose, onImprove }: Props)
                 </div>
 
                 {/* Photos row */}
-                <div className="flex gap-[var(--space-24)] mt-[var(--space-8)]">
+                <div className="flex gap-[var(--space-12)] tablet:gap-[var(--space-24)] mt-[var(--space-8)]">
                   <div className="flex-1 flex flex-col gap-[var(--space-12)]">
                     <div className="relative rounded-[var(--radius-12)] overflow-hidden aspect-[3/4] bg-[rgba(255,255,255,0.02)]">
                       {item.input_image_url && !imgErrors[`input_${item.task_id}`] ? (

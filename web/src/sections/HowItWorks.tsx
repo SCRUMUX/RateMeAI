@@ -10,9 +10,9 @@ export default function HowItWorks() {
     <section className="relative z-[2] w-full">
       <div className="howworks-wrapper relative w-full glass-divider">
         <div className="howworks-gradient-backdrop" />
-        <div className="relative flex items-start justify-between w-full max-w-[1200px] mx-auto gap-[var(--space-24)] p-[var(--space-24)]">
+        <div className="relative flex flex-col tablet:flex-row items-stretch tablet:items-start justify-between w-full max-w-[1200px] mx-auto gap-[var(--space-12)] tablet:gap-[var(--space-24)] p-[var(--space-16)] tablet:p-[var(--space-24)]">
           {STEPS.map((s) => (
-            <div key={s.num} className="gradient-border-card glass-card flex flex-col items-center gap-[var(--space-12)] p-[var(--space-12)] flex-1 rounded-[var(--radius-12)]">
+            <div key={s.num} className="gradient-border-card glass-card flex flex-col items-center gap-[var(--space-12)] p-[var(--space-12)] w-full tablet:flex-1 rounded-[var(--radius-12)]">
               <div className="flex items-center justify-center w-[44px] h-[44px] rounded-full"
                 style={{
                   background: 'rgba(var(--accent-r), var(--accent-g), var(--accent-b), 0.06)',
@@ -22,10 +22,10 @@ export default function HowItWorks() {
               >
                 <span className="text-[16px] leading-[24px] text-[var(--color-brand-primary)]">{s.num}</span>
               </div>
-              <h3 className="text-style-h1 text-[#E6EEF8] text-center whitespace-nowrap">
+              <h3 className="text-style-h1 text-[#E6EEF8] text-center">
                 {s.title}
               </h3>
-              <p className="text-[16px] leading-[24px] text-[var(--color-text-secondary)] text-center">
+              <p className="text-[14px] tablet:text-[16px] leading-[20px] tablet:leading-[24px] text-[var(--color-text-secondary)] text-center">
                 {s.desc}
               </p>
             </div>

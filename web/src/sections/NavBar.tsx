@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
+import { AnimatePresence, motion } from 'framer-motion';
 import { GlobeIcon, CoinIcon } from '@ai-ds/core/icons';
 import { useApp } from '../context/AppContext';
 import LinkedAccountsPanel from '../components/LinkedAccountsPanel';
@@ -10,6 +11,7 @@ interface Props {
 export default function NavBar({ onLoginClick }: Props) {
   const { session, balance, logout } = useApp();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -21,23 +23,32 @@ export default function NavBar({ onLoginClick }: Props) {
     return () => document.removeEventListener('mousedown', handleClick);
   }, [menuOpen]);
 
+  useEffect(() => {
+    if (mobileMenuOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => { document.body.style.overflow = ''; };
+  }, [mobileMenuOpen]);
+
   return (
     <nav className="fixed top-0 left-0 right-0 z-[100] glass-nav">
-      <div className="max-w-[1200px] mx-auto flex items-center justify-between h-[60px] px-[var(--space-24)]">
+      <div className="max-w-[1200px] mx-auto flex items-center justify-between h-[52px] tablet:h-[60px] px-[var(--space-16)] tablet:px-[var(--space-24)]">
         {/* Logo */}
         <div className="flex items-center gap-[var(--space-8)] px-[var(--space-8)] py-[var(--space-4)]">
-          <div className="relative w-11 h-11 shrink-0">
+          <div className="relative w-9 h-9 tablet:w-11 tablet:h-11 shrink-0">
             <div className="absolute inset-0 rounded-xl" style={{ background: 'rgba(var(--accent-r), var(--accent-g), var(--accent-b), 0.18)' }} />
             <img src="/img/logo.png" alt="AI Look Studio" className="relative w-full h-full rounded-xl object-contain" style={{ mixBlendMode: 'lighten' }} />
           </div>
-          <span className="text-[22px] leading-[30px] font-bold whitespace-nowrap tracking-tight">
+          <span className="hidden tablet:inline text-[22px] leading-[30px] font-bold whitespace-nowrap tracking-tight">
             <span className="text-[#E6EEF8]">AI</span>
             <span className="text-[var(--color-text-primary)]"> Look Studio</span>
           </span>
         </div>
 
-        {/* Nav links */}
-        <div className="flex items-center gap-[var(--space-12)]">
+        {/* Desktop nav links */}
+        <div className="hidden tablet:flex items-center gap-[var(--space-12)]">
           {['Стили', 'Тарифы', 'API'].map((label) => (
             <a key={label} href={`#${label.toLowerCase()}`}
               className="px-[var(--space-12)] py-[var(--space-6)] text-[14px] leading-[20px] font-medium text-[var(--color-text-secondary)] hover:text-[#E6EEF8] transition-colors cursor-pointer"
@@ -107,7 +118,101 @@ export default function NavBar({ onLoginClick }: Props) {
             </a>
           )}
         </div>
+
+        {/* Mobile: balance + burger */}
+        <div className="flex tablet:hidden items-center gap-[var(--space-8)]">
+          {session && (
+            <div className="glass-btn-ghost flex items-center gap-[var(--space-4)] px-[var(--space-8)] py-[var(--space-4)] text-[13px] leading-[18px] font-medium text-[#E6EEF8] rounded-[var(--radius-12)]">
+              <CoinIcon size={14} className="text-[var(--color-brand-primary)]" />
+              <span>{balance}</span>
+            </div>
+          )}
+          <button
+            onClick={() => setMobileMenuOpen(v => !v)}
+            className="glass-btn-ghost flex items-center justify-center w-9 h-9 rounded-[var(--radius-12)] cursor-pointer"
+            aria-label="Меню"
+          >
+            <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+              {mobileMenuOpen ? (
+                <path d="M5 5L15 15M15 5L5 15" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+              ) : (
+                <>
+                  <path d="M3 5H17" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                  <path d="M3 10H17" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                  <path d="M3 15H17" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                </>
+              )}
+            </svg>
+          </button>
+        </div>
       </div>
+
+      {/* Mobile drawer */}
+      <AnimatePresence>
+        {mobileMenuOpen && (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            transition={{ duration: 0.2 }}
+            className="tablet:hidden absolute top-full left-0 right-0 glass-nav border-t border-[rgba(255,255,255,0.06)] flex flex-col gap-[var(--space-4)] p-[var(--space-16)] max-h-[calc(100vh-52px)] overflow-y-auto"
+          >
+            {['Стили', 'Тарифы', 'API'].map((label) => (
+              <a key={label} href={`#${label.toLowerCase()}`}
+                onClick={() => setMobileMenuOpen(false)}
+                className="px-[var(--space-12)] py-[var(--space-10)] text-[15px] leading-[22px] font-medium text-[var(--color-text-secondary)] hover:text-[#E6EEF8] transition-colors cursor-pointer rounded-[var(--radius-12)] hover:bg-[rgba(255,255,255,0.04)]"
+              >
+                {label}
+              </a>
+            ))}
+
+            <div className="h-px my-[var(--space-4)]" style={{ background: 'rgba(255,255,255,0.08)' }} />
+
+            {session ? (
+              <>
+                <LinkedAccountsPanel />
+                <a
+                  href="/link"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="flex items-center gap-[var(--space-8)] px-[var(--space-12)] py-[var(--space-10)] text-[15px] leading-[22px] font-medium text-[#E6EEF8] rounded-[var(--radius-12)] hover:bg-[rgba(255,255,255,0.04)] transition-all cursor-pointer no-underline"
+                >
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M6.667 8.667a3.333 3.333 0 005.026.36l2-2a3.334 3.334 0 00-4.714-4.714L8.053 3.24" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/><path d="M9.333 7.333a3.333 3.333 0 00-5.026-.36l-2 2a3.334 3.334 0 004.714 4.714l.927-.926" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                  Привязать аккаунт
+                </a>
+                <button
+                  onClick={() => { setMobileMenuOpen(false); logout(); }}
+                  className="flex items-center gap-[var(--space-8)] px-[var(--space-12)] py-[var(--space-10)] text-[15px] leading-[22px] font-medium text-[#FF4D6A] rounded-[var(--radius-12)] hover:bg-[rgba(255,77,106,0.08)] transition-all cursor-pointer"
+                >
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M6 14H3.333A1.333 1.333 0 012 12.667V3.333A1.333 1.333 0 013.333 2H6M10.667 11.333L14 8m0 0l-3.333-3.333M14 8H6" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                  Выйти
+                </button>
+              </>
+            ) : (
+              <>
+                <button
+                  onClick={() => { setMobileMenuOpen(false); onLoginClick?.(); }}
+                  className="flex items-center gap-[var(--space-8)] px-[var(--space-12)] py-[var(--space-10)] text-[15px] leading-[22px] font-medium text-[#E6EEF8] rounded-[var(--radius-12)] hover:bg-[rgba(255,255,255,0.04)] transition-all cursor-pointer"
+                >
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" className="text-[var(--color-brand-primary)]"><path d="M10 2h2.667A1.333 1.333 0 0114 3.333v9.334A1.333 1.333 0 0112.667 14H10M6.667 11.333L10 8m0 0L6.667 4.667M10 8H2" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                  Войти
+                </button>
+                <a
+                  href="#app"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="glass-btn-primary flex items-center justify-center px-[var(--space-16)] py-[var(--space-10)] text-[15px] leading-[22px] rounded-[var(--radius-12)] text-center"
+                >
+                  Попробовать
+                </a>
+              </>
+            )}
+
+            <button className="glass-btn-ghost flex items-center gap-[var(--space-8)] px-[var(--space-12)] py-[var(--space-10)] text-[15px] leading-[22px] font-medium text-[#E6EEF8] rounded-[var(--radius-12)]">
+              <GlobeIcon size={18} className="text-[var(--color-text-muted)]" />
+              Русский
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </nav>
   );
 }

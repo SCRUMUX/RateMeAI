@@ -336,15 +336,15 @@ export default function AppScreen({ onOpenAuthModal }: { onOpenAuthModal?: () =>
   }
 
   return (
-    <section id="app" className="relative z-[2] flex flex-col items-center gap-[var(--space-40)] px-[var(--space-24)] py-[120px]">
+    <section id="app" className="relative z-[2] flex flex-col items-center gap-[var(--space-24)] tablet:gap-[var(--space-40)] px-[var(--space-16)] tablet:px-[var(--space-24)] py-[60px] tablet:py-[120px]">
       {/* Brand heading */}
-      <div className="relative flex items-center justify-center gap-[var(--space-24)] w-full max-w-[1200px]">
+      <div className="relative flex items-center justify-center gap-[var(--space-12)] tablet:gap-[var(--space-24)] w-full max-w-[1200px]">
         <div className="brand-glow-backdrop" />
-        <div className="relative w-[140px] h-[140px] shrink-0 brand-glow-icon">
-          <div className="absolute inset-0 rounded-[28px]" style={{ background: 'rgba(var(--accent-r), var(--accent-g), var(--accent-b), 0.4)' }} />
-          <img src="/img/logo.png" alt="AI Look Studio" className="relative w-full h-full object-contain rounded-[28px]" style={{ mixBlendMode: 'lighten' }} />
+        <div className="relative w-[60px] h-[60px] tablet:w-[100px] tablet:h-[100px] desktop:w-[140px] desktop:h-[140px] shrink-0 brand-glow-icon">
+          <div className="absolute inset-0 rounded-[16px] tablet:rounded-[24px] desktop:rounded-[28px]" style={{ background: 'rgba(var(--accent-r), var(--accent-g), var(--accent-b), 0.4)' }} />
+          <img src="/img/logo.png" alt="AI Look Studio" className="relative w-full h-full object-contain rounded-[16px] tablet:rounded-[24px] desktop:rounded-[28px]" style={{ mixBlendMode: 'lighten' }} />
         </div>
-        <span className="brand-glow-text text-[120px] leading-[1] font-extrabold whitespace-nowrap">
+        <span className="brand-glow-text text-[36px] tablet:text-[72px] desktop:text-[120px] leading-[1] font-extrabold whitespace-nowrap">
           AI Look Studio
         </span>
       </div>
@@ -363,19 +363,19 @@ export default function AppScreen({ onOpenAuthModal }: { onOpenAuthModal?: () =>
 
       <div className="w-full max-w-[1200px]">
         {/* Category tab bar */}
-        <div className="flex items-center justify-center mb-[var(--space-24)]">
+        <div className="flex items-center justify-center mb-[var(--space-16)] tablet:mb-[var(--space-24)] w-full">
           <CategoryTabs active={activeTab} onChange={handleTabChange} />
         </div>
 
         {/* Content area */}
-        <div className="p-[var(--space-24)]">
+        <div className="p-0 tablet:p-[var(--space-24)]">
           {/* Top area: photos + analysis */}
-          <div className="flex gap-[var(--space-32)] mb-[var(--space-32)]">
+          <div className="flex flex-col tablet:flex-row gap-[var(--space-20)] tablet:gap-[var(--space-32)] mb-[var(--space-20)] tablet:mb-[var(--space-32)]">
             {/* Photo cards */}
-            <div className="flex gap-[var(--space-32)] shrink-0">
+            <div className="flex flex-row gap-[var(--space-12)] tablet:gap-[var(--space-32)] shrink-0">
               {/* Original photo */}
-              <div className="gradient-border-card glass-card flex flex-col w-[260px] h-[472px] rounded-[var(--radius-12)] overflow-hidden">
-                <div className="w-[260px] h-[347px] shrink-0 bg-[rgba(255,255,255,0.02)] overflow-hidden">
+              <div className="gradient-border-card glass-card flex flex-col w-[calc(50%-var(--space-6))] tablet:w-[260px] tablet:h-[472px] rounded-[var(--radius-12)] overflow-hidden">
+                <div className="w-full aspect-[3/4] tablet:aspect-auto tablet:w-[260px] tablet:h-[347px] shrink-0 bg-[rgba(255,255,255,0.02)] overflow-hidden">
                   {app.photo ? (
                     <img src={app.photo.preview} alt="Original" className="w-full h-full object-cover" />
                   ) : (
@@ -405,8 +405,8 @@ export default function AppScreen({ onOpenAuthModal }: { onOpenAuthModal?: () =>
               </div>
 
               {/* Generated photo */}
-              <div className="gradient-border-card glass-card flex flex-col w-[260px] h-[472px] rounded-[var(--radius-12)] overflow-hidden">
-                <div className="w-[260px] h-[347px] shrink-0 bg-[rgba(255,255,255,0.02)] overflow-hidden relative">
+              <div className="gradient-border-card glass-card flex flex-col w-[calc(50%-var(--space-6))] tablet:w-[260px] tablet:h-[472px] rounded-[var(--radius-12)] overflow-hidden">
+                <div className="w-full aspect-[3/4] tablet:aspect-auto tablet:w-[260px] tablet:h-[347px] shrink-0 bg-[rgba(255,255,255,0.02)] overflow-hidden relative">
                   {/* Real result */}
                   {hasGenResult && (
                     <img
@@ -797,9 +797,9 @@ export default function AppScreen({ onOpenAuthModal }: { onOpenAuthModal?: () =>
             </div>
           </div>
 
-          {/* Style list - dual column */}
-          <div className="flex gap-[var(--space-32)]">
-            <div className="flex-1 flex flex-col gap-[var(--space-12)]">
+          {/* Style list - dual column on tablet+ */}
+          <div className="flex flex-col tablet:flex-row gap-[var(--space-12)] tablet:gap-[var(--space-32)]">
+            <div className="w-full tablet:flex-1 flex flex-col gap-[var(--space-12)]">
               {leftCol.map((s) => {
                 const gIdx = styles.indexOf(s);
                 return (
@@ -824,7 +824,7 @@ export default function AppScreen({ onOpenAuthModal }: { onOpenAuthModal?: () =>
                 );
               })}
             </div>
-            <div className="flex-1 flex flex-col gap-[var(--space-12)]">
+            <div className="w-full tablet:flex-1 flex flex-col gap-[var(--space-12)]">
               {rightCol.map((s) => {
                 const gIdx = styles.indexOf(s);
                 return (
@@ -853,7 +853,7 @@ export default function AppScreen({ onOpenAuthModal }: { onOpenAuthModal?: () =>
 
           {/* Pagination */}
           {totalPages > 1 && (
-            <div className="flex items-center justify-center gap-[var(--space-12)] mt-[var(--space-32)]">
+            <div className="flex items-center justify-center gap-[var(--space-12)] mt-[var(--space-16)] tablet:mt-[var(--space-32)]">
               <button
                 onClick={() => handlePageChange(Math.max(0, clampedPage - 1))}
                 disabled={clampedPage === 0}

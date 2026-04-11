@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react';
 import { useSpring, useScroll, useTransform, motion, useReducedMotion } from 'framer-motion';
 import { useMousePosition } from '../../hooks/useMousePosition';
 
@@ -16,6 +17,8 @@ const BLOBS: { size: number; type: BlobType; opacity: number; x: string; y: stri
   { size: 440, type: 'neutral',   opacity: 0.05, x: '85%',  y: '340vh', factor: 0.03,  scrollFactor: 0.10 },
 ];
 
+const MOBILE_BLOBS = BLOBS.slice(0, 4).map(b => ({ ...b, size: Math.round(b.size * 0.6) }));
+
 function blobColor(type: BlobType, opacity: number): string {
   switch (type) {
     case 'accent':    return `rgba(var(--accent-r), var(--accent-g), var(--accent-b), ${opacity})`;
@@ -24,10 +27,24 @@ function blobColor(type: BlobType, opacity: number): string {
   }
 }
 
+function useIsMobile() {
+  const [isMobile, setIsMobile] = useState(() =>
+    typeof window !== 'undefined' ? window.innerWidth < 768 : false
+  );
+  useEffect(() => {
+    const mq = window.matchMedia('(max-width: 767px)');
+    const handler = (e: MediaQueryListEvent) => setIsMobile(e.matches);
+    mq.addEventListener('change', handler);
+    return () => mq.removeEventListener('change', handler);
+  }, []);
+  return isMobile;
+}
+
 export default function EnergyField() {
   const mouse = useMousePosition();
   const prefersReduced = useReducedMotion();
   const { scrollY } = useScroll();
+  const isMobile = useIsMobile();
 
   const mx = (mouse.x - 0.5) * 2;
   const my = (mouse.y - 0.5) * 2;
@@ -36,9 +53,11 @@ export default function EnergyField() {
     return null;
   }
 
+  const activeBLobs = isMobile ? MOBILE_BLOBS : BLOBS;
+
   return (
     <div className="energy-field" aria-hidden="true">
-      {BLOBS.map((blob, i) => (
+      {activeBLobs.map((blob, i) => (
         <EnergyBlob key={i} mx={mx} my={my} scrollY={scrollY} color={blobColor(blob.type, blob.opacity)} size={blob.size} x={blob.x} y={blob.y} factor={blob.factor} scrollFactor={blob.scrollFactor} />
       ))}
     </div>

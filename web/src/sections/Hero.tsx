@@ -23,15 +23,15 @@ const PLATFORMS: PlatformDef[] = [
 
 export default function Hero() {
   return (
-    <section className="relative z-[2] flex flex-col items-center justify-center gap-[var(--space-96)] px-[var(--space-24)] pt-[120px] pb-[120px]"
+    <section className="relative z-[2] flex flex-col items-center justify-center gap-[var(--space-40)] tablet:gap-[var(--space-96)] px-[var(--space-16)] tablet:px-[var(--space-24)] pt-[80px] tablet:pt-[120px] pb-[60px] tablet:pb-[120px]"
       style={{ minHeight: '100vh' }}
     >
       {/* Text block */}
       <div className="relative z-[2] flex flex-col items-center gap-[var(--space-12)] text-center">
-        <h1 className="text-[64px] font-bold leading-[1] text-[#E6EEF8]">
+        <h1 className="text-[32px] tablet:text-[48px] desktop:text-[64px] font-bold leading-[1] text-[#E6EEF8]">
           Адаптируй фото
         </h1>
-        <h1 className="text-[64px] font-bold leading-[1]"
+        <h1 className="text-[32px] tablet:text-[48px] desktop:text-[64px] font-bold leading-[1]"
           style={{
             background: 'linear-gradient(103deg, rgb(var(--accent-r), var(--accent-g), var(--accent-b)) 4%, rgb(var(--accent-sec-r), var(--accent-sec-g), var(--accent-sec-b)) 103%)',
             WebkitBackgroundClip: 'text',
@@ -40,10 +40,10 @@ export default function Hero() {
         >
           под любой контекст.
         </h1>
-        <p className="text-[20px] leading-[28px] text-[var(--color-text-secondary)] mt-1">
+        <p className="text-[16px] tablet:text-[20px] leading-[24px] tablet:leading-[28px] text-[var(--color-text-secondary)] mt-1">
           Одна загрузка — множество вариантов
         </p>
-        <p className="text-[18px] leading-[28px] text-[var(--color-text-secondary)] max-w-[660px]">
+        <p className="text-[15px] tablet:text-[18px] leading-[22px] tablet:leading-[28px] text-[var(--color-text-secondary)] max-w-[660px]">
           Выбери категорию, выбери стиль — система адаптирует твоё фото и покажет скор восприятия.
           Улучшай результат с каждой генерацией. Работает в браузере и в мессенджерах.
         </p>
@@ -51,20 +51,20 @@ export default function Hero() {
 
       {/* Platform links */}
       <div className="relative z-[2] flex flex-col items-center gap-[var(--space-12)]">
-        <p className="text-[16px] leading-[24px] text-[var(--color-text-secondary)]">
+        <p className="text-[14px] tablet:text-[16px] leading-[20px] tablet:leading-[24px] text-[var(--color-text-secondary)]">
           Выбери удобный способ:
         </p>
-        <div className="flex flex-wrap items-center justify-center gap-[var(--space-12)]">
+        <div className="flex flex-wrap items-center justify-center gap-[var(--space-8)] tablet:gap-[var(--space-12)]">
           {PLATFORMS.map((p) => {
-            const cls = "gradient-border-item glass-btn-ghost flex items-center gap-[var(--space-4)] px-[var(--space-16)] py-[var(--space-8)] min-h-[36px] rounded-[var(--radius-12)] cursor-pointer no-underline";
+            const cls = "gradient-border-item glass-btn-ghost flex items-center gap-[var(--space-4)] px-[var(--space-12)] tablet:px-[var(--space-16)] py-[var(--space-6)] tablet:py-[var(--space-8)] min-h-[36px] rounded-[var(--radius-12)] cursor-pointer no-underline";
             const style = { opacity: p.opacity, '--gb-color': p.border } as React.CSSProperties;
             const inner = (
               <>
                 <div className="flex items-center gap-[6px]">
                   <p.Icon size={20} style={{ color: p.iconColor }} />
                   <div className="flex flex-col gap-[2px]">
-                    <span className="text-[12px] leading-[16px] text-[#E6EEF8]">{p.name}</span>
-                    <span className="text-[11px] leading-[14px]"
+                    <span className="text-[11px] tablet:text-[12px] leading-[14px] tablet:leading-[16px] text-[#E6EEF8]">{p.name}</span>
+                    <span className="text-[10px] tablet:text-[11px] leading-[12px] tablet:leading-[14px]"
                       style={{ color: p.sub === 'Скоро' ? 'var(--color-text-muted)' : 'var(--color-brand-primary)' }}
                     >
                       {p.sub}
