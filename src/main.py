@@ -66,8 +66,23 @@ async def lifespan(app: FastAPI):
     app.state.db_sessionmaker = async_sessionmaker(engine, expire_on_commit=False)
     app.state.redis = Redis.from_url(settings.redis_url, decode_responses=True)
 
+    if settings.internal_api_key and not settings.is_edge:
+        from src.models.db import User
+        import uuid as _uuid
+        internal_user_id = _uuid.uuid5(_uuid.NAMESPACE_DNS, "edge-proxy.internal")
+        async with app.state.db_sessionmaker() as _db:
+            existing = await _db.get(User, internal_user_id)
+            if not existing:
+                _db.add(User(
+                    id=internal_user_id,
+                    username="__edge_proxy__",
+                    image_credits=999_999,
+                ))
+                await _db.commit()
+                logging.getLogger(__name__).info("Created internal edge-proxy user %s", internal_user_id)
+
     log = logging.getLogger(__name__)
-    if settings.is_production and not settings.openrouter_api_key.strip():
+    if settings.is_production and not settings.openrouter_api_key.strip() and not settings.is_edge:
         log.error(
             "OPENROUTER_API_KEY is empty — configure env before accepting traffic",
         )
@@ -83,10 +98,13 @@ async def lifespan(app: FastAPI):
         )
     sha = (settings.deploy_git_sha or "").strip()
     log.info(
-        "RateMeAI API starting version=%s%s",
+        "RateMeAI API starting version=%s mode=%s%s",
         APP_VERSION,
+        settings.deployment_mode,
         f" git={sha[:12]}" if sha else "",
     )
+    if settings.is_edge:
+        log.info("Edge mode: AI requests will be proxied to %s", settings.remote_ai_backend_url)
 
     yield
 
@@ -108,6 +126,7 @@ if settings.is_production:
         "https://ailookstudio.ru",
         "https://www.ailookstudio.ru",
         "https://ailookstudio.vercel.app",
+        "https://ru.ailookstudio.ru",
     ]
     if settings.cors_extra_origins:
         _origins.extend(
@@ -225,7 +244,7 @@ async def serve_storage(file_path: str, download: int = 0):
 
 @app.get("/health")
 async def health():
-    body: dict = {"status": "ok", "version": APP_VERSION}
+    body: dict = {"status": "ok", "version": APP_VERSION, "mode": settings.deployment_mode}
     sha = (settings.deploy_git_sha or "").strip()
     if sha:
         body["git"] = sha[:12]
@@ -252,7 +271,11 @@ async def readiness():
     except Exception:
         checks["redis"] = "fail"
 
-    checks["openrouter_key"] = "ok" if settings.openrouter_api_key.strip() else "missing"
+    if settings.is_edge:
+        checks["mode"] = "edge"
+        checks["remote_ai"] = "configured" if settings.remote_ai_backend_url else "missing"
+    else:
+        checks["openrouter_key"] = "ok" if settings.openrouter_api_key.strip() else "missing"
 
-    ok = all(v == "ok" for v in checks.values())
+    ok = all(v not in ("fail", "missing") for v in checks.values())
     return JSONResponse(checks, status_code=200 if ok else 503)

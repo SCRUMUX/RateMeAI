@@ -192,28 +192,33 @@ async def process_analysis(ctx: dict, task_id: str):
                     except Exception:
                         logger.exception("DB b64 fallback also failed for task %s", task_id)
 
-                try:
-                    u = await db.execute(
-                        select(User).where(User.id == task.user_id).with_for_update()
-                    )
-                    user = u.scalar_one()
-                    if user.image_credits > 0:
-                        user.image_credits -= 1
-                        db.add(CreditTransaction(
-                            user_id=task.user_id,
-                            amount=-1,
-                            balance_after=user.image_credits,
-                            tx_type="generation",
-                        ))
-                        CREDITS_USED.inc()
-                        logger.info("Deducted 1 image credit for user %s, remaining=%d", task.user_id, user.image_credits)
-                        analysis_result["credit_deducted"] = True
-                    else:
-                        logger.warning("No credits to deduct for user %s (balance=0), image was generated for free", task.user_id)
-                        analysis_result["credit_deducted"] = False
-                except Exception:
-                    logger.exception("Failed to deduct image credit for task %s", task_id)
+                skip_deduct = context.get("skip_credit_deduct", False)
+                if skip_deduct:
+                    logger.info("Skipping credit deduction for edge-proxied task %s", task_id)
                     analysis_result["credit_deducted"] = False
+                else:
+                    try:
+                        u = await db.execute(
+                            select(User).where(User.id == task.user_id).with_for_update()
+                        )
+                        user = u.scalar_one()
+                        if user.image_credits > 0:
+                            user.image_credits -= 1
+                            db.add(CreditTransaction(
+                                user_id=task.user_id,
+                                amount=-1,
+                                balance_after=user.image_credits,
+                                tx_type="generation",
+                            ))
+                            CREDITS_USED.inc()
+                            logger.info("Deducted 1 image credit for user %s, remaining=%d", task.user_id, user.image_credits)
+                            analysis_result["credit_deducted"] = True
+                        else:
+                            logger.warning("No credits to deduct for user %s (balance=0), image was generated for free", task.user_id)
+                            analysis_result["credit_deducted"] = False
+                    except Exception:
+                        logger.exception("Failed to deduct image credit for task %s", task_id)
+                        analysis_result["credit_deducted"] = False
 
             analysis_result["enhancement_level"] = context.get("enhancement_level", 0)
 

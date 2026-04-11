@@ -133,6 +133,13 @@ class Settings(BaseSettings):
     # CORS — extra origins for mini apps (comma-separated)
     cors_extra_origins: str = ""
 
+    # Geo-split deployment: primary (Railway, full AI processing) | edge (RU server, proxies AI to primary)
+    deployment_mode: str = "primary"
+    # URL of the primary Railway API (only used in edge mode)
+    remote_ai_backend_url: str = ""
+    # Shared secret between edge and primary for /internal/* endpoints
+    internal_api_key: str = ""
+
     # App
     app_env: str = "dev"
     app_host: str = "0.0.0.0"
@@ -145,6 +152,10 @@ class Settings(BaseSettings):
     @property
     def is_production(self) -> bool:
         return self.app_env == "prod"
+
+    @property
+    def is_edge(self) -> bool:
+        return self.deployment_mode == "edge"
 
 
 settings = Settings()

@@ -1,0 +1,74 @@
+version: "3.9"
+
+# RU edge server — HTTP-only bootstrap (before SSL setup)
+# Usage: docker compose -f deploy/ru/docker-compose.start.yml up -d --build
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-ratemeai}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:-ratemeai}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-ratemeai}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  app:
+    build:
+      context: ../..
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    command: uvicorn src.main:app --host 0.0.0.0 --port 8000
+    env_file:
+      - ../../.env.ru
+    environment:
+      DEPLOYMENT_MODE: edge
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-ratemeai}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-ratemeai}
+      REDIS_URL: redis://redis:6379/0
+      STORAGE_LOCAL_PATH: /app/storage
+      APP_ENV: prod
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    volumes:
+      - app_storage:/app/storage
+
+  nginx:
+    image: nginx:alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx-http.conf:/etc/nginx/conf.d/default.conf:ro
+      - web_dist:/usr/share/nginx/html:ro
+    depends_on:
+      app:
+        condition: service_healthy
+
+volumes:
+  pgdata:
+  app_storage:
+  web_dist:

@@ -5,18 +5,18 @@ import logging
 import uuid
 
 from arq.connections import ArqRedis, create_pool, RedisSettings
-from fastapi import APIRouter, Depends, UploadFile, File, Form, HTTPException
+from fastapi import APIRouter, Depends, Request, UploadFile, File, Form, HTTPException
 from fastapi.responses import JSONResponse
 from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.config import settings
-from src.models.db import Task, User
+from src.models.db import Task, User, CreditTransaction
 from src.models.enums import AnalysisMode, TaskStatus
 from src.models.schemas import TaskCreated
 from src.api.deps import get_db, get_redis, check_credits
 from src.providers.factory import get_storage
-from src.utils.redis_keys import task_input_cache_key
+from src.utils.redis_keys import task_input_cache_key, gen_image_cache_key
 from prometheus_client import Counter
 
 ANALYZE_REQUESTS = Counter(
@@ -39,8 +39,117 @@ async def _get_arq() -> ArqRedis:
     return _arq_pool
 
 
+async def _handle_edge_analysis(
+    app_state,
+    task_id: uuid.UUID,
+    user_id: uuid.UUID,
+    image_bytes: bytes,
+    mode: str,
+    style: str,
+    profession: str,
+    enhancement_level: int,
+    pre_analysis_id: str,
+) -> None:
+    """In edge mode: proxy the AI task to the primary Railway backend.
+
+    Runs as a background coroutine with its own DB session (the request session
+    is already closed by the time long-running remote polling finishes).
+    """
+    from datetime import datetime, timezone
+    from sqlalchemy import select
+    from src.services.remote_ai import get_remote_ai, RemoteAIError
+
+    db_sessionmaker = app_state.db_sessionmaker
+    redis: Redis = app_state.redis
+    remote_ai = get_remote_ai()
+    image_b64 = base64.b64encode(image_bytes).decode("ascii")
+
+    async with db_sessionmaker() as db:
+        result = await db.execute(select(Task).where(Task.id == task_id))
+        task = result.scalar_one_or_none()
+        if task is None:
+            logger.error("Edge handler: task %s not found", task_id)
+            return
+
+        task.status = TaskStatus.PROCESSING.value
+        await db.commit()
+
+        try:
+            result_data = await remote_ai.submit_and_wait(
+                image_b64=image_b64,
+                mode=mode,
+                style=style,
+                profession=profession,
+                enhancement_level=enhancement_level,
+                pre_analysis_id=pre_analysis_id,
+                edge_task_id=str(task_id),
+            )
+
+            remote_result = result_data.get("result") or {}
+            gen_b64 = result_data.get("generated_image_b64")
+
+            if gen_b64:
+                gen_key = f"generated/{user_id}/{task_id}.jpg"
+                storage = get_storage()
+                await storage.upload(gen_key, base64.b64decode(gen_b64))
+
+                await redis.set(
+                    gen_image_cache_key(str(task_id)),
+                    gen_b64,
+                    ex=settings.gen_image_redis_ttl_seconds,
+                )
+
+                remote_result["generated_image_url"] = (
+                    f"{settings.api_base_url.rstrip('/')}/storage/{gen_key}"
+                )
+                remote_result.pop("generated_image_b64", None)
+
+            if remote_result.get("generated_image_url") or gen_b64:
+                u = await db.execute(
+                    select(User).where(User.id == user_id).with_for_update()
+                )
+                fresh_user = u.scalar_one()
+                if fresh_user.image_credits > 0:
+                    fresh_user.image_credits -= 1
+                    db.add(CreditTransaction(
+                        user_id=user_id,
+                        amount=-1,
+                        balance_after=fresh_user.image_credits,
+                        tx_type="generation",
+                    ))
+                    remote_result["credit_deducted"] = True
+                else:
+                    remote_result["credit_deducted"] = False
+
+            task.result = remote_result
+            task.status = TaskStatus.COMPLETED.value
+            task.completed_at = datetime.now(timezone.utc)
+            await db.commit()
+
+            try:
+                await redis.publish(f"ratemeai:task_done:{task_id}", "completed")
+            except Exception:
+                pass
+
+        except RemoteAIError as exc:
+            logger.error("Edge AI proxy failed for task %s: %s", task_id, exc)
+            task.status = TaskStatus.FAILED.value
+            task.error_message = str(exc)[:500]
+            await db.commit()
+            try:
+                await redis.publish(f"ratemeai:task_done:{task_id}", "failed")
+            except Exception:
+                pass
+        except Exception as exc:
+            logger.exception("Unexpected edge handler error for task %s", task_id)
+            task.status = TaskStatus.FAILED.value
+            task.error_message = f"Edge proxy error: {exc}"[:500]
+            await db.commit()
+
+
 @router.post("", response_model=TaskCreated, status_code=202)
 async def create_analysis(
+    request: Request,
     image: UploadFile = File(...),
     mode: AnalysisMode = Form(AnalysisMode.RATING),
     style: str = Form(""),
@@ -91,6 +200,34 @@ async def create_analysis(
     await db.commit()
     await db.refresh(task)
 
+    credits_remaining = getattr(user, "_credits_remaining", None)
+    headers = {}
+    if credits_remaining is not None:
+        headers["X-Credits-Remaining"] = str(max(0, credits_remaining - 1))
+
+    if settings.is_edge:
+        import asyncio
+
+        asyncio.create_task(
+            _handle_edge_analysis(
+                app_state=request.app.state,
+                task_id=task.id,
+                user_id=user.id,
+                image_bytes=image_bytes,
+                mode=task.mode,
+                style=style.strip(),
+                profession=profession.strip(),
+                enhancement_level=enhancement_level,
+                pre_analysis_id=pre_analysis_id.strip(),
+            )
+        )
+        body = TaskCreated(task_id=task.id, status=TaskStatus.PENDING, estimated_seconds=30)
+        return JSONResponse(
+            content=body.model_dump(mode="json"),
+            status_code=202,
+            headers=headers,
+        )
+
     cache_key = task_input_cache_key(str(task.id))
     try:
         await redis.set(
@@ -110,11 +247,6 @@ async def create_analysis(
 
     arq = await _get_arq()
     await arq.enqueue_job("process_analysis", str(task.id))
-
-    credits_remaining = getattr(user, "_credits_remaining", None)
-    headers = {}
-    if credits_remaining is not None:
-        headers["X-Credits-Remaining"] = str(max(0, credits_remaining - 1))
 
     body = TaskCreated(task_id=task.id, status=TaskStatus.PENDING, estimated_seconds=15)
     return JSONResponse(

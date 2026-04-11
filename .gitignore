@@ -1,4 +1,5 @@
 .env
+.env.ru
 AICADS-/
 __pycache__/
 *.pyc
@@ -13,3 +14,6 @@ build/
 .pytest_cache/
 .vercel
 node_modules/
+deploy/ru/_*.py
+deploy/ru/remote_exec.py
+deploy/ru/upload_files.py

@@ -1,5 +1,8 @@
 FROM node:20-alpine AS build
 
+ARG VITE_API_BASE_URL=https://api.ailookstudio.ru
+ENV VITE_API_BASE_URL=${VITE_API_BASE_URL}
+
 WORKDIR /build
 
 # Copy design system tokens (needed for CSS variables at build time)
