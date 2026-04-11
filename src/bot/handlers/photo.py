@@ -56,29 +56,11 @@ async def _reset_depth(redis: Redis, user_id: int) -> None:
 @router.message(F.photo)
 async def handle_photo(message: Message, redis: Redis):
     """Store the photo file_id in Redis and show scenario selection."""
-    photo = message.photo[-1]
-    user_id = message.from_user.id
-
-    await redis.set(PHOTO_KEY.format(user_id), photo.file_id, ex=86400)
-    await _reset_depth(redis, user_id)
-
-    mode_redirect = await _check_mode_flags(redis, user_id)
-    if mode_redirect:
-        await message.answer(mode_redirect["text"], reply_markup=mode_redirect["kb"])
-        return
-
-    await message.answer(
-        "Выбери направление, и я подберу лучший образ:",
-        reply_markup=scenario_keyboard(),
-    )
-
-
-@router.message(F.document)
-async def handle_document(message: Message, redis: Redis):
-    content_type = message.document.mime_type or ""
-    if content_type.startswith("image/"):
+    try:
+        photo = message.photo[-1]
         user_id = message.from_user.id
-        await redis.set(PHOTO_KEY.format(user_id), message.document.file_id, ex=86400)
+
+        await redis.set(PHOTO_KEY.format(user_id), photo.file_id, ex=86400)
         await _reset_depth(redis, user_id)
 
         mode_redirect = await _check_mode_flags(redis, user_id)
@@ -90,9 +72,35 @@ async def handle_document(message: Message, redis: Redis):
             "Выбери направление, и я подберу лучший образ:",
             reply_markup=scenario_keyboard(),
         )
-    else:
-        from src.bot.keyboards import back_keyboard
-        await message.answer(
-            "Пожалуйста, отправь фотографию (изображение).",
-            reply_markup=back_keyboard(),
-        )
+    except Exception:
+        logger.exception("handle_photo failed for user %s", message.from_user.id if message.from_user else "?")
+        await message.answer("Произошла ошибка при обработке фото. Попробуй /start", parse_mode=None)
+
+
+@router.message(F.document)
+async def handle_document(message: Message, redis: Redis):
+    try:
+        content_type = message.document.mime_type or ""
+        if content_type.startswith("image/"):
+            user_id = message.from_user.id
+            await redis.set(PHOTO_KEY.format(user_id), message.document.file_id, ex=86400)
+            await _reset_depth(redis, user_id)
+
+            mode_redirect = await _check_mode_flags(redis, user_id)
+            if mode_redirect:
+                await message.answer(mode_redirect["text"], reply_markup=mode_redirect["kb"])
+                return
+
+            await message.answer(
+                "Выбери направление, и я подберу лучший образ:",
+                reply_markup=scenario_keyboard(),
+            )
+        else:
+            from src.bot.keyboards import back_keyboard
+            await message.answer(
+                "Пожалуйста, отправь фотографию (изображение).",
+                reply_markup=back_keyboard(),
+            )
+    except Exception:
+        logger.exception("handle_document failed for user %s", message.from_user.id if message.from_user else "?")
+        await message.answer("Произошла ошибка при обработке файла. Попробуй /start", parse_mode=None)

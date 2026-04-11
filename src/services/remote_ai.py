@@ -109,6 +109,30 @@ class RemoteAIService:
 
         raise RemoteAIError(f"Remote task {remote_task_id} timed out after {_POLL_MAX_SECONDS}s")
 
+    async def pre_analyze(
+        self,
+        image_b64: str,
+        mode: str,
+        profession: str = "",
+    ) -> dict[str, Any]:
+        """Proxy pre-analysis to the primary backend. Returns the response dict."""
+        payload = {"image_b64": image_b64, "mode": mode, "profession": profession}
+        try:
+            resp = await self._client.post(
+                f"{self._base}/pre-analyze",
+                json=payload,
+                headers=self._headers(),
+                timeout=45.0,
+            )
+            resp.raise_for_status()
+        except httpx.HTTPStatusError as exc:
+            logger.error("Remote pre-analyze failed: %s %s", exc.response.status_code, exc.response.text[:200])
+            raise RemoteAIError(f"Primary pre-analyze returned {exc.response.status_code}") from exc
+        except httpx.HTTPError as exc:
+            logger.error("Remote pre-analyze connection error: %s", exc)
+            raise RemoteAIError(f"Cannot reach primary for pre-analyze: {exc}") from exc
+        return resp.json()
+
     async def submit_and_wait(
         self,
         image_b64: str,

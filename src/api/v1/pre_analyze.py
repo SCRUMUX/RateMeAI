@@ -7,6 +7,7 @@ import uuid
 from fastapi import APIRouter, Depends, UploadFile, File, Form, HTTPException
 from redis.asyncio import Redis
 
+from src.config import settings
 from src.models.db import User
 from src.models.enums import AnalysisMode
 from src.models.schemas import PreAnalysisResponse, RatingResult
@@ -68,6 +69,21 @@ async def pre_analyze(
 
     if not has_face_heuristic(image_bytes):
         raise HTTPException(status_code=400, detail="На фото не обнаружено лицо. Загрузи портретное фото.")
+
+    if settings.is_edge:
+        import base64 as _b64
+        from src.services.remote_ai import get_remote_ai, RemoteAIError
+        try:
+            remote = get_remote_ai()
+            result_data = await remote.pre_analyze(
+                image_b64=_b64.b64encode(image_bytes).decode(),
+                mode=mode.value,
+                profession=profession.strip(),
+            )
+            return PreAnalysisResponse(**result_data)
+        except RemoteAIError as exc:
+            logger.error("Edge pre-analyze proxy failed: %s", exc)
+            raise HTTPException(status_code=502, detail="Не удалось выполнить анализ через основной сервер") from exc
 
     mode_router = _get_router()
     service = mode_router.get_service(mode)

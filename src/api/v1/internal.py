@@ -44,6 +44,12 @@ async def _verify_internal_key(x_internal_key: str = Header(...)) -> str:
 
 # ── Schemas ──
 
+class RemotePreAnalyzeRequest(BaseModel):
+    image_b64: str
+    mode: AnalysisMode = AnalysisMode.DATING
+    profession: str = ""
+
+
 class RemoteAnalysisRequest(BaseModel):
     image_b64: str
     mode: AnalysisMode = AnalysisMode.RATING
@@ -172,3 +178,90 @@ async def get_remote_task_status(
             response.generated_image_b64 = task.result["generated_image_b64"]
 
     return response
+
+
+@router.post("/pre-analyze")
+async def pre_analyze_remote(
+    request: RemotePreAnalyzeRequest,
+    _key: str = Depends(_verify_internal_key),
+):
+    """Run pre-analysis on the primary backend for the edge server."""
+    try:
+        image_bytes = base64.b64decode(request.image_b64)
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid base64 image data")
+
+    if len(image_bytes) > 10 * 1024 * 1024:
+        raise HTTPException(status_code=400, detail="Image must be smaller than 10MB")
+
+    from src.utils.image import validate_and_normalize, has_face_heuristic
+
+    try:
+        image_bytes, _meta = validate_and_normalize(image_bytes)
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+
+    if not has_face_heuristic(image_bytes):
+        raise HTTPException(
+            status_code=400,
+            detail="На фото не обнаружено лицо. Загрузи портретное фото.",
+        )
+
+    from src.orchestrator.router import ModeRouter
+    from src.providers.factory import get_llm
+    from src.prompts.engine import PromptEngine
+    from src.utils.humanize import humanize_result_scores
+    from src.utils.security import extract_nsfw_from_analysis
+    from src.models.schemas import RatingResult
+    from src.metrics import LLM_CALLS
+
+    llm = get_llm()
+    mode_router = ModeRouter(llm, PromptEngine())
+    service = mode_router.get_service(request.mode)
+
+    if request.mode == AnalysisMode.CV:
+        prof = request.profession.strip() or "не указана"
+        result = await service.analyze(image_bytes, profession=prof)
+    else:
+        result = await service.analyze(image_bytes)
+    LLM_CALLS.labels(purpose=f"preanalyze_{request.mode.value}").inc()
+
+    raw_dict = result if isinstance(result, dict) else (
+        result.model_dump() if hasattr(result, "model_dump") else result
+    )
+
+    is_safe, reason = extract_nsfw_from_analysis(raw_dict)
+    if not is_safe:
+        raise HTTPException(status_code=400, detail=f"Фото не прошло модерацию: {reason}")
+
+    if isinstance(result, RatingResult):
+        result_dict = result.model_dump()
+    else:
+        result_dict = raw_dict
+
+    pre_id = str(uuid.uuid4())
+    humanize_result_scores(result_dict, pre_id)
+    result_dict["_scores_humanized"] = True
+
+    from src.api.v1.pre_analyze import _extract_composite_score
+
+    score = _extract_composite_score(request.mode, result_dict)
+    perception = result_dict.get("perception_scores", {})
+    if hasattr(perception, "model_dump"):
+        perception = perception.model_dump()
+
+    insights = result_dict.get("perception_insights", [])
+    if insights and hasattr(insights[0], "model_dump"):
+        insights = [i.model_dump() for i in insights]
+
+    opportunities = result_dict.get("enhancement_opportunities", [])
+
+    return {
+        "pre_analysis_id": pre_id,
+        "mode": request.mode.value,
+        "first_impression": result_dict.get("first_impression", result_dict.get("analysis", "")),
+        "score": score,
+        "perception_scores": perception,
+        "perception_insights": insights,
+        "enhancement_opportunities": opportunities,
+    }

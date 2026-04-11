@@ -51,6 +51,7 @@ def create_dispatcher(redis: Redis) -> Dispatcher:
             if update.message:
                 await update.message.answer(
                     "\u274c Произошла ошибка. Попробуй ещё раз или отправь /start",
+                    parse_mode=None,
                 )
             elif update.callback_query:
                 await update.callback_query.answer(
@@ -102,7 +103,6 @@ async def main():
         await bot.set_webhook(
             webhook_full_url,
             secret_token=settings.bot_webhook_secret or None,
-            drop_pending_updates=True,
         )
 
         app = web.Application()
@@ -119,7 +119,7 @@ async def main():
     else:
         await _start_health_server()
         logger.info("Bot health server started on 0.0.0.0:%s", os.environ.get("PORT", "8080"))
-        await bot.delete_webhook(drop_pending_updates=True)
+        await bot.delete_webhook(drop_pending_updates=False)
         logger.info("Starting bot in polling mode (single replica recommended).")
         await dp.start_polling(bot)
 
