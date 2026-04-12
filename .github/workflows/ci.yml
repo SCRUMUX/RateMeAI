@@ -6,9 +6,11 @@ on:
   pull_request:
     branches: [main]
 
+# Do not cancel main-branch deploys mid-flight (Railway can be left inconsistent).
+# Only cancel redundant pull_request runs.
 concurrency:
-  group: deploy-${{ github.ref }}
-  cancel-in-progress: true
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   # ─── Test & Lint ────────────────────────────────────────────
@@ -115,23 +117,18 @@ jobs:
           railway variables set API_BASE_URL="$API_URL" -s bot -e production || true
           railway variables set API_BASE_URL="$API_URL" -s worker -e production || true
 
-      - name: Deploy all services in parallel
+      - name: Deploy Railway services (sequential)
         run: |
-          railway up -s app    -d -e production &
-          PID_APP=$!
-          railway up -s worker -d -e production &
-          PID_WORKER=$!
-          railway up -s bot    -d -e production &
-          PID_BOT=$!
-
-          FAIL=0
-          wait $PID_APP    || { echo "::error::app deploy failed";    FAIL=1; }
-          wait $PID_WORKER || { echo "::error::worker deploy failed"; FAIL=1; }
-          wait $PID_BOT    || { echo "::error::bot deploy failed";    FAIL=1; }
-          exit $FAIL
+          set -e
+          echo "Deploying app..."
+          railway up -s app -d -e production
+          echo "Deploying worker..."
+          railway up -s worker -d -e production
+          echo "Deploying bot..."
+          railway up -s bot -d -e production
 
       - name: Wait for Railway build & deploy
-        run: sleep 120
+        run: sleep 180
 
       - name: Health check
         env:
@@ -139,18 +136,18 @@ jobs:
         run: |
           API_URL="${RAILWAY_API_URL:-https://app-production-6986.up.railway.app}"
           echo "Checking $API_URL/health ..."
-          for i in 1 2 3 4 5; do
+          for i in 1 2 3 4 5 6 7 8; do
             RESP=$(curl -sf "$API_URL/health" || echo "FAIL")
             echo "Attempt $i: $RESP"
             if echo "$RESP" | grep -q '"ok"'; then
               echo "Health check passed"
-              break
+              exit 0
             fi
-            if [ "$i" -eq 5 ]; then
-              echo "::error::Health check failed after 5 attempts"
+            if [ "$i" -eq 8 ]; then
+              echo "::error::Health check failed after 8 attempts"
               exit 1
             fi
-            sleep 30
+            sleep 45
           done
 
       - name: Deploy summary

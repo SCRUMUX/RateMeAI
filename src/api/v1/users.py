@@ -311,7 +311,7 @@ async def auth_ok(
     db: AsyncSession = Depends(get_db),
     redis: Redis = Depends(get_redis),
 ):
-    if not settings.ok_app_secret_key:
+    if settings.is_edge and not settings.ok_app_secret_key.strip():
         raise HTTPException(status_code=503, detail="OK Mini App auth not configured on this server")
 
     from src.channels.ok_auth import verify_ok_auth_sig
@@ -333,7 +333,7 @@ async def auth_vk(
     db: AsyncSession = Depends(get_db),
     redis: Redis = Depends(get_redis),
 ):
-    if not settings.vk_app_secret:
+    if settings.is_edge and not settings.vk_app_secret.strip():
         raise HTTPException(status_code=503, detail="VK Mini App auth not configured on this server")
 
     from src.channels.vk_auth import verify_vk_launch_params
@@ -445,7 +445,9 @@ async def vk_id_oauth_init(
     body: OAuthInitRequest,
     redis: Redis = Depends(get_redis),
 ):
-    if not settings.vk_id_app_id or not settings.vk_id_app_secret:
+    if settings.is_edge and (
+        not settings.vk_id_app_id.strip() or not settings.vk_id_app_secret.strip()
+    ):
         raise HTTPException(status_code=503, detail="VK ID OAuth not configured on this server")
 
     from src.channels.vk_id_auth import build_authorize_url

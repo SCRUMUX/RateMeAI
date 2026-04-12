@@ -13,3 +13,7 @@ __pycache__
 .mypy_cache
 /tests
 *.md
+web/node_modules
+web/dist
+*.tsbuildinfo
+AI_Look_Studio.png
