@@ -31,7 +31,8 @@ async def resolve_session(redis: Redis, token: str) -> uuid.UUID | None:
     if raw is None:
         return None
     try:
-        return uuid.UUID(raw)
+        val = raw.decode() if isinstance(raw, bytes) else raw
+        return uuid.UUID(val)
     except ValueError:
         logger.warning("Corrupt session value for token ending ...%s", token[-8:])
         return None

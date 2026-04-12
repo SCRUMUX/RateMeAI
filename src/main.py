@@ -104,6 +104,15 @@ async def lifespan(app: FastAPI):
         log.warning(
             "VK_ID_APP_ID is empty — VK ID OAuth login will not work",
         )
+    if settings.is_edge:
+        if not settings.vk_app_secret.strip():
+            log.warning("VK_APP_SECRET is empty — VK Mini App auth will not work on edge")
+        if not settings.ok_app_secret_key.strip():
+            log.warning("OK_APP_SECRET_KEY is empty — OK Mini App auth will not work on edge")
+        if not settings.remote_ai_backend_url.strip():
+            log.error("REMOTE_AI_BACKEND_URL is empty — edge cannot proxy AI requests to primary")
+        if not settings.internal_api_key.strip():
+            log.error("INTERNAL_API_KEY is empty — edge-primary communication will fail")
     sha = (settings.deploy_git_sha or "").strip()
     log.info(
         "RateMeAI API starting version=%s mode=%s%s",
@@ -173,7 +182,22 @@ class _IframeHeadersMiddleware(_BaseHTTP):
 app.add_middleware(_IframeHeadersMiddleware)
 app.include_router(api_router, prefix="/api/v1")
 
-Instrumentator().instrument(app).expose(app, endpoint="/metrics")
+_instrumentator = Instrumentator()
+_instrumentator.instrument(app)
+
+if settings.is_production:
+    from fastapi import HTTPException as _HTTPExc
+
+    @app.get("/metrics")
+    async def _protected_metrics(request: _Req):
+        auth = request.headers.get("authorization", "")
+        metrics_token = settings.internal_api_key
+        if metrics_token and not auth.endswith(metrics_token):
+            raise _HTTPExc(status_code=403, detail="Forbidden")
+        from prometheus_client import generate_latest, CONTENT_TYPE_LATEST
+        return _Resp(content=generate_latest(), media_type=CONTENT_TYPE_LATEST)
+else:
+    _instrumentator.expose(app, endpoint="/metrics")
 
 storage_dir = Path(settings.storage_local_path).resolve()
 storage_dir.mkdir(parents=True, exist_ok=True)
@@ -198,7 +222,10 @@ async def serve_storage(file_path: str, download: int = 0):
             h["Content-Disposition"] = f'attachment; filename="{filename}"'
         return h
 
-    local_path = storage_dir / file_path
+    local_path = (storage_dir / file_path).resolve()
+    if not str(local_path).startswith(str(storage_dir)):
+        from fastapi.responses import JSONResponse
+        return JSONResponse({"detail": "Invalid path"}, status_code=400, headers=_CORS_HEADERS)
     if local_path.exists() and local_path.is_file():
         import mimetypes
         ct = mimetypes.guess_type(str(local_path))[0] or "application/octet-stream"

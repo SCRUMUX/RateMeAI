@@ -40,7 +40,7 @@ async def consensus_analyze(
 
 
 def _median_dict(dicts: list[dict]) -> dict:
-    """Merge a list of dicts by taking median for numeric values and first for others."""
+    """Merge a list of dicts by taking median for numeric values, recursing into nested dicts."""
     merged: dict = {}
     keys = {k for d in dicts for k in d}
 
@@ -51,6 +51,8 @@ def _median_dict(dicts: list[dict]) -> dict:
 
         if all(isinstance(v, (int, float)) for v in vals):
             merged[key] = round(float(median(vals)), 2)
+        elif all(isinstance(v, dict) for v in vals):
+            merged[key] = _median_dict(vals)
         elif all(isinstance(v, list) for v in vals):
             longest = max(vals, key=len)
             merged[key] = longest

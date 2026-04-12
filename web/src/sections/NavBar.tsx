@@ -50,11 +50,16 @@ export default function NavBar({ onLoginClick }: Props) {
 
         {/* Desktop nav links */}
         <div className="hidden tablet:flex items-center gap-[var(--space-12)]">
-          {['Стили', 'Тарифы', 'API'].map((label) => (
-            <a key={label} href={`#${label.toLowerCase()}`}
+          {[
+            { label: 'Стили', href: '#стили' },
+            { label: 'Тарифы', href: '#тарифы' },
+            { label: 'API', href: '/api/v1/docs', external: true },
+          ].map((item) => (
+            <a key={item.label} href={item.href}
+              {...(item.external ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
               className="px-[var(--space-12)] py-[var(--space-6)] text-[14px] leading-[20px] font-medium text-[var(--color-text-secondary)] hover:text-[#E6EEF8] transition-colors cursor-pointer"
             >
-              {label}
+              {item.label}
             </a>
           ))}
 
@@ -163,12 +168,17 @@ export default function NavBar({ onLoginClick }: Props) {
         >
           {/* Navigation links */}
           <div className="flex flex-col gap-[var(--space-4)]">
-            {['Стили', 'Тарифы', 'API'].map((label) => (
-              <a key={label} href={`#${label.toLowerCase()}`}
+            {[
+              { label: 'Стили', href: '#стили' },
+              { label: 'Тарифы', href: '#тарифы' },
+              { label: 'API', href: '/api/v1/docs', external: true },
+            ].map((item) => (
+              <a key={item.label} href={item.href}
                 onClick={() => setMobileMenuOpen(false)}
+                {...(item.external ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
                 className="px-[var(--space-12)] py-[var(--space-12)] text-[16px] leading-[24px] font-medium text-[var(--color-text-secondary)] hover:text-[#E6EEF8] transition-colors cursor-pointer rounded-[var(--radius-12)] hover:bg-[rgba(255,255,255,0.06)]"
               >
-                {label}
+                {item.label}
               </a>
             ))}
           </div>

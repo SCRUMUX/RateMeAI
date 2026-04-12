@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useState, useCallback, useRef, type ReactNode } from 'react';
-import { login, restoreToken, startOAuth, logout as authLogout } from '../lib/auth';
+import { restoreToken, startOAuth, logout as authLogout } from '../lib/auth';
 import * as api from '../lib/api';
 import type { CategoryId } from '../data/styles';
 import { restorePhotoAfterOAuth, clearPersistedPhoto } from '../lib/photo-persist';
@@ -49,7 +49,6 @@ interface AppActions {
   resetGeneration: () => void;
   fetchTaskHistory: () => Promise<void>;
   startSimulation: () => void;
-  authenticateUser: (email: string) => Promise<void>;
   loginWithOAuth: (provider: 'yandex' | 'vk-id') => Promise<void>;
   loginWithToken: (token: string, userId?: string, provider?: string) => Promise<void>;
   logout: () => void;
@@ -63,8 +62,6 @@ export function useApp() {
   if (!v) throw new Error('useApp must be inside AppProvider');
   return v;
 }
-
-const EMAIL_KEY = 'ailook_user_email';
 
 function extractAfterScores(result: Record<string, unknown>, mode: string) {
   const delta = result.delta as Record<string, { pre: number; post: number; delta: number }> | undefined;
@@ -198,19 +195,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => () => { if (simTimerRef.current) clearTimeout(simTimerRef.current); }, []);
-
-  const authenticateUser = useCallback(async (email: string) => {
-    localStorage.setItem(EMAIL_KEY, email);
-    try {
-      const res = await login();
-      setSession({ token: res.session_token, userId: res.user_id, provider: 'web', usage: res.usage });
-      const b = await api.getBalance();
-      setBalance(b.image_credits);
-      setIsAuthenticated(true);
-    } catch (e) {
-      throw e;
-    }
-  }, []);
 
   const loginWithOAuth = useCallback(async (provider: 'yandex' | 'vk-id') => {
     await startOAuth(provider, photo ? {
@@ -441,7 +425,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     noCreditsError, preAnalyzeError, taskHistory, taskHistoryCount, identities,
     setActiveCategory, setSelectedStyleKey, uploadPhoto, runPreAnalyze,
     generate, share, refreshBalance, clearError, clearGeneratedImage, clearNoCreditsError,
-    resetGeneration, fetchTaskHistory, startSimulation, authenticateUser,
+    resetGeneration, fetchTaskHistory, startSimulation,
     loginWithOAuth, loginWithToken, logout, refreshIdentities,
   };
 

@@ -80,6 +80,8 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Validate secrets
+        env:
+          INTERNAL_API_KEY: ${{ secrets.INTERNAL_API_KEY }}
         run: |
           ok=true
           if [ -z "$RAILWAY_TOKEN" ]; then
@@ -90,19 +92,28 @@ jobs:
             echo "::error::RAILWAY_PROJECT_ID is not set"
             ok=false
           fi
+          if [ -z "$INTERNAL_API_KEY" ]; then
+            echo "::error::INTERNAL_API_KEY is not set"
+            ok=false
+          fi
           [ "$ok" = true ] || exit 1
 
       - name: Install Railway CLI
         run: npm install -g @railway/cli
 
       - name: Sync env vars to Railway services
+        env:
+          RAILWAY_API_URL: ${{ secrets.RAILWAY_API_URL }}
         run: |
           SHORT_SHA="${GITHUB_SHA:0:12}"
+          API_URL="${RAILWAY_API_URL:-https://app-production-6986.up.railway.app}"
           for SVC in app bot worker; do
             railway variables set CREDIT_PACKS="1:59,5:199,15:499,30:899" -s "$SVC" -e production || true
             railway variables set DEPLOY_GIT_SHA="$SHORT_SHA" -s "$SVC" -e production || true
           done
-          railway variables set INTERNAL_API_KEY="FK9LjLojdSmccr9zvX3qlANVP03EV3mrdJ_dWdR5Gqk" -s app -e production || true
+          railway variables set INTERNAL_API_KEY="${{ secrets.INTERNAL_API_KEY }}" -s app -e production || true
+          railway variables set API_BASE_URL="$API_URL" -s bot -e production || true
+          railway variables set API_BASE_URL="$API_URL" -s worker -e production || true
 
       - name: Deploy all services in parallel
         run: |
@@ -123,8 +134,10 @@ jobs:
         run: sleep 120
 
       - name: Health check
+        env:
+          RAILWAY_API_URL: ${{ secrets.RAILWAY_API_URL }}
         run: |
-          API_URL="https://app-production-6986.up.railway.app"
+          API_URL="${RAILWAY_API_URL:-https://app-production-6986.up.railway.app}"
           echo "Checking $API_URL/health ..."
           for i in 1 2 3 4 5; do
             RESP=$(curl -sf "$API_URL/health" || echo "FAIL")
@@ -142,6 +155,8 @@ jobs:
 
       - name: Deploy summary
         if: always()
+        env:
+          RAILWAY_API_URL: ${{ secrets.RAILWAY_API_URL }}
         run: |
           SHORT_SHA="${GITHUB_SHA:0:12}"
           echo "## Deploy Summary" >> $GITHUB_STEP_SUMMARY
@@ -152,4 +167,5 @@ jobs:
           echo "| Branch | \`${{ github.ref_name }}\` |" >> $GITHUB_STEP_SUMMARY
           echo "| Backend | [Railway Dashboard](https://railway.com/project/${{ secrets.RAILWAY_PROJECT_ID }}) |" >> $GITHUB_STEP_SUMMARY
           echo "| Frontend | [Vercel](https://ailookstudio.vercel.app) |" >> $GITHUB_STEP_SUMMARY
-          echo "| API Health | [/health](https://app-production-6986.up.railway.app/health) |" >> $GITHUB_STEP_SUMMARY
+          API_URL="${RAILWAY_API_URL:-https://app-production-6986.up.railway.app}"
+          echo "| API Health | [/health](${API_URL}/health) |" >> $GITHUB_STEP_SUMMARY

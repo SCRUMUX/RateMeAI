@@ -95,16 +95,33 @@ async def check_credits(
     user: User = Depends(get_auth_user),
     db: AsyncSession = Depends(get_db),
 ) -> User:
-    """Verify user has image credits. Returns 402 when balance is zero."""
-    await db.refresh(user, ["image_credits"])
-    if user.image_credits <= 0:
+    """Reserve one credit atomically using SELECT FOR UPDATE + immediate decrement.
+
+    If the task fails later, the worker/edge handler refunds the credit.
+    This prevents concurrent requests from over-committing credits.
+    """
+    from sqlalchemy import select as sa_select
+    from src.models.db import CreditTransaction
+    result = await db.execute(
+        sa_select(User).where(User.id == user.id).with_for_update()
+    )
+    fresh_user = result.scalar_one()
+    if fresh_user.image_credits <= 0:
         raise HTTPException(
             status_code=402,
             detail="no_credits",
             headers={"X-Credits-Remaining": "0"},
         )
-    user._credits_remaining = user.image_credits
-    return user
+    fresh_user.image_credits -= 1
+    db.add(CreditTransaction(
+        user_id=fresh_user.id,
+        amount=-1,
+        balance_after=fresh_user.image_credits,
+        tx_type="reservation",
+    ))
+    fresh_user._credits_remaining = fresh_user.image_credits
+    fresh_user._credit_reserved = True
+    return fresh_user
 
 
 async def check_rate_limit(

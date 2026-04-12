@@ -72,8 +72,12 @@ class RemoteAIService:
             logger.error("Remote AI submit connection error: %s", exc)
             raise RemoteAIError(f"Cannot reach primary backend: {exc}") from exc
 
-        data = resp.json()
-        remote_task_id = data["remote_task_id"]
+        try:
+            data = resp.json()
+            remote_task_id = data["remote_task_id"]
+        except (KeyError, ValueError) as exc:
+            logger.error("Unexpected response from primary on submit: %s", resp.text[:300])
+            raise RemoteAIError(f"Invalid response from primary backend: {exc}") from exc
         logger.info("Submitted remote task %s (edge=%s)", remote_task_id, edge_task_id)
         return remote_task_id
 
@@ -93,8 +97,14 @@ class RemoteAIService:
                 elapsed += _POLL_INTERVAL_SECONDS
                 continue
 
-            data = resp.json()
-            status = data["status"]
+            try:
+                data = resp.json()
+                status = data["status"]
+            except (KeyError, ValueError) as exc:
+                logger.warning("Invalid poll response for %s: %s", remote_task_id, exc)
+                await asyncio.sleep(_POLL_INTERVAL_SECONDS)
+                elapsed += _POLL_INTERVAL_SECONDS
+                continue
 
             if status == "completed":
                 logger.info("Remote task %s completed", remote_task_id)

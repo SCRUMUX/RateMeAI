@@ -160,7 +160,7 @@ class QualityGateRunner:
         self._quality_cache = None
         results = await self.run_gates(gate_spec, original_bytes, generated_bytes, original_embedding)
 
-        quality = await self._get_quality_metrics(generated_bytes) if self._llm else {}
+        quality = self._quality_cache or {}
 
         report = {
             "face_similarity": next((r.value for r in results if r.gate_name == "face_similarity"), None),

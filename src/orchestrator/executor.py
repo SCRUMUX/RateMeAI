@@ -19,7 +19,8 @@ from src.orchestrator.planner import PipelinePlan
 from src.prompts.engine import PromptEngine
 from src.providers.base import ImageGenProvider, StorageProvider
 from src.services.postprocess import composite_face_region, inject_exif_only
-from src.services.prompt_ab import get_active_experiments, assign_variant, record_result
+# TODO: A/B framework — uncomment when experiments are registered via register_experiment()
+# from src.services.prompt_ab import get_active_experiments, assign_variant, record_result
 
 _LEVEL_TO_TTS: dict[int, int] = {
     1: 3,
@@ -68,17 +69,18 @@ class ImageGenerationExecutor:
         self._get_or_compute_embedding = embedding_getter
         self._get_segmentation = segmentation_getter
 
-    async def _record_ab_metrics(self, task_id: str, quality_report: dict, redis=None) -> None:
-        """Record quality metrics for any active A/B experiments."""
-        for exp in get_active_experiments():
-            variant = assign_variant(exp.experiment_id, task_id)
-            if variant:
-                metrics = {
-                    "identity_score": float(quality_report.get("face_similarity") or 0),
-                    "aesthetic_score": float(quality_report.get("aesthetic_score") or 0),
-                    "niqe_score": float(quality_report.get("niqe_score") or 0),
-                }
-                await record_result(redis, exp.experiment_id, variant.name, metrics)
+    # TODO: A/B framework — uncomment when experiments are registered via register_experiment()
+    # async def _record_ab_metrics(self, task_id: str, quality_report: dict, redis=None) -> None:
+    #     """Record quality metrics for any active A/B experiments."""
+    #     for exp in get_active_experiments():
+    #         variant = assign_variant(exp.experiment_id, task_id)
+    #         if variant:
+    #             metrics = {
+    #                 "identity_score": float(quality_report.get("face_similarity") or 0),
+    #                 "aesthetic_score": float(quality_report.get("aesthetic_score") or 0),
+    #                 "niqe_score": float(quality_report.get("niqe_score") or 0),
+    #             }
+    #             await record_result(redis, exp.experiment_id, variant.name, metrics)
 
     async def execute_plan(
         self,
@@ -170,7 +172,7 @@ class ImageGenerationExecutor:
                     )
                     result_dict["quality_warning"] = True
 
-                await self._record_ab_metrics(task_id, quality_report)
+                # await self._record_ab_metrics(task_id, quality_report)
 
                 current_image = inject_exif_only(current_image)
 
@@ -417,7 +419,7 @@ class ImageGenerationExecutor:
                         )
                         result_dict["quality_warning"] = True
 
-                    await self._record_ab_metrics(task_id, sp_report)
+                    # await self._record_ab_metrics(task_id, sp_report)
                 except Exception:
                     logger.warning("Single-pass quality gates error for task=%s, skipping", task_id, exc_info=True)
 

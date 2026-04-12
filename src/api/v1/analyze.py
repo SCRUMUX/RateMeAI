@@ -14,7 +14,7 @@ from src.config import settings
 from src.models.db import Task, User, CreditTransaction
 from src.models.enums import AnalysisMode, TaskStatus
 from src.models.schemas import TaskCreated
-from src.api.deps import get_db, get_redis, check_credits
+from src.api.deps import get_db, get_redis, check_credits, check_rate_limit
 from src.providers.factory import get_storage
 from src.utils.redis_keys import task_input_cache_key, gen_image_cache_key
 from prometheus_client import Counter
@@ -104,22 +104,23 @@ async def _handle_edge_analysis(
                 )
                 remote_result.pop("generated_image_b64", None)
 
-            if remote_result.get("generated_image_url") or gen_b64:
-                u = await db.execute(
-                    select(User).where(User.id == user_id).with_for_update()
+            credit_pre_reserved = (task.context or {}).get("credit_pre_reserved", False)
+            remote_result["credit_deducted"] = credit_pre_reserved
+
+            from src.models.db import UsageLog
+            from datetime import date as _date
+            today = _date.today()
+            usage_row = await db.execute(
+                select(UsageLog).where(
+                    UsageLog.user_id == user_id,
+                    UsageLog.usage_date == today,
                 )
-                fresh_user = u.scalar_one()
-                if fresh_user.image_credits > 0:
-                    fresh_user.image_credits -= 1
-                    db.add(CreditTransaction(
-                        user_id=user_id,
-                        amount=-1,
-                        balance_after=fresh_user.image_credits,
-                        tx_type="generation",
-                    ))
-                    remote_result["credit_deducted"] = True
-                else:
-                    remote_result["credit_deducted"] = False
+            )
+            usage_log = usage_row.scalar_one_or_none()
+            if usage_log:
+                usage_log.count += 1
+            else:
+                db.add(UsageLog(user_id=user_id, usage_date=today, count=1))
 
             task.result = remote_result
             task.status = TaskStatus.COMPLETED.value
@@ -131,20 +132,35 @@ async def _handle_edge_analysis(
             except Exception:
                 pass
 
-        except RemoteAIError as exc:
-            logger.error("Edge AI proxy failed for task %s: %s", task_id, exc)
+        except Exception as exc:
+            is_remote = isinstance(exc, RemoteAIError)
+            if is_remote:
+                logger.error("Edge AI proxy failed for task %s: %s", task_id, exc)
+            else:
+                logger.exception("Unexpected edge handler error for task %s", task_id)
             task.status = TaskStatus.FAILED.value
-            task.error_message = str(exc)[:500]
+            task.error_message = (str(exc) if is_remote else f"Edge proxy error: {exc}")[:500]
+
+            credit_pre_reserved = (task.context or {}).get("credit_pre_reserved", False)
+            if credit_pre_reserved:
+                u = await db.execute(
+                    select(User).where(User.id == user_id).with_for_update()
+                )
+                fresh_user = u.scalar_one()
+                fresh_user.image_credits += 1
+                db.add(CreditTransaction(
+                    user_id=user_id,
+                    amount=1,
+                    balance_after=fresh_user.image_credits,
+                    tx_type="refund_failed_task",
+                ))
+                logger.info("Refunded 1 credit to user %s for failed edge task %s", user_id, task_id)
+
             await db.commit()
             try:
                 await redis.publish(f"ratemeai:task_done:{task_id}", "failed")
             except Exception:
                 pass
-        except Exception as exc:
-            logger.exception("Unexpected edge handler error for task %s", task_id)
-            task.status = TaskStatus.FAILED.value
-            task.error_message = f"Edge proxy error: {exc}"[:500]
-            await db.commit()
 
 
 @router.post("", response_model=TaskCreated, status_code=202)
@@ -157,6 +173,7 @@ async def create_analysis(
     enhancement_level: int = Form(0),
     pre_analysis_id: str = Form(""),
     user: User = Depends(check_credits),
+    _rate_limited: User = Depends(check_rate_limit),
     db: AsyncSession = Depends(get_db),
     redis: Redis = Depends(get_redis),
 ):
@@ -187,6 +204,8 @@ async def create_analysis(
         ctx["enhancement_level"] = enhancement_level
     if pre_analysis_id.strip():
         ctx["pre_analysis_id"] = pre_analysis_id.strip()
+    if getattr(user, "_credit_reserved", False):
+        ctx["credit_pre_reserved"] = True
 
     task = Task(
         user_id=user.id,
@@ -203,7 +222,7 @@ async def create_analysis(
     credits_remaining = getattr(user, "_credits_remaining", None)
     headers = {}
     if credits_remaining is not None:
-        headers["X-Credits-Remaining"] = str(max(0, credits_remaining - 1))
+        headers["X-Credits-Remaining"] = str(credits_remaining)
 
     if settings.is_edge:
         import asyncio

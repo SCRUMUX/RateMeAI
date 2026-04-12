@@ -16,15 +16,12 @@ from src.orchestrator.router import ModeRouter
 from src.providers.base import ImageGenProvider, LLMProvider, StorageProvider
 from src.prompts.engine import PromptEngine
 from src.services.share import ShareCardGenerator
-from src.utils.humanize import SCORE_FLOOR, PERCEPTION_FLOOR, humanize_result_scores
+from src.utils.humanize import humanize_result_scores
 from src.utils.image import validate_and_normalize, has_face_heuristic, estimate_blur_score
 from src.utils.redis_keys import embedding_cache_key, preanalysis_cache_key
 from src.utils.security import extract_nsfw_from_analysis
 
 logger = logging.getLogger(__name__)
-
-_SCORE_FLOOR = SCORE_FLOOR
-_PERCEPTION_FLOOR = PERCEPTION_FLOOR
 
 
 @contextmanager

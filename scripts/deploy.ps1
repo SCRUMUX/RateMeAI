@@ -19,7 +19,7 @@ param(
 $ErrorActionPreference = "Stop"
 Set-StrictMode -Version Latest
 
-$API_URL = "https://app-production-6986.up.railway.app"
+$API_URL = if ($env:RAILWAY_API_URL) { $env:RAILWAY_API_URL } else { "https://app-production-6986.up.railway.app" }
 $HEALTH_RETRIES = 8
 $HEALTH_DELAY_SEC = 30
 
@@ -114,5 +114,6 @@ for ($i = 1; $i -le $HEALTH_RETRIES; $i++) {
 
 Write-Host "`nWARNING: Health check did not confirm deployment after $HEALTH_RETRIES attempts." -ForegroundColor Yellow
 Write-Host "Check manually: $API_URL/health"
-Write-Host "Railway logs:   https://railway.com/project/abb23754-4c0e-4e96-a2f4-39529bf3b90e"
+$projectId = if ($env:RAILWAY_PROJECT_ID) { $env:RAILWAY_PROJECT_ID } else { "abb23754-4c0e-4e96-a2f4-39529bf3b90e" }
+Write-Host "Railway logs:   https://railway.com/project/$projectId"
 exit 1

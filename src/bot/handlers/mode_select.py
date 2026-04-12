@@ -585,7 +585,7 @@ async def _poll_task(bot, api_base_url: str, user_id: int, task_id: str, chat_id
 
             if status == "completed":
                 await redis.delete(lock_key)
-                await deliver_result(bot, chat_id, status_msg_id, data, user_id, redis)
+                await deliver_result(bot, chat_id, status_msg_id, data, user_id, redis, api_base_url=api_base_url)
                 return
             if status == "failed":
                 await redis.delete(lock_key)
@@ -612,7 +612,7 @@ async def _poll_task(bot, api_base_url: str, user_id: int, task_id: str, chat_id
                 last_status = data.get("status")
             if data and data.get("status") == "completed":
                 await redis.delete(lock_key)
-                await deliver_result(bot, chat_id, status_msg_id, data, user_id, redis)
+                await deliver_result(bot, chat_id, status_msg_id, data, user_id, redis, api_base_url=api_base_url)
                 return
             if data and data.get("status") == "failed":
                 await redis.delete(lock_key)

@@ -14,6 +14,7 @@ build/
 .pytest_cache/
 .vercel
 node_modules/
+*.tsbuildinfo
 deploy/ru/_*.py
 deploy/ru/remote_exec.py
 deploy/ru/upload_files.py

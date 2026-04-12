@@ -84,7 +84,11 @@ async def yookassa_webhook(
         logger.warning("Webhook missing metadata: payment=%s", payment_id)
         return {"status": "error", "detail": "missing metadata"}
 
-    pack_qty = int(pack_qty_str)
+    try:
+        pack_qty = int(pack_qty_str)
+    except (ValueError, TypeError):
+        logger.error("Invalid pack_qty=%r in payment %s metadata", pack_qty_str, payment_id)
+        return {"status": "error", "detail": "invalid pack_qty in metadata"}
 
     existing = await db.execute(
         select(CreditTransaction).where(CreditTransaction.payment_id == payment_id)
@@ -93,7 +97,11 @@ async def yookassa_webhook(
         logger.info("Duplicate webhook for payment=%s, skipping", payment_id)
         return {"status": "duplicate"}
 
-    user = await db.get(User, _uuid.UUID(user_id_str))
+    try:
+        user = await db.get(User, _uuid.UUID(user_id_str))
+    except (ValueError, TypeError):
+        logger.error("Invalid user_id=%r in payment %s metadata", user_id_str, payment_id)
+        return {"status": "error", "detail": "invalid user_id in metadata"}
     if user is None:
         logger.error("User not found for user_id=%s payment=%s", user_id_str, payment_id)
         raise HTTPException(status_code=404, detail="User not found")

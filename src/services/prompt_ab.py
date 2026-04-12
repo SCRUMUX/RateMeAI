@@ -5,6 +5,9 @@ Stores prompt variant assignments per generation, tracks quality metrics
 promotion when enough data accumulates.
 
 Storage: Redis hash per experiment; lightweight and zero-migration.
+
+TODO: A/B framework — wire Redis and register_experiment() to activate.
+Currently no experiments are registered, so all functions are no-ops.
 """
 from __future__ import annotations
 
@@ -136,15 +139,16 @@ async def check_and_promote(
     if len(candidates) < 2:
         return None
 
-    best_name = max(candidates, key=lambda x: x[1]["mean"])[0]
-    second = sorted(candidates, key=lambda x: x[1]["mean"], reverse=True)[1]
+    ranked = sorted(candidates, key=lambda x: x[1]["mean"], reverse=True)
+    best_name = ranked[0][0]
+    second = ranked[1]
 
-    improvement = (candidates[0][1]["mean"] - second[1]["mean"]) / max(second[1]["mean"], 0.01)
+    improvement = (ranked[0][1]["mean"] - second[1]["mean"]) / max(second[1]["mean"], 0.01)
     if improvement >= 0.05:
         logger.info(
             "A/B experiment %s: variant '%s' wins (mean=%.4f vs %.4f, +%.1f%%)",
             experiment_id, best_name,
-            max(c[1]["mean"] for c in candidates),
+            ranked[0][1]["mean"],
             second[1]["mean"],
             improvement * 100,
         )

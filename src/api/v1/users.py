@@ -166,12 +166,55 @@ async def _identities_list(db: AsyncSession, user_id) -> list[LinkedIdentity]:
 # Telegram auth (identity-first, no legacy fallback)
 # ------------------------------------------------------------------
 
+def _verify_telegram_init_data(init_data: str, bot_token: str) -> int | None:
+    """Validate Telegram WebApp init_data hash. Returns telegram user id or None."""
+    import hashlib
+    import hmac
+    import json as _json
+    from urllib.parse import parse_qs
+
+    parsed = parse_qs(init_data, keep_blank_values=True)
+    received_hash = parsed.pop("hash", [None])[0]
+    if not received_hash:
+        return None
+
+    items = sorted(
+        (k, v[0]) for k, v in parsed.items()
+    )
+    data_check_string = "\n".join(f"{k}={v}" for k, v in items)
+
+    secret_key = hmac.new(b"WebAppData", bot_token.encode(), hashlib.sha256).digest()
+    calculated_hash = hmac.new(secret_key, data_check_string.encode(), hashlib.sha256).hexdigest()
+
+    if not hmac.compare_digest(calculated_hash, received_hash):
+        return None
+
+    user_data_raw = parsed.get("user", [None])[0]
+    if not user_data_raw:
+        return None
+    try:
+        user_data = _json.loads(user_data_raw)
+        return int(user_data["id"])
+    except (ValueError, KeyError, TypeError):
+        return None
+
+
 @router.post("/auth/telegram", response_model=ChannelAuthResponse)
 async def auth_telegram(
     body: TelegramAuthRequest,
     db: AsyncSession = Depends(get_db),
     redis: Redis = Depends(get_redis),
 ):
+    if body.init_data:
+        bot_token = settings.telegram_bot_token
+        if not bot_token:
+            raise HTTPException(status_code=500, detail="Bot token not configured")
+        verified_id = _verify_telegram_init_data(body.init_data, bot_token)
+        if verified_id is None:
+            raise HTTPException(status_code=401, detail="Invalid Telegram init_data signature")
+        if verified_id != body.telegram_id:
+            raise HTTPException(status_code=401, detail="Telegram ID mismatch")
+
     tg_id_str = str(body.telegram_id)
     user = await _find_or_create_by_identity(
         db, "telegram", tg_id_str,
@@ -268,6 +311,9 @@ async def auth_ok(
     db: AsyncSession = Depends(get_db),
     redis: Redis = Depends(get_redis),
 ):
+    if not settings.ok_app_secret_key:
+        raise HTTPException(status_code=503, detail="OK Mini App auth not configured on this server")
+
     from src.channels.ok_auth import verify_ok_auth_sig
 
     if not verify_ok_auth_sig(body.logged_user_id, body.session_key, body.auth_sig):
@@ -287,6 +333,9 @@ async def auth_vk(
     db: AsyncSession = Depends(get_db),
     redis: Redis = Depends(get_redis),
 ):
+    if not settings.vk_app_secret:
+        raise HTTPException(status_code=503, detail="VK Mini App auth not configured on this server")
+
     from src.channels.vk_auth import verify_vk_launch_params
 
     vk_user_id = verify_vk_launch_params(body.launch_params)
@@ -396,6 +445,9 @@ async def vk_id_oauth_init(
     body: OAuthInitRequest,
     redis: Redis = Depends(get_redis),
 ):
+    if not settings.vk_id_app_id or not settings.vk_id_app_secret:
+        raise HTTPException(status_code=503, detail="VK ID OAuth not configured on this server")
+
     from src.channels.vk_id_auth import build_authorize_url
     from src.services.oauth_state import generate_pkce, save_oauth_state
 
@@ -514,7 +566,7 @@ async def phone_send_code(
 
     await redis.set(f"{_OTP_PREFIX}{phone}", code, ex=_OTP_TTL)
 
-    logger.info("OTP for +%s: %s (send via SMS provider)", phone, code)
+    logger.info("OTP sent for phone +%s***%s", phone[:3], phone[-2:])
 
     return {"sent": True, "phone": phone, "ttl": _OTP_TTL}
 

@@ -100,9 +100,9 @@ export default function Simulation() {
           ))}
 
           {remaining > 0 && (
-            <button className="glass-btn-secondary flex items-center justify-center w-full mt-[var(--space-12)] px-[var(--space-20)] py-[var(--space-10)] rounded-[var(--radius-12)] text-[var(--color-brand-primary)] text-[16px] leading-[24px] font-medium">
+            <a href="#app" className="glass-btn-secondary flex items-center justify-center w-full mt-[var(--space-12)] px-[var(--space-20)] py-[var(--space-10)] rounded-[var(--radius-12)] text-[var(--color-brand-primary)] text-[16px] leading-[24px] font-medium no-underline">
               Ещё {remaining} образов
-            </button>
+            </a>
           )}
         </div>
 

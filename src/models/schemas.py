@@ -14,6 +14,7 @@ class TelegramAuthRequest(BaseModel):
     telegram_id: int
     username: str | None = None
     first_name: str | None = None
+    init_data: str | None = None
 
 
 class ApiClientCreateRequest(BaseModel):

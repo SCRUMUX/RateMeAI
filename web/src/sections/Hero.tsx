@@ -14,8 +14,8 @@ interface PlatformDef {
 const PLATFORMS: PlatformDef[] = [
   { name: 'WEB APP', sub: 'Прямо здесь', border: 'var(--color-brand-primary)', opacity: 1, iconColor: 'var(--color-brand-primary)', Icon: ({ size, className }) => <AicaIcon size={size} className={`${className ?? ''} -rotate-45`} />, href: '#app' },
   { name: 'Telegram', sub: 'Уже запущен', border: '#229ED9', opacity: 1, iconColor: '#229ED9', Icon: TelegramIcon, href: 'https://t.me/RateMeAIBot' },
-  { name: 'Одноклассники', sub: 'Скоро', border: '#EE8208', opacity: 0.5, iconColor: '#EE8208', Icon: OkIcon },
-  { name: 'Вконтакте', sub: 'Скоро', border: '#0077FF', opacity: 0.5, iconColor: '#0077FF', Icon: VkIcon },
+  { name: 'Одноклассники', sub: 'Мини-приложение', border: '#EE8208', opacity: 1, iconColor: '#EE8208', Icon: OkIcon, href: 'https://ok.ru/app/ratemeai' },
+  { name: 'Вконтакте', sub: 'Мини-приложение', border: '#0077FF', opacity: 1, iconColor: '#0077FF', Icon: VkIcon, href: 'https://vk.com/app_ratemeai' },
   { name: 'WhatsApp', sub: 'Скоро', border: '#25D366', opacity: 0.5, iconColor: '#25D366', Icon: WhatsappIcon },
   { name: 'Zalo', sub: 'Скоро', border: '#0068FF', opacity: 0.5, iconColor: '#0068FF', Icon: ZaloIcon },
   { name: 'Line', sub: 'Скоро', border: '#06C755', opacity: 0.5, iconColor: '#06C755', Icon: LineIcon },

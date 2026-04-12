@@ -170,11 +170,12 @@ export function createShare(taskId: string) {
 
 // -- Catalog --
 
-export function getCatalogStyles(mode: string) {
-  return request<{ mode: string; count: number; styles: Array<{ key: string; label: string; hook: string; meta: Record<string, unknown> }> }>(
-    `/api/v1/catalog/styles?mode=${mode}`,
-  );
-}
+// TODO: Replace static styles.ts with dynamic catalog when backend catalog is finalized.
+// export function getCatalogStyles(mode: string) {
+//   return request<{ mode: string; count: number; styles: Array<{ key: string; label: string; hook: string; meta: Record<string, unknown> }> }>(
+//     `/api/v1/catalog/styles?mode=${mode}`,
+//   );
+// }
 
 // -- Payments --
 

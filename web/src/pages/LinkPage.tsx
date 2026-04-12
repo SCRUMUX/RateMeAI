@@ -1,11 +1,13 @@
 import { useState, useEffect } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
-import { startOAuth } from '../lib/auth';
+import { startOAuth, setToken } from '../lib/auth';
 import * as api from '../lib/api';
+import { useApp } from '../context/AppContext';
 
 export default function LinkPage() {
   const [params] = useSearchParams();
   const navigate = useNavigate();
+  const { loginWithToken } = useApp();
   const initialCode = params.get('code') ?? '';
   const [code, setCode] = useState(initialCode);
   const [loading, setLoading] = useState<string | null>(null);
@@ -68,6 +70,8 @@ export default function LinkPage() {
     try {
       const res = await api.phoneVerify(digits, otpCode, trimmedCode);
       if (res.session_token) {
+        setToken(res.session_token);
+        await loginWithToken(res.session_token, res.user_id ?? '', 'phone');
         setSuccess(true);
         setTimeout(() => navigate('/', { replace: true }), 2000);
       }

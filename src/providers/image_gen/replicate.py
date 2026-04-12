@@ -51,7 +51,7 @@ class ReplicateImageGen(ImageGenProvider):
     @retry(
         stop=stop_after_attempt(2),
         wait=wait_exponential(multiplier=2, min=4, max=60),
-        retry=retry_if_exception_type((httpx.HTTPStatusError, httpx.ConnectError, TimeoutError)),
+        retry=retry_if_exception_type((httpx.HTTPStatusError, httpx.ConnectError, httpx.TimeoutException, TimeoutError)),
     )
     async def generate(
         self,
@@ -122,7 +122,12 @@ class ReplicateImageGen(ImageGenProvider):
         else:
             raise TimeoutError("replicate prediction timeout")
 
-        img_url = out[0] if isinstance(out, list) else out
+        if isinstance(out, list):
+            if not out:
+                raise RuntimeError("Replicate returned empty output list")
+            img_url = out[0]
+        else:
+            img_url = out
         if not img_url:
             return b""
 

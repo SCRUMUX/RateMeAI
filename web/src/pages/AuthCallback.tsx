@@ -27,8 +27,8 @@ export default function AuthCallback() {
     if (token) {
       setToken(token);
       loginWithToken(token, userId, provider)
-        .catch(() => setError('Не удалось завершить авторизацию. Попробуйте снова.'))
-        .then(() => navigate('/', { replace: true }));
+        .then(() => navigate('/', { replace: true }))
+        .catch(() => setError('Не удалось завершить авторизацию. Попробуйте снова.'));
     } else {
       setError('Токен авторизации не получен. Попробуйте войти снова.');
     }

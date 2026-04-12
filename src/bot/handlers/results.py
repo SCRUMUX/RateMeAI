@@ -139,13 +139,13 @@ async def _fetch_gen_image_from_redis(redis: Redis | None, task_id: str | None) 
     return None
 
 
-async def _get_credit_balance(user_id: int, redis: Redis | None = None) -> int | None:
+async def _get_credit_balance(user_id: int, redis: Redis | None = None, api_base_url: str = "") -> int | None:
     try:
         headers: dict[str, str] = {}
         if redis:
             headers = await get_bot_auth_headers(redis, user_id)
+        api_base = api_base_url or settings.api_base_url
         async with httpx.AsyncClient(timeout=5.0) as client:
-            api_base = settings.api_base_url
             resp = await client.get(
                 f"{api_base}/api/v1/payments/balance",
                 headers=headers,
@@ -200,7 +200,7 @@ def _balance_line(credits: int | None) -> str:
     return f"\n\n\U0001f4b0 Баланс: *{credits} образов*"
 
 
-async def deliver_result(bot: Bot, chat_id: int, status_msg_id: int, data: dict, user_id: int, redis: Redis | None = None):
+async def deliver_result(bot: Bot, chat_id: int, status_msg_id: int, data: dict, user_id: int, redis: Redis | None = None, api_base_url: str = ""):
     result = data.get("result", {})
     mode = data.get("mode", "rating")
     task_id = str(data.get("task_id", ""))
@@ -215,7 +215,7 @@ async def deliver_result(bot: Bot, chat_id: int, status_msg_id: int, data: dict,
         pass
 
     uname = _bot_username()
-    credits = await _get_credit_balance(user_id, redis)
+    credits = await _get_credit_balance(user_id, redis, api_base_url=api_base_url)
 
     needs_upgrade = result.get("upgrade_prompt", False)
     bal = _balance_line(credits)

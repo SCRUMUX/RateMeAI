@@ -169,9 +169,9 @@ class EngagementSnapshot:
     @property
     def completion_pct(self) -> float:
         styles = SCENARIO_STYLES.get(self.mode, [])
-        if not styles:
-            return 0.0
         max_depth = len(styles) * len(LEVELS)
+        if max_depth == 0:
+            return 0.0
         return min(100.0, round(self.depth / max_depth * 100, 1))
 
 

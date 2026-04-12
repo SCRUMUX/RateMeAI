@@ -16,6 +16,7 @@ interface ToastContextValue {
 
 const ToastCtx = createContext<ToastContextValue | null>(null);
 
+// TODO: Replace alert() calls with useToast() across the app
 export function useToast() {
   const ctx = useContext(ToastCtx);
   if (!ctx) throw new Error('useToast must be inside ToastProvider');

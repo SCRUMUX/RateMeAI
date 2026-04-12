@@ -45,7 +45,11 @@ async def get_my_depth(
 
 
 @router.get("/depth/{telegram_id}")
-async def get_user_depth(telegram_id: int, request: Request):
+async def get_user_depth(
+    telegram_id: int,
+    request: Request,
+    _user: User = Depends(get_auth_user),
+):
     """Legacy: Return engagement depth by telegram_id (backward compat for bot)."""
     redis = request.app.state.redis
     modes = ["dating", "cv", "social"]

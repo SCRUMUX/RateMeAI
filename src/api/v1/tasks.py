@@ -6,7 +6,7 @@ from pathlib import Path
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from redis.asyncio import Redis
-from sqlalchemy import select
+from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.config import settings
@@ -51,8 +51,8 @@ async def _image_available(task: Task, redis: Redis) -> bool:
             continue
         m = _STORAGE_PATH_RE.search(raw)
         if m:
-            rel = m.group(0).lstrip("/")  # "storage/gen/..."
-            if (_storage_dir.parent / rel).is_file():
+            file_path = m.group(0).split("/storage/", 1)[-1]
+            if (_storage_dir / file_path).resolve().is_file():
                 return True
 
     # 2. Redis cache
@@ -76,6 +76,12 @@ async def list_tasks(
     offset: int = Query(0, ge=0),
 ):
     """List completed tasks that have a generated image (for the Storage gallery)."""
+    count_q = select(func.count(Task.id)).where(
+        Task.user_id == user.id,
+        Task.status == TaskStatus.COMPLETED.value,
+    )
+    total_count = (await db.execute(count_q)).scalar() or 0
+
     base_q = (
         select(Task)
         .where(
@@ -85,7 +91,6 @@ async def list_tasks(
         .order_by(Task.completed_at.desc())
     )
 
-    # Fetch more rows than needed so we can filter unavailable and still fill the page
     rows = await db.execute(base_q.limit(limit * 3).offset(offset))
     tasks = rows.scalars().all()
 
@@ -102,11 +107,11 @@ async def list_tasks(
         if not gen_url:
             gen_url = _normalize_storage_url(r.get("generated_image_path", ""))
 
-        score_after = (
-            r.get("dating_score")
-            or r.get("social_score")
-            or r.get("score")
-        )
+        score_after = r.get("dating_score") or r.get("social_score") or r.get("score")
+        if score_after is None and t.mode == "cv":
+            cv_vals = [float(r[k]) for k in ("trust", "competence", "hireability") if r.get(k) is not None]
+            if cv_vals:
+                score_after = round(sum(cv_vals) / len(cv_vals), 2)
         score_before = r.get("score_before")
         ps = r.get("perception_scores")
 
@@ -125,7 +130,7 @@ async def list_tasks(
         if len(items) >= limit:
             break
 
-    return TaskHistoryResponse(items=items, total_count=len(items))
+    return TaskHistoryResponse(items=items, total_count=total_count)
 
 
 @router.get("/{task_id}", response_model=TaskResponse)

@@ -13,9 +13,15 @@ RUN pip install --no-cache-dir -r requirements.txt && \
     pip install --no-cache-dir --force-reinstall --no-deps \
         opencv-python-headless opencv-contrib-python-headless
 
+RUN groupadd -r appuser && useradd -r -g appuser -d /app -s /sbin/nologin appuser
+
 COPY . .
+
+RUN chown -R appuser:appuser /app
 
 ENV PYTHONUNBUFFERED=1
 ENV PYTHONDONTWRITEBYTECODE=1
+
+USER appuser
 
 EXPOSE 8000

@@ -1,4 +1,5 @@
 # RateMeAI
+ВСЕГДА ОТВЕЧАТЬ НА РУССКОМ ЯЗЫКЕ!
 
 API и Telegram-бот: анализ фото (рейтинг, дейтинг, CV, соцсети, emoji), очередь ARQ, LLM через OpenRouter, генерация изображений (Reve edit mode / Replicate / mock).
 

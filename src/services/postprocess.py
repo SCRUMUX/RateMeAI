@@ -10,7 +10,6 @@ import asyncio
 import io
 import logging
 import struct
-import time
 from datetime import datetime, timezone
 
 import numpy as np
@@ -134,16 +133,8 @@ def _build_minimal_exif(dt: datetime | None = None) -> bytes:
 
     dt_str = dt.strftime("%Y:%m:%d %H:%M:%S").encode("ascii") + b"\x00"
 
-    def _ascii_tag(tag_id: int, value: bytes) -> bytes:
-        return struct.pack(">HHI", tag_id, 2, len(value)) + (
-            struct.pack(">I", 0) if len(value) <= 4 else struct.pack(">I", 0)
-        )
-
     make = b"Canon\x00"
     model = b"Canon EOS R5\x00"
-
-    def _short(tag: int, val: int) -> bytes:
-        return struct.pack(">HHI", tag, 3, 1) + struct.pack(">HH", val, 0)
 
     def _string_offset(tag: int, s: bytes, offset: int) -> tuple[bytes, bytes]:
         entry = struct.pack(">HHI", tag, 2, len(s)) + struct.pack(">I", offset)
@@ -355,59 +346,64 @@ def inject_exif_only(image_bytes: bytes) -> bytes:
 # Public API
 # ---------------------------------------------------------------------------
 
-async def postprocess_for_realism(
-    image_bytes: bytes,
-    original_bytes: bytes | None = None,
-    film_stock: str = "portra400",
-    enable_color_grade: bool = False,
-    enable_skin_transfer: bool = False,
-    jpeg_quality: int = 94,
-) -> bytes:
-    """Full post-processing pipeline. Runs CPU-bound work in a thread."""
-    return await asyncio.to_thread(
-        _postprocess_sync,
-        image_bytes, original_bytes, film_stock,
-        enable_color_grade, enable_skin_transfer, jpeg_quality,
-    )
-
-
-def _postprocess_sync(
-    image_bytes: bytes,
-    original_bytes: bytes | None,
-    film_stock: str,
-    enable_color_grade: bool,
-    enable_skin_transfer: bool,
-    jpeg_quality: int,
-) -> bytes:
-    t0 = time.monotonic()
-    try:
-        img = Image.open(io.BytesIO(image_bytes)).convert("RGB")
-    except Exception:
-        logger.debug("Post-processing: input is not a valid image, returning as-is")
-        return image_bytes
-
-    seed = hash(image_bytes[:256]) & 0xFFFFFFFF
-
-    if enable_color_grade:
-        img = _portra400_color_grade(img)
-
-    if enable_skin_transfer and original_bytes:
-        try:
-            from src.services.segmentation import _face_bbox_mask
-            orig = Image.open(io.BytesIO(original_bytes)).convert("RGB")
-            face_mask = _face_bbox_mask(original_bytes, img.size[0], img.size[1], padding=0.15)
-            if face_mask is not None:
-                img = _skin_detail_transfer(orig, img, face_mask, opacity=0.35)
-        except Exception:
-            logger.debug("Skin detail transfer failed, skipping")
-
-    img = _apply_film_grain(img, film_stock=film_stock, seed=seed)
-    img = _apply_vignette(img, strength=0.03)
-    img = _apply_chromatic_aberration(img, shift_px=0.0)
-
-    jpeg = _jpeg_reencode(img, quality=jpeg_quality)
-    jpeg = _inject_exif(jpeg)
-
-    elapsed = (time.monotonic() - t0) * 1000
-    logger.info("Post-processing completed in %.1fms (%d bytes)", elapsed, len(jpeg))
-    return jpeg
+# TODO: Enable realism postprocessing pipeline when quality requirements increase.
+# Currently not called from any code path; all individual transforms above
+# (film grain, vignette, chromatic aberration, EXIF injection) are available
+# as standalone functions and used directly where needed.
+#
+# async def postprocess_for_realism(
+#     image_bytes: bytes,
+#     original_bytes: bytes | None = None,
+#     film_stock: str = "portra400",
+#     enable_color_grade: bool = False,
+#     enable_skin_transfer: bool = False,
+#     jpeg_quality: int = 94,
+# ) -> bytes:
+#     """Full post-processing pipeline. Runs CPU-bound work in a thread."""
+#     return await asyncio.to_thread(
+#         _postprocess_sync,
+#         image_bytes, original_bytes, film_stock,
+#         enable_color_grade, enable_skin_transfer, jpeg_quality,
+#     )
+#
+#
+# def _postprocess_sync(
+#     image_bytes: bytes,
+#     original_bytes: bytes | None,
+#     film_stock: str,
+#     enable_color_grade: bool,
+#     enable_skin_transfer: bool,
+#     jpeg_quality: int,
+# ) -> bytes:
+#     t0 = time.monotonic()
+#     try:
+#         img = Image.open(io.BytesIO(image_bytes)).convert("RGB")
+#     except Exception:
+#         logger.debug("Post-processing: input is not a valid image, returning as-is")
+#         return image_bytes
+#
+#     seed = hash(image_bytes[:256]) & 0xFFFFFFFF
+#
+#     if enable_color_grade:
+#         img = _portra400_color_grade(img)
+#
+#     if enable_skin_transfer and original_bytes:
+#         try:
+#             from src.services.segmentation import _face_bbox_mask
+#             orig = Image.open(io.BytesIO(original_bytes)).convert("RGB")
+#             face_mask = _face_bbox_mask(original_bytes, img.size[0], img.size[1], padding=0.15)
+#             if face_mask is not None:
+#                 img = _skin_detail_transfer(orig, img, face_mask, opacity=0.35)
+#         except Exception:
+#             logger.debug("Skin detail transfer failed, skipping")
+#
+#     img = _apply_film_grain(img, film_stock=film_stock, seed=seed)
+#     img = _apply_vignette(img, strength=0.03)
+#     img = _apply_chromatic_aberration(img, shift_px=0.0)
+#
+#     jpeg = _jpeg_reencode(img, quality=jpeg_quality)
+#     jpeg = _inject_exif(jpeg)
+#
+#     elapsed = (time.monotonic() - t0) * 1000
+#     logger.info("Post-processing completed in %.1fms (%d bytes)", elapsed, len(jpeg))
+#     return jpeg

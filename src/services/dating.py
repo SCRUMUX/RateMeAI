@@ -1,15 +1,11 @@
 from __future__ import annotations
 
-import logging
-
 from src.config import settings
 from src.providers.base import LLMProvider
 from src.prompts.engine import PromptEngine
 from src.models.enums import AnalysisMode
 from src.models.schemas import DatingResult
 from src.services.perception_utils import extract_perception_scores, extract_perception_insights
-
-logger = logging.getLogger(__name__)
 
 
 class DatingService:

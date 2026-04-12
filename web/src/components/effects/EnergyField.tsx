@@ -47,7 +47,6 @@ export default function EnergyField() {
   const isMobile = useIsMobile();
 
   const mx = (mouse.x - 0.5) * 2;
-  const my = (mouse.y - 0.5) * 2;
 
   if (prefersReduced) {
     return null;
@@ -58,7 +57,7 @@ export default function EnergyField() {
   return (
     <div className="energy-field" aria-hidden="true">
       {activeBLobs.map((blob, i) => (
-        <EnergyBlob key={i} mx={mx} my={my} scrollY={scrollY} color={blobColor(blob.type, blob.opacity)} size={blob.size} x={blob.x} y={blob.y} factor={blob.factor} scrollFactor={blob.scrollFactor} />
+        <EnergyBlob key={i} mx={mx} scrollY={scrollY} color={blobColor(blob.type, blob.opacity)} size={blob.size} x={blob.x} y={blob.y} factor={blob.factor} scrollFactor={blob.scrollFactor} />
       ))}
     </div>
   );
@@ -72,19 +71,15 @@ interface EnergyBlobProps {
   factor: number;
   scrollFactor: number;
   mx: number;
-  my: number;
   scrollY: ReturnType<typeof useScroll>['scrollY'];
 }
 
-function EnergyBlob({ size, color, x, y, factor, scrollFactor, mx, my, scrollY }: EnergyBlobProps) {
+function EnergyBlob({ size, color, x, y, factor, scrollFactor, mx, scrollY }: EnergyBlobProps) {
   const mouseOffsetX = mx * factor * 100;
-  const mouseOffsetY = my * factor * 100;
 
   const springX = useSpring(mouseOffsetX, { stiffness: 40, damping: 30 });
-  const springY = useSpring(mouseOffsetY, { stiffness: 40, damping: 30 });
 
   springX.set(mouseOffsetX);
-  springY.set(mouseOffsetY);
 
   const scrollOffset = useTransform(scrollY, (v) => v * scrollFactor);
 

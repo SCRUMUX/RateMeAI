@@ -150,30 +150,31 @@ _STEP_STRENGTH_KEYWORDS: dict[str, list[str]] = {
     "style_overall": [],
 }
 
-STEP_PARAMETER_MAP: dict[str, list[str]] = {
-    "background_edit": ["presence", "appeal"],
-    "lighting_adjust": ["warmth", "appeal"],
-    "clothing_edit": ["presence"],
-    "expression_hint": ["warmth", "presence"],
-    "skin_correction": ["appeal"],
-    "style_overall": ["appeal", "presence"],
-}
-
-PARAMETER_LABELS: dict[str, str] = {
-    "warmth": "Теплота",
-    "presence": "Уверенность",
-    "appeal": "Привлекательность",
-    "authenticity": "Аутентичность",
-}
-
-STEP_LABELS: dict[str, str] = {
-    "background_edit": "фон и контекст",
-    "lighting_adjust": "освещение",
-    "clothing_edit": "стиль одежды",
-    "expression_hint": "выражение",
-    "skin_correction": "качество кожи",
-    "style_overall": "общий стиль",
-}
+# TODO: Move to shared constants when UI needs human-readable step labels.
+# STEP_PARAMETER_MAP: dict[str, list[str]] = {
+#     "background_edit": ["presence", "appeal"],
+#     "lighting_adjust": ["warmth", "appeal"],
+#     "clothing_edit": ["presence"],
+#     "expression_hint": ["warmth", "presence"],
+#     "skin_correction": ["appeal"],
+#     "style_overall": ["appeal", "presence"],
+# }
+#
+# PARAMETER_LABELS: dict[str, str] = {
+#     "warmth": "Теплота",
+#     "presence": "Уверенность",
+#     "appeal": "Привлекательность",
+#     "authenticity": "Аутентичность",
+# }
+#
+# STEP_LABELS: dict[str, str] = {
+#     "background_edit": "фон и контекст",
+#     "lighting_adjust": "освещение",
+#     "clothing_edit": "стиль одежды",
+#     "expression_hint": "выражение",
+#     "skin_correction": "качество кожи",
+#     "style_overall": "общий стиль",
+# }
 
 
 class PipelinePlanner:

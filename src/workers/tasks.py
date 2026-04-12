@@ -104,6 +104,7 @@ async def process_analysis(ctx: dict, task_id: str):
             return
 
         task.status = TaskStatus.PROCESSING.value
+        credit_pre_reserved = (task.context or {}).get("credit_pre_reserved", False)
         await db.commit()
 
         try:
@@ -120,7 +121,7 @@ async def process_analysis(ctx: dict, task_id: str):
                 select(User).where(User.id == task.user_id)
             )
             task_user = u_row.scalar_one()
-            has_credits = task_user.image_credits > 0
+            has_credits = credit_pre_reserved or task_user.image_credits > 0
 
             context: dict = dict(task.context or {})
             if not has_credits:
@@ -196,6 +197,10 @@ async def process_analysis(ctx: dict, task_id: str):
                 if skip_deduct:
                     logger.info("Skipping credit deduction for edge-proxied task %s", task_id)
                     analysis_result["credit_deducted"] = False
+                elif credit_pre_reserved:
+                    CREDITS_USED.inc()
+                    logger.info("Credit was pre-reserved at request time for task %s", task_id)
+                    analysis_result["credit_deducted"] = True
                 else:
                     try:
                         u = await db.execute(
@@ -267,6 +272,24 @@ async def process_analysis(ctx: dict, task_id: str):
             task.error_message = str(e)[:500]
             fail_reason = "transient" if _is_transient(e) else "permanent"
             TASKS_FAILED.labels(reason=fail_reason).inc()
+
+            if credit_pre_reserved:
+                try:
+                    u = await db.execute(
+                        select(User).where(User.id == task.user_id).with_for_update()
+                    )
+                    user = u.scalar_one()
+                    user.image_credits += 1
+                    db.add(CreditTransaction(
+                        user_id=task.user_id,
+                        amount=1,
+                        balance_after=user.image_credits,
+                        tx_type="refund_failed_task",
+                    ))
+                    logger.info("Refunded 1 credit to user %s for failed task %s", task.user_id, task_id)
+                except Exception:
+                    logger.exception("Failed to refund credit for task %s", task_id)
+
             await db.commit()
             try:
                 await redis.publish(f"ratemeai:task_done:{task_id}", "failed")
@@ -289,7 +312,7 @@ async def reconcile_stuck_tasks(ctx: dict):
         rows = await db.execute(
             select(Task).where(
                 Task.status == TaskStatus.PROCESSING.value,
-                Task.created_at < threshold,
+                Task.updated_at < threshold,
             )
         )
         stuck_tasks = rows.scalars().all()
@@ -301,7 +324,25 @@ async def reconcile_stuck_tasks(ctx: dict):
             )
             TASKS_RECONCILED.inc()
             TASKS_FAILED.labels(reason="stuck_timeout").inc()
-            logger.warning("Reconciler: task %s stuck since %s, marking failed", task.id, task.created_at)
+            logger.warning("Reconciler: task %s stuck since %s, marking failed", task.id, task.updated_at)
+
+            if (task.context or {}).get("credit_pre_reserved"):
+                try:
+                    u = await db.execute(
+                        select(User).where(User.id == task.user_id).with_for_update()
+                    )
+                    user = u.scalar_one()
+                    user.image_credits += 1
+                    db.add(CreditTransaction(
+                        user_id=task.user_id,
+                        amount=1,
+                        balance_after=user.image_credits,
+                        tx_type="refund_stuck_task",
+                    ))
+                    logger.info("Reconciler: refunded credit for stuck task %s", task.id)
+                except Exception:
+                    logger.exception("Reconciler: failed to refund credit for task %s", task.id)
+
             try:
                 await redis.publish(f"ratemeai:task_done:{task.id}", "failed")
             except Exception:
