@@ -1,21 +1,23 @@
 import { useState, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { AnimatePresence, motion } from 'framer-motion';
+import { Link } from 'react-router-dom';
 
 interface Props {
   open: boolean;
   onClose: () => void;
   onOAuth?: (provider: 'yandex' | 'vk-id') => Promise<void>;
+  required?: boolean;
 }
 
-export default function AuthModal({ open, onClose, onOAuth }: Props) {
+export default function AuthModal({ open, onClose, onOAuth, required }: Props) {
   const [oauthLoading, setOauthLoading] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!open) return;
     function handleKey(e: KeyboardEvent) {
-      if (e.key === 'Escape') onClose();
+      if (e.key === 'Escape' && !required) onClose();
     }
     document.addEventListener('keydown', handleKey);
     document.body.style.overflow = 'hidden';
@@ -23,7 +25,7 @@ export default function AuthModal({ open, onClose, onOAuth }: Props) {
       document.removeEventListener('keydown', handleKey);
       document.body.style.overflow = '';
     };
-  }, [open, onClose]);
+  }, [open, onClose, required]);
 
   const handleOAuth = useCallback(async (provider: 'yandex' | 'vk-id') => {
     if (!onOAuth) return;
@@ -47,7 +49,7 @@ export default function AuthModal({ open, onClose, onOAuth }: Props) {
           exit={{ opacity: 0 }}
           transition={{ duration: 0.2 }}
         >
-          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={required ? undefined : onClose} />
 
           <motion.div
             className="relative gradient-border-card glass-card rounded-[var(--radius-12)] w-full max-w-[420px] p-[var(--space-32)] flex flex-col gap-[var(--space-24)]"
@@ -57,21 +59,26 @@ export default function AuthModal({ open, onClose, onOAuth }: Props) {
             transition={{ duration: 0.25, ease: 'easeOut' }}
             onClick={(e) => e.stopPropagation()}
           >
-            {/* Close */}
-            <button
-              onClick={onClose}
-              className="absolute top-[var(--space-16)] right-[var(--space-16)] w-8 h-8 flex items-center justify-center rounded-full glass-btn-ghost text-[var(--color-text-muted)] hover:text-[#E6EEF8] transition-colors"
-            >
-              <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                <path d="M4 4L12 12M12 4L4 12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-              </svg>
-            </button>
+            {!required && (
+              <button
+                onClick={onClose}
+                className="absolute top-[var(--space-16)] right-[var(--space-16)] w-8 h-8 flex items-center justify-center rounded-full glass-btn-ghost text-[var(--color-text-muted)] hover:text-[#E6EEF8] transition-colors"
+              >
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                  <path d="M4 4L12 12M12 4L4 12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                </svg>
+              </button>
+            )}
 
             {/* Header */}
             <div className="flex flex-col gap-[var(--space-8)] text-center">
-              <h3 className="text-[24px] leading-[32px] font-semibold text-[#E6EEF8]">Получить доступ</h3>
+              <h3 className="text-[24px] leading-[32px] font-semibold text-[#E6EEF8]">
+                {required ? 'Авторизация' : 'Получить доступ'}
+              </h3>
               <p className="text-[14px] leading-[20px] text-[var(--color-text-secondary)]">
-                Войдите через аккаунт Яндекс или ВКонтакте, чтобы увидеть результаты анализа
+                {required
+                  ? 'В соответствии с законодательством, для использования приложения необходима авторизация'
+                  : 'Войдите через аккаунт Яндекс или ВКонтакте, чтобы увидеть результаты анализа'}
               </p>
             </div>
 
@@ -119,6 +126,18 @@ export default function AuthModal({ open, onClose, onOAuth }: Props) {
             <p className="text-[12px] leading-[16px] text-[var(--color-text-muted)] text-center">
               Нажимая кнопку входа, вы соглашаетесь с условиями использования
             </p>
+
+            {required && (
+              <Link
+                to="/"
+                className="flex items-center justify-center gap-[var(--space-6)] text-[14px] leading-[20px] text-[var(--color-text-secondary)] hover:text-[#E6EEF8] transition-colors no-underline"
+              >
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                  <path d="M10 12L6 8L10 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+                Вернуться на главную
+              </Link>
+            )}
           </motion.div>
         </motion.div>
       )}

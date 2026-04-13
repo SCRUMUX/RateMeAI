@@ -1,10 +1,6 @@
 import { PARAMS_BY_MODE, type CategoryId, type StyleItem } from '../../data/styles';
 
-export type GenSimMode = 'demo' | 'no_credits' | 'real';
-
 export const STYLES_PER_PAGE = 8;
-
-export const FIXED_DURATION = 27;
 
 export const GEN_SIM_STEPS = [
   'Загрузка нейросети...',

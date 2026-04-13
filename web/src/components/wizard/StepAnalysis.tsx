@@ -1,5 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
-import { PARAMS_BY_MODE } from '../../data/styles';
+import { useState, useEffect } from 'react';
 import { useApp } from '../../context/AppContext';
 import ProgressBar from './ProgressBar';
 import { SIM_TEXTS, PARAM_LABELS, computeStyleDeltas } from './shared';
@@ -7,15 +6,13 @@ import { STYLES_BY_CATEGORY } from '../../data/styles';
 
 interface Props {
   onNext: () => void;
-  onOpenAuthModal?: () => void;
 }
 
-export default function StepAnalysis({ onNext, onOpenAuthModal }: Props) {
+export default function StepAnalysis({ onNext }: Props) {
   const app = useApp();
   const [analysisRequested, setAnalysisRequested] = useState(false);
   const [simStep, setSimStep] = useState(0);
   const [streamedText, setStreamedText] = useState('');
-  const autoAdvancedRef = useRef(false);
 
   const activeTab = app.activeCategory;
   const styles = STYLES_BY_CATEGORY[activeTab];
@@ -44,9 +41,7 @@ export default function StepAnalysis({ onNext, onOpenAuthModal }: Props) {
     setSimStep(0);
     setStreamedText('');
     app.startSimulation();
-    if (app.isAuthenticated) {
-      app.runPreAnalyze();
-    }
+    app.runPreAnalyze();
   }
 
   useEffect(() => {
@@ -54,18 +49,15 @@ export default function StepAnalysis({ onNext, onOpenAuthModal }: Props) {
       setSimStep(0);
       setStreamedText('');
       setAnalysisRequested(false);
-      return;
     }
   }, [app.photo]);
 
-  // Auto-start analysis if photo exists and not yet requested
   useEffect(() => {
     if (app.photo && !analysisRequested && !app.preAnalysis && !app.simulationDone) {
       handleStartAnalysis();
     }
-  }, [app.photo]);
+  }, [app.photo]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Step-by-step simulation timer
   useEffect(() => {
     if (!app.isSimulating) return;
     setSimStep(1);
@@ -74,7 +66,6 @@ export default function StepAnalysis({ onNext, onOpenAuthModal }: Props) {
     return () => { clearTimeout(t2); clearTimeout(t3); };
   }, [app.isSimulating]);
 
-  // Streaming text effect
   useEffect(() => {
     if (simStep === 0 && !app.simulationDone) { setStreamedText(''); return; }
     const targetKey = app.simulationDone ? 4 : simStep;
@@ -88,13 +79,6 @@ export default function StepAnalysis({ onNext, onOpenAuthModal }: Props) {
     }, 20);
     return () => clearInterval(iv);
   }, [simStep, app.simulationDone]);
-
-  // Auto-advance to next step when analysis is complete (for authenticated users)
-  useEffect(() => {
-    if (app.preAnalysis && !autoAdvancedRef.current) {
-      autoAdvancedRef.current = true;
-    }
-  }, [app.preAnalysis]);
 
   return (
     <div className="flex flex-col gap-[var(--space-24)] w-full max-w-[800px] mx-auto">
@@ -151,8 +135,8 @@ export default function StepAnalysis({ onNext, onOpenAuthModal }: Props) {
             </button>
           )}
 
-          {/* Simulating analysis (not authenticated) */}
-          {app.photo && !app.isAuthenticated && analysisRequested && app.isSimulating && (
+          {/* Streaming analysis (waiting for result) */}
+          {analysisRequested && !app.preAnalysis && app.isSimulating && (
             <div className="gradient-border-card glass-card flex flex-col gap-[var(--space-16)] rounded-[var(--radius-12)] p-[var(--space-20)]">
               {[
                 { step: 1, label: 'Анализ лица...' },
@@ -176,65 +160,8 @@ export default function StepAnalysis({ onNext, onOpenAuthModal }: Props) {
             </div>
           )}
 
-          {/* Blurred fake results + CTA (not authenticated, simulation done) */}
-          {app.photo && !app.isAuthenticated && analysisRequested && app.simulationDone && (
-            <div className="relative">
-              <div className="gradient-border-card glass-card flex flex-col gap-[var(--space-12)] rounded-[var(--radius-12)] p-[var(--space-12)]" style={{ filter: 'blur(6px)' }}>
-                {PARAMS_BY_MODE[activeTab].map((p) => (
-                  <div key={p.key} className="flex flex-col gap-[var(--space-8)]">
-                    <div className="flex items-center justify-between">
-                      <span className="text-[14px] leading-[20px] text-[#E6EEF8]">{p.label}</span>
-                      <span className="flex items-center gap-[var(--space-8)] text-[14px] leading-[20px] tabular-nums">
-                        <span className="text-[var(--color-text-muted)]">{p.before.toFixed(2)}</span>
-                        <span className="text-[11px] leading-[14px] text-[var(--color-text-muted)]">/ 10</span>
-                      </span>
-                    </div>
-                    <ProgressBar value={p.before} />
-                  </div>
-                ))}
-              </div>
-              <div className="absolute inset-0 flex flex-col items-center justify-center gap-[var(--space-12)] rounded-[var(--radius-12)]">
-                <span className="text-[18px] font-semibold leading-[24px] text-[#E6EEF8]">Результаты готовы</span>
-                <span className="text-[14px] leading-[20px] text-[var(--color-text-secondary)] text-center max-w-[300px]">
-                  Зарегистрируйтесь, чтобы увидеть полный анализ восприятия
-                </span>
-                <button
-                  onClick={onOpenAuthModal}
-                  className="glass-btn-primary px-[var(--space-24)] py-[var(--space-12)] text-[16px] leading-[24px] rounded-[var(--radius-12)]"
-                >
-                  Получить доступ
-                </button>
-              </div>
-            </div>
-          )}
-
-          {/* Streaming analysis (authenticated, waiting for result) */}
-          {app.isAuthenticated && analysisRequested && !app.preAnalysis && app.isSimulating && (
-            <div className="gradient-border-card glass-card flex flex-col gap-[var(--space-16)] rounded-[var(--radius-12)] p-[var(--space-20)]">
-              {[
-                { step: 1, label: 'Анализ лица...' },
-                { step: 2, label: 'Оценка параметров...' },
-                { step: 3, label: 'Формирование результата...' },
-              ].map((s) => (
-                <div key={s.step} className="flex items-center gap-[var(--space-12)] transition-opacity duration-500" style={{ opacity: simStep >= s.step ? 1 : 0.2 }}>
-                  {simStep > s.step ? (
-                    <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><circle cx="9" cy="9" r="9" fill="rgba(var(--accent-r),var(--accent-g),var(--accent-b),0.15)"/><path d="M5.5 9.5L7.5 11.5L12.5 6.5" stroke="rgb(var(--accent-r),var(--accent-g),var(--accent-b))" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
-                  ) : simStep === s.step ? (
-                    <div className="w-[18px] h-[18px] border-2 border-t-transparent rounded-full animate-spin shrink-0" style={{ borderColor: 'rgba(var(--accent-r),var(--accent-g),var(--accent-b),0.5)', borderTopColor: 'transparent' }} />
-                  ) : (
-                    <div className="w-[18px] h-[18px] rounded-full border border-[rgba(255,255,255,0.1)]" />
-                  )}
-                  <span className={`text-[14px] leading-[20px] ${simStep >= s.step ? 'text-[#E6EEF8]' : 'text-[var(--color-text-muted)]'}`}>{s.label}</span>
-                </div>
-              ))}
-              <div className="h-1.5 rounded-full glass-progress-track overflow-hidden mt-[var(--space-4)]">
-                <div className="h-full rounded-full glass-progress-fill transition-all duration-1000 ease-out" style={{ width: `${Math.min(simStep * 33.3, 100)}%` }} />
-              </div>
-            </div>
-          )}
-
-          {/* Real results (authenticated) */}
-          {app.isAuthenticated && analysisRequested && (
+          {/* Real results */}
+          {analysisRequested && (
             <>
               <div className="gradient-border-card glass-card flex flex-col gap-[var(--space-12)] rounded-[var(--radius-12)] p-[var(--space-12)]">
                 {displayParams ? displayParams.map((p) => {
@@ -313,7 +240,7 @@ export default function StepAnalysis({ onNext, onOpenAuthModal }: Props) {
           )}
 
           {/* Next button */}
-          {(hasRealScores || (!app.isAuthenticated && app.simulationDone)) && (
+          {hasRealScores && (
             <button
               onClick={onNext}
               className="glass-btn-primary w-full py-[var(--space-12)] text-[15px] leading-[22px] rounded-[var(--radius-12)] font-medium mt-[var(--space-8)]"

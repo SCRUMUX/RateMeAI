@@ -1,20 +1,20 @@
 import { useState, useRef, useEffect } from 'react';
-import { AnimatePresence, motion } from 'framer-motion';
+import { useNavigate } from 'react-router-dom';
 import { CoinIcon, ImageIcon } from '@ai-ds/core/icons';
 import { STYLES_BY_CATEGORY } from '../../data/styles';
 import { PERCEPTION_FACTS, getRandomFact } from '../../data/ai-facts';
 import StorageModal from '../StorageModal';
 import { useApp } from '../../context/AppContext';
 import ProgressBar from './ProgressBar';
-import { type GenSimMode, GEN_SIM_STEPS, FIXED_DURATION } from './shared';
+import { GEN_SIM_STEPS } from './shared';
 
 interface Props {
-  onOpenAuthModal?: () => void;
   onGoToStep: (step: 'upload' | 'style') => void;
 }
 
-export default function StepGenerate({ onOpenAuthModal, onGoToStep }: Props) {
+export default function StepGenerate({ onGoToStep }: Props) {
   const app = useApp();
+  const navigate = useNavigate();
 
   const activeTab = app.activeCategory;
   const styles = STYLES_BY_CATEGORY[activeTab];
@@ -31,13 +31,12 @@ export default function StepGenerate({ onOpenAuthModal, onGoToStep }: Props) {
 
   const [streamedFact, setStreamedFact] = useState('');
   const [storageModalOpen, setStorageModalOpen] = useState(false);
-  const [movedToStorageModal, setMovedToStorageModal] = useState(false);
+  const [showNoCredits, setShowNoCredits] = useState(false);
 
   const [genSimulating, setGenSimulating] = useState(false);
   const [genSimProgress, setGenSimProgress] = useState(0);
   const [genSimDone, setGenSimDone] = useState(false);
   const [genSimParamIdx, setGenSimParamIdx] = useState(0);
-  const [genSimMode, setGenSimMode] = useState<GenSimMode>('demo');
   const [currentFact, setCurrentFact] = useState(() => PERCEPTION_FACTS.social[0]);
   const genSimRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const factIdxRef = useRef(0);
@@ -49,13 +48,11 @@ export default function StepGenerate({ onOpenAuthModal, onGoToStep }: Props) {
     setGenSimProgress(0);
     setGenSimDone(false);
     setGenSimParamIdx(0);
-    setGenSimMode('demo');
     if (genSimRef.current) { clearInterval(genSimRef.current); genSimRef.current = null; }
   }
 
-  function startGenSimulation(mode: GenSimMode) {
+  function startGenSimulation() {
     resetGenSim();
-    setGenSimMode(mode);
     setFrozenStyle({ name: selectedStyle.name, score: predictedAfterScore });
     setGenSimulating(true);
     factIdxRef.current = 0;
@@ -67,23 +64,10 @@ export default function StepGenerate({ onOpenAuthModal, onGoToStep }: Props) {
     genSimRef.current = setInterval(() => {
       const elapsed = (Date.now() - start) / 1000;
 
-      if (mode === 'demo' || mode === 'no_credits') {
-        const progress = Math.min((elapsed / FIXED_DURATION) * 100, 100);
-        setGenSimProgress(progress);
-        setGenSimParamIdx(Math.min(Math.floor(elapsed / (FIXED_DURATION / GEN_SIM_STEPS.length)), GEN_SIM_STEPS.length - 1));
-        if (elapsed >= FIXED_DURATION) {
-          clearInterval(genSimRef.current!);
-          genSimRef.current = null;
-          setGenSimulating(false);
-          setGenSimDone(true);
-          setGenSimProgress(100);
-        }
-      } else {
-        const progress = Math.min(95, 60 + 35 * (1 - Math.exp(-elapsed / 60)));
-        setGenSimProgress(progress);
-        const stepIdx = Math.floor(elapsed / 5) % GEN_SIM_STEPS.length;
-        setGenSimParamIdx(stepIdx);
-      }
+      const progress = Math.min(95, 60 + 35 * (1 - Math.exp(-elapsed / 60)));
+      setGenSimProgress(progress);
+      const stepIdx = Math.floor(elapsed / 5) % GEN_SIM_STEPS.length;
+      setGenSimParamIdx(stepIdx);
 
       if (elapsed - lastFactChange >= 5) {
         lastFactChange = elapsed;
@@ -96,7 +80,6 @@ export default function StepGenerate({ onOpenAuthModal, onGoToStep }: Props) {
 
   useEffect(() => () => { if (genSimRef.current) clearInterval(genSimRef.current); }, []);
 
-  // Fact streaming effect
   useEffect(() => {
     if (!currentFact?.text || (!genSimulating && !app.isGenerating)) {
       setStreamedFact('');
@@ -115,9 +98,8 @@ export default function StepGenerate({ onOpenAuthModal, onGoToStep }: Props) {
 
   useEffect(() => { setImageLoadError(false); }, [app.generatedImageUrl]);
 
-  // Auto-finish 'real' simulation when result arrives or generation fails
   useEffect(() => {
-    if (!genSimulating || genSimMode !== 'real') return;
+    if (!genSimulating) return;
     if (app.generatedImageUrl || (app.error && !app.isGenerating)) {
       if (genSimRef.current) { clearInterval(genSimRef.current); genSimRef.current = null; }
       setGenSimProgress(100);
@@ -125,15 +107,14 @@ export default function StepGenerate({ onOpenAuthModal, onGoToStep }: Props) {
       setGenSimulating(false);
       setGenSimDone(true);
     }
-  }, [app.generatedImageUrl, app.error, app.isGenerating, genSimulating, genSimMode]);
+  }, [app.generatedImageUrl, app.error, app.isGenerating, genSimulating]);
 
-  // Reset sim state when photo changes
   useEffect(() => {
     if (!app.photo) {
       resetGenSim();
       setFrozenStyle(null);
     }
-  }, [app.photo]);
+  }, [app.photo]); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function handleGenerate() {
     if (!app.photo) return;
@@ -142,26 +123,21 @@ export default function StepGenerate({ onOpenAuthModal, onGoToStep }: Props) {
       app.setSelectedStyleKey(effectiveStyle);
     }
 
-    if (!app.isAuthenticated) {
-      startGenSimulation('demo');
+    const isFirstGeneration = app.taskHistoryCount === 0 && !app.generatedImageUrl;
+    if (app.balance <= 0 && !isFirstGeneration) {
+      setShowNoCredits(true);
       return;
     }
 
-    if (app.balance <= 0) {
-      startGenSimulation('no_credits');
-      return;
-    }
-
-    await app.generate(() => startGenSimulation('real'), effectiveStyle);
+    await app.generate(() => startGenSimulation(), effectiveStyle);
   }
 
-  // Auto-start generation when entering this step
   useEffect(() => {
     if (app.photo && !autoStartedRef.current && !hasGenResult && !genSimulating && !genSimDone && !app.isGenerating) {
       autoStartedRef.current = true;
       handleGenerate();
     }
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function handleShare() {
     const res = await app.share();
@@ -184,6 +160,11 @@ export default function StepGenerate({ onOpenAuthModal, onGoToStep }: Props) {
     } catch {
       /* ignore fetch errors */
     }
+  }
+
+  function goToPricing() {
+    setShowNoCredits(false);
+    navigate('/#тарифы');
   }
 
   return (
@@ -285,7 +266,7 @@ export default function StepGenerate({ onOpenAuthModal, onGoToStep }: Props) {
               <div className="w-full h-full relative">
                 <img src="/img/placeholder-upgrade.png" alt="" className="w-full h-full object-cover" style={{ filter: 'blur(16px) saturate(1.6) brightness(0.6)', transform: 'scale(1.1)' }} />
                 <div className="absolute inset-0" style={{ background: 'linear-gradient(135deg, rgba(var(--accent-r),var(--accent-g),var(--accent-b),0.25) 0%, rgba(0,0,0,0.3) 100%)' }} />
-                {genSimMode === 'real' && app.error && (
+                {app.error && (
                   <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-[var(--space-8)] text-center px-[var(--space-12)]">
                     <svg width="32" height="32" viewBox="0 0 32 32" fill="none"><circle cx="16" cy="16" r="14" stroke="rgba(255,255,255,0.3)" strokeWidth="1.5"/><path d="M16 10v8M16 22h.01" stroke="#E6EEF8" strokeWidth="2" strokeLinecap="round"/></svg>
                     <span className="text-[13px] leading-[18px] text-[#E6EEF8] font-medium">Не удалось сгенерировать</span>
@@ -345,25 +326,6 @@ export default function StepGenerate({ onOpenAuthModal, onGoToStep }: Props) {
 
       {/* CTA buttons */}
       <div className="flex flex-col items-center gap-[var(--space-12)]">
-        {genSimDone && genSimMode === 'demo' && (
-          <button
-            onClick={onOpenAuthModal}
-            className="glass-btn-primary px-[var(--space-32)] py-[var(--space-12)] text-[15px] leading-[22px] rounded-[var(--radius-pill)]"
-          >
-            Зарегистрироваться для получения результата
-          </button>
-        )}
-        {genSimDone && genSimMode === 'no_credits' && (
-          <button
-            onClick={() => {
-              resetGenSim();
-              window.location.href = '/#тарифы';
-            }}
-            className="glass-btn-primary px-[var(--space-32)] py-[var(--space-12)] text-[15px] leading-[22px] rounded-[var(--radius-pill)]"
-          >
-            Пополнить баланс
-          </button>
-        )}
         {hasGenResult && (
           <div className="flex flex-wrap gap-[var(--space-12)] justify-center">
             <button
@@ -398,7 +360,7 @@ export default function StepGenerate({ onOpenAuthModal, onGoToStep }: Props) {
             </button>
           </div>
         )}
-        {genSimDone && genSimMode === 'real' && !hasGenResult && (
+        {genSimDone && !hasGenResult && (
           <button
             onClick={() => { app.clearError(); resetGenSim(); autoStartedRef.current = false; handleGenerate(); }}
             className="glass-btn-primary px-[var(--space-32)] py-[var(--space-12)] text-[15px] leading-[22px] rounded-[var(--radius-pill)]"
@@ -415,34 +377,7 @@ export default function StepGenerate({ onOpenAuthModal, onGoToStep }: Props) {
         onImprove={handleImproveFromStorage}
       />
 
-      <AnimatePresence>
-        {movedToStorageModal && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.2 }}
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
-            onClick={() => setMovedToStorageModal(false)}
-          >
-            <motion.div
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.9 }}
-              transition={{ duration: 0.25 }}
-              className="glass-card rounded-[var(--radius-16)] p-[var(--space-24)] max-w-sm w-full mx-4 flex flex-col items-center gap-[var(--space-16)] text-center"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <ImageIcon size={40} className="text-[var(--color-brand-primary)]" />
-              <p className="text-[16px] font-semibold text-[#E6EEF8]">
-                Сгенерированное фото перемещено в хранилище
-              </p>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {app.noCreditsError && (
+      {(showNoCredits || app.noCreditsError) && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
           <div className="glass-card rounded-[var(--radius-16)] p-[var(--space-24)] max-w-sm w-full mx-4 flex flex-col items-center gap-[var(--space-16)] text-center">
             <CoinIcon size={40} className="text-[var(--color-brand-primary)]" />
@@ -453,16 +388,13 @@ export default function StepGenerate({ onOpenAuthModal, onGoToStep }: Props) {
             <div className="flex gap-[var(--space-12)] w-full">
               <button
                 className="flex-1 glass-btn-ghost rounded-[var(--radius-12)] py-[var(--space-10)] text-[14px] font-medium text-[#E6EEF8]"
-                onClick={() => app.clearNoCreditsError()}
+                onClick={() => { setShowNoCredits(false); app.clearNoCreditsError(); }}
               >
                 Закрыть
               </button>
               <button
                 className="flex-1 glass-btn-primary rounded-[var(--radius-12)] py-[var(--space-10)] text-[14px] font-semibold text-white"
-                onClick={() => {
-                  app.clearNoCreditsError();
-                  window.location.href = '/#тарифы';
-                }}
+                onClick={goToPricing}
               >
                 Пополнить баланс
               </button>

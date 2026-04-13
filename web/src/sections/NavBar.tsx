@@ -7,9 +7,10 @@ import LinkedAccountsPanel from '../components/LinkedAccountsPanel';
 
 interface Props {
   onLoginClick?: () => void;
+  mode?: 'landing' | 'app';
 }
 
-export default function NavBar({ onLoginClick }: Props) {
+export default function NavBar({ onLoginClick, mode = 'landing' }: Props) {
   const { session, balance, logout } = useApp();
   const [menuOpen, setMenuOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -51,18 +52,26 @@ export default function NavBar({ onLoginClick }: Props) {
 
         {/* Desktop nav links */}
         <div className="hidden tablet:flex items-center gap-[var(--space-12)]">
-          {[
-            { label: 'Стили', href: '#стили' },
-            { label: 'Тарифы', href: '#тарифы' },
-            { label: 'API', href: '/api/v1/docs', external: true },
-          ].map((item) => (
-            <a key={item.label} href={item.href}
-              {...(item.external ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
-              className="px-[var(--space-12)] py-[var(--space-6)] text-[14px] leading-[20px] font-medium text-[var(--color-text-secondary)] hover:text-[#E6EEF8] transition-colors cursor-pointer"
+          {mode === 'app' ? (
+            <Link
+              to="/"
+              className="flex items-center gap-[var(--space-6)] px-[var(--space-12)] py-[var(--space-6)] text-[14px] leading-[20px] font-medium text-[var(--color-text-secondary)] hover:text-[#E6EEF8] transition-colors no-underline"
             >
-              {item.label}
-            </a>
-          ))}
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                <path d="M10 12L6 8L10 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+              На главную
+            </Link>
+          ) : (
+            [{label: 'Стили', href: '#стили'}, {label: 'Тарифы', href: '#тарифы'}, {label: 'API', href: '/api/v1/docs', external: true}].map((item) => (
+              <a key={item.label} href={item.href}
+                {...(item.external ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
+                className="px-[var(--space-12)] py-[var(--space-6)] text-[14px] leading-[20px] font-medium text-[var(--color-text-secondary)] hover:text-[#E6EEF8] transition-colors cursor-pointer"
+              >
+                {item.label}
+              </a>
+            ))
+          )}
 
           {session ? (
             <div className="relative flex items-center gap-[var(--space-8)]" ref={menuRef}>
@@ -117,7 +126,7 @@ export default function NavBar({ onLoginClick }: Props) {
             Русский
           </button>
 
-          {!session && (
+          {!session && mode !== 'app' && (
             <Link to="/app"
               className="glass-btn-primary flex items-center px-[var(--space-12)] py-[var(--space-6)] text-[14px] leading-[20px] rounded-[var(--radius-12)] no-underline"
             >
@@ -169,19 +178,28 @@ export default function NavBar({ onLoginClick }: Props) {
         >
           {/* Navigation links */}
           <div className="flex flex-col gap-[var(--space-4)]">
-            {[
-              { label: 'Стили', href: '#стили' },
-              { label: 'Тарифы', href: '#тарифы' },
-              { label: 'API', href: '/api/v1/docs', external: true },
-            ].map((item) => (
-              <a key={item.label} href={item.href}
+            {mode === 'app' ? (
+              <Link
+                to="/"
                 onClick={() => setMobileMenuOpen(false)}
-                {...(item.external ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
-                className="px-[var(--space-12)] py-[var(--space-12)] text-[16px] leading-[24px] font-medium text-[var(--color-text-secondary)] hover:text-[#E6EEF8] transition-colors cursor-pointer rounded-[var(--radius-12)] hover:bg-[rgba(255,255,255,0.06)]"
+                className="flex items-center gap-[var(--space-8)] px-[var(--space-12)] py-[var(--space-12)] text-[16px] leading-[24px] font-medium text-[var(--color-text-secondary)] hover:text-[#E6EEF8] transition-colors cursor-pointer rounded-[var(--radius-12)] hover:bg-[rgba(255,255,255,0.06)] no-underline"
               >
-                {item.label}
-              </a>
-            ))}
+                <svg width="18" height="18" viewBox="0 0 16 16" fill="none">
+                  <path d="M10 12L6 8L10 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+                На главную
+              </Link>
+            ) : (
+              [{label: 'Стили', href: '#стили'}, {label: 'Тарифы', href: '#тарифы'}, {label: 'API', href: '/api/v1/docs', external: true}].map((item) => (
+                <a key={item.label} href={item.href}
+                  onClick={() => setMobileMenuOpen(false)}
+                  {...(item.external ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
+                  className="px-[var(--space-12)] py-[var(--space-12)] text-[16px] leading-[24px] font-medium text-[var(--color-text-secondary)] hover:text-[#E6EEF8] transition-colors cursor-pointer rounded-[var(--radius-12)] hover:bg-[rgba(255,255,255,0.06)]"
+                >
+                  {item.label}
+                </a>
+              ))
+            )}
           </div>
 
           <div className="h-px" style={{ background: 'rgba(255,255,255,0.08)' }} />
@@ -220,13 +238,15 @@ export default function NavBar({ onLoginClick }: Props) {
                 <svg width="18" height="18" viewBox="0 0 16 16" fill="none" className="text-[var(--color-brand-primary)]"><path d="M10 2h2.667A1.333 1.333 0 0114 3.333v9.334A1.333 1.333 0 0112.667 14H10M6.667 11.333L10 8m0 0L6.667 4.667M10 8H2" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/></svg>
                 Войти
               </button>
-              <Link
-                to="/app"
-                onClick={() => setMobileMenuOpen(false)}
-                className="glass-btn-primary flex items-center justify-center px-[var(--space-16)] py-[var(--space-12)] text-[16px] leading-[24px] rounded-[var(--radius-12)] text-center no-underline"
-              >
-                Попробовать
-              </Link>
+              {mode !== 'app' && (
+                <Link
+                  to="/app"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="glass-btn-primary flex items-center justify-center px-[var(--space-16)] py-[var(--space-12)] text-[16px] leading-[24px] rounded-[var(--radius-12)] text-center no-underline"
+                >
+                  Попробовать
+                </Link>
+              )}
             </div>
           )}
 

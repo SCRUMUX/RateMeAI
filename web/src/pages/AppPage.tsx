@@ -1,7 +1,6 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import NavBar from '../sections/NavBar';
-import Footer from '../sections/Footer';
 import AuthModal from '../components/AuthModal';
 import MeshGradientBg from '../components/effects/MeshGradientBg';
 import EnergyField from '../components/effects/EnergyField';
@@ -35,20 +34,24 @@ export default function AppPage() {
   const [currentStep, setCurrentStep] = useState<WizardStepId>('upload');
   const [direction, setDirection] = useState(0);
   const [authModalOpen, setAuthModalOpen] = useState(false);
+  const visitedSteps = useRef(new Set<WizardStepId>(['upload']));
+  const scrollRef = useRef<HTMLDivElement>(null);
 
   const currentIdx = STEP_ORDER.indexOf(currentStep);
 
   const completedSteps = new Set<WizardStepId>();
-  if (app.photo) completedSteps.add('upload');
-  if (app.preAnalysis || (!app.isAuthenticated && app.simulationDone)) completedSteps.add('analysis');
-  if (app.selectedStyleKey) completedSteps.add('style');
+  for (const step of visitedSteps.current) {
+    const stepIdx = STEP_ORDER.indexOf(step);
+    if (stepIdx < currentIdx) completedSteps.add(step);
+  }
   if (app.generatedImageUrl) completedSteps.add('generate');
 
   const goToStep = useCallback((step: WizardStepId) => {
     const newIdx = STEP_ORDER.indexOf(step);
     setDirection(newIdx > currentIdx ? 1 : -1);
     setCurrentStep(step);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    visitedSteps.current.add(step);
+    scrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
   }, [currentIdx]);
 
   const handleStepClick = useCallback((step: WizardStepId) => {
@@ -56,7 +59,7 @@ export default function AppPage() {
     if (stepIdx <= currentIdx || completedSteps.has(step)) {
       goToStep(step);
     }
-  }, [currentIdx, completedSteps, goToStep]);
+  }, [currentIdx, completedSteps, goToStep]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const goNext = useCallback(() => {
     if (currentIdx < STEP_ORDER.length - 1) {
@@ -64,17 +67,18 @@ export default function AppPage() {
     }
   }, [currentIdx, goToStep]);
 
-  // If photo is removed, go back to upload
   useEffect(() => {
     if (!app.photo && currentStep !== 'upload') {
-      goToStep('upload');
+      setCurrentStep('upload');
+      visitedSteps.current = new Set(['upload']);
     }
-  }, [app.photo]);
+  }, [app.photo, currentStep]);
 
   return (
-    <div data-category={app.activeCategory} className="min-h-screen w-full overflow-x-hidden selection:bg-brand-primary/30">
-      <NavBar onLoginClick={() => setAuthModalOpen(true)} />
-      <main className="relative pt-[68px] tablet:pt-[76px]">
+    <div data-category={app.activeCategory} className="h-dvh flex flex-col w-full overflow-hidden selection:bg-brand-primary/30">
+      <NavBar mode="app" onLoginClick={() => setAuthModalOpen(true)} />
+
+      <main ref={scrollRef} className="relative flex-1 overflow-y-auto pt-[52px] tablet:pt-[60px]">
         <MeshGradientBg />
         <EnergyField />
 
@@ -96,7 +100,7 @@ export default function AppPage() {
           />
 
           {/* Step content with transitions */}
-          <div className="w-full max-w-[1200px] min-h-[60vh]">
+          <div className="w-full max-w-[1200px]">
             <AnimatePresence mode="wait" custom={direction}>
               <motion.div
                 key={currentStep}
@@ -111,30 +115,24 @@ export default function AppPage() {
                   <StepUpload onNext={goNext} />
                 )}
                 {currentStep === 'analysis' && (
-                  <StepAnalysis
-                    onNext={goNext}
-                    onOpenAuthModal={() => setAuthModalOpen(true)}
-                  />
+                  <StepAnalysis onNext={goNext} />
                 )}
                 {currentStep === 'style' && (
                   <StepStyle onNext={goNext} />
                 )}
                 {currentStep === 'generate' && (
-                  <StepGenerate
-                    onOpenAuthModal={() => setAuthModalOpen(true)}
-                    onGoToStep={goToStep}
-                  />
+                  <StepGenerate onGoToStep={goToStep} />
                 )}
               </motion.div>
             </AnimatePresence>
           </div>
         </div>
       </main>
-      <Footer />
 
       <AuthModal
-        open={authModalOpen}
+        open={authModalOpen || !app.isAuthenticated}
         onClose={() => setAuthModalOpen(false)}
+        required={!app.isAuthenticated}
         onOAuth={async (provider) => {
           await app.loginWithOAuth(provider);
         }}

@@ -4,7 +4,7 @@ import { STYLES_BY_CATEGORY, getMockDelta, type CategoryId } from '../../data/st
 import CategoryTabs from '../CategoryTabs';
 import { useApp } from '../../context/AppContext';
 import ProgressBar from './ProgressBar';
-import { STYLES_PER_PAGE, computeStyleDeltas } from './shared';
+import { STYLES_PER_PAGE } from './shared';
 
 interface Props {
   onNext: () => void;

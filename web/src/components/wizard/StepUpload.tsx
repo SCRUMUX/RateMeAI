@@ -1,4 +1,4 @@
-import { useRef, useCallback, useState } from 'react';
+import { useRef, useCallback, useState, useEffect } from 'react';
 import { useApp } from '../../context/AppContext';
 
 interface Props {
@@ -9,22 +9,30 @@ export default function StepUpload({ onNext }: Props) {
   const app = useApp();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [dragOver, setDragOver] = useState(false);
+  const pendingAdvance = useRef(false);
+
+  useEffect(() => {
+    if (app.photo && pendingAdvance.current) {
+      pendingAdvance.current = false;
+      onNext();
+    }
+  }, [app.photo, onNext]);
 
   const handleFileSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0];
     if (!f) return;
+    pendingAdvance.current = true;
     app.uploadPhoto(f);
-    setTimeout(onNext, 300);
-  }, [app, onNext]);
+  }, [app]);
 
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     setDragOver(false);
     const f = e.dataTransfer.files?.[0];
     if (!f || !f.type.startsWith('image/')) return;
+    pendingAdvance.current = true;
     app.uploadPhoto(f);
-    setTimeout(onNext, 300);
-  }, [app, onNext]);
+  }, [app]);
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault();
