@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import { GlobeIcon, CoinIcon } from '@ai-ds/core/icons';
 import { useApp } from '../context/AppContext';
@@ -117,11 +118,11 @@ export default function NavBar({ onLoginClick }: Props) {
           </button>
 
           {!session && (
-            <a href="#app"
-              className="glass-btn-primary flex items-center px-[var(--space-12)] py-[var(--space-6)] text-[14px] leading-[20px] rounded-[var(--radius-12)]"
+            <Link to="/app"
+              className="glass-btn-primary flex items-center px-[var(--space-12)] py-[var(--space-6)] text-[14px] leading-[20px] rounded-[var(--radius-12)] no-underline"
             >
               Попробовать
-            </a>
+            </Link>
           )}
         </div>
 
@@ -219,13 +220,13 @@ export default function NavBar({ onLoginClick }: Props) {
                 <svg width="18" height="18" viewBox="0 0 16 16" fill="none" className="text-[var(--color-brand-primary)]"><path d="M10 2h2.667A1.333 1.333 0 0114 3.333v9.334A1.333 1.333 0 0112.667 14H10M6.667 11.333L10 8m0 0L6.667 4.667M10 8H2" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/></svg>
                 Войти
               </button>
-              <a
-                href="#app"
+              <Link
+                to="/app"
                 onClick={() => setMobileMenuOpen(false)}
-                className="glass-btn-primary flex items-center justify-center px-[var(--space-16)] py-[var(--space-12)] text-[16px] leading-[24px] rounded-[var(--radius-12)] text-center"
+                className="glass-btn-primary flex items-center justify-center px-[var(--space-16)] py-[var(--space-12)] text-[16px] leading-[24px] rounded-[var(--radius-12)] text-center no-underline"
               >
                 Попробовать
-              </a>
+              </Link>
             </div>
           )}
 

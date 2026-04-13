@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom';
 import { AicaIcon, TelegramIcon, WhatsappIcon, LineIcon, OkIcon, VkIcon, ZaloIcon, ChevronRightIcon } from '@ai-ds/core/icons';
 import type { FC } from 'react';
 
@@ -9,10 +10,11 @@ interface PlatformDef {
   iconColor: string;
   Icon: FC<{ size?: number | string; className?: string; style?: React.CSSProperties }>;
   href?: string;
+  internal?: boolean;
 }
 
 const PLATFORMS: PlatformDef[] = [
-  { name: 'WEB APP', sub: 'Прямо здесь', border: 'var(--color-brand-primary)', opacity: 1, iconColor: 'var(--color-brand-primary)', Icon: ({ size, className }) => <AicaIcon size={size} className={`${className ?? ''} -rotate-45`} />, href: '#app' },
+  { name: 'WEB APP', sub: 'Прямо здесь', border: 'var(--color-brand-primary)', opacity: 1, iconColor: 'var(--color-brand-primary)', Icon: ({ size, className }) => <AicaIcon size={size} className={`${className ?? ''} -rotate-45`} />, href: '/app', internal: true },
   { name: 'Telegram', sub: 'Уже запущен', border: '#229ED9', opacity: 1, iconColor: '#229ED9', Icon: TelegramIcon, href: 'https://t.me/RateMeAIBot' },
   { name: 'Одноклассники', sub: 'Мини-приложение', border: '#EE8208', opacity: 1, iconColor: '#EE8208', Icon: OkIcon, href: 'https://ok.ru/app/ratemeai' },
   { name: 'Вконтакте', sub: 'Мини-приложение', border: '#0077FF', opacity: 1, iconColor: '#0077FF', Icon: VkIcon, href: 'https://vk.com/app_ratemeai' },
@@ -74,7 +76,11 @@ export default function Hero() {
                 <ChevronRightIcon size={20} className="text-[var(--color-text-muted)] ml-1" />
               </>
             );
-            return p.href ? (
+            return p.href && p.internal ? (
+              <Link key={p.name} to={p.href} className={cls + ' no-underline'} style={style}>
+                {inner}
+              </Link>
+            ) : p.href ? (
               <a key={p.name} href={p.href} className={cls} style={style}
                 {...(p.href.startsWith('http') ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
               >

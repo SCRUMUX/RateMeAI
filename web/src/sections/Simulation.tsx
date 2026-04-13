@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { STYLES_BY_CATEGORY, getMockDelta, type CategoryId } from '../data/styles';
 import { getTestimonialsByCategory } from '../data/testimonials';
 import CategoryTabs from '../components/CategoryTabs';
@@ -100,9 +101,9 @@ export default function Simulation() {
           ))}
 
           {remaining > 0 && (
-            <a href="#app" className="glass-btn-secondary flex items-center justify-center w-full mt-[var(--space-12)] px-[var(--space-20)] py-[var(--space-10)] rounded-[var(--radius-12)] text-[var(--color-brand-primary)] text-[16px] leading-[24px] font-medium no-underline">
+            <Link to="/app" className="glass-btn-secondary flex items-center justify-center w-full mt-[var(--space-12)] px-[var(--space-20)] py-[var(--space-10)] rounded-[var(--radius-12)] text-[var(--color-brand-primary)] text-[16px] leading-[24px] font-medium no-underline">
               Ещё {remaining} образов
-            </a>
+            </Link>
           )}
         </div>
 

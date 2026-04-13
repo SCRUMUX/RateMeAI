@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import { CoinIcon, ImageIcon } from '@ai-ds/core/icons';
 import { useApp } from '../context/AppContext';
 import { createPayment, ApiError } from '../lib/api';
@@ -12,6 +13,7 @@ const PLANS = [
 
 export default function Pricing() {
   const { session } = useApp();
+  const navigate = useNavigate();
   const [loading, setLoading] = useState<number | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -30,7 +32,7 @@ export default function Pricing() {
 
   async function handleBuy(packQty: number) {
     if (!session) {
-      document.getElementById('app')?.scrollIntoView({ behavior: 'smooth' });
+      navigate('/app');
       return;
     }
     setLoading(packQty);
@@ -56,12 +58,12 @@ export default function Pricing() {
           — попробуй бесплатно
         </h2>
         <p className="text-[16px] tablet:text-[20px] leading-[24px] tablet:leading-[28px] text-[var(--color-text-secondary)]">И продолжай если понравится</p>
-        <button
-          onClick={() => document.getElementById('app')?.scrollIntoView({ behavior: 'smooth' })}
-          className="glass-btn-secondary mt-[var(--space-8)] px-[var(--space-16)] tablet:px-[var(--space-20)] py-[var(--space-10)] text-[14px] tablet:text-[16px] leading-[20px] tablet:leading-[24px] text-[var(--color-brand-primary)] rounded-[var(--radius-12)]"
+        <Link
+          to="/app"
+          className="glass-btn-secondary mt-[var(--space-8)] px-[var(--space-16)] tablet:px-[var(--space-20)] py-[var(--space-10)] text-[14px] tablet:text-[16px] leading-[20px] tablet:leading-[24px] text-[var(--color-brand-primary)] rounded-[var(--radius-12)] no-underline inline-flex items-center justify-center"
         >
           Попробовать бесплатное улучшение
-        </button>
+        </Link>
       </div>
 
       {/* Cards - horizontal scroll on mobile, flex row on desktop */}
