@@ -36,7 +36,7 @@ export default function NavBar({ onLoginClick, mode = 'landing' }: Props) {
 
   return (
     <>
-    <nav className="fixed top-0 left-0 right-0 z-[100] glass-nav">
+    <nav className={`${mode === 'app' ? 'relative shrink-0' : 'fixed top-0 left-0 right-0'} z-[100] glass-nav`}>
       <div className="max-w-[1200px] mx-auto flex items-center justify-between h-[52px] tablet:h-[60px] px-[var(--space-16)] tablet:px-[var(--space-24)]">
         {/* Logo */}
         <div className="flex items-center gap-[var(--space-8)] px-[var(--space-8)] py-[var(--space-4)]">

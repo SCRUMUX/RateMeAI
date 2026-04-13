@@ -160,8 +160,8 @@ export default function StepAnalysis({ onNext }: Props) {
             </div>
           )}
 
-          {/* Real results */}
-          {analysisRequested && (
+          {/* Real results — show only after simulation ends or API resolves */}
+          {analysisRequested && (app.simulationDone || app.preAnalysis || app.preAnalyzeError) && (
             <>
               <div className="gradient-border-card glass-card flex flex-col gap-[var(--space-12)] rounded-[var(--radius-12)] p-[var(--space-12)]">
                 {displayParams ? displayParams.map((p) => {

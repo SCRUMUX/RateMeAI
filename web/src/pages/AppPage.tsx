@@ -78,7 +78,7 @@ export default function AppPage() {
     <div data-category={app.activeCategory} className="h-dvh flex flex-col w-full overflow-hidden selection:bg-brand-primary/30">
       <NavBar mode="app" onLoginClick={() => setAuthModalOpen(true)} />
 
-      <main ref={scrollRef} className="relative flex-1 overflow-y-auto pt-[52px] tablet:pt-[60px]">
+      <main ref={scrollRef} className="relative flex-1 overflow-y-auto">
         <MeshGradientBg />
         <EnergyField />
 

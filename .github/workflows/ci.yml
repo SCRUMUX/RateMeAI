@@ -188,7 +188,7 @@ jobs:
             git pull origin main
 
             echo "=== Rebuilding frontend ==="
-            docker compose -f docker-compose.ru.yml --profile build-only build web
+            docker compose -f docker-compose.ru.yml --profile build-only build --no-cache web
 
             TEMP_CONTAINER=$(docker create ratemeai-web-ru:latest)
             docker cp "$TEMP_CONTAINER:/usr/share/nginx/html" /tmp/web-dist
