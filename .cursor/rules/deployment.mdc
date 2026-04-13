@@ -1,0 +1,50 @@
+---
+description: RU edge server deployment architecture and procedures
+globs: deploy/**,docker-compose.ru.yml,.github/workflows/ci.yml
+alwaysApply: false
+---
+
+# Deployment Architecture
+
+Two-region setup: **Railway** (primary, full AI processing) + **RU edge** (ru.ailookstudio.ru, proxies AI to primary).
+
+## Key invariants
+
+- `deploy/ru/update.sh` is the **single source of truth** for RU deploys. CI calls it via SSH; never duplicate its logic inline.
+- Alembic migrations run on **both** primary and edge at startup (`src/main.py` lifespan). Never use `create_all` in production.
+- `DEPLOY_GIT_SHA` must be passed to both backend (`environment:` in docker-compose) and frontend (`ARG` in web/Dockerfile). Verify via `/health` (backend) and `/version.json` (frontend).
+- Frontend is built inside Docker (`web/Dockerfile`), extracted to a named volume (`ratemeai_web_dist`), and served by nginx. Use `--no-cache` for web builds to avoid stale layers.
+
+## Deployment flow
+
+```
+git push main
+  -> CI: test -> deploy-backend (Railway) -> deploy-ru (SSH -> update.sh)
+  -> update.sh: git pull -> build web --no-cache -> extract to volume -> build+restart app -> restart nginx -> health check
+  -> CI: smoke tests (health SHA, version.json, catalog API, auth + tasks endpoint)
+```
+
+## Verifying a deploy
+
+```bash
+# Backend version and git SHA
+curl https://ru.ailookstudio.ru/health
+# Frontend build SHA and timestamp
+curl https://ru.ailookstudio.ru/version.json
+# DB-dependent endpoint (proves migrations ran)
+curl https://ru.ailookstudio.ru/api/v1/catalog/styles?mode=dating
+```
+
+## Adding a migration
+
+1. Create migration: `alembic revision --autogenerate -m "description"`
+2. Review in `alembic/versions/`
+3. Push to main -- both Railway and RU edge apply it on next startup
+
+## Manual RU deploy
+
+```bash
+ssh user@ru-server
+cd /opt/ratemeai
+sudo DEPLOY_GIT_SHA=$(git rev-parse --short=12 HEAD) ./deploy/ru/update.sh
+```

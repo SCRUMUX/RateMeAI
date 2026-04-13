@@ -42,6 +42,7 @@ services:
       REDIS_URL: redis://redis:6379/0
       STORAGE_LOCAL_PATH: /app/storage
       APP_ENV: prod
+      DEPLOY_GIT_SHA: ${DEPLOY_GIT_SHA:-}
     depends_on:
       postgres:
         condition: service_healthy

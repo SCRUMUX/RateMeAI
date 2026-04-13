@@ -114,17 +114,11 @@ def _run_alembic_upgrade() -> None:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    if settings.is_production and not settings.is_edge:
+    if settings.is_production:
         await asyncio.to_thread(_run_alembic_upgrade)
-        logging.getLogger(__name__).info("Alembic migrations applied")
-    elif settings.is_edge:
-        logging.getLogger(__name__).info("Edge mode: skipping alembic (migrations managed on primary)")
-        from src.models.db import Base
-        engine_tmp = create_async_engine(settings.database_url)
-        async with engine_tmp.begin() as conn:
-            await conn.run_sync(Base.metadata.create_all)
-        await engine_tmp.dispose()
-        logging.getLogger(__name__).info("Edge mode: DB tables ensured via create_all")
+        logging.getLogger(__name__).info(
+            "Alembic migrations applied (mode=%s)", settings.deployment_mode,
+        )
 
     engine = create_async_engine(settings.database_url, pool_size=10, max_overflow=20)
 

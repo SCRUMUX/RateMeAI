@@ -48,6 +48,7 @@ services:
       REDIS_URL: redis://redis:6379/0
       STORAGE_LOCAL_PATH: /app/storage
       APP_ENV: prod
+      DEPLOY_GIT_SHA: ${DEPLOY_GIT_SHA:-}
     depends_on:
       postgres:
         condition: service_healthy
@@ -58,7 +59,7 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
-      start_period: 15s
+      start_period: 30s
     volumes:
       - app_storage:/app/storage
 
@@ -68,6 +69,7 @@ services:
       dockerfile: web/Dockerfile
       args:
         VITE_API_BASE_URL: ${VITE_API_BASE_URL:-https://ru.ailookstudio.ru}
+        DEPLOY_GIT_SHA: ${DEPLOY_GIT_SHA:-}
     image: ratemeai-web-ru:latest
     profiles:
       - build-only

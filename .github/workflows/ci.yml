@@ -175,57 +175,79 @@ jobs:
       - name: Deploy to RU edge server
         if: env.SKIP_RU != 'true'
         uses: appleboy/ssh-action@v1
+        env:
+          DEPLOY_GIT_SHA: ${{ github.sha }}
         with:
           host: ${{ secrets.RU_SSH_HOST }}
           username: ${{ secrets.RU_SSH_USER }}
           key: ${{ secrets.RU_SSH_KEY }}
           port: 22
           command_timeout: 10m
+          envs: DEPLOY_GIT_SHA
           script: |
-            set -e
-            cd /opt/ratemeai
+            export DEPLOY_GIT_SHA="${DEPLOY_GIT_SHA:0:12}"
+            /opt/ratemeai/deploy/ru/update.sh
 
-            echo "=== Pulling latest code ==="
-            git pull origin main
-
-            echo "=== Rebuilding frontend ==="
-            docker compose -f docker-compose.ru.yml --profile build-only build --no-cache web
-
-            TEMP_CONTAINER=$(docker create ratemeai-web-ru:latest)
-            docker cp "$TEMP_CONTAINER:/usr/share/nginx/html" /tmp/web-dist
-            docker rm "$TEMP_CONTAINER"
-
-            docker run --rm \
-                -v ratemeai_web_dist:/usr/share/nginx/html \
-                -v /tmp/web-dist:/src:ro \
-                alpine sh -c "rm -rf /usr/share/nginx/html/* && cp -r /src/* /usr/share/nginx/html/"
-            rm -rf /tmp/web-dist
-
-            echo "=== Rebuilding and restarting backend ==="
-            docker compose -f docker-compose.ru.yml up -d --build app
-
-            echo "=== Restarting nginx (re-establish bind mounts after git pull) ==="
-            docker compose -f docker-compose.ru.yml restart nginx
-
-            echo "=== Done ==="
-            docker compose -f docker-compose.ru.yml ps
-
-      - name: RU health check
+      - name: RU smoke tests
         if: env.SKIP_RU != 'true'
         run: |
-          echo "Waiting 15s for RU server to stabilize..."
-          sleep 15
-          for i in 1 2 3 4 5; do
-            RESP=$(curl -sf "https://ru.ailookstudio.ru/health" || echo "FAIL")
-            echo "Attempt $i: $RESP"
-            if echo "$RESP" | grep -q '"ok"'; then
-              echo "RU health check passed"
-              exit 0
+          set -e
+          DOMAIN="https://ru.ailookstudio.ru"
+          SHORT_SHA="${GITHUB_SHA:0:12}"
+          FAIL=0
+
+          echo "=== Smoke test 1: /health with git SHA ==="
+          sleep 20
+          HEALTH=$(curl -sf "$DOMAIN/health" || echo "FAIL")
+          echo "  $HEALTH"
+          if ! echo "$HEALTH" | grep -q '"ok"'; then
+            echo "::error::Health check failed"
+            FAIL=1
+          fi
+          if ! echo "$HEALTH" | grep -q "$SHORT_SHA"; then
+            echo "::warning::Health response missing expected SHA $SHORT_SHA"
+          fi
+
+          echo "=== Smoke test 2: /version.json (frontend build) ==="
+          VER=$(curl -sf "$DOMAIN/version.json" || echo "FAIL")
+          echo "  $VER"
+          if [ "$VER" = "FAIL" ]; then
+            echo "::warning::version.json not available"
+          fi
+
+          echo "=== Smoke test 3: catalog API (no auth) ==="
+          HTTP_CODE=$(curl -sf -o /dev/null -w "%{http_code}" "$DOMAIN/api/v1/catalog/styles?mode=dating")
+          echo "  HTTP $HTTP_CODE"
+          if [ "$HTTP_CODE" != "200" ]; then
+            echo "::error::Catalog API returned $HTTP_CODE"
+            FAIL=1
+          fi
+
+          echo "=== Smoke test 4: auth + DB-dependent endpoint ==="
+          AUTH_RESP=$(curl -sf -X POST "$DOMAIN/api/v1/auth/web" \
+            -H "Content-Type: application/json" \
+            -d '{"device_id":"ci-smoke-test"}' || echo "FAIL")
+          echo "  auth: ${AUTH_RESP:0:80}..."
+          if echo "$AUTH_RESP" | grep -q "session_token"; then
+            TOKEN=$(echo "$AUTH_RESP" | python3 -c "import sys,json; print(json.load(sys.stdin)['session_token'])")
+            TASKS_CODE=$(curl -sf -o /dev/null -w "%{http_code}" \
+              "$DOMAIN/api/v1/tasks?limit=1" \
+              -H "Authorization: Bearer $TOKEN")
+            echo "  tasks: HTTP $TASKS_CODE"
+            if [ "$TASKS_CODE" != "200" ]; then
+              echo "::error::Tasks endpoint returned $TASKS_CODE (expected 200 — DB migration may have failed)"
+              FAIL=1
             fi
-            sleep 10
-          done
-          echo "::error::RU health check did not pass after 5 attempts"
-          exit 1
+          else
+            echo "::error::Auth failed: $AUTH_RESP"
+            FAIL=1
+          fi
+
+          if [ "$FAIL" -ne 0 ]; then
+            echo "::error::One or more smoke tests failed"
+            exit 1
+          fi
+          echo "All smoke tests passed"
 
       - name: RU deploy summary
         if: always() && env.SKIP_RU != 'true'
@@ -238,3 +260,4 @@ jobs:
           echo "| Commit | \`$SHORT_SHA\` |" >> $GITHUB_STEP_SUMMARY
           echo "| Server | \`ru.ailookstudio.ru\` |" >> $GITHUB_STEP_SUMMARY
           echo "| Health | [/health](https://ru.ailookstudio.ru/health) |" >> $GITHUB_STEP_SUMMARY
+          echo "| Version | [/version.json](https://ru.ailookstudio.ru/version.json) |" >> $GITHUB_STEP_SUMMARY
