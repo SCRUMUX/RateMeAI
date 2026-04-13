@@ -345,64 +345,94 @@ async def _submit_analysis(callback: CallbackQuery, api_base_url: str, redis: Re
 
 
 @router.callback_query(F.data.startswith("buy:"))
-async def on_buy(callback: CallbackQuery, api_base_url: str):
-    """Create YooKassa payment and send payment link."""
+async def on_buy(callback: CallbackQuery, api_base_url: str, redis: Redis):
+    """Create YooKassa payment via edge server API and send payment link."""
     from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
-    from src.services.payments import create_payment, _pack_by_quantity
+    from src.config import settings
 
     pack_qty = int(callback.data.split(":", 1)[1])
-    pack = _pack_by_quantity(pack_qty)
-    if not pack:
-        await callback.answer("Неизвестный пакет", show_alert=True)
-        return
 
     await callback.answer()
     wait_msg = await callback.message.answer("\U0001f4b3 Создаю платёж...")
 
-    # Resolve internal user_id from Telegram ID via API
     tg_id = callback.from_user.id
-    internal_user_id = await _resolve_user_id(api_base_url, tg_id)
-    if not internal_user_id:
-        await wait_msg.edit_text(
-            "\u274c Не удалось найти профиль. Попробуй /start.",
-            reply_markup=error_keyboard(),
-        )
-        return
+    payment_api = settings.edge_api_url.rstrip("/") if settings.edge_api_url else api_base_url
 
-    result = await create_payment(internal_user_id, pack_qty, return_channel="telegram")
-    if result is None:
+    try:
+        session_token = await _ensure_edge_session(
+            redis, tg_id, callback.from_user.username,
+            callback.from_user.first_name, payment_api,
+        )
+        if not session_token:
+            await wait_msg.edit_text(
+                "\u274c Не удалось создать профиль для оплаты. Попробуй /start.",
+                reply_markup=error_keyboard(),
+            )
+            return
+
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            resp = await client.post(
+                f"{payment_api}/api/v1/payments/create",
+                json={"pack_qty": pack_qty},
+                headers={"Authorization": f"Bearer {session_token}"},
+            )
+
+        if resp.status_code != 200:
+            detail = resp.json().get("detail", "unknown error") if resp.headers.get("content-type", "").startswith("application/json") else resp.text[:200]
+            logger.error("Payment create failed on %s: %s %s", payment_api, resp.status_code, detail)
+            await wait_msg.edit_text(
+                "\u274c Не удалось создать платёж. Попробуй позже.",
+                reply_markup=error_keyboard(),
+            )
+            return
+
+        data = resp.json()
+        confirmation_url = data["confirmation_url"]
+
+        from src.services.payments import _pack_by_quantity
+        pack = _pack_by_quantity(pack_qty)
+        price_label = f"{pack.price_rub} \u20bd" if pack else f"{pack_qty} образов"
+
+        kb = InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text=f"\U0001f4b3 Оплатить {price_label}", url=confirmation_url)],
+            [InlineKeyboardButton(text="\U0001f4b0 Проверить баланс", callback_data="balance")],
+            [InlineKeyboardButton(text="\U0001f4f8 Новое фото", callback_data="new_photo")],
+        ])
+        qty_label = pack.quantity if pack else pack_qty
+        await wait_msg.edit_text(
+            f"\U0001f6d2 *Пакет: {qty_label} образов за {price_label}*\n\n"
+            f"Нажми кнопку ниже для оплаты.\n"
+            f"После оплаты образы зачислятся автоматически!",
+            parse_mode="Markdown",
+            reply_markup=kb,
+        )
+    except Exception:
+        logger.exception("Failed to create payment for tg_user=%s", tg_id)
         await wait_msg.edit_text(
             "\u274c Не удалось создать платёж. Попробуй позже.",
             reply_markup=error_keyboard(),
         )
-        return
-
-    _payment_id, confirmation_url = result
-    kb = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text=f"\U0001f4b3 Оплатить {pack.price_rub} \u20bd", url=confirmation_url)],
-        [InlineKeyboardButton(text="\U0001f4b0 Проверить баланс", callback_data="balance")],
-        [InlineKeyboardButton(text="\U0001f4f8 Новое фото", callback_data="new_photo")],
-    ])
-    await wait_msg.edit_text(
-        f"\U0001f6d2 *Пакет: {pack.quantity} образов за {pack.price_rub} \u20bd*\n\n"
-        f"Нажми кнопку ниже для оплаты.\n"
-        f"После оплаты образы зачислятся автоматически!",
-        parse_mode="Markdown",
-        reply_markup=kb,
-    )
 
 
 @router.callback_query(F.data == "balance")
 async def on_balance(callback: CallbackQuery, api_base_url: str, redis: Redis):
-    """Show user's current credit balance."""
+    """Show user's current credit balance (from edge server where payments are processed)."""
+    from src.config import settings
     await callback.answer()
     user_id = callback.from_user.id
+    payment_api = settings.edge_api_url.rstrip("/") if settings.edge_api_url else api_base_url
+
     try:
-        auth_headers = await get_bot_auth_headers(redis, user_id)
+        token = await _ensure_edge_session(
+            redis, user_id, callback.from_user.username,
+            callback.from_user.first_name, payment_api,
+        )
+        headers = {"Authorization": f"Bearer {token}"} if token else await get_bot_auth_headers(redis, user_id)
+
         async with httpx.AsyncClient(timeout=10.0) as client:
             resp = await client.get(
-                f"{api_base_url}/api/v1/payments/balance",
-                headers=auth_headers,
+                f"{payment_api}/api/v1/payments/balance",
+                headers=headers,
             )
         if resp.status_code == 200:
             data = resp.json()
@@ -460,6 +490,42 @@ async def _resolve_user_id(api_base_url: str, telegram_id: int) -> str | None:
             return resp.json().get("user_id")
     except Exception:
         logger.debug("Could not resolve user_id for tg=%s", telegram_id)
+    return None
+
+
+_EDGE_SESSION_KEY = "bot_edge_session:{}"
+_EDGE_SESSION_TTL = 86400 * 7
+
+
+async def _ensure_edge_session(
+    redis: Redis, telegram_id: int, username: str | None,
+    first_name: str | None, edge_url: str,
+) -> str | None:
+    """Get or create a session token on the edge server for this Telegram user."""
+    cached = await redis.get(_EDGE_SESSION_KEY.format(telegram_id))
+    if cached:
+        return cached.decode() if isinstance(cached, bytes) else cached
+
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            resp = await client.post(
+                f"{edge_url}/api/v1/auth/telegram",
+                json={
+                    "telegram_id": telegram_id,
+                    "username": username,
+                    "first_name": first_name,
+                },
+            )
+        if resp.status_code == 200:
+            data = resp.json()
+            token = data.get("session_token")
+            if token:
+                await redis.set(
+                    _EDGE_SESSION_KEY.format(telegram_id), token, ex=_EDGE_SESSION_TTL,
+                )
+                return token
+    except Exception:
+        logger.exception("Failed to get edge session for tg=%s on %s", telegram_id, edge_url)
     return None
 
 

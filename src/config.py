@@ -139,6 +139,8 @@ class Settings(BaseSettings):
     remote_ai_backend_url: str = ""
     # Shared secret between edge and primary for /internal/* endpoints
     internal_api_key: str = ""
+    # URL of the RU edge server (bot on Railway uses it for payments/auth so webhook + DB match)
+    edge_api_url: str = ""
 
     # App
     app_env: str = "dev"
