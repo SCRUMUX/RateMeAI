@@ -44,7 +44,7 @@ def create_dispatcher(redis: Redis) -> Dispatcher:
     dp.include_router(fallback.router)  # must be last — catch-all
 
     @dp.error()
-    async def on_handler_error(event: ErrorEvent, data: dict) -> bool:
+    async def on_handler_error(event: ErrorEvent) -> bool:
         logger.exception("Unhandled error in handler: %s", event.exception)
         update = event.update
         try:

@@ -26,11 +26,16 @@ _LINK_WAITING_TTL = 600  # 10 min — same as link-token TTL
 class LinkCodeFilter(BaseFilter):
     """Match non-command text messages when the user has an active link_waiting flag."""
 
-    async def __call__(self, message: Message, redis: Redis) -> bool:
+    async def __call__(self, message: Message, redis: Redis | None = None, **kwargs) -> bool:
         if not message.text or message.text.startswith("/"):
             return False
-        flag = await redis.get(_LINK_WAITING_KEY.format(message.from_user.id))
-        return flag is not None
+        if redis is None:
+            return False
+        try:
+            flag = await redis.get(_LINK_WAITING_KEY.format(message.from_user.id))
+            return flag is not None
+        except Exception:
+            return False
 
 
 # ---------------------------------------------------------------------------
