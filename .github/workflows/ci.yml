@@ -110,12 +110,11 @@ jobs:
           SHORT_SHA="${GITHUB_SHA:0:12}"
           API_URL="${RAILWAY_API_URL:-https://app-production-6986.up.railway.app}"
           for SVC in app bot worker; do
-            railway variables set CREDIT_PACKS="1:59,5:199,15:499,30:899" -s "$SVC" -e production || true
-            railway variables set DEPLOY_GIT_SHA="$SHORT_SHA" -s "$SVC" -e production || true
+            railway variables set CREDIT_PACKS="1:59,5:199,15:499,30:899" DEPLOY_GIT_SHA="$SHORT_SHA" -s "$SVC" -e production --skip-deploys || true
           done
-          railway variables set INTERNAL_API_KEY="${{ secrets.INTERNAL_API_KEY }}" -s app -e production || true
-          railway variables set API_BASE_URL="$API_URL" -s bot -e production || true
-          railway variables set API_BASE_URL="$API_URL" -s worker -e production || true
+          railway variables set INTERNAL_API_KEY="${{ secrets.INTERNAL_API_KEY }}" -s app -e production --skip-deploys || true
+          railway variables set API_BASE_URL="$API_URL" -s bot -e production --skip-deploys || true
+          railway variables set API_BASE_URL="$API_URL" -s worker -e production --skip-deploys || true
 
       - name: Deploy Railway services (sequential)
         run: |
