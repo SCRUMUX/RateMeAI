@@ -186,7 +186,7 @@ jobs:
           envs: DEPLOY_GIT_SHA
           script: |
             export DEPLOY_GIT_SHA="${DEPLOY_GIT_SHA:0:12}"
-            /opt/ratemeai/deploy/ru/update.sh
+            bash /opt/ratemeai/deploy/ru/update.sh
 
       - name: RU smoke tests
         if: env.SKIP_RU != 'true'
