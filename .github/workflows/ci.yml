@@ -157,7 +157,7 @@ jobs:
 
   # ─── Deploy RU edge server (SSH) ──────────────────────────
   deploy-ru:
-    needs: [test]
+    needs: [test, deploy-backend]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     steps:
@@ -165,9 +165,10 @@ jobs:
         env:
           RU_SSH_HOST: ${{ secrets.RU_SSH_HOST }}
           RU_SSH_KEY: ${{ secrets.RU_SSH_KEY }}
+          RU_SSH_USER: ${{ secrets.RU_SSH_USER }}
         run: |
-          if [ -z "$RU_SSH_HOST" ] || [ -z "$RU_SSH_KEY" ]; then
-            echo "::warning::RU_SSH_HOST or RU_SSH_KEY not set — skipping RU deploy"
+          if [ -z "$RU_SSH_HOST" ] || [ -z "$RU_SSH_KEY" ] || [ -z "$RU_SSH_USER" ]; then
+            echo "::warning::RU_SSH_HOST, RU_SSH_KEY, or RU_SSH_USER not set — skipping RU deploy"
             echo "SKIP_RU=true" >> $GITHUB_ENV
           fi
 
@@ -223,7 +224,8 @@ jobs:
             fi
             sleep 10
           done
-          echo "::warning::RU health check did not pass (non-fatal)"
+          echo "::error::RU health check did not pass after 5 attempts"
+          exit 1
 
       - name: RU deploy summary
         if: always() && env.SKIP_RU != 'true'

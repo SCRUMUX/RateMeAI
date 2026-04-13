@@ -40,6 +40,69 @@ def _configure_logging() -> None:
 
 _configure_logging()
 
+_EDGE_RECONCILE_INTERVAL = 300  # 5 minutes
+_EDGE_STUCK_THRESHOLD_MINUTES = 10
+
+
+async def _edge_reconciler_loop(db_sessionmaker, redis: Redis) -> None:
+    """Periodically mark stuck PROCESSING tasks as FAILED on the edge server."""
+    from datetime import datetime, timezone, timedelta
+    from sqlalchemy import select
+    from src.models.db import Task, User, CreditTransaction
+    from src.models.enums import TaskStatus
+
+    log = logging.getLogger("edge_reconciler")
+    await asyncio.sleep(60)  # initial delay
+    while True:
+        try:
+            threshold = datetime.now(timezone.utc) - timedelta(minutes=_EDGE_STUCK_THRESHOLD_MINUTES)
+            async with db_sessionmaker() as db:
+                rows = await db.execute(
+                    select(Task).where(
+                        Task.status == TaskStatus.PROCESSING.value,
+                        Task.updated_at < threshold,
+                    )
+                )
+                stuck = rows.scalars().all()
+                for task in stuck:
+                    task.status = TaskStatus.FAILED.value
+                    task.error_message = (
+                        f"Edge task exceeded {_EDGE_STUCK_THRESHOLD_MINUTES}min SLA, "
+                        f"marked failed by edge reconciler."
+                    )
+                    log.warning("Edge reconciler: task %s stuck since %s", task.id, task.updated_at)
+
+                    if (task.context or {}).get("credit_pre_reserved"):
+                        try:
+                            u = await db.execute(
+                                select(User).where(User.id == task.user_id).with_for_update()
+                            )
+                            user = u.scalar_one()
+                            user.image_credits += 1
+                            db.add(CreditTransaction(
+                                user_id=task.user_id,
+                                amount=1,
+                                balance_after=user.image_credits,
+                                tx_type="refund_stuck_edge_task",
+                            ))
+                            log.info("Edge reconciler: refunded credit for task %s", task.id)
+                        except Exception:
+                            log.exception("Edge reconciler: failed to refund for task %s", task.id)
+
+                    try:
+                        await redis.publish(f"ratemeai:task_done:{task.id}", "failed")
+                    except Exception:
+                        pass
+                if stuck:
+                    await db.commit()
+                    log.info("Edge reconciler: marked %d stuck tasks as failed", len(stuck))
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            log.exception("Edge reconciler iteration failed")
+
+        await asyncio.sleep(_EDGE_RECONCILE_INTERVAL)
+
 
 def _run_alembic_upgrade() -> None:
     from alembic.config import Config
@@ -121,7 +184,25 @@ async def lifespan(app: FastAPI):
     if settings.is_edge:
         log.info("Edge mode: AI requests will be proxied to %s", settings.remote_ai_backend_url)
 
+    reconciler_task = None
+    if settings.is_edge:
+        reconciler_task = asyncio.create_task(
+            _edge_reconciler_loop(app.state.db_sessionmaker, app.state.redis)
+        )
+
     yield
+
+    if reconciler_task and not reconciler_task.done():
+        reconciler_task.cancel()
+        try:
+            await reconciler_task
+        except asyncio.CancelledError:
+            pass
+
+    if settings.is_edge:
+        from src.services import remote_ai as _rai_mod
+        if _rai_mod._instance is not None:
+            await _rai_mod._instance.close()
 
     await app.state.redis.close()
     await engine.dispose()

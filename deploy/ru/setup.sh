@@ -132,30 +132,21 @@ if [ ! -f "$PROJECT_DIR/.env.ru" ]; then
     exit 1
 fi
 
-# Copy SSL certs to Docker volume location
 docker compose -f docker-compose.ru.yml down 2>/dev/null || true
 
 # Build the frontend image with RU API URL
 docker compose -f docker-compose.ru.yml --profile build-only build web
 
-# Copy built frontend to volume
+# Copy built frontend to the named volume
 TEMP_CONTAINER=$(docker create ratemeai-web-ru:latest)
 docker cp "$TEMP_CONTAINER:/usr/share/nginx/html" /tmp/web-dist
 docker rm "$TEMP_CONTAINER"
 
-# Create certbot volume with certs
-docker volume create ratemeai_certbot_conf 2>/dev/null || true
-docker run --rm \
-    -v ratemeai_certbot_conf:/etc/letsencrypt \
-    -v /etc/letsencrypt:/host-certs:ro \
-    alpine sh -c "cp -r /host-certs/* /etc/letsencrypt/"
-
-# Create web_dist volume with frontend files
 docker volume create ratemeai_web_dist 2>/dev/null || true
 docker run --rm \
     -v ratemeai_web_dist:/usr/share/nginx/html \
     -v /tmp/web-dist:/src:ro \
-    alpine sh -c "cp -r /src/* /usr/share/nginx/html/"
+    alpine sh -c "rm -rf /usr/share/nginx/html/* && cp -r /src/* /usr/share/nginx/html/"
 
 rm -rf /tmp/web-dist
 

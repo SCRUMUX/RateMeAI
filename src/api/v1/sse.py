@@ -7,23 +7,49 @@ from __future__ import annotations
 import asyncio
 import logging
 
-from fastapi import APIRouter, Depends, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.responses import StreamingResponse
 
-from src.api.deps import get_auth_user, get_db
+from src.api.deps import get_db
 from src.models.db import Task, User
+from src.services.sessions import resolve_session
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
+
+
+async def _resolve_sse_user(
+    request: Request,
+    token: str | None = Query(None, description="Bearer token (for EventSource which cannot set headers)"),
+    db: AsyncSession = Depends(get_db),
+) -> User:
+    """Resolve user from Authorization header or query ?token= (SSE compat)."""
+    auth_header = request.headers.get("authorization")
+    bearer_token = None
+    if auth_header and auth_header.lower().startswith("bearer "):
+        bearer_token = auth_header.split(" ", 1)[1].strip()
+    if not bearer_token and token:
+        bearer_token = token.strip()
+    if not bearer_token:
+        raise HTTPException(status_code=401, detail="Missing auth token")
+
+    redis = request.app.state.redis
+    user_id = await resolve_session(redis, bearer_token)
+    if user_id is None:
+        raise HTTPException(status_code=401, detail="Invalid or expired session token")
+    user = await db.get(User, user_id)
+    if user is None:
+        raise HTTPException(status_code=401, detail="User not found")
+    return user
 
 
 @router.get("/progress")
 async def task_progress_stream(
     request: Request,
     task_id: str = Query(..., description="Task ID to subscribe to"),
-    user: User = Depends(get_auth_user),
+    user: User = Depends(_resolve_sse_user),
     db: AsyncSession = Depends(get_db),
 ):
     """SSE stream of task progress and completion events.
@@ -31,6 +57,9 @@ async def task_progress_stream(
     Subscribes to Redis PubSub channels:
     - ``ratemeai:progress:<task_id>`` for step-level progress
     - ``ratemeai:task_done:<task_id>`` for completion/failure signal
+
+    Auth: accepts Authorization header or ``?token=`` query param
+    (EventSource API cannot set custom headers).
     """
     result = await db.execute(select(Task).where(Task.id == task_id))
     task = result.scalar_one_or_none()

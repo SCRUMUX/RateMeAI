@@ -184,6 +184,7 @@ async def get_remote_task_status(
 async def pre_analyze_remote(
     request: RemotePreAnalyzeRequest,
     _key: str = Depends(_verify_internal_key),
+    redis: Redis = Depends(get_redis),
 ):
     """Run pre-analysis on the primary backend for the edge server."""
     try:
@@ -255,6 +256,19 @@ async def pre_analyze_remote(
         insights = [i.model_dump() for i in insights]
 
     opportunities = result_dict.get("enhancement_opportunities", [])
+
+    from src.utils.redis_keys import preanalysis_cache_key
+    import json as _json
+
+    _PRE_ANALYSIS_TTL = 1800
+    try:
+        await redis.set(
+            preanalysis_cache_key(pre_id),
+            _json.dumps(result_dict, default=str),
+            ex=_PRE_ANALYSIS_TTL,
+        )
+    except Exception:
+        logger.exception("Failed to cache pre-analysis %s on primary", pre_id)
 
     return {
         "pre_analysis_id": pre_id,

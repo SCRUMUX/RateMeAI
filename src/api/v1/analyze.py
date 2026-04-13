@@ -74,6 +74,18 @@ async def _handle_edge_analysis(
         task.status = TaskStatus.PROCESSING.value
         await db.commit()
 
+        async def _edge_progress(status: str, poll_count: int) -> None:
+            """Relay polling status as progress events so edge SSE clients see updates."""
+            try:
+                estimated_total = 45
+                current = min(poll_count * 2, estimated_total - 1)
+                await redis.publish(
+                    f"ratemeai:progress:{task_id}",
+                    f"{status}:{current}:{estimated_total}",
+                )
+            except Exception:
+                pass
+
         try:
             result_data = await remote_ai.submit_and_wait(
                 image_b64=image_b64,
@@ -83,6 +95,7 @@ async def _handle_edge_analysis(
                 enhancement_level=enhancement_level,
                 pre_analysis_id=pre_analysis_id,
                 edge_task_id=str(task_id),
+                on_poll=_edge_progress,
             )
 
             remote_result = result_data.get("result") or {}

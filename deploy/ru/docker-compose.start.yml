@@ -70,5 +70,8 @@ services:
 
 volumes:
   pgdata:
+    name: ratemeai_pgdata
   app_storage:
+    name: ratemeai_app_storage
   web_dist:
+    name: ratemeai_web_dist

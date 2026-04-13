@@ -121,30 +121,44 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [identities, setIdentities] = useState<api.LinkedIdentity[]>([]);
 
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const sseRef = useRef<EventSource | null>(null);
   const simTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const preAnalysisCacheRef = useRef<Record<string, api.PreAnalysisResponse>>({});
+
+  const handleAuthError = useCallback((e: unknown) => {
+    if (e instanceof api.ApiError && e.status === 401) {
+      authLogout();
+      localStorage.removeItem('ailook_provider');
+      setSession(null);
+      setIsAuthenticated(false);
+      setBalance(0);
+      setError('Сессия истекла. Пожалуйста, войдите снова.');
+      return true;
+    }
+    return false;
+  }, []);
 
   const refreshBalance = useCallback(async () => {
     try {
       const b = await api.getBalance();
       setBalance(b.image_credits);
-    } catch { /* ignore */ }
-  }, []);
+    } catch (e) { handleAuthError(e); }
+  }, [handleAuthError]);
 
   const refreshIdentities = useCallback(async () => {
     try {
       const res = await api.getMyIdentities();
       setIdentities(res.identities);
-    } catch { /* ignore */ }
-  }, []);
+    } catch (e) { handleAuthError(e); }
+  }, [handleAuthError]);
 
   const fetchTaskHistory = useCallback(async () => {
     try {
       const res = await api.getTaskHistory(100, 0);
       setTaskHistory(res.items);
       setTaskHistoryCount(res.total_count);
-    } catch { /* ignore */ }
-  }, []);
+    } catch (e) { handleAuthError(e); }
+  }, [handleAuthError]);
 
   const uploadPhoto = useCallback((f: File) => {
     const preview = URL.createObjectURL(f);
@@ -211,7 +225,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
     try {
       const b = await api.getBalance();
       setBalance(b.image_credits);
-    } catch { /* balance may not be available yet */ }
+    } catch (e) {
+      if (e instanceof api.ApiError && e.status === 401) throw e;
+    }
     const usage = await api.getUsage().catch(() => ({
       daily_limit: 3, used: 0, remaining: 3, is_premium: false,
     }));
@@ -274,6 +290,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const stopPolling = useCallback(() => {
     if (pollingRef.current) { clearInterval(pollingRef.current); pollingRef.current = null; }
+    if (sseRef.current) { sseRef.current.close(); sseRef.current = null; }
   }, []);
 
   const verifyImageUrl = useCallback(async (url: string, retries = 3, delayMs = 2000): Promise<boolean> => {
@@ -293,9 +310,53 @@ export function AppProvider({ children }: { children: ReactNode }) {
     return false;
   }, []);
 
-  const startPolling = useCallback((taskId: string, category: CategoryId) => {
-    stopPolling();
-    const mode = category as string;
+  const handleTaskResult = useCallback(async (taskId: string, mode: string, category: CategoryId) => {
+    try {
+      const t = await api.getTask(taskId);
+      setCurrentTask({ taskId: t.task_id, status: t.status, result: t.result });
+      if (t.status === 'completed') {
+        const r = t.result as Record<string, unknown> | null;
+        if (r) {
+          const imgUrl = normalizeImageUrl(
+            (r.generated_image_url ?? r.image_url ?? '') as string,
+          );
+          if (imgUrl) {
+            const available = await verifyImageUrl(imgUrl);
+            if (available) {
+              setGeneratedImageUrl(imgUrl);
+            } else {
+              setError('Не удалось загрузить сгенерированное изображение. Попробуйте снова.');
+            }
+          } else {
+            const reason = r.no_image_reason as string | undefined;
+            const NO_IMAGE_MESSAGES: Record<string, string> = {
+              no_credits: 'Недостаточно кредитов для генерации изображения. Пополните баланс.',
+              generation_error: 'Не удалось сгенерировать изображение. Попробуйте другой стиль или фото.',
+              upgrade_required: 'Для генерации изображения необходимо пополнить баланс.',
+              not_applicable: 'Для данного режима генерация изображения недоступна.',
+            };
+            setError(NO_IMAGE_MESSAGES[reason ?? ''] ?? 'Анализ завершён без изображения.');
+          }
+          const { score, perception } = extractAfterScores(r, mode);
+          if (score != null) setAfterScore(score);
+          if (perception) setAfterPerception(perception);
+        }
+        setGenerationMode(category);
+        setIsGenerating(false);
+        refreshBalance();
+        fetchTaskHistory();
+      } else if (t.status === 'failed') {
+        setIsGenerating(false);
+        setError(t.error_message ?? 'Generation failed');
+      }
+    } catch {
+      setIsGenerating(false);
+      setError('Не удалось получить результат. Проверьте подключение и попробуйте снова.');
+    }
+  }, [refreshBalance, fetchTaskHistory, verifyImageUrl]);
+
+  const startPollingFallback = useCallback((taskId: string, mode: string, category: CategoryId) => {
+    if (pollingRef.current) return;
     let errorCount = 0;
     const MAX_ERRORS = 5;
     const TIMEOUT_MS = 5 * 60 * 1000;
@@ -311,42 +372,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
         const t = await api.getTask(taskId);
         errorCount = 0;
         setCurrentTask({ taskId: t.task_id, status: t.status, result: t.result });
-        if (t.status === 'completed') {
+        if (t.status === 'completed' || t.status === 'failed') {
           stopPolling();
-          const r = t.result as Record<string, unknown> | null;
-          if (r) {
-            let imgUrl = normalizeImageUrl(
-              (r.generated_image_url ?? r.image_url ?? '') as string,
-            );
-            if (imgUrl) {
-              const available = await verifyImageUrl(imgUrl);
-              if (available) {
-                setGeneratedImageUrl(imgUrl);
-              } else {
-                setError('Не удалось загрузить сгенерированное изображение. Попробуйте снова.');
-              }
-            } else {
-              const reason = r.no_image_reason as string | undefined;
-              const NO_IMAGE_MESSAGES: Record<string, string> = {
-                no_credits: 'Недостаточно кредитов для генерации изображения. Пополните баланс.',
-                generation_error: 'Не удалось сгенерировать изображение. Попробуйте другой стиль или фото.',
-                upgrade_required: 'Для генерации изображения необходимо пополнить баланс.',
-                not_applicable: 'Для данного режима генерация изображения недоступна.',
-              };
-              setError(NO_IMAGE_MESSAGES[reason ?? ''] ?? 'Анализ завершён без изображения.');
-            }
-            const { score, perception } = extractAfterScores(r, mode);
-            if (score != null) setAfterScore(score);
-            if (perception) setAfterPerception(perception);
-          }
-          setGenerationMode(category);
-          setIsGenerating(false);
-          refreshBalance();
-          fetchTaskHistory();
-        } else if (t.status === 'failed') {
-          stopPolling();
-          setIsGenerating(false);
-          setError(t.error_message ?? 'Generation failed');
+          await handleTaskResult(taskId, mode, category);
         }
       } catch {
         errorCount++;
@@ -356,8 +384,53 @@ export function AppProvider({ children }: { children: ReactNode }) {
           setError('Не удалось получить результат. Проверьте подключение и попробуйте снова.');
         }
       }
-    }, 2000);
-  }, [stopPolling, refreshBalance, fetchTaskHistory, verifyImageUrl]);
+    }, 3000);
+  }, [stopPolling, handleTaskResult]);
+
+  const startPolling = useCallback((taskId: string, category: CategoryId) => {
+    stopPolling();
+    const mode = category as string;
+    const token = api.getToken();
+    const sseUrl = `${api.API_BASE}/api/v1/sse/progress?task_id=${taskId}`;
+
+    try {
+      const es = new EventSource(
+        token ? `${sseUrl}&token=${encodeURIComponent(token)}` : sseUrl,
+      );
+      sseRef.current = es;
+
+      es.addEventListener('done', async (ev) => {
+        stopPolling();
+        await handleTaskResult(taskId, mode, category);
+      });
+
+      es.addEventListener('progress', (ev) => {
+        const parts = (ev.data as string).split(':');
+        if (parts.length >= 3) {
+          setCurrentTask(prev => prev ? { ...prev, status: `${parts[0]} ${parts[1]}/${parts[2]}` } : prev);
+        }
+      });
+
+      es.onerror = () => {
+        if (sseRef.current) {
+          sseRef.current.close();
+          sseRef.current = null;
+        }
+        startPollingFallback(taskId, mode, category);
+      };
+
+      setTimeout(() => {
+        if (sseRef.current === es && es.readyState !== EventSource.OPEN) {
+          es.close();
+          sseRef.current = null;
+          startPollingFallback(taskId, mode, category);
+        }
+      }, 5000);
+
+    } catch {
+      startPollingFallback(taskId, mode, category);
+    }
+  }, [stopPolling, handleTaskResult, startPollingFallback]);
 
   useEffect(() => () => stopPolling(), [stopPolling]);
 

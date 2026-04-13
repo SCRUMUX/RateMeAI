@@ -24,11 +24,9 @@ module.exports = {
   content: {
     relative: true,
     files: [
-      '../../packages/core/src/**/*.{js,ts,jsx,tsx}',
-      '../../packages/core/components/**/*.{js,ts,jsx,tsx}',
-      '../../packages/core/contracts/components/*.contract.json',
+      './src/**/*.{js,ts,jsx,tsx}',
       './pages/**/*.{js,ts,jsx,tsx}',
-      './.storybook/**/*.{js,ts,jsx,tsx}',
+      './index.html',
     ],
   },
   

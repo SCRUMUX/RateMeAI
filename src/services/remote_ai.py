@@ -81,9 +81,18 @@ class RemoteAIService:
         logger.info("Submitted remote task %s (edge=%s)", remote_task_id, edge_task_id)
         return remote_task_id
 
-    async def poll_result(self, remote_task_id: str) -> dict[str, Any]:
-        """Poll until the remote task completes or fails. Returns the full result dict."""
+    async def poll_result(
+        self,
+        remote_task_id: str,
+        on_poll: Any | None = None,
+    ) -> dict[str, Any]:
+        """Poll until the remote task completes or fails. Returns the full result dict.
+
+        ``on_poll`` is an optional async callback(status: str, elapsed: float)
+        called after each successful poll to relay progress to the caller.
+        """
         elapsed = 0.0
+        poll_count = 0
         while elapsed < _POLL_MAX_SECONDS:
             try:
                 resp = await self._client.get(
@@ -105,6 +114,13 @@ class RemoteAIService:
                 await asyncio.sleep(_POLL_INTERVAL_SECONDS)
                 elapsed += _POLL_INTERVAL_SECONDS
                 continue
+
+            poll_count += 1
+            if on_poll is not None:
+                try:
+                    await on_poll(status, poll_count)
+                except Exception:
+                    pass
 
             if status == "completed":
                 logger.info("Remote task %s completed", remote_task_id)
@@ -152,6 +168,7 @@ class RemoteAIService:
         enhancement_level: int = 0,
         pre_analysis_id: str = "",
         edge_task_id: str = "",
+        on_poll: Any | None = None,
     ) -> dict[str, Any]:
         """Submit a task and wait for it to complete. Returns full result."""
         remote_id = await self.submit_task(
@@ -163,7 +180,7 @@ class RemoteAIService:
             pre_analysis_id=pre_analysis_id,
             edge_task_id=edge_task_id,
         )
-        return await self.poll_result(remote_id)
+        return await self.poll_result(remote_id, on_poll=on_poll)
 
 
 _instance: RemoteAIService | None = None
