@@ -203,8 +203,8 @@ jobs:
             echo "=== Rebuilding and restarting backend ==="
             docker compose -f docker-compose.ru.yml up -d --build app
 
-            echo "=== Reloading nginx ==="
-            docker compose -f docker-compose.ru.yml exec nginx nginx -s reload
+            echo "=== Restarting nginx (re-establish bind mounts after git pull) ==="
+            docker compose -f docker-compose.ru.yml restart nginx
 
             echo "=== Done ==="
             docker compose -f docker-compose.ru.yml ps
