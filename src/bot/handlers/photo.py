@@ -59,6 +59,7 @@ async def handle_photo(message: Message, redis: Redis):
     try:
         photo = message.photo[-1]
         user_id = message.from_user.id
+        logger.info("Photo received from user %s, file_id=%s", user_id, photo.file_id[:20])
 
         await redis.set(PHOTO_KEY.format(user_id), photo.file_id, ex=86400)
         await _reset_depth(redis, user_id)

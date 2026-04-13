@@ -120,8 +120,16 @@ async def main():
         await _start_health_server()
         logger.info("Bot health server started on 0.0.0.0:%s", os.environ.get("PORT", "8080"))
         await bot.delete_webhook(drop_pending_updates=False)
+        logger.info("Webhook deleted, waiting for old instances to release polling lock...")
+        await asyncio.sleep(3)
         logger.info("Starting bot in polling mode (single replica recommended).")
-        await dp.start_polling(bot)
+        await dp.start_polling(
+            bot,
+            allowed_updates=[
+                "message", "callback_query", "edited_message",
+                "channel_post", "inline_query",
+            ],
+        )
 
 
 if __name__ == "__main__":
