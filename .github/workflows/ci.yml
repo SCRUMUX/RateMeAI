@@ -154,3 +154,85 @@ jobs:
           echo "| Frontend | [Vercel](https://ailookstudio.vercel.app) |" >> $GITHUB_STEP_SUMMARY
           API_URL="${RAILWAY_API_URL:-https://app-production-6986.up.railway.app}"
           echo "| API Health | [/health](${API_URL}/health) |" >> $GITHUB_STEP_SUMMARY
+
+  # ─── Deploy RU edge server (SSH) ──────────────────────────
+  deploy-ru:
+    needs: [test]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate RU secrets
+        env:
+          RU_SSH_HOST: ${{ secrets.RU_SSH_HOST }}
+          RU_SSH_KEY: ${{ secrets.RU_SSH_KEY }}
+        run: |
+          if [ -z "$RU_SSH_HOST" ] || [ -z "$RU_SSH_KEY" ]; then
+            echo "::warning::RU_SSH_HOST or RU_SSH_KEY not set — skipping RU deploy"
+            echo "SKIP_RU=true" >> $GITHUB_ENV
+          fi
+
+      - name: Deploy to RU edge server
+        if: env.SKIP_RU != 'true'
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.RU_SSH_HOST }}
+          username: ${{ secrets.RU_SSH_USER }}
+          key: ${{ secrets.RU_SSH_KEY }}
+          port: 22
+          command_timeout: 10m
+          script: |
+            set -e
+            cd /opt/ratemeai
+
+            echo "=== Pulling latest code ==="
+            git pull origin main
+
+            echo "=== Rebuilding frontend ==="
+            docker compose -f docker-compose.ru.yml --profile build-only build web
+
+            TEMP_CONTAINER=$(docker create ratemeai-web-ru:latest)
+            docker cp "$TEMP_CONTAINER:/usr/share/nginx/html" /tmp/web-dist
+            docker rm "$TEMP_CONTAINER"
+
+            docker run --rm \
+                -v ratemeai_web_dist:/usr/share/nginx/html \
+                -v /tmp/web-dist:/src:ro \
+                alpine sh -c "rm -rf /usr/share/nginx/html/* && cp -r /src/* /usr/share/nginx/html/"
+            rm -rf /tmp/web-dist
+
+            echo "=== Rebuilding and restarting backend ==="
+            docker compose -f docker-compose.ru.yml up -d --build app
+
+            echo "=== Reloading nginx ==="
+            docker compose -f docker-compose.ru.yml exec nginx nginx -s reload
+
+            echo "=== Done ==="
+            docker compose -f docker-compose.ru.yml ps
+
+      - name: RU health check
+        if: env.SKIP_RU != 'true'
+        run: |
+          echo "Waiting 15s for RU server to stabilize..."
+          sleep 15
+          for i in 1 2 3 4 5; do
+            RESP=$(curl -sf "https://ru.ailookstudio.ru/health" || echo "FAIL")
+            echo "Attempt $i: $RESP"
+            if echo "$RESP" | grep -q '"ok"'; then
+              echo "RU health check passed"
+              exit 0
+            fi
+            sleep 10
+          done
+          echo "::warning::RU health check did not pass (non-fatal)"
+
+      - name: RU deploy summary
+        if: always() && env.SKIP_RU != 'true'
+        run: |
+          SHORT_SHA="${GITHUB_SHA:0:12}"
+          echo "## RU Edge Deploy" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Item | Value |" >> $GITHUB_STEP_SUMMARY
+          echo "|------|-------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Commit | \`$SHORT_SHA\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Server | \`ru.ailookstudio.ru\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Health | [/health](https://ru.ailookstudio.ru/health) |" >> $GITHUB_STEP_SUMMARY
