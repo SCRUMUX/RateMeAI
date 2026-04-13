@@ -97,12 +97,13 @@ jobs:
       - name: Install Railway CLI
         run: npm install -g @railway/cli
 
-      - name: Set deploy SHA
+      - name: Set deploy SHA and edge config
         run: |
           SHORT_SHA="${GITHUB_SHA:0:12}"
           for SVC in app bot worker; do
             railway variables set DEPLOY_GIT_SHA="$SHORT_SHA" -s "$SVC" -e production --skip-deploys || true
           done
+          railway variables set EDGE_API_URL="https://ru.ailookstudio.ru" -s bot -e production --skip-deploys || true
 
       - name: Deploy Railway services (sequential)
         run: |
