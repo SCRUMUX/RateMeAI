@@ -167,33 +167,24 @@ export default function StepAnalysis({ onNext }: Props) {
                 )}
               </div>
 
-              {/* Stylist recommendation */}
+              {/* Recommended styles */}
               {recommendation && (
-                <div className="gradient-border-card glass-card rounded-[var(--radius-12)] p-[var(--space-16)] flex flex-col gap-[var(--space-12)]"
-                  style={{ '--gb-color': 'rgba(var(--accent-r), var(--accent-g), var(--accent-b), 0.15)' } as React.CSSProperties}
-                >
-                  <div className="flex items-center gap-[var(--space-8)]">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" className="shrink-0">
-                      <path d="M12 2a7 7 0 0 1 7 7c0 2.38-1.19 4.47-3 5.74V17a1 1 0 0 1-1 1H9a1 1 0 0 1-1-1v-2.26C6.19 13.47 5 11.38 5 9a7 7 0 0 1 7-7z" stroke="rgb(var(--accent-r),var(--accent-g),var(--accent-b))" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                      <path d="M9 21h6" stroke="rgb(var(--accent-r),var(--accent-g),var(--accent-b))" strokeWidth="1.5" strokeLinecap="round"/>
-                    </svg>
-                    <span className="text-[13px] leading-[18px] font-semibold text-[var(--color-brand-primary)]">Рекомендация стилиста</span>
-                  </div>
-                  <p className="text-[14px] leading-[20px] text-[#E6EEF8]">
-                    <span className="font-medium">{recommendation.param.label}</span>
-                    <span className="text-[var(--color-text-muted)]"> ({recommendation.param.value.toFixed(1)})</span>
-                    {' — ваша точка роста.'}
-                  </p>
-                  <p className="text-[13px] leading-[18px] text-[var(--color-text-secondary)]">
-                    {'Стили '}
-                    {recommendation.styles.map((s, i) => (
-                      <span key={s.key}>
-                        {i > 0 && ' и '}
-                        <span className="text-[#E6EEF8] font-medium">{s.icon} {s.name}</span>
-                      </span>
-                    ))}
-                    {' усилят этот параметр.'}
-                  </p>
+                <div className="flex flex-col gap-[var(--space-8)]">
+                  <span className="text-[13px] leading-[18px] font-medium text-[var(--color-text-muted)]">Рекомендуемые стили</span>
+                  {recommendation.styles.map((s) => (
+                    <div
+                      key={s.key}
+                      onClick={() => { app.setSelectedStyleKey(s.key); onNext(); }}
+                      className="gradient-border-item flex items-center w-full px-[var(--space-16)] py-[var(--space-8)] gap-[var(--space-4)] min-h-[36px] cursor-pointer rounded-[var(--radius-12)] transition-all glass-row"
+                      style={{ '--gb-color': 'rgba(var(--accent-r), var(--accent-g), var(--accent-b), 0.15)' } as React.CSSProperties}
+                    >
+                      <div className="flex items-center justify-center w-5 h-5 shrink-0 text-[18px] leading-none">{s.icon}</div>
+                      <div className="flex flex-col flex-1 min-w-0 gap-[2px]">
+                        <span className="text-[16px] leading-[24px] text-[#E6EEF8] font-medium truncate">{s.name}</span>
+                        <span className="text-[11px] leading-[14px] text-[var(--color-text-muted)] truncate">{s.desc}</span>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               )}
             </>
