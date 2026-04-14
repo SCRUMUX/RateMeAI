@@ -1,10 +1,10 @@
 import { useState, useRef } from 'react';
 import { ChevronLeftIcon, ChevronRightIcon } from '@ai-ds/core/icons';
-import { STYLES_BY_CATEGORY, getMockDelta, type CategoryId } from '../../data/styles';
+import { STYLES_BY_CATEGORY, type CategoryId } from '../../data/styles';
 import CategoryTabs from '../CategoryTabs';
 import { useApp } from '../../context/AppContext';
 import ProgressBar from './ProgressBar';
-import { STYLES_PER_PAGE } from './shared';
+import { STYLES_PER_PAGE, PARAM_LABELS, computeStyleDeltas } from './shared';
 
 interface Props {
   onNext: () => void;
@@ -35,8 +35,20 @@ export default function StepStyle({ onNext }: Props) {
 
   const hasRealScores = !!app.preAnalysis;
   const beforeScore = hasRealScores ? app.preAnalysis!.score : 5.99;
-  const predictedDelta = (selectedStyle.deltaRange[0] + selectedStyle.deltaRange[1]) / 2;
-  const predictedAfterScore = +(beforeScore + predictedDelta).toFixed(2);
+  const beforePerception = hasRealScores ? app.preAnalysis!.perception_scores : null;
+
+  const styleDelta = selectedStyle ? computeStyleDeltas(selectedStyle, activeTab) : null;
+
+  const displayParams = beforePerception
+    ? Object.entries(beforePerception)
+        .filter(([k]) => k !== 'authenticity')
+        .map(([k, v]) => ({
+          key: k,
+          label: PARAM_LABELS[k] ?? k,
+          value: v as number,
+          delta: styleDelta?.[k] ?? 0,
+        }))
+    : null;
 
   function handleTabChange(id: CategoryId) {
     app.setActiveCategory(id);
@@ -76,9 +88,6 @@ export default function StepStyle({ onNext }: Props) {
         <span className="text-[16px] leading-[24px] text-[#E6EEF8] font-medium truncate">{s.name}</span>
         <span className="text-[11px] leading-[14px] text-[var(--color-text-muted)] truncate">{s.desc}</span>
       </div>
-      <span className="px-[var(--space-8)] py-[var(--space-4)] rounded-[var(--radius-pill)] text-[14px] leading-[20px] text-[var(--color-success-base)] font-medium tabular-nums shrink-0">
-        {getMockDelta(s.deltaRange, s.key)}
-      </span>
     </div>
   );
 
@@ -93,111 +102,147 @@ export default function StepStyle({ onNext }: Props) {
         </p>
       </div>
 
-      {/* Category tabs */}
-      <div className="flex items-center justify-center w-full">
-        <CategoryTabs active={activeTab} onChange={handleTabChange} />
-      </div>
-
+      {/* Top section: photo + category (left) | params + generate (right) */}
       <div className="flex flex-col tablet:flex-row gap-[var(--space-24)] tablet:gap-[var(--space-32)]">
-        {/* Style list */}
-        <div className="flex-1 min-w-0">
-          {/* Mobile: swipeable pages */}
-          <div
-            ref={styleScrollRef}
-            onScroll={handleStyleScroll}
-            className="flex tablet:hidden flex-row overflow-x-auto snap-x snap-mandatory scrollbar-hide"
-          >
-            {allPages.map((pageItems, pageIdx) => (
-              <div key={pageIdx} className="w-full min-w-full snap-center flex flex-col gap-[var(--space-12)]">
-                {pageItems.map((s) => renderStyleRow(s, styles.indexOf(s)))}
-              </div>
-            ))}
-          </div>
-
-          {/* Mobile: page indicators */}
-          {totalPages > 1 && (
-            <div className="flex tablet:hidden items-center justify-center gap-[6px] mt-[var(--space-8)]">
-              {allPages.map((_, i) => (
-                <button
-                  key={i}
-                  className={`w-2 h-2 rounded-full transition-colors ${clampedPage === i ? 'bg-[rgb(var(--accent-r),var(--accent-g),var(--accent-b))]' : 'bg-[rgba(255,255,255,0.25)]'}`}
-                  onClick={() => {
-                    const el = styleScrollRef.current;
-                    if (el) el.scrollTo({ left: i * el.offsetWidth, behavior: 'smooth' });
-                  }}
-                />
-              ))}
+        {/* Left: photo card + category tabs */}
+        <div className="flex flex-col gap-[var(--space-16)] w-full tablet:w-[260px] shrink-0">
+          <div className="gradient-border-card glass-card flex flex-col rounded-[var(--radius-12)] overflow-hidden">
+            <div className="w-full aspect-[3/4] tablet:h-[280px] shrink-0 bg-[rgba(255,255,255,0.02)] overflow-hidden">
+              {app.photo ? (
+                <img src={app.photo.preview} alt="Original" className="w-full h-full object-cover" />
+              ) : (
+                <img src="/img/placeholder-upload.png" alt="" className="w-full h-full object-cover opacity-50" />
+              )}
             </div>
-          )}
-
-          {/* Tablet+: two-column layout */}
-          <div className="hidden tablet:flex flex-row gap-[var(--space-16)]">
-            <div className="flex-1 flex flex-col gap-[var(--space-12)]">
-              {leftCol.map((s) => renderStyleRow(s, styles.indexOf(s)))}
-            </div>
-            <div className="flex-1 flex flex-col gap-[var(--space-12)]">
-              {rightCol.map((s) => renderStyleRow(s, styles.indexOf(s)))}
-            </div>
-          </div>
-
-          {/* Pagination */}
-          {totalPages > 1 && (
-            <div className="hidden tablet:flex items-center justify-center gap-[var(--space-12)] mt-[var(--space-16)]">
-              <button
-                onClick={() => setPage(Math.max(0, clampedPage - 1))}
-                disabled={clampedPage === 0}
-                className="glass-btn-ghost w-10 h-10 flex items-center justify-center rounded-[var(--radius-12)] text-[var(--color-text-muted)] hover:text-[#E6EEF8]"
-              >
-                <ChevronLeftIcon size={20} />
-              </button>
-              <span className="text-[14px] leading-[20px] text-[#E6EEF8] tabular-nums">
-                {clampedPage + 1} / {totalPages}
-              </span>
-              <button
-                onClick={() => setPage(Math.min(totalPages - 1, clampedPage + 1))}
-                disabled={clampedPage === totalPages - 1}
-                className="glass-btn-ghost w-10 h-10 flex items-center justify-center rounded-[var(--radius-12)] text-[var(--color-text-muted)] hover:text-[#E6EEF8]"
-              >
-                <ChevronRightIcon size={20} />
-              </button>
-            </div>
-          )}
-        </div>
-
-        {/* Preview card */}
-        <div className="w-full tablet:w-[240px] shrink-0">
-          <div className="gradient-border-card glass-card rounded-[var(--radius-12)] p-[var(--space-16)] flex flex-col gap-[var(--space-12)]">
-            <div className="flex items-center gap-[var(--space-8)]">
-              <span className="text-[20px]">{selectedStyle.icon}</span>
-              <div className="flex flex-col min-w-0">
-                <span className="text-[15px] leading-[22px] font-medium text-[#E6EEF8] truncate">{selectedStyle.name}</span>
-                <span className="text-[12px] leading-[16px] text-[var(--color-text-muted)] truncate">{selectedStyle.desc}</span>
-              </div>
-            </div>
-
-            <div className="h-px" style={{ background: 'rgba(255,255,255,0.08)' }} />
-
-            <div className="flex flex-col gap-[var(--space-8)]">
+            <div className="flex flex-col gap-[var(--space-8)] p-[var(--space-12)]">
               <div className="flex items-center justify-between">
-                <span className="text-[13px] leading-[18px] text-[var(--color-text-muted)]">Текущий скор</span>
-                <span className="text-[13px] leading-[18px] text-[var(--color-text-secondary)] tabular-nums">{beforeScore.toFixed(2)}</span>
+                <span className="text-[16px] leading-[24px] text-[#E6EEF8] font-medium">Исходное</span>
+                <span className="flex items-center gap-1">
+                  <span className="text-[14px] leading-[20px] text-[var(--color-text-secondary)] tabular-nums">{beforeScore.toFixed(2)}</span>
+                  <span className="text-[11px] leading-[14px] text-[var(--color-text-muted)]">/ 10</span>
+                </span>
               </div>
               <ProgressBar value={beforeScore} />
-              <div className="flex items-center justify-between">
-                <span className="text-[13px] leading-[18px] text-[var(--color-text-muted)]">Прогноз</span>
-                <span className="text-[13px] leading-[18px] text-[var(--color-brand-primary)] font-semibold tabular-nums">~{predictedAfterScore.toFixed(2)}</span>
-              </div>
-              <ProgressBar value={predictedAfterScore} accent />
             </div>
-
-            <button
-              onClick={handleSelectAndNext}
-              className="glass-btn-primary w-full py-[var(--space-10)] text-[14px] leading-[20px] rounded-[var(--radius-pill)] font-medium mt-[var(--space-4)]"
-            >
-              Генерировать
-            </button>
+          </div>
+          <div className="flex items-center justify-center w-full">
+            <CategoryTabs active={activeTab} onChange={handleTabChange} />
           </div>
         </div>
+
+        {/* Right: params with deltas + generate button */}
+        <div className="flex-1 flex flex-col gap-[var(--space-16)]">
+          {/* Selected style header */}
+          <div className="flex items-center gap-[var(--space-8)]">
+            <span className="text-[20px]">{selectedStyle.icon}</span>
+            <div className="flex flex-col min-w-0">
+              <span className="text-[15px] leading-[22px] font-medium text-[#E6EEF8] truncate">{selectedStyle.name}</span>
+              <span className="text-[12px] leading-[16px] text-[var(--color-text-muted)] truncate">{selectedStyle.desc}</span>
+            </div>
+          </div>
+
+          {/* Perception parameters with style deltas */}
+          <div className="gradient-border-card glass-card flex flex-col gap-[var(--space-12)] rounded-[var(--radius-12)] p-[var(--space-12)]">
+            {displayParams ? displayParams.map((p) => (
+              <div key={p.key} className="flex flex-col gap-[var(--space-8)]">
+                <div className="flex items-center justify-between">
+                  <span className="text-[14px] leading-[20px] text-[#E6EEF8]">{p.label}</span>
+                  <span className="flex items-center gap-[var(--space-8)] text-[14px] leading-[20px] tabular-nums">
+                    <span className="text-[var(--color-text-secondary)]">{p.value.toFixed(2)}</span>
+                    {p.delta > 0 && (
+                      <span className="text-[var(--color-success-base)] text-[12px] font-medium">+{p.delta.toFixed(2)}</span>
+                    )}
+                    {p.delta < 0 && (
+                      <span className="text-[var(--color-danger-base)] text-[12px] font-medium">{p.delta.toFixed(2)}</span>
+                    )}
+                  </span>
+                </div>
+                <div className="relative">
+                  <ProgressBar value={p.value} />
+                  {p.delta > 0 && (
+                    <div className="absolute inset-0"><ProgressBar value={Math.min(10, p.value + p.delta)} accent /></div>
+                  )}
+                </div>
+              </div>
+            )) : (
+              <div className="text-[14px] text-[var(--color-text-muted)] text-center py-[var(--space-12)]">
+                Загрузите фото для просмотра параметров
+              </div>
+            )}
+          </div>
+
+          <button
+            onClick={handleSelectAndNext}
+            className="glass-btn-primary w-full py-[var(--space-12)] text-[15px] leading-[22px] rounded-[var(--radius-pill)] font-medium"
+          >
+            Генерировать
+          </button>
+        </div>
+      </div>
+
+      {/* Bottom section: style list (full width) */}
+      <div className="w-full">
+        {/* Mobile: swipeable pages */}
+        <div
+          ref={styleScrollRef}
+          onScroll={handleStyleScroll}
+          className="flex tablet:hidden flex-row overflow-x-auto snap-x snap-mandatory scrollbar-hide"
+        >
+          {allPages.map((pageItems, pageIdx) => (
+            <div key={pageIdx} className="w-full min-w-full snap-center flex flex-col gap-[var(--space-12)]">
+              {pageItems.map((s) => renderStyleRow(s, styles.indexOf(s)))}
+            </div>
+          ))}
+        </div>
+
+        {/* Mobile: page indicators */}
+        {totalPages > 1 && (
+          <div className="flex tablet:hidden items-center justify-center gap-[6px] mt-[var(--space-8)]">
+            {allPages.map((_, i) => (
+              <button
+                key={i}
+                className={`w-2 h-2 rounded-full transition-colors ${clampedPage === i ? 'bg-[rgb(var(--accent-r),var(--accent-g),var(--accent-b))]' : 'bg-[rgba(255,255,255,0.25)]'}`}
+                onClick={() => {
+                  const el = styleScrollRef.current;
+                  if (el) el.scrollTo({ left: i * el.offsetWidth, behavior: 'smooth' });
+                }}
+              />
+            ))}
+          </div>
+        )}
+
+        {/* Tablet+: two-column layout */}
+        <div className="hidden tablet:flex flex-row gap-[var(--space-16)]">
+          <div className="flex-1 flex flex-col gap-[var(--space-12)]">
+            {leftCol.map((s) => renderStyleRow(s, styles.indexOf(s)))}
+          </div>
+          <div className="flex-1 flex flex-col gap-[var(--space-12)]">
+            {rightCol.map((s) => renderStyleRow(s, styles.indexOf(s)))}
+          </div>
+        </div>
+
+        {/* Pagination */}
+        {totalPages > 1 && (
+          <div className="hidden tablet:flex items-center justify-center gap-[var(--space-12)] mt-[var(--space-16)]">
+            <button
+              onClick={() => setPage(Math.max(0, clampedPage - 1))}
+              disabled={clampedPage === 0}
+              className="glass-btn-ghost w-10 h-10 flex items-center justify-center rounded-[var(--radius-12)] text-[var(--color-text-muted)] hover:text-[#E6EEF8]"
+            >
+              <ChevronLeftIcon size={20} />
+            </button>
+            <span className="text-[14px] leading-[20px] text-[#E6EEF8] tabular-nums">
+              {clampedPage + 1} / {totalPages}
+            </span>
+            <button
+              onClick={() => setPage(Math.min(totalPages - 1, clampedPage + 1))}
+              disabled={clampedPage === totalPages - 1}
+              className="glass-btn-ghost w-10 h-10 flex items-center justify-center rounded-[var(--radius-12)] text-[var(--color-text-muted)] hover:text-[#E6EEF8]"
+            >
+              <ChevronRightIcon size={20} />
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );

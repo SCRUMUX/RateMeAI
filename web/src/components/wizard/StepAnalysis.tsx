@@ -1,7 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useApp } from '../../context/AppContext';
 import ProgressBar from './ProgressBar';
-import { PARAM_LABELS, computeStyleDeltas } from './shared';
+import { PARAM_LABELS } from './shared';
 import { STYLES_BY_CATEGORY } from '../../data/styles';
 
 interface Props {
@@ -15,8 +15,6 @@ export default function StepAnalysis({ onNext }: Props) {
   const [analysisRequested, setAnalysisRequested] = useState(false);
 
   const activeTab = app.activeCategory;
-  const styles = STYLES_BY_CATEGORY[activeTab];
-  const selectedStyle = styles.find(s => s.key === app.selectedStyleKey) ?? styles[0];
 
   const hasRealScores = !!app.preAnalysis;
   const beforeScore = hasRealScores ? app.preAnalysis!.score : null;
@@ -28,12 +26,21 @@ export default function StepAnalysis({ onNext }: Props) {
         .map(([k, v]) => ({
           key: k,
           label: PARAM_LABELS[k] ?? k,
-          before: v as number,
-          after: app.afterPerception?.[k] ?? null,
+          value: v as number,
         }))
     : null;
 
-  const styleDelta = selectedStyle ? computeStyleDeltas(selectedStyle, activeTab) : null;
+  const recommendation = useMemo(() => {
+    if (!displayParams || displayParams.length === 0) return null;
+    const weakest = displayParams.reduce((min, p) => p.value < min.value ? p : min, displayParams[0]);
+    const styles = STYLES_BY_CATEGORY[activeTab];
+    const matching = styles
+      .filter(s => s.param === weakest.key)
+      .sort((a, b) => (b.deltaRange[0] + b.deltaRange[1]) - (a.deltaRange[0] + a.deltaRange[1]))
+      .slice(0, 2);
+    if (matching.length === 0) return null;
+    return { param: weakest, styles: matching };
+  }, [displayParams, activeTab]);
 
   function handleStartAnalysis() {
     if (!app.photo) return;
@@ -130,38 +137,18 @@ export default function StepAnalysis({ onNext }: Props) {
           {(app.preAnalysis || app.preAnalyzeError) && (
             <>
               <div className="gradient-border-card glass-card flex flex-col gap-[var(--space-12)] rounded-[var(--radius-12)] p-[var(--space-12)]">
-                {displayParams ? displayParams.map((p) => {
-                  const after = p.after;
-                  const d = after != null ? +(after - p.before).toFixed(2) : null;
-                  const predicted = styleDelta?.[p.key] ?? null;
-                  return (
-                    <div key={p.key} className="flex flex-col gap-[var(--space-8)]">
-                      <div className="flex items-center justify-between">
-                        <span className="text-[14px] leading-[20px] text-[#E6EEF8]">{p.label}</span>
-                        <span className="flex items-center gap-[var(--space-8)] text-[14px] leading-[20px] tabular-nums">
-                          <span className="text-[var(--color-text-muted)]">{p.before.toFixed(2)}</span>
-                          {after != null && (
-                            <>
-                              <span className="text-[var(--color-text-muted)]">{'\u2192'}</span>
-                              <span className="text-[var(--color-brand-primary)] font-semibold">{after.toFixed(2)}</span>
-                              <span className="text-[var(--color-success-base)] text-[12px]">(+{d!.toFixed(2)})</span>
-                            </>
-                          )}
-                          {after == null && predicted != null && predicted > 0 && (
-                            <span className="text-[var(--color-success-base)] text-[12px] font-medium">+{predicted.toFixed(2)}</span>
-                          )}
-                          {after == null && !predicted && <span className="text-[11px] leading-[14px] text-[var(--color-text-muted)]">/ 10</span>}
-                        </span>
-                      </div>
-                      <div className="relative">
-                        <ProgressBar value={p.before} />
-                        {after != null && (
-                          <div className="absolute inset-0"><ProgressBar value={after} accent /></div>
-                        )}
-                      </div>
+                {displayParams ? displayParams.map((p) => (
+                  <div key={p.key} className="flex flex-col gap-[var(--space-8)]">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[14px] leading-[20px] text-[#E6EEF8]">{p.label}</span>
+                      <span className="flex items-center gap-[var(--space-4)] text-[14px] leading-[20px] tabular-nums">
+                        <span className="text-[var(--color-text-secondary)]">{p.value.toFixed(2)}</span>
+                        <span className="text-[11px] leading-[14px] text-[var(--color-text-muted)]">/ 10</span>
+                      </span>
                     </div>
-                  );
-                }) : (
+                    <ProgressBar value={p.value} />
+                  </div>
+                )) : (
                   <div className="flex flex-col items-center gap-[var(--space-8)] text-center py-[var(--space-12)]">
                     {app.preAnalyzeError ? (
                       <>
@@ -180,12 +167,33 @@ export default function StepAnalysis({ onNext }: Props) {
                 )}
               </div>
 
-              {app.preAnalysis?.enhancement_opportunities && app.preAnalysis.enhancement_opportunities.length > 0 && (
-                <div className="flex flex-col gap-[var(--space-4)]">
-                  <span className="text-[12px] font-medium text-[var(--color-text-muted)]">Возможности улучшения:</span>
-                  {app.preAnalysis.enhancement_opportunities.slice(0, 3).map((opp, i) => (
-                    <span key={i} className="text-[12px] text-[var(--color-text-secondary)]">{'\u2022'} {opp}</span>
-                  ))}
+              {/* Stylist recommendation */}
+              {recommendation && (
+                <div className="gradient-border-card glass-card rounded-[var(--radius-12)] p-[var(--space-16)] flex flex-col gap-[var(--space-12)]"
+                  style={{ '--gb-color': 'rgba(var(--accent-r), var(--accent-g), var(--accent-b), 0.15)' } as React.CSSProperties}
+                >
+                  <div className="flex items-center gap-[var(--space-8)]">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" className="shrink-0">
+                      <path d="M12 2a7 7 0 0 1 7 7c0 2.38-1.19 4.47-3 5.74V17a1 1 0 0 1-1 1H9a1 1 0 0 1-1-1v-2.26C6.19 13.47 5 11.38 5 9a7 7 0 0 1 7-7z" stroke="rgb(var(--accent-r),var(--accent-g),var(--accent-b))" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                      <path d="M9 21h6" stroke="rgb(var(--accent-r),var(--accent-g),var(--accent-b))" strokeWidth="1.5" strokeLinecap="round"/>
+                    </svg>
+                    <span className="text-[13px] leading-[18px] font-semibold text-[var(--color-brand-primary)]">Рекомендация стилиста</span>
+                  </div>
+                  <p className="text-[14px] leading-[20px] text-[#E6EEF8]">
+                    <span className="font-medium">{recommendation.param.label}</span>
+                    <span className="text-[var(--color-text-muted)]"> ({recommendation.param.value.toFixed(1)})</span>
+                    {' — ваша точка роста.'}
+                  </p>
+                  <p className="text-[13px] leading-[18px] text-[var(--color-text-secondary)]">
+                    {'Стили '}
+                    {recommendation.styles.map((s, i) => (
+                      <span key={s.key}>
+                        {i > 0 && ' и '}
+                        <span className="text-[#E6EEF8] font-medium">{s.icon} {s.name}</span>
+                      </span>
+                    ))}
+                    {' усилят этот параметр.'}
+                  </p>
                 </div>
               )}
             </>

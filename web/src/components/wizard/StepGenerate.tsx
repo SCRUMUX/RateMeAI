@@ -1,14 +1,14 @@
 import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { CoinIcon, ImageIcon } from '@ai-ds/core/icons';
+import { CoinIcon } from '@ai-ds/core/icons';
 import { STYLES_BY_CATEGORY } from '../../data/styles';
 import { PERCEPTION_FACTS, getRandomFact } from '../../data/ai-facts';
-import StorageModal from '../StorageModal';
 import { useApp } from '../../context/AppContext';
 import ProgressBar from './ProgressBar';
 
 interface Props {
   onGoToStep: (step: 'upload' | 'style') => void;
+  onOpenStorage?: () => void;
 }
 
 const STEP_LABELS: Record<string, string> = {
@@ -32,7 +32,7 @@ function parseTaskProgress(status: string | undefined): { label: string; percent
   return { label, percent };
 }
 
-export default function StepGenerate({ onGoToStep }: Props) {
+export default function StepGenerate({ onGoToStep, onOpenStorage }: Props) {
   const app = useApp();
   const navigate = useNavigate();
 
@@ -50,7 +50,6 @@ export default function StepGenerate({ onGoToStep }: Props) {
   const genAfterScore = app.afterScore;
 
   const [streamedFact, setStreamedFact] = useState('');
-  const [storageModalOpen, setStorageModalOpen] = useState(false);
   const [showNoCredits, setShowNoCredits] = useState(false);
 
   const [currentFact, setCurrentFact] = useState(() => PERCEPTION_FACTS.social[0]);
@@ -75,7 +74,7 @@ export default function StepGenerate({ onGoToStep }: Props) {
       const { fact, index } = getRandomFact(factIdxRef.current, activeTab);
       factIdxRef.current = index;
       setCurrentFact(fact);
-    }, 5000);
+    }, 8000);
     return () => { if (factTimerRef.current) clearInterval(factTimerRef.current); };
   }, [isRunning, activeTab]);
 
@@ -91,7 +90,7 @@ export default function StepGenerate({ onGoToStep }: Props) {
       idx++;
       setStreamedFact(target.slice(0, idx));
       if (idx >= target.length) clearInterval(iv);
-    }, 25);
+    }, 35);
     return () => clearInterval(iv);
   }, [currentFact, isRunning]);
 
@@ -151,19 +150,6 @@ export default function StepGenerate({ onGoToStep }: Props) {
     }
   }
 
-  async function handleImproveFromStorage(imageUrl: string) {
-    try {
-      const res = await fetch(imageUrl, { credentials: 'omit' });
-      const blob = await res.blob();
-      const file = new File([blob], 'improve.jpg', { type: blob.type || 'image/jpeg' });
-      app.uploadPhoto(file);
-      setStorageModalOpen(false);
-      onGoToStep('upload');
-    } catch {
-      /* ignore fetch errors */
-    }
-  }
-
   function goToPricing() {
     setShowNoCredits(false);
     navigate('/#тарифы');
@@ -180,21 +166,6 @@ export default function StepGenerate({ onGoToStep }: Props) {
             ? 'AI улучшил ваше фото в выбранном стиле. Сравните результат с оригиналом.'
             : 'AI генерирует улучшенное фото в выбранном стиле. Это займёт несколько секунд.'}
         </p>
-      </div>
-
-      {/* Counters */}
-      <div className="flex items-center justify-center gap-[var(--space-24)]">
-        <div className="glass-btn-ghost flex items-center gap-[var(--space-6)] px-[var(--space-12)] py-[var(--space-4)] rounded-[var(--radius-12)]">
-          <CoinIcon size={16} className="text-[var(--color-brand-primary)]" />
-          <span className="text-[14px] leading-[20px] font-medium text-[#E6EEF8]">Баланс {app.balance}</span>
-        </div>
-        <button
-          onClick={() => setStorageModalOpen(true)}
-          className="glass-btn-ghost flex items-center gap-[var(--space-6)] px-[var(--space-12)] py-[var(--space-4)] rounded-[var(--radius-12)] cursor-pointer"
-        >
-          <ImageIcon size={16} className="text-[var(--color-brand-primary)]" />
-          <span className="text-[14px] leading-[20px] font-medium text-[#E6EEF8]">Хранилище {app.taskHistoryCount}</span>
-        </button>
       </div>
 
       {/* Before / After cards */}
@@ -230,7 +201,7 @@ export default function StepGenerate({ onGoToStep }: Props) {
                 src={app.generatedImageUrl!}
                 alt="Generated"
                 className="w-full h-full object-cover cursor-pointer"
-                onClick={() => setStorageModalOpen(true)}
+                onClick={() => onOpenStorage?.()}
                 onError={() => setImageLoadError(true)}
               />
             )}
@@ -316,10 +287,16 @@ export default function StepGenerate({ onGoToStep }: Props) {
 
       {/* Fact streaming */}
       {isRunning && (
-        <p className="text-[13px] leading-[18px] text-[var(--color-text-secondary)] italic text-center">
-          {streamedFact}
-          <span className="inline-block w-[2px] h-[13px] bg-[var(--color-brand-primary)] ml-[2px] align-middle animate-pulse" />
-        </p>
+        <div className="flex items-start justify-center gap-[var(--space-12)] max-w-[560px] mx-auto">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" className="shrink-0 mt-[2px]">
+            <path d="M12 2a7 7 0 0 1 7 7c0 2.38-1.19 4.47-3 5.74V17a1 1 0 0 1-1 1H9a1 1 0 0 1-1-1v-2.26C6.19 13.47 5 11.38 5 9a7 7 0 0 1 7-7z" stroke="rgb(var(--accent-r),var(--accent-g),var(--accent-b))" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+            <path d="M9 21h6M10 17v1a2 2 0 0 0 4 0v-1" stroke="rgb(var(--accent-r),var(--accent-g),var(--accent-b))" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
+          <p className="text-[16px] tablet:text-[18px] leading-[24px] tablet:leading-[28px] text-[#E6EEF8] text-left">
+            {streamedFact}
+            <span className="inline-block w-[2px] h-[16px] bg-[var(--color-brand-primary)] ml-[2px] align-middle animate-pulse" />
+          </p>
+        </div>
       )}
 
       {/* CTA buttons */}
@@ -366,13 +343,6 @@ export default function StepGenerate({ onGoToStep }: Props) {
           </button>
         )}
       </div>
-
-      <StorageModal
-        open={storageModalOpen}
-        onClose={() => setStorageModalOpen(false)}
-        items={app.taskHistory}
-        onImprove={handleImproveFromStorage}
-      />
 
       {(showNoCredits || app.noCreditsError) && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
