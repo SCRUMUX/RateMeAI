@@ -286,17 +286,10 @@ async def get_my_usage(
     log = result.scalar_one_or_none()
     used = log.count if log else 0
 
-    ac = await db.execute(select(ApiClient).where(ApiClient.user_id == user.id).limit(1))
-    api_client = ac.scalar_one_or_none()
-    if api_client is not None:
-        limit = api_client.rate_limit_daily
-    else:
-        limit = settings.rate_limit_daily if not user.is_premium else settings.rate_limit_daily * 10
-
     return UserUsage(
-        daily_limit=limit,
+        daily_limit=0,
         used=used,
-        remaining=max(0, limit - used),
+        remaining=user.image_credits,
         is_premium=user.is_premium,
     )
 

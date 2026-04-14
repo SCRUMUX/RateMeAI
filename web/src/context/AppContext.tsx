@@ -223,7 +223,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       if (e instanceof api.ApiError && e.status === 401) throw e;
     }
     const usage = await api.getUsage().catch(() => ({
-      daily_limit: 3, used: 0, remaining: 3, is_premium: false,
+      daily_limit: 0, used: 0, remaining: 0, is_premium: false,
     }));
     setSession({ token, userId: userId || '', provider: prov, usage });
     setIsAuthenticated(true);

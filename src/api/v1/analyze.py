@@ -14,7 +14,7 @@ from src.config import settings
 from src.models.db import Task, User, CreditTransaction
 from src.models.enums import AnalysisMode, TaskStatus
 from src.models.schemas import TaskCreated
-from src.api.deps import get_db, get_redis, check_credits, check_rate_limit
+from src.api.deps import get_db, get_redis, check_credits
 from src.providers.factory import get_storage
 from src.utils.redis_keys import task_input_cache_key, gen_image_cache_key
 from prometheus_client import Counter
@@ -260,7 +260,6 @@ async def create_analysis(
     enhancement_level: int = Form(0),
     pre_analysis_id: str = Form(""),
     user: User = Depends(check_credits),
-    _rate_limited: User = Depends(check_rate_limit),
     db: AsyncSession = Depends(get_db),
     redis: Redis = Depends(get_redis),
 ):
