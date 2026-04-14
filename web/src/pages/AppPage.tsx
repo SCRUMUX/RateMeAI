@@ -13,6 +13,7 @@ import StepGenerate from '../components/wizard/StepGenerate';
 import StorageModal from '../components/StorageModal';
 import { useApp } from '../context/AppContext';
 import { type WizardStepId } from '../components/wizard/shared';
+import { STYLES_BY_CATEGORY } from '../data/styles';
 
 const STEP_ORDER: WizardStepId[] = ['upload', 'analysis', 'style', 'generate'];
 
@@ -43,11 +44,14 @@ export default function AppPage() {
   const currentIdx = STEP_ORDER.indexOf(currentStep);
 
   const completedSteps = new Set<WizardStepId>();
-  for (const step of visitedSteps.current) {
-    const stepIdx = STEP_ORDER.indexOf(step);
-    if (stepIdx < currentIdx) completedSteps.add(step);
+  if (app.generatedImageUrl) {
+    for (const step of STEP_ORDER) completedSteps.add(step);
+  } else {
+    for (const step of visitedSteps.current) {
+      const stepIdx = STEP_ORDER.indexOf(step);
+      if (stepIdx < currentIdx) completedSteps.add(step);
+    }
   }
-  if (app.generatedImageUrl) completedSteps.add('generate');
 
   const goToStep = useCallback((step: WizardStepId) => {
     const newIdx = STEP_ORDER.indexOf(step);
@@ -90,6 +94,22 @@ export default function AppPage() {
     }
   }
 
+  const selectedStyle = STYLES_BY_CATEGORY[app.activeCategory]?.find(s => s.key === app.selectedStyleKey)
+    ?? STYLES_BY_CATEGORY[app.activeCategory]?.[0];
+  const predictedDelta = selectedStyle
+    ? (selectedStyle.deltaRange[0] + selectedStyle.deltaRange[1]) / 2
+    : null;
+  const beforeScore = app.preAnalysis?.score ?? null;
+  const genAfterScore = app.afterScore;
+  const displayAfterScore =
+    (genAfterScore != null && beforeScore != null && genAfterScore >= beforeScore)
+      ? genAfterScore
+      : (genAfterScore != null && beforeScore == null)
+        ? genAfterScore
+        : beforeScore != null && predictedDelta != null
+          ? +(beforeScore + predictedDelta).toFixed(2)
+          : null;
+
   const showCounters = currentStep !== 'upload' && app.isAuthenticated;
 
   return (
@@ -100,7 +120,7 @@ export default function AppPage() {
         <MeshGradientBg />
         <EnergyField />
 
-        <div className="relative z-[2] flex-1 min-h-0 flex flex-col items-center gap-[var(--space-12)] tablet:gap-[var(--space-16)] px-[var(--space-16)] tablet:px-[var(--space-24)] py-[var(--space-12)] tablet:py-[var(--space-16)]">
+        <div className="relative z-[2] flex-1 min-h-0 flex flex-col items-center gap-[var(--space-16)] tablet:gap-[var(--space-24)] px-[var(--space-16)] tablet:px-[var(--space-24)] py-[var(--space-16)] tablet:py-[var(--space-24)]">
           {/* Error toast */}
           {app.error && (
             <div className="glass-badge-danger fixed top-20 right-6 z-[200] max-w-[400px] p-[var(--space-16)] text-white rounded-[var(--radius-12)] text-[14px] leading-[20px] cursor-pointer"
@@ -116,6 +136,10 @@ export default function AppPage() {
               currentStep={currentStep}
               completedSteps={completedSteps}
               onStepClick={handleStepClick}
+              photoPreview={app.photo?.preview ?? null}
+              analysisScore={beforeScore}
+              styleDelta={predictedDelta}
+              finalScore={displayAfterScore}
             />
           </div>
 

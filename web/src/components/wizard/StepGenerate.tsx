@@ -49,6 +49,14 @@ export default function StepGenerate({ onGoToStep, onOpenStorage }: Props) {
   const hasGenResult = !!app.generatedImageUrl && !imageLoadError;
   const genAfterScore = app.afterScore;
 
+  const displayAfterScore =
+    (genAfterScore != null && beforeScore != null && genAfterScore >= beforeScore)
+      ? genAfterScore
+      : (genAfterScore != null && beforeScore == null)
+        ? genAfterScore
+        : predictedAfterScore;
+
+  const [viewTab, setViewTab] = useState<'result' | 'original'>('result');
   const [streamedFact, setStreamedFact] = useState('');
   const [showNoCredits, setShowNoCredits] = useState(false);
 
@@ -61,6 +69,8 @@ export default function StepGenerate({ onGoToStep, onOpenStorage }: Props) {
 
   const isRunning = app.isGenerating && !hasGenResult;
   const progress = parseTaskProgress(app.currentTask?.status);
+
+  useEffect(() => { setViewTab('result'); }, [hasGenResult]);
 
   useEffect(() => {
     if (!isRunning) {
@@ -155,6 +165,28 @@ export default function StepGenerate({ onGoToStep, onOpenStorage }: Props) {
     navigate('/#тарифы');
   }
 
+  const showingOriginal = viewTab === 'original' && hasGenResult;
+
+  const cardLabel = showingOriginal
+    ? 'Исходное'
+    : hasGenResult
+      ? selectedStyle.name
+      : frozenStyle
+        ? frozenStyle.name
+        : app.photo ? selectedStyle.name : 'Апгрейд';
+
+  const cardScore = showingOriginal
+    ? beforeScore
+    : displayAfterScore != null
+      ? displayAfterScore
+      : frozenStyle
+        ? frozenStyle.score
+        : predictedAfterScore;
+
+  const cardScoreIsApprox = showingOriginal
+    ? false
+    : displayAfterScore == null && (!!frozenStyle || predictedAfterScore != null);
+
   return (
     <div className="flex flex-col gap-[var(--space-24)] w-full max-w-[800px] mx-auto">
       <div className="flex flex-col items-center gap-[var(--space-8)] text-center">
@@ -163,40 +195,53 @@ export default function StepGenerate({ onGoToStep, onOpenStorage }: Props) {
         </h2>
         <p className="text-[14px] tablet:text-[16px] leading-[20px] tablet:leading-[24px] text-[var(--color-text-secondary)] max-w-[440px]">
           {hasGenResult
-            ? 'AI улучшил ваше фото в выбранном стиле. Сравните результат с оригиналом.'
+            ? 'AI улучшил ваше фото в выбранном стиле.'
             : 'AI генерирует улучшенное фото в выбранном стиле. Это займёт несколько секунд.'}
         </p>
       </div>
 
-      {/* Before / After cards */}
-      <div className="flex flex-col tablet:flex-row gap-[var(--space-16)] tablet:gap-[var(--space-32)] justify-center">
-        {/* Original photo card */}
-        <div className="gradient-border-card glass-card flex flex-col w-full tablet:w-[260px] rounded-[var(--radius-12)] overflow-hidden">
-          <div className="w-full aspect-[3/4] tablet:h-[347px] shrink-0 bg-[rgba(255,255,255,0.02)] overflow-hidden">
-            {app.photo ? (
-              <img src={app.photo.preview} alt="Original" className="w-full h-full object-cover" />
-            ) : (
-              <img src="/img/placeholder-upload.png" alt="" className="w-full h-full object-cover opacity-50" />
-            )}
-          </div>
-          <div className="flex flex-col gap-[var(--space-8)] p-[var(--space-12)]">
-            <div className="flex items-center justify-between">
-              <span className="text-[16px] leading-[24px] text-[#E6EEF8] font-medium">Исходное</span>
-              {beforeScore != null && (
-                <span className="flex items-center gap-1">
-                  <span className="text-[14px] leading-[20px] text-[var(--color-text-secondary)]">{beforeScore.toFixed(2)}</span>
-                  <span className="text-[11px] leading-[14px] text-[var(--color-text-muted)]">/ 10</span>
-                </span>
-              )}
-            </div>
-            {beforeScore != null && <ProgressBar value={beforeScore} />}
+      {/* Tab toggle (visible only when result is ready) */}
+      {hasGenResult && (
+        <div className="flex items-center justify-center">
+          <div className="inline-flex rounded-[var(--radius-pill)] glass-card p-1 gap-1">
+            <button
+              onClick={() => setViewTab('result')}
+              className={`px-[var(--space-20)] py-[var(--space-6)] rounded-[var(--radius-pill)] text-[14px] leading-[20px] font-medium transition-all ${
+                viewTab === 'result'
+                  ? 'glass-btn-primary text-white'
+                  : 'text-[var(--color-text-secondary)] hover:text-[#E6EEF8]'
+              }`}
+            >
+              Результат
+            </button>
+            <button
+              onClick={() => setViewTab('original')}
+              className={`px-[var(--space-20)] py-[var(--space-6)] rounded-[var(--radius-pill)] text-[14px] leading-[20px] font-medium transition-all ${
+                viewTab === 'original'
+                  ? 'glass-btn-primary text-white'
+                  : 'text-[var(--color-text-secondary)] hover:text-[#E6EEF8]'
+              }`}
+            >
+              Исходное
+            </button>
           </div>
         </div>
+      )}
 
-        {/* Generated photo card */}
-        <div className="gradient-border-card glass-card flex flex-col w-full tablet:w-[260px] rounded-[var(--radius-12)] overflow-hidden">
-          <div className="w-full aspect-[3/4] tablet:h-[347px] shrink-0 bg-[rgba(255,255,255,0.02)] overflow-hidden relative">
-            {hasGenResult && (
+      {/* Single image card */}
+      <div className="flex justify-center">
+        <div className="gradient-border-card glass-card flex flex-col w-full max-w-[380px] rounded-[var(--radius-12)] overflow-hidden">
+          <div className="w-full aspect-[3/4] shrink-0 bg-[rgba(255,255,255,0.02)] overflow-hidden relative">
+            {/* Original photo (when toggled) */}
+            {showingOriginal && app.photo && (
+              <img src={app.photo.preview} alt="Original" className="w-full h-full object-cover" />
+            )}
+            {showingOriginal && !app.photo && (
+              <img src="/img/placeholder-upload.png" alt="" className="w-full h-full object-cover opacity-50" />
+            )}
+
+            {/* Generated result */}
+            {!showingOriginal && hasGenResult && (
               <img
                 src={app.generatedImageUrl!}
                 alt="Generated"
@@ -205,7 +250,7 @@ export default function StepGenerate({ onGoToStep, onOpenStorage }: Props) {
                 onError={() => setImageLoadError(true)}
               />
             )}
-            {imageLoadError && app.generatedImageUrl && (
+            {!showingOriginal && imageLoadError && app.generatedImageUrl && (
               <div className="w-full h-full flex flex-col items-center justify-center gap-3 text-center p-4">
                 <p className="text-[14px] text-[var(--color-text-muted)]">Не удалось загрузить изображение</p>
                 <button
@@ -216,8 +261,8 @@ export default function StepGenerate({ onGoToStep, onOpenStorage }: Props) {
                 </button>
               </div>
             )}
-            {/* Real generation in progress */}
-            {!hasGenResult && isRunning && (
+            {/* Generation in progress */}
+            {!showingOriginal && !hasGenResult && isRunning && (
               <>
                 <img src="/img/placeholder-upgrade.png" alt="" className="w-full h-full object-cover opacity-50 gen-sim-pulse" />
                 <div className="absolute inset-0 z-10 flex flex-col items-center justify-end pb-[var(--space-16)] gap-[var(--space-8)]" style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.7) 0%, transparent 60%)' }}>
@@ -232,7 +277,7 @@ export default function StepGenerate({ onGoToStep, onOpenStorage }: Props) {
               </>
             )}
             {/* Generation failed */}
-            {!hasGenResult && genFailed && !isRunning && (
+            {!showingOriginal && !hasGenResult && genFailed && !isRunning && (
               <div className="w-full h-full relative">
                 <img src="/img/placeholder-upgrade.png" alt="" className="w-full h-full object-cover" style={{ filter: 'blur(16px) saturate(1.6) brightness(0.6)', transform: 'scale(1.1)' }} />
                 <div className="absolute inset-0" style={{ background: 'linear-gradient(135deg, rgba(var(--accent-r),var(--accent-g),var(--accent-b),0.25) 0%, rgba(0,0,0,0.3) 100%)' }} />
@@ -243,43 +288,28 @@ export default function StepGenerate({ onGoToStep, onOpenStorage }: Props) {
               </div>
             )}
             {/* Default placeholder */}
-            {!hasGenResult && !isRunning && !genFailed && (
+            {!showingOriginal && !hasGenResult && !isRunning && !genFailed && (
               <img src="/img/placeholder-upgrade.png" alt="" className="w-full h-full object-cover opacity-50" />
             )}
           </div>
-          <div className="flex flex-col gap-[var(--space-8)] p-[var(--space-12)]">
+
+          {/* Card footer */}
+          <div className="flex flex-col gap-[var(--space-8)] p-[var(--space-16)]">
             <div className="flex items-center justify-between">
-              <span className="text-[16px] leading-[24px] text-[#E6EEF8] font-medium">
-                {hasGenResult ? selectedStyle.name
-                  : frozenStyle ? frozenStyle.name
-                  : app.photo ? selectedStyle.name
-                  : 'Апгрейд'}
-              </span>
-              {genAfterScore != null ? (
+              <span className="text-[18px] leading-[26px] text-[#E6EEF8] font-medium">{cardLabel}</span>
+              {isRunning && !showingOriginal ? null : cardScore != null && (
                 <span className="flex items-center gap-1">
-                  <span className="text-[14px] leading-[20px] text-[var(--color-brand-primary)] font-semibold">{genAfterScore.toFixed(2)}</span>
-                  <span className="text-[11px] leading-[14px] text-[var(--color-text-muted)]">/ 10</span>
+                  <span className={`text-[16px] leading-[22px] font-semibold ${showingOriginal ? 'text-[var(--color-text-secondary)]' : 'text-[var(--color-brand-primary)]'}`}>
+                    {cardScoreIsApprox ? '~' : ''}{cardScore.toFixed(2)}
+                  </span>
+                  <span className="text-[12px] leading-[16px] text-[var(--color-text-muted)]">/ 10</span>
                 </span>
-              ) : frozenStyle ? (
-                <span className="flex items-center gap-1">
-                  <span className="text-[14px] leading-[20px] text-[var(--color-brand-primary)] font-semibold">~{frozenStyle.score.toFixed(2)}</span>
-                  <span className="text-[11px] leading-[14px] text-[var(--color-text-muted)]">/ 10</span>
-                </span>
-              ) : predictedAfterScore != null ? (
-                <span className="flex items-center gap-1">
-                  <span className="text-[14px] leading-[20px] text-[var(--color-brand-primary)] font-semibold">~{predictedAfterScore.toFixed(2)}</span>
-                  <span className="text-[11px] leading-[14px] text-[var(--color-text-muted)]">/ 10</span>
-                </span>
-              ) : null}
+              )}
             </div>
-            {isRunning ? (
+            {isRunning && !showingOriginal ? (
               <ProgressBar value={progress?.percent ?? 10} max={100} accent />
-            ) : genAfterScore != null ? (
-              <ProgressBar value={genAfterScore} accent />
-            ) : frozenStyle ? (
-              <ProgressBar value={frozenStyle.score} accent />
-            ) : predictedAfterScore != null ? (
-              <ProgressBar value={predictedAfterScore} accent />
+            ) : cardScore != null ? (
+              <ProgressBar value={cardScore} accent={!showingOriginal} />
             ) : null}
           </div>
         </div>

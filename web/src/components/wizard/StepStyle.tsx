@@ -120,7 +120,7 @@ export default function StepStyle({ onNext }: Props) {
           </div>
         </div>
       )}
-      <div className="gradient-border-card glass-card flex flex-col gap-[var(--space-10)] rounded-[var(--radius-12)] p-[var(--space-12)]">
+      <div className="gradient-border-card glass-card flex flex-col gap-[var(--space-12)] rounded-[var(--radius-12)] p-[var(--space-12)]">
         {displayParams ? displayParams.map((p) => (
           <div key={p.key} className="flex flex-col gap-[var(--space-6)]">
             <div className="flex items-center justify-between">
@@ -131,12 +131,7 @@ export default function StepStyle({ onNext }: Props) {
                 {p.delta < 0 && <span className="text-[var(--color-danger-base)] text-[11px] font-medium">{p.delta.toFixed(2)}</span>}
               </span>
             </div>
-            <div className="relative">
-              <ProgressBar value={p.value} accent />
-              {p.delta > 0 && (
-                <div className="absolute inset-0"><ProgressBar value={Math.min(10, p.value + p.delta)} variant="success" /></div>
-              )}
-            </div>
+            <ProgressBar value={p.value} accent delta={p.delta} />
           </div>
         )) : (
           <div className="text-[13px] text-[var(--color-text-muted)] text-center py-[var(--space-8)]">Загрузите фото для просмотра параметров</div>
@@ -155,7 +150,7 @@ export default function StepStyle({ onNext }: Props) {
 
       {/* ===== Mobile layout ===== */}
       <div className="flex flex-col h-full tablet:hidden">
-        <div className="shrink-0 flex flex-col gap-[var(--space-12)] pb-[var(--space-12)]">
+        <div className="shrink-0 flex flex-col gap-[var(--space-12)] pb-[var(--space-16)]">
           <div className="flex flex-col gap-[var(--space-6)] text-center">
             <h2 className="text-[24px] leading-[1.2] font-semibold text-[#E6EEF8]">Выберите стиль</h2>
             <p className="text-[13px] leading-[18px] text-[var(--color-text-secondary)]">
@@ -166,7 +161,7 @@ export default function StepStyle({ onNext }: Props) {
         </div>
 
         {hasStyles && (
-          <div className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-[var(--space-12)]">
+          <div className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-[var(--space-16)]">
             {rightBlock}
 
             <div
@@ -175,7 +170,7 @@ export default function StepStyle({ onNext }: Props) {
               className="flex flex-row w-full overflow-x-auto snap-x snap-mandatory scrollbar-hide"
             >
               {allPages.map((pageItems, pageIdx) => (
-                <div key={pageIdx} className="w-full min-w-full snap-center flex flex-col gap-[var(--space-8)]">
+                <div key={pageIdx} className="w-full min-w-full snap-center flex flex-col gap-[var(--space-10)]">
                   {pageItems.map((s) => renderStyleRow(s, styles.indexOf(s)))}
                 </div>
               ))}
@@ -201,7 +196,7 @@ export default function StepStyle({ onNext }: Props) {
 
       {/* ===== Tablet+ layout ===== */}
       <div className="hidden tablet:flex flex-col h-full">
-        <div className="shrink-0 flex flex-row items-start gap-[var(--space-16)] pb-[var(--space-16)]">
+        <div className="shrink-0 flex flex-row items-start gap-[var(--space-24)] pb-[var(--space-24)]">
           <div className="flex-1 flex flex-col gap-[var(--space-16)]">
             <div className="flex flex-col gap-[var(--space-6)]">
               <h2 className="text-[28px] leading-[1.2] font-semibold text-[#E6EEF8]">Выберите стиль</h2>
@@ -223,10 +218,10 @@ export default function StepStyle({ onNext }: Props) {
           <div className="flex-1 min-h-0 flex flex-col">
             <div className="flex-1 min-h-0 overflow-y-auto">
               <div className="flex flex-row gap-[var(--space-16)]">
-                <div className="flex-1 flex flex-col gap-[var(--space-8)]">
+                <div className="flex-1 flex flex-col gap-[var(--space-10)]">
                   {leftCol.map((s) => renderStyleRow(s, styles.indexOf(s)))}
                 </div>
-                <div className="flex-1 flex flex-col gap-[var(--space-8)]">
+                <div className="flex-1 flex flex-col gap-[var(--space-10)]">
                   {rightCol.map((s) => renderStyleRow(s, styles.indexOf(s)))}
                 </div>
               </div>

@@ -593,7 +593,7 @@ class DeltaScorer:
             new_scores: dict[str, float] = {}
 
             if mode == AnalysisMode.DATING:
-                pre = float(prev_scores.get("dating_score", 0)) or float(result_dict.get("dating_score", 0))
+                pre = float(prev_scores.get("dating_score", 0)) or float(result_dict.get("dating_score", 0)) or float(result_dict.get("score", 0))
                 raw_post = _floor_post(post_dict.get("dating_score", 0))
                 entry = _build_delta_entry(pre, raw_post, f"{task_id}:dating_score")
                 delta = {"dating_score": entry}
@@ -606,7 +606,7 @@ class DeltaScorer:
                     delta[key] = entry
                     new_scores[key] = entry["post"]
             elif mode == AnalysisMode.SOCIAL:
-                pre = float(prev_scores.get("social_score", 0)) or float(result_dict.get("social_score", 0))
+                pre = float(prev_scores.get("social_score", 0)) or float(result_dict.get("social_score", 0)) or float(result_dict.get("score", 0))
                 raw_post = _floor_post(post_dict.get("social_score", 0))
                 entry = _build_delta_entry(pre, raw_post, f"{task_id}:social_score")
                 delta = {"social_score": entry}
