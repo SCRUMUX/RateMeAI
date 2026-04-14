@@ -124,6 +124,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const sseRef = useRef<EventSource | null>(null);
   const simTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const preAnalysisCacheRef = useRef<Record<string, api.PreAnalysisResponse>>({});
+  const preAnalyzeInFlightRef = useRef(false);
+  const preAnalyzeGenRef = useRef(0);
 
   const handleAuthError = useCallback((e: unknown) => {
     if (e instanceof api.ApiError && e.status === 401) {
@@ -166,6 +168,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setPreAnalysis(null);
     setPreAnalyzeError(false);
     preAnalysisCacheRef.current = {};
+    preAnalyzeGenRef.current++;
     setCurrentTask(null);
     setGeneratedImageUrl(null);
     setAfterScore(null);
@@ -176,7 +179,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const runPreAnalyze = useCallback(async () => {
-    if (!photo) return;
+    if (!photo || preAnalyzeInFlightRef.current) return;
     const modeMap: Record<CategoryId, string> = { social: 'social', cv: 'cv', dating: 'dating' };
     const mode = modeMap[activeCategory];
 
@@ -186,15 +189,21 @@ export function AppProvider({ children }: { children: ReactNode }) {
       return;
     }
 
+    preAnalyzeInFlightRef.current = true;
+    const gen = ++preAnalyzeGenRef.current;
     setPreAnalysis(null);
     setPreAnalyzeError(false);
     try {
       const res = await api.preAnalyze(photo.file, mode);
+      if (gen !== preAnalyzeGenRef.current) return;
       preAnalysisCacheRef.current[mode] = res;
       setPreAnalysis(res);
     } catch (e) {
+      if (gen !== preAnalyzeGenRef.current) return;
       setPreAnalyzeError(true);
       setError(e instanceof api.ApiError ? e.body : 'Pre-analyze failed');
+    } finally {
+      preAnalyzeInFlightRef.current = false;
     }
   }, [photo, activeCategory]);
 
@@ -279,13 +288,16 @@ export function AppProvider({ children }: { children: ReactNode }) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // After auth, auto-run real pre-analyze
   const prevAuthRef = useRef(false);
+  const prevPhotoRef = useRef<PhotoState | null>(null);
   useEffect(() => {
-    if (isAuthenticated && !prevAuthRef.current && photo) {
+    const authJustBecameTrue = isAuthenticated && !prevAuthRef.current;
+    const photoJustAppeared = photo && !prevPhotoRef.current;
+    if (isAuthenticated && photo && (authJustBecameTrue || photoJustAppeared)) {
       runPreAnalyze();
     }
     prevAuthRef.current = isAuthenticated;
+    prevPhotoRef.current = photo;
   }, [isAuthenticated, photo, runPreAnalyze]);
 
   const stopPolling = useCallback(() => {
@@ -477,10 +489,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const clearError = useCallback(() => setError(null), []);
   const clearNoCreditsError = useCallback(() => setNoCreditsError(false), []);
   const clearGeneratedImage = useCallback(() => {
+    stopPolling();
     setGeneratedImageUrl(null);
     setCurrentTask(null);
     setIsGenerating(false);
-  }, []);
+  }, [stopPolling]);
 
   const resetGeneration = useCallback(() => {
     setGeneratedImageUrl(null);

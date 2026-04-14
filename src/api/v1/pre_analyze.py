@@ -143,11 +143,19 @@ async def pre_analyze(
 
 
 def _extract_composite_score(mode: AnalysisMode, d: dict) -> float:
+    def _safe_float(val, default: float = 0.0) -> float:
+        if val is None:
+            return default
+        try:
+            return float(val)
+        except (TypeError, ValueError):
+            return default
+
     if mode == AnalysisMode.DATING:
-        return float(d.get("dating_score", 0))
+        return _safe_float(d.get("dating_score"))
     if mode == AnalysisMode.SOCIAL:
-        return float(d.get("social_score", 0))
+        return _safe_float(d.get("social_score"))
     if mode == AnalysisMode.CV:
-        vals = [float(d.get(k, 0)) for k in ("trust", "competence", "hireability") if d.get(k) is not None]
+        vals = [_safe_float(d.get(k)) for k in ("trust", "competence", "hireability") if d.get(k) is not None]
         return round(sum(vals) / len(vals), 2) if vals else 0.0
     return 0.0

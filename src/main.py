@@ -77,15 +77,18 @@ async def _edge_reconciler_loop(db_sessionmaker, redis: Redis) -> None:
                             u = await db.execute(
                                 select(User).where(User.id == task.user_id).with_for_update()
                             )
-                            user = u.scalar_one()
-                            user.image_credits += 1
-                            db.add(CreditTransaction(
-                                user_id=task.user_id,
-                                amount=1,
-                                balance_after=user.image_credits,
-                                tx_type="refund_stuck_edge_task",
-                            ))
-                            log.info("Edge reconciler: refunded credit for task %s", task.id)
+                            user = u.scalar_one_or_none()
+                            if user:
+                                user.image_credits += 1
+                                db.add(CreditTransaction(
+                                    user_id=task.user_id,
+                                    amount=1,
+                                    balance_after=user.image_credits,
+                                    tx_type="refund_stuck_edge_task",
+                                ))
+                                log.info("Edge reconciler: refunded credit for task %s", task.id)
+                            else:
+                                log.error("Edge reconciler: user %s not found for task %s", task.user_id, task.id)
                         except Exception:
                             log.exception("Edge reconciler: failed to refund for task %s", task.id)
 

@@ -137,7 +137,7 @@ export default function StepGenerate({ onGoToStep }: Props) {
       autoStartedRef.current = true;
       handleGenerate();
     }
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [app.photo]); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function handleShare() {
     const res = await app.share();

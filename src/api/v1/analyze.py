@@ -71,6 +71,7 @@ async def _handle_edge_analysis(
 
     image_b64 = base64.b64encode(image_bytes).decode("ascii")
 
+    task_context: dict | None = None
     try:
         async with db_sessionmaker() as db:
             result = await db.execute(select(Task).where(Task.id == task_id))
@@ -80,67 +81,69 @@ async def _handle_edge_analysis(
                 return
 
             task.status = TaskStatus.PROCESSING.value
+            task_context = task.context
             await db.commit()
 
-            async def _edge_progress(status: str, poll_count: int) -> None:
-                try:
-                    estimated_total = 45
-                    current = min(poll_count * 2, estimated_total - 1)
-                    await redis.publish(
-                        f"ratemeai:progress:{task_id}",
-                        f"{status}:{current}:{estimated_total}",
-                    )
-                except Exception:
-                    pass
-
+        async def _edge_progress(status: str, poll_count: int) -> None:
             try:
-                result_data = await remote_ai.submit_and_wait(
-                    image_b64=image_b64,
-                    mode=mode,
-                    style=style,
-                    profession=profession,
-                    enhancement_level=enhancement_level,
-                    pre_analysis_id=pre_analysis_id,
-                    edge_task_id=str(task_id),
-                    on_poll=_edge_progress,
+                estimated_total = 45
+                current = min(poll_count * 2, estimated_total - 1)
+                await redis.publish(
+                    f"ratemeai:progress:{task_id}",
+                    f"{status}:{current}:{estimated_total}",
+                )
+            except Exception:
+                pass
+
+        try:
+            result_data = await remote_ai.submit_and_wait(
+                image_b64=image_b64,
+                mode=mode,
+                style=style,
+                profession=profession,
+                enhancement_level=enhancement_level,
+                pre_analysis_id=pre_analysis_id,
+                edge_task_id=str(task_id),
+                on_poll=_edge_progress,
+            )
+
+            remote_result = result_data.get("result") or {}
+            gen_b64 = result_data.get("generated_image_b64")
+
+            if gen_b64:
+                gen_key = f"generated/{user_id}/{task_id}.jpg"
+                storage = get_storage()
+                await storage.upload(gen_key, base64.b64decode(gen_b64))
+
+                await redis.set(
+                    gen_image_cache_key(str(task_id)),
+                    gen_b64,
+                    ex=settings.gen_image_redis_ttl_seconds,
                 )
 
-                remote_result = result_data.get("result") or {}
-                gen_b64 = result_data.get("generated_image_b64")
+                remote_result["generated_image_url"] = (
+                    f"{settings.api_base_url.rstrip('/')}/storage/{gen_key}"
+                )
+                remote_result.pop("generated_image_b64", None)
+            else:
+                remote_result.pop("generated_image_url", None)
+                remote_result.pop("image_url", None)
+                remote_result.pop("generated_image_b64", None)
+                if not remote_result.get("no_image_reason"):
+                    has_gen = remote_result.get("has_generated_image", False)
+                    if has_gen:
+                        logger.warning(
+                            "Task %s: primary reported has_generated_image=True "
+                            "but b64 was not returned; marking as generation_error",
+                            task_id,
+                        )
+                        remote_result["no_image_reason"] = "generation_error"
+                        remote_result["has_generated_image"] = False
 
-                if gen_b64:
-                    gen_key = f"generated/{user_id}/{task_id}.jpg"
-                    storage = get_storage()
-                    await storage.upload(gen_key, base64.b64decode(gen_b64))
+            credit_pre_reserved = (task_context or {}).get("credit_pre_reserved", False)
+            remote_result["credit_deducted"] = credit_pre_reserved
 
-                    await redis.set(
-                        gen_image_cache_key(str(task_id)),
-                        gen_b64,
-                        ex=settings.gen_image_redis_ttl_seconds,
-                    )
-
-                    remote_result["generated_image_url"] = (
-                        f"{settings.api_base_url.rstrip('/')}/storage/{gen_key}"
-                    )
-                    remote_result.pop("generated_image_b64", None)
-                else:
-                    remote_result.pop("generated_image_url", None)
-                    remote_result.pop("image_url", None)
-                    remote_result.pop("generated_image_b64", None)
-                    if not remote_result.get("no_image_reason"):
-                        has_gen = remote_result.get("has_generated_image", False)
-                        if has_gen:
-                            logger.warning(
-                                "Task %s: primary reported has_generated_image=True "
-                                "but b64 was not returned; marking as generation_error",
-                                task_id,
-                            )
-                            remote_result["no_image_reason"] = "generation_error"
-                            remote_result["has_generated_image"] = False
-
-                credit_pre_reserved = (task.context or {}).get("credit_pre_reserved", False)
-                remote_result["credit_deducted"] = credit_pre_reserved
-
+            async with db_sessionmaker() as db:
                 from src.models.db import UsageLog
                 from datetime import date as _date
                 today = _date.today()
@@ -156,45 +159,53 @@ async def _handle_edge_analysis(
                 else:
                     db.add(UsageLog(user_id=user_id, usage_date=today, count=1))
 
-                task.result = remote_result
-                task.status = TaskStatus.COMPLETED.value
-                task.completed_at = datetime.now(timezone.utc)
+                result_row = await db.execute(select(Task).where(Task.id == task_id))
+                task_obj = result_row.scalar_one()
+                task_obj.result = remote_result
+                task_obj.status = TaskStatus.COMPLETED.value
+                task_obj.completed_at = datetime.now(timezone.utc)
                 await db.commit()
 
-                try:
-                    await redis.publish(f"ratemeai:task_done:{task_id}", "completed")
-                except Exception:
-                    pass
+            try:
+                await redis.publish(f"ratemeai:task_done:{task_id}", "completed")
+            except Exception:
+                pass
 
-            except Exception as exc:
-                is_remote = isinstance(exc, RemoteAIError)
-                if is_remote:
-                    logger.error("Edge AI proxy failed for task %s: %s", task_id, exc)
-                else:
-                    logger.exception("Unexpected edge handler error for task %s", task_id)
-                task.status = TaskStatus.FAILED.value
-                task.error_message = (str(exc) if is_remote else f"Edge proxy error: {exc}")[:500]
+        except Exception as exc:
+            is_remote = isinstance(exc, RemoteAIError)
+            if is_remote:
+                logger.error("Edge AI proxy failed for task %s: %s", task_id, exc)
+            else:
+                logger.exception("Unexpected edge handler error for task %s", task_id)
 
-                credit_pre_reserved = (task.context or {}).get("credit_pre_reserved", False)
-                if credit_pre_reserved:
-                    u = await db.execute(
-                        select(User).where(User.id == user_id).with_for_update()
-                    )
-                    fresh_user = u.scalar_one()
-                    fresh_user.image_credits += 1
-                    db.add(CreditTransaction(
-                        user_id=user_id,
-                        amount=1,
-                        balance_after=fresh_user.image_credits,
-                        tx_type="refund_failed_task",
-                    ))
-                    logger.info("Refunded 1 credit to user %s for failed edge task %s", user_id, task_id)
+            async with db_sessionmaker() as db:
+                result_row = await db.execute(select(Task).where(Task.id == task_id))
+                task_obj = result_row.scalar_one_or_none()
+                if task_obj and task_obj.status not in (TaskStatus.COMPLETED.value, TaskStatus.FAILED.value):
+                    task_obj.status = TaskStatus.FAILED.value
+                    task_obj.error_message = (str(exc) if is_remote else f"Edge proxy error: {exc}")[:500]
 
-                await db.commit()
-                try:
-                    await redis.publish(f"ratemeai:task_done:{task_id}", "failed")
-                except Exception:
-                    pass
+                    credit_pre_reserved = (task_context or {}).get("credit_pre_reserved", False)
+                    if credit_pre_reserved:
+                        u = await db.execute(
+                            select(User).where(User.id == user_id).with_for_update()
+                        )
+                        fresh_user = u.scalar_one_or_none()
+                        if fresh_user:
+                            fresh_user.image_credits += 1
+                            db.add(CreditTransaction(
+                                user_id=user_id,
+                                amount=1,
+                                balance_after=fresh_user.image_credits,
+                                tx_type="refund_failed_task",
+                            ))
+                            logger.info("Refunded 1 credit to user %s for failed edge task %s", user_id, task_id)
+
+                    await db.commit()
+            try:
+                await redis.publish(f"ratemeai:task_done:{task_id}", "failed")
+            except Exception:
+                pass
 
     except Exception as exc:
         logger.exception("FATAL: unhandled error in edge handler for task %s", task_id)
@@ -208,6 +219,7 @@ async def _fail_edge_task(db_sessionmaker, redis, task_id, user_id, error_msg: s
         async with db_sessionmaker() as db:
             result = await db.execute(select(Task).where(Task.id == task_id))
             task = result.scalar_one_or_none()
+            updated = False
             if task and task.status not in (TaskStatus.COMPLETED.value, TaskStatus.FAILED.value):
                 task.status = TaskStatus.FAILED.value
                 task.error_message = error_msg[:500]
@@ -228,10 +240,12 @@ async def _fail_edge_task(db_sessionmaker, redis, task_id, user_id, error_msg: s
                         ))
 
                 await db.commit()
-            try:
-                await redis.publish(f"ratemeai:task_done:{task_id}", "failed")
-            except Exception:
-                pass
+                updated = True
+            if updated:
+                try:
+                    await redis.publish(f"ratemeai:task_done:{task_id}", "failed")
+                except Exception:
+                    pass
     except Exception:
         logger.exception("FATAL: failed to mark task %s as failed in crash recovery", task_id)
 
