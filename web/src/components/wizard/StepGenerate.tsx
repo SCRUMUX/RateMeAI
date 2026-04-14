@@ -6,10 +6,30 @@ import { PERCEPTION_FACTS, getRandomFact } from '../../data/ai-facts';
 import StorageModal from '../StorageModal';
 import { useApp } from '../../context/AppContext';
 import ProgressBar from './ProgressBar';
-import { GEN_SIM_STEPS } from './shared';
 
 interface Props {
   onGoToStep: (step: 'upload' | 'style') => void;
+}
+
+const STEP_LABELS: Record<string, string> = {
+  upload: 'Загрузка фото...',
+  validate: 'Проверка изображения...',
+  analyze: 'AI анализ...',
+  generate: 'Генерация образа...',
+  finalize: 'Финализация...',
+  complete: 'Готово',
+};
+
+function parseTaskProgress(status: string | undefined): { label: string; percent: number } | null {
+  if (!status) return null;
+  const match = status.match(/^(\S+)\s+(\d+)\/(\d+)$/);
+  if (!match) return null;
+  const [, step, current, total] = match;
+  const cur = parseInt(current, 10);
+  const tot = parseInt(total, 10);
+  const percent = tot > 0 ? Math.round((cur / tot) * 100) : 0;
+  const label = STEP_LABELS[step] ?? `${step}...`;
+  return { label, percent };
 }
 
 export default function StepGenerate({ onGoToStep }: Props) {
@@ -21,9 +41,9 @@ export default function StepGenerate({ onGoToStep }: Props) {
   const selectedStyle = styles.find(s => s.key === app.selectedStyleKey) ?? styles[0];
 
   const hasRealScores = !!app.preAnalysis;
-  const beforeScore = hasRealScores ? app.preAnalysis!.score : 5.99;
+  const beforeScore = hasRealScores ? app.preAnalysis!.score : null;
   const predictedDelta = (selectedStyle.deltaRange[0] + selectedStyle.deltaRange[1]) / 2;
-  const predictedAfterScore = +(beforeScore + predictedDelta).toFixed(2);
+  const predictedAfterScore = beforeScore != null ? +(beforeScore + predictedDelta).toFixed(2) : null;
 
   const [imageLoadError, setImageLoadError] = useState(false);
   const hasGenResult = !!app.generatedImageUrl && !imageLoadError;
@@ -33,55 +53,34 @@ export default function StepGenerate({ onGoToStep }: Props) {
   const [storageModalOpen, setStorageModalOpen] = useState(false);
   const [showNoCredits, setShowNoCredits] = useState(false);
 
-  const [genSimulating, setGenSimulating] = useState(false);
-  const [genSimProgress, setGenSimProgress] = useState(0);
-  const [genSimDone, setGenSimDone] = useState(false);
-  const [genSimParamIdx, setGenSimParamIdx] = useState(0);
   const [currentFact, setCurrentFact] = useState(() => PERCEPTION_FACTS.social[0]);
-  const genSimRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const factIdxRef = useRef(0);
-  const [frozenStyle, setFrozenStyle] = useState<{ name: string; score: number } | null>(null);
+  const factTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const autoStartedRef = useRef(false);
+  const [frozenStyle, setFrozenStyle] = useState<{ name: string; score: number } | null>(null);
+  const [genFailed, setGenFailed] = useState(false);
 
-  function resetGenSim() {
-    setGenSimulating(false);
-    setGenSimProgress(0);
-    setGenSimDone(false);
-    setGenSimParamIdx(0);
-    if (genSimRef.current) { clearInterval(genSimRef.current); genSimRef.current = null; }
-  }
+  const isRunning = app.isGenerating && !hasGenResult;
+  const progress = parseTaskProgress(app.currentTask?.status);
 
-  function startGenSimulation() {
-    resetGenSim();
-    setFrozenStyle({ name: selectedStyle.name, score: predictedAfterScore });
-    setGenSimulating(true);
+  useEffect(() => {
+    if (!isRunning) {
+      if (factTimerRef.current) { clearInterval(factTimerRef.current); factTimerRef.current = null; }
+      return;
+    }
     factIdxRef.current = 0;
     const categoryFacts = PERCEPTION_FACTS[activeTab];
     setCurrentFact(categoryFacts[0]);
-    const start = Date.now();
-    let lastFactChange = 0;
-
-    genSimRef.current = setInterval(() => {
-      const elapsed = (Date.now() - start) / 1000;
-
-      const progress = Math.min(95, 60 + 35 * (1 - Math.exp(-elapsed / 60)));
-      setGenSimProgress(progress);
-      const stepIdx = Math.floor(elapsed / 5) % GEN_SIM_STEPS.length;
-      setGenSimParamIdx(stepIdx);
-
-      if (elapsed - lastFactChange >= 5) {
-        lastFactChange = elapsed;
-        const { fact, index } = getRandomFact(factIdxRef.current, activeTab);
-        factIdxRef.current = index;
-        setCurrentFact(fact);
-      }
-    }, 200);
-  }
-
-  useEffect(() => () => { if (genSimRef.current) clearInterval(genSimRef.current); }, []);
+    factTimerRef.current = setInterval(() => {
+      const { fact, index } = getRandomFact(factIdxRef.current, activeTab);
+      factIdxRef.current = index;
+      setCurrentFact(fact);
+    }, 5000);
+    return () => { if (factTimerRef.current) clearInterval(factTimerRef.current); };
+  }, [isRunning, activeTab]);
 
   useEffect(() => {
-    if (!currentFact?.text || (!genSimulating && !app.isGenerating)) {
+    if (!currentFact?.text || !isRunning) {
       setStreamedFact('');
       return;
     }
@@ -94,27 +93,28 @@ export default function StepGenerate({ onGoToStep }: Props) {
       if (idx >= target.length) clearInterval(iv);
     }, 25);
     return () => clearInterval(iv);
-  }, [currentFact, genSimulating, app.isGenerating]);
+  }, [currentFact, isRunning]);
 
   useEffect(() => { setImageLoadError(false); }, [app.generatedImageUrl]);
 
   useEffect(() => {
-    if (!genSimulating) return;
-    if (app.generatedImageUrl || (app.error && !app.isGenerating)) {
-      if (genSimRef.current) { clearInterval(genSimRef.current); genSimRef.current = null; }
-      setGenSimProgress(100);
-      setGenSimParamIdx(GEN_SIM_STEPS.length - 1);
-      setGenSimulating(false);
-      setGenSimDone(true);
+    if (app.error && !app.isGenerating && !hasGenResult) {
+      setGenFailed(true);
     }
-  }, [app.generatedImageUrl, app.error, app.isGenerating, genSimulating]);
+  }, [app.error, app.isGenerating, hasGenResult]);
+
+  useEffect(() => {
+    if (hasGenResult) {
+      setGenFailed(false);
+    }
+  }, [hasGenResult]);
 
   useEffect(() => {
     if (!app.photo) {
-      resetGenSim();
       setFrozenStyle(null);
+      setGenFailed(false);
     }
-  }, [app.photo]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [app.photo]);
 
   async function handleGenerate() {
     if (!app.photo) return;
@@ -129,11 +129,13 @@ export default function StepGenerate({ onGoToStep }: Props) {
       return;
     }
 
-    await app.generate(() => startGenSimulation(), effectiveStyle);
+    setGenFailed(false);
+    setFrozenStyle({ name: selectedStyle.name, score: predictedAfterScore ?? 7.0 });
+    await app.generate(undefined, effectiveStyle);
   }
 
   useEffect(() => {
-    if (app.photo && !autoStartedRef.current && !hasGenResult && !genSimulating && !genSimDone && !app.isGenerating) {
+    if (app.photo && !autoStartedRef.current && !hasGenResult && !app.isGenerating && !genFailed) {
       autoStartedRef.current = true;
       handleGenerate();
     }
@@ -171,7 +173,7 @@ export default function StepGenerate({ onGoToStep }: Props) {
     <div className="flex flex-col gap-[var(--space-24)] w-full max-w-[800px] mx-auto">
       <div className="flex flex-col items-center gap-[var(--space-8)] text-center">
         <h2 className="text-[24px] tablet:text-[32px] leading-[1.2] font-semibold text-[#E6EEF8]">
-          {hasGenResult ? 'Результат готов' : genSimulating ? 'Генерация...' : genSimDone ? 'Обработка завершена' : 'Генерация'}
+          {hasGenResult ? 'Результат готов' : isRunning ? 'Генерация...' : genFailed ? 'Ошибка генерации' : 'Генерация'}
         </h2>
         <p className="text-[14px] tablet:text-[16px] leading-[20px] tablet:leading-[24px] text-[var(--color-text-secondary)] max-w-[440px]">
           {hasGenResult
@@ -209,14 +211,14 @@ export default function StepGenerate({ onGoToStep }: Props) {
           <div className="flex flex-col gap-[var(--space-8)] p-[var(--space-12)]">
             <div className="flex items-center justify-between">
               <span className="text-[16px] leading-[24px] text-[#E6EEF8] font-medium">Исходное</span>
-              {app.photo && (
+              {beforeScore != null && (
                 <span className="flex items-center gap-1">
                   <span className="text-[14px] leading-[20px] text-[var(--color-text-secondary)]">{beforeScore.toFixed(2)}</span>
                   <span className="text-[11px] leading-[14px] text-[var(--color-text-muted)]">/ 10</span>
                 </span>
               )}
             </div>
-            {app.photo && <ProgressBar value={beforeScore} />}
+            {beforeScore != null && <ProgressBar value={beforeScore} />}
           </div>
         </div>
 
@@ -243,38 +245,34 @@ export default function StepGenerate({ onGoToStep }: Props) {
                 </button>
               </div>
             )}
-            {!hasGenResult && app.isGenerating && !genSimulating && (
-              <div className="w-full h-full flex items-center justify-center absolute inset-0 bg-[rgba(0,0,0,0.5)] z-10">
-                <div className="w-8 h-8 border-2 border-t-transparent rounded-full animate-spin" style={{ borderColor: 'rgba(var(--accent-r), var(--accent-g), var(--accent-b), 0.5)', borderTopColor: 'transparent' }} />
-              </div>
-            )}
-            {!hasGenResult && genSimulating && (
+            {/* Real generation in progress */}
+            {!hasGenResult && isRunning && (
               <>
                 <img src="/img/placeholder-upgrade.png" alt="" className="w-full h-full object-cover opacity-50 gen-sim-pulse" />
                 <div className="absolute inset-0 z-10 flex flex-col items-center justify-end pb-[var(--space-16)] gap-[var(--space-8)]" style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.7) 0%, transparent 60%)' }}>
                   <div className="w-6 h-6 border-2 border-t-transparent rounded-full animate-spin" style={{ borderColor: 'rgba(var(--accent-r),var(--accent-g),var(--accent-b),0.6)', borderTopColor: 'transparent' }} />
                   <span className="text-[12px] leading-[16px] text-[#E6EEF8] font-medium text-center px-[var(--space-8)]">
-                    {GEN_SIM_STEPS[genSimParamIdx]}
+                    {progress?.label ?? 'Обработка...'}
                   </span>
                   <div className="w-[80%] h-1 rounded-full glass-progress-track overflow-hidden">
-                    <div className="h-full rounded-full glass-progress-fill transition-all duration-200" style={{ width: `${genSimProgress}%` }} />
+                    <div className="h-full rounded-full glass-progress-fill transition-all duration-500" style={{ width: `${progress?.percent ?? 10}%` }} />
                   </div>
                 </div>
               </>
             )}
-            {!hasGenResult && genSimDone && (
+            {/* Generation failed */}
+            {!hasGenResult && genFailed && !isRunning && (
               <div className="w-full h-full relative">
                 <img src="/img/placeholder-upgrade.png" alt="" className="w-full h-full object-cover" style={{ filter: 'blur(16px) saturate(1.6) brightness(0.6)', transform: 'scale(1.1)' }} />
                 <div className="absolute inset-0" style={{ background: 'linear-gradient(135deg, rgba(var(--accent-r),var(--accent-g),var(--accent-b),0.25) 0%, rgba(0,0,0,0.3) 100%)' }} />
-                {app.error && (
-                  <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-[var(--space-8)] text-center px-[var(--space-12)]">
-                    <svg width="32" height="32" viewBox="0 0 32 32" fill="none"><circle cx="16" cy="16" r="14" stroke="rgba(255,255,255,0.3)" strokeWidth="1.5"/><path d="M16 10v8M16 22h.01" stroke="#E6EEF8" strokeWidth="2" strokeLinecap="round"/></svg>
-                    <span className="text-[13px] leading-[18px] text-[#E6EEF8] font-medium">Не удалось сгенерировать</span>
-                  </div>
-                )}
+                <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-[var(--space-8)] text-center px-[var(--space-12)]">
+                  <svg width="32" height="32" viewBox="0 0 32 32" fill="none"><circle cx="16" cy="16" r="14" stroke="rgba(255,255,255,0.3)" strokeWidth="1.5"/><path d="M16 10v8M16 22h.01" stroke="#E6EEF8" strokeWidth="2" strokeLinecap="round"/></svg>
+                  <span className="text-[13px] leading-[18px] text-[#E6EEF8] font-medium">Не удалось сгенерировать</span>
+                </div>
               </div>
             )}
-            {!hasGenResult && !genSimulating && !genSimDone && !app.isGenerating && (
+            {/* Default placeholder */}
+            {!hasGenResult && !isRunning && !genFailed && (
               <img src="/img/placeholder-upgrade.png" alt="" className="w-full h-full object-cover opacity-50" />
             )}
           </div>
@@ -282,7 +280,7 @@ export default function StepGenerate({ onGoToStep }: Props) {
             <div className="flex items-center justify-between">
               <span className="text-[16px] leading-[24px] text-[#E6EEF8] font-medium">
                 {hasGenResult ? selectedStyle.name
-                  : (genSimulating || genSimDone) && frozenStyle ? frozenStyle.name
+                  : frozenStyle ? frozenStyle.name
                   : app.photo ? selectedStyle.name
                   : 'Апгрейд'}
               </span>
@@ -291,25 +289,25 @@ export default function StepGenerate({ onGoToStep }: Props) {
                   <span className="text-[14px] leading-[20px] text-[var(--color-brand-primary)] font-semibold">{genAfterScore.toFixed(2)}</span>
                   <span className="text-[11px] leading-[14px] text-[var(--color-text-muted)]">/ 10</span>
                 </span>
-              ) : (genSimulating || genSimDone) && frozenStyle ? (
+              ) : frozenStyle ? (
                 <span className="flex items-center gap-1">
                   <span className="text-[14px] leading-[20px] text-[var(--color-brand-primary)] font-semibold">~{frozenStyle.score.toFixed(2)}</span>
                   <span className="text-[11px] leading-[14px] text-[var(--color-text-muted)]">/ 10</span>
                 </span>
-              ) : app.photo ? (
+              ) : predictedAfterScore != null ? (
                 <span className="flex items-center gap-1">
                   <span className="text-[14px] leading-[20px] text-[var(--color-brand-primary)] font-semibold">~{predictedAfterScore.toFixed(2)}</span>
                   <span className="text-[11px] leading-[14px] text-[var(--color-text-muted)]">/ 10</span>
                 </span>
               ) : null}
             </div>
-            {genSimulating ? (
-              <ProgressBar value={genSimProgress} max={100} accent />
-            ) : genSimDone && frozenStyle ? (
-              <ProgressBar value={frozenStyle.score} accent />
+            {isRunning ? (
+              <ProgressBar value={progress?.percent ?? 10} max={100} accent />
             ) : genAfterScore != null ? (
               <ProgressBar value={genAfterScore} accent />
-            ) : app.photo ? (
+            ) : frozenStyle ? (
+              <ProgressBar value={frozenStyle.score} accent />
+            ) : predictedAfterScore != null ? (
               <ProgressBar value={predictedAfterScore} accent />
             ) : null}
           </div>
@@ -317,7 +315,7 @@ export default function StepGenerate({ onGoToStep }: Props) {
       </div>
 
       {/* Fact streaming */}
-      {(genSimulating || (app.isGenerating && !genSimDone)) && (
+      {isRunning && (
         <p className="text-[13px] leading-[18px] text-[var(--color-text-secondary)] italic text-center">
           {streamedFact}
           <span className="inline-block w-[2px] h-[13px] bg-[var(--color-brand-primary)] ml-[2px] align-middle animate-pulse" />
@@ -337,7 +335,6 @@ export default function StepGenerate({ onGoToStep }: Props) {
             <button
               onClick={() => {
                 app.resetGeneration();
-                resetGenSim();
                 setFrozenStyle(null);
                 onGoToStep('upload');
               }}
@@ -347,7 +344,7 @@ export default function StepGenerate({ onGoToStep }: Props) {
             </button>
             <button
               onClick={handleGenerate}
-              disabled={app.isGenerating || genSimulating}
+              disabled={app.isGenerating}
               className="glass-btn-ghost px-[var(--space-20)] py-[var(--space-10)] text-[14px] leading-[20px] rounded-[var(--radius-pill)] disabled:opacity-40 disabled:cursor-not-allowed"
             >
               Улучшить ещё
@@ -360,9 +357,9 @@ export default function StepGenerate({ onGoToStep }: Props) {
             </button>
           </div>
         )}
-        {genSimDone && !hasGenResult && (
+        {genFailed && !isRunning && !hasGenResult && (
           <button
-            onClick={() => { app.clearError(); resetGenSim(); autoStartedRef.current = false; handleGenerate(); }}
+            onClick={() => { app.clearError(); autoStartedRef.current = false; setGenFailed(false); handleGenerate(); }}
             className="glass-btn-primary px-[var(--space-32)] py-[var(--space-12)] text-[15px] leading-[22px] rounded-[var(--radius-pill)]"
           >
             Повторить генерацию

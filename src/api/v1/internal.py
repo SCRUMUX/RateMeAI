@@ -42,6 +42,12 @@ async def _verify_internal_key(x_internal_key: str = Header(...)) -> str:
     return x_internal_key
 
 
+@router.get("/ping")
+async def internal_ping(_key: str = Depends(_verify_internal_key)):
+    """Lightweight auth check for edge→primary connectivity verification."""
+    return {"status": "ok"}
+
+
 # ── Schemas ──
 
 class RemotePreAnalyzeRequest(BaseModel):

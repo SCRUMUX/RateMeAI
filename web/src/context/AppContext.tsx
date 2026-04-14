@@ -26,8 +26,7 @@ interface AppState {
   afterPerception: Record<string, number> | null;
   generationMode: CategoryId | null;
   isAuthenticated: boolean;
-  isSimulating: boolean;
-  simulationDone: boolean;
+  preAnalyzeLoading: boolean;
   noCreditsError: boolean;
   preAnalyzeError: boolean;
   taskHistory: api.TaskHistoryItem[];
@@ -48,7 +47,6 @@ interface AppActions {
   clearNoCreditsError: () => void;
   resetGeneration: () => void;
   fetchTaskHistory: () => Promise<void>;
-  startSimulation: () => void;
   loginWithOAuth: (provider: 'yandex' | 'vk-id') => Promise<void>;
   loginWithToken: (token: string, userId?: string, provider?: string) => Promise<void>;
   logout: () => void;
@@ -112,8 +110,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [generationMode, setGenerationMode] = useState<CategoryId | null>(null);
 
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [isSimulating, setIsSimulating] = useState(false);
-  const [simulationDone, setSimulationDone] = useState(false);
+  const [preAnalyzeLoading, setPreAnalyzeLoading] = useState(false);
   const [noCreditsError, setNoCreditsError] = useState(false);
   const [preAnalyzeError, setPreAnalyzeError] = useState(false);
   const [taskHistory, setTaskHistory] = useState<api.TaskHistoryItem[]>([]);
@@ -122,7 +119,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const sseRef = useRef<EventSource | null>(null);
-  const simTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const preAnalysisCacheRef = useRef<Record<string, api.PreAnalysisResponse>>({});
   const preAnalyzeInFlightRef = useRef(false);
   const preAnalyzeGenRef = useRef(0);
@@ -174,8 +170,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setAfterScore(null);
     setAfterPerception(null);
     setGenerationMode(null);
-    setSimulationDone(false);
-    setIsSimulating(false);
+    setPreAnalyzeLoading(false);
   }, []);
 
   const runPreAnalyze = useCallback(async () => {
@@ -193,6 +188,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const gen = ++preAnalyzeGenRef.current;
     setPreAnalysis(null);
     setPreAnalyzeError(false);
+    setPreAnalyzeLoading(true);
     try {
       const res = await api.preAnalyze(photo.file, mode);
       if (gen !== preAnalyzeGenRef.current) return;
@@ -204,20 +200,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setError(e instanceof api.ApiError ? e.body : 'Pre-analyze failed');
     } finally {
       preAnalyzeInFlightRef.current = false;
+      setPreAnalyzeLoading(false);
     }
   }, [photo, activeCategory]);
-
-  const startSimulation = useCallback(() => {
-    setIsSimulating(true);
-    setSimulationDone(false);
-    if (simTimerRef.current) clearTimeout(simTimerRef.current);
-    simTimerRef.current = setTimeout(() => {
-      setIsSimulating(false);
-      setSimulationDone(true);
-    }, 5000);
-  }, []);
-
-  useEffect(() => () => { if (simTimerRef.current) clearTimeout(simTimerRef.current); }, []);
 
   const loginWithOAuth = useCallback(async (provider: 'yandex' | 'vk-id') => {
     await startOAuth(provider, photo ? {
@@ -507,11 +492,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const value: AppState & AppActions = {
     session, balance, photo, preAnalysis, activeCategory, selectedStyleKey,
     currentTask, isGenerating, error, generatedImageUrl, afterScore, afterPerception,
-    generationMode, isAuthenticated, isSimulating, simulationDone,
+    generationMode, isAuthenticated, preAnalyzeLoading,
     noCreditsError, preAnalyzeError, taskHistory, taskHistoryCount, identities,
     setActiveCategory, setSelectedStyleKey, uploadPhoto, runPreAnalyze,
     generate, share, refreshBalance, clearError, clearGeneratedImage, clearNoCreditsError,
-    resetGeneration, fetchTaskHistory, startSimulation,
+    resetGeneration, fetchTaskHistory,
     loginWithOAuth, loginWithToken, logout, refreshIdentities,
   };
 

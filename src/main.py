@@ -397,6 +397,19 @@ async def readiness():
             checks["primary_git"] = primary_data.get("git", "?")
         except Exception as exc:
             checks["primary_health"] = f"unreachable: {exc}"
+        try:
+            from src.services.remote_ai import get_remote_ai
+            remote = get_remote_ai()
+            ping_resp = await remote._client.get(
+                f"{remote._base}/internal/ping",
+                headers={"X-Internal-Key": settings.internal_api_key},
+                timeout=10.0,
+            )
+            ping_resp.raise_for_status()
+            checks["primary_reachable"] = True
+        except Exception as exc:
+            checks["primary_reachable"] = False
+            checks["primary_auth_error"] = str(exc)
     else:
         checks["openrouter_key"] = "ok" if settings.openrouter_api_key.strip() else "missing"
         try:

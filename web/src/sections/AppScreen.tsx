@@ -64,7 +64,7 @@ export default function AppScreen({ onOpenAuthModal }: { onOpenAuthModal?: () =>
   const selectedIdx = styles.indexOf(selectedStyle);
 
   const hasRealScores = !!app.preAnalysis;
-  const beforeScore = hasRealScores ? app.preAnalysis!.score : 5.99;
+  const beforeScore = hasRealScores ? app.preAnalysis!.score : null;
   const beforePerception = hasRealScores ? app.preAnalysis!.perception_scores : null;
 
   const [analysisRequested, setAnalysisRequested] = useState(false);
@@ -75,7 +75,7 @@ export default function AppScreen({ onOpenAuthModal }: { onOpenAuthModal?: () =>
   const genAfterScore = app.afterScore;
 
   const predictedDelta = (selectedStyle.deltaRange[0] + selectedStyle.deltaRange[1]) / 2;
-  const predictedAfterScore = +(beforeScore + predictedDelta).toFixed(2);
+  const predictedAfterScore = beforeScore != null ? +((beforeScore) + predictedDelta).toFixed(2) : null;
 
   const paramLabels: Record<string, string> = {
     warmth: 'Теплота', presence: 'Уверенность', appeal: 'Привлекательность',
@@ -147,6 +147,8 @@ export default function AppScreen({ onOpenAuthModal }: { onOpenAuthModal?: () =>
   }, [app]);
 
   const [storageModalOpen, setStorageModalOpen] = useState(false);
+  const [localSimulating, setLocalSimulating] = useState(false);
+  const [localSimDone, setLocalSimDone] = useState(false);
   const [simStep, setSimStep] = useState(0);
   const [streamedText, setStreamedText] = useState('');
 
@@ -184,12 +186,14 @@ export default function AppScreen({ onOpenAuthModal }: { onOpenAuthModal?: () =>
   useEffect(() => {
     if (!app.photo) {
       setSimStep(0); setStreamedText(''); resetGenSim(); setFrozenStyle(null);
-      setAnalysisRequested(false);
+      setAnalysisRequested(false); setLocalSimulating(false); setLocalSimDone(false);
       return;
     }
     setAnalysisRequested(false);
     setSimStep(0);
     setStreamedText('');
+    setLocalSimulating(false);
+    setLocalSimDone(false);
     resetGenSim();
     setFrozenStyle(null);
   }, [app.photo]);
@@ -199,9 +203,12 @@ export default function AppScreen({ onOpenAuthModal }: { onOpenAuthModal?: () =>
     setAnalysisRequested(true);
     setSimStep(0);
     setStreamedText('');
-    app.startSimulation();
     if (app.isAuthenticated) {
       app.runPreAnalyze();
+    } else {
+      setLocalSimulating(true);
+      setLocalSimDone(false);
+      setTimeout(() => { setLocalSimulating(false); setLocalSimDone(true); }, 5000);
     }
   }
 
@@ -218,7 +225,7 @@ export default function AppScreen({ onOpenAuthModal }: { onOpenAuthModal?: () =>
   function startGenSimulation(mode: GenSimMode) {
     resetGenSim();
     setGenSimMode(mode);
-    setFrozenStyle({ name: selectedStyle.name, score: predictedAfterScore });
+    setFrozenStyle({ name: selectedStyle.name, score: predictedAfterScore ?? 7.0 });
     setGenSimulating(true);
     factIdxRef.current = 0;
     const categoryFacts = PERCEPTION_FACTS[activeTab];
@@ -259,19 +266,19 @@ export default function AppScreen({ onOpenAuthModal }: { onOpenAuthModal?: () =>
 
   useEffect(() => () => { if (genSimRef.current) clearInterval(genSimRef.current); }, []);
 
-  // Step-by-step simulation timer
+  // Step-by-step simulation timer (unauthenticated users only)
   useEffect(() => {
-    if (!app.isSimulating) return;
+    if (!localSimulating) return;
     setSimStep(1);
     const t2 = setTimeout(() => setSimStep(2), 2000);
     const t3 = setTimeout(() => setSimStep(3), 4000);
     return () => { clearTimeout(t2); clearTimeout(t3); };
-  }, [app.isSimulating]);
+  }, [localSimulating]);
 
-  // Streaming text effect per simulation step
+  // Streaming text effect per simulation step (unauthenticated users only)
   useEffect(() => {
-    if (simStep === 0 && !app.simulationDone) { setStreamedText(''); return; }
-    const targetKey = app.simulationDone ? 4 : simStep;
+    if (simStep === 0 && !localSimDone) { setStreamedText(''); return; }
+    const targetKey = localSimDone ? 4 : simStep;
     const target = SIM_TEXTS[targetKey] ?? '';
     setStreamedText('');
     let idx = 0;
@@ -281,7 +288,7 @@ export default function AppScreen({ onOpenAuthModal }: { onOpenAuthModal?: () =>
       if (idx >= target.length) clearInterval(iv);
     }, 20);
     return () => clearInterval(iv);
-  }, [simStep, app.simulationDone]);
+  }, [simStep, localSimDone]);
 
   useEffect(() => {
     if (!currentFact?.text || (!genSimulating && !app.isGenerating)) {
@@ -412,14 +419,14 @@ export default function AppScreen({ onOpenAuthModal }: { onOpenAuthModal?: () =>
                   <div className="flex flex-col gap-[var(--space-8)]">
                     <div className="flex items-center justify-between">
                       <span className="text-[16px] leading-[24px] text-[#E6EEF8] font-medium">Исходное</span>
-                      {app.photo && (
+                      {app.photo && beforeScore != null && (
                         <span className="flex items-center gap-1">
                           <span className="text-[14px] leading-[20px] text-[var(--color-text-secondary)]">{beforeScore.toFixed(2)}</span>
                           <span className="text-[11px] leading-[14px] text-[var(--color-text-muted)]">/ 10</span>
                         </span>
                       )}
                     </div>
-                    {app.photo && <ProgressBar value={beforeScore} />}
+                    {app.photo && beforeScore != null && <ProgressBar value={beforeScore} />}
                   </div>
                   <button
                     onClick={() => fileInputRef.current?.click()}
@@ -513,7 +520,7 @@ export default function AppScreen({ onOpenAuthModal }: { onOpenAuthModal?: () =>
                           <span className="text-[14px] leading-[20px] text-[var(--color-brand-primary)] font-semibold">~{frozenStyle.score.toFixed(2)}</span>
                           <span className="text-[11px] leading-[14px] text-[var(--color-text-muted)]">/ 10</span>
                         </span>
-                      ) : app.photo ? (
+                      ) : app.photo && predictedAfterScore != null ? (
                         <span className="flex items-center gap-1">
                           <span className="text-[14px] leading-[20px] text-[var(--color-brand-primary)] font-semibold">~{predictedAfterScore.toFixed(2)}</span>
                           <span className="text-[11px] leading-[14px] text-[var(--color-text-muted)]">/ 10</span>
@@ -526,7 +533,7 @@ export default function AppScreen({ onOpenAuthModal }: { onOpenAuthModal?: () =>
                       <ProgressBar value={frozenStyle.score} accent />
                     ) : genAfterScore != null ? (
                       <ProgressBar value={genAfterScore} accent />
-                    ) : app.photo ? (
+                    ) : app.photo && predictedAfterScore != null ? (
                       <ProgressBar value={predictedAfterScore} accent />
                     ) : null}
                   </div>
@@ -633,7 +640,7 @@ export default function AppScreen({ onOpenAuthModal }: { onOpenAuthModal?: () =>
 
                 <p className="text-[14px] leading-[20px] text-[var(--color-text-secondary)] max-w-[440px] min-h-[40px]">
                   {app.preAnalysis?.first_impression
-                    || (app.photo && analysisRequested && (app.isSimulating || app.simulationDone) && !app.preAnalysis ? (
+                    || (app.photo && analysisRequested && (localSimulating || localSimDone) && !app.preAnalysis ? (
                       <>{streamedText}<span className="inline-block w-[2px] h-[14px] bg-[var(--color-brand-primary)] ml-[2px] align-middle animate-pulse" /></>
                     ) : SIM_TEXTS[0])}
                 </p>
@@ -649,7 +656,7 @@ export default function AppScreen({ onOpenAuthModal }: { onOpenAuthModal?: () =>
                 )}
 
                 {/* === STATE 1: Simulating analysis (not authenticated, photo uploaded) === */}
-                {app.photo && !app.isAuthenticated && analysisRequested && app.isSimulating && (
+                {app.photo && !app.isAuthenticated && analysisRequested && localSimulating && (
                   <div className="gradient-border-card glass-card flex flex-col gap-[var(--space-16)] rounded-[var(--radius-12)] p-[var(--space-20)]">
                     {[
                       { step: 1, label: 'Анализ лица...' },
@@ -683,7 +690,7 @@ export default function AppScreen({ onOpenAuthModal }: { onOpenAuthModal?: () =>
                 )}
 
                 {/* === STATE 2: Blurred fake results + CTA (simulation done, not authenticated) === */}
-                {app.photo && !app.isAuthenticated && analysisRequested && app.simulationDone && (
+                {app.photo && !app.isAuthenticated && analysisRequested && localSimDone && (
                   <div className="relative">
                     <div className="gradient-border-card glass-card flex flex-col gap-[var(--space-12)] rounded-[var(--radius-12)] p-[var(--space-12)]" style={{ filter: 'blur(6px)' }}>
                       {PARAMS_BY_MODE[activeTab].map((p) => (
@@ -714,42 +721,29 @@ export default function AppScreen({ onOpenAuthModal }: { onOpenAuthModal?: () =>
                   </div>
                 )}
 
-                {/* === STATE 3a: Streaming analysis (authenticated, waiting for result) === */}
-                {app.isAuthenticated && analysisRequested && !app.preAnalysis && app.isSimulating && (
+                {/* === STATE 3a: Real loading (authenticated, API call in progress) === */}
+                {app.isAuthenticated && analysisRequested && !app.preAnalysis && app.preAnalyzeLoading && (
                   <div className="gradient-border-card glass-card flex flex-col gap-[var(--space-16)] rounded-[var(--radius-12)] p-[var(--space-20)]">
-                    {[
-                      { step: 1, label: 'Анализ лица...' },
-                      { step: 2, label: 'Оценка параметров...' },
-                      { step: 3, label: 'Формирование результата...' },
-                    ].map((s) => (
-                      <div
-                        key={s.step}
-                        className="flex items-center gap-[var(--space-12)] transition-opacity duration-500"
-                        style={{ opacity: simStep >= s.step ? 1 : 0.2 }}
-                      >
-                        {simStep > s.step ? (
-                          <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><circle cx="9" cy="9" r="9" fill="rgba(var(--accent-r),var(--accent-g),var(--accent-b),0.15)"/><path d="M5.5 9.5L7.5 11.5L12.5 6.5" stroke="rgb(var(--accent-r),var(--accent-g),var(--accent-b))" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
-                        ) : simStep === s.step ? (
-                          <div className="w-[18px] h-[18px] border-2 border-t-transparent rounded-full animate-spin shrink-0" style={{ borderColor: 'rgba(var(--accent-r),var(--accent-g),var(--accent-b),0.5)', borderTopColor: 'transparent' }} />
-                        ) : (
-                          <div className="w-[18px] h-[18px] rounded-full border border-[rgba(255,255,255,0.1)]" />
-                        )}
-                        <span className={`text-[14px] leading-[20px] ${simStep >= s.step ? 'text-[#E6EEF8]' : 'text-[var(--color-text-muted)]'}`}>
-                          {s.label}
-                        </span>
-                      </div>
-                    ))}
+                    <div className="flex items-center gap-[var(--space-12)]">
+                      <div className="w-[18px] h-[18px] border-2 border-t-transparent rounded-full animate-spin shrink-0" style={{ borderColor: 'rgba(var(--accent-r),var(--accent-g),var(--accent-b),0.5)', borderTopColor: 'transparent' }} />
+                      <span className="text-[14px] leading-[20px] text-[#E6EEF8]">Анализ фото...</span>
+                    </div>
+                    <div className="flex items-center gap-[var(--space-12)] opacity-50">
+                      <div className="w-[18px] h-[18px] rounded-full border border-[rgba(255,255,255,0.1)]" />
+                      <span className="text-[14px] leading-[20px] text-[var(--color-text-muted)]">Оценка параметров...</span>
+                    </div>
+                    <div className="flex items-center gap-[var(--space-12)] opacity-50">
+                      <div className="w-[18px] h-[18px] rounded-full border border-[rgba(255,255,255,0.1)]" />
+                      <span className="text-[14px] leading-[20px] text-[var(--color-text-muted)]">Формирование результата...</span>
+                    </div>
                     <div className="h-1.5 rounded-full glass-progress-track overflow-hidden mt-[var(--space-4)]">
-                      <div
-                        className="h-full rounded-full glass-progress-fill transition-all duration-1000 ease-out"
-                        style={{ width: `${Math.min(simStep * 33.3, 100)}%` }}
-                      />
+                      <div className="h-full rounded-full glass-progress-fill animate-pulse" style={{ width: '66%' }} />
                     </div>
                   </div>
                 )}
 
                 {/* === STATE 3: Real results (authenticated) === */}
-                {app.isAuthenticated && analysisRequested && (
+                {app.isAuthenticated && analysisRequested && (app.preAnalysis || app.preAnalyzeError) && (
                   <>
                     <div className="gradient-border-card glass-card flex flex-col gap-[var(--space-12)] rounded-[var(--radius-12)] p-[var(--space-12)]">
                       {displayParams ? displayParams.map((p) => {

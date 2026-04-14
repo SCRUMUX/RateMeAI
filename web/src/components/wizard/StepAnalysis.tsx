@@ -1,25 +1,25 @@
 import { useState, useEffect } from 'react';
 import { useApp } from '../../context/AppContext';
 import ProgressBar from './ProgressBar';
-import { SIM_TEXTS, PARAM_LABELS, computeStyleDeltas } from './shared';
+import { PARAM_LABELS, computeStyleDeltas } from './shared';
 import { STYLES_BY_CATEGORY } from '../../data/styles';
 
 interface Props {
   onNext: () => void;
 }
 
+const DEFAULT_DESCRIPTION = 'AI анализирует ваше фото по ключевым параметрам восприятия. Каждый стиль адаптирует образ под конкретный контекст, улучшая целевые метрики.';
+
 export default function StepAnalysis({ onNext }: Props) {
   const app = useApp();
   const [analysisRequested, setAnalysisRequested] = useState(false);
-  const [simStep, setSimStep] = useState(0);
-  const [streamedText, setStreamedText] = useState('');
 
   const activeTab = app.activeCategory;
   const styles = STYLES_BY_CATEGORY[activeTab];
   const selectedStyle = styles.find(s => s.key === app.selectedStyleKey) ?? styles[0];
 
   const hasRealScores = !!app.preAnalysis;
-  const beforeScore = hasRealScores ? app.preAnalysis!.score : 5.99;
+  const beforeScore = hasRealScores ? app.preAnalysis!.score : null;
   const beforePerception = hasRealScores ? app.preAnalysis!.perception_scores : null;
 
   const displayParams = beforePerception
@@ -38,47 +38,20 @@ export default function StepAnalysis({ onNext }: Props) {
   function handleStartAnalysis() {
     if (!app.photo) return;
     setAnalysisRequested(true);
-    setSimStep(0);
-    setStreamedText('');
-    app.startSimulation();
     app.runPreAnalyze();
   }
 
   useEffect(() => {
     if (!app.photo) {
-      setSimStep(0);
-      setStreamedText('');
       setAnalysisRequested(false);
     }
   }, [app.photo]);
 
   useEffect(() => {
-    if (app.photo && !analysisRequested && !app.preAnalysis && !app.simulationDone) {
+    if (app.photo && !analysisRequested && !app.preAnalysis && !app.preAnalyzeLoading) {
       handleStartAnalysis();
     }
   }, [app.photo]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  useEffect(() => {
-    if (!app.isSimulating) return;
-    setSimStep(1);
-    const t2 = setTimeout(() => setSimStep(2), 2000);
-    const t3 = setTimeout(() => setSimStep(3), 4000);
-    return () => { clearTimeout(t2); clearTimeout(t3); };
-  }, [app.isSimulating]);
-
-  useEffect(() => {
-    if (simStep === 0 && !app.simulationDone) { setStreamedText(''); return; }
-    const targetKey = app.simulationDone ? 4 : simStep;
-    const target = SIM_TEXTS[targetKey] ?? '';
-    setStreamedText('');
-    let idx = 0;
-    const iv = setInterval(() => {
-      idx++;
-      setStreamedText(target.slice(0, idx));
-      if (idx >= target.length) clearInterval(iv);
-    }, 20);
-    return () => clearInterval(iv);
-  }, [simStep, app.simulationDone]);
 
   return (
     <div className="flex flex-col gap-[var(--space-24)] w-full max-w-[800px] mx-auto">
@@ -104,14 +77,14 @@ export default function StepAnalysis({ onNext }: Props) {
           <div className="flex flex-col gap-[var(--space-8)] p-[var(--space-12)]">
             <div className="flex items-center justify-between">
               <span className="text-[16px] leading-[24px] text-[#E6EEF8] font-medium">Исходное</span>
-              {app.photo && (
+              {beforeScore != null && (
                 <span className="flex items-center gap-1">
                   <span className="text-[14px] leading-[20px] text-[var(--color-text-secondary)]">{beforeScore.toFixed(2)}</span>
                   <span className="text-[11px] leading-[14px] text-[var(--color-text-muted)]">/ 10</span>
                 </span>
               )}
             </div>
-            {app.photo && <ProgressBar value={beforeScore} />}
+            {beforeScore != null && <ProgressBar value={beforeScore} />}
           </div>
         </div>
 
@@ -119,14 +92,11 @@ export default function StepAnalysis({ onNext }: Props) {
         <div className="flex-1 flex flex-col gap-[var(--space-16)]">
           {/* Description text */}
           <p className="text-[14px] leading-[20px] text-[var(--color-text-secondary)] min-h-[40px]">
-            {app.preAnalysis?.first_impression
-              || (app.photo && analysisRequested && (app.isSimulating || app.simulationDone) && !app.preAnalysis ? (
-                <>{streamedText}<span className="inline-block w-[2px] h-[14px] bg-[var(--color-brand-primary)] ml-[2px] align-middle animate-pulse" /></>
-              ) : SIM_TEXTS[0])}
+            {app.preAnalysis?.first_impression || DEFAULT_DESCRIPTION}
           </p>
 
-          {/* Analysis button */}
-          {app.photo && !analysisRequested && (
+          {/* Analysis button — shown before any analysis starts */}
+          {app.photo && !analysisRequested && !app.preAnalyzeLoading && !app.preAnalysis && (
             <button
               onClick={handleStartAnalysis}
               className="glass-btn-primary w-full py-[var(--space-12)] text-[15px] leading-[22px] rounded-[var(--radius-12)] font-medium"
@@ -135,33 +105,29 @@ export default function StepAnalysis({ onNext }: Props) {
             </button>
           )}
 
-          {/* Streaming analysis (waiting for result) */}
-          {analysisRequested && !app.preAnalysis && app.isSimulating && (
+          {/* Real loading state — API call in progress */}
+          {app.preAnalyzeLoading && !app.preAnalysis && (
             <div className="gradient-border-card glass-card flex flex-col gap-[var(--space-16)] rounded-[var(--radius-12)] p-[var(--space-20)]">
-              {[
-                { step: 1, label: 'Анализ лица...' },
-                { step: 2, label: 'Оценка параметров...' },
-                { step: 3, label: 'Формирование результата...' },
-              ].map((s) => (
-                <div key={s.step} className="flex items-center gap-[var(--space-12)] transition-opacity duration-500" style={{ opacity: simStep >= s.step ? 1 : 0.2 }}>
-                  {simStep > s.step ? (
-                    <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><circle cx="9" cy="9" r="9" fill="rgba(var(--accent-r),var(--accent-g),var(--accent-b),0.15)"/><path d="M5.5 9.5L7.5 11.5L12.5 6.5" stroke="rgb(var(--accent-r),var(--accent-g),var(--accent-b))" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
-                  ) : simStep === s.step ? (
-                    <div className="w-[18px] h-[18px] border-2 border-t-transparent rounded-full animate-spin shrink-0" style={{ borderColor: 'rgba(var(--accent-r),var(--accent-g),var(--accent-b),0.5)', borderTopColor: 'transparent' }} />
-                  ) : (
-                    <div className="w-[18px] h-[18px] rounded-full border border-[rgba(255,255,255,0.1)]" />
-                  )}
-                  <span className={`text-[14px] leading-[20px] ${simStep >= s.step ? 'text-[#E6EEF8]' : 'text-[var(--color-text-muted)]'}`}>{s.label}</span>
-                </div>
-              ))}
+              <div className="flex items-center gap-[var(--space-12)]">
+                <div className="w-[18px] h-[18px] border-2 border-t-transparent rounded-full animate-spin shrink-0" style={{ borderColor: 'rgba(var(--accent-r),var(--accent-g),var(--accent-b),0.5)', borderTopColor: 'transparent' }} />
+                <span className="text-[14px] leading-[20px] text-[#E6EEF8]">Анализ фото...</span>
+              </div>
+              <div className="flex items-center gap-[var(--space-12)] opacity-50">
+                <div className="w-[18px] h-[18px] rounded-full border border-[rgba(255,255,255,0.1)]" />
+                <span className="text-[14px] leading-[20px] text-[var(--color-text-muted)]">Оценка параметров...</span>
+              </div>
+              <div className="flex items-center gap-[var(--space-12)] opacity-50">
+                <div className="w-[18px] h-[18px] rounded-full border border-[rgba(255,255,255,0.1)]" />
+                <span className="text-[14px] leading-[20px] text-[var(--color-text-muted)]">Формирование результата...</span>
+              </div>
               <div className="h-1.5 rounded-full glass-progress-track overflow-hidden mt-[var(--space-4)]">
-                <div className="h-full rounded-full glass-progress-fill transition-all duration-1000 ease-out" style={{ width: `${Math.min(simStep * 33.3, 100)}%` }} />
+                <div className="h-full rounded-full glass-progress-fill animate-pulse" style={{ width: '66%' }} />
               </div>
             </div>
           )}
 
-          {/* Real results — show only after simulation ends or API resolves */}
-          {analysisRequested && (app.simulationDone || app.preAnalysis || app.preAnalyzeError) && (
+          {/* Results — show when API resolved (success or error) */}
+          {(app.preAnalysis || app.preAnalyzeError) && (
             <>
               <div className="gradient-border-card glass-card flex flex-col gap-[var(--space-12)] rounded-[var(--radius-12)] p-[var(--space-12)]">
                 {displayParams ? displayParams.map((p) => {
@@ -201,17 +167,12 @@ export default function StepAnalysis({ onNext }: Props) {
                       <>
                         <span className="text-[14px] text-[var(--color-text-muted)]">Не удалось загрузить анализ</span>
                         <button
-                          onClick={() => { app.runPreAnalyze(); }}
+                          onClick={() => { setAnalysisRequested(true); app.runPreAnalyze(); }}
                           className="glass-btn-ghost px-[var(--space-16)] py-[var(--space-6)] text-[13px] text-[#E6EEF8] rounded-[var(--radius-pill)]"
                         >
                           Повторить
                         </button>
                       </>
-                    ) : app.photo ? (
-                      <div className="flex items-center gap-[var(--space-8)]">
-                        <div className="w-4 h-4 border-2 border-t-transparent rounded-full animate-spin shrink-0" style={{ borderColor: 'rgba(var(--accent-r),var(--accent-g),var(--accent-b),0.5)', borderTopColor: 'transparent' }} />
-                        <span className="text-[14px] text-[var(--color-text-muted)]">Анализируем...</span>
-                      </div>
                     ) : (
                       <span className="text-[14px] text-[var(--color-text-muted)]">Загрузите фото для анализа</span>
                     )}
