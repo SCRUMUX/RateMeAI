@@ -10,7 +10,7 @@ from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.config import settings
-from src.models.db import Task, User
+from src.models.db import Task, User, CreditTransaction
 from src.models.enums import TaskStatus, AnalysisMode
 from src.models.schemas import TaskResponse, TaskHistoryItem, TaskHistoryResponse
 from src.api.deps import get_db, get_current_user, get_redis
@@ -157,3 +157,62 @@ async def get_task(
         share_card_url=task.share_card_path,
         error_message=task.error_message,
     )
+
+
+@router.post("/{task_id}/refund")
+async def refund_unreachable_image(
+    task_id: uuid.UUID,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+    redis: Redis = Depends(get_redis),
+):
+    """Refund 1 credit when a completed task's generated image is unreachable.
+
+    Guards:
+    - task must belong to the requesting user
+    - task must be COMPLETED with credit_pre_reserved
+    - credit must not have been already refunded for this task
+    - generated image must be genuinely unreachable (disk / Redis / DB b64)
+    """
+    result = await db.execute(
+        select(Task).where(Task.id == task_id).with_for_update()
+    )
+    task = result.scalar_one_or_none()
+
+    if task is None:
+        raise HTTPException(status_code=404, detail="Task not found")
+    if task.user_id != user.id:
+        raise HTTPException(status_code=403, detail="Access denied")
+    if task.status != TaskStatus.COMPLETED.value:
+        raise HTTPException(status_code=409, detail="Task is not completed")
+
+    ctx = task.context or {}
+    r = task.result or {}
+
+    if not ctx.get("credit_pre_reserved"):
+        raise HTTPException(status_code=409, detail="No credit was reserved for this task")
+    if r.get("credit_refunded"):
+        raise HTTPException(status_code=409, detail="Credit already refunded for this task")
+
+    if await _image_available(task, redis):
+        raise HTTPException(status_code=409, detail="Image is still available — no refund needed")
+
+    fresh = await db.execute(
+        select(User).where(User.id == user.id).with_for_update()
+    )
+    fresh_user = fresh.scalar_one()
+
+    fresh_user.image_credits += 1
+    r["credit_refunded"] = True
+    r["credit_deducted"] = False
+    task.result = r
+    db.add(CreditTransaction(
+        user_id=user.id,
+        amount=1,
+        balance_after=fresh_user.image_credits,
+        tx_type="refund_image_unreachable",
+    ))
+
+    await db.commit()
+
+    return {"status": "refunded", "balance": fresh_user.image_credits}

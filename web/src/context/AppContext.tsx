@@ -323,6 +323,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
               setGeneratedImageUrl(imgUrl);
             } else {
               setError('Не удалось загрузить сгенерированное изображение. Попробуйте снова.');
+              api.refundTask(taskId).then(() => refreshBalance()).catch(() => {});
             }
           } else {
             const reason = r.no_image_reason as string | undefined;

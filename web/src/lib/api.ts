@@ -160,6 +160,12 @@ export function getTaskHistory(limit = 20, offset = 0) {
   return request<TaskHistoryResponse>(`/api/v1/tasks?limit=${limit}&offset=${offset}`);
 }
 
+export interface RefundResponse { status: string; balance: number }
+
+export function refundTask(taskId: string) {
+  return request<RefundResponse>(`/api/v1/tasks/${taskId}/refund`, { method: 'POST' });
+}
+
 // -- Share --
 
 export interface ShareResponse { image_url: string; caption: string; deep_link: string }
