@@ -6,6 +6,8 @@ import { useApp } from '../../context/AppContext';
 import ProgressBar from './ProgressBar';
 import { STYLES_PER_PAGE, PARAM_LABELS, computeStyleDeltas } from './shared';
 
+const COMING_SOON_CATEGORIES: CategoryId[] = ['model', 'brand', 'memes'];
+
 interface Props {
   onNext: () => void;
 }
@@ -18,6 +20,7 @@ export default function StepStyle({ onNext }: Props) {
   const activeTab = app.activeCategory;
   const styles = STYLES_BY_CATEGORY[activeTab];
   const hasStyles = styles.length > 0;
+  const isComingSoon = COMING_SOON_CATEGORIES.includes(activeTab);
   const totalPages = Math.ceil(styles.length / STYLES_PER_PAGE);
 
   const clampedPage = Math.min(page, Math.max(totalPages - 1, 0));
@@ -56,7 +59,7 @@ export default function StepStyle({ onNext }: Props) {
   }
 
   function handleStyleClick(key: string) {
-    app.setSelectedStyleKey(key);
+    if (!isComingSoon) app.setSelectedStyleKey(key);
   }
 
   function handleStyleScroll() {
@@ -67,6 +70,7 @@ export default function StepStyle({ onNext }: Props) {
   }
 
   function handleSelectAndNext() {
+    if (isComingSoon) return;
     const effectiveStyle = app.selectedStyleKey || styles[0]?.key || '';
     if (!app.selectedStyleKey && effectiveStyle) {
       app.setSelectedStyleKey(effectiveStyle);
@@ -77,16 +81,31 @@ export default function StepStyle({ onNext }: Props) {
   const renderStyleRow = (s: typeof styles[number], gIdx: number) => (
     <div key={s.key}
       onClick={() => handleStyleClick(s.key)}
-      className={`gradient-border-item flex items-center w-full px-[var(--space-16)] py-[var(--space-8)] gap-[var(--space-4)] min-h-[36px] cursor-pointer rounded-[var(--radius-12)] transition-all ${
-        selectedIdx === gIdx ? 'glass-row-active' : 'glass-row'
-      }`}
-      style={{ '--gb-color': selectedIdx === gIdx ? 'rgba(var(--accent-r), var(--accent-g), var(--accent-b), 0.30)' : 'rgba(255, 255, 255, 0.10)' } as React.CSSProperties}
+      className={`gradient-border-item flex items-center w-full px-[var(--space-16)] py-[var(--space-8)] gap-[var(--space-4)] min-h-[36px] rounded-[var(--radius-12)] transition-all ${
+        isComingSoon ? 'opacity-40 cursor-default' : 'cursor-pointer'
+      } ${selectedIdx === gIdx && !isComingSoon ? 'glass-row-active' : 'glass-row'}`}
+      style={{ '--gb-color': selectedIdx === gIdx && !isComingSoon ? 'rgba(var(--accent-r), var(--accent-g), var(--accent-b), 0.30)' : 'rgba(255, 255, 255, 0.10)' } as React.CSSProperties}
     >
       <div className="flex items-center justify-center w-5 h-5 shrink-0 text-[18px] leading-none">{s.icon}</div>
       <div className="flex flex-col flex-1 min-w-0 gap-[2px]">
         <span className="text-[16px] leading-[24px] text-[#E6EEF8] font-medium truncate">{s.name}</span>
         <span className="text-[11px] leading-[14px] text-[var(--color-text-muted)] truncate">{s.desc}</span>
       </div>
+    </div>
+  );
+
+  const comingSoonParams = (
+    <div className="flex flex-col gap-[var(--space-12)]">
+      <div className="gradient-border-card glass-card flex flex-col items-center justify-center gap-[var(--space-8)] rounded-[var(--radius-12)] p-[var(--space-16)] min-h-[120px]">
+        <span className="text-[32px]">🚧</span>
+        <p className="text-[14px] leading-[20px] text-[var(--color-text-secondary)] font-medium">Скоро...</p>
+        <p className="text-[12px] leading-[16px] text-[var(--color-text-muted)] text-center max-w-[220px]">
+          Генерация для этого направления появится в ближайшем обновлении
+        </p>
+      </div>
+      <button disabled className="glass-btn-primary w-full py-[var(--space-10)] text-[14px] leading-[20px] rounded-[var(--radius-pill)] font-medium opacity-40 cursor-not-allowed">
+        Генерировать
+      </button>
     </div>
   );
 
@@ -129,12 +148,13 @@ export default function StepStyle({ onNext }: Props) {
     </div>
   );
 
+  const rightBlock = isComingSoon ? comingSoonParams : paramsContent;
+
   return (
     <div className="flex flex-col h-full max-w-[1000px] mx-auto">
 
       {/* ===== Mobile layout ===== */}
       <div className="flex flex-col h-full tablet:hidden">
-        {/* Fixed header */}
         <div className="shrink-0 flex flex-col gap-[var(--space-12)] pb-[var(--space-12)]">
           <div className="flex flex-col gap-[var(--space-6)] text-center">
             <h2 className="text-[24px] leading-[1.2] font-semibold text-[#E6EEF8]">Выберите стиль</h2>
@@ -145,21 +165,9 @@ export default function StepStyle({ onNext }: Props) {
           <CategoryTabs active={activeTab} onChange={handleTabChange} />
         </div>
 
-        {/* Placeholder */}
-        {!hasStyles && (
-          <div className="flex-1 flex flex-col items-center justify-center gap-[var(--space-12)]">
-            <span className="text-[40px]">🚧</span>
-            <p className="text-[16px] leading-[24px] text-[var(--color-text-secondary)] font-medium">Скоро</p>
-            <p className="text-[13px] leading-[18px] text-[var(--color-text-muted)] max-w-[280px] text-center">
-              Стили для этой категории появятся в ближайшем обновлении
-            </p>
-          </div>
-        )}
-
-        {/* Scrollable area: params + styles */}
         {hasStyles && (
           <div className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-[var(--space-12)]">
-            {paramsContent}
+            {rightBlock}
 
             <div
               ref={styleScrollRef}
@@ -193,10 +201,7 @@ export default function StepStyle({ onNext }: Props) {
 
       {/* ===== Tablet+ layout ===== */}
       <div className="hidden tablet:flex flex-col h-full">
-
-        {/* Fixed header row: left = title+tabs, right = params+button */}
         <div className="shrink-0 flex flex-row items-start gap-[var(--space-16)] pb-[var(--space-16)]">
-          {/* Left half */}
           <div className="flex-1 flex flex-col gap-[var(--space-16)]">
             <div className="flex flex-col gap-[var(--space-6)]">
               <h2 className="text-[28px] leading-[1.2] font-semibold text-[#E6EEF8]">Выберите стиль</h2>
@@ -207,26 +212,13 @@ export default function StepStyle({ onNext }: Props) {
             <CategoryTabs active={activeTab} onChange={handleTabChange} />
           </div>
 
-          {/* Right half */}
           {hasStyles && (
             <div className="flex-1">
-              {paramsContent}
+              {rightBlock}
             </div>
           )}
         </div>
 
-        {/* Placeholder */}
-        {!hasStyles && (
-          <div className="flex-1 flex flex-col items-center justify-center gap-[var(--space-12)]">
-            <span className="text-[40px]">🚧</span>
-            <p className="text-[16px] leading-[24px] text-[var(--color-text-secondary)] font-medium">Скоро</p>
-            <p className="text-[13px] leading-[18px] text-[var(--color-text-muted)] max-w-[280px] text-center">
-              Стили для этой категории появятся в ближайшем обновлении
-            </p>
-          </div>
-        )}
-
-        {/* Scrollable styles: 2 columns, 4+4 */}
         {hasStyles && (
           <div className="flex-1 min-h-0 flex flex-col">
             <div className="flex-1 min-h-0 overflow-y-auto">

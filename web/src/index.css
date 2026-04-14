@@ -52,6 +52,39 @@
   --color-brand-hover: rgb(217, 38, 102);
 }
 
+[data-category="model"] {
+  --accent-r: 255;
+  --accent-g: 170;
+  --accent-b: 130;
+  --accent-sec-r: 220;
+  --accent-sec-g: 120;
+  --accent-sec-b: 180;
+  --color-brand-primary: rgb(255, 170, 130);
+  --color-brand-hover: rgb(230, 145, 110);
+}
+
+[data-category="brand"] {
+  --accent-r: 120;
+  --accent-g: 200;
+  --accent-b: 255;
+  --accent-sec-r: 60;
+  --accent-sec-g: 140;
+  --accent-sec-b: 220;
+  --color-brand-primary: rgb(120, 200, 255);
+  --color-brand-hover: rgb(100, 170, 220);
+}
+
+[data-category="memes"] {
+  --accent-r: 255;
+  --accent-g: 180;
+  --accent-b: 30;
+  --accent-sec-r: 255;
+  --accent-sec-g: 120;
+  --accent-sec-b: 0;
+  --color-brand-primary: rgb(255, 180, 30);
+  --color-brand-hover: rgb(230, 155, 20);
+}
+
 [data-category] {
   transition: --accent-r 0.4s ease, --accent-g 0.4s ease, --accent-b 0.4s ease,
               --accent-sec-r 0.4s ease, --accent-sec-g 0.4s ease, --accent-sec-b 0.4s ease,
