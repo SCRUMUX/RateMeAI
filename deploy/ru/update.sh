@@ -40,6 +40,11 @@ docker run --rm \
     alpine sh -c "rm -rf /usr/share/nginx/html/* && cp -r /src/* /usr/share/nginx/html/"
 rm -rf /tmp/web-dist
 
+# ── 2b. Fix storage volume permissions ────────────────────────
+echo "--- fix storage permissions ---"
+docker run --rm -v ratemeai_app_storage:/app/storage alpine \
+    sh -c "chmod -R 777 /app/storage 2>/dev/null; echo 'storage permissions fixed'" || true
+
 # ── 3. Rebuild and restart backend (migrations run on startup) ──
 echo "--- backend build ---"
 docker compose -f "$COMPOSE_FILE" up -d --build app

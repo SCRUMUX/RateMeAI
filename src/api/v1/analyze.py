@@ -280,7 +280,11 @@ async def create_analysis(
 
     storage = get_storage()
     image_key = f"inputs/{user.id}/{uuid.uuid4()}.jpg"
-    await storage.upload(image_key, image_bytes)
+    try:
+        await storage.upload(image_key, image_bytes)
+    except Exception as exc:
+        logger.exception("Storage upload failed for user %s, key %s", user.id, image_key)
+        raise HTTPException(status_code=500, detail=f"Failed to store image: {type(exc).__name__}") from exc
 
     ctx: dict = {}
     if style.strip():
