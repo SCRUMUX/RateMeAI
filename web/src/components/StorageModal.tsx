@@ -5,6 +5,7 @@ import type { TaskHistoryItem } from '../lib/api';
 import { createShare } from '../lib/api';
 import { normalizeImageUrl } from '../lib/image-url';
 import { STYLES_BY_CATEGORY } from '../data/styles';
+import { useApp } from '../context/AppContext';
 
 const STYLE_LOOKUP: Record<string, { name: string; icon: string }> = {};
 for (const styles of Object.values(STYLES_BY_CATEGORY)) {
@@ -37,6 +38,7 @@ const PARAM_LABELS: Record<string, string> = {
 };
 
 export default function StorageModal({ items, open, onClose, onImprove }: Props) {
+  const { activeCategory } = useApp();
   const [idx, setIdx] = useState(0);
   const [dir, setDir] = useState(0);
   const [sharing, setSharing] = useState(false);
@@ -119,6 +121,7 @@ export default function StorageModal({ items, open, onClose, onImprove }: Props)
     <AnimatePresence>
       {open && (
         <motion.div
+          data-category={activeCategory}
           className="fixed inset-0 z-[9999] flex items-center justify-center p-[var(--space-24)]"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}

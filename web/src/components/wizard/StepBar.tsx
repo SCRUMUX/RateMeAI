@@ -44,14 +44,26 @@ function getCircleContent(
   return stepNumber;
 }
 
+function getSegmentLabel(
+  stepId: WizardStepId,
+  isCompleted: boolean,
+  props: Pick<Props, 'photoPreview' | 'analysisScore' | 'styleDelta' | 'finalScore'>,
+): string | null {
+  if (!isCompleted) return null;
+  if (stepId === 'analysis' && props.analysisScore != null) return props.analysisScore.toFixed(1);
+  if (stepId === 'style' && props.styleDelta != null && props.styleDelta > 0) return `+${props.styleDelta.toFixed(1)}`;
+  if (stepId === 'generate' && props.finalScore != null) return props.finalScore.toFixed(1);
+  return null;
+}
+
 export default function StepBar({ currentStep, completedSteps, onStepClick, photoPreview, analysisScore, styleDelta, finalScore }: Props) {
   const currentIdx = WIZARD_STEPS.findIndex(s => s.id === currentStep);
   const contextProps = { photoPreview, analysisScore, styleDelta, finalScore };
 
   return (
-    <div className="w-full max-w-[800px] mx-auto">
+    <div className="w-full max-w-[960px] mx-auto">
       {/* Desktop / Tablet */}
-      <div className="hidden tablet:flex items-center justify-between">
+      <div className="hidden tablet:flex items-center justify-between gap-[var(--space-24)]">
         {WIZARD_STEPS.map((step) => {
           const isCompleted = completedSteps.has(step.id);
           const isCurrent = step.id === currentStep;
@@ -92,12 +104,12 @@ export default function StepBar({ currentStep, completedSteps, onStepClick, phot
                 {getCircleContent(step.id, isCompleted, isCurrent, step.number, contextProps, false)}
               </div>
               <div className="flex flex-col items-center gap-[2px]">
-                <span className={`text-[13px] leading-[18px] font-medium transition-colors ${
+                <span className={`text-[12px] leading-[16px] font-medium transition-colors whitespace-nowrap ${
                   isCurrent ? 'text-[#E6EEF8]' : isCompleted ? 'text-[var(--color-text-secondary)]' : 'text-[var(--color-text-muted)]'
                 }`}>
                   {step.title}
                 </span>
-                <span className={`text-[11px] leading-[14px] transition-colors ${
+                <span className={`text-[10px] leading-[14px] transition-colors whitespace-nowrap ${
                   isCurrent ? 'text-[var(--color-text-secondary)]' : 'text-[var(--color-text-muted)]'
                 }`}>
                   {step.desc}
@@ -108,55 +120,59 @@ export default function StepBar({ currentStep, completedSteps, onStepClick, phot
         })}
       </div>
 
-      {/* Mobile */}
-      <div className="flex tablet:hidden items-center gap-[var(--space-12)] px-[var(--space-4)]">
-        <div className="flex items-center gap-[var(--space-6)]">
-          {WIZARD_STEPS.map((step) => {
+      {/* Mobile — segmented progress bar */}
+      <div className="flex tablet:hidden flex-col gap-[var(--space-8)] px-[var(--space-4)]">
+        <div className="flex items-center justify-between">
+          <span className="text-[14px] leading-[20px] font-semibold text-[#E6EEF8]">
+            {WIZARD_STEPS[currentIdx].title}
+          </span>
+          <span className="text-[12px] leading-[16px] text-[var(--color-text-muted)] tabular-nums">
+            Шаг {currentIdx + 1} из {WIZARD_STEPS.length}
+          </span>
+        </div>
+
+        <div className="flex items-start gap-[6px]">
+          {WIZARD_STEPS.map((step, i) => {
             const isCompleted = completedSteps.has(step.id);
             const isCurrent = step.id === currentStep;
-            const stepIdx = WIZARD_STEPS.findIndex(s => s.id === step.id);
-            const isClickable = isCompleted || stepIdx <= currentIdx;
-            const showAvatar = isCompleted && !isCurrent && step.id === 'upload' && !!photoPreview;
+            const isClickable = isCompleted || i <= currentIdx;
+            const label = getSegmentLabel(step.id, isCompleted, contextProps);
+            const showThumb = isCompleted && step.id === 'upload' && !!photoPreview;
 
             return (
               <button
                 key={step.id}
                 onClick={() => isClickable && onStepClick(step.id)}
                 disabled={!isClickable}
-                className={`w-8 h-8 rounded-full flex items-center justify-center font-semibold transition-all ${
-                  showAvatar ? 'overflow-hidden p-0' : 'text-[12px]'
-                } ${
-                  isClickable ? 'cursor-pointer' : 'cursor-not-allowed'
-                } ${
-                  isCurrent
-                    ? 'text-white'
-                    : isCompleted
-                      ? 'text-white'
-                      : 'text-[var(--color-text-muted)] border border-[rgba(255,255,255,0.12)]'
-                }`}
-                style={
-                  isCurrent
-                    ? {
-                        background: `rgb(var(--accent-r), var(--accent-g), var(--accent-b))`,
-                        boxShadow: `0 0 12px rgba(var(--accent-r), var(--accent-g), var(--accent-b), 0.4)`,
-                      }
-                    : isCompleted
-                      ? { background: `rgba(var(--accent-r), var(--accent-g), var(--accent-b), 0.6)` }
-                      : { background: 'rgba(255,255,255,0.04)' }
-                }
+                className={`flex-1 flex flex-col items-center gap-[4px] ${isClickable ? 'cursor-pointer' : 'cursor-not-allowed'}`}
               >
-                {getCircleContent(step.id, isCompleted, isCurrent, step.number, contextProps, true)}
+                <div
+                  className="w-full h-[6px] rounded-full transition-all duration-300"
+                  style={
+                    isCurrent
+                      ? {
+                          background: `rgb(var(--accent-r), var(--accent-g), var(--accent-b))`,
+                          boxShadow: `0 0 8px rgba(var(--accent-r), var(--accent-g), var(--accent-b), 0.5)`,
+                        }
+                      : isCompleted
+                        ? { background: `rgba(var(--accent-r), var(--accent-g), var(--accent-b), 0.6)` }
+                        : { background: 'rgba(255,255,255,0.08)' }
+                  }
+                />
+                {showThumb ? (
+                  <img src={photoPreview!} alt="" className="w-5 h-5 rounded-full object-cover" />
+                ) : label ? (
+                  <span className={`text-[10px] leading-[14px] tabular-nums font-medium ${
+                    isCurrent ? 'text-[#E6EEF8]' : 'text-[var(--color-text-muted)]'
+                  }`}>{label}</span>
+                ) : (
+                  <span className={`text-[10px] leading-[14px] tabular-nums ${
+                    isCurrent ? 'text-[var(--color-text-secondary)]' : 'text-[var(--color-text-muted)]'
+                  }`}>{step.number}</span>
+                )}
               </button>
             );
           })}
-        </div>
-        <div className="flex flex-col gap-[1px] min-w-0">
-          <span className="text-[14px] leading-[20px] font-medium text-[#E6EEF8]">
-            {WIZARD_STEPS[currentIdx].title}
-          </span>
-          <span className="text-[12px] leading-[16px] text-[var(--color-text-secondary)]">
-            {WIZARD_STEPS[currentIdx].desc}
-          </span>
         </div>
       </div>
     </div>

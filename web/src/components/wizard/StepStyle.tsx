@@ -1,6 +1,6 @@
 import { useState, useRef } from 'react';
 import { ChevronLeftIcon, ChevronRightIcon } from '@ai-ds/core/icons';
-import { STYLES_BY_CATEGORY, type CategoryId } from '../../data/styles';
+import { STYLES_BY_CATEGORY, getMockDelta, type CategoryId } from '../../data/styles';
 import CategoryTabs from '../CategoryTabs';
 import { useApp } from '../../context/AppContext';
 import ProgressBar from './ProgressBar';
@@ -91,6 +91,11 @@ export default function StepStyle({ onNext }: Props) {
         <span className="text-[16px] leading-[24px] text-[#E6EEF8] font-medium truncate">{s.name}</span>
         <span className="text-[11px] leading-[14px] text-[var(--color-text-muted)] truncate">{s.desc}</span>
       </div>
+      {!isComingSoon && (
+        <span className="px-[var(--space-8)] py-[var(--space-4)] rounded-[var(--radius-pill)] text-[14px] leading-[20px] text-[var(--color-success-base)] font-medium tabular-nums shrink-0">
+          {getMockDelta(s.deltaRange, s.key)}
+        </span>
+      )}
     </div>
   );
 
@@ -181,7 +186,7 @@ export default function StepStyle({ onNext }: Props) {
                 {allPages.map((_, i) => (
                   <button
                     key={i}
-                    className={`w-2 h-2 rounded-full transition-colors ${clampedPage === i ? 'bg-[rgb(var(--accent-r),var(--accent-g),var(--accent-b))]' : 'bg-[rgba(255,255,255,0.25)]'}`}
+                    className={`w-3 h-3 rounded-full transition-colors ${clampedPage === i ? 'bg-[rgb(var(--accent-r),var(--accent-g),var(--accent-b))]' : 'bg-[rgba(255,255,255,0.25)]'}`}
                     onClick={() => {
                       const el = styleScrollRef.current;
                       if (el) el.scrollTo({ left: i * el.offsetWidth, behavior: 'smooth' });
@@ -232,19 +237,19 @@ export default function StepStyle({ onNext }: Props) {
                 <button
                   onClick={() => setPage(Math.max(0, clampedPage - 1))}
                   disabled={clampedPage === 0}
-                  className="glass-btn-ghost w-9 h-9 flex items-center justify-center rounded-[var(--radius-12)] text-[var(--color-text-muted)] hover:text-[#E6EEF8]"
+                  className="glass-btn-ghost w-11 h-11 flex items-center justify-center rounded-[var(--radius-12)] text-[var(--color-text-muted)] hover:text-[#E6EEF8]"
                 >
-                  <ChevronLeftIcon size={18} />
+                  <ChevronLeftIcon size={22} />
                 </button>
-                <span className="text-[13px] leading-[18px] text-[#E6EEF8] tabular-nums">
+                <span className="text-[15px] leading-[22px] text-[#E6EEF8] tabular-nums">
                   {clampedPage + 1} / {totalPages}
                 </span>
                 <button
                   onClick={() => setPage(Math.min(totalPages - 1, clampedPage + 1))}
                   disabled={clampedPage === totalPages - 1}
-                  className="glass-btn-ghost w-9 h-9 flex items-center justify-center rounded-[var(--radius-12)] text-[var(--color-text-muted)] hover:text-[#E6EEF8]"
+                  className="glass-btn-ghost w-11 h-11 flex items-center justify-center rounded-[var(--radius-12)] text-[var(--color-text-muted)] hover:text-[#E6EEF8]"
                 >
-                  <ChevronRightIcon size={18} />
+                  <ChevronRightIcon size={22} />
                 </button>
               </div>
             )}
