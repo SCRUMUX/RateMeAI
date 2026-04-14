@@ -48,6 +48,7 @@ class RemotePreAnalyzeRequest(BaseModel):
     image_b64: str
     mode: AnalysisMode = AnalysisMode.DATING
     profession: str = ""
+    skip_validation: bool = False
 
 
 class RemoteAnalysisRequest(BaseModel):
@@ -195,18 +196,19 @@ async def pre_analyze_remote(
     if len(image_bytes) > 10 * 1024 * 1024:
         raise HTTPException(status_code=400, detail="Image must be smaller than 10MB")
 
-    from src.utils.image import validate_and_normalize, has_face_heuristic
+    if not request.skip_validation:
+        from src.utils.image import validate_and_normalize, has_face_heuristic
 
-    try:
-        image_bytes, _meta = validate_and_normalize(image_bytes)
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e)) from e
+        try:
+            image_bytes, _meta = validate_and_normalize(image_bytes)
+        except Exception as e:
+            raise HTTPException(status_code=400, detail=str(e)) from e
 
-    if not has_face_heuristic(image_bytes):
-        raise HTTPException(
-            status_code=400,
-            detail="На фото не обнаружено лицо. Загрузи портретное фото.",
-        )
+        if not has_face_heuristic(image_bytes):
+            raise HTTPException(
+                status_code=400,
+                detail="На фото не обнаружено лицо. Загрузи портретное фото.",
+            )
 
     from src.orchestrator.router import ModeRouter
     from src.providers.factory import get_llm

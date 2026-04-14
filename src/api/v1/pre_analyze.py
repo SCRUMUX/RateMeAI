@@ -83,7 +83,7 @@ async def pre_analyze(
             return PreAnalysisResponse(**result_data)
         except RemoteAIError as exc:
             logger.error("Edge pre-analyze proxy failed: %s", exc)
-            raise HTTPException(status_code=502, detail="Не удалось выполнить анализ через основной сервер") from exc
+            raise HTTPException(status_code=502, detail=f"Не удалось выполнить анализ через основной сервер: {exc}") from exc
 
     mode_router = _get_router()
     service = mode_router.get_service(mode)

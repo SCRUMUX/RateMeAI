@@ -6,6 +6,7 @@ import { PERCEPTION_FACTS, getRandomFact } from '../data/ai-facts';
 import CategoryTabs from '../components/CategoryTabs';
 import StorageModal from '../components/StorageModal';
 import { useApp } from '../context/AppContext';
+import logoSrc from '../assets/logo.png';
 
 type GenSimMode = 'demo' | 'no_credits' | 'real';
 
@@ -364,7 +365,7 @@ export default function AppScreen({ onOpenAuthModal }: { onOpenAuthModal?: () =>
         <div className="brand-glow-backdrop" />
         <div className="relative w-[60px] h-[60px] tablet:w-[100px] tablet:h-[100px] desktop:w-[140px] desktop:h-[140px] shrink-0 brand-glow-icon">
           <div className="absolute inset-0 rounded-[16px] tablet:rounded-[24px] desktop:rounded-[28px]" style={{ background: 'rgba(var(--accent-r), var(--accent-g), var(--accent-b), 0.4)' }} />
-          <img src="/img/logo.png" alt="AI Look Studio" className="relative w-full h-full object-contain rounded-[16px] tablet:rounded-[24px] desktop:rounded-[28px]" style={{ mixBlendMode: 'lighten' }} />
+          <img src={logoSrc} alt="AI Look Studio" className="relative w-full h-full object-contain rounded-[16px] tablet:rounded-[24px] desktop:rounded-[28px]" style={{ mixBlendMode: 'lighten' }} />
         </div>
         <span className="brand-glow-text text-[36px] tablet:text-[72px] desktop:text-[120px] leading-[1] font-extrabold whitespace-nowrap">
           AI Look Studio

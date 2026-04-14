@@ -4,6 +4,7 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { GlobeIcon, CoinIcon } from '@ai-ds/core/icons';
 import { useApp } from '../context/AppContext';
 import LinkedAccountsPanel from '../components/LinkedAccountsPanel';
+import logoSrc from '../assets/logo.png';
 
 interface Props {
   onLoginClick?: () => void;
@@ -42,7 +43,7 @@ export default function NavBar({ onLoginClick, mode = 'landing' }: Props) {
         <div className="flex items-center gap-[var(--space-8)] px-[var(--space-8)] py-[var(--space-4)]">
           <div className="relative w-10 h-10 tablet:w-11 tablet:h-11 shrink-0">
             <div className="absolute inset-0 rounded-xl" style={{ background: 'rgba(var(--accent-r), var(--accent-g), var(--accent-b), 0.18)' }} />
-            <img src="/img/logo.png" alt="AI Look Studio" className="relative w-full h-full rounded-xl object-contain" style={{ mixBlendMode: 'lighten' }} />
+            <img src={logoSrc} alt="AI Look Studio" className="relative w-full h-full rounded-xl object-contain" style={{ mixBlendMode: 'lighten' }} />
           </div>
           <span className="hidden tablet:inline text-[22px] leading-[30px] font-bold whitespace-nowrap tracking-tight">
             <span className="text-[#E6EEF8]">AI</span>

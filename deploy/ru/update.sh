@@ -29,6 +29,7 @@ git pull origin main
 echo "--- frontend build ---"
 docker compose -f "$COMPOSE_FILE" --profile build-only build --no-cache web
 
+rm -rf /tmp/web-dist
 TEMP_CONTAINER=$(docker create ratemeai-web-ru:latest)
 docker cp "$TEMP_CONTAINER:/usr/share/nginx/html" /tmp/web-dist
 docker rm "$TEMP_CONTAINER"

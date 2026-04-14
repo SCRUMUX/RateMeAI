@@ -154,18 +154,19 @@ class RemoteAIService:
         profession: str = "",
     ) -> dict[str, Any]:
         """Proxy pre-analysis to the primary backend. Returns the response dict."""
-        payload = {"image_b64": image_b64, "mode": mode, "profession": profession}
+        payload = {"image_b64": image_b64, "mode": mode, "profession": profession, "skip_validation": True}
         try:
             resp = await self._client.post(
                 f"{self._base}/pre-analyze",
                 json=payload,
                 headers=self._headers(),
-                timeout=45.0,
+                timeout=httpx.Timeout(connect=10.0, read=90.0, write=30.0, pool=10.0),
             )
             resp.raise_for_status()
         except httpx.HTTPStatusError as exc:
-            logger.error("Remote pre-analyze failed: %s %s", exc.response.status_code, exc.response.text[:200])
-            raise RemoteAIError(f"Primary pre-analyze returned {exc.response.status_code}") from exc
+            body = exc.response.text[:300]
+            logger.error("Remote pre-analyze failed: %s %s", exc.response.status_code, body)
+            raise RemoteAIError(f"Primary pre-analyze returned {exc.response.status_code}: {body}") from exc
         except httpx.HTTPError as exc:
             logger.error("Remote pre-analyze connection error: %s", exc)
             raise RemoteAIError(f"Cannot reach primary for pre-analyze: {exc}") from exc
