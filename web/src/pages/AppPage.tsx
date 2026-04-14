@@ -96,11 +96,11 @@ export default function AppPage() {
     <div data-category={app.activeCategory} className="h-dvh flex flex-col w-full overflow-hidden selection:bg-brand-primary/30">
       <NavBar mode="app" onLoginClick={() => setAuthModalOpen(true)} />
 
-      <main ref={scrollRef} className="relative flex-1 overflow-y-auto">
+      <main ref={scrollRef} className="relative flex-1 min-h-0 flex flex-col overflow-hidden">
         <MeshGradientBg />
         <EnergyField />
 
-        <div className="relative z-[2] flex flex-col items-center gap-[var(--space-16)] tablet:gap-[var(--space-24)] px-[var(--space-16)] tablet:px-[var(--space-24)] py-[var(--space-16)] tablet:py-[var(--space-24)]">
+        <div className="relative z-[2] flex-1 min-h-0 flex flex-col items-center gap-[var(--space-12)] tablet:gap-[var(--space-16)] px-[var(--space-16)] tablet:px-[var(--space-24)] py-[var(--space-12)] tablet:py-[var(--space-16)]">
           {/* Error toast */}
           {app.error && (
             <div className="glass-badge-danger fixed top-20 right-6 z-[200] max-w-[400px] p-[var(--space-16)] text-white rounded-[var(--radius-12)] text-[14px] leading-[20px] cursor-pointer"
@@ -111,15 +111,17 @@ export default function AppPage() {
           )}
 
           {/* Step bar */}
-          <StepBar
-            currentStep={currentStep}
-            completedSteps={completedSteps}
-            onStepClick={handleStepClick}
-          />
+          <div className="shrink-0">
+            <StepBar
+              currentStep={currentStep}
+              completedSteps={completedSteps}
+              onStepClick={handleStepClick}
+            />
+          </div>
 
           {/* Balance & Storage counters */}
           {showCounters && (
-            <div className="flex items-center justify-center gap-[var(--space-24)]">
+            <div className="shrink-0 flex items-center justify-center gap-[var(--space-24)]">
               <div className="glass-btn-ghost flex items-center gap-[var(--space-6)] px-[var(--space-12)] py-[var(--space-4)] rounded-[var(--radius-12)]">
                 <CoinIcon size={16} className="text-[var(--color-brand-primary)]" />
                 <span className="text-[14px] leading-[20px] font-medium text-[#E6EEF8]">Баланс {app.balance}</span>
@@ -135,7 +137,7 @@ export default function AppPage() {
           )}
 
           {/* Step content with transitions */}
-          <div className="w-full max-w-[1200px]">
+          <div className="flex-1 min-h-0 w-full max-w-[1200px]">
             <AnimatePresence mode="wait" custom={direction}>
               <motion.div
                 key={currentStep}
@@ -145,6 +147,7 @@ export default function AppPage() {
                 animate="center"
                 exit="exit"
                 transition={{ duration: 0.3, ease: 'easeInOut' }}
+                className="h-full overflow-y-auto"
               >
                 {currentStep === 'upload' && (
                   <StepUpload onNext={goNext} />

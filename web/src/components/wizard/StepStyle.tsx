@@ -90,25 +90,64 @@ export default function StepStyle({ onNext }: Props) {
     </div>
   );
 
+  const paramsContent = (
+    <div className="flex flex-col gap-[var(--space-12)]">
+      {selectedStyle && (
+        <div className="flex items-center gap-[var(--space-8)]">
+          <span className="text-[20px]">{selectedStyle.icon}</span>
+          <div className="flex flex-col min-w-0">
+            <span className="text-[15px] leading-[22px] font-medium text-[#E6EEF8] truncate">{selectedStyle.name}</span>
+            <span className="text-[12px] leading-[16px] text-[var(--color-text-muted)] truncate">{selectedStyle.desc}</span>
+          </div>
+        </div>
+      )}
+      <div className="gradient-border-card glass-card flex flex-col gap-[var(--space-10)] rounded-[var(--radius-12)] p-[var(--space-12)]">
+        {displayParams ? displayParams.map((p) => (
+          <div key={p.key} className="flex flex-col gap-[var(--space-6)]">
+            <div className="flex items-center justify-between">
+              <span className="text-[13px] leading-[18px] text-[#E6EEF8]">{p.label}</span>
+              <span className="flex items-center gap-[var(--space-6)] text-[13px] leading-[18px] tabular-nums">
+                <span className="text-[var(--color-text-secondary)]">{p.value.toFixed(2)}</span>
+                {p.delta > 0 && <span className="text-[var(--color-success-base)] text-[11px] font-medium">+{p.delta.toFixed(2)}</span>}
+                {p.delta < 0 && <span className="text-[var(--color-danger-base)] text-[11px] font-medium">{p.delta.toFixed(2)}</span>}
+              </span>
+            </div>
+            <div className="relative">
+              <ProgressBar value={p.value} accent />
+              {p.delta > 0 && (
+                <div className="absolute inset-0"><ProgressBar value={Math.min(10, p.value + p.delta)} variant="success" /></div>
+              )}
+            </div>
+          </div>
+        )) : (
+          <div className="text-[13px] text-[var(--color-text-muted)] text-center py-[var(--space-8)]">Загрузите фото для просмотра параметров</div>
+        )}
+      </div>
+      <button onClick={handleSelectAndNext} className="glass-btn-primary w-full py-[var(--space-10)] text-[14px] leading-[20px] rounded-[var(--radius-pill)] font-medium">
+        Генерировать
+      </button>
+    </div>
+  );
+
   return (
-    <div className="flex flex-col gap-[var(--space-16)] w-full max-w-[1000px] mx-auto">
+    <div className="flex flex-col h-full max-w-[1000px] mx-auto">
 
       {/* ===== Mobile layout ===== */}
-      <div className="flex flex-col gap-[var(--space-16)] tablet:hidden">
-        {/* Title */}
-        <div className="flex flex-col gap-[var(--space-6)] text-center">
-          <h2 className="text-[24px] leading-[1.2] font-semibold text-[#E6EEF8]">Выберите стиль</h2>
-          <p className="text-[13px] leading-[18px] text-[var(--color-text-secondary)]">
-            Каждый стиль адаптирует образ под конкретный контекст и улучшает метрики восприятия
-          </p>
+      <div className="flex flex-col h-full tablet:hidden">
+        {/* Fixed header */}
+        <div className="shrink-0 flex flex-col gap-[var(--space-12)] pb-[var(--space-12)]">
+          <div className="flex flex-col gap-[var(--space-6)] text-center">
+            <h2 className="text-[24px] leading-[1.2] font-semibold text-[#E6EEF8]">Выберите стиль</h2>
+            <p className="text-[13px] leading-[18px] text-[var(--color-text-secondary)]">
+              Каждый стиль адаптирует образ под конкретный контекст и улучшает метрики восприятия
+            </p>
+          </div>
+          <CategoryTabs active={activeTab} onChange={handleTabChange} />
         </div>
-
-        {/* Category tabs */}
-        <CategoryTabs active={activeTab} onChange={handleTabChange} />
 
         {/* Placeholder */}
         {!hasStyles && (
-          <div className="flex flex-col items-center justify-center py-10 gap-[var(--space-12)]">
+          <div className="flex-1 flex flex-col items-center justify-center gap-[var(--space-12)]">
             <span className="text-[40px]">🚧</span>
             <p className="text-[16px] leading-[24px] text-[var(--color-text-secondary)] font-medium">Скоро</p>
             <p className="text-[13px] leading-[18px] text-[var(--color-text-muted)] max-w-[280px] text-center">
@@ -117,48 +156,11 @@ export default function StepStyle({ onNext }: Props) {
           </div>
         )}
 
-        {/* Params + styles */}
+        {/* Scrollable area: params + styles */}
         {hasStyles && (
-          <>
-            {/* Params block */}
-            <div className="flex flex-col gap-[var(--space-12)]">
-              {selectedStyle && (
-                <div className="flex items-center gap-[var(--space-8)]">
-                  <span className="text-[20px]">{selectedStyle.icon}</span>
-                  <div className="flex flex-col min-w-0">
-                    <span className="text-[15px] leading-[22px] font-medium text-[#E6EEF8] truncate">{selectedStyle.name}</span>
-                    <span className="text-[12px] leading-[16px] text-[var(--color-text-muted)] truncate">{selectedStyle.desc}</span>
-                  </div>
-                </div>
-              )}
-              <div className="gradient-border-card glass-card flex flex-col gap-[var(--space-10)] rounded-[var(--radius-12)] p-[var(--space-12)]">
-                {displayParams ? displayParams.map((p) => (
-                  <div key={p.key} className="flex flex-col gap-[var(--space-6)]">
-                    <div className="flex items-center justify-between">
-                      <span className="text-[13px] leading-[18px] text-[#E6EEF8]">{p.label}</span>
-                      <span className="flex items-center gap-[var(--space-6)] text-[13px] leading-[18px] tabular-nums">
-                        <span className="text-[var(--color-text-secondary)]">{p.value.toFixed(2)}</span>
-                        {p.delta > 0 && <span className="text-[var(--color-success-base)] text-[11px] font-medium">+{p.delta.toFixed(2)}</span>}
-                        {p.delta < 0 && <span className="text-[var(--color-danger-base)] text-[11px] font-medium">{p.delta.toFixed(2)}</span>}
-                      </span>
-                    </div>
-                    <div className="relative">
-                      <ProgressBar value={p.value} accent />
-                      {p.delta > 0 && (
-                        <div className="absolute inset-0"><ProgressBar value={Math.min(10, p.value + p.delta)} variant="success" /></div>
-                      )}
-                    </div>
-                  </div>
-                )) : (
-                  <div className="text-[13px] text-[var(--color-text-muted)] text-center py-[var(--space-8)]">Загрузите фото для просмотра параметров</div>
-                )}
-              </div>
-              <button onClick={handleSelectAndNext} className="glass-btn-primary w-full py-[var(--space-10)] text-[14px] leading-[20px] rounded-[var(--radius-pill)] font-medium">
-                Генерировать
-              </button>
-            </div>
+          <div className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-[var(--space-12)]">
+            {paramsContent}
 
-            {/* Swipeable style pages */}
             <div
               ref={styleScrollRef}
               onScroll={handleStyleScroll}
@@ -172,7 +174,7 @@ export default function StepStyle({ onNext }: Props) {
             </div>
 
             {totalPages > 1 && (
-              <div className="flex items-center justify-center gap-[6px]">
+              <div className="shrink-0 flex items-center justify-center gap-[6px] pb-[var(--space-8)]">
                 {allPages.map((_, i) => (
                   <button
                     key={i}
@@ -185,17 +187,16 @@ export default function StepStyle({ onNext }: Props) {
                 ))}
               </div>
             )}
-          </>
+          </div>
         )}
       </div>
 
       {/* ===== Tablet+ layout ===== */}
-      <div className="hidden tablet:flex flex-col gap-[var(--space-16)]">
+      <div className="hidden tablet:flex flex-col h-full">
 
-        {/* Top row: left = title+tabs, right = params+button */}
-        <div className="flex flex-row items-start gap-[var(--space-16)]">
-
-          {/* Left half: title, subtitle, categories */}
+        {/* Fixed header row: left = title+tabs, right = params+button */}
+        <div className="shrink-0 flex flex-row items-start gap-[var(--space-16)] pb-[var(--space-16)]">
+          {/* Left half */}
           <div className="flex-1 flex flex-col gap-[var(--space-16)]">
             <div className="flex flex-col gap-[var(--space-6)]">
               <h2 className="text-[28px] leading-[1.2] font-semibold text-[#E6EEF8]">Выберите стиль</h2>
@@ -206,50 +207,17 @@ export default function StepStyle({ onNext }: Props) {
             <CategoryTabs active={activeTab} onChange={handleTabChange} />
           </div>
 
-          {/* Right half: selected style + params + generate */}
+          {/* Right half */}
           {hasStyles && (
-            <div className="flex-1 flex flex-col gap-[var(--space-12)]">
-              {selectedStyle && (
-                <div className="flex items-center gap-[var(--space-8)]">
-                  <span className="text-[20px]">{selectedStyle.icon}</span>
-                  <div className="flex flex-col min-w-0">
-                    <span className="text-[15px] leading-[22px] font-medium text-[#E6EEF8] truncate">{selectedStyle.name}</span>
-                    <span className="text-[12px] leading-[16px] text-[var(--color-text-muted)] truncate">{selectedStyle.desc}</span>
-                  </div>
-                </div>
-              )}
-              <div className="gradient-border-card glass-card flex flex-col gap-[var(--space-10)] rounded-[var(--radius-12)] p-[var(--space-12)]">
-                {displayParams ? displayParams.map((p) => (
-                  <div key={p.key} className="flex flex-col gap-[var(--space-6)]">
-                    <div className="flex items-center justify-between">
-                      <span className="text-[13px] leading-[18px] text-[#E6EEF8]">{p.label}</span>
-                      <span className="flex items-center gap-[var(--space-6)] text-[13px] leading-[18px] tabular-nums">
-                        <span className="text-[var(--color-text-secondary)]">{p.value.toFixed(2)}</span>
-                        {p.delta > 0 && <span className="text-[var(--color-success-base)] text-[11px] font-medium">+{p.delta.toFixed(2)}</span>}
-                        {p.delta < 0 && <span className="text-[var(--color-danger-base)] text-[11px] font-medium">{p.delta.toFixed(2)}</span>}
-                      </span>
-                    </div>
-                    <div className="relative">
-                      <ProgressBar value={p.value} accent />
-                      {p.delta > 0 && (
-                        <div className="absolute inset-0"><ProgressBar value={Math.min(10, p.value + p.delta)} variant="success" /></div>
-                      )}
-                    </div>
-                  </div>
-                )) : (
-                  <div className="text-[13px] text-[var(--color-text-muted)] text-center py-[var(--space-8)]">Загрузите фото для просмотра параметров</div>
-                )}
-              </div>
-              <button onClick={handleSelectAndNext} className="glass-btn-primary w-full py-[var(--space-10)] text-[14px] leading-[20px] rounded-[var(--radius-pill)] font-medium">
-                Генерировать
-              </button>
+            <div className="flex-1">
+              {paramsContent}
             </div>
           )}
         </div>
 
-        {/* Placeholder for empty categories */}
+        {/* Placeholder */}
         {!hasStyles && (
-          <div className="flex flex-col items-center justify-center py-10 gap-[var(--space-12)]">
+          <div className="flex-1 flex flex-col items-center justify-center gap-[var(--space-12)]">
             <span className="text-[40px]">🚧</span>
             <p className="text-[16px] leading-[24px] text-[var(--color-text-secondary)] font-medium">Скоро</p>
             <p className="text-[13px] leading-[18px] text-[var(--color-text-muted)] max-w-[280px] text-center">
@@ -258,20 +226,22 @@ export default function StepStyle({ onNext }: Props) {
           </div>
         )}
 
-        {/* Styles: 2 columns, 4+4 */}
+        {/* Scrollable styles: 2 columns, 4+4 */}
         {hasStyles && (
-          <>
-            <div className="flex flex-row gap-[var(--space-16)]">
-              <div className="flex-1 flex flex-col gap-[var(--space-8)]">
-                {leftCol.map((s) => renderStyleRow(s, styles.indexOf(s)))}
-              </div>
-              <div className="flex-1 flex flex-col gap-[var(--space-8)]">
-                {rightCol.map((s) => renderStyleRow(s, styles.indexOf(s)))}
+          <div className="flex-1 min-h-0 flex flex-col">
+            <div className="flex-1 min-h-0 overflow-y-auto">
+              <div className="flex flex-row gap-[var(--space-16)]">
+                <div className="flex-1 flex flex-col gap-[var(--space-8)]">
+                  {leftCol.map((s) => renderStyleRow(s, styles.indexOf(s)))}
+                </div>
+                <div className="flex-1 flex flex-col gap-[var(--space-8)]">
+                  {rightCol.map((s) => renderStyleRow(s, styles.indexOf(s)))}
+                </div>
               </div>
             </div>
 
             {totalPages > 1 && (
-              <div className="flex items-center justify-center gap-[var(--space-12)]">
+              <div className="shrink-0 flex items-center justify-center gap-[var(--space-12)] pt-[var(--space-12)]">
                 <button
                   onClick={() => setPage(Math.max(0, clampedPage - 1))}
                   disabled={clampedPage === 0}
@@ -291,7 +261,7 @@ export default function StepStyle({ onNext }: Props) {
                 </button>
               </div>
             )}
-          </>
+          </div>
         )}
       </div>
     </div>
