@@ -401,7 +401,7 @@ async def readiness():
             from src.services.remote_ai import get_remote_ai
             remote = get_remote_ai()
             ping_resp = await remote._client.get(
-                f"{remote._base}/internal/ping",
+                f"{remote._base}/ping",
                 headers={"X-Internal-Key": settings.internal_api_key},
                 timeout=10.0,
             )
