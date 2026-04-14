@@ -1,0 +1,651 @@
+# ARCHITECTURE — RateMeAI (v1.9.x)
+
+Технический справочник рабочей архитектуры платформы AI Look Studio (RateMeAI).
+Версия документа актуальна для кодовой базы **v1.9.2+**.
+
+---
+
+## 1. Обзор системы
+
+RateMeAI — платформа AI-стилиста, которая анализирует фото пользователя и генерирует улучшенные образы для разных жизненных контекстов (знакомства, карьера, соцсети). Состоит из **Python-бэкенда** (FastAPI + ARQ + aiogram) и **React SPA** (Vite).
+
+### Процессы
+
+| Процесс | Технология | Назначение |
+|---------|-----------|------------|
+| **app** | FastAPI + Uvicorn | HTTP API, SSE, статика `/storage/` |
+| **worker** | ARQ (Redis queue) | Фоновая обработка задач (LLM + генерация изображений) |
+| **bot** | aiogram 3 + aiohttp | Telegram-бот (webhook или polling) |
+| **postgres** | PostgreSQL 16 | Основная БД |
+| **redis** | Redis 7 | Очередь задач, кеш сессий, pub/sub прогресса, кеш изображений |
+| **web** | Vite + React (SPA) | Веб-интерфейс (Vercel / nginx) |
+
+### Взаимодействие процессов
+
+```
+Telegram User ──> Bot ──HTTP──> App (API)
+                                  │
+Web User ──────────────────────> App (API)
+                                  │
+                          ┌───────┴───────┐
+                          │  PostgreSQL    │
+                          │  Redis        │
+                          └───────┬───────┘
+                                  │
+                          Worker (ARQ)
+                            │       │
+                      OpenRouter   Reve/Replicate
+                       (LLM)      (Image Gen)
+```
+
+---
+
+## 2. Схема развертывания
+
+### Primary (Railway)
+
+- **app** — `uvicorn src.main:app --host 0.0.0.0 --port 8000`
+- **worker** — `arq src.workers.tasks.WorkerSettings`
+- **bot** — `python -m src.bot.app`
+- **PostgreSQL** — Railway managed (internal URL)
+- **Redis** — Railway managed (internal URL)
+
+### Frontend (Vercel)
+
+- SPA из `web/dist`, конфиг `vercel.json` (framework: vite, SPA rewrite на `/index.html`)
+- Build: `cd web && npx vite build`
+- Env var: `VITE_API_BASE_URL` указывает на Railway API
+
+### RU Edge (VPS + Docker)
+
+- `DEPLOYMENT_MODE=edge` — API проксирует AI-задачи на primary через `RemoteAIService`
+- `docker-compose.ru.yml`: postgres, redis, app (edge), nginx (SSL + static frontend)
+- Frontend собирается в Docker (`web/Dockerfile`), статика копируется в volume `ratemeai_web_dist`
+- Домен: `ru.ailookstudio.ru`
+
+### Инварианты деплоя
+
+- app, worker, bot **всегда** деплоятся из одного коммита (одного Docker-образа)
+- Версия в `src/version.py` — обязательно инкрементировать при каждом деплое
+- `GET /health` возвращает `version` и опциональный `git` SHA (`DEPLOY_GIT_SHA`)
+- Alembic миграции выполняются автоматически при старте в production (`src/main.py` lifespan)
+
+---
+
+## 3. Модель данных
+
+ORM: SQLAlchemy 2 (async) + asyncpg. Миграции: Alembic (`alembic/versions/`).
+
+### Таблицы
+
+```
+┌──────────────────────┐     ┌────────────────────────┐
+│ users                │     │ user_identities        │
+│──────────────────────│     │────────────────────────│
+│ id (UUID PK)         │◄────│ user_id (FK)           │
+│ telegram_id (unique) │     │ provider (varchar 20)  │
+│ username             │     │ external_id (varchar)  │
+│ first_name           │     │ profile_data (JSON)    │
+│ is_premium (bool)    │     │ UQ(provider,external_id)│
+│ image_credits (int)  │     └────────────────────────┘
+│ created_at           │
+└──────┬───────────────┘
+       │
+       ├──── tasks
+       │     │ id (UUID PK), user_id (FK)
+       │     │ mode, status, input_image_path
+       │     │ context (JSON), result (JSON)
+       │     │ share_card_path, error_message
+       │     │ created_at, updated_at, completed_at
+       │
+       ├──── usage_logs
+       │     │ user_id + usage_date (UQ), count
+       │
+       ├──── credit_transactions
+       │     │ amount, balance_after, tx_type, payment_id
+       │
+       ├──── api_clients
+       │     │ name, key_hash (unique), rate_limit_daily, is_active
+       │
+       └──── user_perception_records
+             │ user_id + mode + style (UQ)
+             │ warmth, presence, appeal, authenticity
+```
+
+### Статусы задач (`TaskStatus`)
+
+`pending` → `processing` → `completed` | `failed`
+
+### Режимы анализа (`AnalysisMode`)
+
+`rating`, `dating`, `cv`, `social`, `emoji`
+
+---
+
+## 4. API Reference
+
+Все эндпоинты монтируются с префиксом `/api/v1` (файл `src/api/router.py`).
+
+### Аутентификация
+
+Два механизма (проверяются в `src/api/deps.py` → `get_auth_user`):
+1. **Bearer token** — `Authorization: Bearer <session_token>` → Redis `ratemeai:session:{token}` → UUID пользователя
+2. **API Key** — `X-API-Key` → SHA256(key + pepper) → `api_clients.key_hash` → пользователь
+
+### Анализ и задачи
+
+| Метод | Путь | Auth | Описание |
+|-------|------|------|----------|
+| POST | `/analyze` | Bearer/API | Multipart: image + mode + style + enhancement_level + pre_analysis_id. Резервирует 1 кредит, создает Task, ставит в ARQ. Возвращает 202 + task_id |
+| POST | `/pre-analyze` | Bearer/API | Multipart pre-analysis (dating/cv/social). LLM-анализ без генерации. Кеш в Redis |
+| GET | `/tasks` | Bearer/API | Галерея завершенных задач (пагинация) |
+| GET | `/tasks/{task_id}` | Bearer/API | Детали задачи + result JSON |
+| POST | `/tasks/{task_id}/refund` | Bearer/API | Возврат кредита если сгенерированное изображение недоступно |
+| POST | `/share/{task_id}` | Bearer/API | Share payload: caption, deep link, image URL |
+
+### Auth эндпоинты
+
+| Метод | Путь | Описание |
+|-------|------|----------|
+| POST | `/auth/telegram` | Telegram WebApp init_data verification / bot registration |
+| POST | `/auth/ok` | Odnoklassniki Mini App signature verification |
+| POST | `/auth/vk` | VK Mini App launch params verification |
+| POST | `/auth/web` | Anonymous web auth по device_id |
+| POST | `/auth/yandex/init` | Yandex OAuth — возвращает authorize URL |
+| GET | `/auth/yandex/callback` | Yandex OAuth callback → session → redirect на web |
+| POST | `/auth/vk-id/init` | VK ID OAuth (PKCE) init |
+| GET | `/auth/vk-id/callback` | VK ID callback → session → redirect |
+| POST | `/auth/phone/send-code` | OTP код в Redis |
+| POST | `/auth/phone/verify` | Проверка OTP → session |
+| POST | `/auth/link-token` | Создать 6-символьный код привязки (authenticated) |
+| POST | `/auth/claim-link` | Привязать аккаунт по коду |
+| POST | `/auth/api-client` | Admin: создать B2B API key (X-Admin-Secret) |
+
+### Пользователь и платежи
+
+| Метод | Путь | Auth | Описание |
+|-------|------|------|----------|
+| GET | `/users/me/usage` | Bearer | Usage + credits |
+| GET | `/users/me/identities` | Bearer | Связанные identity |
+| POST | `/payments/create` | Bearer | Создать платеж YooKassa (pack_qty) |
+| POST | `/payments/yookassa/webhook` | - | Webhook payment.succeeded → зачисление кредитов |
+| GET | `/payments/balance` | Bearer | Текущий баланс кредитов |
+
+### Каталог, engagement, SSE
+
+| Метод | Путь | Auth | Описание |
+|-------|------|------|----------|
+| GET | `/catalog/modes` | - | Доступные режимы анализа |
+| GET | `/catalog/styles?mode=` | - | Каталог стилей для режима |
+| GET | `/engagement/matrix` | - | Матрица стилей (статистика) |
+| GET | `/engagement/depth/me` | Bearer | Engagement depth пользователя |
+| GET | `/sse/progress?task_id=&token=` | - | SSE: прогресс и завершение задачи |
+
+### Internal API (edge → primary)
+
+Доступны только когда `DEPLOYMENT_MODE=primary`. Auth: `X-Internal-Key`.
+
+| Метод | Путь | Описание |
+|-------|------|----------|
+| GET | `/internal/ping` | Health check |
+| POST | `/internal/process-analysis` | Принять задачу от edge (base64 image) |
+| GET | `/internal/task/{task_id}/status` | Статус + optional generated_image_b64 |
+| POST | `/internal/pre-analyze` | Pre-analysis для edge |
+
+### Корневые маршруты (main.py)
+
+| Метод | Путь | Описание |
+|-------|------|----------|
+| GET | `/storage/{file_path}` | Файлы из локального хранилища + Redis/DB fallback для generated JPEG |
+| GET | `/health` | Liveness: status, version, git SHA |
+| GET | `/readiness` | DB + Redis check, edge: primary reachability |
+| GET | `/metrics` | Prometheus (защищен в prod) |
+
+---
+
+## 5. Система аутентификации
+
+### Multi-provider Identity
+
+Единая модель: `User` (основная сущность) + `UserIdentity` (привязки к платформам).
+
+```
+User (id=UUID)
+  ├── UserIdentity(provider="telegram", external_id="123456")
+  ├── UserIdentity(provider="vk", external_id="789")
+  ├── UserIdentity(provider="web", external_id="device-xxx")
+  └── UserIdentity(provider="yandex", external_id="yandex-uid")
+```
+
+**Поддерживаемые провайдеры:** `telegram`, `ok`, `vk`, `web`, `yandex`, `vk_id`, `phone`
+
+### Сессии
+
+- `create_session(redis, user_id)` → `secrets.token_urlsafe(48)` → Redis `ratemeai:session:{token}` с TTL (`SESSION_TTL_SECONDS`)
+- Каждый auth-эндпоинт при успехе вызывает `create_session` и возвращает `session_token`
+
+### Cross-platform linking
+
+1. Authenticated пользователь вызывает `POST /auth/link-token` → 6-символьный код (Redis TTL 5 мин)
+2. На другой платформе: OAuth/phone с параметром `link_code` → `_find_or_create_by_identity(link_to_user=...)` → identity добавляется к существующему пользователю
+
+### Bot auth
+
+`UserRegistrationMiddleware` (aiogram):
+- При каждом сообщении/callback проверяет `_registered` set (in-memory per process)
+- Если user_id не зарегистрирован: `POST /api/v1/auth/telegram` → сохраняет `session_token` в Redis как `bot_session:{telegram_id}`
+- Последующие API-вызовы бота используют этот Bearer token
+
+---
+
+## 6. Analysis Pipeline
+
+Основной пайплайн обработки фото. Точка входа: ARQ job `process_analysis` в `src/workers/tasks.py`.
+
+### Общая схема
+
+```
+Worker получает task_id
+    │
+    ▼
+Загрузка изображения (Redis cache → Storage fallback)
+    │
+    ▼
+AnalysisPipeline.execute()
+    │
+    ├── 1. Preprocess (validate, normalize, face heuristic)
+    │
+    ├── 2. LLM Analysis
+    │   ├── Redis pre-analysis cache (если pre_analysis_id)
+    │   └── ModeRouter → Service.analyze() → consensus_analyze()
+    │       └── OpenRouter vision API (JSON response_format)
+    │
+    ├── 3. Humanize scores + warnings
+    │
+    ├── 4. Image Generation (если есть кредиты)
+    │   ├── Multi-pass (SEGMENTATION_ENABLED + dating/cv/social)
+    │   │   ├── PipelinePlanner.plan() → PipelinePlan (ordered steps)
+    │   │   └── ImageGenerationExecutor.execute_plan()
+    │   │       ├── Per-step: PromptEngine → ModelRouter → generate() → QualityGates
+    │   │       └── Global gates → upload final image
+    │   │
+    │   └── Single-pass (fallback / emoji / rating)
+    │       └── ImageGenerationExecutor.single_pass()
+    │           └── edit-mode generation → identity verify → global gates
+    │
+    ├── 5. Delta Scoring (dating/cv/social с generated image)
+    │   └── DeltaScorer.compute()
+    │       ├── Download generated → re-analyze via ModeRouter
+    │       ├── Compute delta (post_score - pre_score)
+    │       └── Compute perception_delta + authenticity
+    │
+    └── 6. Finalize
+        ├── Share card (rating mode → ShareCardGenerator)
+        ├── Persist perception records (DB gamification)
+        └── ResultMerger.merge() (share metadata)
+    │
+    ▼
+Worker persists: task.result, task.status=COMPLETED
+    │
+    ├── Redis: stage generated image (gen_image_cache_key)
+    ├── Redis pub/sub: ratemeai:task_done:{task_id}
+    ├── Usage log upsert
+    └── Credit deduction/refund
+```
+
+### Ключевые компоненты
+
+#### `src/orchestrator/pipeline.py` — `AnalysisPipeline`
+
+Главный оркестратор. Конструирует все зависимости (ModeRouter, PipelinePlanner, ImageGenerationExecutor, DeltaScorer, ResultMerger). Метод `execute()` реализует полную цепочку. Lazy-инициализация: IdentityService, SegmentationService, QualityGateRunner.
+
+#### `src/orchestrator/router.py` — `ModeRouter`
+
+Маршрутизация `AnalysisMode` → сервис:
+- RATING → `RatingService`
+- DATING → `DatingService`
+- CV → `CVService`
+- SOCIAL → `SocialService`
+- EMOJI → `EmojiService`
+
+Каждый сервис принимает `LLMProvider` + `PromptEngine`.
+
+#### `src/orchestrator/planner.py` — `PipelinePlanner`
+
+Генерация плана для multi-pass генерации. Возвращает `PipelinePlan` с ordered `PipelineStep` — фон, одежда, освещение, выражение, кожа, общий стиль. Шаги фильтруются по `enhancement_level` и strengths из анализа (если аспект уже сильный — шаг пропускается).
+
+#### `src/orchestrator/executor.py` — `ImageGenerationExecutor`
+
+Два режима:
+- **`execute_plan()`** — multi-pass: итерирует шаги, для каждого строит промпт через `PromptEngine.build_step_prompt`, выбирает провайдер через `ModelRouter`, опционально получает segmentation mask, вызывает `provider.generate()`, проверяет per-step face similarity через `QualityGateRunner`, загружает промежуточные результаты в storage. В конце — `run_global_gates`. Fallback на `single_pass` при ошибках.
+- **`single_pass()`** — один вызов edit-mode генерации, identity verification + optional face composite, global gates.
+
+#### `src/orchestrator/executor.py` — `DeltaScorer`
+
+Post-gen re-scoring: скачивает сгенерированное изображение, повторно анализирует через `ModeRouter.get_service`, вычисляет `delta` (per-metric: pre/post/delta), `perception_delta`, authenticity score. Результат мержится в `task.result`.
+
+#### `src/orchestrator/merger.py` — `ResultMerger`
+
+Добавляет share metadata (card_url, caption, deep_link) в финальный result dict.
+
+#### `src/services/identity.py` — `IdentityService`
+
+InsightFace ArcFace (`buffalo_l`): `compute_embedding`, `compare` (cosine similarity), `verify(original, generated)`, `detect_face`. Используется в pipeline для identity gating.
+
+#### `src/services/quality_gates.py` — `QualityGateRunner`
+
+Per-step и global gates: face_similarity (via IdentityService), NIQE score, batched LLM quality JSON (aesthetic, artifacts, photorealism). Результат: `GateResult` с pass/fail и метриками.
+
+---
+
+## 7. Провайдеры
+
+### LLM — `src/providers/llm/openrouter.py`
+
+`OpenRouterLLM`: Vision API через OpenRouter (`/chat/completions`).
+- `analyze_image()` — base64 JPEG + system prompt → JSON response
+- `generate_text()` — text-only completion
+- Model: настраивается через `OPENROUTER_MODEL` (default: Gemini via OpenRouter)
+- Retries: tenacity на HTTP ошибки
+
+### Image Generation — `src/providers/image_gen/`
+
+| Провайдер | Класс | Режимы |
+|-----------|-------|--------|
+| **Reve** | `ReveImageGen` | `edit` (с instruction), `remix` (reference), `create` (from scratch). Поддержка масок, test_time_scaling, upscale postprocessing |
+| **Replicate** | `ReplicateImageGen` | Upload reference в storage → prediction API → poll → download result |
+| **Chain** | `ChainImageGen` | Цепочка провайдеров: первый успешный результат (>100 bytes) побеждает |
+| **Mock** | `MockImageGen` | Возвращает reference без изменений (для тестов) |
+
+**Factory** (`src/providers/factory.py` → `get_image_gen()`):
+- `IMAGE_GEN_PROVIDER=auto` → Chain(Replicate → Reve) если оба настроены
+- `IMAGE_GEN_PROVIDER=reve|replicate|mock` → конкретный провайдер
+
+### Storage — `src/providers/storage/`
+
+| Провайдер | Когда | Детали |
+|-----------|-------|--------|
+| `LocalStorageProvider` | `STORAGE_PROVIDER=local` (default) | Файлы на диске (`STORAGE_LOCAL_PATH`), URL через `API_BASE_URL/storage/...`. HTTP fallback для worker (`STORAGE_HTTP_FALLBACK_BASE`) |
+| `S3StorageProvider` | `STORAGE_PROVIDER=s3` | aioboto3, presigned URLs, optional `S3_PUBLIC_BASE_URL` для CDN |
+
+**Пути хранения:**
+- Входные: `inputs/{user_id}/{uuid}.jpg`
+- Сгенерированные: `generated/{user_id}/{task_id}.jpg`
+
+---
+
+## 8. Telegram Bot
+
+Отдельный процесс (`python -m src.bot.app`). Aiogram 3 + aiohttp health server.
+
+### Middleware
+
+`UserRegistrationMiddleware` — перехватывает все messages/callbacks:
+1. Регистрирует пользователя через `POST /api/v1/auth/telegram`
+2. Кеширует Bearer token в Redis (`bot_session:{telegram_id}`)
+3. Инжектирует `redis`, `api_base_url`, `api_user` в handler data
+
+### Handlers
+
+| Файл | Обработчики |
+|------|------------|
+| `start.py` | `/start` (welcome + referral), `/emoji`, `/rating`, `/balance` |
+| `photo.py` | Входящее фото/документ → сохраняет file_id в Redis |
+| `mode_select.py` | Выбор режима → pre-analyze → выбор стиля → `POST /analyze` → poll задачи → deliver |
+| `results.py` | `deliver_result()` — форматирование и отправка результата по режимам (photo + markdown + keyboards) |
+| `link.py` | Привязка аккаунтов: создание кода, ввод кода, claim |
+| `fallback.py` | Catch-all для неопознанных сообщений |
+
+### Keyboards
+
+`src/bot/keyboards.py`: scenario_keyboard (режимы), style_keyboard (пагинация стилей), post_result_keyboard (share + restyle), upgrade_keyboard (пакеты кредитов), link_wizard_keyboard.
+
+### Polling задач
+
+`mode_select._poll_task()`:
+1. Подписка на Redis `ratemeai:task_done:{task_id}` и progress channel
+2. Одновременно HTTP poll `GET /tasks/{task_id}` каждые 2-3 секунды
+3. При завершении → `results.deliver_result()`
+
+---
+
+## 9. Web Frontend
+
+Vite + React SPA в `web/`. Пакет: `@ailook/web`.
+
+### Стек
+
+- **React 18** + **React Router 6** (BrowserRouter)
+- **Tailwind CSS 3** (glass design system, категорийные темы через `data-category`)
+- **Framer Motion** (анимации переходов)
+- **Vite** (dev server port 3000, proxy `/api` и `/storage` → localhost:8000)
+
+### Маршруты
+
+| Путь | Компонент | Назначение |
+|------|-----------|-----------|
+| `/` | `Landing` | Marketing: hero, how-it-works, simulation, pricing |
+| `/app` | `AppPage` | Основной wizard: 4 шага |
+| `/payment-success` | `PaymentSuccess` | После оплаты — refresh balance |
+| `/auth/callback` | `AuthCallback` | OAuth return → token → navigate |
+| `/link` | `LinkPage` | Привязка аккаунтов |
+
+### AppContext (глобальное состояние)
+
+`web/src/context/AppContext.tsx` — единственный React Context (`useApp()` hook).
+
+**Состояние:** session, balance, photo, preAnalysis, activeCategory, selectedStyleKey, currentTask, isGenerating, generatedImageUrl, afterScore, afterPerception, generationMode, taskHistory, identities.
+
+**Ключевые actions:** uploadPhoto, runPreAnalyze, generate, loginWithOAuth, loginWithToken, logout, refreshBalance, fetchTaskHistory.
+
+### Wizard Flow (AppPage)
+
+```
+StepUpload          StepAnalysis         StepStyle            StepGenerate
+  │                    │                    │                    │
+  │ uploadPhoto()      │ runPreAnalyze()    │ setSelectedStyleKey│ generate()
+  │ → blob preview     │ → POST /pre-analyze│ → style card       │ → POST /analyze
+  │                    │ → scores,          │   with delta       │ → SSE progress
+  │                    │   perception,      │   forecast         │ → handleTaskResult
+  │                    │   opportunities    │                    │ → verify image
+  │                    │                    │                    │ → show result
+```
+
+### Real-time коммуникация
+
+1. **SSE** (`EventSource`) → `GET /api/v1/sse/progress?task_id=&token=`
+   - Events: `progress` (step current/total), `done`
+2. **Polling fallback** — если SSE не подключился за 5 секунд → `setInterval` 3 секунды, `GET /tasks/{task_id}`
+3. Timeout: 5 минут, max 5 ошибок подряд
+
+### OAuth photo persistence
+
+При OAuth redirect фото сохраняется в IndexedDB (`lib/photo-persist.ts`), metadata в sessionStorage. После callback — `restorePhotoAfterOAuth()` восстанавливает файл, mode, style.
+
+### Работа с изображениями
+
+- `normalizeImageUrl()` (`lib/image-url.ts`): приводит relative/wrong-host `/storage/` URLs к `API_BASE`
+- `verifyImageUrl()`: предзагрузка через `new Image()` перед отображением (3 retry с backoff)
+- При недоступности сгенерированного изображения → `refundTask()` + refresh balance
+
+---
+
+## 10. Scoring и Perception
+
+### LLM Analysis (pre-score)
+
+Каждый сервис (`RatingService`, `DatingService`, `CVService`, `SocialService`, `EmojiService`):
+1. Строит системный промпт через `PromptEngine.build(mode, context)` (русский, JSON schema)
+2. Вызывает `consensus_analyze(llm, image, prompt, temperature, n)`:
+   - При `n=1`: один vision-вызов OpenRouter
+   - При `n>1`: N параллельных вызовов → median-merge числовых значений
+3. Парсит результат в Pydantic model
+
+### Perception параметры
+
+Общие для dating/cv/social/rating:
+- **warmth** (0-10) — теплота, дружелюбие
+- **presence** (0-10) — уверенность, присутствие
+- **appeal** (0-10) — привлекательность, вовлечение
+- **authenticity** (0-10) — естественность (вычисляется post-gen через IdentityService)
+- **perception_insights[]** — рекомендации с parameter, current_level, suggestion
+
+### Delta Scoring (post-gen)
+
+`DeltaScorer.compute()` (в `executor.py`):
+1. Скачивает сгенерированное изображение
+2. Повторно анализирует через тот же ModeRouter сервис
+3. Вычисляет delta: `{metric: {pre, post, delta}}` для основных скоров и perception
+4. Записывает progression в Redis (лучший скор за сессию)
+5. Вычисляет authenticity через face similarity (InsightFace cosine)
+
+### Конфигурация
+
+- `SCORING_TEMPERATURE` — температура LLM для scoring (default 0.0)
+- `SCORING_CONSENSUS_SAMPLES` — количество параллельных вызовов для consensus (default 1)
+
+---
+
+## 11. Стили и режимы
+
+### Каталог стилей
+
+Определен в `src/prompts/image_gen.py`:
+
+| Режим | Стили | Personalities |
+|-------|-------|--------------|
+| **Dating** | warm_outdoor, studio_elegant, cafe, landmark_*, travel_*, sport_*, evening_*, и др. | friendly, confident, charismatic |
+| **CV** | corporate, boardroom, creative, startup, industry_*, career_*, и др. | professional, approachable, authoritative |
+| **Social** | influencer, luxury, casual, artistic, platform_*, aesthetic_*, hobby_*, и др. | expressive, sophisticated, relaxed |
+| **Emoji** | 12 фиксированных эмоций (happy, sad, angry, surprised, ...) | — |
+| **Rating** | — (только анализ, без генерации стилей) | — |
+
+### StyleSpec и Registry
+
+`src/prompts/style_spec.py`:
+- `StyleSpec` — background, clothing (male/female), lighting, expression, flags
+- `StyleRegistry` — регистрация/поиск по key, mode-aware defaults
+- `STYLE_REGISTRY` в `image_gen.py` — заполняется через `build_spec_from_legacy`
+
+### Промпт-архитектура для генерации
+
+Prompt = Identity anchors + Mode-specific change + Style-specific details:
+
+```
+[IDENTITY_FIRST] → Лицо = неприкосновенно
+[FACE_ANCHOR]    → Сохранить exact face shape, features
+[BODY_ANCHOR]    → Proportions, build, skin tone
+[SKIN_FIX]       → Realistic texture, no plastic
+[BACKGROUND]     → Style-specific background instruction
+[CLOTHING]       → Gender-aware clothing for style
+[CAMERA]         → Professional photography settings
+[REALISM]        → Must look like real photo, no AI artifacts
+```
+
+Multi-pass использует `STEP_TEMPLATES` (background_edit, clothing_edit, lighting_adjust, expression_hint, skin_correction, style_overall) с `ENHANCEMENT_LEVEL_MODIFIERS` (уровни 1-4).
+
+---
+
+## 12. Платежи
+
+### Credit Lifecycle
+
+```
+Новый пользователь → image_credits = 1 (starter)
+    │
+    ├── POST /analyze → check_credits → reserve 1 credit (immediate deduct)
+    │   │
+    │   ├── Generation success → credit stays deducted
+    │   ├── Generation failure → refund credit
+    │   └── No credits (skip_image_gen) → analysis only, no deduction
+    │
+    └── YooKassa payment → webhook → credits += pack_quantity
+```
+
+### YooKassa интеграция
+
+- `POST /payments/create` → `Payment.create(amount, description, confirmation redirect)` → `confirmation_url`
+- `POST /payments/yookassa/webhook` → `payment.succeeded` → `CreditTransaction(tx_type="purchase")` + `user.image_credits += qty`
+- Пакеты: `CREDIT_PACKS` env var, формат `qty:price_rub,qty:price_rub`
+
+---
+
+## 13. Edge Architecture
+
+### Primary vs Edge
+
+| Аспект | Primary (Railway) | Edge (RU VPS) |
+|--------|-------------------|---------------|
+| `DEPLOYMENT_MODE` | `primary` | `edge` |
+| AI обработка | Локально (worker) | Проксируется на primary |
+| Internal API | Доступен (`/internal/*`) | Вызывает primary |
+| Миграции | `alembic upgrade head` | `alembic upgrade head` (своя БД) |
+| Платежи | YooKassa | YooKassa (свои ключи) |
+| Auth | Все провайдеры | Все провайдеры |
+
+### RemoteAIService (`src/services/remote_ai.py`)
+
+Edge-only клиент. При `POST /analyze` на edge:
+1. `RemoteAIService.submit_task()` → `POST /internal/process-analysis` на primary (base64 image)
+2. `poll_result()` → `GET /internal/task/{id}/status` каждые 2 секунды, до 180 секунд
+3. Возвращает result + optional `generated_image_b64`
+4. Edge сохраняет изображение в свое storage
+
+### Edge reconciler
+
+`_edge_reconciler_loop()` в `main.py` — фоновая задача, которая находит зависшие tasks (>5 мин в processing) и помечает failed с возвратом кредита.
+
+---
+
+## 14. Redis Key Schema
+
+| Pattern | TTL | Назначение |
+|---------|-----|-----------|
+| `ratemeai:session:{token}` | `SESSION_TTL_SECONDS` | User session → UUID |
+| `ratemeai:task_input:{task_id}` | `TASK_INPUT_REDIS_TTL_SECONDS` | Входное изображение (base64) |
+| `ratemeai:gen_image:{task_id}` | 1 час | Сгенерированное изображение (base64) |
+| `ratemeai:preanalysis:{hash}` | 10 мин | Кеш pre-analysis результата |
+| `ratemeai:progress:{task_id}` | — | Pub/sub channel: прогресс задачи |
+| `ratemeai:task_done:{task_id}` | — | Pub/sub channel: завершение задачи |
+| `ratemeai:embedding:{task_id}` | 30 мин | Face embedding (base64 numpy) |
+| `bot_session:{telegram_id}` | 7 дней | Bearer token для bot API calls |
+| `bot_edge_session:{telegram_id}` | 7 дней | Edge Bearer token (bot payments) |
+| `oauth_state:{state}` | 5 мин | OAuth state → user_id/link_code |
+| `phone_otp:{phone}` | 5 мин | OTP код для phone auth |
+| `link_code:{code}` | 5 мин | Link code → target user_id |
+| `ratemeai:score_progression:{user}:{mode}` | 24 часа | Best score tracking per session |
+
+---
+
+## 15. Метрики и мониторинг
+
+### Prometheus
+
+`prometheus_fastapi_instrumentator` для HTTP метрик. Кастомные счетчики в `src/metrics.py`:
+- `tasks_processed_total` (label: mode, status)
+- `pipeline_duration_seconds`
+- Pipeline trace (timestamps per step) сохраняется в `task.result`
+
+### Health checks
+
+- `GET /health` — version, status, git SHA
+- `GET /readiness` — DB connection, Redis ping, edge: primary reachability + internal ping
+
+### Logging
+
+- Production: JSON structured logs (`python-json-logger`)
+- Dev: plain text logs
+- `RequestLoggingMiddleware`: X-Request-Id, request timing
+
+---
+
+## 16. Middleware chain (FastAPI)
+
+Порядок (last added = outermost = first to run):
+
+1. **`_IframeHeadersMiddleware`** — `X-Frame-Options: ALLOWALL`, CSP `frame-ancestors` для OK/VK iframes
+2. **`CORSMiddleware`** — production allowlist + Railway regex; dev: `*`
+3. **`RequestLoggingMiddleware`** — X-Request-Id, timing log
+4. **Prometheus Instrumentator** — wraps routes для метрик
+
+Per-route dependencies (не middleware): `get_db`, `get_redis`, `get_auth_user`, `check_credits`.

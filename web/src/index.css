@@ -573,6 +573,11 @@ body {
   background: rgba(255, 255, 255, 0.20);
 }
 
+.glass-progress-fill-success {
+  background: var(--color-success-base);
+  box-shadow: 0 0 8px rgba(29, 185, 84, 0.3);
+}
+
 /* ========== Fallbacks ========== */
 
 @supports not (backdrop-filter: blur(1px)) {

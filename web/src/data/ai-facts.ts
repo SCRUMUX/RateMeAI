@@ -48,6 +48,9 @@ export const PERCEPTION_FACTS: Record<CategoryId, AiFact[]> = {
     { type: 'fact', text: 'Исследование Photofeeler: угол камеры влияет на привлекательность до 30%.' },
     { type: 'fact', text: 'Психология цвета: красные элементы в образе усиливают восприятие привлекательности.' },
   ],
+  model: [],
+  brand: [],
+  memes: [],
 };
 
 /** Backward-compatible flat list (all categories combined). */

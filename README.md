@@ -1,7 +1,21 @@
-# RateMeAI
+# RateMeAI (AI Look Studio)
+
 ВСЕГДА ОТВЕЧАТЬ НА РУССКОМ ЯЗЫКЕ!
 
-API и Telegram-бот: анализ фото (рейтинг, дейтинг, CV, соцсети, emoji), очередь ARQ, LLM через OpenRouter, генерация изображений (Reve edit mode / Replicate / mock).
+AI-стилист, который анализирует фото и показывает, как человек воспринимается в разных контекстах (знакомства, карьера, соцсети), с генерацией улучшенных образов.
+
+**Стек:** Python 3.12 (FastAPI + ARQ + aiogram) + React SPA (Vite + Tailwind) + PostgreSQL + Redis
+
+**Платформы:** Telegram bot, Web app (Vercel), OK/VK Mini Apps, RU edge
+
+## Документация
+
+| Документ | Содержание |
+|----------|-----------|
+| **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)** | Полная техническая архитектура: процессы, модель данных, API, auth, pipeline, провайдеры, bot, web, scoring, payments, edge |
+| **[docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)** | CI/CD, Railway, Vercel, RU edge, переменные окружения, чеклисты, troubleshooting |
+| **[docs/DEVELOPMENT.md](docs/DEVELOPMENT.md)** | Локальный запуск, структура проекта, тесты, гайды по добавлению режимов/стилей/auth |
+| **[docs/master_product_constitution.md](docs/master_product_constitution.md)** | Продуктовая конституция: концепция AI-стилиста, принципы, UX, scoring, pipeline requirements |
 
 ## Деплой на сервер (обязательно читать)
 

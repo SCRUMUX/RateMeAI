@@ -175,7 +175,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const runPreAnalyze = useCallback(async () => {
     if (!photo || preAnalyzeInFlightRef.current) return;
-    const modeMap: Record<CategoryId, string> = { social: 'social', cv: 'cv', dating: 'dating' };
+    const modeMap: Record<CategoryId, string> = { social: 'social', cv: 'cv', dating: 'dating', model: 'social', brand: 'social', memes: 'social' };
     const mode = modeMap[activeCategory];
 
     const cached = preAnalysisCacheRef.current[mode];
@@ -441,7 +441,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setAfterScore(null);
     setAfterPerception(null);
     try {
-      const modeMap: Record<CategoryId, string> = { social: 'social', cv: 'cv', dating: 'dating' };
+      const modeMap: Record<CategoryId, string> = { social: 'social', cv: 'cv', dating: 'dating', model: 'social', brand: 'social', memes: 'social' };
       const enhancementLevel = 1;
       const res = await api.analyze(
         photo.file,

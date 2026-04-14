@@ -14,12 +14,15 @@ export interface ScoreParam {
   after: number;
 }
 
-export type CategoryId = 'social' | 'cv' | 'dating';
+export type CategoryId = 'social' | 'cv' | 'dating' | 'model' | 'brand' | 'memes';
 
 export const CATEGORIES: { id: CategoryId; label: string; icon: string }[] = [
   { id: 'social', label: 'Соцсети', icon: '📸' },
   { id: 'cv', label: 'Карьера', icon: '💼' },
   { id: 'dating', label: 'Знакомства', icon: '💕' },
+  { id: 'model', label: 'Модель', icon: '📷' },
+  { id: 'brand', label: 'Личный бренд', icon: '🔥' },
+  { id: 'memes', label: 'Мемы', icon: '😂' },
 ];
 
 export const PARAMS_BY_MODE: Record<CategoryId, ScoreParam[]> = {
@@ -41,6 +44,9 @@ export const PARAMS_BY_MODE: Record<CategoryId, ScoreParam[]> = {
     { key: 'presence', label: 'Уверенность', before: 5.6, after: 6.5 },
     { key: 'appeal', label: 'Привлекательность', before: 6.0, after: 7.1 },
   ],
+  model: [],
+  brand: [],
+  memes: [],
 };
 
 export const STYLES_BY_CATEGORY: Record<CategoryId, StyleItem[]> = {
@@ -180,6 +186,9 @@ export const STYLES_BY_CATEGORY: Record<CategoryId, StyleItem[]> = {
     { key: 'casual', icon: '☀️', name: 'Casual', desc: 'Лёгкий стиль подчеркнёт естественность и вкус', param: 'warmth', deltaRange: [0.12, 0.26] },
     { key: 'artistic', icon: '🎨', name: 'Artistic', desc: 'Арт-стиль покажет креативность и уникальный взгляд', param: 'appeal', deltaRange: [0.48, 0.72] },
   ],
+  model: [],
+  brand: [],
+  memes: [],
 };
 
 export function getMockDelta(range: [number, number], seed?: string): string {
