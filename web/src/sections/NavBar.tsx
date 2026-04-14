@@ -40,7 +40,7 @@ export default function NavBar({ onLoginClick, mode = 'landing' }: Props) {
     <nav className={`${mode === 'app' ? 'relative shrink-0' : 'fixed top-0 left-0 right-0'} z-[100] glass-nav`}>
       <div className="max-w-[1200px] mx-auto flex items-center justify-between h-[52px] tablet:h-[60px] px-[var(--space-16)] tablet:px-[var(--space-24)]">
         {/* Logo */}
-        <div className="flex items-center gap-[var(--space-8)] px-[var(--space-8)] py-[var(--space-4)]">
+        <Link to="/" className="flex items-center gap-[var(--space-8)] px-[var(--space-8)] py-[var(--space-4)] no-underline">
           <div className="relative w-10 h-10 tablet:w-11 tablet:h-11 shrink-0">
             <div className="absolute inset-0 rounded-xl" style={{ background: 'rgba(var(--accent-r), var(--accent-g), var(--accent-b), 0.18)' }} />
             <img src={logoSrc} alt="AI Look Studio" className="relative w-full h-full rounded-xl object-contain" style={{ mixBlendMode: 'lighten' }} />
@@ -49,7 +49,7 @@ export default function NavBar({ onLoginClick, mode = 'landing' }: Props) {
             <span className="text-[#E6EEF8]">AI</span>
             <span className="text-[var(--color-text-primary)]"> Look Studio</span>
           </span>
-        </div>
+        </Link>
 
         {/* Desktop nav links */}
         <div className="hidden tablet:flex items-center gap-[var(--space-12)]">
@@ -89,9 +89,18 @@ export default function NavBar({ onLoginClick, mode = 'landing' }: Props) {
 
               {menuOpen && (
                 <div
-                  className="absolute top-full right-0 mt-2 w-[340px] glass-card rounded-[var(--radius-12)] p-[var(--space-20)] flex flex-col gap-[var(--space-16)]"
-                  style={{ border: '1px solid rgba(255,255,255,0.08)' }}
+                  className="absolute top-full right-0 mt-2 w-[340px] rounded-[var(--radius-12)] p-[var(--space-20)] flex flex-col gap-[var(--space-16)]"
+                  style={{ background: 'rgba(12, 16, 24, 0.95)', border: '1px solid rgba(255,255,255,0.10)', backdropFilter: 'blur(20px)' }}
                 >
+                  <Link
+                    to="/#тарифы"
+                    onClick={() => setMenuOpen(false)}
+                    className="flex items-center gap-[var(--space-6)] px-[var(--space-12)] py-[var(--space-8)] text-[14px] leading-[20px] font-medium text-[var(--color-brand-primary)] rounded-[var(--radius-8)] hover:bg-[rgba(255,255,255,0.06)] transition-all cursor-pointer no-underline"
+                  >
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6" stroke="currentColor" strokeWidth="1.2"/><path d="M8 5v6M5 8h6" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/></svg>
+                    Пополнить баланс
+                  </Link>
+                  <div className="h-px" style={{ background: 'rgba(255,255,255,0.08)' }} />
                   <LinkedAccountsPanel />
                   <a
                     href="/link"
@@ -127,11 +136,11 @@ export default function NavBar({ onLoginClick, mode = 'landing' }: Props) {
             Русский
           </button>
 
-          {!session && mode !== 'app' && (
+          {mode !== 'app' && (
             <Link to="/app"
               className="glass-btn-primary flex items-center px-[var(--space-12)] py-[var(--space-6)] text-[14px] leading-[20px] rounded-[var(--radius-12)] no-underline"
             >
-              Попробовать
+              {session ? 'Приложение' : 'Попробовать'}
             </Link>
           )}
         </div>
@@ -207,6 +216,17 @@ export default function NavBar({ onLoginClick, mode = 'landing' }: Props) {
 
           {session ? (
             <div className="flex flex-col gap-[var(--space-8)]">
+              <Link
+                to="/#тарифы"
+                onClick={() => setMobileMenuOpen(false)}
+                className="flex items-center gap-[var(--space-10)] px-[var(--space-12)] py-[var(--space-12)] text-[16px] leading-[24px] font-medium text-[var(--color-brand-primary)] rounded-[var(--radius-12)] hover:bg-[rgba(255,255,255,0.06)] transition-all cursor-pointer no-underline"
+              >
+                <svg width="18" height="18" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6" stroke="currentColor" strokeWidth="1.2"/><path d="M8 5v6M5 8h6" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/></svg>
+                Пополнить баланс
+              </Link>
+
+              <div className="h-px" style={{ background: 'rgba(255,255,255,0.08)' }} />
+
               <LinkedAccountsPanel />
 
               <div className="h-px" style={{ background: 'rgba(255,255,255,0.08)' }} />
@@ -229,6 +249,16 @@ export default function NavBar({ onLoginClick, mode = 'landing' }: Props) {
                 <svg width="18" height="18" viewBox="0 0 16 16" fill="none"><path d="M6 14H3.333A1.333 1.333 0 012 12.667V3.333A1.333 1.333 0 013.333 2H6M10.667 11.333L14 8m0 0l-3.333-3.333M14 8H6" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/></svg>
                 Выйти
               </button>
+
+              {mode !== 'app' && (
+                <Link
+                  to="/app"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="glass-btn-primary flex items-center justify-center px-[var(--space-16)] py-[var(--space-12)] text-[16px] leading-[24px] rounded-[var(--radius-12)] text-center no-underline"
+                >
+                  Приложение
+                </Link>
+              )}
             </div>
           ) : (
             <div className="flex flex-col gap-[var(--space-8)]">

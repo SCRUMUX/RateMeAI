@@ -5,6 +5,7 @@ import { STYLES_BY_CATEGORY } from '../../data/styles';
 import { PERCEPTION_FACTS, getRandomFact } from '../../data/ai-facts';
 import { useApp } from '../../context/AppContext';
 import ProgressBar from './ProgressBar';
+import ShareButtons from '../ShareButtons';
 
 interface Props {
   onGoToStep: (step: 'upload' | 'style') => void;
@@ -150,19 +151,24 @@ export default function StepGenerate({ onGoToStep, onOpenStorage }: Props) {
     }
   }, [app.photo]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  async function handleShare() {
-    const res = await app.share();
-    if (!res) return;
-    if (navigator.share) {
-      navigator.share({ title: 'AI Look Studio', text: res.caption, url: res.deep_link }).catch(() => {});
-    } else {
-      window.open(res.deep_link, '_blank');
-    }
+  const [shareData, setShareData] = useState<{ url: string; text: string } | null>(null);
+  const [shareLoading, setShareLoading] = useState(false);
+
+  async function handleShowShare() {
+    if (shareData) { setShareData(null); return; }
+    setShareLoading(true);
+    try {
+      const res = await app.share();
+      if (res) setShareData({ url: res.deep_link, text: res.caption });
+    } catch { /* ignore */ }
+    setShareLoading(false);
   }
 
   function goToPricing() {
     setShowNoCredits(false);
-    navigate('/#тарифы');
+    localStorage.setItem('returnToStep', 'generate');
+    navigate('/');
+    setTimeout(() => document.getElementById('тарифы')?.scrollIntoView({ behavior: 'smooth' }), 300);
   }
 
   const showingOriginal = viewTab === 'original' && hasGenResult;
@@ -332,37 +338,41 @@ export default function StepGenerate({ onGoToStep, onOpenStorage }: Props) {
       {/* CTA buttons */}
       <div className="flex flex-col items-center gap-[var(--space-12)]">
         {hasGenResult && (
-          <div className="flex flex-wrap gap-[var(--space-12)] justify-center">
-            <button
-              onClick={() => onGoToStep('style')}
-              className="glass-btn-ghost px-[var(--space-20)] py-[var(--space-10)] text-[14px] leading-[20px] rounded-[var(--radius-pill)]"
-            >
-              Другой стиль
-            </button>
-            <button
-              onClick={() => {
-                app.resetGeneration();
-                setFrozenStyle(null);
-                onGoToStep('upload');
-              }}
-              className="glass-btn-ghost px-[var(--space-20)] py-[var(--space-10)] text-[14px] leading-[20px] rounded-[var(--radius-pill)]"
-            >
-              Другое фото
-            </button>
-            <button
-              onClick={handleGenerate}
-              disabled={app.isGenerating}
-              className="glass-btn-ghost px-[var(--space-20)] py-[var(--space-10)] text-[14px] leading-[20px] rounded-[var(--radius-pill)] disabled:opacity-40 disabled:cursor-not-allowed"
-            >
-              Улучшить ещё
-            </button>
-            <button
-              onClick={handleShare}
-              className="glass-btn-primary px-[var(--space-20)] py-[var(--space-10)] text-[14px] leading-[20px] rounded-[var(--radius-pill)]"
-            >
-              Поделиться
-            </button>
-          </div>
+          <>
+            <div className="flex flex-wrap gap-[var(--space-12)] justify-center">
+              <button
+                onClick={() => onGoToStep('style')}
+                className="glass-btn-ghost px-[var(--space-20)] py-[var(--space-10)] text-[14px] leading-[20px] rounded-[var(--radius-pill)]"
+              >
+                Другой стиль
+              </button>
+              <button
+                onClick={() => {
+                  app.resetGeneration();
+                  setFrozenStyle(null);
+                  onGoToStep('upload');
+                }}
+                className="glass-btn-ghost px-[var(--space-20)] py-[var(--space-10)] text-[14px] leading-[20px] rounded-[var(--radius-pill)]"
+              >
+                Другое фото
+              </button>
+              <button
+                onClick={handleGenerate}
+                disabled={app.isGenerating}
+                className="glass-btn-ghost px-[var(--space-20)] py-[var(--space-10)] text-[14px] leading-[20px] rounded-[var(--radius-pill)] disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                Улучшить ещё
+              </button>
+              <button
+                onClick={handleShowShare}
+                disabled={shareLoading}
+                className="glass-btn-primary px-[var(--space-20)] py-[var(--space-10)] text-[14px] leading-[20px] rounded-[var(--radius-pill)] disabled:opacity-40"
+              >
+                {shareLoading ? 'Загрузка...' : 'Поделиться'}
+              </button>
+            </div>
+            {shareData && <ShareButtons url={shareData.url} text={shareData.text} />}
+          </>
         )}
         {genFailed && !isRunning && !hasGenResult && (
           <button

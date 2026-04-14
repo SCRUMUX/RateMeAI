@@ -25,6 +25,8 @@ export const CATEGORIES: { id: CategoryId; label: string; icon: string }[] = [
   { id: 'memes', label: 'Мемы', icon: '😂' },
 ];
 
+export const COMING_SOON_CATEGORIES: CategoryId[] = ['model', 'brand', 'memes'];
+
 export const PARAMS_BY_MODE: Record<CategoryId, ScoreParam[]> = {
   social: [
     { key: 'social_score', label: 'Social Score', before: 5.99, after: 6.86 },

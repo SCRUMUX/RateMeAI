@@ -33,7 +33,7 @@ export default function PaymentSuccess() {
         </p>
 
         <button
-          onClick={() => navigate('/')}
+          onClick={() => navigate('/app')}
           className="glass-btn-primary mt-[var(--space-8)] px-[var(--space-24)] py-[var(--space-12)] text-[16px] leading-[24px] rounded-[var(--radius-12)]"
         >
           Вернуться к приложению

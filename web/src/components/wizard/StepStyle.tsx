@@ -1,12 +1,10 @@
 import { useState, useRef } from 'react';
 import { ChevronLeftIcon, ChevronRightIcon } from '@ai-ds/core/icons';
-import { STYLES_BY_CATEGORY, getMockDelta, type CategoryId } from '../../data/styles';
+import { STYLES_BY_CATEGORY, COMING_SOON_CATEGORIES, getMockDelta, type CategoryId } from '../../data/styles';
 import CategoryTabs from '../CategoryTabs';
 import { useApp } from '../../context/AppContext';
 import ProgressBar from './ProgressBar';
 import { STYLES_PER_PAGE, PARAM_LABELS, computeStyleDeltas } from './shared';
-
-const COMING_SOON_CATEGORIES: CategoryId[] = ['model', 'brand', 'memes'];
 
 interface Props {
   onNext: () => void;

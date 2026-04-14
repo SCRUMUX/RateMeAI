@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import type { Testimonial } from '../data/testimonials';
 import { STYLES_BY_CATEGORY } from '../data/styles';
+import { useApp } from '../context/AppContext';
 
 interface Props {
   testimonials: Testimonial[];
@@ -18,6 +19,7 @@ const slideVariants = {
 };
 
 export default function ReviewModal({ testimonials, initialIndex, open, onClose }: Props) {
+  const { activeCategory } = useApp();
   const [idx, setIdx] = useState(initialIndex);
   const [dir, setDir] = useState(0);
 
@@ -66,6 +68,7 @@ export default function ReviewModal({ testimonials, initialIndex, open, onClose 
     <AnimatePresence>
       {open && (
         <motion.div
+          data-category={activeCategory}
           className="fixed inset-0 z-[9999] flex items-center justify-center p-[var(--space-24)]"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}

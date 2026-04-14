@@ -34,7 +34,14 @@ const slideVariants = {
 
 export default function AppPage() {
   const app = useApp();
-  const [currentStep, setCurrentStep] = useState<WizardStepId>('upload');
+  const [currentStep, setCurrentStep] = useState<WizardStepId>(() => {
+    const saved = localStorage.getItem('returnToStep');
+    if (saved && STEP_ORDER.includes(saved as WizardStepId)) {
+      localStorage.removeItem('returnToStep');
+      return saved as WizardStepId;
+    }
+    return 'upload';
+  });
   const [direction, setDirection] = useState(0);
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const [storageModalOpen, setStorageModalOpen] = useState(false);

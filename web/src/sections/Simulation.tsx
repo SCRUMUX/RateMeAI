@@ -1,13 +1,12 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { CATEGORIES, STYLES_BY_CATEGORY, getMockDelta, type CategoryId } from '../data/styles';
+import { CATEGORIES, STYLES_BY_CATEGORY, COMING_SOON_CATEGORIES, getMockDelta, type CategoryId } from '../data/styles';
 import { getTestimonialsByCategory } from '../data/testimonials';
 import CategoryTabs from '../components/CategoryTabs';
 import ReviewModal from '../components/ReviewModal';
 import { useApp } from '../context/AppContext';
 
 const ITEMS_PER_PAGE = 5;
-const COMING_SOON_CATEGORIES: CategoryId[] = ['model', 'brand', 'memes'];
 
 export default function Simulation() {
   const { activeCategory, setActiveCategory } = useApp();

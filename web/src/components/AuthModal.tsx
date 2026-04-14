@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
+import { useApp } from '../context/AppContext';
 
 interface Props {
   open: boolean;
@@ -11,6 +12,7 @@ interface Props {
 }
 
 export default function AuthModal({ open, onClose, onOAuth, required }: Props) {
+  const { activeCategory } = useApp();
   const [oauthLoading, setOauthLoading] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -43,6 +45,7 @@ export default function AuthModal({ open, onClose, onOAuth, required }: Props) {
     <AnimatePresence>
       {open && (
         <motion.div
+          data-category={activeCategory}
           className="fixed inset-0 z-[9999] flex items-center justify-center p-[var(--space-24)]"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
