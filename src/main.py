@@ -382,8 +382,27 @@ async def readiness():
     if settings.is_edge:
         checks["mode"] = "edge"
         checks["remote_ai"] = "configured" if settings.remote_ai_backend_url else "missing"
+        try:
+            from src.services.remote_ai import get_remote_ai
+            remote = get_remote_ai()
+            resp = await remote._client.get(
+                f"{remote._base.rsplit('/api/', 1)[0]}/health",
+                timeout=10.0,
+            )
+            primary_data = resp.json()
+            checks["primary_health"] = primary_data.get("status", "unknown")
+            checks["primary_git"] = primary_data.get("git", "?")
+        except Exception as exc:
+            checks["primary_health"] = f"unreachable: {exc}"
     else:
         checks["openrouter_key"] = "ok" if settings.openrouter_api_key.strip() else "missing"
+        try:
+            from src.providers.factory import get_image_gen
+            ig = get_image_gen()
+            provider_name = type(ig).__name__
+            checks["image_gen"] = provider_name
+        except Exception as exc:
+            checks["image_gen"] = f"fail: {exc}"
 
     ok = all(v not in ("fail", "missing") for v in checks.values())
     return JSONResponse(checks, status_code=200 if ok else 503)

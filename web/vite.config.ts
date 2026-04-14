@@ -4,12 +4,22 @@ import path from 'path';
 import { writeFileSync, mkdirSync } from 'fs';
 
 function versionJsonPlugin(): Plugin {
+  const gitSha = (process.env.DEPLOY_GIT_SHA || '').slice(0, 12);
+  const buildTs = Date.now().toString(36);
+  const cacheBuster = gitSha || buildTs;
+
   return {
     name: 'version-json',
+    transformIndexHtml(html) {
+      return html.replace(
+        /favicon\.png\?v=\w+/g,
+        `favicon.png?v=${cacheBuster}`,
+      );
+    },
     writeBundle(options) {
       const outDir = options.dir || 'dist';
       const payload = {
-        git: (process.env.DEPLOY_GIT_SHA || '').slice(0, 12),
+        git: gitSha,
         built_at: new Date().toISOString(),
       };
       mkdirSync(outDir, { recursive: true });

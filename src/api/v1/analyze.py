@@ -61,119 +61,179 @@ async def _handle_edge_analysis(
 
     db_sessionmaker = app_state.db_sessionmaker
     redis: Redis = app_state.redis
-    remote_ai = get_remote_ai()
+
+    try:
+        remote_ai = get_remote_ai()
+    except Exception as exc:
+        logger.exception("Edge handler: cannot init RemoteAI for task %s", task_id)
+        await _fail_edge_task(db_sessionmaker, redis, task_id, user_id, f"Edge config error: {exc}")
+        return
+
     image_b64 = base64.b64encode(image_bytes).decode("ascii")
 
-    async with db_sessionmaker() as db:
-        result = await db.execute(select(Task).where(Task.id == task_id))
-        task = result.scalar_one_or_none()
-        if task is None:
-            logger.error("Edge handler: task %s not found", task_id)
-            return
+    try:
+        async with db_sessionmaker() as db:
+            result = await db.execute(select(Task).where(Task.id == task_id))
+            task = result.scalar_one_or_none()
+            if task is None:
+                logger.error("Edge handler: task %s not found", task_id)
+                return
 
-        task.status = TaskStatus.PROCESSING.value
-        await db.commit()
-
-        async def _edge_progress(status: str, poll_count: int) -> None:
-            """Relay polling status as progress events so edge SSE clients see updates."""
-            try:
-                estimated_total = 45
-                current = min(poll_count * 2, estimated_total - 1)
-                await redis.publish(
-                    f"ratemeai:progress:{task_id}",
-                    f"{status}:{current}:{estimated_total}",
-                )
-            except Exception:
-                pass
-
-        try:
-            result_data = await remote_ai.submit_and_wait(
-                image_b64=image_b64,
-                mode=mode,
-                style=style,
-                profession=profession,
-                enhancement_level=enhancement_level,
-                pre_analysis_id=pre_analysis_id,
-                edge_task_id=str(task_id),
-                on_poll=_edge_progress,
-            )
-
-            remote_result = result_data.get("result") or {}
-            gen_b64 = result_data.get("generated_image_b64")
-
-            if gen_b64:
-                gen_key = f"generated/{user_id}/{task_id}.jpg"
-                storage = get_storage()
-                await storage.upload(gen_key, base64.b64decode(gen_b64))
-
-                await redis.set(
-                    gen_image_cache_key(str(task_id)),
-                    gen_b64,
-                    ex=settings.gen_image_redis_ttl_seconds,
-                )
-
-                remote_result["generated_image_url"] = (
-                    f"{settings.api_base_url.rstrip('/')}/storage/{gen_key}"
-                )
-                remote_result.pop("generated_image_b64", None)
-
-            credit_pre_reserved = (task.context or {}).get("credit_pre_reserved", False)
-            remote_result["credit_deducted"] = credit_pre_reserved
-
-            from src.models.db import UsageLog
-            from datetime import date as _date
-            today = _date.today()
-            usage_row = await db.execute(
-                select(UsageLog).where(
-                    UsageLog.user_id == user_id,
-                    UsageLog.usage_date == today,
-                )
-            )
-            usage_log = usage_row.scalar_one_or_none()
-            if usage_log:
-                usage_log.count += 1
-            else:
-                db.add(UsageLog(user_id=user_id, usage_date=today, count=1))
-
-            task.result = remote_result
-            task.status = TaskStatus.COMPLETED.value
-            task.completed_at = datetime.now(timezone.utc)
+            task.status = TaskStatus.PROCESSING.value
             await db.commit()
 
+            async def _edge_progress(status: str, poll_count: int) -> None:
+                try:
+                    estimated_total = 45
+                    current = min(poll_count * 2, estimated_total - 1)
+                    await redis.publish(
+                        f"ratemeai:progress:{task_id}",
+                        f"{status}:{current}:{estimated_total}",
+                    )
+                except Exception:
+                    pass
+
             try:
-                await redis.publish(f"ratemeai:task_done:{task_id}", "completed")
-            except Exception:
-                pass
-
-        except Exception as exc:
-            is_remote = isinstance(exc, RemoteAIError)
-            if is_remote:
-                logger.error("Edge AI proxy failed for task %s: %s", task_id, exc)
-            else:
-                logger.exception("Unexpected edge handler error for task %s", task_id)
-            task.status = TaskStatus.FAILED.value
-            task.error_message = (str(exc) if is_remote else f"Edge proxy error: {exc}")[:500]
-
-            credit_pre_reserved = (task.context or {}).get("credit_pre_reserved", False)
-            if credit_pre_reserved:
-                u = await db.execute(
-                    select(User).where(User.id == user_id).with_for_update()
+                result_data = await remote_ai.submit_and_wait(
+                    image_b64=image_b64,
+                    mode=mode,
+                    style=style,
+                    profession=profession,
+                    enhancement_level=enhancement_level,
+                    pre_analysis_id=pre_analysis_id,
+                    edge_task_id=str(task_id),
+                    on_poll=_edge_progress,
                 )
-                fresh_user = u.scalar_one()
-                fresh_user.image_credits += 1
-                db.add(CreditTransaction(
-                    user_id=user_id,
-                    amount=1,
-                    balance_after=fresh_user.image_credits,
-                    tx_type="refund_failed_task",
-                ))
-                logger.info("Refunded 1 credit to user %s for failed edge task %s", user_id, task_id)
 
-            await db.commit()
+                remote_result = result_data.get("result") or {}
+                gen_b64 = result_data.get("generated_image_b64")
+
+                if gen_b64:
+                    gen_key = f"generated/{user_id}/{task_id}.jpg"
+                    storage = get_storage()
+                    await storage.upload(gen_key, base64.b64decode(gen_b64))
+
+                    await redis.set(
+                        gen_image_cache_key(str(task_id)),
+                        gen_b64,
+                        ex=settings.gen_image_redis_ttl_seconds,
+                    )
+
+                    remote_result["generated_image_url"] = (
+                        f"{settings.api_base_url.rstrip('/')}/storage/{gen_key}"
+                    )
+                    remote_result.pop("generated_image_b64", None)
+                else:
+                    remote_result.pop("generated_image_url", None)
+                    remote_result.pop("image_url", None)
+                    remote_result.pop("generated_image_b64", None)
+                    if not remote_result.get("no_image_reason"):
+                        has_gen = remote_result.get("has_generated_image", False)
+                        if has_gen:
+                            logger.warning(
+                                "Task %s: primary reported has_generated_image=True "
+                                "but b64 was not returned; marking as generation_error",
+                                task_id,
+                            )
+                            remote_result["no_image_reason"] = "generation_error"
+                            remote_result["has_generated_image"] = False
+
+                credit_pre_reserved = (task.context or {}).get("credit_pre_reserved", False)
+                remote_result["credit_deducted"] = credit_pre_reserved
+
+                from src.models.db import UsageLog
+                from datetime import date as _date
+                today = _date.today()
+                usage_row = await db.execute(
+                    select(UsageLog).where(
+                        UsageLog.user_id == user_id,
+                        UsageLog.usage_date == today,
+                    )
+                )
+                usage_log = usage_row.scalar_one_or_none()
+                if usage_log:
+                    usage_log.count += 1
+                else:
+                    db.add(UsageLog(user_id=user_id, usage_date=today, count=1))
+
+                task.result = remote_result
+                task.status = TaskStatus.COMPLETED.value
+                task.completed_at = datetime.now(timezone.utc)
+                await db.commit()
+
+                try:
+                    await redis.publish(f"ratemeai:task_done:{task_id}", "completed")
+                except Exception:
+                    pass
+
+            except Exception as exc:
+                is_remote = isinstance(exc, RemoteAIError)
+                if is_remote:
+                    logger.error("Edge AI proxy failed for task %s: %s", task_id, exc)
+                else:
+                    logger.exception("Unexpected edge handler error for task %s", task_id)
+                task.status = TaskStatus.FAILED.value
+                task.error_message = (str(exc) if is_remote else f"Edge proxy error: {exc}")[:500]
+
+                credit_pre_reserved = (task.context or {}).get("credit_pre_reserved", False)
+                if credit_pre_reserved:
+                    u = await db.execute(
+                        select(User).where(User.id == user_id).with_for_update()
+                    )
+                    fresh_user = u.scalar_one()
+                    fresh_user.image_credits += 1
+                    db.add(CreditTransaction(
+                        user_id=user_id,
+                        amount=1,
+                        balance_after=fresh_user.image_credits,
+                        tx_type="refund_failed_task",
+                    ))
+                    logger.info("Refunded 1 credit to user %s for failed edge task %s", user_id, task_id)
+
+                await db.commit()
+                try:
+                    await redis.publish(f"ratemeai:task_done:{task_id}", "failed")
+                except Exception:
+                    pass
+
+    except Exception as exc:
+        logger.exception("FATAL: unhandled error in edge handler for task %s", task_id)
+        await _fail_edge_task(db_sessionmaker, redis, task_id, user_id, f"Internal edge error: {exc}")
+
+
+async def _fail_edge_task(db_sessionmaker, redis, task_id, user_id, error_msg: str) -> None:
+    """Mark a task as failed from outside the main DB session (crash recovery)."""
+    from sqlalchemy import select
+    try:
+        async with db_sessionmaker() as db:
+            result = await db.execute(select(Task).where(Task.id == task_id))
+            task = result.scalar_one_or_none()
+            if task and task.status not in (TaskStatus.COMPLETED.value, TaskStatus.FAILED.value):
+                task.status = TaskStatus.FAILED.value
+                task.error_message = error_msg[:500]
+
+                credit_pre_reserved = (task.context or {}).get("credit_pre_reserved", False)
+                if credit_pre_reserved:
+                    u = await db.execute(
+                        select(User).where(User.id == user_id).with_for_update()
+                    )
+                    fresh_user = u.scalar_one_or_none()
+                    if fresh_user:
+                        fresh_user.image_credits += 1
+                        db.add(CreditTransaction(
+                            user_id=user_id,
+                            amount=1,
+                            balance_after=fresh_user.image_credits,
+                            tx_type="refund_failed_task",
+                        ))
+
+                await db.commit()
             try:
                 await redis.publish(f"ratemeai:task_done:{task_id}", "failed")
             except Exception:
                 pass
+    except Exception:
+        logger.exception("FATAL: failed to mark task %s as failed in crash recovery", task_id)
 
 
 @router.post("", response_model=TaskCreated, status_code=202)

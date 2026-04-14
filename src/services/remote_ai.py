@@ -30,7 +30,9 @@ class RemoteAIService:
         self._key = settings.internal_api_key
         if not self._key:
             raise RuntimeError("INTERNAL_API_KEY must be set in edge mode")
-        self._client = httpx.AsyncClient(timeout=30.0)
+        self._client = httpx.AsyncClient(
+            timeout=httpx.Timeout(connect=10.0, read=120.0, write=30.0, pool=10.0),
+        )
 
     async def close(self) -> None:
         await self._client.aclose()
@@ -123,11 +125,21 @@ class RemoteAIService:
                     pass
 
             if status == "completed":
-                logger.info("Remote task %s completed", remote_task_id)
+                has_b64 = bool(data.get("generated_image_b64"))
+                has_img = bool((data.get("result") or {}).get("generated_image_url"))
+                no_reason = (data.get("result") or {}).get("no_image_reason", "")
+                logger.info(
+                    "Remote task %s completed (has_b64=%s, has_img_url=%s, no_image_reason=%s)",
+                    remote_task_id, has_b64, has_img, no_reason or "none",
+                )
                 return data
             if status == "failed":
                 err = data.get("error_message", "Unknown remote error")
-                logger.error("Remote task %s failed: %s", remote_task_id, err)
+                result_snippet = str(data.get("result", {}))[:200]
+                logger.error(
+                    "Remote task %s failed: %s (result snippet: %s)",
+                    remote_task_id, err, result_snippet,
+                )
                 raise RemoteAIError(f"Remote AI processing failed: {err}")
 
             await asyncio.sleep(_POLL_INTERVAL_SECONDS)
