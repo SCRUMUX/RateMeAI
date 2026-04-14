@@ -47,7 +47,7 @@ interface AppActions {
   clearNoCreditsError: () => void;
   resetGeneration: () => void;
   fetchTaskHistory: () => Promise<void>;
-  loginWithOAuth: (provider: 'yandex' | 'vk-id') => Promise<void>;
+  loginWithOAuth: (provider: 'yandex' | 'vk-id' | 'google') => Promise<void>;
   loginWithToken: (token: string, userId?: string, provider?: string) => Promise<void>;
   logout: () => void;
   refreshIdentities: () => Promise<void>;
@@ -204,7 +204,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
   }, [photo, activeCategory]);
 
-  const loginWithOAuth = useCallback(async (provider: 'yandex' | 'vk-id') => {
+  const loginWithOAuth = useCallback(async (provider: 'yandex' | 'vk-id' | 'google') => {
     await startOAuth(provider, photo ? {
       file: photo.file,
       mode: activeCategory,

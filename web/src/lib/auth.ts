@@ -36,7 +36,7 @@ export async function login(): Promise<ChannelAuthResponse> {
 }
 
 export async function startOAuth(
-  provider: 'yandex' | 'vk-id',
+  provider: 'yandex' | 'vk-id' | 'google',
   photoCtx?: { file: File; mode: string; style: string },
   linkCode?: string,
 ) {

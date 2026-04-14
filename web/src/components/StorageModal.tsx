@@ -7,7 +7,7 @@ import { normalizeImageUrl } from '../lib/image-url';
 import { STYLES_BY_CATEGORY } from '../data/styles';
 import { useApp } from '../context/AppContext';
 import ProgressBar from './wizard/ProgressBar';
-import ShareButtons from './ShareButtons';
+import ShareModal from './ShareModal';
 
 const STYLE_LOOKUP: Record<string, { name: string; icon: string }> = {};
 for (const styles of Object.values(STYLES_BY_CATEGORY)) {
@@ -46,6 +46,7 @@ export default function StorageModal({ items, open, onClose, onImprove }: Props)
   const [viewTab, setViewTab] = useState<'result' | 'original'>('result');
   const [shareData, setShareData] = useState<{ url: string; text: string } | null>(null);
   const [shareLoading, setShareLoading] = useState(false);
+  const [shareModalOpen, setShareModalOpen] = useState(false);
   const [downloadError, setDownloadError] = useState(false);
   const [imgErrors, setImgErrors] = useState<Record<string, boolean>>({});
 
@@ -113,11 +114,15 @@ export default function StorageModal({ items, open, onClose, onImprove }: Props)
 
   async function handleShowShare() {
     if (!item?.task_id || shareLoading) return;
-    if (shareData) { setShareData(null); return; }
+    if (shareData) {
+      setShareModalOpen(true);
+      return;
+    }
     setShareLoading(true);
     try {
       const res = await createShare(item.task_id);
       setShareData({ url: res.deep_link, text: res.caption });
+      setShareModalOpen(true);
     } catch { /* ignore */ }
     setShareLoading(false);
   }
@@ -184,7 +189,7 @@ export default function StorageModal({ items, open, onClose, onImprove }: Props)
                 animate="center"
                 exit="exit"
                 transition={{ duration: 0.25, ease: 'easeOut' }}
-                className="relative gradient-border-card glass-card rounded-[var(--radius-12)] w-full max-w-[480px] max-h-[90vh] overflow-y-auto p-[var(--space-16)] tablet:p-[var(--space-32)] flex flex-col gap-[var(--space-16)] tablet:gap-[var(--space-24)]"
+                className="relative gradient-border-card glass-card rounded-[var(--radius-12)] w-full max-w-[420px] max-h-[calc(100dvh-48px)] p-[var(--space-16)] flex flex-col gap-[var(--space-10)]"
                 onClick={(e) => e.stopPropagation()}
               >
                 <button
@@ -201,11 +206,11 @@ export default function StorageModal({ items, open, onClose, onImprove }: Props)
                 </div>
 
                 {/* Tab toggle */}
-                <div className="flex items-center justify-center mt-[var(--space-8)]">
+                <div className="shrink-0 flex items-center justify-center mt-[var(--space-4)]">
                   <div className="inline-flex rounded-[var(--radius-pill)] glass-card p-1 gap-1">
                     <button
                       onClick={() => setViewTab('result')}
-                      className={`px-[var(--space-20)] py-[var(--space-6)] rounded-[var(--radius-pill)] text-[14px] leading-[20px] font-medium transition-all ${
+                      className={`px-[var(--space-16)] py-[var(--space-4)] rounded-[var(--radius-pill)] text-[13px] leading-[18px] font-medium transition-all ${
                         viewTab === 'result'
                           ? 'glass-btn-primary text-white'
                           : 'text-[var(--color-text-secondary)] hover:text-[#E6EEF8]'
@@ -215,7 +220,7 @@ export default function StorageModal({ items, open, onClose, onImprove }: Props)
                     </button>
                     <button
                       onClick={() => setViewTab('original')}
-                      className={`px-[var(--space-20)] py-[var(--space-6)] rounded-[var(--radius-pill)] text-[14px] leading-[20px] font-medium transition-all ${
+                      className={`px-[var(--space-16)] py-[var(--space-4)] rounded-[var(--radius-pill)] text-[13px] leading-[18px] font-medium transition-all ${
                         viewTab === 'original'
                           ? 'glass-btn-primary text-white'
                           : 'text-[var(--color-text-secondary)] hover:text-[#E6EEF8]'
@@ -226,10 +231,10 @@ export default function StorageModal({ items, open, onClose, onImprove }: Props)
                   </div>
                 </div>
 
-                {/* Single large photo */}
-                <div className="flex justify-center">
-                  <div className="w-full max-w-[380px] flex flex-col gap-[var(--space-12)]">
-                    <div className="relative rounded-[var(--radius-12)] overflow-hidden aspect-[3/4] bg-[rgba(255,255,255,0.02)]">
+                {/* Photo — flexible height, shrinks to fit */}
+                <div className="flex-1 min-h-0 flex flex-col gap-[var(--space-8)]">
+                  <div className="flex-1 min-h-0 flex justify-center">
+                    <div className="relative rounded-[var(--radius-12)] overflow-hidden bg-[rgba(255,255,255,0.02)] w-full max-w-[340px]">
                       {viewTab === 'result' ? (
                         item.generated_image_url && !imgErrors[`gen_${item.task_id}`] ? (
                           <img
@@ -257,106 +262,107 @@ export default function StorageModal({ items, open, onClose, onImprove }: Props)
                           </div>
                         )
                       )}
-                      <span className={`absolute top-[var(--space-8)] left-[var(--space-8)] ${viewTab === 'result' ? 'glass-badge-success' : 'glass-badge-cyan'} px-[var(--space-8)] py-[2px] rounded-[var(--radius-pill)] text-[11px] leading-[14px] font-medium text-[#E6EEF8]`}>
+                      <span className={`absolute top-[var(--space-6)] left-[var(--space-6)] ${viewTab === 'result' ? 'glass-badge-success' : 'glass-badge-cyan'} px-[var(--space-6)] py-[1px] rounded-[var(--radius-pill)] text-[10px] leading-[14px] font-medium text-[#E6EEF8]`}>
                         {viewTab === 'result'
                           ? (styleInfo ? `${styleInfo.icon} ${styleInfo.name}` : 'Результат')
                           : 'Исходное'}
                       </span>
                     </div>
+                  </div>
 
-                    {/* Score under photo */}
-                    <div className="flex items-center justify-between">
-                      <span className="text-[14px] leading-[20px] text-[#E6EEF8] font-medium">
+                  {/* Score + delta row */}
+                  <div className="shrink-0 flex items-center justify-between px-[var(--space-4)]">
+                    <span className="text-[13px] leading-[18px] text-[#E6EEF8] font-medium truncate">
+                      {viewTab === 'result'
+                        ? (styleInfo ? `${styleInfo.icon} ${styleInfo.name}` : (item.style || item.mode))
+                        : 'Исходное фото'}
+                    </span>
+                    <span className="flex items-center gap-[var(--space-6)] shrink-0">
+                      <span className={`text-[13px] leading-[18px] tabular-nums font-semibold ${viewTab === 'result' ? 'text-[var(--color-brand-primary)]' : 'text-[var(--color-text-secondary)]'}`}>
                         {viewTab === 'result'
-                          ? (styleInfo ? `${styleInfo.icon} ${styleInfo.name}` : (item.style || item.mode))
-                          : 'Исходное фото'}
+                          ? (item.score_after != null ? item.score_after.toFixed(2) : '—')
+                          : (item.score_before != null ? item.score_before.toFixed(2) : '—')}
                       </span>
-                      <span className="flex items-center gap-1">
-                        <span className={`text-[14px] leading-[20px] tabular-nums font-semibold ${viewTab === 'result' ? 'text-[var(--color-brand-primary)]' : 'text-[var(--color-text-secondary)]'}`}>
-                          {viewTab === 'result'
-                            ? (item.score_after != null ? item.score_after.toFixed(2) : '—')
-                            : (item.score_before != null ? item.score_before.toFixed(2) : '—')}
+                      {item.score_before != null && item.score_after != null && (
+                        <span className="text-[11px] leading-[14px] text-[var(--color-success-base)] tabular-nums font-medium">
+                          +{(item.score_after - item.score_before).toFixed(2)}
                         </span>
-                        <span className="text-[11px] leading-[14px] text-[var(--color-text-muted)]">/ 10</span>
-                      </span>
-                    </div>
+                      )}
+                    </span>
+                  </div>
+                  <div className="shrink-0 px-[var(--space-4)]">
                     <ProgressBar
                       value={viewTab === 'result' ? (item.score_after ?? 0) : (item.score_before ?? 0)}
                       accent={viewTab === 'result'}
                     />
-
-                    {/* Score delta */}
-                    {item.score_before != null && item.score_after != null && (
-                      <div className="flex items-center justify-center gap-[var(--space-12)]">
-                        <span className="text-[14px] leading-[20px] text-[var(--color-text-muted)] tabular-nums">{item.score_before.toFixed(2)}</span>
-                        <span className="text-[14px] text-[var(--color-text-muted)]">&rarr;</span>
-                        <span className="text-[14px] leading-[20px] text-[var(--color-brand-primary)] font-semibold tabular-nums">{item.score_after.toFixed(2)}</span>
-                        <span className="text-[13px] leading-[18px] text-[var(--color-success-base)]">
-                          (+{(item.score_after - item.score_before).toFixed(2)})
-                        </span>
-                      </div>
-                    )}
                   </div>
                 </div>
 
-                {/* Perception scores */}
+                {/* Perception scores — compact grid */}
                 {item.perception_scores && Object.keys(item.perception_scores).length > 0 && (
-                  <div className="flex flex-col gap-[var(--space-12)]">
-                    <span className="text-[14px] font-medium text-[#E6EEF8]">Параметры восприятия</span>
-                    {Object.entries(item.perception_scores)
-                      .filter(([k]) => k !== 'authenticity')
-                      .map(([key, value]) => (
-                        <div key={key} className="flex flex-col gap-[var(--space-4)]">
-                          <div className="flex items-center justify-between">
-                            <span className="text-[13px] text-[var(--color-text-secondary)]">{PARAM_LABELS[key] ?? key}</span>
-                            <span className="text-[13px] tabular-nums text-[var(--color-brand-primary)]">{(value as number).toFixed(1)}</span>
+                  <div className="shrink-0 flex flex-col gap-[var(--space-6)]">
+                    <span className="text-[12px] font-medium text-[var(--color-text-muted)]">Параметры восприятия</span>
+                    <div className="grid grid-cols-3 gap-x-[var(--space-12)] gap-y-[var(--space-4)]">
+                      {Object.entries(item.perception_scores)
+                        .filter(([k]) => k !== 'authenticity')
+                        .map(([key, value]) => (
+                          <div key={key} className="flex items-center justify-between gap-[var(--space-4)]">
+                            <span className="text-[11px] text-[var(--color-text-secondary)] truncate">{PARAM_LABELS[key] ?? key}</span>
+                            <span className="text-[11px] tabular-nums text-[var(--color-brand-primary)] shrink-0">{(value as number).toFixed(1)}</span>
                           </div>
-                          <ProgressBar value={value as number} accent />
-                        </div>
-                      ))}
+                        ))}
+                    </div>
                   </div>
                 )}
 
                 {downloadError && (
-                  <p className="text-[13px] text-red-400 text-center">
+                  <p className="shrink-0 text-[12px] text-red-400 text-center">
                     Не удалось скачать файл. Попробуйте позже.
                   </p>
                 )}
 
-                {/* Actions */}
-                <div className="flex flex-col gap-[var(--space-8)]">
-                  {onImprove && (
-                    <button
-                      onClick={() => item.generated_image_url && onImprove(normalizeImageUrl(item.generated_image_url))}
-                      disabled={!item.generated_image_url}
-                      className="w-full glass-btn-primary rounded-[var(--radius-12)] py-[var(--space-10)] text-[14px] font-semibold text-white flex items-center justify-center gap-[var(--space-8)] disabled:opacity-40"
-                    >
-                      <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M1.333 8A6.667 6.667 0 0012 3.333M14.667 8A6.667 6.667 0 014 12.667" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/><path d="M12 1.333v2h2M4 14.667v-2H2" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/></svg>
-                      Улучшить ещё
-                    </button>
-                  )}
-                  <div className="flex gap-[var(--space-12)]">
+                {/* Actions — compact */}
+                <div className="shrink-0 flex flex-col gap-[var(--space-6)]">
+                  <div className="flex gap-[var(--space-8)]">
+                    {onImprove && (
+                      <button
+                        onClick={() => item.generated_image_url && onImprove(normalizeImageUrl(item.generated_image_url))}
+                        disabled={!item.generated_image_url}
+                        className="flex-1 glass-btn-primary rounded-[var(--radius-12)] py-[var(--space-8)] text-[13px] font-semibold text-white flex items-center justify-center gap-[var(--space-6)] disabled:opacity-40"
+                      >
+                        <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M1.333 8A6.667 6.667 0 0012 3.333M14.667 8A6.667 6.667 0 014 12.667" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/><path d="M12 1.333v2h2M4 14.667v-2H2" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                        Улучшить
+                      </button>
+                    )}
                     <button
                       onClick={handleDownload}
                       disabled={!item.generated_image_url}
-                      className="flex-1 glass-btn-ghost rounded-[var(--radius-12)] py-[var(--space-10)] text-[14px] font-medium text-[#E6EEF8] flex items-center justify-center gap-[var(--space-8)] disabled:opacity-40"
+                      className="flex-1 glass-btn-ghost rounded-[var(--radius-12)] py-[var(--space-8)] text-[13px] font-medium text-[#E6EEF8] flex items-center justify-center gap-[var(--space-6)] disabled:opacity-40"
                     >
-                      <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M8 2v8m0 0L5 7m3 3l3-3M3 12h10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                      <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M8 2v8m0 0L5 7m3 3l3-3M3 12h10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
                       Скачать
                     </button>
                     <button
                       onClick={handleShowShare}
                       disabled={shareLoading}
-                      className="flex-1 glass-btn-ghost rounded-[var(--radius-12)] py-[var(--space-10)] text-[14px] font-medium text-[#E6EEF8] flex items-center justify-center gap-[var(--space-8)] disabled:opacity-40"
+                      className="flex-1 glass-btn-ghost rounded-[var(--radius-12)] py-[var(--space-8)] text-[13px] font-medium text-[#E6EEF8] flex items-center justify-center gap-[var(--space-6)] disabled:opacity-40"
                     >
-                      <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M6 9.333l4-2.666M6 6.667l4 2.666M12 4a2 2 0 11-4 0 2 2 0 014 0zM6 8a2 2 0 11-4 0 2 2 0 014 0zM12 12a2 2 0 11-4 0 2 2 0 014 0z" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/></svg>
-                      {shareLoading ? 'Загрузка...' : 'Поделиться'}
+                      <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M6 9.333l4-2.666M6 6.667l4 2.666M12 4a2 2 0 11-4 0 2 2 0 014 0zM6 8a2 2 0 11-4 0 2 2 0 014 0zM12 12a2 2 0 11-4 0 2 2 0 014 0z" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                      {shareLoading ? '...' : 'Поделиться'}
                     </button>
                   </div>
-                  {shareData && <ShareButtons url={shareData.url} text={shareData.text} />}
                 </div>
               </motion.div>
             </AnimatePresence>
+          )}
+
+          {shareData && (
+            <ShareModal
+              open={shareModalOpen}
+              onClose={() => setShareModalOpen(false)}
+              url={shareData.url}
+              text={shareData.text}
+            />
           )}
         </motion.div>
       )}

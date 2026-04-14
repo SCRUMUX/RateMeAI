@@ -117,7 +117,7 @@ export default function AppPage() {
           ? +(beforeScore + predictedDelta).toFixed(2)
           : null;
 
-  const showCounters = currentStep !== 'upload' && app.isAuthenticated;
+  const showCounters = app.isAuthenticated;
 
   return (
     <div data-category={app.activeCategory} className="h-dvh flex flex-col w-full overflow-hidden selection:bg-brand-primary/30">
@@ -178,7 +178,7 @@ export default function AppPage() {
                 animate="center"
                 exit="exit"
                 transition={{ duration: 0.3, ease: 'easeInOut' }}
-                className="h-full overflow-y-auto"
+                className={`h-full ${currentStep === 'style' ? 'overflow-y-auto' : 'overflow-hidden'}`}
               >
                 {currentStep === 'upload' && (
                   <StepUpload onNext={goNext} />

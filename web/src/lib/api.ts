@@ -51,7 +51,7 @@ export interface OAuthInitResponse {
   authorize_url: string;
 }
 
-export function oauthInit(provider: 'yandex' | 'vk-id', deviceId: string, linkCode?: string) {
+export function oauthInit(provider: 'yandex' | 'vk-id' | 'google', deviceId: string, linkCode?: string) {
   return request<OAuthInitResponse>(`/api/v1/auth/${provider}/init`, {
     method: 'POST',
     body: JSON.stringify({ device_id: deviceId, link_code: linkCode || '' }),

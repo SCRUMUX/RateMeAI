@@ -430,6 +430,85 @@ async def yandex_oauth_callback(
 
 
 # ------------------------------------------------------------------
+# Google OAuth
+# ------------------------------------------------------------------
+
+@router.post("/auth/google/init", response_model=OAuthInitResponse)
+async def google_oauth_init(
+    body: OAuthInitRequest,
+    redis: Redis = Depends(get_redis),
+):
+    if not settings.google_client_id or not settings.google_client_secret:
+        raise HTTPException(status_code=503, detail="Google OAuth not configured on this server")
+
+    from src.channels.google_auth import build_authorize_url
+    from src.services.oauth_state import save_oauth_state
+
+    state = secrets.token_urlsafe(32)
+    redirect_uri = f"{settings.api_base_url}/api/v1/auth/google/callback"
+
+    link_user_id = await _resolve_link_code(redis, body.link_code)
+
+    await save_oauth_state(
+        redis, state,
+        provider="google",
+        device_id=body.device_id,
+        link_user_id=link_user_id,
+    )
+
+    url = build_authorize_url(state, redirect_uri)
+    return OAuthInitResponse(authorize_url=url)
+
+
+@router.get("/auth/google/callback")
+async def google_oauth_callback(
+    code: str,
+    state: str,
+    db: AsyncSession = Depends(get_db),
+    redis: Redis = Depends(get_redis),
+):
+    from src.channels.google_auth import exchange_code, get_user_info
+    from src.services.oauth_state import pop_oauth_state
+    from fastapi.responses import RedirectResponse
+
+    stored = await pop_oauth_state(redis, state)
+    if stored is None or stored.get("provider") != "google":
+        raise HTTPException(status_code=400, detail="Invalid or expired OAuth state")
+
+    redirect_uri = f"{settings.api_base_url}/api/v1/auth/google/callback"
+    access_token = await exchange_code(code, redirect_uri)
+    if not access_token:
+        raise HTTPException(status_code=401, detail="Google token exchange failed")
+
+    google_user = await get_user_info(access_token)
+    if google_user is None or not google_user.id:
+        raise HTTPException(status_code=401, detail="Failed to fetch Google user info")
+
+    link_user_id = stored.get("link_user_id")
+    link_to = None
+    if link_user_id:
+        import uuid as _uuid
+        link_to = await db.get(User, _uuid.UUID(link_user_id))
+
+    user = await _find_or_create_by_identity(
+        db, "google", google_user.id,
+        display_name=google_user.name,
+        profile_data={
+            "email": google_user.email,
+            "name": google_user.name,
+            "picture": google_user.picture,
+        },
+        link_to_user=link_to,
+    )
+    token = await create_session(redis, user.id)
+
+    web_base = settings.web_base_url or settings.api_base_url
+    return RedirectResponse(
+        url=f"{web_base}/auth/callback?token={token}&provider=google&user_id={user.id}",
+    )
+
+
+# ------------------------------------------------------------------
 # VK ID OAuth
 # ------------------------------------------------------------------
 

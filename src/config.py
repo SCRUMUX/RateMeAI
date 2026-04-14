@@ -116,6 +116,10 @@ class Settings(BaseSettings):
     vk_id_app_id: str = ""
     vk_id_app_secret: str = ""
 
+    # Google OAuth (foreign users, main domain only)
+    google_client_id: str = ""
+    google_client_secret: str = ""
+
     # Phone SMS OTP (provider: log | sms_aero | twilio)
     sms_provider: str = "log"
     sms_aero_api_key: str = ""

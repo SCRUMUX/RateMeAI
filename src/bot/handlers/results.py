@@ -144,7 +144,7 @@ async def _get_credit_balance(user_id: int, redis: Redis | None = None, api_base
         headers: dict[str, str] = {}
         if redis:
             headers = await get_bot_auth_headers(redis, user_id)
-        api_base = api_base_url or settings.api_base_url
+        api_base = settings.edge_api_url.rstrip("/") if settings.edge_api_url else (api_base_url or settings.api_base_url)
         async with httpx.AsyncClient(timeout=5.0) as client:
             resp = await client.get(
                 f"{api_base}/api/v1/payments/balance",

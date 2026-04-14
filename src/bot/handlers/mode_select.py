@@ -253,8 +253,10 @@ def _format_pre_analysis_message(header: str, kind: str, user_id: int, data: dic
 
 
 async def _submit_analysis(callback: CallbackQuery, api_base_url: str, redis: Redis, mode: str, style: str):
+    from src.config import settings as _settings
     user_id = callback.from_user.id
     bot = callback.bot
+    analyze_api = _settings.edge_api_url.rstrip("/") if _settings.edge_api_url else api_base_url
 
     file_id = await redis.get(PHOTO_KEY.format(user_id))
     if not file_id:
@@ -306,7 +308,7 @@ async def _submit_analysis(callback: CallbackQuery, api_base_url: str, redis: Re
         auth_headers = await get_bot_auth_headers(redis, user_id)
         async with httpx.AsyncClient(timeout=30.0) as client:
             resp = await client.post(
-                f"{api_base_url}/api/v1/analyze",
+                f"{analyze_api}/api/v1/analyze",
                 files={"image": ("photo.jpg", image_data, "image/jpeg")},
                 data=form_data,
                 headers=auth_headers,
@@ -325,7 +327,7 @@ async def _submit_analysis(callback: CallbackQuery, api_base_url: str, redis: Re
             }
 
             import asyncio
-            asyncio.create_task(_poll_task(bot, api_base_url, user_id, task_id, callback.message.chat.id, status_msg.message_id, redis))
+            asyncio.create_task(_poll_task(bot, analyze_api, user_id, task_id, callback.message.chat.id, status_msg.message_id, redis))
 
         elif resp.status_code == 429:
             await redis.delete(lock_key)
