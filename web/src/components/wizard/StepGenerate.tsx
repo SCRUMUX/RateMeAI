@@ -146,6 +146,19 @@ export default function StepGenerate({ onGoToStep, onOpenStorage }: Props) {
     await app.generate(undefined, effectiveStyle);
   }
 
+  async function handleImproveGenerated() {
+    if (!app.generatedImageUrl) return;
+    try {
+      const res = await fetch(app.generatedImageUrl, { credentials: 'omit' });
+      const blob = await res.blob();
+      const file = new File([blob], 'improve.jpg', { type: blob.type || 'image/jpeg' });
+      app.resetGeneration();
+      setFrozenStyle(null);
+      app.uploadPhoto(file);
+      onGoToStep('upload');
+    } catch { /* ignore */ }
+  }
+
   const isDocPaywall = app.scenarioDocumentPaywall;
   const paymentPackQty = app.scenarioPaymentPackQty ?? 5;
 
@@ -421,9 +434,9 @@ export default function StepGenerate({ onGoToStep, onOpenStorage }: Props) {
       <div className="shrink-0 flex flex-col items-center gap-[var(--space-8)]">
         {hasGenResult && (
           <>
-            {/* Download + main app CTA for document scenario */}
+            {/* Primary row: Download + Open Studio */}
             {isDocPaywall && app.generatedImageUrl && (
-              <div className="flex flex-col items-center gap-[var(--space-8)] mb-[var(--space-4)]">
+              <div className="flex flex-wrap items-center justify-center gap-[var(--space-8)]">
                 <a
                   href={app.generatedImageUrl}
                   download="document-photo.jpg"
@@ -434,20 +447,27 @@ export default function StepGenerate({ onGoToStep, onOpenStorage }: Props) {
                   <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M8 2v8m0 0L5 7m3 3l3-3M3 12h10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
                   Скачать фото
                 </a>
+                {app.scenarioPrimaryCtaMainApp && (
+                  <Link
+                    to="/app"
+                    className="glass-btn-ghost px-[var(--space-24)] py-[var(--space-10)] text-[14px] leading-[20px] rounded-[var(--radius-pill)] font-medium no-underline inline-flex items-center justify-center"
+                  >
+                    Открыть AI Look Studio
+                  </Link>
+                )}
               </div>
             )}
-
-            <div className="flex flex-wrap gap-[var(--space-8)] justify-center">
-              <button
-                onClick={() => {
-                  app.resetGeneration();
-                  setFrozenStyle(null);
-                  onGoToStep('style');
-                }}
-                className="glass-btn-ghost px-[var(--space-16)] py-[var(--space-8)] text-[13px] leading-[18px] rounded-[var(--radius-pill)]"
+            {!isDocPaywall && app.scenarioPrimaryCtaMainApp && (
+              <Link
+                to="/app"
+                className="glass-btn-primary px-[var(--space-24)] py-[var(--space-10)] text-[14px] leading-[20px] rounded-[var(--radius-pill)] font-medium no-underline inline-flex items-center justify-center"
               >
-                {isDocPaywall ? 'Другой формат' : 'Другой стиль'}
-              </button>
+                Открыть AI Look Studio
+              </Link>
+            )}
+
+            {/* Ghost row: Другое фото → Другой формат → Улучшить ещё → Поделиться */}
+            <div className="flex flex-wrap gap-[var(--space-8)] justify-center">
               <button
                 onClick={() => {
                   app.resetGeneration();
@@ -459,9 +479,18 @@ export default function StepGenerate({ onGoToStep, onOpenStorage }: Props) {
                 Другое фото
               </button>
               <button
-                onClick={handleGenerate}
-                disabled={app.isGenerating}
-                className="glass-btn-ghost px-[var(--space-16)] py-[var(--space-8)] text-[13px] leading-[18px] rounded-[var(--radius-pill)] disabled:opacity-40 disabled:cursor-not-allowed"
+                onClick={() => {
+                  app.resetGeneration();
+                  setFrozenStyle(null);
+                  onGoToStep('style');
+                }}
+                className="glass-btn-ghost px-[var(--space-16)] py-[var(--space-8)] text-[13px] leading-[18px] rounded-[var(--radius-pill)]"
+              >
+                {isDocPaywall ? 'Другой формат' : 'Другой стиль'}
+              </button>
+              <button
+                onClick={handleImproveGenerated}
+                className="glass-btn-ghost px-[var(--space-16)] py-[var(--space-8)] text-[13px] leading-[18px] rounded-[var(--radius-pill)]"
               >
                 Улучшить ещё
               </button>
@@ -473,16 +502,6 @@ export default function StepGenerate({ onGoToStep, onOpenStorage }: Props) {
                 {shareLoading ? 'Загрузка...' : 'Поделиться'}
               </button>
             </div>
-
-            {/* Primary CTA — go to main app */}
-            {app.scenarioPrimaryCtaMainApp && (
-              <Link
-                to="/app"
-                className="glass-btn-primary mt-[var(--space-8)] px-[var(--space-24)] py-[var(--space-10)] text-[14px] leading-[20px] rounded-[var(--radius-pill)] font-medium no-underline inline-flex items-center justify-center"
-              >
-                Открыть AI Look Studio
-              </Link>
-            )}
           </>
         )}
         {genFailed && !isRunning && !hasGenResult && (

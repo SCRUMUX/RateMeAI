@@ -5,6 +5,7 @@ import type { TaskHistoryItem } from '../lib/api';
 import { createShare } from '../lib/api';
 import { normalizeImageUrl } from '../lib/image-url';
 import { STYLES_BY_CATEGORY } from '../data/styles';
+import { DOCUMENT_FORMAT_ITEMS } from '../scenarios/extraStyles';
 import { useApp } from '../context/AppContext';
 import ProgressBar from './wizard/ProgressBar';
 import ShareButtons from './ShareButtons';
@@ -15,6 +16,9 @@ for (const styles of Object.values(STYLES_BY_CATEGORY)) {
   for (const s of styles) {
     STYLE_LOOKUP[s.key] = { name: s.name, icon: s.icon };
   }
+}
+for (const s of DOCUMENT_FORMAT_ITEMS) {
+  STYLE_LOOKUP[s.key] = { name: s.name, icon: s.icon };
 }
 
 interface Props {

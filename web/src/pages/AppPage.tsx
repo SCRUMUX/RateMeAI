@@ -62,7 +62,11 @@ export default function AppPage() {
   const [direction, setDirection] = useState(0);
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const [storageModalOpen, setStorageModalOpen] = useState(false);
-  const visitedSteps = useRef(new Set<WizardStepId>(['upload']));
+  const visitedSteps = useRef(new Set<WizardStepId>(
+    returnedStep
+      ? STEP_ORDER.slice(0, STEP_ORDER.indexOf(returnedStep) + 1) as WizardStepId[]
+      : ['upload'],
+  ));
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
