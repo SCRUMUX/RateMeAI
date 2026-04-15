@@ -50,11 +50,13 @@ export default function LinkedAccountsPanel() {
       <div className="flex flex-col gap-[var(--space-8)]">
         {identities.map((id) => {
           const meta = PROVIDER_META[id.provider] ?? { label: id.provider, color: '#6B7280', icon: '?' };
-          const displayId = id.profile_data?.display_name
-            || id.profile_data?.email
-            || id.profile_data?.phone
-            || id.profile_data?.first_name
-            || id.external_id;
+          const displayId = id.provider === 'web'
+            ? 'Это устройство'
+            : (id.profile_data?.display_name
+              || id.profile_data?.email
+              || id.profile_data?.phone
+              || id.profile_data?.first_name
+              || id.external_id);
           return (
             <div
               key={`${id.provider}-${id.external_id}`}

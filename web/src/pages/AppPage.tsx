@@ -220,7 +220,7 @@ export default function AppPage() {
                 animate="center"
                 exit="exit"
                 transition={{ duration: 0.3, ease: 'easeInOut' }}
-                className={`h-full ${currentStep === 'style' ? 'overflow-y-auto' : 'overflow-hidden'}`}
+                className={`h-full ${currentStep === 'style' && !isDocumentScenario ? 'overflow-y-auto' : 'overflow-hidden'}`}
               >
                 {currentStep === 'upload' && (
                   <StepUpload onNext={goNext} />

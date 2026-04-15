@@ -159,7 +159,7 @@ export default function StepGenerate({ onGoToStep, onOpenStorage }: Props) {
 
   const [paymentLoading, setPaymentLoading] = useState(false);
 
-  async function handleDocPaywallBuy() {
+  async function handleDocPaywallBuy(qty: number) {
     setPaymentLoading(true);
     try {
       const next = normalizePostPaymentPath(window.location.pathname) ?? '/app';
@@ -172,7 +172,7 @@ export default function StepGenerate({ onGoToStep, onOpenStorage }: Props) {
           scenarioSlug: app.scenarioSlug ?? undefined,
         });
       }
-      const res = await createPayment(paymentPackQty);
+      const res = await createPayment(qty);
       window.location.href = res.confirmation_url;
     } catch (e) {
       alert(e instanceof ApiError ? 'Ошибка создания платежа' : 'Ошибка');
@@ -376,19 +376,30 @@ export default function StepGenerate({ onGoToStep, onOpenStorage }: Props) {
       {/* Document paywall — shown when balance is 0 and no generation started */}
       {isDocPaywall && !hasGenResult && !isRunning && !genFailed && app.balance <= 0 && app.isAuthenticated && (
         <div className="shrink-0 flex flex-col items-center gap-[var(--space-12)] text-center">
-          <div className="gradient-border-card glass-card flex flex-col items-center gap-[var(--space-12)] rounded-[var(--radius-12)] p-[var(--space-20)] max-w-[400px]">
+          <div className="gradient-border-card glass-card flex flex-col items-center gap-[var(--space-16)] rounded-[var(--radius-12)] p-[var(--space-20)] max-w-[420px]">
             <CoinIcon size={32} className="text-[var(--color-brand-primary)]" />
             <h3 className="text-[18px] font-semibold text-[#E6EEF8]">Фото на документы</h3>
             <p className="text-[14px] text-[var(--color-text-secondary)]">
-              Пакет из {paymentPackQty} фото за 199 рублей. Фотореалистичная обработка под требования документов.
+              Фотореалистичная обработка под требования документов. Выберите тариф:
             </p>
-            <button
-              onClick={handleDocPaywallBuy}
-              disabled={paymentLoading}
-              className="glass-btn-primary w-full py-[var(--space-10)] text-[14px] leading-[20px] rounded-[var(--radius-pill)] font-medium"
-            >
-              {paymentLoading ? 'Загрузка...' : 'Оплатить 199 ₽'}
-            </button>
+            <div className="flex flex-col gap-[var(--space-8)] w-full">
+              <button
+                onClick={() => handleDocPaywallBuy(1)}
+                disabled={paymentLoading}
+                className="glass-btn-primary w-full py-[var(--space-10)] text-[14px] leading-[20px] rounded-[var(--radius-pill)] font-medium"
+              >
+                {paymentLoading ? 'Загрузка...' : '1 фото — 59 ₽'}
+              </button>
+              <button
+                onClick={() => handleDocPaywallBuy(5)}
+                disabled={paymentLoading}
+                className="w-full py-[var(--space-10)] text-[14px] leading-[20px] rounded-[var(--radius-pill)] font-medium transition-all"
+                style={{ background: 'rgba(255,255,255,0.08)', color: '#E6EEF8', border: '1px solid rgba(255,255,255,0.15)' }}
+              >
+                {paymentLoading ? 'Загрузка...' : '5 фото — 199 ₽'}
+                <span className="ml-[var(--space-6)] text-[12px] text-[var(--color-text-muted)]">выгоднее</span>
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -428,7 +439,11 @@ export default function StepGenerate({ onGoToStep, onOpenStorage }: Props) {
 
             <div className="flex flex-wrap gap-[var(--space-8)] justify-center">
               <button
-                onClick={() => onGoToStep('style')}
+                onClick={() => {
+                  app.resetGeneration();
+                  setFrozenStyle(null);
+                  onGoToStep('style');
+                }}
                 className="glass-btn-ghost px-[var(--space-16)] py-[var(--space-8)] text-[13px] leading-[18px] rounded-[var(--radius-pill)]"
               >
                 {isDocPaywall ? 'Другой формат' : 'Другой стиль'}

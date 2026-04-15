@@ -80,7 +80,7 @@ export default function StepDocumentFormat({ onNext }: Props) {
           onClick={handleSelectAndNext}
           className="glass-btn-primary w-full py-[var(--space-10)] text-[14px] leading-[20px] rounded-[var(--radius-pill)] font-medium"
         >
-          Генерировать
+          Далее
         </button>
       </div>
     </div>
