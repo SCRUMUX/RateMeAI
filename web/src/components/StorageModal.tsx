@@ -41,15 +41,16 @@ export default function StorageModal({ items, open, onClose, onImprove }: Props)
   const item = items[idx];
 
   useEffect(() => {
-    if (open) { setIdx(0); setViewTab('result'); setShareData(null); }
+    if (open) { setIdx(0); setViewTab('result'); }
+    if (!open) { setShareData(null); setShareLoading(false); }
   }, [open]);
 
   useEffect(() => {
     if (!open || !item?.task_id) return;
-    if (shareData) return;
 
     const currentTaskId = item.task_id;
     taskIdRef.current = currentTaskId;
+    setShareData(null);
     setShareLoading(true);
 
     createShare(item.task_id)

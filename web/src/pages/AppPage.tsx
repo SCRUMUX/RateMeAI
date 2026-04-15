@@ -16,6 +16,7 @@ import StorageModal from '../components/StorageModal';
 import { useApp } from '../context/AppContext';
 import { type WizardStepId, getWizardStepsForScenario } from '../components/wizard/shared';
 import { getScenario } from '../scenarios/config';
+import { restorePhotoAfterPayment, clearPersistedPaymentPhoto } from '../lib/photo-persist';
 
 const STEP_ORDER: WizardStepId[] = ['upload', 'analysis', 'style', 'generate'];
 
@@ -48,19 +49,40 @@ export default function AppPage() {
   );
   const isDocumentScenario = app.scenarioStep3Mode === 'document_formats';
 
-  const [currentStep, setCurrentStep] = useState<WizardStepId>(() => {
+  const [returnedStep] = useState<WizardStepId | null>(() => {
     const saved = localStorage.getItem('returnToStep');
     if (saved && STEP_ORDER.includes(saved as WizardStepId)) {
       localStorage.removeItem('returnToStep');
       return saved as WizardStepId;
     }
-    return 'upload';
+    return null;
   });
+  const [currentStep, setCurrentStep] = useState<WizardStepId>(returnedStep ?? 'upload');
+  const [restoringPhoto, setRestoringPhoto] = useState(returnedStep != null && returnedStep !== 'upload');
   const [direction, setDirection] = useState(0);
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const [storageModalOpen, setStorageModalOpen] = useState(false);
   const visitedSteps = useRef(new Set<WizardStepId>(['upload']));
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!restoringPhoto) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const restored = await restorePhotoAfterPayment();
+        if (cancelled) return;
+        if (restored) {
+          app.uploadPhoto(restored.file);
+          if (restored.style) app.setSelectedStyleKey(restored.style);
+          await clearPersistedPaymentPhoto();
+        }
+      } finally {
+        if (!cancelled) setRestoringPhoto(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const currentIdx = STEP_ORDER.indexOf(currentStep);
 
@@ -96,11 +118,12 @@ export default function AppPage() {
   }, [currentIdx, goToStep]);
 
   useEffect(() => {
+    if (restoringPhoto) return;
     if (!app.photo && currentStep !== 'upload') {
       setCurrentStep('upload');
       visitedSteps.current = new Set(['upload']);
     }
-  }, [app.photo, currentStep]);
+  }, [app.photo, currentStep, restoringPhoto]);
 
   async function handleImproveFromStorage(imageUrl: string) {
     try {

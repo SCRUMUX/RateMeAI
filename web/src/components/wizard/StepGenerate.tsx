@@ -3,6 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { CoinIcon } from '@ai-ds/core/icons';
 import { setPostPaymentReturnPath, normalizePostPaymentPath } from '../../scenarios/config';
 import { createPayment, ApiError } from '../../lib/api';
+import { savePhotoBeforePayment } from '../../lib/photo-persist';
 import { PERCEPTION_FACTS, getRandomFact } from '../../data/ai-facts';
 import { useApp } from '../../context/AppContext';
 import ProgressBar from './ProgressBar';
@@ -164,6 +165,13 @@ export default function StepGenerate({ onGoToStep, onOpenStorage }: Props) {
       const next = normalizePostPaymentPath(window.location.pathname) ?? '/app';
       setPostPaymentReturnPath(next);
       localStorage.setItem('returnToStep', 'generate');
+      if (app.photo) {
+        await savePhotoBeforePayment(app.photo.file, {
+          mode: app.activeCategory,
+          style: app.selectedStyleKey,
+          scenarioSlug: app.scenarioSlug ?? undefined,
+        });
+      }
       const res = await createPayment(paymentPackQty);
       window.location.href = res.confirmation_url;
     } catch (e) {
