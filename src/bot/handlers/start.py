@@ -41,7 +41,7 @@ async def cmd_start(message: Message, api_base_url: str, redis: Redis):
 
     text = REFERRAL_TEXT if referral else WELCOME_TEXT
 
-    balance_line = await _get_balance_line(api_base_url, message.from_user.id, redis)
+    balance_line = await _get_balance_line(api_base_url, message.from_user, redis)
     if balance_line:
         text += f"\n\n{balance_line}"
 
@@ -72,12 +72,29 @@ async def cmd_rating(message: Message, redis: Redis):
     )
 
 
+async def _get_edge_headers(redis: Redis, user, balance_api: str) -> dict[str, str]:
+    """Get auth headers for the balance API, using edge session when needed."""
+    from src.config import settings
+    if settings.edge_api_url:
+        from src.bot.handlers.mode_select import _ensure_edge_session
+        token = await _ensure_edge_session(
+            redis,
+            user.id if hasattr(user, "id") else user,
+            getattr(user, "username", None),
+            getattr(user, "first_name", None),
+            balance_api,
+        )
+        if token:
+            return {"Authorization": f"Bearer {token}"}
+    return await get_bot_auth_headers(redis, user.id if hasattr(user, "id") else user)
+
+
 @router.message(Command("balance"))
 async def cmd_balance(message: Message, api_base_url: str, redis: Redis):
     from src.config import settings
     user_id = message.from_user.id
     balance_api = settings.edge_api_url.rstrip("/") if settings.edge_api_url else api_base_url
-    headers = await get_bot_auth_headers(redis, user_id)
+    headers = await _get_edge_headers(redis, message.from_user, balance_api)
     try:
         async with httpx.AsyncClient(timeout=10.0) as client:
             resp = await client.get(
@@ -86,13 +103,26 @@ async def cmd_balance(message: Message, api_base_url: str, redis: Redis):
             )
 
         if resp.status_code == 401:
-            headers = await _reauth_and_get_headers(api_base_url, redis, message.from_user)
-            if headers:
-                async with httpx.AsyncClient(timeout=10.0) as client:
-                    resp = await client.get(
-                        f"{balance_api}/api/v1/payments/balance",
-                        headers=headers,
-                    )
+            from src.bot.handlers.mode_select import _ensure_edge_session
+            if settings.edge_api_url:
+                from src.bot.handlers.mode_select import _EDGE_SESSION_KEY
+                await redis.delete(_EDGE_SESSION_KEY.format(user_id))
+                token = await _ensure_edge_session(
+                    redis, user_id, message.from_user.username,
+                    message.from_user.first_name, balance_api,
+                )
+                if token:
+                    headers = {"Authorization": f"Bearer {token}"}
+            else:
+                hdr = await _reauth_and_get_headers(api_base_url, redis, message.from_user)
+                if hdr:
+                    headers = hdr
+
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                resp = await client.get(
+                    f"{balance_api}/api/v1/payments/balance",
+                    headers=headers,
+                )
 
         if resp.status_code == 200:
             credits = resp.json().get("image_credits", 0)
@@ -134,10 +164,10 @@ async def _reauth_and_get_headers(api_base_url: str, redis: Redis, user) -> dict
     return None
 
 
-async def _get_balance_line(api_base_url: str, user_id: int, redis: Redis) -> str:
+async def _get_balance_line(api_base_url: str, user, redis: Redis) -> str:
     from src.config import settings
     balance_api = settings.edge_api_url.rstrip("/") if settings.edge_api_url else api_base_url
-    headers = await get_bot_auth_headers(redis, user_id)
+    headers = await _get_edge_headers(redis, user, balance_api)
     try:
         async with httpx.AsyncClient(timeout=5.0) as client:
             resp = await client.get(
@@ -148,5 +178,5 @@ async def _get_balance_line(api_base_url: str, user_id: int, redis: Redis) -> st
             credits = resp.json().get("image_credits", 0)
             return f"\U0001f4b0 Баланс: *{credits} образов*"
     except Exception:
-        logger.debug("Could not fetch balance for start message, user=%s", user_id)
+        logger.debug("Could not fetch balance for start message, user=%s", getattr(user, "id", user))
     return ""

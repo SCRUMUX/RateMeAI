@@ -1,0 +1,21 @@
+name: Set API_BASE_URL on Railway (one-time)
+
+on:
+  workflow_dispatch:
+
+jobs:
+  set-vars:
+    runs-on: ubuntu-latest
+    env:
+      RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+      RAILWAY_PROJECT_ID: ${{ secrets.RAILWAY_PROJECT_ID }}
+    steps:
+      - name: Install Railway CLI
+        run: npm install -g @railway/cli
+
+      - name: Set API_BASE_URL on all services
+        run: |
+          railway variables set API_BASE_URL="https://app-production-6986.up.railway.app" -s app -e production --skip-deploys
+          railway variables set API_BASE_URL="https://app-production-6986.up.railway.app" -s bot -e production --skip-deploys
+          railway variables set API_BASE_URL="https://app-production-6986.up.railway.app" -s worker -e production --skip-deploys
+          echo "API_BASE_URL set on all Railway services"

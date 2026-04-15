@@ -119,6 +119,10 @@ jobs:
             railway variables set GOOGLE_CLIENT_ID="$GC_ID" -s app -e production --skip-deploys || true
             railway variables set GOOGLE_CLIENT_SECRET="$GC_SECRET" -s app -e production --skip-deploys || true
           fi
+          echo "Syncing API_BASE_URL to Railway services..."
+          railway variables set API_BASE_URL="https://app-production-6986.up.railway.app" -s app -e production --skip-deploys || true
+          railway variables set API_BASE_URL="https://app-production-6986.up.railway.app" -s bot -e production --skip-deploys || true
+          railway variables set API_BASE_URL="https://app-production-6986.up.railway.app" -s worker -e production --skip-deploys || true
 
       - name: Deploy Railway services (sequential)
         run: |
