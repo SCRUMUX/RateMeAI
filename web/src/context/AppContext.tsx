@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useState, useCallback, useRef, type ReactNode } from 'react';
-import { restoreToken, startOAuth, logout as authLogout } from '../lib/auth';
+import { restoreToken, startOAuth, logout as authLogout, login as authLogin } from '../lib/auth';
 import * as api from '../lib/api';
 import type { CategoryId } from '../data/styles';
 import { restorePhotoAfterOAuth, clearPersistedPhoto } from '../lib/photo-persist';
@@ -123,15 +123,24 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const preAnalyzeInFlightRef = useRef(false);
   const preAnalyzeGenRef = useRef(0);
 
-  const handleAuthError = useCallback((e: unknown) => {
+  const handleAuthError = useCallback(async (e: unknown): Promise<boolean> => {
     if (e instanceof api.ApiError && e.status === 401) {
-      authLogout();
-      localStorage.removeItem('ailook_provider');
-      setSession(null);
-      setIsAuthenticated(false);
-      setBalance(0);
-      setError('Сессия истекла. Пожалуйста, войдите снова.');
-      return true;
+      try {
+        const res = await authLogin();
+        api.setToken(res.session_token);
+        setSession({ token: res.session_token, userId: res.user_id, provider: localStorage.getItem('ailook_provider') || '', usage: res.usage });
+        setIsAuthenticated(true);
+        setBalance(res.usage.remaining);
+        return true;
+      } catch {
+        authLogout();
+        localStorage.removeItem('ailook_provider');
+        setSession(null);
+        setIsAuthenticated(false);
+        setBalance(0);
+        setError('Сессия истекла. Пожалуйста, войдите снова.');
+        return true;
+      }
     }
     return false;
   }, []);
@@ -140,14 +149,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
     try {
       const b = await api.getBalance();
       setBalance(b.image_credits);
-    } catch (e) { handleAuthError(e); }
+    } catch (e) { await handleAuthError(e); }
   }, [handleAuthError]);
 
   const refreshIdentities = useCallback(async () => {
     try {
       const res = await api.getMyIdentities();
       setIdentities(res.identities);
-    } catch (e) { handleAuthError(e); }
+    } catch (e) { await handleAuthError(e); }
   }, [handleAuthError]);
 
   const fetchTaskHistory = useCallback(async () => {
@@ -155,7 +164,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       const res = await api.getTaskHistory(100, 0);
       setTaskHistory(res.items);
       setTaskHistoryCount(res.total_count);
-    } catch (e) { handleAuthError(e); }
+    } catch (e) { await handleAuthError(e); }
   }, [handleAuthError]);
 
   const uploadPhoto = useCallback((f: File) => {
@@ -196,13 +205,17 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setPreAnalysis(res);
     } catch (e) {
       if (gen !== preAnalyzeGenRef.current) return;
+      if (e instanceof api.ApiError && e.status === 401) {
+        await handleAuthError(e);
+        return;
+      }
       setPreAnalyzeError(true);
       setError(e instanceof api.ApiError ? e.body : 'Pre-analyze failed');
     } finally {
       preAnalyzeInFlightRef.current = false;
       setPreAnalyzeLoading(false);
     }
-  }, [photo, activeCategory]);
+  }, [photo, activeCategory, handleAuthError]);
 
   const loginWithOAuth = useCallback(async (provider: 'yandex' | 'vk-id' | 'google') => {
     await startOAuth(provider, photo ? {
@@ -277,8 +290,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const prevPhotoRef = useRef<PhotoState | null>(null);
   useEffect(() => {
     const authJustBecameTrue = isAuthenticated && !prevAuthRef.current;
-    const photoJustAppeared = photo && !prevPhotoRef.current;
-    if (isAuthenticated && photo && (authJustBecameTrue || photoJustAppeared)) {
+    const photoChanged = photo && photo !== prevPhotoRef.current;
+    if (isAuthenticated && photo && (authJustBecameTrue || photoChanged)) {
       runPreAnalyze();
     }
     prevAuthRef.current = isAuthenticated;
@@ -454,14 +467,22 @@ export function AppProvider({ children }: { children: ReactNode }) {
       onTaskCreated?.();
       startPolling(res.task_id, activeCategory);
     } catch (e) {
-      setIsGenerating(false);
-      if (e instanceof api.ApiError && e.status === 402) {
-        setNoCreditsError(true);
+      if (e instanceof api.ApiError && e.status === 401) {
+        const reauthed = await handleAuthError(e);
+        setIsGenerating(false);
+        if (reauthed) {
+          setError('Сессия обновлена. Попробуйте ещё раз.');
+        }
       } else {
-        setError(e instanceof api.ApiError ? e.body : 'Generation failed');
+        setIsGenerating(false);
+        if (e instanceof api.ApiError && e.status === 402) {
+          setNoCreditsError(true);
+        } else {
+          setError(e instanceof api.ApiError ? e.body : 'Generation failed');
+        }
       }
     }
-  }, [photo, selectedStyleKey, activeCategory, preAnalysis, startPolling, isGenerating]);
+  }, [photo, selectedStyleKey, activeCategory, preAnalysis, startPolling, isGenerating, handleAuthError]);
 
   const share = useCallback(async () => {
     if (!currentTask?.taskId) return null;

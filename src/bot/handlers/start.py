@@ -9,7 +9,6 @@ import httpx
 from redis.asyncio import Redis
 
 from src.bot.keyboards import back_keyboard, upgrade_keyboard
-from src.bot.middleware import get_bot_auth_headers
 
 router = Router()
 logger = logging.getLogger(__name__)
@@ -72,29 +71,14 @@ async def cmd_rating(message: Message, redis: Redis):
     )
 
 
-async def _get_edge_headers(redis: Redis, user, balance_api: str) -> dict[str, str]:
-    """Get auth headers for the balance API, using edge session when needed."""
-    from src.config import settings
-    if settings.edge_api_url:
-        from src.bot.handlers.mode_select import _ensure_edge_session
-        token = await _ensure_edge_session(
-            redis,
-            user.id if hasattr(user, "id") else user,
-            getattr(user, "username", None),
-            getattr(user, "first_name", None),
-            balance_api,
-        )
-        if token:
-            return {"Authorization": f"Bearer {token}"}
-    return await get_bot_auth_headers(redis, user.id if hasattr(user, "id") else user)
-
-
 @router.message(Command("balance"))
 async def cmd_balance(message: Message, api_base_url: str, redis: Redis):
     from src.config import settings
+    from src.bot.handlers.mode_select import _get_api_headers, _refresh_api_headers
+
     user_id = message.from_user.id
     balance_api = settings.edge_api_url.rstrip("/") if settings.edge_api_url else api_base_url
-    headers = await _get_edge_headers(redis, message.from_user, balance_api)
+    headers = await _get_api_headers(redis, user_id, balance_api, message.from_user)
     try:
         async with httpx.AsyncClient(timeout=10.0) as client:
             resp = await client.get(
@@ -103,21 +87,7 @@ async def cmd_balance(message: Message, api_base_url: str, redis: Redis):
             )
 
         if resp.status_code == 401:
-            from src.bot.handlers.mode_select import _ensure_edge_session
-            if settings.edge_api_url:
-                from src.bot.handlers.mode_select import _EDGE_SESSION_KEY
-                await redis.delete(_EDGE_SESSION_KEY.format(user_id))
-                token = await _ensure_edge_session(
-                    redis, user_id, message.from_user.username,
-                    message.from_user.first_name, balance_api,
-                )
-                if token:
-                    headers = {"Authorization": f"Bearer {token}"}
-            else:
-                hdr = await _reauth_and_get_headers(api_base_url, redis, message.from_user)
-                if hdr:
-                    headers = hdr
-
+            headers = await _refresh_api_headers(redis, user_id, balance_api, message.from_user)
             async with httpx.AsyncClient(timeout=10.0) as client:
                 resp = await client.get(
                     f"{balance_api}/api/v1/payments/balance",
@@ -141,33 +111,13 @@ async def cmd_balance(message: Message, api_base_url: str, redis: Redis):
         await message.answer("\u274c Ошибка. Попробуй позже.", reply_markup=back_keyboard())
 
 
-async def _reauth_and_get_headers(api_base_url: str, redis: Redis, user) -> dict[str, str] | None:
-    """Re-register the bot user and return fresh auth headers (or None on failure)."""
-    from src.bot.middleware import _BOT_SESSION_KEY, _BOT_SESSION_TTL
-    try:
-        async with httpx.AsyncClient(timeout=10.0) as client:
-            resp = await client.post(
-                f"{api_base_url}/api/v1/auth/telegram",
-                json={
-                    "telegram_id": user.id,
-                    "username": user.username,
-                    "first_name": user.first_name,
-                },
-            )
-        if resp.status_code == 200:
-            token = resp.json().get("session_token")
-            if token:
-                await redis.set(_BOT_SESSION_KEY.format(user.id), token, ex=_BOT_SESSION_TTL)
-                return {"Authorization": f"Bearer {token}"}
-    except Exception:
-        logger.exception("Re-auth failed for user %s", user.id)
-    return None
-
-
 async def _get_balance_line(api_base_url: str, user, redis: Redis) -> str:
     from src.config import settings
+    from src.bot.handlers.mode_select import _get_api_headers
+
     balance_api = settings.edge_api_url.rstrip("/") if settings.edge_api_url else api_base_url
-    headers = await _get_edge_headers(redis, user, balance_api)
+    user_id = user.id if hasattr(user, "id") else user
+    headers = await _get_api_headers(redis, user_id, balance_api, user)
     try:
         async with httpx.AsyncClient(timeout=5.0) as client:
             resp = await client.get(

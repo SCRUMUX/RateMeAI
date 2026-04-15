@@ -236,11 +236,11 @@ async def _claim_link_code(
             data = resp.json()
             new_token = data.get("session_token")
             if new_token:
-                from src.bot.middleware import _BOT_SESSION_KEY, _BOT_SESSION_TTL
+                from src.bot.middleware import _BOT_SESSION_KEY, _bot_session_ttl
                 await redis.set(
                     _BOT_SESSION_KEY.format(user_id),
                     new_token,
-                    ex=_BOT_SESSION_TTL,
+                    ex=_bot_session_ttl(),
                 )
             await message.answer(
                 "\u2705 *Аккаунт привязан!*\n\n"

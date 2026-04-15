@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import type { TaskHistoryItem } from '../lib/api';
@@ -8,6 +8,7 @@ import { STYLES_BY_CATEGORY } from '../data/styles';
 import { useApp } from '../context/AppContext';
 import ProgressBar from './wizard/ProgressBar';
 import ShareButtons from './ShareButtons';
+import { PARAM_LABELS } from './wizard/shared';
 
 const STYLE_LOOKUP: Record<string, { name: string; icon: string }> = {};
 for (const styles of Object.values(STYLES_BY_CATEGORY)) {
@@ -23,17 +24,6 @@ interface Props {
   onImprove?: (imageUrl: string) => void;
 }
 
-const PARAM_LABELS: Record<string, string> = {
-  warmth: 'Тепл.',
-  presence: 'Увер.',
-  appeal: 'Привл.',
-  trust: 'Довер.',
-  competence: 'Комп.',
-  hireability: 'Найм',
-  social_score: 'Social',
-  dating_score: 'Dating',
-};
-
 const SWIPE_THRESHOLD = 50;
 
 export default function StorageModal({ items, open, onClose, onImprove }: Props) {
@@ -46,6 +36,8 @@ export default function StorageModal({ items, open, onClose, onImprove }: Props)
   const [downloadError, setDownloadError] = useState(false);
   const [imgErrors, setImgErrors] = useState<Record<string, boolean>>({});
 
+  const taskIdRef = useRef<string | null>(null);
+
   const item = items[idx];
 
   useEffect(() => {
@@ -55,10 +47,21 @@ export default function StorageModal({ items, open, onClose, onImprove }: Props)
   useEffect(() => {
     if (!open || !item?.task_id) return;
     if (shareData) return;
+
+    const currentTaskId = item.task_id;
+    taskIdRef.current = currentTaskId;
     setShareLoading(true);
+
     createShare(item.task_id)
-      .then(res => setShareData({ url: res.deep_link, text: res.caption, imageUrl: res.image_url || '' }))
-      .catch(() => {})
+      .then(res => {
+        if (taskIdRef.current !== currentTaskId) return;
+        setShareData({ url: res.deep_link, text: res.caption, imageUrl: res.image_url || '' });
+      })
+      .catch(() => {
+        if (taskIdRef.current !== currentTaskId) return;
+        const fallbackImg = item.generated_image_url ? normalizeImageUrl(item.generated_image_url) : '';
+        setShareData({ url: '', text: '', imageUrl: fallbackImg });
+      })
       .finally(() => setShareLoading(false));
   }, [open, item?.task_id]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -121,8 +124,10 @@ export default function StorageModal({ items, open, onClose, onImprove }: Props)
     else if (info.offset.x > SWIPE_THRESHOLD && canPrev) goPrev();
   }
 
-  const perceptionEntries = item?.perception_scores
-    ? Object.entries(item.perception_scores).filter(([k]) => k !== 'authenticity')
+  const perceptionEntries = (viewTab === 'result' && item?.perception_scores)
+    ? Object.entries(item.perception_scores)
+        .filter(([k]) => k !== 'authenticity')
+        .map(([k, v]) => ({ key: k, label: PARAM_LABELS[k] ?? k, value: v as number }))
     : [];
 
   return createPortal(
@@ -323,18 +328,20 @@ export default function StorageModal({ items, open, onClose, onImprove }: Props)
                 />
               </div>
 
-              {/* Perception scores -- full-width pills */}
+              {/* Perception scores -- wizard-style vertical list, only on result tab */}
               {perceptionEntries.length > 0 && (
-                <div className="shrink-0 grid grid-cols-3 gap-1.5">
-                  {perceptionEntries.map(([key, value]) => (
-                    <span
-                      key={key}
-                      className="flex items-center justify-center gap-1 px-1 py-0.5 rounded-full text-[11px] leading-[14px]"
-                      style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.08)' }}
-                    >
-                      <span className="text-[var(--color-text-secondary)]">{PARAM_LABELS[key] ?? key}</span>
-                      <span className="tabular-nums font-medium text-[var(--color-brand-primary)]">{(value as number).toFixed(1)}</span>
-                    </span>
+                <div className="shrink-0 gradient-border-card glass-card rounded-[var(--radius-12)] p-[var(--space-10)] flex flex-col gap-[var(--space-8)]">
+                  {perceptionEntries.map((p) => (
+                    <div key={p.key} className="flex flex-col gap-[var(--space-4)]">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[12px] leading-[16px] text-[#E6EEF8]">{p.label}</span>
+                        <span className="flex items-center gap-[var(--space-4)] text-[12px] leading-[16px] tabular-nums">
+                          <span className="text-[var(--color-text-secondary)]">{p.value.toFixed(2)}</span>
+                          <span className="text-[10px] leading-[14px] text-[var(--color-text-muted)]">/ 10</span>
+                        </span>
+                      </div>
+                      <ProgressBar value={p.value} accent />
+                    </div>
                   ))}
                 </div>
               )}

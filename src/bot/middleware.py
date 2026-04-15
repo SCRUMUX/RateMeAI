@@ -12,7 +12,14 @@ logger = logging.getLogger(__name__)
 
 PHOTO_KEY = "rateme:photo:{}"
 _BOT_SESSION_KEY = "bot_session:{}"
-_BOT_SESSION_TTL = 86400 * 7  # 7 days
+
+
+def _bot_session_ttl() -> int:
+    from src.config import settings
+    return max(settings.session_ttl_seconds - 3600, 3600)
+
+
+_MIN_REMAINING_TTL = 3600
 
 
 async def get_bot_bearer_token(redis: Redis, telegram_id: int) -> str | None:
@@ -32,12 +39,11 @@ async def get_bot_auth_headers(redis: Redis, telegram_id: int) -> dict[str, str]
 
 
 class UserRegistrationMiddleware(BaseMiddleware):
-    """Ensures user is registered and has a Bearer session for API calls."""
+    """Ensures user is registered and has a fresh Bearer session for API calls."""
 
     def __init__(self, api_base_url: str, redis: Redis):
         self._api_base_url = api_base_url.rstrip("/")
         self._client = httpx.AsyncClient(timeout=10.0)
-        self._registered: set[int] = set()
         self._redis = redis
 
     async def __call__(
@@ -54,30 +60,32 @@ class UserRegistrationMiddleware(BaseMiddleware):
         elif isinstance(event, CallbackQuery) and event.from_user:
             user = event.from_user
 
-        if user and user.id not in self._registered:
-            try:
-                resp = await self._client.post(
-                    f"{self._api_base_url}/api/v1/auth/telegram",
-                    json={
-                        "telegram_id": user.id,
-                        "username": user.username,
-                        "first_name": user.first_name,
-                    },
-                )
-                if resp.status_code == 200:
-                    self._registered.add(user.id)
-                    resp_data = resp.json()
-                    data["api_user"] = resp_data
+        if user:
+            key = _BOT_SESSION_KEY.format(user.id)
+            ttl = await self._redis.ttl(key)
+            needs_refresh = ttl < _MIN_REMAINING_TTL
 
-                    token = resp_data.get("session_token")
-                    if token:
-                        await self._redis.set(
-                            _BOT_SESSION_KEY.format(user.id),
-                            token,
-                            ex=_BOT_SESSION_TTL,
-                        )
-            except Exception:
-                logger.exception("Failed to register user %s", user.id)
+            if needs_refresh:
+                try:
+                    resp = await self._client.post(
+                        f"{self._api_base_url}/api/v1/auth/telegram",
+                        json={
+                            "telegram_id": user.id,
+                            "username": user.username,
+                            "first_name": user.first_name,
+                        },
+                    )
+                    if resp.status_code == 200:
+                        resp_data = resp.json()
+                        data["api_user"] = resp_data
+
+                        token = resp_data.get("session_token")
+                        if token:
+                            await self._redis.set(
+                                key, token, ex=_bot_session_ttl(),
+                            )
+                except Exception:
+                    logger.exception("Failed to register/refresh user %s", user.id)
 
         data["api_base_url"] = self._api_base_url
         return await handler(event, data)

@@ -141,10 +141,11 @@ async def _fetch_gen_image_from_redis(redis: Redis | None, task_id: str | None) 
 
 async def _get_credit_balance(user_id: int, redis: Redis | None = None, api_base_url: str = "") -> int | None:
     try:
+        api_base = settings.edge_api_url.rstrip("/") if settings.edge_api_url else (api_base_url or settings.api_base_url)
         headers: dict[str, str] = {}
         if redis:
-            headers = await get_bot_auth_headers(redis, user_id)
-        api_base = settings.edge_api_url.rstrip("/") if settings.edge_api_url else (api_base_url or settings.api_base_url)
+            from src.bot.handlers.mode_select import _get_api_headers
+            headers = await _get_api_headers(redis, user_id, api_base)
         async with httpx.AsyncClient(timeout=5.0) as client:
             resp = await client.get(
                 f"{api_base}/api/v1/payments/balance",

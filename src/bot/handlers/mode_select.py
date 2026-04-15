@@ -183,6 +183,32 @@ async def on_retry(callback: CallbackQuery, api_base_url: str, redis: Redis):
     await _submit_analysis(callback, api_base_url, redis, mode, style)
 
 
+async def _get_api_headers(redis: Redis, user_id: int, api_url: str, user=None) -> dict[str, str]:
+    """Get auth headers appropriate for the target API (edge or primary)."""
+    from src.config import settings
+    if settings.edge_api_url and api_url.rstrip("/") == settings.edge_api_url.rstrip("/"):
+        username = getattr(user, "username", None) if user else None
+        first_name = getattr(user, "first_name", None) if user else None
+        token = await _ensure_edge_session(redis, user_id, username, first_name, api_url.rstrip("/"))
+        if token:
+            return {"Authorization": f"Bearer {token}"}
+    return await get_bot_auth_headers(redis, user_id)
+
+
+async def _refresh_api_headers(redis: Redis, user_id: int, api_url: str, user=None) -> dict[str, str]:
+    """Force-refresh auth headers (delete cached session, obtain new one)."""
+    from src.config import settings
+    if settings.edge_api_url and api_url.rstrip("/") == settings.edge_api_url.rstrip("/"):
+        username = getattr(user, "username", None) if user else None
+        first_name = getattr(user, "first_name", None) if user else None
+        token = await _force_refresh_edge_session(redis, user_id, username, first_name, api_url.rstrip("/"))
+        if token:
+            return {"Authorization": f"Bearer {token}"}
+    from src.bot.middleware import _BOT_SESSION_KEY
+    await redis.delete(_BOT_SESSION_KEY.format(user_id))
+    return await get_bot_auth_headers(redis, user_id)
+
+
 async def _call_pre_analyze(bot, api_base_url: str, user_id: int, file_id: str, mode: str, redis: Redis) -> dict | None:
     """Download the user's photo and call POST /api/v1/pre-analyze. Returns response dict or None on failure."""
     try:
@@ -194,7 +220,7 @@ async def _call_pre_analyze(bot, api_base_url: str, user_id: int, file_id: str, 
         file_bytes.seek(0)
         image_data = file_bytes.read()
 
-        headers = await get_bot_auth_headers(redis, user_id)
+        headers = await _get_api_headers(redis, user_id, api_base_url)
         async with httpx.AsyncClient(timeout=20.0) as client:
             resp = await client.post(
                 f"{api_base_url}/api/v1/pre-analyze",
@@ -204,6 +230,17 @@ async def _call_pre_analyze(bot, api_base_url: str, user_id: int, file_id: str, 
             )
         if resp.status_code == 200:
             return resp.json()
+        if resp.status_code == 401:
+            headers = await _refresh_api_headers(redis, user_id, api_base_url)
+            async with httpx.AsyncClient(timeout=20.0) as client:
+                resp = await client.post(
+                    f"{api_base_url}/api/v1/pre-analyze",
+                    files={"image": ("photo.jpg", image_data, "image/jpeg")},
+                    data={"mode": mode},
+                    headers=headers,
+                )
+            if resp.status_code == 200:
+                return resp.json()
         logger.warning("pre-analyze returned %s: %s", resp.status_code, resp.text[:200])
     except Exception:
         logger.exception("pre-analyze call failed for user %s", user_id)
@@ -305,7 +342,7 @@ async def _submit_analysis(callback: CallbackQuery, api_base_url: str, redis: Re
                 pre_id = pre_id.decode()
             form_data["pre_analysis_id"] = pre_id
 
-        auth_headers = await get_bot_auth_headers(redis, user_id)
+        auth_headers = await _get_api_headers(redis, user_id, analyze_api, callback.from_user)
         async with httpx.AsyncClient(timeout=30.0) as client:
             resp = await client.post(
                 f"{analyze_api}/api/v1/analyze",
@@ -313,6 +350,17 @@ async def _submit_analysis(callback: CallbackQuery, api_base_url: str, redis: Re
                 data=form_data,
                 headers=auth_headers,
             )
+
+        if resp.status_code == 401:
+            auth_headers = await _refresh_api_headers(redis, user_id, analyze_api, callback.from_user)
+            file_bytes_retry = io.BytesIO(image_data)
+            async with httpx.AsyncClient(timeout=30.0) as client:
+                resp = await client.post(
+                    f"{analyze_api}/api/v1/analyze",
+                    files={"image": ("photo.jpg", file_bytes_retry.read(), "image/jpeg")},
+                    data=form_data,
+                    headers=auth_headers,
+                )
 
         if resp.status_code == 202:
             task_data = resp.json()
@@ -379,6 +427,19 @@ async def on_buy(callback: CallbackQuery, api_base_url: str, redis: Redis):
                 headers={"Authorization": f"Bearer {session_token}"},
             )
 
+        if resp.status_code == 401:
+            session_token = await _force_refresh_edge_session(
+                redis, tg_id, callback.from_user.username,
+                callback.from_user.first_name, payment_api,
+            )
+            if session_token:
+                async with httpx.AsyncClient(timeout=15.0) as client:
+                    resp = await client.post(
+                        f"{payment_api}/api/v1/payments/create",
+                        json={"pack_qty": pack_qty},
+                        headers={"Authorization": f"Bearer {session_token}"},
+                    )
+
         if resp.status_code != 200:
             detail = resp.json().get("detail", "unknown error") if resp.headers.get("content-type", "").startswith("application/json") else resp.text[:200]
             logger.error("Payment create failed on %s: %s %s", payment_api, resp.status_code, detail)
@@ -425,17 +486,22 @@ async def on_balance(callback: CallbackQuery, api_base_url: str, redis: Redis):
     payment_api = settings.edge_api_url.rstrip("/") if settings.edge_api_url else api_base_url
 
     try:
-        token = await _ensure_edge_session(
-            redis, user_id, callback.from_user.username,
-            callback.from_user.first_name, payment_api,
-        )
-        headers = {"Authorization": f"Bearer {token}"} if token else await get_bot_auth_headers(redis, user_id)
+        headers = await _get_api_headers(redis, user_id, payment_api, callback.from_user)
 
         async with httpx.AsyncClient(timeout=10.0) as client:
             resp = await client.get(
                 f"{payment_api}/api/v1/payments/balance",
                 headers=headers,
             )
+
+        if resp.status_code == 401:
+            headers = await _refresh_api_headers(redis, user_id, payment_api, callback.from_user)
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                resp = await client.get(
+                    f"{payment_api}/api/v1/payments/balance",
+                    headers=headers,
+                )
+
         if resp.status_code == 200:
             data = resp.json()
             credits = data.get("image_credits", 0)
@@ -496,7 +562,12 @@ async def _resolve_user_id(api_base_url: str, telegram_id: int) -> str | None:
 
 
 _EDGE_SESSION_KEY = "bot_edge_session:{}"
-_EDGE_SESSION_TTL = 86400 * 7
+_EDGE_MIN_REMAINING_TTL = 3600
+
+
+def _edge_session_ttl() -> int:
+    from src.config import settings
+    return max(settings.session_ttl_seconds - 3600, 3600)
 
 
 async def _ensure_edge_session(
@@ -504,9 +575,12 @@ async def _ensure_edge_session(
     first_name: str | None, edge_url: str,
 ) -> str | None:
     """Get or create a session token on the edge server for this Telegram user."""
-    cached = await redis.get(_EDGE_SESSION_KEY.format(telegram_id))
+    key = _EDGE_SESSION_KEY.format(telegram_id)
+    cached = await redis.get(key)
     if cached:
-        return cached.decode() if isinstance(cached, bytes) else cached
+        ttl = await redis.ttl(key)
+        if ttl > _EDGE_MIN_REMAINING_TTL:
+            return cached.decode() if isinstance(cached, bytes) else cached
 
     try:
         async with httpx.AsyncClient(timeout=10.0) as client:
@@ -522,13 +596,20 @@ async def _ensure_edge_session(
             data = resp.json()
             token = data.get("session_token")
             if token:
-                await redis.set(
-                    _EDGE_SESSION_KEY.format(telegram_id), token, ex=_EDGE_SESSION_TTL,
-                )
+                await redis.set(key, token, ex=_edge_session_ttl())
                 return token
     except Exception:
         logger.exception("Failed to get edge session for tg=%s on %s", telegram_id, edge_url)
     return None
+
+
+async def _force_refresh_edge_session(
+    redis: Redis, telegram_id: int, username: str | None,
+    first_name: str | None, edge_url: str,
+) -> str | None:
+    """Delete cached edge session and create a new one."""
+    await redis.delete(_EDGE_SESSION_KEY.format(telegram_id))
+    return await _ensure_edge_session(redis, telegram_id, username, first_name, edge_url)
 
 
 # ------------------------------------------------------------------
@@ -622,13 +703,23 @@ async def _poll_task(bot, api_base_url: str, user_id: int, task_id: str, chat_id
     except Exception:
         logger.warning("Pub/Sub failed for task %s, falling back to polling", task_id)
 
+    _poll_auth_refreshed = False
+
     async def _fetch_task_status():
-        auth_headers = await get_bot_auth_headers(redis, user_id)
+        nonlocal _poll_auth_refreshed
+        auth_headers = await _get_api_headers(redis, user_id, api_base_url)
         async with httpx.AsyncClient(timeout=30.0) as client:
             resp = await client.get(
                 f"{api_base_url}/api/v1/tasks/{task_id}",
                 headers=auth_headers,
             )
+            if resp.status_code == 401 and not _poll_auth_refreshed:
+                _poll_auth_refreshed = True
+                auth_headers = await _refresh_api_headers(redis, user_id, api_base_url)
+                resp = await client.get(
+                    f"{api_base_url}/api/v1/tasks/{task_id}",
+                    headers=auth_headers,
+                )
             if resp.status_code != 200:
                 return None
             return resp.json()

@@ -68,6 +68,7 @@ export default function AppScreen({ onOpenAuthModal }: { onOpenAuthModal?: () =>
   const beforePerception = hasRealScores ? app.preAnalysis!.perception_scores : null;
 
   const [analysisRequested, setAnalysisRequested] = useState(false);
+  const improveFlowRef = useRef(false);
   const [movedToStorageModal, setMovedToStorageModal] = useState(false);
   const [streamedFact, setStreamedFact] = useState('');
   const [imageLoadError, setImageLoadError] = useState(false);
@@ -189,7 +190,9 @@ export default function AppScreen({ onOpenAuthModal }: { onOpenAuthModal?: () =>
       setAnalysisRequested(false); setLocalSimulating(false); setLocalSimDone(false);
       return;
     }
-    setAnalysisRequested(false);
+    const fromImprove = improveFlowRef.current;
+    improveFlowRef.current = false;
+    setAnalysisRequested(fromImprove);
     setSimStep(0);
     setStreamedText('');
     setLocalSimulating(false);
@@ -370,6 +373,7 @@ export default function AppScreen({ onOpenAuthModal }: { onOpenAuthModal?: () =>
       const res = await fetch(imageUrl, { credentials: 'omit' });
       const blob = await res.blob();
       const file = new File([blob], 'improve.jpg', { type: blob.type || 'image/jpeg' });
+      improveFlowRef.current = true;
       app.uploadPhoto(file);
       setStorageModalOpen(false);
     } catch {
