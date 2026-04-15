@@ -14,8 +14,6 @@ from aiogram import Bot
 from aiogram.types import BufferedInputFile, FSInputFile
 from redis.asyncio import Redis
 
-from src.bot.middleware import get_bot_auth_headers
-
 from src.bot.keyboards import post_result_keyboard, upgrade_keyboard, action_keyboard
 from src.config import settings
 from src.services.enhancement_advisor import build_enhancement_preview
