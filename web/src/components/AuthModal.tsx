@@ -30,7 +30,9 @@ export default function AuthModal({ open, onClose, onOAuth, required }: Props) {
     };
   }, [open, onClose, required]);
 
-  const showGoogle = !window.location.hostname.startsWith('ru.');
+  const isRussian = window.location.hostname.startsWith('ru.');
+  const showGoogle = !isRussian;
+  const showRuProviders = isRussian;
 
   const handleOAuth = useCallback(async (provider: 'yandex' | 'vk-id' | 'google') => {
     if (!onOAuth) return;
@@ -89,47 +91,15 @@ export default function AuthModal({ open, onClose, onOAuth, required }: Props) {
               </h3>
               <p className="text-[14px] leading-[20px] text-[var(--color-text-secondary)]">
                 {required
-                  ? 'В соответствии с законодательством, для использования приложения необходима авторизация'
-                  : 'Войдите через аккаунт Яндекс или ВКонтакте, чтобы увидеть результаты анализа'}
+                  ? 'Для использования приложения необходима авторизация'
+                  : isRussian
+                    ? 'Войдите через аккаунт Яндекс или ВКонтакте, чтобы увидеть результаты анализа'
+                    : 'Sign in with Google to see your analysis results'}
               </p>
             </div>
 
             {/* OAuth buttons */}
             <div className="flex flex-col gap-[var(--space-12)]">
-              <button
-                type="button"
-                disabled={oauthLoading !== null}
-                onClick={() => handleOAuth('yandex')}
-                className="w-full flex items-center justify-center gap-3 px-[var(--space-20)] py-[var(--space-12)] text-[15px] leading-[22px] rounded-[var(--radius-12)] font-medium transition-all disabled:opacity-50"
-                style={{
-                  background: '#FC3F1D',
-                  color: '#fff',
-                  border: 'none',
-                }}
-              >
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-                  <path d="M13.32 7.666h-.924c-1.694 0-2.585.858-2.585 2.123 0 1.43.616 2.1 1.881 2.959l1.045.704-3.003 4.548H7.5l2.739-4.064c-1.584-1.155-2.475-2.31-2.475-4.147 0-2.354 1.628-3.97 4.643-3.97h2.926V18H13.32V7.666z" fill="currentColor"/>
-                </svg>
-                {oauthLoading === 'yandex' ? 'Перенаправление...' : 'Войти через Яндекс'}
-              </button>
-
-              <button
-                type="button"
-                disabled={oauthLoading !== null}
-                onClick={() => handleOAuth('vk-id')}
-                className="w-full flex items-center justify-center gap-3 px-[var(--space-20)] py-[var(--space-12)] text-[15px] leading-[22px] rounded-[var(--radius-12)] font-medium transition-all disabled:opacity-50"
-                style={{
-                  background: '#0077FF',
-                  color: '#fff',
-                  border: 'none',
-                }}
-              >
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-                  <path d="M12.77 17.29c-5.47 0-8.59-3.74-8.72-9.96h2.74c.09 4.56 2.1 6.49 3.69 6.89V7.33h2.58v3.93c1.57-.17 3.22-1.97 3.78-3.93h2.58c-.43 2.41-2.24 4.21-3.52 4.94 1.28.59 3.33 2.16 4.11 5.02h-2.84c-.61-1.9-2.13-3.37-4.11-3.57v3.57h-.29z" fill="currentColor"/>
-                </svg>
-                {oauthLoading === 'vk-id' ? 'Перенаправление...' : 'Войти через ВКонтакте'}
-              </button>
-
               {showGoogle && (
                 <button
                   type="button"
@@ -149,6 +119,44 @@ export default function AuthModal({ open, onClose, onOAuth, required }: Props) {
                     <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
                   </svg>
                   {oauthLoading === 'google' ? 'Перенаправление...' : 'Sign in with Google'}
+                </button>
+              )}
+
+              {showRuProviders && (
+                <button
+                  type="button"
+                  disabled={oauthLoading !== null}
+                  onClick={() => handleOAuth('yandex')}
+                  className="w-full flex items-center justify-center gap-3 px-[var(--space-20)] py-[var(--space-12)] text-[15px] leading-[22px] rounded-[var(--radius-12)] font-medium transition-all disabled:opacity-50"
+                  style={{
+                    background: '#FC3F1D',
+                    color: '#fff',
+                    border: 'none',
+                  }}
+                >
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                    <path d="M13.32 7.666h-.924c-1.694 0-2.585.858-2.585 2.123 0 1.43.616 2.1 1.881 2.959l1.045.704-3.003 4.548H7.5l2.739-4.064c-1.584-1.155-2.475-2.31-2.475-4.147 0-2.354 1.628-3.97 4.643-3.97h2.926V18H13.32V7.666z" fill="currentColor"/>
+                  </svg>
+                  {oauthLoading === 'yandex' ? 'Перенаправление...' : 'Войти через Яндекс'}
+                </button>
+              )}
+
+              {showRuProviders && (
+                <button
+                  type="button"
+                  disabled={oauthLoading !== null}
+                  onClick={() => handleOAuth('vk-id')}
+                  className="w-full flex items-center justify-center gap-3 px-[var(--space-20)] py-[var(--space-12)] text-[15px] leading-[22px] rounded-[var(--radius-12)] font-medium transition-all disabled:opacity-50"
+                  style={{
+                    background: '#0077FF',
+                    color: '#fff',
+                    border: 'none',
+                  }}
+                >
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                    <path d="M12.77 17.29c-5.47 0-8.59-3.74-8.72-9.96h2.74c.09 4.56 2.1 6.49 3.69 6.89V7.33h2.58v3.93c1.57-.17 3.22-1.97 3.78-3.93h2.58c-.43 2.41-2.24 4.21-3.52 4.94 1.28.59 3.33 2.16 4.11 5.02h-2.84c-.61-1.9-2.13-3.37-4.11-3.57v3.57h-.29z" fill="currentColor"/>
+                  </svg>
+                  {oauthLoading === 'vk-id' ? 'Перенаправление...' : 'Войти через ВКонтакте'}
                 </button>
               )}
             </div>

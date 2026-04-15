@@ -43,15 +43,25 @@ export default function StorageModal({ items, open, onClose, onImprove }: Props)
   const [viewTab, setViewTab] = useState<'result' | 'original'>('result');
   const [shareData, setShareData] = useState<{ url: string; text: string; imageUrl: string } | null>(null);
   const [shareLoading, setShareLoading] = useState(false);
-  const [shareOpen, setShareOpen] = useState(false);
   const [downloadError, setDownloadError] = useState(false);
   const [imgErrors, setImgErrors] = useState<Record<string, boolean>>({});
 
+  const item = items[idx];
+
   useEffect(() => {
-    if (open) { setIdx(0); setViewTab('result'); setShareOpen(false); setShareData(null); }
+    if (open) { setIdx(0); setViewTab('result'); setShareData(null); }
   }, [open]);
 
-  const item = items[idx];
+  useEffect(() => {
+    if (!open || !item?.task_id) return;
+    if (shareData) return;
+    setShareLoading(true);
+    createShare(item.task_id)
+      .then(res => setShareData({ url: res.deep_link, text: res.caption, imageUrl: res.image_url || '' }))
+      .catch(() => {})
+      .finally(() => setShareLoading(false));
+  }, [open, item?.task_id]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const styleInfo = item ? STYLE_LOOKUP[item.style] : null;
   const canPrev = idx > 0;
   const canNext = idx < items.length - 1;
@@ -62,7 +72,6 @@ export default function StorageModal({ items, open, onClose, onImprove }: Props)
     setIdx(i => i - 1);
     setViewTab('result');
     setShareData(null);
-    setShareOpen(false);
   }, [canPrev]);
 
   const goNext = useCallback(() => {
@@ -71,7 +80,6 @@ export default function StorageModal({ items, open, onClose, onImprove }: Props)
     setIdx(i => i + 1);
     setViewTab('result');
     setShareData(null);
-    setShareOpen(false);
   }, [canNext]);
 
   useEffect(() => {
@@ -108,19 +116,6 @@ export default function StorageModal({ items, open, onClose, onImprove }: Props)
     }
   }
 
-  async function handleToggleShare() {
-    if (shareOpen) { setShareOpen(false); return; }
-    if (shareData) { setShareOpen(true); return; }
-    if (!item?.task_id || shareLoading) return;
-    setShareLoading(true);
-    try {
-      const res = await createShare(item.task_id);
-      setShareData({ url: res.deep_link, text: res.caption, imageUrl: res.image_url || '' });
-      setShareOpen(true);
-    } catch { /* ignore */ }
-    setShareLoading(false);
-  }
-
   function handleDragEnd(_: unknown, info: { offset: { x: number } }) {
     if (info.offset.x < -SWIPE_THRESHOLD && canNext) goNext();
     else if (info.offset.x > SWIPE_THRESHOLD && canPrev) goPrev();
@@ -150,9 +145,9 @@ export default function StorageModal({ items, open, onClose, onImprove }: Props)
             >
               <button
                 onClick={onClose}
-                className="absolute top-[var(--space-16)] right-[var(--space-16)] w-8 h-8 flex items-center justify-center rounded-full glass-btn-ghost text-[var(--color-text-muted)] hover:text-[#E6EEF8] transition-colors"
+                className="absolute top-3 right-3 w-10 h-10 flex items-center justify-center rounded-full glass-btn-ghost text-[var(--color-text-muted)] hover:text-[#E6EEF8] transition-colors"
               >
-                <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                <svg width="20" height="20" viewBox="0 0 16 16" fill="none">
                   <path d="M4 4L12 12M12 4L4 12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
                 </svg>
               </button>
@@ -174,19 +169,20 @@ export default function StorageModal({ items, open, onClose, onImprove }: Props)
               transition={{ duration: 0.25, ease: 'easeOut' }}
               onClick={(e) => e.stopPropagation()}
             >
-              {/* Header row: close + counter + tabs */}
-              <div className="shrink-0 flex items-center justify-between gap-2">
-                <button
-                  onClick={onClose}
-                  className="w-8 h-8 flex items-center justify-center rounded-full glass-btn-ghost text-[var(--color-text-muted)] hover:text-[#E6EEF8] transition-colors shrink-0"
-                >
-                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                    <path d="M4 4L12 12M12 4L4 12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-                  </svg>
-                </button>
+              {/* Close button -- absolute top-right */}
+              <button
+                onClick={onClose}
+                className="absolute top-3 right-3 z-10 w-10 h-10 flex items-center justify-center rounded-full glass-btn-ghost text-[var(--color-text-muted)] hover:text-[#E6EEF8] transition-colors"
+              >
+                <svg width="20" height="20" viewBox="0 0 16 16" fill="none">
+                  <path d="M4 4L12 12M12 4L4 12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                </svg>
+              </button>
 
+              {/* Header row: counter left + centered tabs */}
+              <div className="shrink-0 flex items-center justify-center relative">
                 {items.length > 1 && (
-                  <span className="text-[12px] text-[var(--color-text-muted)] tabular-nums shrink-0">
+                  <span className="absolute left-0 text-[12px] text-[var(--color-text-muted)] tabular-nums">
                     {idx + 1} / {items.length}
                   </span>
                 )}
@@ -265,12 +261,10 @@ export default function StorageModal({ items, open, onClose, onImprove }: Props)
                   </motion.div>
                 </AnimatePresence>
 
-                {/* Navigation arrows (desktop hover) */}
                 {canPrev && (
                   <button
                     onClick={goPrev}
-                    className="hidden tablet:flex absolute left-1 top-1/2 -translate-y-1/2 w-8 h-8 items-center justify-center rounded-full bg-black/40 text-white/70 hover:text-white hover:bg-black/60 transition-all opacity-0 group-hover:opacity-100"
-                    style={{ opacity: 1 }}
+                    className="hidden tablet:flex absolute left-1 top-1/2 -translate-y-1/2 w-8 h-8 items-center justify-center rounded-full bg-black/40 text-white/70 hover:text-white hover:bg-black/60 transition-all"
                   >
                     <svg width="16" height="16" viewBox="0 0 20 20" fill="none"><path d="M12 4L6 10L12 16" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
                   </button>
@@ -278,8 +272,7 @@ export default function StorageModal({ items, open, onClose, onImprove }: Props)
                 {canNext && (
                   <button
                     onClick={goNext}
-                    className="hidden tablet:flex absolute right-1 top-1/2 -translate-y-1/2 w-8 h-8 items-center justify-center rounded-full bg-black/40 text-white/70 hover:text-white hover:bg-black/60 transition-all opacity-0 group-hover:opacity-100"
-                    style={{ opacity: 1 }}
+                    className="hidden tablet:flex absolute right-1 top-1/2 -translate-y-1/2 w-8 h-8 items-center justify-center rounded-full bg-black/40 text-white/70 hover:text-white hover:bg-black/60 transition-all"
                   >
                     <svg width="16" height="16" viewBox="0 0 20 20" fill="none"><path d="M8 4L14 10L8 16" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
                   </button>
@@ -292,7 +285,7 @@ export default function StorageModal({ items, open, onClose, onImprove }: Props)
                   {items.map((_, i) => (
                     <button
                       key={i}
-                      onClick={() => { setDir(i > idx ? 1 : -1); setIdx(i); setViewTab('result'); setShareData(null); setShareOpen(false); }}
+                      onClick={() => { setDir(i > idx ? 1 : -1); setIdx(i); setViewTab('result'); setShareData(null); }}
                       className={`rounded-full transition-all ${
                         i === idx
                           ? 'w-5 h-1.5 bg-[rgb(var(--accent-r),var(--accent-g),var(--accent-b))]'
@@ -330,13 +323,13 @@ export default function StorageModal({ items, open, onClose, onImprove }: Props)
                 />
               </div>
 
-              {/* Perception scores -- compact pills */}
+              {/* Perception scores -- full-width pills */}
               {perceptionEntries.length > 0 && (
-                <div className="shrink-0 flex flex-wrap items-center justify-center gap-1.5 px-1">
+                <div className="shrink-0 grid grid-cols-3 gap-1.5">
                   {perceptionEntries.map(([key, value]) => (
                     <span
                       key={key}
-                      className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] leading-[14px]"
+                      className="flex items-center justify-center gap-1 px-1 py-0.5 rounded-full text-[11px] leading-[14px]"
                       style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.08)' }}
                     >
                       <span className="text-[var(--color-text-secondary)]">{PARAM_LABELS[key] ?? key}</span>
@@ -352,54 +345,38 @@ export default function StorageModal({ items, open, onClose, onImprove }: Props)
                 </p>
               )}
 
-              {/* Actions + inline share */}
-              <div className="shrink-0 flex flex-col gap-[var(--space-6)]">
-                <div className="flex gap-[var(--space-6)]">
-                  {onImprove && (
-                    <button
-                      onClick={() => item.generated_image_url && onImprove(normalizeImageUrl(item.generated_image_url))}
-                      disabled={!item.generated_image_url}
-                      className="flex-1 glass-btn-primary rounded-[var(--radius-12)] py-[var(--space-6)] text-[12px] font-semibold text-white flex items-center justify-center gap-1 disabled:opacity-40"
-                    >
-                      <svg width="12" height="12" viewBox="0 0 16 16" fill="none"><path d="M1.333 8A6.667 6.667 0 0012 3.333M14.667 8A6.667 6.667 0 014 12.667" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/><path d="M12 1.333v2h2M4 14.667v-2H2" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/></svg>
-                      Улучшить
-                    </button>
-                  )}
+              {/* Actions: only Improve + Download */}
+              <div className="shrink-0 flex gap-[var(--space-8)]">
+                {onImprove && (
                   <button
-                    onClick={handleDownload}
+                    onClick={() => item.generated_image_url && onImprove(normalizeImageUrl(item.generated_image_url))}
                     disabled={!item.generated_image_url}
-                    className="flex-1 glass-btn-ghost rounded-[var(--radius-12)] py-[var(--space-6)] text-[12px] font-medium text-[#E6EEF8] flex items-center justify-center gap-1 disabled:opacity-40"
+                    className="flex-1 glass-btn-primary rounded-[var(--radius-12)] py-[var(--space-8)] text-[13px] font-semibold text-white flex items-center justify-center gap-1.5 disabled:opacity-40"
                   >
-                    <svg width="12" height="12" viewBox="0 0 16 16" fill="none"><path d="M8 2v8m0 0L5 7m3 3l3-3M3 12h10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
-                    Скачать
+                    <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M1.333 8A6.667 6.667 0 0012 3.333M14.667 8A6.667 6.667 0 014 12.667" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/><path d="M12 1.333v2h2M4 14.667v-2H2" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                    Улучшить
                   </button>
-                  <button
-                    onClick={handleToggleShare}
-                    disabled={shareLoading}
-                    className={`flex-1 rounded-[var(--radius-12)] py-[var(--space-6)] text-[12px] font-medium flex items-center justify-center gap-1 disabled:opacity-40 transition-all ${
-                      shareOpen ? 'glass-btn-primary text-white' : 'glass-btn-ghost text-[#E6EEF8]'
-                    }`}
-                  >
-                    <svg width="12" height="12" viewBox="0 0 16 16" fill="none"><path d="M6 9.333l4-2.666M6 6.667l4 2.666M12 4a2 2 0 11-4 0 2 2 0 014 0zM6 8a2 2 0 11-4 0 2 2 0 014 0zM12 12a2 2 0 11-4 0 2 2 0 014 0z" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/></svg>
-                    {shareLoading ? '...' : 'Поделиться'}
-                  </button>
-                </div>
-
-                {/* Inline share buttons */}
-                <AnimatePresence>
-                  {shareOpen && shareData && (
-                    <motion.div
-                      initial={{ height: 0, opacity: 0 }}
-                      animate={{ height: 'auto', opacity: 1 }}
-                      exit={{ height: 0, opacity: 0 }}
-                      transition={{ duration: 0.2, ease: 'easeOut' }}
-                      className="overflow-hidden"
-                    >
-                      <ShareButtons url={shareData.url} text={shareData.text} imageUrl={shareData.imageUrl} compact />
-                    </motion.div>
-                  )}
-                </AnimatePresence>
+                )}
+                <button
+                  onClick={handleDownload}
+                  disabled={!item.generated_image_url}
+                  className="flex-1 glass-btn-ghost rounded-[var(--radius-12)] py-[var(--space-8)] text-[13px] font-medium text-[#E6EEF8] flex items-center justify-center gap-1.5 disabled:opacity-40"
+                >
+                  <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M8 2v8m0 0L5 7m3 3l3-3M3 12h10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                  Скачать
+                </button>
               </div>
+
+              {/* Share -- always visible */}
+              {shareLoading ? (
+                <div className="shrink-0 flex items-center justify-center py-2">
+                  <div className="w-5 h-5 border-2 border-t-transparent rounded-full animate-spin" style={{ borderColor: 'rgba(var(--accent-r),var(--accent-g),var(--accent-b),0.5)', borderTopColor: 'transparent' }} />
+                </div>
+              ) : shareData ? (
+                <div className="shrink-0">
+                  <ShareButtons url={shareData.url} text={shareData.text} imageUrl={shareData.imageUrl} />
+                </div>
+              ) : null}
             </motion.div>
           )}
         </motion.div>
