@@ -19,7 +19,7 @@ def test_style_catalog_all_entries_are_4_tuples():
             assert isinstance(label, str), f"{mode}[{i}] label must be str"
             assert isinstance(hook, str), f"{mode}[{i}] hook must be str"
             assert isinstance(meta, dict), f"{mode}[{i}] meta must be dict"
-            assert meta["param"] in ("warmth", "presence", "appeal"), (
+            assert meta["param"] in ("warmth", "presence", "appeal", "trust", "competence", "hireability"), (
                 f"{mode}[{i}] invalid param: {meta['param']}"
             )
             lo, hi = meta["delta_range"]
