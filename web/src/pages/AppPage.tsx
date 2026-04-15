@@ -1,4 +1,5 @@
-import { useState, useCallback, useEffect, useRef } from 'react';
+import { useState, useCallback, useEffect, useRef, useMemo } from 'react';
+import { useParams, Navigate } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import { CoinIcon, ImageIcon } from '@ai-ds/core/icons';
 import NavBar from '../sections/NavBar';
@@ -9,11 +10,12 @@ import StepBar from '../components/wizard/StepBar';
 import StepUpload from '../components/wizard/StepUpload';
 import StepAnalysis from '../components/wizard/StepAnalysis';
 import StepStyle from '../components/wizard/StepStyle';
+import StepDocumentFormat from '../components/wizard/StepDocumentFormat';
 import StepGenerate from '../components/wizard/StepGenerate';
 import StorageModal from '../components/StorageModal';
 import { useApp } from '../context/AppContext';
-import { type WizardStepId } from '../components/wizard/shared';
-import { STYLES_BY_CATEGORY } from '../data/styles';
+import { type WizardStepId, getWizardStepsForScenario } from '../components/wizard/shared';
+import { getScenario } from '../scenarios/config';
 
 const STEP_ORDER: WizardStepId[] = ['upload', 'analysis', 'style', 'generate'];
 
@@ -34,6 +36,18 @@ const slideVariants = {
 
 export default function AppPage() {
   const app = useApp();
+  const { scenarioSlug } = useParams<{ scenarioSlug: string }>();
+
+  useEffect(() => {
+    app.syncScenarioFromRoute(scenarioSlug);
+  }, [scenarioSlug, app.syncScenarioFromRoute]);
+
+  const wizardSteps = useMemo(
+    () => getWizardStepsForScenario(app.scenarioStep3Mode),
+    [app.scenarioStep3Mode],
+  );
+  const isDocumentScenario = app.scenarioStep3Mode === 'document_formats';
+
   const [currentStep, setCurrentStep] = useState<WizardStepId>(() => {
     const saved = localStorage.getItem('returnToStep');
     if (saved && STEP_ORDER.includes(saved as WizardStepId)) {
@@ -101,8 +115,8 @@ export default function AppPage() {
     }
   }
 
-  const selectedStyle = STYLES_BY_CATEGORY[app.activeCategory]?.find(s => s.key === app.selectedStyleKey)
-    ?? STYLES_BY_CATEGORY[app.activeCategory]?.[0];
+  const selectedStyle = app.effectiveStyleList.find(s => s.key === app.selectedStyleKey)
+    ?? app.effectiveStyleList[0];
   const predictedDelta = selectedStyle
     ? (selectedStyle.deltaRange[0] + selectedStyle.deltaRange[1]) / 2
     : null;
@@ -118,6 +132,10 @@ export default function AppPage() {
           : null;
 
   const showCounters = app.isAuthenticated;
+
+  if (scenarioSlug && !getScenario(scenarioSlug)) {
+    return <Navigate to="/app" replace />;
+  }
 
   return (
     <div data-category={app.activeCategory} className="h-dvh flex flex-col w-full overflow-hidden selection:bg-brand-primary/30">
@@ -147,6 +165,7 @@ export default function AppPage() {
               analysisScore={beforeScore}
               styleDelta={predictedDelta}
               finalScore={displayAfterScore}
+              steps={wizardSteps}
             />
           </div>
 
@@ -186,7 +205,10 @@ export default function AppPage() {
                 {currentStep === 'analysis' && (
                   <StepAnalysis onNext={goNext} />
                 )}
-                {currentStep === 'style' && (
+                {currentStep === 'style' && isDocumentScenario && (
+                  <StepDocumentFormat onNext={goNext} />
+                )}
+                {currentStep === 'style' && !isDocumentScenario && (
                   <StepStyle onNext={goNext} />
                 )}
                 {currentStep === 'generate' && (

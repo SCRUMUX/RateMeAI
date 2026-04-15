@@ -1,7 +1,8 @@
 import { useState, useRef, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { CoinIcon } from '@ai-ds/core/icons';
-import { STYLES_BY_CATEGORY } from '../../data/styles';
+import { setPostPaymentReturnPath, normalizePostPaymentPath } from '../../scenarios/config';
+import { createPayment, ApiError } from '../../lib/api';
 import { PERCEPTION_FACTS, getRandomFact } from '../../data/ai-facts';
 import { useApp } from '../../context/AppContext';
 import ProgressBar from './ProgressBar';
@@ -38,7 +39,7 @@ export default function StepGenerate({ onGoToStep, onOpenStorage }: Props) {
   const navigate = useNavigate();
 
   const activeTab = app.activeCategory;
-  const styles = STYLES_BY_CATEGORY[activeTab];
+  const styles = app.effectiveStyleList;
   const selectedStyle = styles.find(s => s.key === app.selectedStyleKey) ?? styles[0];
 
   const hasRealScores = !!app.preAnalysis;
@@ -144,12 +145,32 @@ export default function StepGenerate({ onGoToStep, onOpenStorage }: Props) {
     await app.generate(undefined, effectiveStyle);
   }
 
+  const isDocPaywall = app.scenarioDocumentPaywall;
+  const paymentPackQty = app.scenarioPaymentPackQty ?? 5;
+
   useEffect(() => {
+    if (isDocPaywall) return;
     if (app.photo && !autoStartedRef.current && !hasGenResult && !app.isGenerating && !genFailed) {
       autoStartedRef.current = true;
       handleGenerate();
     }
   }, [app.photo]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const [paymentLoading, setPaymentLoading] = useState(false);
+
+  async function handleDocPaywallBuy() {
+    setPaymentLoading(true);
+    try {
+      const next = normalizePostPaymentPath(window.location.pathname) ?? '/app';
+      setPostPaymentReturnPath(next);
+      localStorage.setItem('returnToStep', 'generate');
+      const res = await createPayment(paymentPackQty);
+      window.location.href = res.confirmation_url;
+    } catch (e) {
+      alert(e instanceof ApiError ? 'Ошибка создания платежа' : 'Ошибка');
+      setPaymentLoading(false);
+    }
+  }
 
   const [shareData, setShareData] = useState<{ url: string; text: string; imageUrl: string } | null>(null);
   const [shareLoading, setShareLoading] = useState(false);
@@ -173,6 +194,8 @@ export default function StepGenerate({ onGoToStep, onOpenStorage }: Props) {
 
   function goToPricing() {
     setShowNoCredits(false);
+    const next = normalizePostPaymentPath(window.location.pathname) ?? '/app';
+    setPostPaymentReturnPath(next);
     localStorage.setItem('returnToStep', 'generate');
     navigate('/');
     setTimeout(() => document.getElementById('тарифы')?.scrollIntoView({ behavior: 'smooth' }), 300);
@@ -342,41 +365,102 @@ export default function StepGenerate({ onGoToStep, onOpenStorage }: Props) {
         </div>
       )}
 
+      {/* Document paywall — shown when balance is 0 and no generation started */}
+      {isDocPaywall && !hasGenResult && !isRunning && !genFailed && app.balance <= 0 && app.isAuthenticated && (
+        <div className="shrink-0 flex flex-col items-center gap-[var(--space-12)] text-center">
+          <div className="gradient-border-card glass-card flex flex-col items-center gap-[var(--space-12)] rounded-[var(--radius-12)] p-[var(--space-20)] max-w-[400px]">
+            <CoinIcon size={32} className="text-[var(--color-brand-primary)]" />
+            <h3 className="text-[18px] font-semibold text-[#E6EEF8]">Фото на документы</h3>
+            <p className="text-[14px] text-[var(--color-text-secondary)]">
+              Пакет из {paymentPackQty} фото за 199 рублей. Фотореалистичная обработка под требования документов.
+            </p>
+            <button
+              onClick={handleDocPaywallBuy}
+              disabled={paymentLoading}
+              className="glass-btn-primary w-full py-[var(--space-10)] text-[14px] leading-[20px] rounded-[var(--radius-pill)] font-medium"
+            >
+              {paymentLoading ? 'Загрузка...' : 'Оплатить 199 ₽'}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Document scenario — generate button (after payment / when has balance) */}
+      {isDocPaywall && !hasGenResult && !isRunning && !genFailed && app.balance > 0 && app.isAuthenticated && (
+        <div className="shrink-0 flex flex-col items-center gap-[var(--space-8)]">
+          <button
+            onClick={handleGenerate}
+            disabled={app.isGenerating}
+            className="glass-btn-primary px-[var(--space-32)] py-[var(--space-12)] text-[15px] leading-[22px] rounded-[var(--radius-pill)] font-medium"
+          >
+            Генерировать фото
+          </button>
+        </div>
+      )}
+
       {/* CTA buttons */}
       <div className="shrink-0 flex flex-col items-center gap-[var(--space-8)]">
         {hasGenResult && (
-          <div className="flex flex-wrap gap-[var(--space-8)] justify-center">
-            <button
-              onClick={() => onGoToStep('style')}
-              className="glass-btn-ghost px-[var(--space-16)] py-[var(--space-8)] text-[13px] leading-[18px] rounded-[var(--radius-pill)]"
-            >
-              Другой стиль
-            </button>
-            <button
-              onClick={() => {
-                app.resetGeneration();
-                setFrozenStyle(null);
-                onGoToStep('upload');
-              }}
-              className="glass-btn-ghost px-[var(--space-16)] py-[var(--space-8)] text-[13px] leading-[18px] rounded-[var(--radius-pill)]"
-            >
-              Другое фото
-            </button>
-            <button
-              onClick={handleGenerate}
-              disabled={app.isGenerating}
-              className="glass-btn-ghost px-[var(--space-16)] py-[var(--space-8)] text-[13px] leading-[18px] rounded-[var(--radius-pill)] disabled:opacity-40 disabled:cursor-not-allowed"
-            >
-              Улучшить ещё
-            </button>
-            <button
-              onClick={handleShowShare}
-              disabled={shareLoading}
-              className="glass-btn-primary px-[var(--space-16)] py-[var(--space-8)] text-[13px] leading-[18px] rounded-[var(--radius-pill)] disabled:opacity-40"
-            >
-              {shareLoading ? 'Загрузка...' : 'Поделиться'}
-            </button>
-          </div>
+          <>
+            {/* Download + main app CTA for document scenario */}
+            {isDocPaywall && app.generatedImageUrl && (
+              <div className="flex flex-col items-center gap-[var(--space-8)] mb-[var(--space-4)]">
+                <a
+                  href={app.generatedImageUrl}
+                  download="document-photo.jpg"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="glass-btn-primary px-[var(--space-24)] py-[var(--space-10)] text-[14px] leading-[20px] rounded-[var(--radius-pill)] font-medium no-underline inline-flex items-center gap-[var(--space-8)]"
+                >
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M8 2v8m0 0L5 7m3 3l3-3M3 12h10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                  Скачать фото
+                </a>
+              </div>
+            )}
+
+            <div className="flex flex-wrap gap-[var(--space-8)] justify-center">
+              <button
+                onClick={() => onGoToStep('style')}
+                className="glass-btn-ghost px-[var(--space-16)] py-[var(--space-8)] text-[13px] leading-[18px] rounded-[var(--radius-pill)]"
+              >
+                {isDocPaywall ? 'Другой формат' : 'Другой стиль'}
+              </button>
+              <button
+                onClick={() => {
+                  app.resetGeneration();
+                  setFrozenStyle(null);
+                  onGoToStep('upload');
+                }}
+                className="glass-btn-ghost px-[var(--space-16)] py-[var(--space-8)] text-[13px] leading-[18px] rounded-[var(--radius-pill)]"
+              >
+                Другое фото
+              </button>
+              <button
+                onClick={handleGenerate}
+                disabled={app.isGenerating}
+                className="glass-btn-ghost px-[var(--space-16)] py-[var(--space-8)] text-[13px] leading-[18px] rounded-[var(--radius-pill)] disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                Улучшить ещё
+              </button>
+              <button
+                onClick={handleShowShare}
+                disabled={shareLoading}
+                className="glass-btn-ghost px-[var(--space-16)] py-[var(--space-8)] text-[13px] leading-[18px] rounded-[var(--radius-pill)] disabled:opacity-40"
+              >
+                {shareLoading ? 'Загрузка...' : 'Поделиться'}
+              </button>
+            </div>
+
+            {/* Primary CTA — go to main app */}
+            {app.scenarioPrimaryCtaMainApp && (
+              <Link
+                to="/app"
+                className="glass-btn-primary mt-[var(--space-8)] px-[var(--space-24)] py-[var(--space-10)] text-[14px] leading-[20px] rounded-[var(--radius-pill)] font-medium no-underline inline-flex items-center justify-center"
+              >
+                Открыть AI Look Studio
+              </Link>
+            )}
+          </>
         )}
         {genFailed && !isRunning && !hasGenResult && (
           <button

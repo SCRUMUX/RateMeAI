@@ -3,6 +3,7 @@ import { AppProvider } from './context/AppContext';
 import { ToastProvider } from './components/Toast';
 import Landing from './pages/Landing';
 import AppPage from './pages/AppPage';
+import DocumentPhotoLanding from './pages/DocumentPhotoLanding';
 import PaymentSuccess from './pages/PaymentSuccess';
 import AuthCallback from './pages/AuthCallback';
 import LinkPage from './pages/LinkPage';
@@ -14,6 +15,8 @@ export default function App() {
         <AppProvider>
           <Routes>
             <Route path="/" element={<Landing />} />
+            <Route path="/dokumenty" element={<DocumentPhotoLanding />} />
+            <Route path="/app/:scenarioSlug" element={<AppPage />} />
             <Route path="/app" element={<AppPage />} />
             <Route path="/payment-success" element={<PaymentSuccess />} />
             <Route path="/auth/callback" element={<AuthCallback />} />

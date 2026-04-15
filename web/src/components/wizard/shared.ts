@@ -1,8 +1,7 @@
 import { PARAMS_BY_MODE, type CategoryId, type StyleItem } from '../../data/styles';
+import type { ScenarioStep3Mode } from '../../scenarios/config';
 
 export const STYLES_PER_PAGE = 8;
-
-
 
 export const PARAM_LABELS: Record<string, string> = {
   warmth: 'Теплота',
@@ -30,11 +29,30 @@ export function computeStyleDeltas(style: StyleItem, tab: CategoryId): Record<st
   return result;
 }
 
-export const WIZARD_STEPS = [
-  { id: 'upload' as const, number: 1, title: 'Загрузка', desc: 'Загрузите фото' },
-  { id: 'analysis' as const, number: 2, title: 'Анализ', desc: 'AI-анализ восприятия' },
-  { id: 'style' as const, number: 3, title: 'Стиль', desc: 'Выберите стиль' },
-  { id: 'generate' as const, number: 4, title: 'Результат', desc: 'Генерация и результат' },
-] as const;
+export interface WizardStep {
+  id: WizardStepId;
+  number: number;
+  title: string;
+  desc: string;
+}
 
-export type WizardStepId = typeof WIZARD_STEPS[number]['id'];
+export const WIZARD_STEPS: readonly WizardStep[] = [
+  { id: 'upload', number: 1, title: 'Загрузка', desc: 'Загрузите фото' },
+  { id: 'analysis', number: 2, title: 'Анализ', desc: 'AI-анализ восприятия' },
+  { id: 'style', number: 3, title: 'Стиль', desc: 'Выберите стиль' },
+  { id: 'generate', number: 4, title: 'Результат', desc: 'Генерация и результат' },
+];
+
+export type WizardStepId = 'upload' | 'analysis' | 'style' | 'generate';
+
+export function getWizardStepsForScenario(step3Mode: ScenarioStep3Mode | null): readonly WizardStep[] {
+  if (step3Mode === 'document_formats') {
+    return [
+      { id: 'upload', number: 1, title: 'Загрузка', desc: 'Загрузите фото' },
+      { id: 'analysis', number: 2, title: 'Анализ', desc: 'AI-анализ' },
+      { id: 'style', number: 3, title: 'Формат', desc: 'Выберите формат' },
+      { id: 'generate', number: 4, title: 'Результат', desc: 'Генерация и скачивание' },
+    ];
+  }
+  return WIZARD_STEPS;
+}

@@ -27,7 +27,17 @@ export default function AuthCallback() {
     if (token) {
       setToken(token);
       loginWithToken(token, userId, provider)
-        .then(() => navigate('/', { replace: true }))
+        .then(() => {
+          let path = '/';
+          try {
+            const ret = sessionStorage.getItem('ailook_return_after_oauth');
+            if (ret) {
+              sessionStorage.removeItem('ailook_return_after_oauth');
+              path = ret;
+            }
+          } catch { /* ignore */ }
+          navigate(path, { replace: true });
+        })
         .catch(() => setError('Не удалось завершить авторизацию. Попробуйте снова.'));
     } else {
       setError('Токен авторизации не получен. Попробуйте войти снова.');

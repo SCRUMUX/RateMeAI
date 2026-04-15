@@ -1,3 +1,5 @@
+import { TINDER_PACK_STYLE_ITEMS } from '../scenarios/extraStyles';
+
 export interface StyleItem {
   key: string;
   icon: string;
@@ -117,6 +119,7 @@ export const STYLES_BY_CATEGORY: Record<CategoryId, StyleItem[]> = {
     { key: 'warm_outdoor', icon: '🌤', name: 'На прогулке', desc: 'Естественный свет подчеркнёт натуральность и тепло', param: 'warmth', deltaRange: [0.22, 0.40] },
     { key: 'studio_elegant', icon: '✨', name: 'Студия', desc: 'Студийный свет создаст безупречный портрет', param: 'appeal', deltaRange: [0.62, 0.90] },
     { key: 'cafe', icon: '☕', name: 'Кафе / бар', desc: 'Расслабленная обстановка покажет лёгкость в общении', param: 'warmth', deltaRange: [0.18, 0.35] },
+    ...TINDER_PACK_STYLE_ITEMS,
   ],
   cv: [
     { key: 'corporate', icon: '🏢', name: 'Корпоративный', desc: 'Деловой фон усилит впечатление надёжности', param: 'presence', deltaRange: [0.35, 0.55] },

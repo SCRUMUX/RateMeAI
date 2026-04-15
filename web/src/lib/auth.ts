@@ -37,7 +37,13 @@ export async function login(): Promise<ChannelAuthResponse> {
 
 export async function startOAuth(
   provider: 'yandex' | 'vk-id' | 'google',
-  photoCtx?: { file: File; mode: string; style: string },
+  photoCtx?: {
+    file: File;
+    mode: string;
+    style: string;
+    scenarioSlug?: string;
+    returnPath?: string;
+  },
   linkCode?: string,
 ) {
   const deviceId = getDeviceId();
@@ -45,6 +51,8 @@ export async function startOAuth(
     await savePhotoBeforeOAuth(photoCtx.file, {
       mode: photoCtx.mode,
       style: photoCtx.style,
+      scenarioSlug: photoCtx.scenarioSlug,
+      returnPath: photoCtx.returnPath,
     });
   }
   const res = await oauthInit(provider, deviceId, linkCode);

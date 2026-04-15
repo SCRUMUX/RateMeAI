@@ -74,6 +74,7 @@ SCENARIO_STYLES: dict[str, list[str]] = {
         "rainy_day", "night_coffee", "evening_home",
         # status & sport
         "car_exit", "travel_luxury", "yoga_outdoor", "cycling",
+        "tinder_pack_rooftop_golden", "tinder_pack_minimal_studio", "tinder_pack_cafe_window",
     ],
     "cv": [
         "corporate", "boardroom", "formal_portrait", "creative", "startup_casual",
@@ -88,6 +89,11 @@ SCENARIO_STYLES: dict[str, list[str]] = {
         "man_with_mission",
         # moments
         "before_meeting", "between_meetings", "business_lounge", "decision_moment",
+        # Document photos (web scenario)
+        "doc_passport_neutral", "doc_visa_compliant", "doc_resume_headshot",
+        # Document format photos (document-photo scenario)
+        "docfmt_passport_rf", "docfmt_visa_schengen", "docfmt_us_passport",
+        "docfmt_driver_rf", "docfmt_student_id", "docfmt_resume_linkedin",
     ],
     "social": [
         "influencer", "influencer_urban", "influencer_minimal", "influencer_luxury",

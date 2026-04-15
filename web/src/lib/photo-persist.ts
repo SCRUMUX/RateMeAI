@@ -16,7 +16,7 @@ function openDB(): Promise<IDBDatabase> {
 
 export async function savePhotoBeforeOAuth(
   file: File,
-  ctx: { mode: string; style: string },
+  ctx: { mode: string; style: string; scenarioSlug?: string; returnPath?: string },
 ): Promise<void> {
   try {
     const buf = await file.arrayBuffer();
@@ -41,6 +41,8 @@ export interface RestoredPhoto {
   file: File;
   mode: string;
   style: string;
+  scenarioSlug?: string;
+  returnPath?: string;
 }
 
 export async function restorePhotoAfterOAuth(): Promise<RestoredPhoto | null> {
@@ -61,7 +63,13 @@ export async function restorePhotoAfterOAuth(): Promise<RestoredPhoto | null> {
 
     const file = new File([record.buffer], record.name, { type: record.type });
     const ctx = JSON.parse(raw);
-    return { file, mode: ctx.mode || '', style: ctx.style || '' };
+    return {
+      file,
+      mode: ctx.mode || '',
+      style: ctx.style || '',
+      scenarioSlug: ctx.scenarioSlug || undefined,
+      returnPath: ctx.returnPath || undefined,
+    };
   } catch {
     return null;
   }

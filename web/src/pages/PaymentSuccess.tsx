@@ -1,11 +1,13 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AicaIcon } from '@ai-ds/core/icons';
 import { useApp } from '../context/AppContext';
+import { consumePostPaymentReturnPath } from '../scenarios/config';
 
 export default function PaymentSuccess() {
   const { refreshBalance } = useApp();
   const navigate = useNavigate();
+  const [targetPath] = useState(() => consumePostPaymentReturnPath());
 
   useEffect(() => {
     refreshBalance();
@@ -33,7 +35,7 @@ export default function PaymentSuccess() {
         </p>
 
         <button
-          onClick={() => navigate('/app')}
+          onClick={() => navigate(targetPath || '/app')}
           className="glass-btn-primary mt-[var(--space-8)] px-[var(--space-24)] py-[var(--space-12)] text-[16px] leading-[24px] rounded-[var(--radius-12)]"
         >
           Вернуться к приложению

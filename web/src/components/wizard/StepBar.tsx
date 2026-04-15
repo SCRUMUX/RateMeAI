@@ -1,4 +1,4 @@
-import { WIZARD_STEPS, type WizardStepId } from './shared';
+import { WIZARD_STEPS, type WizardStepId, type WizardStep } from './shared';
 
 interface Props {
   currentStep: WizardStepId;
@@ -8,6 +8,7 @@ interface Props {
   analysisScore?: number | null;
   styleDelta?: number | null;
   finalScore?: number | null;
+  steps?: readonly WizardStep[];
 }
 
 function getCircleContent(
@@ -56,18 +57,19 @@ function getSegmentLabel(
   return null;
 }
 
-export default function StepBar({ currentStep, completedSteps, onStepClick, photoPreview, analysisScore, styleDelta, finalScore }: Props) {
-  const currentIdx = WIZARD_STEPS.findIndex(s => s.id === currentStep);
+export default function StepBar({ currentStep, completedSteps, onStepClick, photoPreview, analysisScore, styleDelta, finalScore, steps: customSteps }: Props) {
+  const steps = customSteps ?? WIZARD_STEPS;
+  const currentIdx = steps.findIndex(s => s.id === currentStep);
   const contextProps = { photoPreview, analysisScore, styleDelta, finalScore };
 
   return (
     <div className="w-full max-w-[960px] mx-auto">
       {/* Desktop / Tablet */}
       <div className="hidden tablet:flex items-center justify-between gap-[var(--space-24)]">
-        {WIZARD_STEPS.map((step) => {
+        {steps.map((step) => {
           const isCompleted = completedSteps.has(step.id);
           const isCurrent = step.id === currentStep;
-          const stepIdx = WIZARD_STEPS.findIndex(s => s.id === step.id);
+          const stepIdx = steps.findIndex(s => s.id === step.id);
           const isClickable = isCompleted || stepIdx <= currentIdx;
           const showAvatar = isCompleted && !isCurrent && step.id === 'upload' && !!photoPreview;
 
@@ -124,15 +126,15 @@ export default function StepBar({ currentStep, completedSteps, onStepClick, phot
       <div className="flex tablet:hidden flex-col gap-[var(--space-8)] px-[var(--space-4)]">
         <div className="flex items-center justify-between">
           <span className="text-[14px] leading-[20px] font-semibold text-[#E6EEF8]">
-            {WIZARD_STEPS[currentIdx].title}
+            {steps[currentIdx]?.title}
           </span>
           <span className="text-[12px] leading-[16px] text-[var(--color-text-muted)] tabular-nums">
-            Шаг {currentIdx + 1} из {WIZARD_STEPS.length}
+            Шаг {currentIdx + 1} из {steps.length}
           </span>
         </div>
 
         <div className="flex items-start gap-[6px]">
-          {WIZARD_STEPS.map((step, i) => {
+          {steps.map((step, i) => {
             const isCompleted = completedSteps.has(step.id);
             const isCurrent = step.id === currentStep;
             const isClickable = isCompleted || i <= currentIdx;

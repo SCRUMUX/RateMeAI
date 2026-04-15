@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { CoinIcon, ImageIcon } from '@ai-ds/core/icons';
 import { useApp } from '../context/AppContext';
 import { createPayment, ApiError } from '../lib/api';
+import { setPostPaymentReturnPath, normalizePostPaymentPath } from '../scenarios/config';
 
 const PLANS = [
   { title: 'Попробовать', price: '59 рублей', photos: '1 фото', packQty: 1, desc: 'Посмотри, как AI улучшит твоё фото за секунды. Идеально, чтобы оценить результат перед полной прокачкой.', highlighted: false, badge: null, savingBadge: null },
@@ -37,6 +38,8 @@ export default function Pricing() {
     }
     setLoading(packQty);
     try {
+      const next = normalizePostPaymentPath(window.location.pathname) ?? '/app';
+      setPostPaymentReturnPath(next);
       const res = await createPayment(packQty);
       window.location.href = res.confirmation_url;
     } catch (e) {

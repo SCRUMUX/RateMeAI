@@ -52,6 +52,13 @@ REALISM = (
     "Looks like a real unedited photo."
 )
 
+DOCUMENT_PHOTO_REALISM = (
+    "MAXIMUM PHOTOREALISM of the face. Remove ONLY skin defects (blemishes, redness). "
+    "Do NOT alter face shape, features, or proportions. Formal neutral expression. "
+    "Very light, almost white, uniform background. Even frontal lighting with no harsh shadows. "
+    "Head-and-shoulders centered crop suitable for official documents."
+)
+
 # ---------------------------------------------------------------------------
 # Style dictionaries — enriched with materials, textures, lighting
 # ---------------------------------------------------------------------------
@@ -327,6 +334,21 @@ DATING_STYLES: dict[str, str] = {
         "golden morning light, green landscape, open sky. "
         "Clothing: fitted cycling jersey or casual athletic top, sport sunglasses, helmet nearby."
     ),
+    "tinder_pack_rooftop_golden": (
+        "Background: urban rooftop terrace at golden hour, warm rim light on skyline, "
+        "soft bokeh city lights beginning to glow, romantic open-air atmosphere. "
+        "Clothing: fitted casual-smart outfit, clean lines, subtle accessories, date-ready polish."
+    ),
+    "tinder_pack_minimal_studio": (
+        "Background: pure neutral studio backdrop soft grey-to-white gradient, "
+        "even beauty-dish lighting, no clutter, portrait photographer setup. "
+        "Clothing: simple fitted top in solid color, minimal jewelry, fresh grooming."
+    ),
+    "tinder_pack_cafe_window": (
+        "Background: bright cafe interior by large window, natural daylight, "
+        "plants and warm wood tones softly blurred behind. "
+        "Clothing: relaxed smart-casual, soft sweater or crisp shirt, approachable style."
+    ),
 }
 
 DATING_PERSONALITIES: dict[str, str] = {
@@ -387,6 +409,9 @@ DATING_PERSONALITIES: dict[str, str] = {
     # Sport expanded
     "yoga_outdoor": "Serene calm expression, gentle focused energy, healthy mindful glow.",
     "cycling": "Fresh energetic expression, bright confident smile, active outdoor energy.",
+    "tinder_pack_rooftop_golden": "Warm confident smile, magnetic eye contact, relaxed romantic energy.",
+    "tinder_pack_minimal_studio": "Open genuine expression, soft approachable gaze, clean natural confidence.",
+    "tinder_pack_cafe_window": "Bright easy smile, warm inviting eyes, cozy authentic charm.",
 }
 
 CV_STYLES: dict[str, str] = {
@@ -562,6 +587,57 @@ CV_STYLES: dict[str, str] = {
         "dramatic rim light from window, expansive view behind. "
         "Clothing: tailored dark suit, strong silhouette against bright window, executive presence."
     ),
+    "doc_passport_neutral": (
+        "Background: flat uniform light-grey or off-white wall, even frontal lighting, "
+        "no shadows on backdrop, official document photo standard, centered head-and-shoulders crop feel. "
+        "Clothing: conservative solid dark top, neat collar, minimal accessories, neutral professional grooming."
+    ),
+    "doc_visa_compliant": (
+        "Background: plain white-to-light-grey seamless backdrop, bright even lighting, "
+        "high clarity, embassy-style compliant framing, shoulders square to camera. "
+        "Clothing: business formal shirt or blouse, understated tie optional, clean executive appearance."
+    ),
+    "doc_resume_headshot": (
+        "Background: soft light-grey studio or bright blurred office bokeh, "
+        "flattering three-quarter or frontal portrait light, LinkedIn-standard professionalism. "
+        "Clothing: tailored blazer, crisp shirt, confident but approachable business attire."
+    ),
+    "docfmt_passport_rf": (
+        f"{DOCUMENT_PHOTO_REALISM} "
+        "Format: Russian passport 35x45mm. "
+        "Background: flat uniform white. "
+        "Clothing: conservative dark solid-color top, neat collar, no patterns."
+    ),
+    "docfmt_visa_schengen": (
+        f"{DOCUMENT_PHOTO_REALISM} "
+        "Format: Schengen visa, face 70-80% of frame. "
+        "Background: plain white, bright even lighting, no shadows on backdrop. "
+        "Clothing: business formal shirt or blouse."
+    ),
+    "docfmt_us_passport": (
+        f"{DOCUMENT_PHOTO_REALISM} "
+        "Format: US passport/visa 2x2 inch. "
+        "Background: pure white, even frontal lighting. "
+        "Clothing: professional top, no uniform, no hat."
+    ),
+    "docfmt_driver_rf": (
+        f"{DOCUMENT_PHOTO_REALISM} "
+        "Format: Russian driver's license. "
+        "Background: uniform light grey or white. "
+        "Clothing: formal neutral top, neat appearance."
+    ),
+    "docfmt_student_id": (
+        f"{DOCUMENT_PHOTO_REALISM} "
+        "Format: Student ID or office badge. "
+        "Background: light neutral backdrop. "
+        "Clothing: business-casual neutral top."
+    ),
+    "docfmt_resume_linkedin": (
+        f"{DOCUMENT_PHOTO_REALISM} "
+        "Format: professional headshot for resume or LinkedIn. "
+        "Background: soft light-grey or white studio backdrop, flattering frontal light. "
+        "Clothing: tailored blazer or smart shirt, professional business attire."
+    ),
 }
 
 CV_PERSONALITIES: dict[str, str] = {
@@ -601,6 +677,15 @@ CV_PERSONALITIES: dict[str, str] = {
     "between_meetings": "Relaxed but alert expression, composed ease, efficient professional energy.",
     "business_lounge": "Composed traveler expression, confident relaxed smile, premium professional energy.",
     "decision_moment": "Strong thoughtful expression, composed decisive energy, executive vision.",
+    "doc_passport_neutral": "Neutral composed expression, mouth closed relaxed, direct even gaze, official photo calm.",
+    "doc_visa_compliant": "Serious neutral expression, attentive steady gaze, formal compliant demeanor.",
+    "doc_resume_headshot": "Warm professional half-smile, confident approachable gaze, trustworthy executive energy.",
+    "docfmt_passport_rf": "Neutral composed expression, mouth closed relaxed, direct even gaze, official photo calm.",
+    "docfmt_visa_schengen": "Serious neutral expression, attentive steady gaze, formal compliant demeanor.",
+    "docfmt_us_passport": "Neutral calm expression, direct steady gaze, mouth closed, official composed look.",
+    "docfmt_driver_rf": "Neutral relaxed expression, direct even gaze, calm formal demeanor.",
+    "docfmt_student_id": "Neutral friendly expression, composed direct gaze, approachable formal energy.",
+    "docfmt_resume_linkedin": "Warm professional half-smile, confident approachable gaze, trustworthy energy.",
 }
 
 SOCIAL_STYLES: dict[str, str] = {

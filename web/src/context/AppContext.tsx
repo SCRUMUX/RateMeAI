@@ -1,9 +1,11 @@
-import { createContext, useContext, useEffect, useState, useCallback, useRef, type ReactNode } from 'react';
+import { createContext, useContext, useEffect, useState, useCallback, useRef, useMemo, type ReactNode } from 'react';
 import { restoreToken, startOAuth, logout as authLogout, login as authLogin } from '../lib/auth';
 import * as api from '../lib/api';
-import type { CategoryId } from '../data/styles';
+import type { CategoryId, StyleItem } from '../data/styles';
+import { STYLES_BY_CATEGORY } from '../data/styles';
 import { restorePhotoAfterOAuth, clearPersistedPhoto } from '../lib/photo-persist';
 import { normalizeImageUrl } from '../lib/image-url';
+import { getScenario, resolveScenarioStyles, type ScenarioStep3Mode } from '../scenarios/config';
 
 interface Session { token: string; userId: string; provider: string; usage: api.ChannelAuthResponse['usage'] }
 
@@ -32,9 +34,19 @@ interface AppState {
   taskHistory: api.TaskHistoryItem[];
   taskHistoryCount: number;
   identities: api.LinkedIdentity[];
+  scenarioSlug: string | null;
+  scenarioHideCategoryTabs: boolean;
+  scenarioStep3Mode: ScenarioStep3Mode | null;
+  scenarioDocumentPaywall: boolean;
+  scenarioPrimaryCtaMainApp: boolean;
+  scenarioSimplifiedAnalysis: boolean;
+  scenarioPaymentPackQty: number | null;
+  effectiveStyleList: StyleItem[];
+  effectiveApiMode: string;
 }
 
 interface AppActions {
+  syncScenarioFromRoute: (slug: string | undefined) => void;
   setActiveCategory: (c: CategoryId) => void;
   setSelectedStyleKey: (k: string) => void;
   uploadPhoto: (f: File) => void;
@@ -116,12 +128,53 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [taskHistory, setTaskHistory] = useState<api.TaskHistoryItem[]>([]);
   const [taskHistoryCount, setTaskHistoryCount] = useState(0);
   const [identities, setIdentities] = useState<api.LinkedIdentity[]>([]);
+  const [scenarioSlug, setScenarioSlug] = useState<string | null>(null);
+
+  const scenarioDef = useMemo(() => getScenario(scenarioSlug), [scenarioSlug]);
+  const scenarioHideCategoryTabs = scenarioDef?.hideCategoryTabs ?? false;
+  const scenarioStep3Mode: ScenarioStep3Mode | null = scenarioDef?.step3Mode ?? null;
+  const scenarioDocumentPaywall = scenarioDef?.documentPaywall ?? false;
+  const scenarioPrimaryCtaMainApp = scenarioDef?.primaryCtaMainApp ?? false;
+  const scenarioSimplifiedAnalysis = scenarioDef?.simplifiedAnalysis ?? false;
+  const scenarioPaymentPackQty = scenarioDef?.paymentPackQty ?? null;
+  const modeMap: Record<CategoryId, string> = useMemo(
+    () => ({ social: 'social', cv: 'cv', dating: 'dating', model: 'social', brand: 'social', memes: 'social' }),
+    [],
+  );
+  const effectiveApiMode = useMemo(() => {
+    if (scenarioDef) return scenarioDef.apiMode;
+    return modeMap[activeCategory];
+  }, [scenarioDef, activeCategory, modeMap]);
+
+  const effectiveStyleList = useMemo(() => {
+    const resolved = resolveScenarioStyles(scenarioDef);
+    return resolved ?? STYLES_BY_CATEGORY[activeCategory];
+  }, [scenarioDef, activeCategory]);
 
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const sseRef = useRef<EventSource | null>(null);
   const preAnalysisCacheRef = useRef<Record<string, api.PreAnalysisResponse>>({});
   const preAnalyzeInFlightRef = useRef(false);
   const preAnalyzeGenRef = useRef(0);
+
+  const syncScenarioFromRoute = useCallback((slug: string | undefined) => {
+    if (!slug) {
+      setScenarioSlug(null);
+      return;
+    }
+    const def = getScenario(slug);
+    if (!def) {
+      setScenarioSlug(null);
+      return;
+    }
+    setScenarioSlug(slug);
+    setActiveCategory(def.scoresCategory);
+    setSelectedStyleKey('');
+    preAnalysisCacheRef.current = {};
+    preAnalyzeGenRef.current++;
+    setPreAnalysis(null);
+    setPreAnalyzeError(false);
+  }, []);
 
   const handleAuthError = useCallback(async (e: unknown): Promise<boolean> => {
     if (e instanceof api.ApiError && e.status === 401) {
@@ -184,8 +237,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const runPreAnalyze = useCallback(async () => {
     if (!photo || preAnalyzeInFlightRef.current) return;
-    const modeMap: Record<CategoryId, string> = { social: 'social', cv: 'cv', dating: 'dating', model: 'social', brand: 'social', memes: 'social' };
-    const mode = modeMap[activeCategory];
+    const mode = effectiveApiMode;
 
     const cached = preAnalysisCacheRef.current[mode];
     if (cached) {
@@ -215,15 +267,18 @@ export function AppProvider({ children }: { children: ReactNode }) {
       preAnalyzeInFlightRef.current = false;
       setPreAnalyzeLoading(false);
     }
-  }, [photo, activeCategory, handleAuthError]);
+  }, [photo, effectiveApiMode, handleAuthError]);
 
   const loginWithOAuth = useCallback(async (provider: 'yandex' | 'vk-id' | 'google') => {
+    const returnPath = typeof window !== 'undefined' ? `${window.location.pathname}${window.location.search}` : '';
     await startOAuth(provider, photo ? {
       file: photo.file,
       mode: activeCategory,
       style: selectedStyleKey,
+      scenarioSlug: scenarioSlug ?? undefined,
+      returnPath: returnPath || undefined,
     } : undefined);
-  }, [photo, activeCategory, selectedStyleKey]);
+  }, [photo, activeCategory, selectedStyleKey, scenarioSlug]);
 
   const loginWithToken = useCallback(async (token: string, userId?: string, provider?: string) => {
     api.setToken(token);
@@ -256,6 +311,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setPhoto({ file: restored.file, preview });
       if (restored.mode) setActiveCategory(restored.mode as CategoryId);
       if (restored.style) setSelectedStyleKey(restored.style);
+      if (restored.scenarioSlug) setScenarioSlug(restored.scenarioSlug);
+      if (restored.returnPath) {
+        try {
+          sessionStorage.setItem('ailook_return_after_oauth', restored.returnPath);
+        } catch { /* ignore */ }
+      }
       await clearPersistedPhoto();
     }
   }, []);
@@ -276,6 +337,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setError(null);
     setIsGenerating(false);
     setIdentities([]);
+    setScenarioSlug(null);
   }, []);
 
   useEffect(() => {
@@ -398,9 +460,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }, 3000);
   }, [stopPolling, handleTaskResult]);
 
-  const startPolling = useCallback((taskId: string, category: CategoryId) => {
+  const startPolling = useCallback((taskId: string, category: CategoryId, apiMode: string) => {
     stopPolling();
-    const mode = category as string;
+    const mode = apiMode;
     const token = api.getToken();
     const sseUrl = `${api.API_BASE}/api/v1/sse/progress?task_id=${taskId}`;
 
@@ -454,18 +516,17 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setAfterScore(null);
     setAfterPerception(null);
     try {
-      const modeMap: Record<CategoryId, string> = { social: 'social', cv: 'cv', dating: 'dating', model: 'social', brand: 'social', memes: 'social' };
       const enhancementLevel = 1;
       const res = await api.analyze(
         photo.file,
-        modeMap[activeCategory],
+        effectiveApiMode,
         effectiveStyle,
         preAnalysis?.pre_analysis_id,
         enhancementLevel,
       );
       setCurrentTask({ taskId: res.task_id, status: res.status, result: null });
       onTaskCreated?.();
-      startPolling(res.task_id, activeCategory);
+      startPolling(res.task_id, activeCategory, effectiveApiMode);
     } catch (e) {
       if (e instanceof api.ApiError && e.status === 401) {
         const reauthed = await handleAuthError(e);
@@ -482,7 +543,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         }
       }
     }
-  }, [photo, selectedStyleKey, activeCategory, preAnalysis, startPolling, isGenerating, handleAuthError]);
+  }, [photo, selectedStyleKey, activeCategory, effectiveApiMode, preAnalysis, startPolling, isGenerating, handleAuthError]);
 
   const share = useCallback(async () => {
     if (!currentTask?.taskId) return null;
@@ -516,6 +577,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
     currentTask, isGenerating, error, generatedImageUrl, afterScore, afterPerception,
     generationMode, isAuthenticated, preAnalyzeLoading,
     noCreditsError, preAnalyzeError, taskHistory, taskHistoryCount, identities,
+    scenarioSlug, scenarioHideCategoryTabs, scenarioStep3Mode,
+    scenarioDocumentPaywall, scenarioPrimaryCtaMainApp, scenarioSimplifiedAnalysis,
+    scenarioPaymentPackQty, effectiveStyleList, effectiveApiMode,
+    syncScenarioFromRoute,
     setActiveCategory, setSelectedStyleKey, uploadPhoto, runPreAnalyze,
     generate, share, refreshBalance, clearError, clearGeneratedImage, clearNoCreditsError,
     resetGeneration, fetchTaskHistory,

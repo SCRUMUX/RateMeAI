@@ -9,10 +9,12 @@ interface Props {
 }
 
 const DEFAULT_DESCRIPTION = 'AI анализирует ваше фото по ключевым параметрам восприятия. Каждый стиль адаптирует образ под конкретный контекст, улучшая целевые метрики.';
+const DOC_DEFAULT_DESCRIPTION = 'AI анализирует ваше фото для проверки пригодности к использованию в документах. Оцениваются освещение, фон и расположение лица.';
 
 export default function StepAnalysis({ onNext }: Props) {
   const app = useApp();
   const [analysisRequested, setAnalysisRequested] = useState(false);
+  const isSimplified = app.scenarioSimplifiedAnalysis;
 
   const activeTab = app.activeCategory;
 
@@ -64,10 +66,12 @@ export default function StepAnalysis({ onNext }: Props) {
     <div className="flex flex-col gap-[var(--space-24)] w-full max-w-[800px] mx-auto">
       <div className="flex flex-col items-center gap-[var(--space-8)] text-center">
         <h2 className="text-[24px] tablet:text-[32px] leading-[1.2] font-semibold text-[#E6EEF8]">
-          Анализ восприятия
+          {isSimplified ? 'Анализ фото' : 'Анализ восприятия'}
         </h2>
         <p className="text-[14px] tablet:text-[16px] leading-[20px] tablet:leading-[24px] text-[var(--color-text-secondary)] max-w-[440px]">
-          AI оценивает ваше фото по параметрам психологии восприятия: теплота, уверенность, привлекательность
+          {isSimplified
+            ? 'AI проверяет пригодность фото для документов'
+            : 'AI оценивает ваше фото по параметрам психологии восприятия: теплота, уверенность, привлекательность'}
         </p>
       </div>
 
@@ -99,7 +103,7 @@ export default function StepAnalysis({ onNext }: Props) {
         <div className="flex-1 flex flex-col gap-[var(--space-16)]">
           {/* Description text */}
           <p className="text-[14px] leading-[20px] text-[var(--color-text-secondary)] min-h-[40px]">
-            {app.preAnalysis?.first_impression || DEFAULT_DESCRIPTION}
+            {app.preAnalysis?.first_impression || (isSimplified ? DOC_DEFAULT_DESCRIPTION : DEFAULT_DESCRIPTION)}
           </p>
 
           {/* Analysis button — shown before any analysis starts */}
@@ -167,8 +171,8 @@ export default function StepAnalysis({ onNext }: Props) {
                 )}
               </div>
 
-              {/* Recommended styles */}
-              {recommendation && (
+              {/* Recommended styles (hidden for simplified document mode) */}
+              {recommendation && !isSimplified && (
                 <div className="flex flex-col gap-[var(--space-8)]">
                   <span className="text-[13px] leading-[18px] font-medium text-[var(--color-text-muted)]">Рекомендуемые стили</span>
                   {recommendation.styles.map((s) => (
@@ -205,7 +209,7 @@ export default function StepAnalysis({ onNext }: Props) {
               onClick={onNext}
               className="glass-btn-primary w-full py-[var(--space-12)] text-[15px] leading-[22px] rounded-[var(--radius-12)] font-medium mt-[var(--space-8)]"
             >
-              Выбрать стиль
+              {isSimplified ? 'Выбрать формат' : 'Выбрать стиль'}
             </button>
           )}
         </div>

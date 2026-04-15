@@ -1,6 +1,6 @@
 import { useState, useRef } from 'react';
 import { ChevronLeftIcon, ChevronRightIcon } from '@ai-ds/core/icons';
-import { STYLES_BY_CATEGORY, COMING_SOON_CATEGORIES, getMockDelta, type CategoryId } from '../../data/styles';
+import { COMING_SOON_CATEGORIES, getMockDelta, type CategoryId } from '../../data/styles';
 import CategoryTabs from '../CategoryTabs';
 import { useApp } from '../../context/AppContext';
 import ProgressBar from './ProgressBar';
@@ -16,7 +16,7 @@ export default function StepStyle({ onNext }: Props) {
   const [page, setPage] = useState(0);
 
   const activeTab = app.activeCategory;
-  const styles = STYLES_BY_CATEGORY[activeTab];
+  const styles = app.effectiveStyleList;
   const hasStyles = styles.length > 0;
   const isComingSoon = COMING_SOON_CATEGORIES.includes(activeTab);
   const totalPages = Math.ceil(styles.length / STYLES_PER_PAGE);
@@ -160,7 +160,9 @@ export default function StepStyle({ onNext }: Props) {
               Каждый стиль адаптирует образ под конкретный контекст и улучшает метрики восприятия
             </p>
           </div>
-          <CategoryTabs active={activeTab} onChange={handleTabChange} />
+          {!app.scenarioHideCategoryTabs && (
+            <CategoryTabs active={activeTab} onChange={handleTabChange} />
+          )}
         </div>
 
         {hasStyles && (
@@ -207,7 +209,9 @@ export default function StepStyle({ onNext }: Props) {
                 Каждый стиль адаптирует образ под конкретный контекст и улучшает метрики восприятия
               </p>
             </div>
-            <CategoryTabs active={activeTab} onChange={handleTabChange} />
+            {!app.scenarioHideCategoryTabs && (
+              <CategoryTabs active={activeTab} onChange={handleTabChange} />
+            )}
           </div>
 
           {hasStyles && (
