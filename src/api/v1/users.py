@@ -462,14 +462,28 @@ async def google_oauth_init(
 
 @router.get("/auth/google/callback")
 async def google_oauth_callback(
-    code: str,
-    state: str,
+    code: str = "",
+    state: str = "",
+    error: str = "",
+    error_description: str = "",
     db: AsyncSession = Depends(get_db),
     redis: Redis = Depends(get_redis),
 ):
     from src.channels.google_auth import exchange_code, get_user_info
     from src.services.oauth_state import pop_oauth_state
     from fastapi.responses import RedirectResponse
+
+    web_base = settings.web_base_url or settings.api_base_url
+
+    if error:
+        return RedirectResponse(
+            url=f"{web_base}/auth/callback?error={error}&error_description={error_description}&provider=google",
+        )
+
+    if not code or not state:
+        return RedirectResponse(
+            url=f"{web_base}/auth/callback?error=missing_params&error_description=Missing+code+or+state&provider=google",
+        )
 
     stored = await pop_oauth_state(redis, state)
     if stored is None or stored.get("provider") != "google":

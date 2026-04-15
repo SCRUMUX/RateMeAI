@@ -84,6 +84,16 @@ async def cmd_balance(message: Message, api_base_url: str, redis: Redis):
                 f"{balance_api}/api/v1/payments/balance",
                 headers=headers,
             )
+
+        if resp.status_code == 401:
+            headers = await _reauth_and_get_headers(api_base_url, redis, message.from_user)
+            if headers:
+                async with httpx.AsyncClient(timeout=10.0) as client:
+                    resp = await client.get(
+                        f"{balance_api}/api/v1/payments/balance",
+                        headers=headers,
+                    )
+
         if resp.status_code == 200:
             credits = resp.json().get("image_credits", 0)
             text = f"\U0001f4b0 *Твой баланс: {credits} образов*\n\n"
@@ -94,10 +104,34 @@ async def cmd_balance(message: Message, api_base_url: str, redis: Redis):
                 text += "Отправь фото для улучшения образа!"
                 await message.answer(text, parse_mode="Markdown", reply_markup=back_keyboard())
         else:
+            logger.warning("Balance request failed for user %s: status=%s body=%s", user_id, resp.status_code, resp.text[:300])
             await message.answer("\u274c Не удалось получить баланс.", reply_markup=back_keyboard())
     except Exception:
         logger.exception("Failed to fetch balance for user %s", user_id)
         await message.answer("\u274c Ошибка. Попробуй позже.", reply_markup=back_keyboard())
+
+
+async def _reauth_and_get_headers(api_base_url: str, redis: Redis, user) -> dict[str, str] | None:
+    """Re-register the bot user and return fresh auth headers (or None on failure)."""
+    from src.bot.middleware import _BOT_SESSION_KEY, _BOT_SESSION_TTL
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            resp = await client.post(
+                f"{api_base_url}/api/v1/auth/telegram",
+                json={
+                    "telegram_id": user.id,
+                    "username": user.username,
+                    "first_name": user.first_name,
+                },
+            )
+        if resp.status_code == 200:
+            token = resp.json().get("session_token")
+            if token:
+                await redis.set(_BOT_SESSION_KEY.format(user.id), token, ex=_BOT_SESSION_TTL)
+                return {"Authorization": f"Bearer {token}"}
+    except Exception:
+        logger.exception("Re-auth failed for user %s", user.id)
+    return None
 
 
 async def _get_balance_line(api_base_url: str, user_id: int, redis: Redis) -> str:

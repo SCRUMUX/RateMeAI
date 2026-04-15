@@ -151,7 +151,7 @@ export default function StepGenerate({ onGoToStep, onOpenStorage }: Props) {
     }
   }, [app.photo]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const [shareData, setShareData] = useState<{ url: string; text: string } | null>(null);
+  const [shareData, setShareData] = useState<{ url: string; text: string; imageUrl: string } | null>(null);
   const [shareLoading, setShareLoading] = useState(false);
   const [shareModalOpen, setShareModalOpen] = useState(false);
 
@@ -164,7 +164,7 @@ export default function StepGenerate({ onGoToStep, onOpenStorage }: Props) {
     try {
       const res = await app.share();
       if (res) {
-        setShareData({ url: res.deep_link, text: res.caption });
+        setShareData({ url: res.deep_link, text: res.caption, imageUrl: res.image_url || '' });
         setShareModalOpen(true);
       }
     } catch { /* ignore */ }
@@ -420,6 +420,7 @@ export default function StepGenerate({ onGoToStep, onOpenStorage }: Props) {
           onClose={() => setShareModalOpen(false)}
           url={shareData.url}
           text={shareData.text}
+          imageUrl={shareData.imageUrl}
         />
       )}
     </div>

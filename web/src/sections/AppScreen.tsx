@@ -346,8 +346,20 @@ export default function AppScreen({ onOpenAuthModal }: { onOpenAuthModal?: () =>
   async function handleShare() {
     const res = await app.share();
     if (!res) return;
+    const imageUrl = res.image_url;
+    if (navigator.share && imageUrl) {
+      try {
+        const imgRes = await fetch(imageUrl, { credentials: 'omit' });
+        const blob = await imgRes.blob();
+        const file = new File([blob], 'ai-look-result.jpg', { type: blob.type || 'image/jpeg' });
+        if (navigator.canShare?.({ files: [file] })) {
+          await navigator.share({ title: 'AI Look Studio', text: res.caption, files: [file] });
+          return;
+        }
+      } catch { /* fallback to link sharing */ }
+    }
     if (navigator.share) {
-      navigator.share({ title: 'AI Look Studio', text: res.caption, url: res.deep_link }).catch(() => {});
+      navigator.share({ title: 'AI Look Studio', text: res.caption, url: imageUrl || res.deep_link }).catch(() => {});
     } else {
       window.open(res.deep_link, '_blank');
     }

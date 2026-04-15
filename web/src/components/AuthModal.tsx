@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
+import { ApiError } from '../lib/api';
 
 interface Props {
   open: boolean;
@@ -37,8 +38,14 @@ export default function AuthModal({ open, onClose, onOAuth, required }: Props) {
     setError(null);
     try {
       await onOAuth(provider);
-    } catch {
-      setError('Не удалось начать авторизацию.');
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 503) {
+        setError('Авторизация через этот сервис временно недоступна на сервере.');
+      } else if (err instanceof ApiError) {
+        setError(`Ошибка авторизации: ${err.body}`);
+      } else {
+        setError('Не удалось начать авторизацию. Проверьте подключение к сети.');
+      }
       setOauthLoading(null);
     }
   }, [onOAuth]);

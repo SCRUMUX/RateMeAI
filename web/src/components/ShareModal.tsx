@@ -8,9 +8,10 @@ interface Props {
   onClose: () => void;
   url: string;
   text: string;
+  imageUrl?: string;
 }
 
-export default function ShareModal({ open, onClose, url, text }: Props) {
+export default function ShareModal({ open, onClose, url, text, imageUrl }: Props) {
   const { activeCategory } = useApp();
 
   return createPortal(
@@ -47,7 +48,7 @@ export default function ShareModal({ open, onClose, url, text }: Props) {
               Поделиться результатом
             </h3>
 
-            <ShareButtons url={url} text={text} />
+            <ShareButtons url={url} text={text} imageUrl={imageUrl} />
 
             <button
               onClick={onClose}
