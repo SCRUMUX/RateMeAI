@@ -1,4 +1,4 @@
-.env
+﻿.env
 .env.ru
 AICADS-/
 __pycache__/
@@ -18,3 +18,4 @@ node_modules/
 deploy/ru/_*.py
 deploy/ru/remote_exec.py
 deploy/ru/upload_files.py
+image*.png
