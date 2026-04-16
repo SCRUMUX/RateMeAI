@@ -614,6 +614,13 @@ class DeltaScorer:
 
             result_dict["delta"] = delta
 
+            if mode == AnalysisMode.CV:
+                pre_vals = [delta[k]["pre"] for k in ("trust", "competence", "hireability") if k in delta]
+                result_dict["score_before"] = round(sum(pre_vals) / len(pre_vals), 2) if pre_vals else None
+            else:
+                first_key = next(iter(delta), None)
+                result_dict["score_before"] = delta[first_key]["pre"] if first_key else None
+
             pre_perception = result_dict.get("perception_scores", {})
             if hasattr(pre_perception, "model_dump"):
                 pre_perception = pre_perception.model_dump()

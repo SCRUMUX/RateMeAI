@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { createPortal } from 'react-dom';
+import { useNavigate } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import type { TaskHistoryItem } from '../lib/api';
 import { createShare } from '../lib/api';
@@ -20,6 +21,7 @@ for (const styles of Object.values(STYLES_BY_CATEGORY)) {
 for (const s of DOCUMENT_FORMAT_ITEMS) {
   STYLE_LOOKUP[s.key] = { name: s.name, icon: s.icon };
 }
+const DOCUMENT_STYLE_KEYS = new Set(DOCUMENT_FORMAT_ITEMS.map(d => d.key));
 
 interface Props {
   items: TaskHistoryItem[];
@@ -32,6 +34,7 @@ const SWIPE_THRESHOLD = 50;
 
 export default function StorageModal({ items, open, onClose, onImprove }: Props) {
   const { activeCategory } = useApp();
+  const navigate = useNavigate();
   const [idx, setIdx] = useState(0);
   const [dir, setDir] = useState(0);
   const [viewTab, setViewTab] = useState<'result' | 'original'>('result');
@@ -308,10 +311,17 @@ export default function StorageModal({ items, open, onClose, onImprove }: Props)
 
               {/* Score row */}
               <div className="shrink-0 flex items-center justify-between px-1">
-                <span className="text-[13px] leading-[18px] text-[#E6EEF8] font-medium truncate">
+                <span className="text-[13px] leading-[18px] text-[#E6EEF8] font-medium truncate flex items-center gap-1.5">
                   {viewTab === 'result'
                     ? (styleInfo ? `${styleInfo.icon} ${styleInfo.name}` : (item.style || item.mode))
                     : 'Исходное фото'}
+                  {viewTab === 'result' && DOCUMENT_STYLE_KEYS.has(item.style) && (
+                    <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] leading-[12px] font-medium"
+                      style={{ background: 'rgba(var(--accent-r),var(--accent-g),var(--accent-b),0.15)', color: 'rgb(var(--accent-r),var(--accent-g),var(--accent-b))' }}
+                    >
+                      документ
+                    </span>
+                  )}
                 </span>
                 <span className="flex items-center gap-1.5 shrink-0">
                   <span className={`text-[13px] leading-[18px] tabular-nums font-semibold ${viewTab === 'result' ? 'text-[var(--color-brand-primary)]' : 'text-[var(--color-text-secondary)]'}`}>
@@ -357,7 +367,7 @@ export default function StorageModal({ items, open, onClose, onImprove }: Props)
                 </p>
               )}
 
-              {/* Actions: only Improve + Download */}
+              {/* Actions: Improve + Download */}
               <div className="shrink-0 flex gap-[var(--space-8)]">
                 {onImprove && (
                   <button
@@ -378,6 +388,16 @@ export default function StorageModal({ items, open, onClose, onImprove }: Props)
                   Скачать
                 </button>
               </div>
+
+              {DOCUMENT_STYLE_KEYS.has(item.style) && (
+                <button
+                  onClick={() => { onClose(); navigate('/app/document-photo'); }}
+                  className="shrink-0 w-full glass-btn-ghost rounded-[var(--radius-12)] py-[var(--space-8)] text-[13px] font-medium text-[#E6EEF8] flex items-center justify-center gap-1.5"
+                >
+                  <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M4 2h5.172a2 2 0 0 1 1.414.586l2.828 2.828A2 2 0 0 1 14 6.828V14a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2z" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/><path d="M9 2v4h4" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                  Фото на документы
+                </button>
+              )}
 
               {/* Share -- always visible */}
               {shareLoading ? (

@@ -134,6 +134,7 @@ export default function AppPage() {
       const res = await fetch(imageUrl, { credentials: 'omit' });
       const blob = await res.blob();
       const file = new File([blob], 'improve.jpg', { type: blob.type || 'image/jpeg' });
+      app.resetGeneration();
       app.uploadPhoto(file);
       setStorageModalOpen(false);
       goToStep('upload');
