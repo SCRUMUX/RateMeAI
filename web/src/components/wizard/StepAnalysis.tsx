@@ -63,19 +63,19 @@ export default function StepAnalysis({ onNext }: Props) {
   }, [app.photo]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
-    <div className="flex flex-col gap-[var(--space-24)] w-full max-w-[800px] mx-auto">
-      <div className="flex flex-col items-center gap-[var(--space-8)] text-center">
-        <h2 className="text-[24px] tablet:text-[32px] leading-[1.2] font-semibold text-[#E6EEF8]">
+    <div className="flex flex-col gap-[var(--space-12)] w-full max-w-[800px] mx-auto">
+      <div className="flex flex-col items-center gap-[var(--space-4)] text-center">
+        <h2 className="text-[20px] tablet:text-[28px] leading-[1.2] font-semibold text-[#E6EEF8]">
           {isSimplified ? 'Анализ фото' : 'Анализ восприятия'}
         </h2>
-        <p className="text-[14px] tablet:text-[16px] leading-[20px] tablet:leading-[24px] text-[var(--color-text-secondary)] max-w-[440px]">
+        <p className="text-[12px] tablet:text-[13px] leading-[16px] tablet:leading-[18px] text-[var(--color-text-secondary)] max-w-[440px]">
           {isSimplified
             ? 'AI проверяет пригодность фото для документов'
-            : 'AI оценивает ваше фото по параметрам психологии восприятия: теплота, уверенность, привлекательность'}
+            : 'AI оценивает ваше фото по параметрам восприятия: теплота, уверенность, привлекательность'}
         </p>
       </div>
 
-      <div className="flex flex-col tablet:flex-row gap-[var(--space-24)] tablet:gap-[var(--space-32)]">
+      <div className="flex flex-col tablet:flex-row gap-[var(--space-16)] tablet:gap-[var(--space-24)]">
         {/* Photo card with score */}
         <div className="gradient-border-card glass-card flex flex-col w-full tablet:w-[260px] shrink-0 rounded-[var(--radius-12)] overflow-hidden">
           <div className="w-full aspect-[3/4] tablet:h-[347px] shrink-0 bg-[rgba(255,255,255,0.02)] overflow-hidden">

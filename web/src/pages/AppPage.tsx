@@ -178,7 +178,7 @@ export default function AppPage({ scenarioSlugOverride }: AppPageProps = {}) {
         <MeshGradientBg />
         <EnergyField />
 
-        <div className="relative z-[2] flex-1 min-h-0 flex flex-col items-center gap-[var(--space-16)] tablet:gap-[48px] px-[var(--space-16)] tablet:px-[var(--space-24)] py-[var(--space-16)] tablet:py-[48px]">
+        <div className="relative z-[2] flex-1 min-h-0 flex flex-col items-center gap-[var(--space-10)] tablet:gap-[var(--space-20)] px-[var(--space-16)] tablet:px-[var(--space-24)] py-[var(--space-10)] tablet:py-[var(--space-24)]">
           {/* Error toast */}
           {app.error && (
             <div className="glass-badge-danger fixed top-20 right-6 z-[200] max-w-[400px] p-[var(--space-16)] text-white rounded-[var(--radius-12)] text-[14px] leading-[20px] cursor-pointer"
@@ -204,17 +204,17 @@ export default function AppPage({ scenarioSlugOverride }: AppPageProps = {}) {
 
           {/* Balance & Storage counters */}
           {showCounters && (
-            <div className="shrink-0 flex items-center justify-center gap-[var(--space-24)]">
-              <div className="glass-btn-ghost flex items-center gap-[var(--space-6)] px-[var(--space-12)] py-[var(--space-4)] rounded-[var(--radius-12)]">
-                <CoinIcon size={16} className="text-[var(--color-brand-primary)]" />
-                <span className="text-[14px] leading-[20px] font-medium text-[#E6EEF8]">Баланс {app.balance}</span>
+            <div className="shrink-0 flex items-center justify-center gap-[var(--space-16)]">
+              <div className="glass-btn-ghost flex items-center gap-[var(--space-4)] px-[var(--space-10)] py-[2px] rounded-[var(--radius-10)]">
+                <CoinIcon size={14} className="text-[var(--color-brand-primary)]" />
+                <span className="text-[12px] leading-[16px] font-medium text-[#E6EEF8]">{app.balance}</span>
               </div>
               <button
                 onClick={() => setStorageModalOpen(true)}
-                className="glass-btn-ghost flex items-center gap-[var(--space-6)] px-[var(--space-12)] py-[var(--space-4)] rounded-[var(--radius-12)] cursor-pointer"
+                className="glass-btn-ghost flex items-center gap-[var(--space-4)] px-[var(--space-10)] py-[2px] rounded-[var(--radius-10)] cursor-pointer"
               >
-                <ImageIcon size={16} className="text-[var(--color-brand-primary)]" />
-                <span className="text-[14px] leading-[20px] font-medium text-[#E6EEF8]">Хранилище {app.taskHistoryCount}</span>
+                <ImageIcon size={14} className="text-[var(--color-brand-primary)]" />
+                <span className="text-[12px] leading-[16px] font-medium text-[#E6EEF8]">{app.taskHistoryCount}</span>
               </button>
             </div>
           )}
@@ -230,7 +230,7 @@ export default function AppPage({ scenarioSlugOverride }: AppPageProps = {}) {
                 animate="center"
                 exit="exit"
                 transition={{ duration: 0.3, ease: 'easeInOut' }}
-                className={`h-full ${currentStep === 'generate' ? 'overflow-hidden' : 'overflow-y-auto'}`}
+                className="h-full overflow-y-auto"
               >
                 {currentStep === 'upload' && (
                   <StepUpload onNext={goNext} />

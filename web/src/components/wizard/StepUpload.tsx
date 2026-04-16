@@ -44,40 +44,35 @@ export default function StepUpload({ onNext }: Props) {
   }, []);
 
   return (
-    <div className="flex flex-col items-center gap-[var(--space-32)] w-full max-w-[600px] mx-auto">
-      <div className="flex flex-col items-center gap-[var(--space-8)] text-center">
-        <h2 className="text-[24px] tablet:text-[32px] leading-[1.2] font-semibold text-[#E6EEF8]">
+    <div className="flex flex-col items-center gap-[var(--space-16)] w-full max-w-[600px] mx-auto">
+      <div className="flex flex-col items-center gap-[var(--space-4)] text-center">
+        <h2 className="text-[20px] tablet:text-[28px] leading-[1.2] font-semibold text-[#E6EEF8]">
           Загрузите фото
         </h2>
-        <p className="text-[14px] tablet:text-[16px] leading-[20px] tablet:leading-[24px] text-[var(--color-text-secondary)] max-w-[440px]">
-          AI проанализирует ваше фото по ключевым параметрам восприятия и предложит оптимальные стили улучшения
+        <p className="text-[12px] tablet:text-[13px] leading-[16px] tablet:leading-[18px] text-[var(--color-text-secondary)]">
+          Проанализируем и предложим оптимальные улучшения
         </p>
       </div>
 
       <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleFileSelect} />
 
       {app.photo ? (
-        <div className="flex flex-col items-center gap-[var(--space-20)] w-full">
-          <div className="gradient-border-card glass-card rounded-[var(--radius-12)] overflow-hidden w-full max-w-[300px]">
+        <div className="flex flex-col items-center gap-[var(--space-12)] w-full">
+          <div className="gradient-border-card glass-card rounded-[var(--radius-12)] overflow-hidden w-full max-w-[260px]">
             <div className="w-full aspect-[3/4] bg-[rgba(255,255,255,0.02)] overflow-hidden">
               <img src={app.photo.preview} alt="Загруженное фото" className="w-full h-full object-cover" />
-            </div>
-            <div className="p-[var(--space-12)] flex flex-col gap-[var(--space-8)]">
-              <span className="text-[14px] leading-[20px] text-[var(--color-text-secondary)] text-center">
-                Фото загружено
-              </span>
             </div>
           </div>
           <div className="flex gap-[var(--space-12)]">
             <button
               onClick={() => fileInputRef.current?.click()}
-              className="glass-btn-ghost px-[var(--space-20)] py-[var(--space-10)] text-[14px] leading-[20px] text-[#E6EEF8] rounded-[var(--radius-pill)]"
+              className="glass-btn-ghost px-[var(--space-20)] py-[var(--space-8)] text-[13px] leading-[18px] text-[#E6EEF8] rounded-[var(--radius-pill)]"
             >
               Заменить фото
             </button>
             <button
               onClick={onNext}
-              className="glass-btn-primary px-[var(--space-24)] py-[var(--space-10)] text-[14px] leading-[20px] rounded-[var(--radius-pill)]"
+              className="glass-btn-primary px-[var(--space-24)] py-[var(--space-8)] text-[13px] leading-[18px] rounded-[var(--radius-pill)]"
             >
               Далее
             </button>

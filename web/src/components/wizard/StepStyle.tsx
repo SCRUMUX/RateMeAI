@@ -153,11 +153,11 @@ export default function StepStyle({ onNext }: Props) {
 
       {/* ===== Mobile layout ===== */}
       <div className="flex flex-col h-full tablet:hidden">
-        <div className="shrink-0 flex flex-col gap-[var(--space-12)] pb-[var(--space-16)]">
-          <div className="flex flex-col gap-[var(--space-6)] text-center">
-            <h2 className="text-[24px] leading-[1.2] font-semibold text-[#E6EEF8]">Выберите стиль</h2>
-            <p className="text-[13px] leading-[18px] text-[var(--color-text-secondary)]">
-              Каждый стиль адаптирует образ под конкретный контекст и улучшает метрики восприятия
+        <div className="shrink-0 flex flex-col gap-[var(--space-8)] pb-[var(--space-10)]">
+          <div className="flex flex-col gap-[var(--space-4)] text-center">
+            <h2 className="text-[20px] leading-[1.2] font-semibold text-[#E6EEF8]">Выберите стиль</h2>
+            <p className="text-[12px] leading-[16px] text-[var(--color-text-secondary)]">
+              Каждый стиль улучшает метрики восприятия под конкретный контекст
             </p>
           </div>
           {!app.scenarioHideCategoryTabs && (
@@ -201,12 +201,12 @@ export default function StepStyle({ onNext }: Props) {
 
       {/* ===== Tablet+ layout ===== */}
       <div className="hidden tablet:flex flex-col h-full">
-        <div className="shrink-0 flex flex-row items-start gap-[var(--space-24)] pb-[var(--space-24)]">
-          <div className="flex-1 flex flex-col gap-[var(--space-16)]">
-            <div className="flex flex-col gap-[var(--space-6)]">
-              <h2 className="text-[28px] leading-[1.2] font-semibold text-[#E6EEF8]">Выберите стиль</h2>
-              <p className="text-[14px] leading-[20px] text-[var(--color-text-secondary)]">
-                Каждый стиль адаптирует образ под конкретный контекст и улучшает метрики восприятия
+        <div className="shrink-0 flex flex-row items-start gap-[var(--space-20)] pb-[var(--space-16)]">
+          <div className="flex-1 flex flex-col gap-[var(--space-12)]">
+            <div className="flex flex-col gap-[var(--space-4)]">
+              <h2 className="text-[24px] leading-[1.2] font-semibold text-[#E6EEF8]">Выберите стиль</h2>
+              <p className="text-[13px] leading-[18px] text-[var(--color-text-secondary)]">
+                Каждый стиль улучшает метрики восприятия под конкретный контекст
               </p>
             </div>
             {!app.scenarioHideCategoryTabs && (
