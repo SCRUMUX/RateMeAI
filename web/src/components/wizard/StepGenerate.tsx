@@ -434,12 +434,12 @@ export default function StepGenerate({ onGoToStep, onOpenStorage }: Props) {
       <div className="shrink-0 flex flex-col items-center gap-[var(--space-8)]">
         {hasGenResult && (
           <>
-            {/* Primary row: Download + Open Studio */}
-            {isDocPaywall && app.generatedImageUrl && (
+            {/* Primary row: Download + optional Open Studio */}
+            {app.generatedImageUrl && (
               <div className="flex flex-wrap items-center justify-center gap-[var(--space-8)]">
                 <a
                   href={app.generatedImageUrl}
-                  download="document-photo.jpg"
+                  download={isDocPaywall ? 'document-photo.jpg' : 'ai-look-photo.jpg'}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="glass-btn-primary px-[var(--space-24)] py-[var(--space-10)] text-[14px] leading-[20px] rounded-[var(--radius-pill)] font-medium no-underline inline-flex items-center gap-[var(--space-8)]"
@@ -456,14 +456,6 @@ export default function StepGenerate({ onGoToStep, onOpenStorage }: Props) {
                   </Link>
                 )}
               </div>
-            )}
-            {!isDocPaywall && app.scenarioPrimaryCtaMainApp && (
-              <Link
-                to="/app"
-                className="glass-btn-primary px-[var(--space-24)] py-[var(--space-10)] text-[14px] leading-[20px] rounded-[var(--radius-pill)] font-medium no-underline inline-flex items-center justify-center"
-              >
-                Открыть AI Look Studio
-              </Link>
             )}
 
             {/* Ghost row: Другое фото → Другой формат → Улучшить ещё → Поделиться */}
