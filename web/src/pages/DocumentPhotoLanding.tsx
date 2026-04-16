@@ -59,9 +59,9 @@ export default function DocumentPhotoLanding() {
               to="/app/document-photo"
               className="glass-btn-primary inline-flex items-center justify-center px-[var(--space-32)] py-[var(--space-16)] text-[18px] leading-[24px] rounded-[var(--radius-12)] font-medium no-underline"
             >
-              Создать фото — от 59 ₽
+              Создать фото — 199 ₽
             </Link>
-            <span className="text-[14px] text-[var(--color-text-muted)]">1 фото — 59 ₽ · 5 фото — 199 ₽</span>
+            <span className="text-[14px] text-[var(--color-text-muted)]">5 фото в пакете</span>
           </div>
         </section>
 

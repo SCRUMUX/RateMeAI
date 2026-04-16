@@ -393,26 +393,15 @@ export default function StepGenerate({ onGoToStep, onOpenStorage }: Props) {
             <CoinIcon size={32} className="text-[var(--color-brand-primary)]" />
             <h3 className="text-[18px] font-semibold text-[#E6EEF8]">Фото на документы</h3>
             <p className="text-[14px] text-[var(--color-text-secondary)]">
-              Фотореалистичная обработка под требования документов. Выберите тариф:
+              Фотореалистичная обработка под требования документов.
             </p>
-            <div className="flex flex-col gap-[var(--space-8)] w-full">
-              <button
-                onClick={() => handleDocPaywallBuy(1)}
-                disabled={paymentLoading}
-                className="glass-btn-primary w-full py-[var(--space-10)] text-[14px] leading-[20px] rounded-[var(--radius-pill)] font-medium"
-              >
-                {paymentLoading ? 'Загрузка...' : '1 фото — 59 ₽'}
-              </button>
-              <button
-                onClick={() => handleDocPaywallBuy(5)}
-                disabled={paymentLoading}
-                className="w-full py-[var(--space-10)] text-[14px] leading-[20px] rounded-[var(--radius-pill)] font-medium transition-all"
-                style={{ background: 'rgba(255,255,255,0.08)', color: '#E6EEF8', border: '1px solid rgba(255,255,255,0.15)' }}
-              >
-                {paymentLoading ? 'Загрузка...' : '5 фото — 199 ₽'}
-                <span className="ml-[var(--space-6)] text-[12px] text-[var(--color-text-muted)]">выгоднее</span>
-              </button>
-            </div>
+            <button
+              onClick={() => handleDocPaywallBuy(5)}
+              disabled={paymentLoading}
+              className="glass-btn-primary w-full py-[var(--space-10)] text-[14px] leading-[20px] rounded-[var(--radius-pill)] font-medium"
+            >
+              {paymentLoading ? 'Загрузка...' : '5 фото — 199 ₽'}
+            </button>
           </div>
         </div>
       )}
