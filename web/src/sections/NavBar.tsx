@@ -10,10 +10,12 @@ interface Props {
   onLoginClick?: () => void;
   onOpenStorage?: () => void;
   onHomeClick?: () => void;
+  onCtaClick?: () => void;
+  hideNavLinks?: boolean;
   mode?: 'landing' | 'app';
 }
 
-export default function NavBar({ onLoginClick, onOpenStorage, onHomeClick, mode = 'landing' }: Props) {
+export default function NavBar({ onLoginClick, onOpenStorage, onHomeClick, onCtaClick, hideNavLinks, mode = 'landing' }: Props) {
   const { session, balance, logout, taskHistoryCount } = useApp();
   const [menuOpen, setMenuOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -77,7 +79,7 @@ export default function NavBar({ onLoginClick, onOpenStorage, onHomeClick, mode 
                 На главную
               </Link>
             )
-          ) : (
+          ) : !hideNavLinks && (
             [{label: 'Стили', href: '#стили'}, {label: 'Тарифы', href: '#тарифы'}, {label: 'API', href: '/api/v1/docs', external: true}].map((item) => (
               <a key={item.label} href={item.href}
                 {...(item.external ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
@@ -160,11 +162,20 @@ export default function NavBar({ onLoginClick, onOpenStorage, onHomeClick, mode 
           </button>
 
           {mode !== 'app' && (
-            <Link to="/app"
-              className="glass-btn-primary flex items-center px-[var(--space-12)] py-[var(--space-6)] text-[14px] leading-[20px] rounded-[var(--radius-12)] no-underline"
-            >
-              {session ? 'Приложение' : 'Попробовать'}
-            </Link>
+            onCtaClick ? (
+              <button
+                onClick={onCtaClick}
+                className="glass-btn-primary flex items-center px-[var(--space-12)] py-[var(--space-6)] text-[14px] leading-[20px] rounded-[var(--radius-12)] cursor-pointer"
+              >
+                {session ? 'Начать' : 'Попробовать'}
+              </button>
+            ) : (
+              <Link to="/app"
+                className="glass-btn-primary flex items-center px-[var(--space-12)] py-[var(--space-6)] text-[14px] leading-[20px] rounded-[var(--radius-12)] no-underline"
+              >
+                {session ? 'Приложение' : 'Попробовать'}
+              </Link>
+            )
           )}
         </div>
 
@@ -243,7 +254,7 @@ export default function NavBar({ onLoginClick, onOpenStorage, onHomeClick, mode 
                   На главную
                 </Link>
               )
-            ) : (
+            ) : !hideNavLinks ? (
               [{label: 'Стили', href: '#стили'}, {label: 'Тарифы', href: '#тарифы'}, {label: 'API', href: '/api/v1/docs', external: true}].map((item) => (
                 <a key={item.label} href={item.href}
                   onClick={() => setMobileMenuOpen(false)}
@@ -253,7 +264,7 @@ export default function NavBar({ onLoginClick, onOpenStorage, onHomeClick, mode 
                   {item.label}
                 </a>
               ))
-            )}
+            ) : null}
           </div>
 
           <div className="h-px" style={{ background: 'rgba(255,255,255,0.08)' }} />
@@ -295,13 +306,22 @@ export default function NavBar({ onLoginClick, onOpenStorage, onHomeClick, mode 
               </button>
 
               {mode !== 'app' && (
-                <Link
-                  to="/app"
-                  onClick={() => setMobileMenuOpen(false)}
-                  className="glass-btn-primary flex items-center justify-center px-[var(--space-16)] py-[var(--space-12)] text-[16px] leading-[24px] rounded-[var(--radius-12)] text-center no-underline"
-                >
-                  Приложение
-                </Link>
+                onCtaClick ? (
+                  <button
+                    onClick={() => { setMobileMenuOpen(false); onCtaClick(); }}
+                    className="glass-btn-primary flex items-center justify-center px-[var(--space-16)] py-[var(--space-12)] text-[16px] leading-[24px] rounded-[var(--radius-12)] text-center cursor-pointer"
+                  >
+                    Начать
+                  </button>
+                ) : (
+                  <Link
+                    to="/app"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="glass-btn-primary flex items-center justify-center px-[var(--space-16)] py-[var(--space-12)] text-[16px] leading-[24px] rounded-[var(--radius-12)] text-center no-underline"
+                  >
+                    Приложение
+                  </Link>
+                )
               )}
             </div>
           ) : (
@@ -314,13 +334,22 @@ export default function NavBar({ onLoginClick, onOpenStorage, onHomeClick, mode 
                 Войти
               </button>
               {mode !== 'app' && (
-                <Link
-                  to="/app"
-                  onClick={() => setMobileMenuOpen(false)}
-                  className="glass-btn-primary flex items-center justify-center px-[var(--space-16)] py-[var(--space-12)] text-[16px] leading-[24px] rounded-[var(--radius-12)] text-center no-underline"
-                >
-                  Попробовать
-                </Link>
+                onCtaClick ? (
+                  <button
+                    onClick={() => { setMobileMenuOpen(false); onCtaClick(); }}
+                    className="glass-btn-primary flex items-center justify-center px-[var(--space-16)] py-[var(--space-12)] text-[16px] leading-[24px] rounded-[var(--radius-12)] text-center cursor-pointer"
+                  >
+                    Попробовать
+                  </button>
+                ) : (
+                  <Link
+                    to="/app"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="glass-btn-primary flex items-center justify-center px-[var(--space-16)] py-[var(--space-12)] text-[16px] leading-[24px] rounded-[var(--radius-12)] text-center no-underline"
+                  >
+                    Попробовать
+                  </Link>
+                )
               )}
             </div>
           )}

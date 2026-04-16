@@ -24,7 +24,7 @@ export default function DocumentPhotoLanding({ onStart }: LandingProps) {
 
   return (
     <div data-category="cv" className="min-h-screen w-full overflow-x-hidden selection:bg-brand-primary/30">
-      <NavBar onLoginClick={() => setAuthModalOpen(true)} />
+      <NavBar onLoginClick={() => setAuthModalOpen(true)} onCtaClick={onStart} hideNavLinks />
       <main className="relative">
         <MeshGradientBg />
         <EnergyField />
