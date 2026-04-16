@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
 import NavBar from '../sections/NavBar';
 import Footer from '../sections/Footer';
 import AuthModal from '../components/AuthModal';
@@ -15,7 +14,11 @@ const STEPS = [
   { num: '4', title: 'Получите результат', desc: 'Скачайте готовое фото' },
 ];
 
-export default function DocumentPhotoLanding() {
+interface LandingProps {
+  onStart?: () => void;
+}
+
+export default function DocumentPhotoLanding({ onStart }: LandingProps) {
   const app = useApp();
   const [authModalOpen, setAuthModalOpen] = useState(false);
 
@@ -47,12 +50,12 @@ export default function DocumentPhotoLanding() {
           </div>
 
           <div className="flex flex-col tablet:flex-row items-center gap-[var(--space-12)]">
-            <Link
-              to="/dokumenty"
-              className="glass-btn-primary inline-flex items-center justify-center px-[var(--space-32)] py-[var(--space-16)] text-[18px] leading-[24px] rounded-[var(--radius-12)] font-medium no-underline"
+            <button
+              onClick={onStart}
+              className="glass-btn-primary inline-flex items-center justify-center px-[var(--space-32)] py-[var(--space-16)] text-[18px] leading-[24px] rounded-[var(--radius-12)] font-medium cursor-pointer"
             >
               Создать фото — 199 ₽
-            </Link>
+            </button>
             <span className="text-[14px] text-[var(--color-text-muted)]">5 фото в пакете</span>
           </div>
         </section>
@@ -97,12 +100,12 @@ export default function DocumentPhotoLanding() {
           <p className="text-[16px] text-[var(--color-text-secondary)] max-w-[400px]">
             Загрузите любое фото и получите результат, соответствующий требованиям документов
           </p>
-          <Link
-            to="/dokumenty"
-            className="glass-btn-primary inline-flex items-center justify-center px-[var(--space-32)] py-[var(--space-16)] text-[18px] leading-[24px] rounded-[var(--radius-12)] font-medium no-underline"
+          <button
+            onClick={onStart}
+            className="glass-btn-primary inline-flex items-center justify-center px-[var(--space-32)] py-[var(--space-16)] text-[18px] leading-[24px] rounded-[var(--radius-12)] font-medium cursor-pointer"
           >
             Начать
-          </Link>
+          </button>
         </section>
       </main>
       <Footer />
