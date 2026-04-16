@@ -53,9 +53,13 @@ REALISM = (
 )
 
 DOCUMENT_PHOTO_REALISM = (
-    "MAXIMUM PHOTOREALISM of the face. Remove ONLY skin defects (blemishes, redness). "
-    "Do NOT alter face shape, features, or proportions. Formal neutral expression. "
-    "Very light, almost white, uniform background. Even frontal lighting with no harsh shadows. "
+    "ABSOLUTE PHOTOREALISM. The result must look like a real unedited photograph. "
+    "FACE: preserve 100% identical facial features, bone structure, skin texture, pores, "
+    "natural imperfections. Remove ONLY temporary blemishes (pimples, redness). "
+    "Do NOT smooth skin, alter face shape, improve features, or change proportions. "
+    "EXPRESSION: neutral, mouth closed, eyes open, direct forward gaze. "
+    "LIGHTING: flat, even, shadowless studio lighting. No harsh shadows on face or background. "
+    "True-to-life skin tones. No color grading or artistic filters. "
     "Head-and-shoulders centered crop suitable for official documents."
 )
 
@@ -602,41 +606,45 @@ CV_STYLES: dict[str, str] = {
         "flattering three-quarter or frontal portrait light, LinkedIn-standard professionalism. "
         "Clothing: tailored blazer, crisp shirt, confident but approachable business attire."
     ),
-    "docfmt_passport_rf": (
+    "photo_3x4": (
         f"{DOCUMENT_PHOTO_REALISM} "
-        "Format: Russian passport 35x45mm. "
-        "Background: flat uniform white. "
-        "Clothing: conservative dark solid-color top, neat collar, no patterns."
+        "Format: standard 3x4 photo, 30x40mm, 3:4 aspect ratio. "
+        "Face occupies 70-80% of the frame, 2-4mm top margin above head. "
+        "Background: light white or neutral grey, uniform, no gradients. "
+        "No headwear except religious. "
+        "Clothing: conservative neutral top, solid color, neat collar."
     ),
-    "docfmt_visa_schengen": (
+    "passport_rf": (
         f"{DOCUMENT_PHOTO_REALISM} "
-        "Format: Schengen visa, face 70-80% of frame. "
-        "Background: plain white, bright even lighting, no shadows on backdrop. "
-        "Clothing: business formal shirt or blouse."
+        "Format: Russian passport photo, 35x45mm, 7:9 aspect ratio. "
+        "Strictly frontal, face occupies 70-80% of the frame, 4-6mm top margin. "
+        "Background: pure uniform white, no texture or shadows. "
+        "Even symmetrical lighting, no side shadows. "
+        "Clothing: dark solid-color formal top, neat collar, no patterns or logos."
     ),
-    "docfmt_us_passport": (
+    "visa_eu": (
         f"{DOCUMENT_PHOTO_REALISM} "
-        "Format: US passport/visa 2x2 inch. "
-        "Background: pure white, even frontal lighting. "
-        "Clothing: professional top, no uniform, no hat."
+        "Format: Schengen visa / EU travel document, 35x45mm, 7:9 aspect ratio. "
+        "Face centered, occupies 70-80% of the frame, 3-5mm top margin. "
+        "Background: bright light uniform white or very light grey, zero shadows on backdrop. "
+        "High contrast between subject and background. "
+        "Clothing: business formal shirt or blouse, solid neutral color."
     ),
-    "docfmt_driver_rf": (
+    "visa_us": (
         f"{DOCUMENT_PHOTO_REALISM} "
-        "Format: Russian driver's license. "
-        "Background: uniform light grey or white. "
-        "Clothing: formal neutral top, neat appearance."
+        "Format: US visa photo, 50x50mm, strictly 1:1 square aspect ratio. "
+        "Head height 25-35mm within the frame, face 50-70% of the frame, centered. "
+        "Background: pure white, bright even frontal lighting. "
+        "Meets digital requirements: sharp, high resolution, JPEG-suitable. "
+        "Clothing: professional top, no uniform, no headwear."
     ),
-    "docfmt_student_id": (
+    "photo_4x6": (
         f"{DOCUMENT_PHOTO_REALISM} "
-        "Format: Student ID or office badge. "
-        "Background: light neutral backdrop. "
-        "Clothing: business-casual neutral top."
-    ),
-    "docfmt_resume_linkedin": (
-        f"{DOCUMENT_PHOTO_REALISM} "
-        "Format: professional headshot for resume or LinkedIn. "
-        "Background: soft light-grey or white studio backdrop, flattering frontal light. "
-        "Clothing: tailored blazer or smart shirt, professional business attire."
+        "Format: universal 4x6 photo, 40x60mm, 2:3 aspect ratio. "
+        "Face occupies 60-75% of the frame, flexible top margin. "
+        "Background: any light neutral tone (white, light grey, light blue acceptable). "
+        "Less strict requirements, natural adaptable composition. "
+        "Clothing: neat semi-formal or formal top, solid neutral colors."
     ),
 }
 
@@ -680,12 +688,11 @@ CV_PERSONALITIES: dict[str, str] = {
     "doc_passport_neutral": "Neutral composed expression, mouth closed relaxed, direct even gaze, official photo calm.",
     "doc_visa_compliant": "Serious neutral expression, attentive steady gaze, formal compliant demeanor.",
     "doc_resume_headshot": "Warm professional half-smile, confident approachable gaze, trustworthy executive energy.",
-    "docfmt_passport_rf": "Neutral composed expression, mouth closed relaxed, direct even gaze, official photo calm.",
-    "docfmt_visa_schengen": "Serious neutral expression, attentive steady gaze, formal compliant demeanor.",
-    "docfmt_us_passport": "Neutral calm expression, direct steady gaze, mouth closed, official composed look.",
-    "docfmt_driver_rf": "Neutral relaxed expression, direct even gaze, calm formal demeanor.",
-    "docfmt_student_id": "Neutral friendly expression, composed direct gaze, approachable formal energy.",
-    "docfmt_resume_linkedin": "Warm professional half-smile, confident approachable gaze, trustworthy energy.",
+    "photo_3x4": "Neutral composed expression, mouth closed, eyes open, direct forward gaze, calm official demeanor.",
+    "passport_rf": "Strictly neutral expression, mouth closed relaxed, eyes fully open, direct even frontal gaze, official composure.",
+    "visa_eu": "Serious neutral expression, attentive steady centered gaze, formal compliant demeanor, no smile.",
+    "visa_us": "Neutral calm expression, direct steady gaze, mouth closed, composed official look, no expression.",
+    "photo_4x6": "Neutral relaxed expression, direct natural gaze, calm composed demeanor, mouth closed.",
 }
 
 SOCIAL_STYLES: dict[str, str] = {

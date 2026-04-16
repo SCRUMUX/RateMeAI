@@ -92,8 +92,7 @@ SCENARIO_STYLES: dict[str, list[str]] = {
         # Document photos (web scenario)
         "doc_passport_neutral", "doc_visa_compliant", "doc_resume_headshot",
         # Document format photos (document-photo scenario)
-        "docfmt_passport_rf", "docfmt_visa_schengen", "docfmt_us_passport",
-        "docfmt_driver_rf", "docfmt_student_id", "docfmt_resume_linkedin",
+        "photo_3x4", "passport_rf", "visa_eu", "visa_us", "photo_4x6",
     ],
     "social": [
         "influencer", "influencer_urban", "influencer_minimal", "influencer_luxury",
