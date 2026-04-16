@@ -239,7 +239,7 @@ export default function AppPage() {
                   <StepStyle onNext={goNext} />
                 )}
                 {currentStep === 'generate' && (
-                  <StepGenerate onGoToStep={goToStep} onOpenStorage={() => setStorageModalOpen(true)} />
+                  <StepGenerate onGoToStep={goToStep} onOpenStorage={() => setStorageModalOpen(true)} onRequestAuth={() => setAuthModalOpen(true)} />
                 )}
               </motion.div>
             </AnimatePresence>

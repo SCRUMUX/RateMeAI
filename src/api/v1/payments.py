@@ -138,8 +138,21 @@ async def yookassa_webhook(
 async def create_payment_link(
     request: Request,
     user: User = Depends(get_auth_user),
+    db: AsyncSession = Depends(get_db),
 ):
     """Create a YooKassa payment and return the confirmation URL for web checkout."""
+    result = await db.execute(
+        select(UserIdentity).where(
+            UserIdentity.user_id == user.id,
+            UserIdentity.provider != "web",
+        )
+    )
+    if result.first() is None:
+        raise HTTPException(
+            status_code=403,
+            detail="Registration required before payment",
+        )
+
     body = await request.json()
     pack_qty = body.get("pack_qty")
     if not pack_qty or not isinstance(pack_qty, int):

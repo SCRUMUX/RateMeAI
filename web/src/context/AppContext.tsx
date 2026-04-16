@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useState, useCallback, useRef, useMemo, type ReactNode } from 'react';
-import { restoreToken, startOAuth, logout as authLogout, login as authLogin } from '../lib/auth';
+import { restoreToken, startOAuth, logout as authLogout } from '../lib/auth';
 import * as api from '../lib/api';
 import type { CategoryId, StyleItem } from '../data/styles';
 import { STYLES_BY_CATEGORY } from '../data/styles';
@@ -43,6 +43,7 @@ interface AppState {
   scenarioPaymentPackQty: number | null;
   effectiveStyleList: StyleItem[];
   effectiveApiMode: string;
+  hasRealAuth: boolean;
 }
 
 interface AppActions {
@@ -130,6 +131,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [identities, setIdentities] = useState<api.LinkedIdentity[]>([]);
   const [scenarioSlug, setScenarioSlug] = useState<string | null>(null);
 
+  const hasRealAuth = useMemo(
+    () => identities.some(id => id.provider !== 'web'),
+    [identities],
+  );
+
   const scenarioDef = useMemo(() => getScenario(scenarioSlug), [scenarioSlug]);
   const scenarioHideCategoryTabs = scenarioDef?.hideCategoryTabs ?? false;
   const scenarioStep3Mode: ScenarioStep3Mode | null = scenarioDef?.step3Mode ?? null;
@@ -178,22 +184,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const handleAuthError = useCallback(async (e: unknown): Promise<boolean> => {
     if (e instanceof api.ApiError && e.status === 401) {
-      try {
-        const res = await authLogin();
-        api.setToken(res.session_token);
-        setSession({ token: res.session_token, userId: res.user_id, provider: localStorage.getItem('ailook_provider') || '', usage: res.usage });
-        setIsAuthenticated(true);
-        setBalance(res.usage.remaining);
-        return true;
-      } catch {
-        authLogout();
-        localStorage.removeItem('ailook_provider');
-        setSession(null);
-        setIsAuthenticated(false);
-        setBalance(0);
-        setError('Сессия истекла. Пожалуйста, войдите снова.');
-        return true;
-      }
+      authLogout();
+      localStorage.removeItem('ailook_provider');
+      setSession(null);
+      setIsAuthenticated(false);
+      setBalance(0);
+      setError('Сессия истекла. Пожалуйста, войдите снова.');
+      return true;
     }
     return false;
   }, []);
@@ -579,7 +576,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     noCreditsError, preAnalyzeError, taskHistory, taskHistoryCount, identities,
     scenarioSlug, scenarioHideCategoryTabs, scenarioStep3Mode,
     scenarioDocumentPaywall, scenarioPrimaryCtaMainApp, scenarioSimplifiedAnalysis,
-    scenarioPaymentPackQty, effectiveStyleList, effectiveApiMode,
+    scenarioPaymentPackQty, effectiveStyleList, effectiveApiMode, hasRealAuth,
     syncScenarioFromRoute,
     setActiveCategory, setSelectedStyleKey, uploadPhoto, runPreAnalyze,
     generate, share, refreshBalance, clearError, clearGeneratedImage, clearNoCreditsError,

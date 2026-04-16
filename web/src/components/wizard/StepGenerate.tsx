@@ -12,6 +12,7 @@ import ShareModal from '../ShareModal';
 interface Props {
   onGoToStep: (step: 'upload' | 'style') => void;
   onOpenStorage?: () => void;
+  onRequestAuth?: () => void;
 }
 
 const STEP_LABELS: Record<string, string> = {
@@ -35,7 +36,7 @@ function parseTaskProgress(status: string | undefined): { label: string; percent
   return { label, percent };
 }
 
-export default function StepGenerate({ onGoToStep, onOpenStorage }: Props) {
+export default function StepGenerate({ onGoToStep, onOpenStorage, onRequestAuth }: Props) {
   const app = useApp();
   const navigate = useNavigate();
 
@@ -386,8 +387,27 @@ export default function StepGenerate({ onGoToStep, onOpenStorage }: Props) {
         </div>
       )}
 
-      {/* Document paywall — shown when balance is 0 and no generation started */}
-      {isDocPaywall && !hasGenResult && !isRunning && !genFailed && app.balance <= 0 && app.isAuthenticated && (
+      {/* Document paywall — auth gate: require OAuth before payment */}
+      {isDocPaywall && !hasGenResult && !isRunning && !genFailed && app.balance <= 0 && app.isAuthenticated && !app.hasRealAuth && (
+        <div className="shrink-0 flex flex-col items-center gap-[var(--space-12)] text-center">
+          <div className="gradient-border-card glass-card flex flex-col items-center gap-[var(--space-16)] rounded-[var(--radius-12)] p-[var(--space-20)] max-w-[420px]">
+            <CoinIcon size={32} className="text-[var(--color-brand-primary)]" />
+            <h3 className="text-[18px] font-semibold text-[#E6EEF8]">Зарегистрируйтесь для оплаты</h3>
+            <p className="text-[14px] text-[var(--color-text-secondary)]">
+              Чтобы не потерять оплаченные кредиты, войдите через соцсеть. После регистрации вы сможете оплатить и генерировать фото.
+            </p>
+            <button
+              onClick={() => onRequestAuth?.()}
+              className="glass-btn-primary w-full py-[var(--space-10)] text-[14px] leading-[20px] rounded-[var(--radius-pill)] font-medium"
+            >
+              Войти через соцсеть
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Document paywall — shown when balance is 0 and user has real auth */}
+      {isDocPaywall && !hasGenResult && !isRunning && !genFailed && app.balance <= 0 && app.isAuthenticated && app.hasRealAuth && (
         <div className="shrink-0 flex flex-col items-center gap-[var(--space-12)] text-center">
           <div className="gradient-border-card glass-card flex flex-col items-center gap-[var(--space-16)] rounded-[var(--radius-12)] p-[var(--space-20)] max-w-[420px]">
             <CoinIcon size={32} className="text-[var(--color-brand-primary)]" />
@@ -518,9 +538,13 @@ export default function StepGenerate({ onGoToStep, onOpenStorage }: Props) {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
           <div className="glass-card rounded-[var(--radius-16)] p-[var(--space-24)] max-w-sm w-full mx-4 flex flex-col items-center gap-[var(--space-16)] text-center">
             <CoinIcon size={40} className="text-[var(--color-brand-primary)]" />
-            <h3 className="text-[18px] font-semibold text-[#E6EEF8]">Кредиты закончились</h3>
+            <h3 className="text-[18px] font-semibold text-[#E6EEF8]">
+              {app.hasRealAuth ? 'Кредиты закончились' : 'Войдите для покупки'}
+            </h3>
             <p className="text-[14px] text-[var(--color-text-secondary)]">
-              Для генерации изображений необходимо пополнить баланс.
+              {app.hasRealAuth
+                ? 'Для генерации изображений необходимо пополнить баланс.'
+                : 'Чтобы не потерять оплаченные кредиты, войдите через соцсеть.'}
             </p>
             <div className="flex gap-[var(--space-12)] w-full">
               <button
@@ -531,9 +555,9 @@ export default function StepGenerate({ onGoToStep, onOpenStorage }: Props) {
               </button>
               <button
                 className="flex-1 glass-btn-primary rounded-[var(--radius-12)] py-[var(--space-10)] text-[14px] font-semibold text-white"
-                onClick={goToPricing}
+                onClick={app.hasRealAuth ? goToPricing : () => { setShowNoCredits(false); app.clearNoCreditsError(); onRequestAuth?.(); }}
               >
-                Пополнить баланс
+                {app.hasRealAuth ? 'Пополнить баланс' : 'Войти через соцсеть'}
               </button>
             </div>
           </div>

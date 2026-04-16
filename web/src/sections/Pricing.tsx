@@ -13,7 +13,7 @@ const PLANS = [
 ];
 
 export default function Pricing() {
-  const { session } = useApp();
+  const { session, hasRealAuth } = useApp();
   const navigate = useNavigate();
   const [loading, setLoading] = useState<number | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -32,7 +32,7 @@ export default function Pricing() {
   }, []);
 
   async function handleBuy(packQty: number) {
-    if (!session) {
+    if (!session || !hasRealAuth) {
       navigate('/app');
       return;
     }
