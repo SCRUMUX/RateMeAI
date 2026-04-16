@@ -205,7 +205,7 @@ STYLE_CATALOG: dict[str, list[tuple[str, str, str, dict]]] = {
          {"param": "trust", "delta_range": (0.02, 0.05)}),
         ("visa_us", "\U0001f1fa\U0001f1f8 Виза США", "50\u00d750 мм, квадрат, голова 25\u201335 мм",
          {"param": "trust", "delta_range": (0.02, 0.05)}),
-        ("photo_4x6", "\U0001f4cb 4\u00d76 универсал", "40\u00d760 мм, менее строгие требования",
+        ("photo_4x6", "\U0001f4f7 4\u00d76 универсал", "40\u00d760 мм, менее строгие требования",
          {"param": "trust", "delta_range": (0.02, 0.05)}),
     ],
     "social": [

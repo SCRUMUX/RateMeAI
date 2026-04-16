@@ -71,7 +71,7 @@ export const DOCUMENT_FORMAT_ITEMS: DocumentFormatItem[] = [
   },
   {
     key: 'photo_4x6',
-    icon: '📋',
+    icon: '📷',
     name: '4×6 универсал',
     desc: '40×60 мм, менее строгие требования',
     usage: 'Анкеты, личные дела',
