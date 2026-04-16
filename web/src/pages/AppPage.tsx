@@ -239,7 +239,7 @@ export default function AppPage() {
                   <StepStyle onNext={goNext} />
                 )}
                 {currentStep === 'generate' && (
-                  <StepGenerate onGoToStep={goToStep} onOpenStorage={() => setStorageModalOpen(true)} onRequestAuth={() => setAuthModalOpen(true)} />
+                  <StepGenerate onGoToStep={goToStep} onOpenStorage={() => setStorageModalOpen(true)} />
                 )}
               </motion.div>
             </AnimatePresence>
@@ -255,9 +255,9 @@ export default function AppPage() {
       />
 
       <AuthModal
-        open={authModalOpen || !app.isAuthenticated}
+        open={authModalOpen || !app.hasRealAuth}
         onClose={() => setAuthModalOpen(false)}
-        required={!app.isAuthenticated}
+        required={!app.hasRealAuth}
         onOAuth={async (provider) => {
           await app.loginWithOAuth(provider);
         }}
