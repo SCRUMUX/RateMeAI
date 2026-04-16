@@ -197,7 +197,7 @@ STYLE_CATALOG: dict[str, list[tuple[str, str, str, dict]]] = {
          {"param": "presence", "delta_range": (0.12, 0.22)}),
         ("doc_resume_headshot", "\U0001f4bc Резюме / LinkedIn", "Уверенный деловой портрет на светлом фоне",
          {"param": "presence", "delta_range": (0.25, 0.45)}),
-        ("photo_3x4", "\U0001faa6 3\u00d74 стандарт", "30\u00d740 мм, лицо 70\u201380%, нейтральное выражение",
+        ("photo_3x4", "\U0001f4cb 3\u00d74 стандарт", "30\u00d740 мм, лицо 70\u201380%, нейтральное выражение",
          {"param": "trust", "delta_range": (0.02, 0.05)}),
         ("passport_rf", "\U0001f6c2 Паспорт РФ", "35\u00d745 мм, строго фронтально, белый фон",
          {"param": "trust", "delta_range": (0.02, 0.05)}),

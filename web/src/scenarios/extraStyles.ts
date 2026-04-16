@@ -35,7 +35,7 @@ export interface DocumentFormatItem extends StyleItem {
 export const DOCUMENT_FORMAT_ITEMS: DocumentFormatItem[] = [
   {
     key: 'photo_3x4',
-    icon: '🪪',
+    icon: '📋',
     name: '3×4 стандарт',
     desc: '30×40 мм, лицо 70–80%, нейтральное выражение',
     usage: 'Пропуска, медкнижка, студенческий, удостоверения',

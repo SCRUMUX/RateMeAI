@@ -1,7 +1,6 @@
 import { useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import { useParams, Navigate } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
-import { CoinIcon, ImageIcon } from '@ai-ds/core/icons';
 import NavBar from '../sections/NavBar';
 import AuthModal from '../components/AuthModal';
 import MeshGradientBg from '../components/effects/MeshGradientBg';
@@ -164,15 +163,13 @@ export default function AppPage({ scenarioSlugOverride }: AppPageProps = {}) {
           ? +(beforeScore + predictedDelta).toFixed(2)
           : null;
 
-  const showCounters = app.isAuthenticated;
-
   if (scenarioSlug && !getScenario(scenarioSlug)) {
     return <Navigate to="/app" replace />;
   }
 
   return (
     <div data-category={app.activeCategory} className="h-dvh flex flex-col w-full overflow-hidden selection:bg-brand-primary/30">
-      <NavBar mode="app" onLoginClick={() => setAuthModalOpen(true)} />
+      <NavBar mode="app" onLoginClick={() => setAuthModalOpen(true)} onOpenStorage={() => setStorageModalOpen(true)} />
 
       <main ref={scrollRef} className="relative flex-1 min-h-0 flex flex-col overflow-hidden">
         <MeshGradientBg />
@@ -201,23 +198,6 @@ export default function AppPage({ scenarioSlugOverride }: AppPageProps = {}) {
               steps={wizardSteps}
             />
           </div>
-
-          {/* Balance & Storage counters */}
-          {showCounters && (
-            <div className="shrink-0 flex items-center justify-center gap-[var(--space-16)]">
-              <div className="glass-btn-ghost flex items-center gap-[var(--space-4)] px-[var(--space-10)] py-[2px] rounded-[var(--radius-10)]">
-                <CoinIcon size={14} className="text-[var(--color-brand-primary)]" />
-                <span className="text-[12px] leading-[16px] font-medium text-[#E6EEF8]">{app.balance}</span>
-              </div>
-              <button
-                onClick={() => setStorageModalOpen(true)}
-                className="glass-btn-ghost flex items-center gap-[var(--space-4)] px-[var(--space-10)] py-[2px] rounded-[var(--radius-10)] cursor-pointer"
-              >
-                <ImageIcon size={14} className="text-[var(--color-brand-primary)]" />
-                <span className="text-[12px] leading-[16px] font-medium text-[#E6EEF8]">{app.taskHistoryCount}</span>
-              </button>
-            </div>
-          )}
 
           {/* Step content with transitions */}
           <div className="flex-1 min-h-0 w-full max-w-[1200px]">

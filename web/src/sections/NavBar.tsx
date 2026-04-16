@@ -1,18 +1,19 @@
 import { useState, useRef, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
-import { GlobeIcon, CoinIcon } from '@ai-ds/core/icons';
+import { GlobeIcon, CoinIcon, ImageIcon } from '@ai-ds/core/icons';
 import { useApp } from '../context/AppContext';
 import LinkedAccountsPanel from '../components/LinkedAccountsPanel';
 import logoSrc from '../assets/logo.png';
 
 interface Props {
   onLoginClick?: () => void;
+  onOpenStorage?: () => void;
   mode?: 'landing' | 'app';
 }
 
-export default function NavBar({ onLoginClick, mode = 'landing' }: Props) {
-  const { session, balance, logout } = useApp();
+export default function NavBar({ onLoginClick, onOpenStorage, mode = 'landing' }: Props) {
+  const { session, balance, logout, taskHistoryCount } = useApp();
   const [menuOpen, setMenuOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -75,13 +76,22 @@ export default function NavBar({ onLoginClick, mode = 'landing' }: Props) {
           )}
 
           {session ? (
-            <div className="relative flex items-center gap-[var(--space-8)]" ref={menuRef}>
+            <div className="relative flex items-center gap-[var(--space-6)]" ref={menuRef}>
+              {mode === 'app' && onOpenStorage && (
+                <button
+                  onClick={onOpenStorage}
+                  className="glass-btn-ghost flex items-center gap-[var(--space-4)] px-[var(--space-10)] py-[var(--space-6)] text-[13px] leading-[18px] font-medium text-[#E6EEF8] rounded-[var(--radius-12)] cursor-pointer"
+                >
+                  <ImageIcon size={15} className="text-[var(--color-brand-primary)]" />
+                  <span>{taskHistoryCount}</span>
+                </button>
+              )}
               <button
                 onClick={() => setMenuOpen(v => !v)}
-                className="glass-btn-ghost flex items-center gap-[var(--space-4)] px-[var(--space-12)] py-[var(--space-6)] text-[14px] leading-[20px] font-medium text-[#E6EEF8] rounded-[var(--radius-12)] cursor-pointer"
+                className="glass-btn-ghost flex items-center gap-[var(--space-4)] px-[var(--space-10)] py-[var(--space-6)] text-[13px] leading-[18px] font-medium text-[#E6EEF8] rounded-[var(--radius-12)] cursor-pointer"
               >
-                <CoinIcon size={16} className="text-[var(--color-brand-primary)]" />
-                <span>{balance}</span>
+                <CoinIcon size={15} className="text-[var(--color-brand-primary)]" />
+                <span>Баланс {balance}</span>
                 <svg width="12" height="12" viewBox="0 0 12 12" fill="none" className={`transition-transform ${menuOpen ? 'rotate-180' : ''}`}>
                   <path d="M3 5L6 8L9 5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/>
                 </svg>
@@ -145,11 +155,20 @@ export default function NavBar({ onLoginClick, mode = 'landing' }: Props) {
           )}
         </div>
 
-        {/* Mobile: balance + burger */}
-        <div className="flex tablet:hidden items-center gap-[var(--space-8)]">
+        {/* Mobile: storage + balance + burger */}
+        <div className="flex tablet:hidden items-center gap-[var(--space-6)]">
+          {session && mode === 'app' && onOpenStorage && (
+            <button
+              onClick={onOpenStorage}
+              className="glass-btn-ghost flex items-center gap-[var(--space-4)] px-[var(--space-8)] py-[var(--space-4)] text-[13px] leading-[18px] font-medium text-[#E6EEF8] rounded-[var(--radius-12)] cursor-pointer"
+            >
+              <ImageIcon size={15} className="text-[var(--color-brand-primary)]" />
+              <span>{taskHistoryCount}</span>
+            </button>
+          )}
           {session && (
-            <div className="glass-btn-ghost flex items-center gap-[var(--space-4)] px-[var(--space-8)] py-[var(--space-4)] text-[14px] leading-[20px] font-medium text-[#E6EEF8] rounded-[var(--radius-12)]">
-              <CoinIcon size={16} className="text-[var(--color-brand-primary)]" />
+            <div className="glass-btn-ghost flex items-center gap-[var(--space-4)] px-[var(--space-8)] py-[var(--space-4)] text-[13px] leading-[18px] font-medium text-[#E6EEF8] rounded-[var(--radius-12)]">
+              <CoinIcon size={15} className="text-[var(--color-brand-primary)]" />
               <span>{balance}</span>
             </div>
           )}

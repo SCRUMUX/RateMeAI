@@ -29,7 +29,7 @@ export default function DocumentPhotoLanding() {
         {/* Hero */}
         <section className="relative z-[2] flex flex-col items-center gap-[var(--space-24)] px-[var(--space-16)] tablet:px-[var(--space-24)] pt-[120px] tablet:pt-[160px] pb-[60px] tablet:pb-[80px] text-center">
           <div className="flex flex-col items-center gap-[var(--space-12)]">
-            <span className="text-[48px]">🪪</span>
+            <span className="text-[48px]">📋</span>
             <h1 className="text-[32px] tablet:text-[48px] desktop:text-[56px] font-semibold leading-[1.1] text-[#E6EEF8] max-w-[700px]">
               Фото на документы
               <br />
