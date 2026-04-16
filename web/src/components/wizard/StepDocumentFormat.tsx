@@ -33,7 +33,7 @@ export default function StepDocumentFormat({ onNext }: Props) {
         </p>
       </div>
 
-      <div className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-[var(--space-10)]">
+      <div className="flex-1 min-h-0 flex flex-col gap-[var(--space-10)]">
         {formats.map((fmt) => {
           const isActive = selectedKey === fmt.key;
           return (

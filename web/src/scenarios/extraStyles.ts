@@ -44,7 +44,7 @@ export const DOCUMENT_FORMAT_ITEMS: DocumentFormatItem[] = [
   },
   {
     key: 'passport_rf',
-    icon: '🇷🇺',
+    icon: '🛂',
     name: 'Паспорт РФ',
     desc: '35×45 мм, строго фронтально, белый фон',
     usage: 'Внутренний паспорт РФ',
@@ -53,7 +53,7 @@ export const DOCUMENT_FORMAT_ITEMS: DocumentFormatItem[] = [
   },
   {
     key: 'visa_eu',
-    icon: '🇪🇺',
+    icon: '✈️',
     name: 'Виза / Шенген',
     desc: '35×45 мм, лицо 70–80%, без теней',
     usage: 'Визы, загранпаспорт',
@@ -62,7 +62,7 @@ export const DOCUMENT_FORMAT_ITEMS: DocumentFormatItem[] = [
   },
   {
     key: 'visa_us',
-    icon: '🇺🇸',
+    icon: '🌐',
     name: 'Виза США',
     desc: '50×50 мм, квадрат, голова 25–35 мм',
     usage: 'Виза США',

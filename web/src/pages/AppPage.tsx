@@ -230,7 +230,7 @@ export default function AppPage({ scenarioSlugOverride }: AppPageProps = {}) {
                 animate="center"
                 exit="exit"
                 transition={{ duration: 0.3, ease: 'easeInOut' }}
-                className={`h-full ${currentStep === 'style' && !isDocumentScenario ? 'overflow-y-auto' : 'overflow-hidden'}`}
+                className={`h-full ${currentStep === 'generate' ? 'overflow-hidden' : 'overflow-y-auto'}`}
               >
                 {currentStep === 'upload' && (
                   <StepUpload onNext={goNext} />
