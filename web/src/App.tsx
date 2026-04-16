@@ -1,9 +1,9 @@
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AppProvider } from './context/AppContext';
 import { ToastProvider } from './components/Toast';
 import Landing from './pages/Landing';
 import AppPage from './pages/AppPage';
-import DocumentPhotoLanding from './pages/DocumentPhotoLanding';
+import DocumentPhotoPage from './pages/DocumentPhotoPage';
 import PaymentSuccess from './pages/PaymentSuccess';
 import AuthCallback from './pages/AuthCallback';
 import LinkPage from './pages/LinkPage';
@@ -15,7 +15,8 @@ export default function App() {
         <AppProvider>
           <Routes>
             <Route path="/" element={<Landing />} />
-            <Route path="/dokumenty" element={<DocumentPhotoLanding />} />
+            <Route path="/dokumenty" element={<DocumentPhotoPage />} />
+            <Route path="/app/document-photo" element={<Navigate to="/dokumenty" replace />} />
             <Route path="/app/:scenarioSlug" element={<AppPage />} />
             <Route path="/app" element={<AppPage />} />
             <Route path="/payment-success" element={<PaymentSuccess />} />

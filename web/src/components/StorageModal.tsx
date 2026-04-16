@@ -391,7 +391,7 @@ export default function StorageModal({ items, open, onClose, onImprove }: Props)
 
               {DOCUMENT_STYLE_KEYS.has(item.style) && (
                 <button
-                  onClick={() => { onClose(); navigate('/app/document-photo'); }}
+                  onClick={() => { onClose(); navigate('/dokumenty'); }}
                   className="shrink-0 w-full glass-btn-ghost rounded-[var(--radius-12)] py-[var(--space-8)] text-[13px] font-medium text-[#E6EEF8] flex items-center justify-center gap-1.5"
                 >
                   <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M4 2h5.172a2 2 0 0 1 1.414.586l2.828 2.828A2 2 0 0 1 14 6.828V14a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2z" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/><path d="M9 2v4h4" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/></svg>

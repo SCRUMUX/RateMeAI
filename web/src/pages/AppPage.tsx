@@ -35,9 +35,14 @@ const slideVariants = {
   }),
 };
 
-export default function AppPage() {
+interface AppPageProps {
+  scenarioSlugOverride?: string;
+}
+
+export default function AppPage({ scenarioSlugOverride }: AppPageProps = {}) {
   const app = useApp();
-  const { scenarioSlug } = useParams<{ scenarioSlug: string }>();
+  const { scenarioSlug: routeSlug } = useParams<{ scenarioSlug: string }>();
+  const scenarioSlug = scenarioSlugOverride ?? routeSlug;
 
   useEffect(() => {
     app.syncScenarioFromRoute(scenarioSlug);

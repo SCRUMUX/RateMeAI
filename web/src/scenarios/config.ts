@@ -77,10 +77,15 @@ export function resolveScenarioStyles(def: ScenarioDefinition | null): StyleItem
 
 export const POST_PAYMENT_STORAGE_KEY = 'ailook_post_payment_path';
 
+const SCENARIO_ROUTE_ALIASES: Record<string, string> = {
+  '/dokumenty': '/dokumenty',
+};
+
 export function normalizePostPaymentPath(raw: string | null | undefined): string | null {
   if (raw == null || raw === '') return null;
   let path = raw.split('?')[0].trim();
   if (!path.startsWith('/')) path = `/${path}`;
+  if (SCENARIO_ROUTE_ALIASES[path]) return SCENARIO_ROUTE_ALIASES[path];
   if (path === '/app') return '/app';
   if (!path.startsWith('/app/')) return null;
   const seg = path.slice('/app/'.length).split('/').filter(Boolean)[0];

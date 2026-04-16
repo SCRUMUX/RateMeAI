@@ -6,15 +6,7 @@ import AuthModal from '../components/AuthModal';
 import MeshGradientBg from '../components/effects/MeshGradientBg';
 import EnergyField from '../components/effects/EnergyField';
 import { useApp } from '../context/AppContext';
-
-const FORMATS = [
-  { icon: '🪪', title: 'Паспорт РФ', desc: 'Загранпаспорт, внутренний паспорт, госуслуги' },
-  { icon: '🇪🇺', title: 'Виза Шенген', desc: 'Консульства ЕС, визовые центры' },
-  { icon: '🇺🇸', title: 'USA passport / visa', desc: 'DS-160, виза и паспорт США' },
-  { icon: '🚗', title: 'Водительское РФ', desc: 'Замена ВУ, ГИБДД, Госуслуги' },
-  { icon: '🎓', title: 'Студенческий / пропуск', desc: 'ВУЗ, офисный пропуск' },
-  { icon: '💼', title: 'Резюме и LinkedIn', desc: 'HeadHunter, LinkedIn, сайт компании' },
-];
+import { DOCUMENT_FORMAT_ITEMS } from '../scenarios/extraStyles';
 
 const STEPS = [
   { num: '1', title: 'Загрузите фото', desc: 'Любое фото с чётким лицом' },
@@ -56,7 +48,7 @@ export default function DocumentPhotoLanding() {
 
           <div className="flex flex-col tablet:flex-row items-center gap-[var(--space-12)]">
             <Link
-              to="/app/document-photo"
+              to="/dokumenty"
               className="glass-btn-primary inline-flex items-center justify-center px-[var(--space-32)] py-[var(--space-16)] text-[18px] leading-[24px] rounded-[var(--radius-12)] font-medium no-underline"
             >
               Создать фото — 199 ₽
@@ -83,14 +75,14 @@ export default function DocumentPhotoLanding() {
         <section className="relative z-[2] flex flex-col items-center gap-[var(--space-32)] px-[var(--space-16)] tablet:px-[var(--space-24)] py-[60px] tablet:py-[80px]">
           <h2 className="text-[24px] tablet:text-[36px] font-semibold leading-[1.2] text-[#E6EEF8]">Поддерживаемые форматы</h2>
           <div className="grid grid-cols-1 tablet:grid-cols-2 desktop:grid-cols-3 gap-[var(--space-12)] max-w-[900px] w-full">
-            {FORMATS.map((f) => (
-              <div key={f.title} className="gradient-border-item glass-row flex items-center gap-[var(--space-12)] px-[var(--space-16)] py-[var(--space-12)] rounded-[var(--radius-12)]"
+            {DOCUMENT_FORMAT_ITEMS.map((f) => (
+              <div key={f.key} className="gradient-border-item glass-row flex items-center gap-[var(--space-12)] px-[var(--space-16)] py-[var(--space-12)] rounded-[var(--radius-12)]"
                 style={{ '--gb-color': 'rgba(255, 255, 255, 0.10)' } as React.CSSProperties}
               >
                 <span className="text-[24px] shrink-0">{f.icon}</span>
                 <div className="flex flex-col min-w-0">
-                  <span className="text-[15px] font-medium text-[#E6EEF8]">{f.title}</span>
-                  <span className="text-[12px] text-[var(--color-text-muted)]">{f.desc}</span>
+                  <span className="text-[15px] font-medium text-[#E6EEF8]">{f.name}</span>
+                  <span className="text-[12px] text-[var(--color-text-muted)]">{f.usage}</span>
                 </div>
               </div>
             ))}
@@ -106,7 +98,7 @@ export default function DocumentPhotoLanding() {
             Загрузите любое фото и получите результат, соответствующий требованиям документов
           </p>
           <Link
-            to="/app/document-photo"
+            to="/dokumenty"
             className="glass-btn-primary inline-flex items-center justify-center px-[var(--space-32)] py-[var(--space-16)] text-[18px] leading-[24px] rounded-[var(--radius-12)] font-medium no-underline"
           >
             Начать
