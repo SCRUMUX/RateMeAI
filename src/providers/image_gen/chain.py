@@ -16,6 +16,11 @@ class ChainImageGen(ImageGenProvider):
             raise ValueError("ChainImageGen requires at least one provider")
         self._providers = list(providers)
 
+    @property
+    def providers(self) -> list[ImageGenProvider]:
+        """Public read-only access to the chain's provider list."""
+        return list(self._providers)
+
     async def generate(
         self,
         prompt: str,

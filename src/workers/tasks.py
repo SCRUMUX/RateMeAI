@@ -3,7 +3,7 @@ from __future__ import annotations
 import asyncio
 import base64
 import logging
-from datetime import date, datetime, timezone, timedelta
+from datetime import date, datetime, timezone
 
 import redis.asyncio as redis_async
 from arq.connections import RedisSettings
@@ -15,21 +15,22 @@ from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
 from src.config import settings
 from src.models.db import Task, UsageLog, User, CreditTransaction
 from src.models.enums import AnalysisMode, TaskStatus
+from src.services.reconciliation import STUCK_TASK_THRESHOLD_MINUTES  # noqa: F401 — re-export for backward compat
 from src.orchestrator.pipeline import AnalysisPipeline
 from src.providers.factory import get_image_gen, get_llm, get_storage
-from src.utils.redis_keys import gen_image_cache_key, task_input_cache_key
+from src.utils.redis_keys import gen_image_cache_key, task_input_cache_key, WORKER_HEARTBEAT_KEY, WORKER_HEARTBEAT_TTL
 from src.metrics import (
-    CREDITS_USED, TASKS_COMPLETED, TASKS_FAILED, TASKS_RECONCILED,
-    PIPELINE_RETRIES, TASKS_IN_PROCESSING, COMPLETED_WITHOUT_IMAGE,
+    CREDITS_USED, TASKS_COMPLETED, TASKS_FAILED,
+    PIPELINE_RETRIES, COMPLETED_WITHOUT_IMAGE,
 )
 from src.version import APP_VERSION
+from src.tracing import async_span
 
 logger = logging.getLogger(__name__)
 
 _MAX_PIPELINE_RETRIES = 2
 _RETRY_BACKOFF_BASE = 3.0
 _TRANSIENT_MARKERS = ("rate limit", "timeout", "connect", "temporarily", "503", "429")
-STUCK_TASK_THRESHOLD_MINUTES = 10
 
 
 def _is_transient(exc: Exception) -> bool:
@@ -69,6 +70,9 @@ async def startup(ctx: dict):
             "InsightFace NOT loaded — identity gate DISABLED. "
             "Generated images may show a different person. Install insightface to fix."
         )
+    import time
+    await ctx["redis"].set(WORKER_HEARTBEAT_KEY, str(time.time()), ex=WORKER_HEARTBEAT_TTL)
+
     sha = (settings.deploy_git_sha or "").strip()
     logger.info(
         "Worker started RateMeAI version=%s%s",
@@ -90,6 +94,11 @@ async def shutdown(ctx: dict):
 
 
 async def process_analysis(ctx: dict, task_id: str):
+    async with async_span("worker.process_analysis", {"task.id": task_id}):
+        await _process_analysis_inner(ctx, task_id)
+
+
+async def _process_analysis_inner(ctx: dict, task_id: str):
     db_sessionmaker = ctx["db_sessionmaker"]
     pipeline: AnalysisPipeline = ctx["pipeline"]
     storage = ctx["storage"]
@@ -297,65 +306,87 @@ async def process_analysis(ctx: dict, task_id: str):
                 logger.warning("Failed to publish task_done (failed) for %s", task_id)
 
 
-async def reconcile_stuck_tasks(ctx: dict):
-    """Find tasks stuck in 'processing' beyond the SLA and mark them failed."""
+async def compute_delta_scores(ctx: dict, task_id: str):
+    """Deferred delta scoring: re-analyze the generated image and patch results.
+
+    Called as a separate ARQ job so the main pipeline can deliver results faster.
+    """
     db_sessionmaker = ctx["db_sessionmaker"]
+    pipeline: AnalysisPipeline = ctx["pipeline"]
+    storage = ctx["storage"]
     redis = ctx["redis"]
-    threshold = datetime.now(timezone.utc) - timedelta(minutes=STUCK_TASK_THRESHOLD_MINUTES)
 
     async with db_sessionmaker() as db:
-        all_processing = await db.execute(
-            select(Task).where(Task.status == TaskStatus.PROCESSING.value)
-        )
-        TASKS_IN_PROCESSING.set(len(all_processing.scalars().all()))
+        result = await db.execute(select(Task).where(Task.id == task_id))
+        task = result.scalar_one_or_none()
+        if task is None:
+            logger.warning("Delta scoring: task %s not found", task_id)
+            return
+        if task.status != TaskStatus.COMPLETED.value:
+            logger.warning("Delta scoring: task %s not in completed state (%s)", task_id, task.status)
+            return
 
-        rows = await db.execute(
-            select(Task).where(
-                Task.status == TaskStatus.PROCESSING.value,
-                Task.updated_at < threshold,
-            )
-        )
-        stuck_tasks = rows.scalars().all()
-        for task in stuck_tasks:
-            task.status = TaskStatus.FAILED.value
-            task.error_message = (
-                f"Task exceeded {STUCK_TASK_THRESHOLD_MINUTES}min processing SLA "
-                f"and was marked failed by reconciler."
-            )
-            TASKS_RECONCILED.inc()
-            TASKS_FAILED.labels(reason="stuck_timeout").inc()
-            logger.warning("Reconciler: task %s stuck since %s, marking failed", task.id, task.updated_at)
+        task_result = task.result or {}
+        if task_result.get("delta_status") != "pending":
+            logger.info("Delta scoring: task %s not marked for deferred scoring", task_id)
+            return
 
-            if (task.context or {}).get("credit_pre_reserved"):
-                try:
-                    u = await db.execute(
-                        select(User).where(User.id == task.user_id).with_for_update()
-                    )
-                    user = u.scalar_one()
-                    user.image_credits += 1
-                    db.add(CreditTransaction(
-                        user_id=task.user_id,
-                        amount=1,
-                        balance_after=user.image_credits,
-                        tx_type="refund_stuck_task",
-                    ))
-                    logger.info("Reconciler: refunded credit for stuck task %s", task.id)
-                except Exception:
-                    logger.exception("Reconciler: failed to refund credit for task %s", task.id)
+        mode_str = task.mode
+        try:
+            mode = AnalysisMode(mode_str)
+        except ValueError:
+            logger.warning("Delta scoring: unknown mode %s for task %s", mode_str, task_id)
+            return
+
+        try:
+            input_bytes = await storage.download(task.input_image_path)
+        except Exception:
+            logger.exception("Delta scoring: failed to download input for task %s", task_id)
+            return
+
+        try:
+            await pipeline._delta_scorer.compute(mode, input_bytes, task_result, str(task.user_id), task_id)
+            task_result["delta_status"] = "completed"
+            task.result = task_result
+            await db.commit()
 
             try:
-                await redis.publish(f"ratemeai:task_done:{task.id}", "failed")
+                await redis.publish(f"ratemeai:task_done:{task_id}", "delta_updated")
             except Exception:
                 pass
-        if stuck_tasks:
+
+            logger.info("Delta scoring completed for task %s", task_id)
+        except Exception:
+            logger.exception("Delta scoring failed for task %s", task_id)
+            task_result["delta_status"] = "failed"
+            task_result["delta_error"] = "deferred_rescoring_failed"
+            task.result = task_result
             await db.commit()
-            logger.info("Reconciler: marked %d stuck tasks as failed", len(stuck_tasks))
+
+
+async def worker_heartbeat(ctx: dict):
+    """Update Redis heartbeat key so health checks can verify the worker is alive."""
+    import time
+    redis = ctx["redis"]
+    await redis.set(WORKER_HEARTBEAT_KEY, str(time.time()), ex=WORKER_HEARTBEAT_TTL)
+
+
+async def reconcile_stuck_tasks_cron(ctx: dict):
+    """Cron wrapper: delegates to shared reconciliation logic."""
+    from src.services.reconciliation import reconcile_stuck_tasks
+    await reconcile_stuck_tasks(
+        ctx["db_sessionmaker"],
+        ctx["redis"],
+        source="worker",
+        track_processing_gauge=True,
+    )
 
 
 class WorkerSettings:
-    functions = [process_analysis]
+    functions = [process_analysis, compute_delta_scores]
     cron_jobs = [
-        cron(reconcile_stuck_tasks, minute={0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55}),
+        cron(reconcile_stuck_tasks_cron, minute={0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55}),
+        cron(worker_heartbeat, second={0, 30}),
     ]
     on_startup = startup
     on_shutdown = shutdown

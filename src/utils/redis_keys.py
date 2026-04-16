@@ -15,3 +15,7 @@ def embedding_cache_key(task_id: str) -> str:
 
 def preanalysis_cache_key(pre_analysis_id: str) -> str:
     return f"ratemeai:preanalysis:{pre_analysis_id}"
+
+
+WORKER_HEARTBEAT_KEY = "ratemeai:worker:heartbeat"
+WORKER_HEARTBEAT_TTL = 120

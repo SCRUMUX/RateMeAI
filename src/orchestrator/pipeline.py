@@ -20,6 +20,7 @@ from src.utils.humanize import humanize_result_scores
 from src.utils.image import validate_and_normalize, has_face_heuristic, estimate_blur_score
 from src.utils.redis_keys import embedding_cache_key, preanalysis_cache_key
 from src.utils.security import extract_nsfw_from_analysis
+from src.tracing import async_span
 
 logger = logging.getLogger(__name__)
 
@@ -145,6 +146,25 @@ class AnalysisPipeline:
             "decisions": [],
             "total_cost_usd": 0.0,
         }
+        async with async_span("pipeline.execute", {
+            "pipeline.mode": mode.value,
+            "pipeline.task_id": task_id,
+            "pipeline.user_id": user_id,
+        }):
+          return await self._execute_inner(
+              mode, image_bytes, user_id, task_id, context, progress_callback, trace,
+          )
+
+    async def _execute_inner(
+        self,
+        mode: AnalysisMode,
+        image_bytes: bytes,
+        user_id: str,
+        task_id: str,
+        context: dict | None,
+        progress_callback,
+        trace: dict,
+    ) -> dict:
 
         with _trace_step(trace, "preprocess"):
             image_bytes, img_meta = await self._preprocess(image_bytes)
@@ -245,8 +265,16 @@ class AnalysisPipeline:
                 result_dict.get("generated_image_url")
                 and mode in (AnalysisMode.DATING, AnalysisMode.CV, AnalysisMode.SOCIAL)
             ):
-                with _trace_step(trace, "post_gen_rescore"):
-                    await self._delta_scorer.compute(mode, image_bytes, result_dict, user_id, task_id)
+                if (context or {}).get("defer_delta_scoring"):
+                    result_dict["delta_status"] = "pending"
+                    trace["decisions"].append({
+                        "phase": "delta_scoring",
+                        "decision": "Deferred to separate job",
+                        "reason": "defer_delta_scoring=True",
+                    })
+                else:
+                    with _trace_step(trace, "post_gen_rescore"):
+                        await self._delta_scorer.compute(mode, image_bytes, result_dict, user_id, task_id)
 
         trace["pipeline_ended_at"] = time.time()
         duration_s = trace["pipeline_ended_at"] - trace["pipeline_started_at"]
@@ -274,7 +302,26 @@ class AnalysisPipeline:
     # Analysis (LLM scoring)
     # ------------------------------------------------------------------
 
+    def _analysis_cache_key(self, mode: AnalysisMode, image_bytes: bytes, context: dict | None) -> str:
+        """Deterministic cache key for LLM analysis based on image content and mode."""
+        import hashlib
+        h = hashlib.sha256(image_bytes).hexdigest()[:16]
+        profession = (context or {}).get("profession", "")
+        return f"ratemeai:llm_cache:{mode.value}:{h}:{profession}"
+
     async def _analyze(self, mode: AnalysisMode, image_bytes: bytes, context: dict | None) -> tuple:
+        if self._redis:
+            cache_key = self._analysis_cache_key(mode, image_bytes, context)
+            try:
+                import json as _json
+                cached = await self._redis.get(cache_key)
+                if cached:
+                    result_dict = _json.loads(cached)
+                    logger.info("LLM analysis cache hit for mode=%s", mode.value)
+                    return result_dict, result_dict
+            except Exception:
+                logger.debug("LLM analysis cache miss/error for mode=%s", mode.value)
+
         service = self._router.get_service(mode)
 
         if mode == AnalysisMode.CV:
@@ -294,6 +341,14 @@ class AnalysisPipeline:
             result_dict = result.model_dump()
         else:
             result_dict = raw_dict
+
+        if self._redis:
+            try:
+                import json as _json
+                await self._redis.set(cache_key, _json.dumps(result_dict), ex=600)
+                logger.debug("Cached LLM analysis for mode=%s (10min TTL)", mode.value)
+            except Exception:
+                logger.debug("Failed to cache LLM analysis for mode=%s", mode.value)
 
         return result, result_dict
 

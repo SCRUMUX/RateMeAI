@@ -457,16 +457,22 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }, 3000);
   }, [stopPolling, handleTaskResult]);
 
-  const startPolling = useCallback((taskId: string, category: CategoryId, apiMode: string) => {
+  const startPolling = useCallback(async (taskId: string, category: CategoryId, apiMode: string) => {
     stopPolling();
     const mode = apiMode;
-    const token = api.getToken();
     const sseUrl = `${api.API_BASE}/api/v1/sse/progress?task_id=${taskId}`;
 
     try {
-      const es = new EventSource(
-        token ? `${sseUrl}&token=${encodeURIComponent(token)}` : sseUrl,
-      );
+      let ticketParam = '';
+      try {
+        const { ticket } = await api.createSseTicket();
+        ticketParam = `&ticket=${encodeURIComponent(ticket)}`;
+      } catch {
+        const token = api.getToken();
+        if (token) ticketParam = `&token=${encodeURIComponent(token)}`;
+      }
+
+      const es = new EventSource(`${sseUrl}${ticketParam}`);
       sseRef.current = es;
 
       es.addEventListener('done', async (ev) => {

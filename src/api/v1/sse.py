@@ -1,31 +1,62 @@
 """Server-Sent Events endpoint for real-time task progress updates.
 
 Web / mini-app clients can subscribe to SSE instead of polling.
+Supports short-lived SSE tickets to avoid exposing long-lived session
+tokens in query strings (which appear in logs and proxy caches).
 """
 from __future__ import annotations
 
 import asyncio
 import logging
+import secrets
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.responses import StreamingResponse
 
-from src.api.deps import get_db
+from src.api.deps import get_db, get_auth_user
 from src.models.db import Task, User
 from src.services.sessions import resolve_session
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
 
+_SSE_TICKET_TTL = 60
+_SSE_TICKET_PREFIX = "ratemeai:sse_ticket:"
+
+
+@router.post("/ticket")
+async def create_sse_ticket(
+    request: Request,
+    user: User = Depends(get_auth_user),
+):
+    """Issue a short-lived SSE ticket (60s) so the client does not need to
+    put the long-lived session token in the EventSource query string."""
+    redis = request.app.state.redis
+    ticket = secrets.token_urlsafe(32)
+    await redis.set(f"{_SSE_TICKET_PREFIX}{ticket}", str(user.id), ex=_SSE_TICKET_TTL)
+    return {"ticket": ticket, "ttl": _SSE_TICKET_TTL}
+
 
 async def _resolve_sse_user(
     request: Request,
-    token: str | None = Query(None, description="Bearer token (for EventSource which cannot set headers)"),
+    token: str | None = Query(None, description="Bearer token (legacy, prefer ticket)"),
+    ticket: str | None = Query(None, description="Short-lived SSE ticket from POST /sse/ticket"),
     db: AsyncSession = Depends(get_db),
 ) -> User:
-    """Resolve user from Authorization header or query ?token= (SSE compat)."""
+    """Resolve user from Authorization header, SSE ticket, or legacy query ?token=."""
+    redis = request.app.state.redis
+
+    if ticket:
+        user_id_str = await redis.get(f"{_SSE_TICKET_PREFIX}{ticket}")
+        if user_id_str:
+            await redis.delete(f"{_SSE_TICKET_PREFIX}{ticket}")
+            user = await db.get(User, user_id_str)
+            if user is not None:
+                return user
+        raise HTTPException(status_code=401, detail="Invalid or expired SSE ticket")
+
     auth_header = request.headers.get("authorization")
     bearer_token = None
     if auth_header and auth_header.lower().startswith("bearer "):
@@ -35,7 +66,6 @@ async def _resolve_sse_user(
     if not bearer_token:
         raise HTTPException(status_code=401, detail="Missing auth token")
 
-    redis = request.app.state.redis
     user_id = await resolve_session(redis, bearer_token)
     if user_id is None:
         raise HTTPException(status_code=401, detail="Invalid or expired session token")

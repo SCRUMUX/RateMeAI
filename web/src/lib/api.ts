@@ -183,6 +183,14 @@ export function createShare(taskId: string) {
 //   );
 // }
 
+// -- SSE Ticket --
+
+export interface SseTicketResponse { ticket: string; ttl: number }
+
+export function createSseTicket() {
+  return request<SseTicketResponse>('/api/v1/sse/ticket', { method: 'POST' });
+}
+
 // -- Payments --
 
 export function createPayment(packQty: number) {

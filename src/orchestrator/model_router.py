@@ -97,7 +97,7 @@ def build_model_registry(
     from src.providers.image_gen.mock import MockImageGen
 
     if isinstance(image_gen, ChainImageGen):
-        providers = image_gen._providers
+        providers = image_gen.providers
     else:
         providers = [image_gen]
 

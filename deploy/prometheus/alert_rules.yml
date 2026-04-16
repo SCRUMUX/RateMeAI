@@ -1,0 +1,122 @@
+groups:
+  - name: ratemeai_pipeline
+    rules:
+      - alert: HighPipelineFailureRate
+        expr: |
+          rate(ratemeai_tasks_failed_total[5m])
+          / (rate(ratemeai_tasks_completed_total[5m]) + rate(ratemeai_tasks_failed_total[5m]))
+          > 0.2
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Pipeline failure rate above 20%"
+          description: "{{ $value | humanizePercentage }} of tasks have failed in the last 5 minutes."
+
+      - alert: TasksStuckInProcessing
+        expr: ratemeai_tasks_in_processing > 10
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "More than 10 tasks stuck in processing state"
+          description: "{{ $value }} tasks are in processing state, possible worker issue."
+
+      - alert: ReconcilerActivelyFailing
+        expr: rate(ratemeai_tasks_reconciled_total[15m]) > 0.1
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Stuck-task reconciler is actively recovering tasks"
+          description: "Reconciler has been marking tasks as failed at {{ $value }}/s for 15 minutes."
+
+  - name: ratemeai_providers
+    rules:
+      - alert: LLMErrorRate
+        expr: |
+          rate(ratemeai_llm_calls_total{purpose=~".*error.*"}[5m])
+          / rate(ratemeai_llm_calls_total[5m])
+          > 0.15
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "LLM error rate above 15%"
+          description: "LLM calls are failing at {{ $value | humanizePercentage }} rate."
+
+      - alert: ImageGenHighLatency
+        expr: histogram_quantile(0.95, rate(ratemeai_pipeline_duration_seconds_bucket[10m])) > 60
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Pipeline p95 latency exceeds 60 seconds"
+          description: "p95 pipeline duration is {{ $value }}s over the last 10 minutes."
+
+      - alert: IdentityScoreLow
+        expr: histogram_quantile(0.5, rate(ratemeai_identity_score_bucket[30m])) < 0.5
+        for: 30m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Median identity similarity score below 0.5"
+          description: "Generated images may not look like the original person."
+
+  - name: ratemeai_worker
+    rules:
+      - alert: WorkerHeartbeatMissing
+        expr: |
+          time() - ratemeai_worker_last_heartbeat_seconds > 180
+        for: 3m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Worker heartbeat not received for 3+ minutes"
+          description: "The ARQ worker may be down or hung."
+
+      - alert: HighRetryRate
+        expr: rate(ratemeai_pipeline_retries_total[10m]) > 0.5
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Pipeline retry rate above 0.5/s"
+          description: "Transient errors are triggering excessive retries."
+
+  - name: ratemeai_credits
+    rules:
+      - alert: NoCreditsCompletions
+        expr: |
+          rate(ratemeai_completed_without_image_total{reason="no_credits"}[30m])
+          / rate(ratemeai_tasks_completed_total[30m])
+          > 0.5
+        for: 30m
+        labels:
+          severity: info
+        annotations:
+          summary: "More than 50% of completions have no generated image (no credits)"
+          description: "Users may be hitting credit limits — consider reviewing pricing."
+
+  - name: ratemeai_http
+    rules:
+      - alert: HighHTTP5xxRate
+        expr: |
+          rate(http_requests_total{status=~"5.."}[5m])
+          / rate(http_requests_total[5m])
+          > 0.05
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "HTTP 5xx rate above 5%"
+          description: "{{ $value | humanizePercentage }} of HTTP requests are returning 5xx errors."
+
+      - alert: HighHTTPLatency
+        expr: histogram_quantile(0.95, rate(http_request_duration_seconds_bucket[5m])) > 5
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "HTTP p95 latency above 5 seconds"
+          description: "p95 request duration is {{ $value }}s."

@@ -72,10 +72,11 @@ services:
       redis:
         condition: service_healthy
     healthcheck:
-      test: ["CMD-SHELL", "python -c 'import src.workers.tasks' || exit 1"]
+      test: ["CMD-SHELL", "python -c \"import redis, time; r=redis.from_url('redis://redis:6379/0'); v=r.get('ratemeai:worker:heartbeat'); exit(0 if v and time.time()-float(v)<120 else 1)\""]
       interval: 30s
       timeout: 10s
       retries: 3
+      start_period: 30s
     volumes:
       - ./storage:/app/storage
 
@@ -93,10 +94,11 @@ services:
       app:
         condition: service_healthy
     healthcheck:
-      test: ["CMD-SHELL", "python -c 'import src.bot.app' || exit 1"]
+      test: ["CMD-SHELL", "curl -sf http://localhost:8080/health || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 3
+      start_period: 15s
     volumes:
       - ./storage:/app/storage
 
