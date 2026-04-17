@@ -242,15 +242,19 @@ export default function StepGenerate({ onGoToStep, onOpenStorage }: Props) {
   const showStartGenerateCta = !isDocPaywall && !hasGenResult && !isRunning && !genFailed && !!app.photo;
 
   return (
-    <div className="h-full flex flex-col gap-[var(--space-8)] w-full max-w-[800px] mx-auto">
+    <div className="h-full flex flex-col gap-[var(--space-8)] w-full max-w-[800px] mx-auto overflow-hidden">
       <div className="shrink-0 flex flex-col items-center gap-[2px] text-center">
         <h2 className="text-[18px] tablet:text-[24px] leading-[1.2] font-semibold text-[#E6EEF8]">
           {hasGenResult ? 'Результат готов' : isRunning ? 'Генерация...' : genFailed ? 'Ошибка генерации' : 'Генерация'}
         </h2>
         <p className="text-[12px] tablet:text-[13px] leading-[16px] tablet:leading-[18px] text-[var(--color-text-secondary)] max-w-[440px]">
           {hasGenResult
-            ? 'AI улучшил ваше фото в выбранном стиле.'
-            : 'AI генерирует улучшенное фото в выбранном стиле.'}
+            ? 'Сравните с исходным и сохраните лучший вариант.'
+            : genFailed
+              ? 'Попробуйте запустить ещё раз — фото и настройки сохранены.'
+              : isRunning
+                ? 'Обычно занимает 2–3 минуты. Можно свернуть вкладку — результат дождётся.'
+                : 'Генерация занимает 2–3 минуты. Запустите, когда будете готовы.'}
         </p>
       </div>
 
@@ -309,8 +313,9 @@ export default function StepGenerate({ onGoToStep, onOpenStorage }: Props) {
         </div>
       )}
 
-      {/* Fact streaming — above the photo, fixed height so the card doesn't jump */}
-      <div className="shrink-0 flex items-start justify-center px-[var(--space-16)] min-h-[56px] max-w-[520px] mx-auto">
+      {/* Slot above the photo: streaming while running, download CTAs when result is ready.
+          Fixed min-height keeps the card from jumping between states. */}
+      <div className="shrink-0 flex items-center justify-center px-[var(--space-16)] min-h-[56px] max-w-[520px] mx-auto">
         {isRunning && (
           <div className="flex items-start gap-[var(--space-8)]">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" className="shrink-0 mt-[2px]">
@@ -323,11 +328,33 @@ export default function StepGenerate({ onGoToStep, onOpenStorage }: Props) {
             </p>
           </div>
         )}
+        {!isRunning && hasGenResult && app.generatedImageUrl && (
+          <div className="flex flex-wrap items-center justify-center gap-[var(--space-6)]">
+            <a
+              href={app.generatedImageUrl}
+              download={isDocPaywall ? 'document-photo.jpg' : 'ai-look-photo.jpg'}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="glass-btn-primary px-[var(--space-20)] py-[var(--space-6)] text-[13px] leading-[18px] rounded-[var(--radius-pill)] font-medium no-underline inline-flex items-center gap-[var(--space-6)]"
+            >
+              <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M8 2v8m0 0L5 7m3 3l3-3M3 12h10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+              Скачать фото
+            </a>
+            {app.scenarioPrimaryCtaMainApp && (
+              <Link
+                to="/app"
+                className="glass-btn-ghost px-[var(--space-20)] py-[var(--space-6)] text-[13px] leading-[18px] rounded-[var(--radius-pill)] font-medium no-underline inline-flex items-center justify-center"
+              >
+                Открыть AI Look Studio
+              </Link>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Image card — fixed size so the card doesn't jump between states */}
       <div className="shrink-0 flex justify-center">
-        <div className="gradient-border-card glass-card flex flex-col w-full max-w-[340px] rounded-[var(--radius-12)] overflow-hidden">
+        <div className="gradient-border-card glass-card flex flex-col w-full tablet:max-w-[340px] rounded-[var(--radius-12)] overflow-hidden">
           <div className="aspect-[3/4] bg-[rgba(255,255,255,0.02)] overflow-hidden relative">
             {/* Original photo (when toggled) */}
             {showingOriginal && app.photo && (
@@ -461,68 +488,41 @@ export default function StepGenerate({ onGoToStep, onOpenStorage }: Props) {
       {/* CTA buttons */}
       <div className="shrink-0 flex flex-col items-center gap-[var(--space-6)]">
         {hasGenResult && (
-          <>
-            {/* Primary row: Download + optional Open Studio */}
-            {app.generatedImageUrl && (
-              <div className="flex flex-wrap items-center justify-center gap-[var(--space-6)]">
-                <a
-                  href={app.generatedImageUrl}
-                  download={isDocPaywall ? 'document-photo.jpg' : 'ai-look-photo.jpg'}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="glass-btn-primary px-[var(--space-20)] py-[var(--space-6)] text-[13px] leading-[18px] rounded-[var(--radius-pill)] font-medium no-underline inline-flex items-center gap-[var(--space-6)]"
-                >
-                  <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M8 2v8m0 0L5 7m3 3l3-3M3 12h10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
-                  Скачать фото
-                </a>
-                {app.scenarioPrimaryCtaMainApp && (
-                  <Link
-                    to="/app"
-                    className="glass-btn-ghost px-[var(--space-20)] py-[var(--space-6)] text-[13px] leading-[18px] rounded-[var(--radius-pill)] font-medium no-underline inline-flex items-center justify-center"
-                  >
-                    Открыть AI Look Studio
-                  </Link>
-                )}
-              </div>
-            )}
-
-            {/* Ghost row: Другое фото → Другой формат → Улучшить ещё → Поделиться */}
-            <div className="flex flex-wrap gap-[var(--space-6)] justify-center">
-              <button
-                onClick={() => {
-                  app.resetGeneration();
-                  setFrozenStyle(null);
-                  onGoToStep('upload');
-                }}
-                className="glass-btn-ghost px-[var(--space-12)] py-[var(--space-4)] text-[12px] leading-[16px] rounded-[var(--radius-pill)]"
-              >
-                Другое фото
-              </button>
-              <button
-                onClick={() => {
-                  app.resetGeneration();
-                  setFrozenStyle(null);
-                  onGoToStep('style');
-                }}
-                className="glass-btn-ghost px-[var(--space-12)] py-[var(--space-4)] text-[12px] leading-[16px] rounded-[var(--radius-pill)]"
-              >
-                {isDocPaywall ? 'Другой формат' : 'Другой стиль'}
-              </button>
-              <button
-                onClick={handleImproveGenerated}
-                className="glass-btn-ghost px-[var(--space-12)] py-[var(--space-4)] text-[12px] leading-[16px] rounded-[var(--radius-pill)]"
-              >
-                Улучшить ещё
-              </button>
-              <button
-                onClick={handleShowShare}
-                disabled={shareLoading}
-                className="glass-btn-ghost px-[var(--space-12)] py-[var(--space-4)] text-[12px] leading-[16px] rounded-[var(--radius-pill)] disabled:opacity-40"
-              >
-                {shareLoading ? 'Загрузка...' : 'Поделиться'}
-              </button>
-            </div>
-          </>
+          <div className="flex flex-wrap gap-[var(--space-6)] justify-center">
+            <button
+              onClick={() => {
+                app.resetGeneration();
+                setFrozenStyle(null);
+                onGoToStep('upload');
+              }}
+              className="glass-btn-ghost px-[var(--space-20)] py-[var(--space-6)] text-[13px] leading-[18px] rounded-[var(--radius-pill)] font-medium"
+            >
+              Другое фото
+            </button>
+            <button
+              onClick={() => {
+                app.resetGeneration();
+                setFrozenStyle(null);
+                onGoToStep('style');
+              }}
+              className="glass-btn-ghost px-[var(--space-20)] py-[var(--space-6)] text-[13px] leading-[18px] rounded-[var(--radius-pill)] font-medium"
+            >
+              {isDocPaywall ? 'Другой формат' : 'Другой стиль'}
+            </button>
+            <button
+              onClick={handleImproveGenerated}
+              className="glass-btn-ghost px-[var(--space-20)] py-[var(--space-6)] text-[13px] leading-[18px] rounded-[var(--radius-pill)] font-medium"
+            >
+              Улучшить ещё
+            </button>
+            <button
+              onClick={handleShowShare}
+              disabled={shareLoading}
+              className="glass-btn-ghost px-[var(--space-20)] py-[var(--space-6)] text-[13px] leading-[18px] rounded-[var(--radius-pill)] font-medium disabled:opacity-40"
+            >
+              {shareLoading ? 'Загрузка...' : 'Поделиться'}
+            </button>
+          </div>
         )}
         {genFailed && !isRunning && !hasGenResult && (
           <button

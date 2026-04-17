@@ -10,7 +10,6 @@ import { DOCUMENT_FORMAT_ITEMS } from '../scenarios/extraStyles';
 import { useApp } from '../context/AppContext';
 import ProgressBar from './wizard/ProgressBar';
 import ShareButtons from './ShareButtons';
-import { PARAM_LABELS } from './wizard/shared';
 
 const STYLE_LOOKUP: Record<string, { name: string; icon: string }> = {};
 for (const styles of Object.values(STYLES_BY_CATEGORY)) {
@@ -138,12 +137,6 @@ export default function StorageModal({ items, open, onClose, onImprove }: Props)
     else if (info.offset.x > SWIPE_THRESHOLD && canPrev) goPrev();
   }
 
-  const perceptionEntries = (viewTab === 'result' && item?.perception_scores)
-    ? Object.entries(item.perception_scores)
-        .filter(([k]) => k !== 'authenticity')
-        .map(([k, v]) => ({ key: k, label: PARAM_LABELS[k] ?? k, value: v as number }))
-    : [];
-
   return createPortal(
     <AnimatePresence>
       {open && (
@@ -188,10 +181,11 @@ export default function StorageModal({ items, open, onClose, onImprove }: Props)
               transition={{ duration: 0.25, ease: 'easeOut' }}
               onClick={(e) => e.stopPropagation()}
             >
-              {/* Close button -- absolute top-right */}
+              {/* Close button -- ghost without background */}
               <button
                 onClick={onClose}
-                className="absolute top-3 right-3 z-10 w-10 h-10 flex items-center justify-center rounded-full glass-btn-ghost text-[var(--color-text-muted)] hover:text-[#E6EEF8] transition-colors"
+                aria-label="Закрыть"
+                className="absolute top-3 right-3 z-10 w-10 h-10 flex items-center justify-center rounded-full bg-transparent text-[var(--color-text-muted)] hover:text-[#E6EEF8] transition-colors"
               >
                 <svg width="20" height="20" viewBox="0 0 16 16" fill="none">
                   <path d="M4 4L12 12M12 4L4 12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
@@ -283,17 +277,19 @@ export default function StorageModal({ items, open, onClose, onImprove }: Props)
                 {canPrev && (
                   <button
                     onClick={goPrev}
-                    className="hidden tablet:flex absolute left-1 top-1/2 -translate-y-1/2 w-8 h-8 items-center justify-center rounded-full bg-black/40 text-white/70 hover:text-white hover:bg-black/60 transition-all"
+                    aria-label="Предыдущее фото"
+                    className="flex absolute left-2 top-1/2 -translate-y-1/2 w-12 h-12 items-center justify-center rounded-full bg-black/55 text-white hover:bg-black/75 transition-all shadow-[0_4px_12px_rgba(0,0,0,0.35)]"
                   >
-                    <svg width="16" height="16" viewBox="0 0 20 20" fill="none"><path d="M12 4L6 10L12 16" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                    <svg width="22" height="22" viewBox="0 0 20 20" fill="none"><path d="M12 4L6 10L12 16" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
                   </button>
                 )}
                 {canNext && (
                   <button
                     onClick={goNext}
-                    className="hidden tablet:flex absolute right-1 top-1/2 -translate-y-1/2 w-8 h-8 items-center justify-center rounded-full bg-black/40 text-white/70 hover:text-white hover:bg-black/60 transition-all"
+                    aria-label="Следующее фото"
+                    className="flex absolute right-2 top-1/2 -translate-y-1/2 w-12 h-12 items-center justify-center rounded-full bg-black/55 text-white hover:bg-black/75 transition-all shadow-[0_4px_12px_rgba(0,0,0,0.35)]"
                   >
-                    <svg width="16" height="16" viewBox="0 0 20 20" fill="none"><path d="M8 4L14 10L8 16" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                    <svg width="22" height="22" viewBox="0 0 20 20" fill="none"><path d="M8 4L14 10L8 16" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
                   </button>
                 )}
               </div>
@@ -348,24 +344,6 @@ export default function StorageModal({ items, open, onClose, onImprove }: Props)
                   accent={viewTab === 'result'}
                 />
               </div>
-
-              {/* Perception scores -- wizard-style vertical list, only on result tab */}
-              {perceptionEntries.length > 0 && (
-                <div className="shrink-0 gradient-border-card glass-card rounded-[var(--radius-12)] p-[var(--space-10)] flex flex-col gap-[var(--space-8)]">
-                  {perceptionEntries.map((p) => (
-                    <div key={p.key} className="flex flex-col gap-[var(--space-4)]">
-                      <div className="flex items-center justify-between">
-                        <span className="text-[12px] leading-[16px] text-[#E6EEF8]">{p.label}</span>
-                        <span className="flex items-center gap-[var(--space-4)] text-[12px] leading-[16px] tabular-nums">
-                          <span className="text-[var(--color-text-secondary)]">{p.value.toFixed(2)}</span>
-                          <span className="text-[10px] leading-[14px] text-[var(--color-text-muted)]">/ 10</span>
-                        </span>
-                      </div>
-                      <ProgressBar value={p.value} accent />
-                    </div>
-                  ))}
-                </div>
-              )}
 
               {downloadError && (
                 <p className="shrink-0 text-[12px] text-red-400 text-center">

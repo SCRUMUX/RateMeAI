@@ -45,20 +45,47 @@ export default function StepUpload({ onNext }: Props) {
 
   return (
     <div className="flex flex-col items-center gap-[var(--space-16)] w-full max-w-[600px] mx-auto">
-      <div className="flex flex-col items-center gap-[var(--space-4)] text-center">
+      <div className="flex flex-col items-center gap-[var(--space-8)] text-center w-full">
         <h2 className="text-[20px] tablet:text-[28px] leading-[1.2] font-semibold text-[#E6EEF8]">
           Загрузите фото
         </h2>
-        <p className="text-[12px] tablet:text-[13px] leading-[16px] tablet:leading-[18px] text-[var(--color-text-secondary)]">
-          Проанализируем и предложим оптимальные улучшения
-        </p>
+        <ul className="flex flex-col gap-[var(--space-6)] text-left w-full max-w-[420px]">
+          {[
+            'Лицо крупно и по центру кадра — точнее считываются черты',
+            'Черты не закрыты: без очков, масок и рук у лица',
+            'Голова и плечи полностью в кадре, без жёсткой обрезки',
+          ].map((text) => (
+            <li
+              key={text}
+              className="flex items-start gap-[var(--space-8)] text-[12px] tablet:text-[13px] leading-[16px] tablet:leading-[18px] text-[var(--color-text-secondary)]"
+            >
+              <svg
+                width="14"
+                height="14"
+                viewBox="0 0 18 18"
+                fill="none"
+                className="shrink-0 mt-[2px]"
+                aria-hidden="true"
+              >
+                <path
+                  d="M5 9.5L7.5 12L13 6"
+                  stroke="rgb(var(--accent-r),var(--accent-g),var(--accent-b))"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+              <span>{text}</span>
+            </li>
+          ))}
+        </ul>
       </div>
 
       <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleFileSelect} />
 
       {app.photo ? (
         <div className="flex flex-col items-center gap-[var(--space-12)] w-full">
-          <div className="gradient-border-card glass-card rounded-[var(--radius-12)] overflow-hidden w-full max-w-[260px]">
+          <div className="gradient-border-card glass-card rounded-[var(--radius-12)] overflow-hidden w-full tablet:max-w-[260px]">
             <div className="w-full aspect-[3/4] bg-[rgba(255,255,255,0.02)] overflow-hidden">
               <img src={app.photo.preview} alt="Загруженное фото" className="w-full h-full object-cover" />
             </div>

@@ -239,7 +239,7 @@ export default function AppPage({ scenarioSlugOverride, onBackToLanding }: AppPa
           )}
 
           {/* Step bar */}
-          <div className="shrink-0">
+          <div className="shrink-0 w-full">
             <StepBar
               currentStep={currentStep}
               completedSteps={completedSteps}

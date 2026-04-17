@@ -23,7 +23,7 @@ export default function StepDocumentFormat({ onNext }: Props) {
   }
 
   return (
-    <div className="flex flex-col h-full max-w-[800px] mx-auto">
+    <div className="flex flex-col h-full w-full max-w-[800px] mx-auto">
       <div className="shrink-0 flex flex-col gap-[var(--space-4)] text-center pb-[var(--space-12)]">
         <h2 className="text-[20px] tablet:text-[24px] leading-[1.2] font-semibold text-[#E6EEF8]">
           Выберите формат
@@ -33,14 +33,15 @@ export default function StepDocumentFormat({ onNext }: Props) {
         </p>
       </div>
 
-      <div className="flex-1 min-h-0 flex flex-col gap-[var(--space-6)]">
+      <div className="flex-1 min-h-0 flex flex-col gap-[var(--space-8)]">
         {formats.map((fmt) => {
           const isActive = selectedKey === fmt.key;
           return (
-            <div
+            <button
               key={fmt.key}
+              type="button"
               onClick={() => handleSelect(fmt.key)}
-              className={`gradient-border-item flex items-center w-full px-[var(--space-12)] py-[var(--space-8)] gap-[var(--space-10)] rounded-[var(--radius-10)] transition-all cursor-pointer ${
+              className={`gradient-border-item flex items-center w-full px-[var(--space-16)] py-[var(--space-8)] gap-[var(--space-4)] min-h-[44px] cursor-pointer rounded-[var(--radius-12)] transition-all text-left ${
                 isActive ? 'glass-row-active' : 'glass-row'
               }`}
               style={{
@@ -49,18 +50,15 @@ export default function StepDocumentFormat({ onNext }: Props) {
                   : 'rgba(255, 255, 255, 0.10)',
               } as React.CSSProperties}
             >
-              <div className="flex items-center justify-center w-6 h-6 shrink-0 text-[18px] leading-none">
+              <div className="flex items-center justify-center w-5 h-5 shrink-0 text-[18px] leading-none">
                 {fmt.icon}
               </div>
-              <div className="flex flex-1 min-w-0 items-baseline gap-[6px] flex-wrap">
-                <span className="text-[14px] leading-[20px] text-[#E6EEF8] font-medium whitespace-nowrap">
+              <div className="flex flex-col flex-1 min-w-0 gap-[2px]">
+                <span className="text-[15px] leading-[20px] text-[#E6EEF8] font-medium truncate">
                   {fmt.name}
                 </span>
-                <span className="text-[11px] leading-[16px] text-[var(--color-text-muted)]">
-                  {fmt.desc}
-                </span>
-                <span className="text-[11px] leading-[16px] text-[var(--color-text-secondary)]">
-                  · {fmt.usage}
+                <span className="text-[11px] leading-[14px] text-[var(--color-text-muted)] truncate">
+                  {fmt.desc}{fmt.usage ? ` · ${fmt.usage}` : ''}
                 </span>
               </div>
               {isActive && (
@@ -70,7 +68,7 @@ export default function StepDocumentFormat({ onNext }: Props) {
                   </svg>
                 </div>
               )}
-            </div>
+            </button>
           );
         })}
       </div>
@@ -78,7 +76,7 @@ export default function StepDocumentFormat({ onNext }: Props) {
       <div className="shrink-0 pt-[var(--space-12)]">
         <button
           onClick={handleSelectAndNext}
-          className="glass-btn-primary w-full py-[var(--space-8)] text-[13px] leading-[18px] rounded-[var(--radius-pill)] font-medium"
+          className="glass-btn-primary w-full py-[var(--space-12)] text-[15px] leading-[22px] rounded-[var(--radius-pill)] font-medium"
         >
           Далее
         </button>
