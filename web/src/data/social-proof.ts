@@ -14,139 +14,83 @@ export interface SocialProofCounterConfig {
   maxDelayMs: number;
   burstChance: number;
   maxBurstSize: number;
-  heartChance: number;
 }
 
 export interface SocialProofPreset {
   id: CategoryId | 'documents';
-  eyebrow: string;
   title: string;
-  description: string;
-  tickerLabel: string;
-  statLabel: string;
-  statSubLabel: string;
   baseCount: number;
-  highlights: string[];
   counter: SocialProofCounterConfig;
   tickerIntervalMs: number;
-  feedVisibleCount: number;
   feed: SocialProofFeedItem[];
 }
 
 const HOME_COPY: Record<CategoryId, Omit<SocialProofPreset, 'id' | 'feed'>> = {
   social: {
-    eyebrow: 'Живой social proof',
-    title: 'Лента выглядит живой, когда фото реально цепляют внимание.',
-    description: 'Показываем не сухие обещания, а поток коротких впечатлений о том, как AI-образы помогают выделяться в соцсетях.',
-    tickerLabel: 'Что пишут после генераций',
-    statLabel: 'человекам уже понравился новый визуал',
-    statSubLabel: 'Средний темп: около 1000 позитивных реакций в сутки.',
+    title: 'Люди уже улучшили свои фото для соцсетей',
     baseCount: 2734,
-    highlights: ['Соцсети', 'Stories и posts', 'Живые реакции'],
     counter: {
       minDelayMs: 8000,
       maxDelayMs: 36000,
       burstChance: 0.16,
       maxBurstSize: 3,
-      heartChance: 0.72,
     },
-    tickerIntervalMs: 2600,
-    feedVisibleCount: 4,
+    tickerIntervalMs: 4200,
   },
   cv: {
-    eyebrow: 'Живой social proof',
-    title: 'Профессиональный образ работает лучше, когда ему сразу верят.',
-    description: 'Блок собирает короткие впечатления о карьерных и экспертных сценариях: доверие, уверенность, отклики и качество первого контакта.',
-    tickerLabel: 'Что отмечают в карьерных сценариях',
-    statLabel: 'пользователей уже усилили рабочий образ',
-    statSubLabel: 'Рост идет неровно, чтобы блок ощущался как живая активность, а не как таймер.',
+    title: 'Люди уже улучшили свои фото для карьеры',
     baseCount: 2481,
-    highlights: ['Карьера', 'LinkedIn и CV', 'Первое впечатление'],
     counter: {
       minDelayMs: 10000,
       maxDelayMs: 42000,
       burstChance: 0.14,
       maxBurstSize: 2,
-      heartChance: 0.58,
     },
-    tickerIntervalMs: 2900,
-    feedVisibleCount: 4,
+    tickerIntervalMs: 4300,
   },
   dating: {
-    eyebrow: 'Живой social proof',
-    title: 'Для знакомств решает не только фото, а то, какое чувство оно вызывает.',
-    description: 'Здесь блок создает ощущение живого продукта: теплые впечатления, рост мэтчей и визуал, который хочется свайпнуть вправо.',
-    tickerLabel: 'Что пишут после обновления анкеты',
-    statLabel: 'человекам уже зашел новый dating-визуал',
-    statSubLabel: 'Темп роста специально неровный, чтобы цифра ощущалась естественной.',
+    title: 'Люди уже улучшили свои фото для знакомств',
     baseCount: 2916,
-    highlights: ['Dating', 'Мэтчи и лайки', 'Первое впечатление'],
     counter: {
       minDelayMs: 7000,
       maxDelayMs: 30000,
       burstChance: 0.2,
       maxBurstSize: 3,
-      heartChance: 0.82,
     },
-    tickerIntervalMs: 2400,
-    feedVisibleCount: 4,
+    tickerIntervalMs: 3900,
   },
   model: {
-    eyebrow: 'Живой social proof',
-    title: 'Даже тестовые фотосет-сценарии уже создают ощущение студийной работы.',
-    description: 'Для будущих фотосессионных сценариев показываем поток коротких впечатлений о подаче, свете и портфолио-визуале.',
-    tickerLabel: 'Ранние впечатления по фотосетам',
-    statLabel: 'человек следят за запуском фотосет-сценариев',
-    statSubLabel: 'Блок уже подстраивается под будущую категорию и ее акцентный цвет.',
+    title: 'Люди уже следят за новыми фотосет-сценариями',
     baseCount: 1864,
-    highlights: ['Фотосессия', 'Портфолио', 'Свет и подача'],
     counter: {
       minDelayMs: 14000,
       maxDelayMs: 52000,
       burstChance: 0.12,
       maxBurstSize: 2,
-      heartChance: 0.45,
     },
-    tickerIntervalMs: 3200,
-    feedVisibleCount: 4,
+    tickerIntervalMs: 4500,
   },
   brand: {
-    eyebrow: 'Живой social proof',
-    title: 'Личный бренд становится убедительнее, когда визуал звучит как позиция.',
-    description: 'Показываем поток коротких реакций на сценарии для экспертов, лидеров мнений и медийного личного бренда.',
-    tickerLabel: 'Ранние впечатления по личному бренду',
-    statLabel: 'пользователей ждут запуск brand-сценариев',
-    statSubLabel: 'Этот блок заранее подхватывает tone of voice будущего сервиса.',
+    title: 'Люди уже готовят новые фото для личного бренда',
     baseCount: 2017,
-    highlights: ['Личный бренд', 'Экспертность', 'Медийный образ'],
     counter: {
       minDelayMs: 12000,
       maxDelayMs: 46000,
       burstChance: 0.14,
       maxBurstSize: 2,
-      heartChance: 0.5,
     },
-    tickerIntervalMs: 3000,
-    feedVisibleCount: 4,
+    tickerIntervalMs: 4400,
   },
   memes: {
-    eyebrow: 'Живой social proof',
-    title: 'Даже мем-сценарии выглядят сильнее, когда у них есть темп и реакция.',
-    description: 'Для развлекательного направления показываем быстрые впечатления про вайб, юмор и цепляющий визуал.',
-    tickerLabel: 'Ранние впечатления по мем-сценариям',
-    statLabel: 'человек следят за запуском мем-режима',
-    statSubLabel: 'Драйв блока усиливает ощущение живого продукта даже у coming soon категорий.',
+    title: 'Люди уже ждут запуск новых мем-сценариев',
     baseCount: 1679,
-    highlights: ['Мемы', 'Вайб', 'Вирусность'],
     counter: {
       minDelayMs: 9000,
       maxDelayMs: 32000,
       burstChance: 0.18,
       maxBurstSize: 3,
-      heartChance: 0.66,
     },
-    tickerIntervalMs: 2500,
-    feedVisibleCount: 4,
+    tickerIntervalMs: 4000,
   },
 };
 
@@ -344,22 +288,14 @@ export function getLandingSocialProofPreset(category: CategoryId): SocialProofPr
 
 export const DOCUMENT_SOCIAL_PROOF_PRESET: SocialProofPreset = {
   id: 'documents',
-  eyebrow: 'Живой social proof',
-  title: 'Даже фото на документы воспринимается лучше, когда видно, что сервисом реально пользуются.',
-  description: 'Для документного сценария блок показывает спокойные, прикладные впечатления: нужные форматы, аккуратный результат и естественное лицо без салонной суеты.',
-  tickerLabel: 'Недавние впечатления по документам',
-  statLabel: 'человек уже подготовили фото для документов',
-  statSubLabel: 'Счетчик обновляется неровно, а лента держит ощущение живого продукта без агрессивного маркетинга.',
+  title: 'Люди уже подготовили свои фото для документов',
   baseCount: 3186,
-  highlights: ['Паспорт и визы', 'Спокойный результат', 'Нужные форматы'],
   counter: {
     minDelayMs: 11000,
     maxDelayMs: 42000,
     burstChance: 0.12,
     maxBurstSize: 2,
-    heartChance: 0.4,
   },
-  tickerIntervalMs: 3000,
-  feedVisibleCount: 4,
+  tickerIntervalMs: 4300,
   feed: buildDocumentFeed(),
 };
