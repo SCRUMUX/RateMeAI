@@ -14,7 +14,7 @@ from src.config import settings
 from src.models.db import Task, User, CreditTransaction
 from src.models.enums import AnalysisMode, TaskStatus
 from src.models.schemas import TaskCreated
-from src.api.deps import get_db, get_redis, check_credits, check_rate_limit
+from src.api.deps import get_db, get_redis, check_credits
 from src.providers.factory import get_storage
 from src.services.task_contract import (
     build_policy_flags,
@@ -283,7 +283,10 @@ async def create_analysis(
     scenario_slug: str = Form(""),
     scenario_type: str = Form(""),
     entry_mode: str = Form(""),
-    _rate_limited_user: User = Depends(check_rate_limit),
+    # ВНИМАНИЕ: осознанно НЕ применяем дневной rate-limit на пользовательском
+    # /analyze. Генерация лимитируется ТОЛЬКО балансом кредитов (check_credits
+    # атомарно резервирует 1 кредит или возвращает 402). Старый 429
+    # "Daily limit reached" для web/bot больше не возникает.
     user: User = Depends(check_credits),
     db: AsyncSession = Depends(get_db),
     redis: Redis = Depends(get_redis),

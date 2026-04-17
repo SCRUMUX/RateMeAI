@@ -128,6 +128,13 @@ async def check_rate_limit(
     user: User = Depends(get_auth_user),
     db: AsyncSession = Depends(get_db),
 ) -> User:
+    """Дневной rate-limit.
+
+    ВНИМАНИЕ: на пользовательском /analyze эта проверка больше НЕ применяется —
+    генерация лимитируется исключительно балансом кредитов (см. check_credits).
+    Зависимость оставлена для будущих B2B API-клиентов (ApiClient.rate_limit_daily),
+    у которых квота выражается в «запросах в сутки», а не в кредитах.
+    """
     if _user_exempt_from_rate_limit(user):
         return user
 

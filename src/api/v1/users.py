@@ -126,17 +126,23 @@ async def _find_or_create_by_identity(
 
 
 async def _usage_for(user: User, db: AsyncSession) -> UserUsage:
+    """Возвращает usage для пользовательских каналов (web/bot/Telegram/OK).
+
+    Дневного лимита для генерации больше нет: user-facing /analyze лимитируется
+    ТОЛЬКО балансом image_credits (см. check_credits). `daily_limit=0` здесь
+    означает «лимита нет», а `remaining` отдаёт фактический баланс кредитов,
+    чтобы UI показывал сколько генераций у пользователя реально осталось.
+    """
     today = date.today()
     r = await db.execute(
         select(UsageLog).where(UsageLog.user_id == user.id, UsageLog.usage_date == today)
     )
     log = r.scalar_one_or_none()
     used = log.count if log else 0
-    limit = settings.rate_limit_daily if not user.is_premium else settings.rate_limit_daily * 10
     return UserUsage(
-        daily_limit=limit,
+        daily_limit=0,
         used=used,
-        remaining=max(0, limit - used),
+        remaining=user.image_credits,
         is_premium=user.is_premium,
     )
 
