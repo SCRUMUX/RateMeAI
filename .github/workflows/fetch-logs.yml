@@ -28,26 +28,30 @@ jobs:
       - name: Install Railway CLI
         run: npm install -g @railway/cli
 
-      - name: Link project
-        run: railway link -p "$RAILWAY_PROJECT_ID" -e production
-
       - name: Pull logs (deployment + build)
         run: |
           set +e
           SERVICE="${{ inputs.service }}"
           LINES="${{ inputs.lines }}"
-
-          echo "::group::Deployment logs for $SERVICE"
-          railway logs -s "$SERVICE" --deployment 2>&1 | tail -n "$LINES"
-          echo "::endgroup::"
-
-          echo "::group::Build logs for $SERVICE"
-          railway logs -s "$SERVICE" --build 2>&1 | tail -n 80
-          echo "::endgroup::"
-
           mkdir -p artifacts
-          railway logs -s "$SERVICE" --deployment 2>&1 | tail -n 1500 > "artifacts/${SERVICE}-deployment.log"
-          railway logs -s "$SERVICE" --build 2>&1 | tail -n 200 > "artifacts/${SERVICE}-build.log"
+
+          # Railway `logs` streams; we timeout after a few seconds so the CLI
+          # prints the current backlog and exits. Project-scoped RAILWAY_TOKEN
+          # works directly with -s/-e without `railway link`.
+          echo "::group::Deployment logs for $SERVICE (last $LINES lines)"
+          timeout 20 railway logs -s "$SERVICE" -e production --deployment > "artifacts/${SERVICE}-deployment.log" 2>&1
+          tail -n "$LINES" "artifacts/${SERVICE}-deployment.log"
+          echo "::endgroup::"
+
+          echo "::group::Build logs for $SERVICE (last 80 lines)"
+          timeout 20 railway logs -s "$SERVICE" -e production --build > "artifacts/${SERVICE}-build.log" 2>&1
+          tail -n 80 "artifacts/${SERVICE}-build.log"
+          echo "::endgroup::"
+
+          echo "::group::Grep: errors / exceptions / failures"
+          grep -Ein 'ERROR|Exception|Traceback|Failed to submit|Non-JSON response|Analyze timeout|Analyze network error|500 Internal|502 Bad|503 Service|504 Gateway' \
+            "artifacts/${SERVICE}-deployment.log" | tail -n 200 || echo "(no matches)"
+          echo "::endgroup::"
 
       - name: Upload log artifacts
         uses: actions/upload-artifact@v4
