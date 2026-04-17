@@ -17,7 +17,7 @@ from redis.asyncio import Redis
 from src.bot.keyboards import post_result_keyboard, upgrade_keyboard, action_keyboard
 from src.config import settings
 from src.services.enhancement_advisor import build_enhancement_preview
-from src.utils.redis_keys import gen_image_cache_key
+from src.utils.redis_keys import gen_image_cache_keys
 
 logger = logging.getLogger(__name__)
 
@@ -125,12 +125,23 @@ def _split_caption(text: str) -> tuple[str, str | None]:
 async def _fetch_gen_image_from_redis(redis: Redis | None, task_id: str | None) -> bytes | None:
     if not redis or not task_id:
         return None
+    # Writers (edge/worker) scope the key by market_id after the geo-split refactor,
+    # so we must probe both the scoped and legacy keys to stay compatible.
+    candidate_keys = gen_image_cache_keys(task_id, settings.resolved_market_id)
     try:
-        b64 = await redis.get(gen_image_cache_key(task_id))
-        if b64:
-            await redis.delete(gen_image_cache_key(task_id))
+        for cache_key in candidate_keys:
+            b64 = await redis.get(cache_key)
+            if not b64:
+                continue
+            try:
+                await redis.delete(cache_key)
+            except Exception:
+                logger.debug("Failed to delete Redis key %s after read", cache_key, exc_info=True)
             data = base64.b64decode(b64)
-            logger.info("Loaded generated image from Redis for task %s (%d bytes)", task_id, len(data))
+            logger.info(
+                "Loaded generated image from Redis for task %s via %s (%d bytes)",
+                task_id, cache_key, len(data),
+            )
             return data
     except Exception:
         logger.exception("Failed to load generated image from Redis for task %s", task_id)

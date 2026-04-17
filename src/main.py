@@ -261,7 +261,7 @@ async def serve_storage(file_path: str, download: int = 0):
     import base64
     import re
     from fastapi.responses import Response
-    from src.utils.redis_keys import gen_image_cache_key
+    from src.utils.redis_keys import gen_image_cache_keys
 
     _CORS_HEADERS = {"Access-Control-Allow-Origin": "*"}
     _CACHE_IMMUTABLE = "public, max-age=86400, immutable"
@@ -292,14 +292,18 @@ async def serve_storage(file_path: str, download: int = 0):
         task_id = m.group(1)
 
         redis: Redis = app.state.redis
-        b64 = await redis.get(gen_image_cache_key(task_id))
-        if b64:
-            data = base64.b64decode(b64)
-            return Response(
-                content=data,
-                media_type="image/jpeg",
-                headers=_headers(f"{task_id}.jpg"),
-            )
+        # Writers scope the key by market_id after the geo-split refactor;
+        # probe both the scoped and legacy keys so the route keeps serving
+        # cached bytes regardless of which writer produced them.
+        for cache_key in gen_image_cache_keys(task_id, settings.resolved_market_id):
+            b64 = await redis.get(cache_key)
+            if b64:
+                data = base64.b64decode(b64)
+                return Response(
+                    content=data,
+                    media_type="image/jpeg",
+                    headers=_headers(f"{task_id}.jpg"),
+                )
 
         try:
             from sqlalchemy import select as sa_select
