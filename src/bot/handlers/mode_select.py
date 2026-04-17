@@ -383,6 +383,19 @@ async def _submit_analysis(callback: CallbackQuery, api_base_url: str, redis: Re
                 )
                 return {}
 
+        # У бота стоит default parse_mode=Markdown. Любой детейл от бэкенда,
+        # содержащий `_`, `*`, `[`, `]`, `` ` `` и т.п., превращает текст в
+        # невалидный Markdown и Telegram отвечает
+        # «can't parse entities: Can't find end of the entity …» — мы падаем
+        # в generic except и пользователь видит «Произошла ошибка».
+        # Поэтому все статусные сообщения шлём с parse_mode=None.
+        _NO_CREDITS_DETAILS = {"no_credits", "credits_exhausted", "quota_exceeded"}
+
+        def _human_402(detail: str) -> str:
+            if not detail or detail.strip().lower() in _NO_CREDITS_DETAILS:
+                return "Недостаточно кредитов. Пополни баланс и попробуй снова."
+            return detail
+
         if resp.status_code == 202:
             task_data = _safe_json(resp)
             task_id = task_data.get("task_id") if task_data else None
@@ -391,6 +404,7 @@ async def _submit_analysis(callback: CallbackQuery, api_base_url: str, redis: Re
                 await status_msg.edit_text(
                     "\u274c Сервер не вернул идентификатор задачи. Попробуй ещё раз.",
                     reply_markup=error_keyboard(),
+                    parse_mode=None,
                 )
                 return
 
@@ -408,15 +422,17 @@ async def _submit_analysis(callback: CallbackQuery, api_base_url: str, redis: Re
         elif resp.status_code == 429:
             await redis.delete(lock_key)
             await status_msg.edit_text(
-                "\u26a0\ufe0f Дневной лимит исчерпан. Попробуй завтра!",
+                "\u26a0\ufe0f Слишком много запросов. Попробуй через минуту.",
                 reply_markup=error_keyboard(),
+                parse_mode=None,
             )
         elif resp.status_code == 402:
             await redis.delete(lock_key)
-            detail = _safe_json(resp).get("detail") or "Недостаточно кредитов"
+            raw_detail = _safe_json(resp).get("detail") or ""
             await status_msg.edit_text(
-                f"\u274c {detail}",
+                f"\u274c {_human_402(raw_detail)}",
                 reply_markup=error_keyboard(),
+                parse_mode=None,
             )
         else:
             await redis.delete(lock_key)
@@ -425,7 +441,11 @@ async def _submit_analysis(callback: CallbackQuery, api_base_url: str, redis: Re
                 "Analyze failed for user %s: status=%s detail=%s",
                 user_id, resp.status_code, detail,
             )
-            await status_msg.edit_text(f"\u274c Ошибка: {detail}", reply_markup=error_keyboard())
+            await status_msg.edit_text(
+                f"\u274c Ошибка: {detail}",
+                reply_markup=error_keyboard(),
+                parse_mode=None,
+            )
 
     except httpx.TimeoutException:
         await redis.delete(lock_key)
@@ -433,6 +453,7 @@ async def _submit_analysis(callback: CallbackQuery, api_base_url: str, redis: Re
         await status_msg.edit_text(
             "\u274c Сервис долго отвечает. Попробуй ещё раз через минуту.",
             reply_markup=error_keyboard(),
+            parse_mode=None,
         )
     except httpx.HTTPError as e:
         await redis.delete(lock_key)
@@ -440,11 +461,16 @@ async def _submit_analysis(callback: CallbackQuery, api_base_url: str, redis: Re
         await status_msg.edit_text(
             "\u274c Проблема с подключением к сервису. Попробуй ещё раз.",
             reply_markup=error_keyboard(),
+            parse_mode=None,
         )
     except Exception:
         await redis.delete(lock_key)
         logger.exception("Failed to submit analysis for user %s", user_id)
-        await status_msg.edit_text("\u274c Произошла ошибка. Попробуй позже.", reply_markup=error_keyboard())
+        await status_msg.edit_text(
+            "\u274c Произошла ошибка. Попробуй позже.",
+            reply_markup=error_keyboard(),
+            parse_mode=None,
+        )
 
 
 @router.callback_query(F.data.startswith("buy:"))
