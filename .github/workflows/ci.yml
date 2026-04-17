@@ -167,17 +167,18 @@ jobs:
           else
             echo "::warning::RU_PUBLIC_BASE_URL not set — bot cannot route to RU edge"
           fi
-          # Зануляем любые тестовые YOOKASSA_* на primary: платежи обрабатывает
-          # только RU-edge сервер, у него свой .env.ru с live-кредами.
-          # Пустая строка на Railway означает «не настроено» — startup guard в
-          # src/main.py дополнительно зачистит значения в памяти.
-          echo "Clearing YOOKASSA_* from Railway services (payments live only on RU edge)..."
-          rl_set YOOKASSA_SHOP_ID="" -s app -e production --skip-deploys
-          rl_set YOOKASSA_SECRET_KEY="" -s app -e production --skip-deploys
-          rl_set YOOKASSA_SHOP_ID="" -s worker -e production --skip-deploys
-          rl_set YOOKASSA_SECRET_KEY="" -s worker -e production --skip-deploys
-          rl_set YOOKASSA_SHOP_ID="" -s bot -e production --skip-deploys
-          rl_set YOOKASSA_SECRET_KEY="" -s bot -e production --skip-deploys
+          # Удаляем любые YOOKASSA_* с primary-сервисов: платежи живут только на
+          # RU-edge (там свой .env.ru с live-кредами). Railway CLI запрещает
+          # пустые значения ("Invalid variable format: KEY="), поэтому используем
+          # `railway variables delete`. Если переменной нет — команда вернёт
+          # ненулевой код, это штатно, игнорируем через `|| true`. startup guard
+          # в src/main.py остаётся вторым уровнем защиты: даже если кто-то
+          # вручную вернёт YOOKASSA_* в Railway, сервис обнулит их в памяти.
+          echo "Removing YOOKASSA_* from Railway services (payments live only on RU edge)..."
+          for SVC in app worker bot; do
+            railway variables delete YOOKASSA_SHOP_ID -s "$SVC" -e production 2>/dev/null || echo "  (YOOKASSA_SHOP_ID absent on $SVC — skipped)"
+            railway variables delete YOOKASSA_SECRET_KEY -s "$SVC" -e production 2>/dev/null || echo "  (YOOKASSA_SECRET_KEY absent on $SVC — skipped)"
+          done
           if [ "$FAILED" -ne 0 ]; then
             echo "::error::One or more Railway variable updates failed"
             exit 1
