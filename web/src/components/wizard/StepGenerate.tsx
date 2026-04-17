@@ -247,7 +247,7 @@ export default function StepGenerate({ onGoToStep, onOpenStorage }: Props) {
   const showStartGenerateCta = !isDocPaywall && !hasGenResult && !isRunning && !genFailed && !!app.photo;
 
   return (
-    <div className="h-full flex flex-col gap-[var(--space-8)] w-full max-w-[800px] mx-auto overflow-hidden">
+    <div className="h-full flex flex-col gap-[var(--space-8)] w-full max-w-[800px] mx-auto min-h-0 overflow-y-auto tablet:overflow-hidden">
       <div className="shrink-0 flex flex-col items-center gap-[2px] text-center">
         <h2 className="text-[18px] tablet:text-[24px] leading-[1.2] font-semibold text-[#E6EEF8]">
           {hasGenResult ? 'Результат готов' : isRunning ? 'Генерация...' : genFailed ? 'Ошибка генерации' : 'Генерация'}
