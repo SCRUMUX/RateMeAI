@@ -8,6 +8,7 @@ from typing import Any
 import httpx
 
 from src.config import settings
+from src.services.task_contract import build_policy_flags
 
 logger = logging.getLogger(__name__)
 
@@ -49,6 +50,13 @@ class RemoteAIService:
         enhancement_level: int = 0,
         pre_analysis_id: str = "",
         edge_task_id: str = "",
+        market_id: str = "global",
+        scenario_slug: str = "",
+        scenario_type: str = "",
+        entry_mode: str = "",
+        trace_id: str = "",
+        policy_flags: dict[str, Any] | None = None,
+        artifact_refs: dict[str, str] | None = None,
     ) -> str:
         """Submit an analysis task to the primary backend. Returns remote task ID."""
         payload = {
@@ -59,6 +67,19 @@ class RemoteAIService:
             "enhancement_level": enhancement_level,
             "pre_analysis_id": pre_analysis_id,
             "edge_task_id": edge_task_id,
+            "market_id": market_id,
+            "scenario_slug": scenario_slug,
+            "scenario_type": scenario_type,
+            "entry_mode": entry_mode,
+            "trace_id": trace_id,
+            "policy_flags": build_policy_flags(
+                policy_flags,
+                cache_allowed=False,
+                delete_after_process=True,
+                retention_policy="ephemeral",
+                data_class="regional_photo",
+            ),
+            "artifact_refs": artifact_refs or {},
         }
         try:
             resp = await self._client.post(
@@ -80,7 +101,13 @@ class RemoteAIService:
         except (KeyError, ValueError) as exc:
             logger.error("Unexpected response from primary on submit: %s", resp.text[:300])
             raise RemoteAIError(f"Invalid response from primary backend: {exc}") from exc
-        logger.info("Submitted remote task %s (edge=%s)", remote_task_id, edge_task_id)
+        logger.info(
+            "Submitted remote task %s (edge=%s, market=%s, scenario=%s)",
+            remote_task_id,
+            edge_task_id,
+            market_id,
+            scenario_type or "n/a",
+        )
         return remote_task_id
 
     async def poll_result(
@@ -152,9 +179,18 @@ class RemoteAIService:
         image_b64: str,
         mode: str,
         profession: str = "",
+        market_id: str = "global",
+        trace_id: str = "",
     ) -> dict[str, Any]:
         """Proxy pre-analysis to the primary backend. Returns the response dict."""
-        payload = {"image_b64": image_b64, "mode": mode, "profession": profession, "skip_validation": True}
+        payload = {
+            "image_b64": image_b64,
+            "mode": mode,
+            "profession": profession,
+            "skip_validation": True,
+            "market_id": market_id,
+            "trace_id": trace_id,
+        }
         try:
             resp = await self._client.post(
                 f"{self._base}/pre-analyze",
@@ -181,6 +217,13 @@ class RemoteAIService:
         enhancement_level: int = 0,
         pre_analysis_id: str = "",
         edge_task_id: str = "",
+        market_id: str = "global",
+        scenario_slug: str = "",
+        scenario_type: str = "",
+        entry_mode: str = "",
+        trace_id: str = "",
+        policy_flags: dict[str, Any] | None = None,
+        artifact_refs: dict[str, str] | None = None,
         on_poll: Any | None = None,
     ) -> dict[str, Any]:
         """Submit a task and wait for it to complete. Returns full result."""
@@ -192,6 +235,13 @@ class RemoteAIService:
             enhancement_level=enhancement_level,
             pre_analysis_id=pre_analysis_id,
             edge_task_id=edge_task_id,
+            market_id=market_id,
+            scenario_slug=scenario_slug,
+            scenario_type=scenario_type,
+            entry_mode=entry_mode,
+            trace_id=trace_id,
+            policy_flags=policy_flags,
+            artifact_refs=artifact_refs,
         )
         return await self.poll_result(remote_id, on_poll=on_poll)
 

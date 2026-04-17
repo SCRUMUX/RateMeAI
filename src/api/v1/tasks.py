@@ -14,7 +14,8 @@ from src.models.db import Task, User, CreditTransaction
 from src.models.enums import TaskStatus, AnalysisMode
 from src.models.schemas import TaskResponse, TaskHistoryItem, TaskHistoryResponse
 from src.api.deps import get_db, get_current_user, get_redis
-from src.utils.redis_keys import gen_image_cache_key
+from src.services.task_contract import get_market_id
+from src.utils.redis_keys import gen_image_cache_keys
 
 router = APIRouter()
 
@@ -56,9 +57,10 @@ async def _image_available(task: Task, redis: Redis) -> bool:
                 return True
 
     # 2. Redis cache
-    cache_key = gen_image_cache_key(str(task.id))
-    if await redis.exists(cache_key):
-        return True
+    market_id = get_market_id(task.context, fallback=settings.resolved_market_id)
+    for cache_key in gen_image_cache_keys(str(task.id), market_id):
+        if await redis.exists(cache_key):
+            return True
 
     # 3. DB base64 fallback
     if r.get("generated_image_b64"):

@@ -139,6 +139,12 @@ class Settings(BaseSettings):
 
     # Geo-split deployment: primary (Railway, full AI processing) | edge (RU server, proxies AI to primary)
     deployment_mode: str = "primary"
+    # Product-level market boundary: global | ru | th ...
+    market_id: str = "global"
+    # api | worker | bot | web
+    service_role: str = "api"
+    # local = compute in this stack, remote = delegate compute to central core
+    compute_mode: str = ""
     # URL of the primary Railway API (only used in edge mode)
     remote_ai_backend_url: str = ""
     # Shared secret between edge and primary for /internal/* endpoints
@@ -162,6 +168,27 @@ class Settings(BaseSettings):
     @property
     def is_edge(self) -> bool:
         return self.deployment_mode == "edge"
+
+    @property
+    def resolved_market_id(self) -> str:
+        value = (self.market_id or "").strip().lower()
+        return value or "global"
+
+    @property
+    def resolved_service_role(self) -> str:
+        value = (self.service_role or "").strip().lower()
+        return value or "api"
+
+    @property
+    def resolved_compute_mode(self) -> str:
+        value = (self.compute_mode or "").strip().lower()
+        if value:
+            return value
+        return "remote" if self.is_edge else "local"
+
+    @property
+    def uses_remote_ai(self) -> bool:
+        return self.resolved_compute_mode == "remote"
 
 
 settings = Settings()

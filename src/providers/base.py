@@ -43,5 +43,8 @@ class StorageProvider(ABC):
     async def get_url(self, key: str) -> str:
         """Return public/presigned URL for the key."""
 
+    async def delete(self, key: str) -> None:
+        """Delete data by key when provider supports it."""
+
     async def close(self) -> None:
         """Release resources."""

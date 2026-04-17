@@ -8,6 +8,7 @@ from __future__ import annotations
 import base64
 import logging
 import uuid
+from typing import Any
 
 from arq.connections import ArqRedis, create_pool, RedisSettings
 from fastapi import APIRouter, Depends, Header, HTTPException
@@ -20,6 +21,7 @@ from src.config import settings
 from src.models.db import Task
 from src.models.enums import AnalysisMode, TaskStatus
 from src.api.deps import get_db, get_redis
+from src.services.task_contract import build_policy_flags, build_task_context
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -55,6 +57,8 @@ class RemotePreAnalyzeRequest(BaseModel):
     mode: AnalysisMode = AnalysisMode.DATING
     profession: str = ""
     skip_validation: bool = False
+    market_id: str = "global"
+    trace_id: str = ""
 
 
 class RemoteAnalysisRequest(BaseModel):
@@ -65,6 +69,13 @@ class RemoteAnalysisRequest(BaseModel):
     enhancement_level: int = 0
     pre_analysis_id: str = ""
     edge_task_id: str = Field("", description="Task ID from the edge server for tracing")
+    market_id: str = "global"
+    scenario_slug: str = ""
+    scenario_type: str = ""
+    entry_mode: str = ""
+    trace_id: str = ""
+    policy_flags: dict[str, Any] = Field(default_factory=dict)
+    artifact_refs: dict[str, str] = Field(default_factory=dict)
 
 
 class RemoteAnalysisResponse(BaseModel):
@@ -105,7 +116,14 @@ async def process_analysis_remote(
     image_key = f"inputs/{internal_user_id}/{uuid.uuid4()}.jpg"
     await storage.upload(image_key, image_bytes)
 
-    ctx: dict = {}
+    policy_flags = build_policy_flags(
+        request.policy_flags or None,
+        cache_allowed=False,
+        delete_after_process=True,
+        retention_policy="ephemeral",
+        data_class="regional_photo",
+    )
+    ctx: dict[str, Any] = {}
     if request.style.strip():
         ctx["style"] = request.style.strip()
     if request.profession.strip():
@@ -117,8 +135,24 @@ async def process_analysis_remote(
     if request.edge_task_id:
         ctx["edge_task_id"] = request.edge_task_id
 
-    ctx["remote_origin"] = "edge"
     ctx["skip_credit_deduct"] = True
+    ctx["defer_delta_scoring"] = True
+    ctx = build_task_context(
+        ctx,
+        market_id=request.market_id,
+        service_role=settings.resolved_service_role,
+        compute_mode=settings.resolved_compute_mode,
+        scenario_slug=request.scenario_slug,
+        scenario_type=request.scenario_type,
+        entry_mode=request.entry_mode,
+        trace_id=request.trace_id or request.edge_task_id or str(uuid.uuid4()),
+        remote_origin="market-proxy",
+        policy_flags=policy_flags,
+        artifact_refs={
+            **request.artifact_refs,
+            "central_input_path": image_key,
+        },
+    )
 
     task = Task(
         user_id=internal_user_id,
@@ -133,7 +167,7 @@ async def process_analysis_remote(
 
     from src.utils.redis_keys import task_input_cache_key
 
-    cache_key = task_input_cache_key(str(task.id))
+    cache_key = task_input_cache_key(str(task.id), request.market_id)
     try:
         await redis.set(
             cache_key,
@@ -148,8 +182,12 @@ async def process_analysis_remote(
     await arq.enqueue_job("process_analysis", str(task.id))
 
     logger.info(
-        "Accepted remote analysis task %s (edge_task=%s, mode=%s)",
-        task.id, request.edge_task_id, request.mode.value,
+        "Accepted remote analysis task %s (edge_task=%s, market=%s, mode=%s, scenario=%s)",
+        task.id,
+        request.edge_task_id,
+        request.market_id,
+        request.mode.value,
+        request.scenario_type or "n/a",
     )
     return RemoteAnalysisResponse(remote_task_id=task.id, status="pending")
 
@@ -176,9 +214,15 @@ async def get_remote_task_status(
     if task.status == TaskStatus.COMPLETED.value and task.result:
         response.result = task.result
 
-        from src.utils.redis_keys import gen_image_cache_key
+        from src.services.task_contract import get_market_id
+        from src.utils.redis_keys import gen_image_cache_keys
 
-        b64 = await redis.get(gen_image_cache_key(str(task.id)))
+        market_id = get_market_id(task.context, fallback=settings.resolved_market_id)
+        b64 = None
+        for key in gen_image_cache_keys(str(task.id), market_id):
+            b64 = await redis.get(key)
+            if b64:
+                break
         if b64:
             response.generated_image_b64 = b64
         elif task.result.get("generated_image_b64"):
@@ -271,7 +315,7 @@ async def pre_analyze_remote(
     _PRE_ANALYSIS_TTL = 1800
     try:
         await redis.set(
-            preanalysis_cache_key(pre_id),
+            preanalysis_cache_key(pre_id, request.market_id),
             _json.dumps(result_dict, default=str),
             ex=_PRE_ANALYSIS_TTL,
         )

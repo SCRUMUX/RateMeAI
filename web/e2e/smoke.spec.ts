@@ -5,14 +5,14 @@ test.describe("Landing page", () => {
     await page.goto("/");
     await expect(page).toHaveTitle(/AI Look/i);
     await expect(page.locator("nav")).toBeVisible();
-    await expect(page.getByRole("link", { name: /попробовать|начать|try/i })).toBeVisible();
+    await expect(page.locator("a,button").filter({ hasText: /получить доступ|попробовать|начать|try/i }).first()).toBeVisible();
   });
 
-  test("navigates to app wizard", async ({ page }) => {
+  test("opens auth modal from landing CTA for guest", async ({ page }) => {
     await page.goto("/");
-    const cta = page.getByRole("link", { name: /попробовать|начать|try/i }).first();
+    const cta = page.locator("a,button").filter({ hasText: /получить доступ|попробовать|начать|try/i }).first();
     await cta.click();
-    await expect(page).toHaveURL(/\/app/);
+    await expect(page.getByRole("dialog")).toBeVisible();
   });
 });
 
@@ -51,6 +51,13 @@ test.describe("Routing", () => {
   test("/dokumenty page loads", async ({ page }) => {
     await page.goto("/dokumenty");
     await expect(page.locator("body")).toBeVisible();
+  });
+
+  test("scenario landing keeps guest inside scenario auth flow", async ({ page }) => {
+    await page.goto("/dokumenty");
+    await page.locator("button").filter({ hasText: /получить доступ|начать/i }).first().click();
+    await expect(page).toHaveURL(/\/dokumenty/);
+    await expect(page.getByRole("dialog")).toBeVisible();
   });
 });
 

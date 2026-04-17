@@ -110,6 +110,9 @@ export function analyze(
   style: string,
   preAnalysisId?: string,
   enhancementLevel?: number,
+  scenarioSlug?: string,
+  scenarioType?: string,
+  entryMode?: string,
 ) {
   const fd = new FormData();
   fd.append('image', image);
@@ -117,6 +120,9 @@ export function analyze(
   fd.append('style', style);
   if (preAnalysisId) fd.append('pre_analysis_id', preAnalysisId);
   if (enhancementLevel != null) fd.append('enhancement_level', String(enhancementLevel));
+  if (scenarioSlug) fd.append('scenario_slug', scenarioSlug);
+  if (scenarioType) fd.append('scenario_type', scenarioType);
+  if (entryMode) fd.append('entry_mode', entryMode);
   return request<TaskCreated>('/api/v1/analyze', { method: 'POST', body: fd });
 }
 

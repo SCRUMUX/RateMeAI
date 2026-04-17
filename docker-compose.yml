@@ -39,6 +39,9 @@ services:
       REDIS_URL: redis://redis:6379/0
       # Same path as volume mount — overrides host .env (e.g. Windows paths) so app/worker share files
       STORAGE_LOCAL_PATH: /app/storage
+      MARKET_ID: global
+      SERVICE_ROLE: api
+      COMPUTE_MODE: local
     depends_on:
       postgres:
         condition: service_healthy
@@ -64,6 +67,9 @@ services:
       STORAGE_LOCAL_PATH: /app/storage
       API_BASE_URL: http://app:8000
       STORAGE_HTTP_FALLBACK_BASE: http://app:8000
+      MARKET_ID: global
+      SERVICE_ROLE: worker
+      COMPUTE_MODE: local
     depends_on:
       app:
         condition: service_healthy
@@ -90,6 +96,9 @@ services:
       REDIS_URL: redis://redis:6379/0
       API_BASE_URL: http://app:8000
       STORAGE_LOCAL_PATH: /app/storage
+      MARKET_ID: global
+      SERVICE_ROLE: bot
+      COMPUTE_MODE: local
     depends_on:
       app:
         condition: service_healthy

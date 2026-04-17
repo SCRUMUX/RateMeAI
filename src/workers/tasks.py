@@ -6,7 +6,7 @@ import logging
 from datetime import date, datetime, timezone
 
 import redis.asyncio as redis_async
-from arq.connections import RedisSettings
+from arq.connections import RedisSettings, create_pool
 from arq.cron import cron
 from sqlalchemy import select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
@@ -16,9 +16,16 @@ from src.config import settings
 from src.models.db import Task, UsageLog, User, CreditTransaction
 from src.models.enums import AnalysisMode, TaskStatus
 from src.services.reconciliation import STUCK_TASK_THRESHOLD_MINUTES  # noqa: F401 — re-export for backward compat
+from src.services.task_contract import get_market_id, should_delete_after_process
 from src.orchestrator.pipeline import AnalysisPipeline
 from src.providers.factory import get_image_gen, get_llm, get_storage
-from src.utils.redis_keys import gen_image_cache_key, task_input_cache_key, WORKER_HEARTBEAT_KEY, WORKER_HEARTBEAT_TTL
+from src.utils.redis_keys import (
+    WORKER_HEARTBEAT_KEY,
+    WORKER_HEARTBEAT_TTL,
+    gen_image_cache_key,
+    gen_image_cache_keys,
+    task_input_cache_keys,
+)
 from src.metrics import (
     CREDITS_USED, TASKS_COMPLETED, TASKS_FAILED,
     PIPELINE_RETRIES, COMPLETED_WITHOUT_IMAGE,
@@ -46,6 +53,7 @@ async def startup(ctx: dict):
     ctx["engine"] = engine
 
     ctx["redis"] = redis_async.from_url(settings.redis_url, decode_responses=True)
+    ctx["arq"] = await create_pool(RedisSettings.from_dsn(settings.redis_url))
 
     ctx["llm"] = get_llm()
     ctx["storage"] = get_storage()
@@ -88,9 +96,50 @@ async def shutdown(ctx: dict):
         await ctx["image_gen"].close()
     if "redis" in ctx:
         await ctx["redis"].close()
+    if "arq" in ctx:
+        await ctx["arq"].close()
     if "engine" in ctx:
         await ctx["engine"].dispose()
     logger.info("Worker stopped")
+
+
+async def _delete_storage_key(storage, key: str | None) -> None:
+    if not key:
+        return
+    try:
+        await storage.delete(key)
+    except FileNotFoundError:
+        pass
+    except Exception:
+        logger.warning("Failed to delete storage key %s", key, exc_info=True)
+
+
+async def _cleanup_ephemeral_artifacts(
+    storage,
+    redis,
+    task: Task,
+    market_id: str,
+    *,
+    include_generated: bool,
+) -> None:
+    for cache_key in task_input_cache_keys(str(task.id), market_id):
+        try:
+            await redis.delete(cache_key)
+        except Exception:
+            logger.debug("Failed to delete input cache key %s", cache_key, exc_info=True)
+
+    if not should_delete_after_process(task.context):
+        return
+
+    await _delete_storage_key(storage, task.input_image_path)
+
+    if include_generated:
+        for cache_key in gen_image_cache_keys(str(task.id), market_id):
+            try:
+                await redis.delete(cache_key)
+            except Exception:
+                logger.debug("Failed to delete generated cache key %s", cache_key, exc_info=True)
+        await _delete_storage_key(storage, f"generated/{task.user_id}/{task.id}.jpg")
 
 
 async def process_analysis(ctx: dict, task_id: str):
@@ -103,6 +152,7 @@ async def _process_analysis_inner(ctx: dict, task_id: str):
     pipeline: AnalysisPipeline = ctx["pipeline"]
     storage = ctx["storage"]
     redis = ctx["redis"]
+    arq = ctx.get("arq")
 
     async with db_sessionmaker() as db:
         result = await db.execute(select(Task).where(Task.id == task_id))
@@ -114,16 +164,19 @@ async def _process_analysis_inner(ctx: dict, task_id: str):
 
         task.status = TaskStatus.PROCESSING.value
         credit_pre_reserved = (task.context or {}).get("credit_pre_reserved", False)
+        market_id = get_market_id(task.context, fallback=settings.resolved_market_id)
         await db.commit()
 
         try:
-            ck = task_input_cache_key(task_id)
-            b64 = await redis.get(ck)
-            if b64:
+            image_bytes = None
+            for cache_key in task_input_cache_keys(task_id, market_id):
+                b64 = await redis.get(cache_key)
+                if not b64:
+                    continue
                 image_bytes = base64.b64decode(b64)
-                await redis.delete(ck)
-                logger.info("Task %s input loaded from Redis cache", task_id)
-            else:
+                logger.info("Task %s input loaded from Redis cache (%s)", task_id, cache_key)
+                break
+            if image_bytes is None:
                 image_bytes = await storage.download(task.input_image_path)
 
             u_row = await db.execute(
@@ -182,7 +235,7 @@ async def _process_analysis_inner(ctx: dict, task_id: str):
                         gen_bytes = await storage.download(gkey)
                         b64_gen = base64.b64encode(gen_bytes).decode()
                         await redis.set(
-                            gen_image_cache_key(str(task.id)),
+                            gen_image_cache_key(str(task.id), market_id),
                             b64_gen,
                             ex=settings.gen_image_redis_ttl_seconds,
                         )
@@ -270,10 +323,25 @@ async def _process_analysis_inner(ctx: dict, task_id: str):
 
             logger.info("Task %s completed (has_image=%s)", task_id, has_image)
             await db.commit()
+
+            if analysis_result.get("delta_status") == "pending" and arq is not None:
+                try:
+                    await arq.enqueue_job("compute_delta_scores", str(task.id))
+                except Exception:
+                    logger.warning("Failed to enqueue deferred delta scoring for %s", task_id, exc_info=True)
+
             try:
                 await redis.publish(f"ratemeai:task_done:{task_id}", "completed")
             except Exception:
                 logger.warning("Failed to publish task_done for %s", task_id)
+
+            await _cleanup_ephemeral_artifacts(
+                storage,
+                redis,
+                task,
+                market_id,
+                include_generated=analysis_result.get("delta_status") != "pending",
+            )
 
         except Exception as e:
             logger.exception("Task %s failed", task_id)
@@ -305,6 +373,14 @@ async def _process_analysis_inner(ctx: dict, task_id: str):
             except Exception:
                 logger.warning("Failed to publish task_done (failed) for %s", task_id)
 
+            await _cleanup_ephemeral_artifacts(
+                storage,
+                redis,
+                task,
+                market_id,
+                include_generated=True,
+            )
+
 
 async def compute_delta_scores(ctx: dict, task_id: str):
     """Deferred delta scoring: re-analyze the generated image and patch results.
@@ -322,6 +398,7 @@ async def compute_delta_scores(ctx: dict, task_id: str):
         if task is None:
             logger.warning("Delta scoring: task %s not found", task_id)
             return
+        market_id = get_market_id(task.context, fallback=settings.resolved_market_id)
         if task.status != TaskStatus.COMPLETED.value:
             logger.warning("Delta scoring: task %s not in completed state (%s)", task_id, task.status)
             return
@@ -356,12 +433,26 @@ async def compute_delta_scores(ctx: dict, task_id: str):
                 pass
 
             logger.info("Delta scoring completed for task %s", task_id)
+            await _cleanup_ephemeral_artifacts(
+                storage,
+                redis,
+                task,
+                market_id,
+                include_generated=True,
+            )
         except Exception:
             logger.exception("Delta scoring failed for task %s", task_id)
             task_result["delta_status"] = "failed"
             task_result["delta_error"] = "deferred_rescoring_failed"
             task.result = task_result
             await db.commit()
+            await _cleanup_ephemeral_artifacts(
+                storage,
+                redis,
+                task,
+                market_id,
+                include_generated=True,
+            )
 
 
 async def worker_heartbeat(ctx: dict):

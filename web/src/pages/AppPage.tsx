@@ -15,6 +15,7 @@ import StorageModal from '../components/StorageModal';
 import { useApp } from '../context/AppContext';
 import { type WizardStepId, getWizardStepsForScenario } from '../components/wizard/shared';
 import { getScenario } from '../scenarios/config';
+import { consumeFlowStep } from '../lib/flow-resume';
 import { restorePhotoAfterPayment, clearPersistedPaymentPhoto } from '../lib/photo-persist';
 
 const STEP_ORDER: WizardStepId[] = ['upload', 'analysis', 'style', 'generate'];
@@ -43,6 +44,7 @@ export default function AppPage({ scenarioSlugOverride, onBackToLanding }: AppPa
   const app = useApp();
   const { scenarioSlug: routeSlug } = useParams<{ scenarioSlug: string }>();
   const scenarioSlug = scenarioSlugOverride ?? routeSlug;
+  const scenarioConfig = getScenario(scenarioSlug);
 
   useEffect(() => {
     app.syncScenarioFromRoute(scenarioSlug);
@@ -53,12 +55,12 @@ export default function AppPage({ scenarioSlugOverride, onBackToLanding }: AppPa
     [app.scenarioStep3Mode],
   );
   const isDocumentScenario = app.scenarioStep3Mode === 'document_formats';
+  const hasScenarioAccess = app.canAccessApp;
 
   const [returnedStep] = useState<WizardStepId | null>(() => {
-    const saved = localStorage.getItem('returnToStep');
-    if (saved && STEP_ORDER.includes(saved as WizardStepId)) {
-      localStorage.removeItem('returnToStep');
-      return saved as WizardStepId;
+    const saved = consumeFlowStep();
+    if (saved && STEP_ORDER.includes(saved)) {
+      return saved;
     }
     return null;
   });
@@ -164,8 +166,11 @@ export default function AppPage({ scenarioSlugOverride, onBackToLanding }: AppPa
           ? +(beforeScore + predictedDelta).toFixed(2)
           : null;
 
-  if (scenarioSlug && !getScenario(scenarioSlug)) {
+  if (scenarioSlug && !scenarioConfig) {
     return <Navigate to="/app" replace />;
+  }
+  if (!scenarioSlugOverride && scenarioConfig?.type === 'standalone') {
+    return <Navigate to={scenarioConfig.canonicalPath} replace />;
   }
 
   return (
@@ -242,9 +247,9 @@ export default function AppPage({ scenarioSlugOverride, onBackToLanding }: AppPa
       />
 
       <AuthModal
-        open={authModalOpen || !app.hasRealAuth}
+        open={authModalOpen || !hasScenarioAccess}
         onClose={() => setAuthModalOpen(false)}
-        required={!app.hasRealAuth}
+        required={!hasScenarioAccess}
         onOAuth={async (provider) => {
           await app.loginWithOAuth(provider);
         }}

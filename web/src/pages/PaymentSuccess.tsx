@@ -2,12 +2,12 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AicaIcon } from '@ai-ds/core/icons';
 import { useApp } from '../context/AppContext';
-import { consumePostPaymentReturnPath } from '../scenarios/config';
+import { consumeFlowReturnPath } from '../lib/flow-resume';
 
 export default function PaymentSuccess() {
   const { refreshBalance } = useApp();
   const navigate = useNavigate();
-  const [targetPath] = useState(() => consumePostPaymentReturnPath());
+  const [targetPath] = useState(() => consumeFlowReturnPath());
 
   useEffect(() => {
     refreshBalance();

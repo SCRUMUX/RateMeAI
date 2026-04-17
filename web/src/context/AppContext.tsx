@@ -4,8 +4,15 @@ import * as api from '../lib/api';
 import type { CategoryId, StyleItem } from '../data/styles';
 import { STYLES_BY_CATEGORY } from '../data/styles';
 import { restorePhotoAfterOAuth, clearPersistedPhoto } from '../lib/photo-persist';
+import { rememberOAuthReturnPath } from '../lib/flow-resume';
 import { normalizeImageUrl } from '../lib/image-url';
-import { getScenario, resolveScenarioStyles, type ScenarioStep3Mode } from '../scenarios/config';
+import {
+  getScenario,
+  resolveScenarioStyles,
+  type ScenarioEntryMode,
+  type ScenarioStep3Mode,
+  type ScenarioType,
+} from '../scenarios/config';
 
 interface Session { token: string; userId: string; provider: string; usage: api.ChannelAuthResponse['usage'] }
 
@@ -35,6 +42,8 @@ interface AppState {
   taskHistoryCount: number;
   identities: api.LinkedIdentity[];
   scenarioSlug: string | null;
+  scenarioType: ScenarioType | null;
+  scenarioEntryMode: ScenarioEntryMode | null;
   scenarioHideCategoryTabs: boolean;
   scenarioStep3Mode: ScenarioStep3Mode | null;
   scenarioDocumentPaywall: boolean;
@@ -44,6 +53,7 @@ interface AppState {
   effectiveStyleList: StyleItem[];
   effectiveApiMode: string;
   hasRealAuth: boolean;
+  canAccessApp: boolean;
 }
 
 interface AppActions {
@@ -135,8 +145,16 @@ export function AppProvider({ children }: { children: ReactNode }) {
     () => identities.some(id => id.provider !== 'web'),
     [identities],
   );
+  const canAccessApp = useMemo(() => {
+    if (session?.provider && session.provider !== 'web') {
+      return true;
+    }
+    return hasRealAuth;
+  }, [session, hasRealAuth]);
 
   const scenarioDef = useMemo(() => getScenario(scenarioSlug), [scenarioSlug]);
+  const scenarioType: ScenarioType | null = scenarioDef?.type ?? null;
+  const scenarioEntryMode: ScenarioEntryMode | null = scenarioDef?.entryMode ?? null;
   const scenarioHideCategoryTabs = scenarioDef?.hideCategoryTabs ?? false;
   const scenarioStep3Mode: ScenarioStep3Mode | null = scenarioDef?.step3Mode ?? null;
   const scenarioDocumentPaywall = scenarioDef?.documentPaywall ?? false;
@@ -159,6 +177,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const sseRef = useRef<EventSource | null>(null);
+  const deltaRefreshRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const preAnalysisCacheRef = useRef<Record<string, api.PreAnalysisResponse>>({});
   const preAnalyzeInFlightRef = useRef(false);
   const preAnalyzeGenRef = useRef(0);
@@ -268,6 +287,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const loginWithOAuth = useCallback(async (provider: 'yandex' | 'vk-id' | 'google') => {
     const returnPath = typeof window !== 'undefined' ? `${window.location.pathname}${window.location.search}` : '';
+    if (returnPath) {
+      rememberOAuthReturnPath(returnPath);
+    }
     await startOAuth(provider, photo ? {
       file: photo.file,
       mode: activeCategory,
@@ -310,9 +332,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       if (restored.style) setSelectedStyleKey(restored.style);
       if (restored.scenarioSlug) setScenarioSlug(restored.scenarioSlug);
       if (restored.returnPath) {
-        try {
-          sessionStorage.setItem('ailook_return_after_oauth', restored.returnPath);
-        } catch { /* ignore */ }
+        rememberOAuthReturnPath(restored.returnPath);
       }
       await clearPersistedPhoto();
     }
@@ -348,19 +368,27 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const prevAuthRef = useRef(false);
   const prevPhotoRef = useRef<PhotoState | null>(null);
   useEffect(() => {
-    const authJustBecameTrue = isAuthenticated && !prevAuthRef.current;
+    const authJustBecameTrue = canAccessApp && !prevAuthRef.current;
     const photoChanged = photo && photo !== prevPhotoRef.current;
-    if (isAuthenticated && photo && (authJustBecameTrue || photoChanged)) {
+    if (canAccessApp && photo && (authJustBecameTrue || photoChanged)) {
       runPreAnalyze();
     }
-    prevAuthRef.current = isAuthenticated;
+    prevAuthRef.current = canAccessApp;
     prevPhotoRef.current = photo;
-  }, [isAuthenticated, photo, runPreAnalyze]);
+  }, [canAccessApp, photo, runPreAnalyze]);
+
+  const stopDeltaRefresh = useCallback(() => {
+    if (deltaRefreshRef.current) {
+      clearTimeout(deltaRefreshRef.current);
+      deltaRefreshRef.current = null;
+    }
+  }, []);
 
   const stopPolling = useCallback(() => {
     if (pollingRef.current) { clearInterval(pollingRef.current); pollingRef.current = null; }
     if (sseRef.current) { sseRef.current.close(); sseRef.current = null; }
-  }, []);
+    stopDeltaRefresh();
+  }, [stopDeltaRefresh]);
 
   const verifyImageUrl = useCallback(async (url: string, retries = 3, delayMs = 2000): Promise<boolean> => {
     for (let i = 0; i < retries; i++) {
@@ -378,6 +406,33 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
     return false;
   }, []);
+
+  const scheduleDeferredDeltaRefresh = useCallback((taskId: string, mode: string, attempt = 0) => {
+    stopDeltaRefresh();
+    const maxAttempts = 20;
+    const delayMs = attempt < 4 ? 1500 : 3000;
+    deltaRefreshRef.current = setTimeout(async () => {
+      try {
+        const t = await api.getTask(taskId);
+        const r = t.result as Record<string, unknown> | null;
+        const deltaStatus = (r?.delta_status as string | undefined) ?? '';
+        if (t.status === 'completed' && deltaStatus === 'pending' && attempt < maxAttempts) {
+          scheduleDeferredDeltaRefresh(taskId, mode, attempt + 1);
+          return;
+        }
+        setCurrentTask({ taskId: t.task_id, status: t.status, result: t.result });
+        if (r) {
+          const { score, perception } = extractAfterScores(r, mode);
+          if (score != null) setAfterScore(score);
+          if (perception) setAfterPerception(perception);
+        }
+      } catch {
+        if (attempt < maxAttempts) {
+          scheduleDeferredDeltaRefresh(taskId, mode, attempt + 1);
+        }
+      }
+    }, delayMs);
+  }, [stopDeltaRefresh]);
 
   const handleTaskResult = useCallback(async (taskId: string, mode: string, category: CategoryId) => {
     try {
@@ -410,6 +465,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
           const { score, perception } = extractAfterScores(r, mode);
           if (score != null) setAfterScore(score);
           if (perception) setAfterPerception(perception);
+          if (r.delta_status === 'pending') {
+            scheduleDeferredDeltaRefresh(taskId, mode);
+          }
         }
         setGenerationMode(category);
         setIsGenerating(false);
@@ -423,7 +481,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setIsGenerating(false);
       setError('Не удалось получить результат. Проверьте подключение и попробуйте снова.');
     }
-  }, [refreshBalance, fetchTaskHistory, verifyImageUrl]);
+  }, [refreshBalance, fetchTaskHistory, verifyImageUrl, scheduleDeferredDeltaRefresh]);
 
   const startPollingFallback = useCallback((taskId: string, mode: string, category: CategoryId) => {
     if (pollingRef.current) return;
@@ -526,6 +584,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
         effectiveStyle,
         preAnalysis?.pre_analysis_id,
         enhancementLevel,
+        scenarioSlug ?? undefined,
+        scenarioType ?? undefined,
+        scenarioEntryMode ?? undefined,
       );
       setCurrentTask({ taskId: res.task_id, status: res.status, result: null });
       onTaskCreated?.();
@@ -546,7 +607,19 @@ export function AppProvider({ children }: { children: ReactNode }) {
         }
       }
     }
-  }, [photo, selectedStyleKey, activeCategory, effectiveApiMode, preAnalysis, startPolling, isGenerating, handleAuthError]);
+  }, [
+    photo,
+    selectedStyleKey,
+    activeCategory,
+    effectiveApiMode,
+    preAnalysis,
+    startPolling,
+    isGenerating,
+    handleAuthError,
+    scenarioSlug,
+    scenarioType,
+    scenarioEntryMode,
+  ]);
 
   const share = useCallback(async () => {
     if (!currentTask?.taskId) return null;
@@ -580,9 +653,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
     currentTask, isGenerating, error, generatedImageUrl, afterScore, afterPerception,
     generationMode, isAuthenticated, preAnalyzeLoading,
     noCreditsError, preAnalyzeError, taskHistory, taskHistoryCount, identities,
-    scenarioSlug, scenarioHideCategoryTabs, scenarioStep3Mode,
+    scenarioSlug, scenarioType, scenarioEntryMode, scenarioHideCategoryTabs, scenarioStep3Mode,
     scenarioDocumentPaywall, scenarioPrimaryCtaMainApp, scenarioSimplifiedAnalysis,
-    scenarioPaymentPackQty, effectiveStyleList, effectiveApiMode, hasRealAuth,
+    scenarioPaymentPackQty, effectiveStyleList, effectiveApiMode, hasRealAuth, canAccessApp,
     syncScenarioFromRoute,
     setActiveCategory, setSelectedStyleKey, uploadPhoto, runPreAnalyze,
     generate, share, refreshBalance, clearError, clearGeneratedImage, clearNoCreditsError,

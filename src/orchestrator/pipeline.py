@@ -16,9 +16,13 @@ from src.orchestrator.router import ModeRouter
 from src.providers.base import ImageGenProvider, LLMProvider, StorageProvider
 from src.prompts.engine import PromptEngine
 from src.services.share import ShareCardGenerator
+from src.services.task_contract import get_market_id, is_cache_allowed
 from src.utils.humanize import humanize_result_scores
 from src.utils.image import validate_and_normalize, has_face_heuristic, estimate_blur_score
-from src.utils.redis_keys import embedding_cache_key, preanalysis_cache_key
+from src.utils.redis_keys import (
+    embedding_cache_key,
+    preanalysis_cache_keys,
+)
 from src.utils.security import extract_nsfw_from_analysis
 from src.tracing import async_span
 
@@ -101,7 +105,12 @@ class AnalysisPipeline:
         from src.services.quality_gates import QualityGateRunner
         return QualityGateRunner(identity_svc=self._get_identity_service(), llm=self._llm)
 
-    async def _get_or_compute_embedding(self, task_id: str, image_bytes: bytes):
+    async def _get_or_compute_embedding(
+        self,
+        task_id: str,
+        image_bytes: bytes,
+        market_id: str | None = None,
+    ):
         """Return cached embedding from Redis, or compute and cache it."""
         import numpy as np
 
@@ -111,7 +120,7 @@ class AnalysisPipeline:
 
         if self._redis:
             try:
-                cached = await self._redis.get(embedding_cache_key(task_id))
+                cached = await self._redis.get(embedding_cache_key(task_id, market_id))
                 if cached:
                     if isinstance(cached, str):
                         import base64
@@ -125,7 +134,11 @@ class AnalysisPipeline:
             try:
                 import base64
                 b64 = base64.b64encode(emb.astype(np.float32).tobytes()).decode()
-                await self._redis.set(embedding_cache_key(task_id), b64, ex=3600)
+                await self._redis.set(
+                    embedding_cache_key(task_id, market_id),
+                    b64,
+                    ex=3600,
+                )
             except Exception:
                 logger.debug("Failed to cache embedding for task %s", task_id)
 
@@ -146,10 +159,12 @@ class AnalysisPipeline:
             "decisions": [],
             "total_cost_usd": 0.0,
         }
+        market_id = get_market_id(context, fallback=settings.resolved_market_id)
         async with async_span("pipeline.execute", {
             "pipeline.mode": mode.value,
             "pipeline.task_id": task_id,
             "pipeline.user_id": user_id,
+            "pipeline.market_id": market_id,
         }):
           return await self._execute_inner(
               mode, image_bytes, user_id, task_id, context, progress_callback, trace,
@@ -175,9 +190,14 @@ class AnalysisPipeline:
             if pre_id and self._redis:
                 try:
                     import json as _json
-                    raw = await self._redis.get(preanalysis_cache_key(pre_id))
-                    if raw:
-                        cached_pre = _json.loads(raw)
+                    for cache_key in preanalysis_cache_keys(
+                        pre_id,
+                        get_market_id(context, fallback=settings.resolved_market_id),
+                    ):
+                        raw = await self._redis.get(cache_key)
+                        if raw:
+                            cached_pre = _json.loads(raw)
+                            break
                 except Exception:
                     logger.warning("Failed to load cached pre-analysis %s, falling back to LLM", pre_id)
 
@@ -307,10 +327,12 @@ class AnalysisPipeline:
         import hashlib
         h = hashlib.sha256(image_bytes).hexdigest()[:16]
         profession = (context or {}).get("profession", "")
-        return f"ratemeai:llm_cache:{mode.value}:{h}:{profession}"
+        market_id = get_market_id(context, fallback=settings.resolved_market_id)
+        return f"ratemeai:llm_cache:{market_id}:{mode.value}:{h}:{profession}"
 
     async def _analyze(self, mode: AnalysisMode, image_bytes: bytes, context: dict | None) -> tuple:
-        if self._redis:
+        cache_allowed = is_cache_allowed(context, default=True)
+        if self._redis and cache_allowed:
             cache_key = self._analysis_cache_key(mode, image_bytes, context)
             try:
                 import json as _json
@@ -342,7 +364,7 @@ class AnalysisPipeline:
         else:
             result_dict = raw_dict
 
-        if self._redis:
+        if self._redis and cache_allowed:
             try:
                 import json as _json
                 await self._redis.set(cache_key, _json.dumps(result_dict), ex=600)

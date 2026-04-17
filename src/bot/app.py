@@ -85,10 +85,15 @@ async def _start_health_server(app: web.Application | None = None) -> None:
 async def main():
     sha = (settings.deploy_git_sha or "").strip()
     logger.info(
-        "Telegram bot starting RateMeAI version=%s%s",
+        "Telegram bot starting RateMeAI version=%s market=%s role=%s compute=%s%s",
         APP_VERSION,
+        settings.resolved_market_id,
+        settings.resolved_service_role,
+        settings.resolved_compute_mode,
         f" git={sha[:12]}" if sha else "",
     )
+    if settings.edge_api_url:
+        logger.info("Ignoring EDGE_API_URL for bot traffic; bot is pinned to API_BASE_URL=%s", settings.api_base_url)
     bot = create_bot()
     redis = Redis.from_url(settings.redis_url, decode_responses=True)
     dp = create_dispatcher(redis)

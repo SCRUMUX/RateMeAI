@@ -16,11 +16,15 @@ const STEPS = [
 
 interface LandingProps {
   onStart?: () => void;
+  showAuth?: boolean;
+  onAuthClose?: () => void;
 }
 
-export default function DocumentPhotoLanding({ onStart }: LandingProps) {
+export default function DocumentPhotoLanding({ onStart, showAuth, onAuthClose }: LandingProps) {
   const app = useApp();
   const [authModalOpen, setAuthModalOpen] = useState(false);
+
+  const authOpen = authModalOpen || !!showAuth;
 
   return (
     <div data-category="cv" className="min-h-screen w-full overflow-x-hidden selection:bg-brand-primary/30">
@@ -111,8 +115,8 @@ export default function DocumentPhotoLanding({ onStart }: LandingProps) {
       <Footer />
 
       <AuthModal
-        open={authModalOpen}
-        onClose={() => setAuthModalOpen(false)}
+        open={authOpen}
+        onClose={() => { setAuthModalOpen(false); onAuthClose?.(); }}
         onOAuth={async (provider) => {
           await app.loginWithOAuth(provider);
         }}

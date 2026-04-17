@@ -290,10 +290,9 @@ def _format_pre_analysis_message(header: str, kind: str, user_id: int, data: dic
 
 
 async def _submit_analysis(callback: CallbackQuery, api_base_url: str, redis: Redis, mode: str, style: str):
-    from src.config import settings as _settings
     user_id = callback.from_user.id
     bot = callback.bot
-    analyze_api = _settings.edge_api_url.rstrip("/") if _settings.edge_api_url else api_base_url
+    analyze_api = api_base_url
 
     file_id = await redis.get(PHOTO_KEY.format(user_id))
     if not file_id:
@@ -398,7 +397,6 @@ async def _submit_analysis(callback: CallbackQuery, api_base_url: str, redis: Re
 async def on_buy(callback: CallbackQuery, api_base_url: str, redis: Redis):
     """Create YooKassa payment via edge server API and send payment link."""
     from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
-    from src.config import settings
 
     pack_qty = int(callback.data.split(":", 1)[1])
 
@@ -406,7 +404,7 @@ async def on_buy(callback: CallbackQuery, api_base_url: str, redis: Redis):
     wait_msg = await callback.message.answer("\U0001f4b3 Создаю платёж...")
 
     tg_id = callback.from_user.id
-    payment_api = settings.edge_api_url.rstrip("/") if settings.edge_api_url else api_base_url
+    payment_api = api_base_url
 
     try:
         session_token = await _ensure_edge_session(
@@ -480,10 +478,9 @@ async def on_buy(callback: CallbackQuery, api_base_url: str, redis: Redis):
 @router.callback_query(F.data == "balance")
 async def on_balance(callback: CallbackQuery, api_base_url: str, redis: Redis):
     """Show user's current credit balance (from edge server where payments are processed)."""
-    from src.config import settings
     await callback.answer()
     user_id = callback.from_user.id
-    payment_api = settings.edge_api_url.rstrip("/") if settings.edge_api_url else api_base_url
+    payment_api = api_base_url
 
     try:
         headers = await _get_api_headers(redis, user_id, payment_api, callback.from_user)

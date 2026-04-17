@@ -51,6 +51,9 @@ services:
       STORAGE_LOCAL_PATH: /app/storage
       APP_ENV: prod
       DEPLOY_GIT_SHA: ${DEPLOY_GIT_SHA:-}
+      MARKET_ID: ru
+      SERVICE_ROLE: api
+      COMPUTE_MODE: remote
     depends_on:
       postgres:
         condition: service_healthy
@@ -71,6 +74,7 @@ services:
       dockerfile: web/Dockerfile
       args:
         VITE_API_BASE_URL: ${VITE_API_BASE_URL:-https://ru.ailookstudio.ru}
+        VITE_MARKET_ID: ${VITE_MARKET_ID:-ru}
         DEPLOY_GIT_SHA: ${DEPLOY_GIT_SHA:-}
     image: ratemeai-web-ru:latest
     profiles:

@@ -16,6 +16,15 @@ from src.models.enums import AnalysisMode, TaskStatus
 from src.models.schemas import TaskCreated
 from src.api.deps import get_db, get_redis, check_credits, check_rate_limit
 from src.providers.factory import get_storage
+from src.services.task_contract import (
+    build_policy_flags,
+    build_task_context,
+    get_market_id,
+    get_policy_flags,
+    get_scenario_slug,
+    get_scenario_type,
+    get_trace_id,
+)
 from src.utils.redis_keys import task_input_cache_key, gen_image_cache_key
 from prometheus_client import Counter
 
@@ -49,6 +58,9 @@ async def _handle_edge_analysis(
     profession: str,
     enhancement_level: int,
     pre_analysis_id: str,
+    scenario_slug: str,
+    scenario_type: str,
+    entry_mode: str,
 ) -> None:
     """In edge mode: proxy the AI task to the primary Railway backend.
 
@@ -72,6 +84,7 @@ async def _handle_edge_analysis(
     image_b64 = base64.b64encode(image_bytes).decode("ascii")
 
     task_context: dict | None = None
+    market_id = settings.resolved_market_id
     try:
         async with db_sessionmaker() as db:
             result = await db.execute(select(Task).where(Task.id == task_id))
@@ -82,6 +95,7 @@ async def _handle_edge_analysis(
 
             task.status = TaskStatus.PROCESSING.value
             task_context = task.context
+            market_id = get_market_id(task_context, fallback=settings.resolved_market_id)
             await db.commit()
 
         async def _edge_progress(status: str, poll_count: int) -> None:
@@ -104,6 +118,13 @@ async def _handle_edge_analysis(
                 enhancement_level=enhancement_level,
                 pre_analysis_id=pre_analysis_id,
                 edge_task_id=str(task_id),
+                market_id=market_id,
+                scenario_slug=get_scenario_slug(task_context) or "",
+                scenario_type=get_scenario_type(task_context) or "",
+                entry_mode=(task_context or {}).get("entry_mode", ""),
+                trace_id=get_trace_id(task_context) or str(task_id),
+                policy_flags=get_policy_flags(task_context),
+                artifact_refs=(task_context or {}).get("artifact_refs") or {},
                 on_poll=_edge_progress,
             )
 
@@ -116,7 +137,7 @@ async def _handle_edge_analysis(
                 await storage.upload(gen_key, base64.b64decode(gen_b64))
 
                 await redis.set(
-                    gen_image_cache_key(str(task_id)),
+                    gen_image_cache_key(str(task_id), market_id),
                     gen_b64,
                     ex=settings.gen_image_redis_ttl_seconds,
                 )
@@ -259,6 +280,9 @@ async def create_analysis(
     profession: str = Form(""),
     enhancement_level: int = Form(0),
     pre_analysis_id: str = Form(""),
+    scenario_slug: str = Form(""),
+    scenario_type: str = Form(""),
+    entry_mode: str = Form(""),
     _rate_limited_user: User = Depends(check_rate_limit),
     user: User = Depends(check_credits),
     db: AsyncSession = Depends(get_db),
@@ -278,6 +302,7 @@ async def create_analysis(
     if len(image_bytes) > 10 * 1024 * 1024:
         raise HTTPException(status_code=400, detail="Image must be smaller than 10MB")
 
+    task_uuid = uuid.uuid4()
     storage = get_storage()
     image_key = f"inputs/{user.id}/{uuid.uuid4()}.jpg"
     try:
@@ -297,8 +322,31 @@ async def create_analysis(
         ctx["pre_analysis_id"] = pre_analysis_id.strip()
     if getattr(user, "_credit_reserved", False):
         ctx["credit_pre_reserved"] = True
+    if mode in (AnalysisMode.DATING, AnalysisMode.CV, AnalysisMode.SOCIAL):
+        ctx["defer_delta_scoring"] = True
+
+    trace_id = request.headers.get("x-trace-id") or str(task_uuid)
+    policy_flags = build_policy_flags(
+        cache_allowed=not settings.uses_remote_ai,
+        delete_after_process=False,
+        retention_policy="market_default",
+        data_class="user_photo",
+    )
+    ctx = build_task_context(
+        ctx,
+        market_id=settings.resolved_market_id,
+        service_role=settings.resolved_service_role,
+        compute_mode=settings.resolved_compute_mode,
+        scenario_slug=scenario_slug,
+        scenario_type=scenario_type,
+        entry_mode=entry_mode,
+        trace_id=trace_id,
+        policy_flags=policy_flags,
+        artifact_refs={"market_input_path": image_key},
+    )
 
     task = Task(
+        id=task_uuid,
         user_id=user.id,
         mode=mode.value,
         status=TaskStatus.PENDING.value,
@@ -315,7 +363,7 @@ async def create_analysis(
     if credits_remaining is not None:
         headers["X-Credits-Remaining"] = str(credits_remaining)
 
-    if settings.is_edge:
+    if settings.uses_remote_ai:
         import asyncio
 
         asyncio.create_task(
@@ -329,6 +377,9 @@ async def create_analysis(
                 profession=profession.strip(),
                 enhancement_level=enhancement_level,
                 pre_analysis_id=pre_analysis_id.strip(),
+                scenario_slug=scenario_slug.strip(),
+                scenario_type=scenario_type.strip(),
+                entry_mode=entry_mode.strip(),
             )
         )
         body = TaskCreated(task_id=task.id, status=TaskStatus.PENDING, estimated_seconds=30)
@@ -338,19 +389,13 @@ async def create_analysis(
             headers=headers,
         )
 
-    cache_key = task_input_cache_key(str(task.id))
+    cache_key = task_input_cache_key(str(task.id), settings.resolved_market_id)
     try:
         await redis.set(
             cache_key,
             base64.b64encode(image_bytes).decode("ascii"),
             ex=settings.task_input_redis_ttl_seconds,
         )
-        if style.strip():
-            await redis.set(
-                f"ratemeai:style:{task.id}",
-                style.strip(),
-                ex=settings.task_input_redis_ttl_seconds,
-            )
     except Exception:
         logger.exception("Redis error staging task input for %s", task.id)
         raise HTTPException(status_code=500, detail="Failed to stage task input") from None

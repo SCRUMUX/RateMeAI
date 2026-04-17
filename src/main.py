@@ -87,7 +87,7 @@ async def lifespan(app: FastAPI):
     app.state.db_sessionmaker = async_sessionmaker(engine, expire_on_commit=False)
     app.state.redis = Redis.from_url(settings.redis_url, decode_responses=True)
 
-    if settings.internal_api_key and not settings.is_edge:
+    if settings.internal_api_key and not settings.uses_remote_ai:
         from src.models.db import User
         import uuid as _uuid
         internal_user_id = _uuid.uuid5(_uuid.NAMESPACE_DNS, "edge-proxy.internal")
@@ -103,7 +103,7 @@ async def lifespan(app: FastAPI):
                 logging.getLogger(__name__).info("Created internal edge-proxy user %s", internal_user_id)
 
     log = logging.getLogger(__name__)
-    if settings.is_production and not settings.openrouter_api_key.strip() and not settings.is_edge:
+    if settings.is_production and not settings.openrouter_api_key.strip() and not settings.uses_remote_ai:
         log.error(
             "OPENROUTER_API_KEY is empty — configure env before accepting traffic",
         )
@@ -113,7 +113,7 @@ async def lifespan(app: FastAPI):
             "image URLs will be broken for clients",
             settings.api_base_url,
         )
-    if settings.is_edge:
+    if settings.uses_remote_ai:
         if not settings.vk_id_app_id.strip():
             log.warning("VK_ID_APP_ID is empty — VK ID OAuth will not work on edge")
         if not settings.vk_app_secret.strip():
@@ -126,16 +126,19 @@ async def lifespan(app: FastAPI):
             log.error("INTERNAL_API_KEY is empty — edge-primary communication will fail")
     sha = (settings.deploy_git_sha or "").strip()
     log.info(
-        "RateMeAI API starting version=%s mode=%s%s",
+        "RateMeAI API starting version=%s market=%s role=%s compute=%s mode=%s%s",
         APP_VERSION,
+        settings.resolved_market_id,
+        settings.resolved_service_role,
+        settings.resolved_compute_mode,
         settings.deployment_mode,
         f" git={sha[:12]}" if sha else "",
     )
-    if settings.is_edge:
+    if settings.uses_remote_ai:
         log.info("Edge mode: AI requests will be proxied to %s", settings.remote_ai_backend_url)
 
     reconciler_task = None
-    if settings.is_edge:
+    if settings.uses_remote_ai:
         reconciler_task = asyncio.create_task(
             _edge_reconciler_loop(app.state.db_sessionmaker, app.state.redis)
         )
@@ -149,7 +152,7 @@ async def lifespan(app: FastAPI):
         except asyncio.CancelledError:
             pass
 
-    if settings.is_edge:
+    if settings.uses_remote_ai:
         from src.services import remote_ai as _rai_mod
         if _rai_mod._instance is not None:
             await _rai_mod._instance.close()
@@ -308,7 +311,14 @@ async def serve_storage(file_path: str, download: int = 0):
 
 @app.get("/health")
 async def health():
-    body: dict = {"status": "ok", "version": APP_VERSION, "mode": settings.deployment_mode}
+    body: dict = {
+        "status": "ok",
+        "version": APP_VERSION,
+        "mode": settings.deployment_mode,
+        "market_id": settings.resolved_market_id,
+        "service_role": settings.resolved_service_role,
+        "compute_mode": settings.resolved_compute_mode,
+    }
     sha = (settings.deploy_git_sha or "").strip()
     if sha:
         body["git"] = sha[:12]
@@ -321,6 +331,9 @@ async def readiness():
     from sqlalchemy import text
 
     checks: dict[str, str] = {}
+    checks["market_id"] = settings.resolved_market_id
+    checks["service_role"] = settings.resolved_service_role
+    checks["compute_mode"] = settings.resolved_compute_mode
 
     try:
         async with app.state.db_sessionmaker() as db:
@@ -335,7 +348,7 @@ async def readiness():
     except Exception:
         checks["redis"] = "fail"
 
-    if settings.is_edge:
+    if settings.uses_remote_ai:
         checks["mode"] = "edge"
         checks["remote_ai"] = "configured" if settings.remote_ai_backend_url else "missing"
         try:

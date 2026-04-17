@@ -1,8 +1,9 @@
 import { useState, useRef, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { CoinIcon } from '@ai-ds/core/icons';
-import { setPostPaymentReturnPath, normalizePostPaymentPath } from '../../scenarios/config';
+import { normalizePostPaymentPath } from '../../scenarios/config';
 import { createPayment, ApiError } from '../../lib/api';
+import { rememberFlowReturnPath, rememberFlowStep } from '../../lib/flow-resume';
 import { savePhotoBeforePayment } from '../../lib/photo-persist';
 import { PERCEPTION_FACTS, getRandomFact } from '../../data/ai-facts';
 import { useApp } from '../../context/AppContext';
@@ -176,8 +177,8 @@ export default function StepGenerate({ onGoToStep, onOpenStorage }: Props) {
     setPaymentLoading(true);
     try {
       const next = normalizePostPaymentPath(window.location.pathname) ?? '/app';
-      setPostPaymentReturnPath(next);
-      localStorage.setItem('returnToStep', 'generate');
+      rememberFlowReturnPath(next);
+      rememberFlowStep('generate');
       if (app.photo) {
         await savePhotoBeforePayment(app.photo.file, {
           mode: app.activeCategory,
@@ -216,8 +217,8 @@ export default function StepGenerate({ onGoToStep, onOpenStorage }: Props) {
   function goToPricing() {
     setShowNoCredits(false);
     const next = normalizePostPaymentPath(window.location.pathname) ?? '/app';
-    setPostPaymentReturnPath(next);
-    localStorage.setItem('returnToStep', 'generate');
+    rememberFlowReturnPath(next);
+    rememberFlowStep('generate');
     navigate('/');
     setTimeout(() => document.getElementById('тарифы')?.scrollIntoView({ behavior: 'smooth' }), 300);
   }

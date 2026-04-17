@@ -16,7 +16,7 @@ interface Props {
 }
 
 export default function NavBar({ onLoginClick, onOpenStorage, onHomeClick, onCtaClick, hideNavLinks, mode = 'landing' }: Props) {
-  const { session, balance, logout, taskHistoryCount } = useApp();
+  const { session, balance, logout, taskHistoryCount, canAccessApp } = useApp();
   const [menuOpen, setMenuOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -44,16 +44,29 @@ export default function NavBar({ onLoginClick, onOpenStorage, onHomeClick, onCta
     <nav className={`${mode === 'app' ? 'relative shrink-0' : 'fixed top-0 left-0 right-0'} z-[100] glass-nav`}>
       <div className="max-w-[1200px] mx-auto flex items-center justify-between h-[52px] tablet:h-[60px] px-[var(--space-16)] tablet:px-[var(--space-24)]">
         {/* Logo */}
-        <Link to="/" className="flex items-center gap-[var(--space-8)] px-[var(--space-8)] py-[var(--space-4)] no-underline">
-          <div className="relative w-10 h-10 tablet:w-11 tablet:h-11 shrink-0">
-            <div className="absolute inset-0 rounded-xl" style={{ background: 'rgba(var(--accent-r), var(--accent-g), var(--accent-b), 0.18)' }} />
-            <img src={logoSrc} alt="AI Look Studio" className="relative w-full h-full rounded-xl object-contain" style={{ mixBlendMode: 'lighten' }} />
-          </div>
-          <span className="hidden tablet:inline text-[22px] leading-[30px] font-bold whitespace-nowrap tracking-tight">
-            <span className="text-[#E6EEF8]">AI</span>
-            <span className="text-[var(--color-text-primary)]"> Look Studio</span>
-          </span>
-        </Link>
+        {onHomeClick ? (
+          <button onClick={onHomeClick} className="flex items-center gap-[var(--space-8)] px-[var(--space-8)] py-[var(--space-4)] cursor-pointer">
+            <div className="relative w-10 h-10 tablet:w-11 tablet:h-11 shrink-0">
+              <div className="absolute inset-0 rounded-xl" style={{ background: 'rgba(var(--accent-r), var(--accent-g), var(--accent-b), 0.18)' }} />
+              <img src={logoSrc} alt="AI Look Studio" className="relative w-full h-full rounded-xl object-contain" style={{ mixBlendMode: 'lighten' }} />
+            </div>
+            <span className="hidden tablet:inline text-[22px] leading-[30px] font-bold whitespace-nowrap tracking-tight">
+              <span className="text-[#E6EEF8]">AI</span>
+              <span className="text-[var(--color-text-primary)]"> Look Studio</span>
+            </span>
+          </button>
+        ) : (
+          <Link to="/" className="flex items-center gap-[var(--space-8)] px-[var(--space-8)] py-[var(--space-4)] no-underline">
+            <div className="relative w-10 h-10 tablet:w-11 tablet:h-11 shrink-0">
+              <div className="absolute inset-0 rounded-xl" style={{ background: 'rgba(var(--accent-r), var(--accent-g), var(--accent-b), 0.18)' }} />
+              <img src={logoSrc} alt="AI Look Studio" className="relative w-full h-full rounded-xl object-contain" style={{ mixBlendMode: 'lighten' }} />
+            </div>
+            <span className="hidden tablet:inline text-[22px] leading-[30px] font-bold whitespace-nowrap tracking-tight">
+              <span className="text-[#E6EEF8]">AI</span>
+              <span className="text-[var(--color-text-primary)]"> Look Studio</span>
+            </span>
+          </Link>
+        )}
 
         {/* Desktop nav links */}
         <div className="hidden tablet:flex items-center gap-[var(--space-12)]">
@@ -167,13 +180,13 @@ export default function NavBar({ onLoginClick, onOpenStorage, onHomeClick, onCta
                 onClick={onCtaClick}
                 className="glass-btn-primary flex items-center px-[var(--space-12)] py-[var(--space-6)] text-[14px] leading-[20px] rounded-[var(--radius-12)] cursor-pointer"
               >
-                {session ? 'Начать' : 'Попробовать'}
+                {canAccessApp ? 'Начать' : 'Получить доступ'}
               </button>
             ) : (
               <Link to="/app"
                 className="glass-btn-primary flex items-center px-[var(--space-12)] py-[var(--space-6)] text-[14px] leading-[20px] rounded-[var(--radius-12)] no-underline"
               >
-                {session ? 'Приложение' : 'Попробовать'}
+                {canAccessApp ? 'Приложение' : 'Открыть приложение'}
               </Link>
             )
           )}
@@ -311,7 +324,7 @@ export default function NavBar({ onLoginClick, onOpenStorage, onHomeClick, onCta
                     onClick={() => { setMobileMenuOpen(false); onCtaClick(); }}
                     className="glass-btn-primary flex items-center justify-center px-[var(--space-16)] py-[var(--space-12)] text-[16px] leading-[24px] rounded-[var(--radius-12)] text-center cursor-pointer"
                   >
-                    Начать
+                    {canAccessApp ? 'Начать' : 'Получить доступ'}
                   </button>
                 ) : (
                   <Link
@@ -319,7 +332,7 @@ export default function NavBar({ onLoginClick, onOpenStorage, onHomeClick, onCta
                     onClick={() => setMobileMenuOpen(false)}
                     className="glass-btn-primary flex items-center justify-center px-[var(--space-16)] py-[var(--space-12)] text-[16px] leading-[24px] rounded-[var(--radius-12)] text-center no-underline"
                   >
-                    Приложение
+                    {canAccessApp ? 'Приложение' : 'Открыть приложение'}
                   </Link>
                 )
               )}

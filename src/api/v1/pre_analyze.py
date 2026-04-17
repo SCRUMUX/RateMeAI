@@ -4,7 +4,7 @@ import json
 import logging
 import uuid
 
-from fastapi import APIRouter, Depends, UploadFile, File, Form, HTTPException
+from fastapi import APIRouter, Depends, UploadFile, File, Form, HTTPException, Request
 from redis.asyncio import Redis
 
 from src.config import settings
@@ -45,6 +45,7 @@ def _get_router() -> ModeRouter:
 
 @router.post("", response_model=PreAnalysisResponse)
 async def pre_analyze(
+    request: Request,
     image: UploadFile = File(...),
     mode: AnalysisMode = Form(AnalysisMode.DATING),
     profession: str = Form(""),
@@ -70,7 +71,7 @@ async def pre_analyze(
     if not has_face_heuristic(image_bytes):
         raise HTTPException(status_code=400, detail="На фото не обнаружено лицо. Загрузи портретное фото.")
 
-    if settings.is_edge:
+    if settings.uses_remote_ai:
         import base64 as _b64
         from src.services.remote_ai import get_remote_ai, RemoteAIError
         try:
@@ -79,6 +80,8 @@ async def pre_analyze(
                 image_b64=_b64.b64encode(image_bytes).decode(),
                 mode=mode.value,
                 profession=profession.strip(),
+                market_id=settings.resolved_market_id,
+                trace_id=request.headers.get("x-trace-id", ""),
             )
             return PreAnalysisResponse(**result_data)
         except RemoteAIError as exc:
@@ -113,7 +116,7 @@ async def pre_analyze(
 
     try:
         await redis.set(
-            preanalysis_cache_key(pre_id),
+            preanalysis_cache_key(pre_id, settings.resolved_market_id),
             json.dumps(result_dict, default=str),
             ex=_PRE_ANALYSIS_TTL,
         )

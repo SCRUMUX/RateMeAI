@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 from pathlib import Path
 from urllib.parse import quote
+import contextlib
 
 import aiofiles
 import httpx
@@ -62,6 +63,18 @@ class LocalStorageProvider(StorageProvider):
     async def get_url(self, key: str) -> str:
         enc = key.replace(" ", "%20")
         return f"{self._public_base}/storage/{enc}"
+
+    async def delete(self, key: str) -> None:
+        path = self._base / key
+        with contextlib.suppress(FileNotFoundError):
+            path.unlink()
+        parent = path.parent
+        while parent != self._base and parent.exists():
+            try:
+                parent.rmdir()
+            except OSError:
+                break
+            parent = parent.parent
 
     def get_absolute_path(self, key: str) -> str:
         return str(self._base / key)

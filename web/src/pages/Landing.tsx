@@ -15,10 +15,14 @@ import logoSrc from '../assets/logo.png';
 export default function Landing() {
   const app = useApp();
   const [authModalOpen, setAuthModalOpen] = useState(false);
+  const canAccessApp = app.canAccessApp;
 
   return (
     <div data-category={app.activeCategory} className="min-h-screen w-full overflow-x-hidden selection:bg-brand-primary/30">
-      <NavBar onLoginClick={() => setAuthModalOpen(true)} />
+      <NavBar
+        onLoginClick={() => setAuthModalOpen(true)}
+        onCtaClick={canAccessApp ? undefined : () => setAuthModalOpen(true)}
+      />
       <main className="relative">
         <MeshGradientBg />
         <EnergyField />
@@ -46,12 +50,22 @@ export default function Landing() {
             <p className="text-[16px] tablet:text-[20px] leading-[24px] tablet:leading-[28px] text-[var(--color-text-secondary)]">
               Загрузите фото, получите AI-анализ восприятия и улучшите образ за несколько секунд
             </p>
-            <Link
-              to="/app"
-              className="glass-btn-primary inline-flex items-center justify-center px-[var(--space-32)] py-[var(--space-16)] text-[18px] leading-[24px] rounded-[var(--radius-12)] font-medium no-underline mt-[var(--space-8)]"
-            >
-              Открыть приложение
-            </Link>
+            {canAccessApp ? (
+              <Link
+                to="/app"
+                className="glass-btn-primary inline-flex items-center justify-center px-[var(--space-32)] py-[var(--space-16)] text-[18px] leading-[24px] rounded-[var(--radius-12)] font-medium no-underline mt-[var(--space-8)]"
+              >
+                Открыть приложение
+              </Link>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setAuthModalOpen(true)}
+                className="glass-btn-primary inline-flex items-center justify-center px-[var(--space-32)] py-[var(--space-16)] text-[18px] leading-[24px] rounded-[var(--radius-12)] font-medium mt-[var(--space-8)]"
+              >
+                Получить доступ
+              </button>
+            )}
           </div>
         </section>
 

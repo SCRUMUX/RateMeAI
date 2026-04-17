@@ -69,6 +69,7 @@ jobs:
         run: |
           npm ci
           npx tsc --noEmit
+          VITE_API_BASE_URL=http://127.0.0.1:8000 VITE_MARKET_ID=global npm run build
 
   # ─── Deploy backend (Railway: app + worker + bot) ───────────
   deploy-backend:
@@ -78,6 +79,8 @@ jobs:
     env:
       RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
       RAILWAY_PROJECT_ID: ${{ secrets.RAILWAY_PROJECT_ID }}
+      GLOBAL_API_BASE_URL: ${{ secrets.RAILWAY_API_URL }}
+      GLOBAL_WEB_BASE_URL: https://ailookstudio.ru
     steps:
       - uses: actions/checkout@v4
 
@@ -90,6 +93,10 @@ jobs:
           fi
           if [ -z "$RAILWAY_PROJECT_ID" ]; then
             echo "::error::RAILWAY_PROJECT_ID is not set"
+            ok=false
+          fi
+          if [ -z "$GLOBAL_API_BASE_URL" ]; then
+            echo "::error::RAILWAY_API_URL is not set"
             ok=false
           fi
           [ "$ok" = true ] || exit 1
@@ -112,10 +119,21 @@ jobs:
             fi
           }
           SHORT_SHA="${GITHUB_SHA:0:12}"
-          for SVC in app bot worker; do
-            rl_set DEPLOY_GIT_SHA="$SHORT_SHA" -s "$SVC" -e production --skip-deploys
-          done
-          rl_set EDGE_API_URL="https://ru.ailookstudio.ru" -s bot -e production --skip-deploys
+          rl_set DEPLOY_GIT_SHA="$SHORT_SHA" -s app -e production --skip-deploys
+          rl_set DEPLOYMENT_MODE="primary" -s app -e production --skip-deploys
+          rl_set MARKET_ID="global" -s app -e production --skip-deploys
+          rl_set SERVICE_ROLE="api" -s app -e production --skip-deploys
+          rl_set COMPUTE_MODE="local" -s app -e production --skip-deploys
+          rl_set DEPLOY_GIT_SHA="$SHORT_SHA" -s worker -e production --skip-deploys
+          rl_set DEPLOYMENT_MODE="primary" -s worker -e production --skip-deploys
+          rl_set MARKET_ID="global" -s worker -e production --skip-deploys
+          rl_set SERVICE_ROLE="worker" -s worker -e production --skip-deploys
+          rl_set COMPUTE_MODE="local" -s worker -e production --skip-deploys
+          rl_set DEPLOY_GIT_SHA="$SHORT_SHA" -s bot -e production --skip-deploys
+          rl_set DEPLOYMENT_MODE="primary" -s bot -e production --skip-deploys
+          rl_set MARKET_ID="global" -s bot -e production --skip-deploys
+          rl_set SERVICE_ROLE="bot" -s bot -e production --skip-deploys
+          rl_set COMPUTE_MODE="local" -s bot -e production --skip-deploys
           if [ -n "$INTERNAL_API_KEY" ]; then
             echo "Syncing INTERNAL_API_KEY to Railway app service..."
             rl_set INTERNAL_API_KEY="$INTERNAL_API_KEY" -s app -e production --skip-deploys
@@ -128,9 +146,10 @@ jobs:
             rl_set GOOGLE_CLIENT_SECRET="$GC_SECRET" -s app -e production --skip-deploys
           fi
           echo "Syncing API_BASE_URL to Railway services..."
-          rl_set API_BASE_URL="https://app-production-6986.up.railway.app" -s app -e production --skip-deploys
-          rl_set API_BASE_URL="https://app-production-6986.up.railway.app" -s bot -e production --skip-deploys
-          rl_set API_BASE_URL="https://app-production-6986.up.railway.app" -s worker -e production --skip-deploys
+          rl_set API_BASE_URL="$GLOBAL_API_BASE_URL" -s app -e production --skip-deploys
+          rl_set API_BASE_URL="$GLOBAL_API_BASE_URL" -s bot -e production --skip-deploys
+          rl_set API_BASE_URL="$GLOBAL_API_BASE_URL" -s worker -e production --skip-deploys
+          rl_set WEB_BASE_URL="$GLOBAL_WEB_BASE_URL" -s app -e production --skip-deploys
           if [ "$FAILED" -ne 0 ]; then
             echo "::error::One or more Railway variable updates failed"
             exit 1
@@ -150,10 +169,8 @@ jobs:
         run: sleep 180
 
       - name: Health check
-        env:
-          RAILWAY_API_URL: ${{ secrets.RAILWAY_API_URL }}
         run: |
-          API_URL="${RAILWAY_API_URL:-https://app-production-6986.up.railway.app}"
+          API_URL="${GLOBAL_API_BASE_URL}"
           echo "Checking $API_URL/health ..."
           for i in 1 2 3 4 5 6 7 8; do
             RESP=$(curl -sf "$API_URL/health" || echo "FAIL")
@@ -171,8 +188,6 @@ jobs:
 
       - name: Deploy summary
         if: always()
-        env:
-          RAILWAY_API_URL: ${{ secrets.RAILWAY_API_URL }}
         run: |
           SHORT_SHA="${GITHUB_SHA:0:12}"
           echo "## Deploy Summary" >> $GITHUB_STEP_SUMMARY
@@ -183,7 +198,7 @@ jobs:
           echo "| Branch | \`${{ github.ref_name }}\` |" >> $GITHUB_STEP_SUMMARY
           echo "| Backend | [Railway Dashboard](https://railway.com/project/${{ secrets.RAILWAY_PROJECT_ID }}) |" >> $GITHUB_STEP_SUMMARY
           echo "| Frontend | [Vercel](https://ailookstudio.vercel.app) |" >> $GITHUB_STEP_SUMMARY
-          API_URL="${RAILWAY_API_URL:-https://app-production-6986.up.railway.app}"
+          API_URL="${GLOBAL_API_BASE_URL}"
           echo "| API Health | [/health](${API_URL}/health) |" >> $GITHUB_STEP_SUMMARY
 
   # ─── Deploy RU edge server (SSH) ──────────────────────────
@@ -197,9 +212,10 @@ jobs:
           RU_SSH_HOST: ${{ secrets.RU_SSH_HOST }}
           RU_SSH_KEY: ${{ secrets.RU_SSH_KEY }}
           RU_SSH_USER: ${{ secrets.RU_SSH_USER }}
+          RU_PUBLIC_BASE_URL: ${{ secrets.RU_PUBLIC_BASE_URL }}
         run: |
-          if [ -z "$RU_SSH_HOST" ] || [ -z "$RU_SSH_KEY" ] || [ -z "$RU_SSH_USER" ]; then
-            echo "::warning::RU_SSH_HOST, RU_SSH_KEY, or RU_SSH_USER not set — skipping RU deploy"
+          if [ -z "$RU_SSH_HOST" ] || [ -z "$RU_SSH_KEY" ] || [ -z "$RU_SSH_USER" ] || [ -z "$RU_PUBLIC_BASE_URL" ]; then
+            echo "::warning::RU_SSH_HOST, RU_SSH_KEY, RU_SSH_USER, or RU_PUBLIC_BASE_URL not set — skipping RU deploy"
             echo "SKIP_RU=true" >> $GITHUB_ENV
           fi
 
@@ -209,32 +225,53 @@ jobs:
         env:
           DEPLOY_GIT_SHA: ${{ github.sha }}
           INTERNAL_API_KEY: ${{ secrets.INTERNAL_API_KEY }}
+          GLOBAL_API_BASE_URL: ${{ secrets.RAILWAY_API_URL }}
+          RU_PUBLIC_BASE_URL: ${{ secrets.RU_PUBLIC_BASE_URL }}
         with:
           host: ${{ secrets.RU_SSH_HOST }}
           username: ${{ secrets.RU_SSH_USER }}
           key: ${{ secrets.RU_SSH_KEY }}
           port: 22
           command_timeout: 10m
-          envs: DEPLOY_GIT_SHA,INTERNAL_API_KEY
+          envs: DEPLOY_GIT_SHA,INTERNAL_API_KEY,GLOBAL_API_BASE_URL,RU_PUBLIC_BASE_URL
           script: |
             export DEPLOY_GIT_SHA="${DEPLOY_GIT_SHA:0:12}"
-            # Sync INTERNAL_API_KEY into .env.ru if provided
-            if [ -n "$INTERNAL_API_KEY" ]; then
-              ENV_FILE="/opt/ratemeai/.env.ru"
-              if grep -q '^INTERNAL_API_KEY=' "$ENV_FILE" 2>/dev/null; then
-                sed -i "s|^INTERNAL_API_KEY=.*|INTERNAL_API_KEY=${INTERNAL_API_KEY}|" "$ENV_FILE"
+            ENV_FILE="/opt/ratemeai/.env.ru"
+            sync_env() {
+              local key="$1"
+              local value="$2"
+              if grep -q "^${key}=" "$ENV_FILE" 2>/dev/null; then
+                sed -i "s|^${key}=.*|${key}=${value}|" "$ENV_FILE"
               else
-                echo "INTERNAL_API_KEY=${INTERNAL_API_KEY}" >> "$ENV_FILE"
+                echo "${key}=${value}" >> "$ENV_FILE"
               fi
+            }
+            sync_env DEPLOYMENT_MODE edge
+            sync_env MARKET_ID ru
+            sync_env SERVICE_ROLE api
+            sync_env COMPUTE_MODE remote
+            sync_env REMOTE_AI_BACKEND_URL "$GLOBAL_API_BASE_URL"
+            sync_env API_BASE_URL "$RU_PUBLIC_BASE_URL"
+            sync_env WEB_BASE_URL "$RU_PUBLIC_BASE_URL"
+            sync_env VITE_API_BASE_URL "$RU_PUBLIC_BASE_URL"
+            sync_env VITE_MARKET_ID ru
+            if [ -n "$INTERNAL_API_KEY" ]; then
+              sync_env INTERNAL_API_KEY "$INTERNAL_API_KEY"
               echo "INTERNAL_API_KEY synced to .env.ru"
             fi
             bash /opt/ratemeai/deploy/ru/update.sh
 
       - name: RU smoke tests
         if: env.SKIP_RU != 'true'
+        env:
+          RU_PUBLIC_BASE_URL: ${{ secrets.RU_PUBLIC_BASE_URL }}
         run: |
           set -e
-          DOMAIN="https://ru.ailookstudio.ru"
+          DOMAIN="$RU_PUBLIC_BASE_URL"
+          if [ -z "$DOMAIN" ]; then
+            echo "::error::RU_PUBLIC_BASE_URL is not set"
+            exit 1
+          fi
           SHORT_SHA="${GITHUB_SHA:0:12}"
           FAIL=0
 
@@ -310,6 +347,6 @@ jobs:
           echo "| Item | Value |" >> $GITHUB_STEP_SUMMARY
           echo "|------|-------|" >> $GITHUB_STEP_SUMMARY
           echo "| Commit | \`$SHORT_SHA\` |" >> $GITHUB_STEP_SUMMARY
-          echo "| Server | \`ru.ailookstudio.ru\` |" >> $GITHUB_STEP_SUMMARY
-          echo "| Health | [/health](https://ru.ailookstudio.ru/health) |" >> $GITHUB_STEP_SUMMARY
-          echo "| Version | [/version.json](https://ru.ailookstudio.ru/version.json) |" >> $GITHUB_STEP_SUMMARY
+          echo "| Server | \`${{ secrets.RU_PUBLIC_BASE_URL }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Health | [/health](${{ secrets.RU_PUBLIC_BASE_URL }}/health) |" >> $GITHUB_STEP_SUMMARY
+          echo "| Version | [/version.json](${{ secrets.RU_PUBLIC_BASE_URL }}/version.json) |" >> $GITHUB_STEP_SUMMARY

@@ -23,5 +23,5 @@ api_router.include_router(engagement_router, prefix="/engagement", tags=["engage
 api_router.include_router(catalog_router, prefix="/catalog", tags=["catalog"])
 api_router.include_router(sse_router, prefix="/sse", tags=["sse"])
 
-if not settings.is_edge:
+if not settings.uses_remote_ai:
     api_router.include_router(internal_router, prefix="/internal", tags=["internal"])

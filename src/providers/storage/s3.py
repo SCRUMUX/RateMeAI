@@ -69,5 +69,9 @@ class S3StorageProvider(StorageProvider):
                 ExpiresIn=self._presign_ttl,
             )
 
+    async def delete(self, key: str) -> None:
+        async with self._client_ctx() as client:
+            await client.delete_object(Bucket=self._bucket, Key=key)
+
     async def close(self):
         pass

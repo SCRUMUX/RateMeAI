@@ -3,7 +3,8 @@ import { Link, useNavigate } from 'react-router-dom';
 import { CoinIcon, ImageIcon } from '@ai-ds/core/icons';
 import { useApp } from '../context/AppContext';
 import { createPayment, ApiError } from '../lib/api';
-import { setPostPaymentReturnPath, normalizePostPaymentPath } from '../scenarios/config';
+import { normalizePostPaymentPath, getPostPaymentReturnPath } from '../scenarios/config';
+import { rememberFlowReturnPath } from '../lib/flow-resume';
 
 const PLANS = [
   { title: 'Попробовать', price: '59 рублей', photos: '1 фото', packQty: 1, desc: 'Посмотри, как AI улучшит твоё фото за секунды. Идеально, чтобы оценить результат перед полной прокачкой.', highlighted: false, badge: null, savingBadge: null },
@@ -13,10 +14,11 @@ const PLANS = [
 ];
 
 export default function Pricing() {
-  const { session } = useApp();
+  const { canAccessApp } = useApp();
   const navigate = useNavigate();
   const [loading, setLoading] = useState<number | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const resumePath = getPostPaymentReturnPath() ?? '/app';
 
   useEffect(() => {
     const el = scrollRef.current;
@@ -32,14 +34,14 @@ export default function Pricing() {
   }, []);
 
   async function handleBuy(packQty: number) {
-    if (!session) {
-      navigate('/app');
+    if (!canAccessApp) {
+      navigate(resumePath);
       return;
     }
     setLoading(packQty);
     try {
-      const next = normalizePostPaymentPath(window.location.pathname) ?? '/app';
-      setPostPaymentReturnPath(next);
+      const next = getPostPaymentReturnPath() ?? normalizePostPaymentPath(window.location.pathname) ?? '/app';
+      rememberFlowReturnPath(next);
       const res = await createPayment(packQty);
       window.location.href = res.confirmation_url;
     } catch (e) {
@@ -62,7 +64,7 @@ export default function Pricing() {
         </h2>
         <p className="text-[16px] tablet:text-[20px] leading-[24px] tablet:leading-[28px] text-[var(--color-text-secondary)]">И продолжай если понравится</p>
         <Link
-          to="/app"
+          to={resumePath}
           className="glass-btn-secondary mt-[var(--space-8)] px-[var(--space-16)] tablet:px-[var(--space-20)] py-[var(--space-10)] text-[14px] tablet:text-[16px] leading-[20px] tablet:leading-[24px] text-[var(--color-brand-primary)] rounded-[var(--radius-12)] no-underline inline-flex items-center justify-center"
         >
           Попробовать бесплатное улучшение

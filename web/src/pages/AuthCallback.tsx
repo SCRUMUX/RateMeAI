@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { setToken } from '../lib/auth';
 import { useApp } from '../context/AppContext';
+import { consumeOAuthReturnPath } from '../lib/flow-resume';
 
 export default function AuthCallback() {
   const [params] = useSearchParams();
@@ -28,14 +29,7 @@ export default function AuthCallback() {
       setToken(token);
       loginWithToken(token, userId, provider)
         .then(() => {
-          let path = '/';
-          try {
-            const ret = sessionStorage.getItem('ailook_return_after_oauth');
-            if (ret) {
-              sessionStorage.removeItem('ailook_return_after_oauth');
-              path = ret;
-            }
-          } catch { /* ignore */ }
+          const path = consumeOAuthReturnPath('/');
           navigate(path, { replace: true });
         })
         .catch(() => setError('Не удалось завершить авторизацию. Попробуйте снова.'));

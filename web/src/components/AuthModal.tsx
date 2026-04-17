@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
+import { getCurrentMarketConfig } from '../config/market';
 import { ApiError } from '../lib/api';
 
 interface Props {
@@ -16,6 +17,7 @@ export default function AuthModal({ open, onClose, onOAuth, required }: Props) {
   const { activeCategory } = useApp();
   const [oauthLoading, setOauthLoading] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const market = getCurrentMarketConfig();
 
   useEffect(() => {
     if (!open) return;
@@ -30,9 +32,8 @@ export default function AuthModal({ open, onClose, onOAuth, required }: Props) {
     };
   }, [open, onClose, required]);
 
-  const isRussian = window.location.hostname.startsWith('ru.');
-  const showGoogle = !isRussian;
-  const showRuProviders = isRussian;
+  const showGoogle = market.authProviders.includes('google');
+  const showRuProviders = market.authProviders.includes('yandex') || market.authProviders.includes('vk-id');
 
   const handleOAuth = useCallback(async (provider: 'yandex' | 'vk-id' | 'google') => {
     if (!onOAuth) return;
@@ -66,6 +67,8 @@ export default function AuthModal({ open, onClose, onOAuth, required }: Props) {
           <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={required ? undefined : onClose} />
 
           <motion.div
+            role="dialog"
+            aria-modal="true"
             className="relative gradient-border-card glass-card rounded-[var(--radius-12)] w-full max-w-[420px] p-[var(--space-32)] flex flex-col gap-[var(--space-24)]"
             initial={{ opacity: 0, scale: 0.95, y: 20 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -92,9 +95,7 @@ export default function AuthModal({ open, onClose, onOAuth, required }: Props) {
               <p className="text-[14px] leading-[20px] text-[var(--color-text-secondary)]">
                 {required
                   ? 'Для использования приложения необходима авторизация'
-                  : isRussian
-                    ? 'Войдите через аккаунт Яндекс или ВКонтакте, чтобы увидеть результаты анализа'
-                    : 'Sign in with Google to see your analysis results'}
+                  : market.authDescription}
               </p>
             </div>
 

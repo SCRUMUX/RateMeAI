@@ -139,7 +139,7 @@ async def _fetch_gen_image_from_redis(redis: Redis | None, task_id: str | None) 
 
 async def _get_credit_balance(user_id: int, redis: Redis | None = None, api_base_url: str = "") -> int | None:
     try:
-        api_base = settings.edge_api_url.rstrip("/") if settings.edge_api_url else (api_base_url or settings.api_base_url)
+        api_base = api_base_url or settings.api_base_url
         headers: dict[str, str] = {}
         if redis:
             from src.bot.handlers.mode_select import _get_api_headers

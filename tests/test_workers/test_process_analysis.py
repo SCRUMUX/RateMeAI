@@ -83,6 +83,7 @@ def _build_ctx(task, user, *, pipeline_result=None):
     db_session.execute = AsyncMock(side_effect=_execute_side_effect)
     db_session.commit = AsyncMock()
     db_session.refresh = AsyncMock()
+    db_session.add = MagicMock()
 
     sessionmaker = MagicMock()
     sessionmaker.return_value.__aenter__ = AsyncMock(return_value=db_session)
@@ -96,6 +97,10 @@ def _build_ctx(task, user, *, pipeline_result=None):
 
     storage = MagicMock()
     storage.download = AsyncMock(return_value=_jpeg_stub())
+    storage.delete = AsyncMock()
+
+    arq = AsyncMock()
+    arq.enqueue_job = AsyncMock()
 
     engine = AsyncMock()
     engine.dispose = AsyncMock()
@@ -105,6 +110,7 @@ def _build_ctx(task, user, *, pipeline_result=None):
         "redis": redis,
         "pipeline": pipeline,
         "storage": storage,
+        "arq": arq,
         "engine": engine,
         "llm": MagicMock(close=AsyncMock()),
         "image_gen": MagicMock(close=AsyncMock()),
@@ -207,3 +213,42 @@ async def test_worker_heartbeat():
     redis.set.assert_awaited_once()
     args = redis.set.call_args
     assert "ratemeai:worker:heartbeat" in str(args)
+
+
+@pytest.mark.asyncio
+async def test_process_analysis_enqueues_deferred_delta_scoring():
+    task_id = uuid.uuid4()
+    user_id = uuid.uuid4()
+    task = _FakeTask(task_id, user_id, context={"credit_pre_reserved": True, "defer_delta_scoring": True})
+    user = _FakeUser(user_id)
+
+    result = {
+        "score": 7.9,
+        "generated_image_url": f"http://test/storage/generated/{user_id}/{task_id}.jpg",
+        "delta_status": "pending",
+    }
+    ctx, _db = _build_ctx(task, user, pipeline_result=result)
+    await process_analysis(ctx, str(task_id))
+
+    ctx["arq"].enqueue_job.assert_awaited_once_with("compute_delta_scores", str(task_id))
+
+
+@pytest.mark.asyncio
+async def test_process_analysis_cleans_ephemeral_artifacts_when_policy_requires():
+    task_id = uuid.uuid4()
+    user_id = uuid.uuid4()
+    task = _FakeTask(
+        task_id,
+        user_id,
+        context={
+            "credit_pre_reserved": True,
+            "policy_flags": {"delete_after_process": True},
+        },
+    )
+    user = _FakeUser(user_id)
+
+    ctx, _db = _build_ctx(task, user)
+    await process_analysis(ctx, str(task_id))
+
+    ctx["storage"].delete.assert_any_await(task.input_image_path)
+    ctx["storage"].delete.assert_any_await(f"generated/{user_id}/{task_id}.jpg")

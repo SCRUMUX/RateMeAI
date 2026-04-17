@@ -3,6 +3,8 @@ import { STYLES_BY_CATEGORY } from '../data/styles';
 import { DOCUMENT_FORMAT_ITEMS, TINDER_PACK_STYLE_ITEMS } from './extraStyles';
 
 export type ScenarioApiMode = 'dating' | 'cv' | 'social';
+export type ScenarioType = 'core-entry' | 'standalone';
+export type ScenarioEntryMode = 'app' | 'landing';
 
 export type ScenarioStylesSource =
   | { kind: 'inherit'; category: CategoryId }
@@ -12,6 +14,9 @@ export type ScenarioStep3Mode = 'styles' | 'document_formats';
 
 export interface ScenarioDefinition {
   slug: string;
+  type: ScenarioType;
+  entryMode: ScenarioEntryMode;
+  canonicalPath: string;
   apiMode: ScenarioApiMode;
   scoresCategory: CategoryId;
   styles: ScenarioStylesSource;
@@ -27,6 +32,9 @@ export interface ScenarioDefinition {
 const SCENARIO_LIST: ScenarioDefinition[] = [
   {
     slug: 'document-photo',
+    type: 'standalone',
+    entryMode: 'landing',
+    canonicalPath: '/dokumenty',
     apiMode: 'cv',
     scoresCategory: 'cv',
     styles: { kind: 'list', items: DOCUMENT_FORMAT_ITEMS },
@@ -39,6 +47,9 @@ const SCENARIO_LIST: ScenarioDefinition[] = [
   },
   {
     slug: 'career',
+    type: 'core-entry',
+    entryMode: 'app',
+    canonicalPath: '/app/career',
     apiMode: 'cv',
     scoresCategory: 'cv',
     styles: { kind: 'inherit', category: 'cv' },
@@ -46,6 +57,9 @@ const SCENARIO_LIST: ScenarioDefinition[] = [
   },
   {
     slug: 'tinder-pack',
+    type: 'core-entry',
+    entryMode: 'app',
+    canonicalPath: '/app/tinder-pack',
     apiMode: 'dating',
     scoresCategory: 'dating',
     styles: { kind: 'inherit', category: 'dating' },
@@ -77,9 +91,15 @@ export function resolveScenarioStyles(def: ScenarioDefinition | null): StyleItem
 
 export const POST_PAYMENT_STORAGE_KEY = 'ailook_post_payment_path';
 
-const SCENARIO_ROUTE_ALIASES: Record<string, string> = {
-  '/dokumenty': '/dokumenty',
-};
+const SCENARIO_ROUTE_ALIASES: Record<string, string> = Object.fromEntries(
+  SCENARIO_LIST.flatMap((scenario) => {
+    const entries: Array<[string, string]> = [[scenario.canonicalPath, scenario.canonicalPath]];
+    if (scenario.type === 'standalone') {
+      entries.push([`/app/${scenario.slug}`, scenario.canonicalPath]);
+    }
+    return entries;
+  }),
+);
 
 export function normalizePostPaymentPath(raw: string | null | undefined): string | null {
   if (raw == null || raw === '') return null;
@@ -100,6 +120,14 @@ export function setPostPaymentReturnPath(path: string): void {
     try {
       localStorage.setItem(POST_PAYMENT_STORAGE_KEY, normalized);
     } catch { /* ignore */ }
+  }
+}
+
+export function getPostPaymentReturnPath(): string | null {
+  try {
+    return normalizePostPaymentPath(localStorage.getItem(POST_PAYMENT_STORAGE_KEY));
+  } catch {
+    return null;
   }
 }
 

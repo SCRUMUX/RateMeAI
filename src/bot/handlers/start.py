@@ -73,11 +73,10 @@ async def cmd_rating(message: Message, redis: Redis):
 
 @router.message(Command("balance"))
 async def cmd_balance(message: Message, api_base_url: str, redis: Redis):
-    from src.config import settings
     from src.bot.handlers.mode_select import _get_api_headers, _refresh_api_headers
 
     user_id = message.from_user.id
-    balance_api = settings.edge_api_url.rstrip("/") if settings.edge_api_url else api_base_url
+    balance_api = api_base_url
     headers = await _get_api_headers(redis, user_id, balance_api, message.from_user)
     try:
         async with httpx.AsyncClient(timeout=10.0) as client:
@@ -112,10 +111,9 @@ async def cmd_balance(message: Message, api_base_url: str, redis: Redis):
 
 
 async def _get_balance_line(api_base_url: str, user, redis: Redis) -> str:
-    from src.config import settings
     from src.bot.handlers.mode_select import _get_api_headers
 
-    balance_api = settings.edge_api_url.rstrip("/") if settings.edge_api_url else api_base_url
+    balance_api = api_base_url
     user_id = user.id if hasattr(user, "id") else user
     headers = await _get_api_headers(redis, user_id, balance_api, user)
     try:
