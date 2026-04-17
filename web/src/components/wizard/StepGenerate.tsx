@@ -64,6 +64,7 @@ export default function StepGenerate({ onGoToStep, onOpenStorage }: Props) {
   const [viewTab, setViewTab] = useState<'result' | 'original'>('result');
   const [streamedFact, setStreamedFact] = useState('');
   const [showNoCredits, setShowNoCredits] = useState(false);
+  const [docPaywallOpen, setDocPaywallOpen] = useState(false);
 
   const [currentFact, setCurrentFact] = useState(() => PERCEPTION_FACTS.social[0]);
   const factIdxRef = useRef(0);
@@ -138,7 +139,11 @@ export default function StepGenerate({ onGoToStep, onOpenStorage }: Props) {
 
     const isFirstGeneration = app.taskHistoryCount === 0 && !app.generatedImageUrl;
     if (app.balance <= 0 && !isFirstGeneration) {
-      setShowNoCredits(true);
+      if (app.scenarioDocumentPaywall) {
+        setDocPaywallOpen(true);
+      } else {
+        setShowNoCredits(true);
+      }
       return;
     }
 
@@ -452,28 +457,8 @@ export default function StepGenerate({ onGoToStep, onOpenStorage }: Props) {
         </div>
       )}
 
-      {/* Document paywall — shown when balance is 0 */}
-      {isDocPaywall && !hasGenResult && !isRunning && !genFailed && app.balance <= 0 && app.isAuthenticated && (
-        <div className="shrink-0 flex flex-col items-center gap-[var(--space-12)] text-center">
-          <div className="gradient-border-card glass-card flex flex-col items-center gap-[var(--space-16)] rounded-[var(--radius-12)] p-[var(--space-20)] max-w-[420px]">
-            <CoinIcon size={32} className="text-[var(--color-brand-primary)]" />
-            <h3 className="text-[18px] font-semibold text-[#E6EEF8]">Фото на документы</h3>
-            <p className="text-[14px] text-[var(--color-text-secondary)]">
-              Фотореалистичная обработка под требования документов.
-            </p>
-            <button
-              onClick={() => handleDocPaywallBuy(5)}
-              disabled={paymentLoading}
-              className="glass-btn-primary w-full py-[var(--space-10)] text-[14px] leading-[20px] rounded-[var(--radius-pill)] font-medium"
-            >
-              {paymentLoading ? 'Загрузка...' : '5 фото — 199 ₽'}
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Document scenario — generate button (after payment / when has balance) */}
-      {isDocPaywall && !hasGenResult && !isRunning && !genFailed && app.balance > 0 && app.isAuthenticated && (
+      {/* Document scenario — primary CTA (always visible; no-credit path opens a modal). */}
+      {isDocPaywall && !hasGenResult && !isRunning && !genFailed && app.isAuthenticated && !!app.photo && (
         <div className="shrink-0 flex flex-col items-center gap-[var(--space-8)]">
           <button
             onClick={handleGenerate}
@@ -533,6 +518,34 @@ export default function StepGenerate({ onGoToStep, onOpenStorage }: Props) {
           </button>
         )}
       </div>
+
+      {docPaywallOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+          <div className="glass-card rounded-[var(--radius-16)] p-[var(--space-24)] max-w-sm w-full mx-4 flex flex-col items-center gap-[var(--space-16)] text-center">
+            <CoinIcon size={40} className="text-[var(--color-brand-primary)]" />
+            <h3 className="text-[18px] font-semibold text-[#E6EEF8]">Пополните баланс</h3>
+            <p className="text-[14px] text-[var(--color-text-secondary)]">
+              Чтобы сгенерировать фото на документы, купите пакет — фото и настройки сохранятся.
+            </p>
+            <div className="flex gap-[var(--space-12)] w-full">
+              <button
+                className="flex-1 glass-btn-ghost rounded-[var(--radius-12)] py-[var(--space-10)] text-[14px] font-medium text-[#E6EEF8]"
+                onClick={() => setDocPaywallOpen(false)}
+                disabled={paymentLoading}
+              >
+                Закрыть
+              </button>
+              <button
+                className="flex-1 glass-btn-primary rounded-[var(--radius-12)] py-[var(--space-10)] text-[14px] font-semibold text-white disabled:opacity-60"
+                onClick={() => handleDocPaywallBuy(paymentPackQty)}
+                disabled={paymentLoading}
+              >
+                {paymentLoading ? 'Загрузка...' : `${paymentPackQty} фото — 199 ₽`}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {(showNoCredits || app.noCreditsError) && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">

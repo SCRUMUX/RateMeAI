@@ -174,7 +174,7 @@ export default function StorageModal({ items, open, onClose, onImprove }: Props)
             </div>
           ) : item && (
             <motion.div
-              className="relative gradient-border-card glass-card rounded-[var(--radius-12)] w-full max-w-[420px] max-h-[calc(100dvh-32px)] p-[var(--space-12)] flex flex-col gap-[var(--space-8)]"
+              className="relative gradient-border-card glass-card rounded-[var(--radius-12)] w-full max-w-[420px] max-h-[calc(100dvh-32px)] p-[var(--space-16)] flex flex-col gap-[var(--space-12)]"
               initial={{ opacity: 0, scale: 0.95, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 20 }}
@@ -224,9 +224,9 @@ export default function StorageModal({ items, open, onClose, onImprove }: Props)
                 </div>
               </div>
 
-              {/* Photo with swipe */}
-              <div className="flex-1 min-h-0 relative">
-                <AnimatePresence mode="wait" custom={dir}>
+              {/* Photo with swipe — fixed aspect keeps the card stable between slide transitions */}
+              <div className="shrink-0 relative w-full max-w-[380px] mx-auto aspect-[3/4] rounded-[var(--radius-12)] overflow-hidden bg-[rgba(255,255,255,0.02)]">
+                <AnimatePresence mode="wait" custom={dir} initial={false}>
                   <motion.div
                     key={`${item.task_id}_${viewTab}`}
                     custom={dir}
@@ -238,39 +238,37 @@ export default function StorageModal({ items, open, onClose, onImprove }: Props)
                     dragConstraints={{ left: 0, right: 0 }}
                     dragElastic={0.15}
                     onDragEnd={handleDragEnd}
-                    className="w-full h-full flex justify-center cursor-grab active:cursor-grabbing"
+                    className="absolute inset-0 cursor-grab active:cursor-grabbing"
                   >
-                    <div className="relative rounded-[var(--radius-12)] overflow-hidden bg-[rgba(255,255,255,0.02)] w-full max-w-[380px]">
-                      {viewTab === 'result' ? (
-                        item.generated_image_url && !imgErrors[`gen_${item.task_id}`] ? (
-                          <img
-                            src={normalizeImageUrl(item.generated_image_url)}
-                            alt="Результат"
-                            className="w-full h-full object-cover select-none pointer-events-none"
-                            draggable={false}
-                            onError={() => setImgErrors(p => ({ ...p, [`gen_${item.task_id}`]: true }))}
-                          />
-                        ) : (
-                          <div className="w-full h-full min-h-[200px] flex items-center justify-center text-[var(--color-text-muted)] text-[14px]">
-                            {imgErrors[`gen_${item.task_id}`] ? 'Фото недоступно' : 'Нет фото'}
-                          </div>
-                        )
+                    {viewTab === 'result' ? (
+                      item.generated_image_url && !imgErrors[`gen_${item.task_id}`] ? (
+                        <img
+                          src={normalizeImageUrl(item.generated_image_url)}
+                          alt="Результат"
+                          className="w-full h-full object-cover select-none pointer-events-none"
+                          draggable={false}
+                          onError={() => setImgErrors(p => ({ ...p, [`gen_${item.task_id}`]: true }))}
+                        />
                       ) : (
-                        item.input_image_url && !imgErrors[`input_${item.task_id}`] ? (
-                          <img
-                            src={normalizeImageUrl(item.input_image_url)}
-                            alt="Исходное"
-                            className="w-full h-full object-cover select-none pointer-events-none"
-                            draggable={false}
-                            onError={() => setImgErrors(p => ({ ...p, [`input_${item.task_id}`]: true }))}
-                          />
-                        ) : (
-                          <div className="w-full h-full min-h-[200px] flex items-center justify-center text-[var(--color-text-muted)] text-[14px]">
-                            {imgErrors[`input_${item.task_id}`] ? 'Фото недоступно' : 'Нет фото'}
-                          </div>
-                        )
-                      )}
-                    </div>
+                        <div className="w-full h-full flex items-center justify-center text-[var(--color-text-muted)] text-[14px]">
+                          {imgErrors[`gen_${item.task_id}`] ? 'Фото недоступно' : 'Нет фото'}
+                        </div>
+                      )
+                    ) : (
+                      item.input_image_url && !imgErrors[`input_${item.task_id}`] ? (
+                        <img
+                          src={normalizeImageUrl(item.input_image_url)}
+                          alt="Исходное"
+                          className="w-full h-full object-cover select-none pointer-events-none"
+                          draggable={false}
+                          onError={() => setImgErrors(p => ({ ...p, [`input_${item.task_id}`]: true }))}
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center text-[var(--color-text-muted)] text-[14px]">
+                          {imgErrors[`input_${item.task_id}`] ? 'Фото недоступно' : 'Нет фото'}
+                        </div>
+                      )
+                    )}
                   </motion.div>
                 </AnimatePresence>
 
@@ -278,7 +276,7 @@ export default function StorageModal({ items, open, onClose, onImprove }: Props)
                   <button
                     onClick={goPrev}
                     aria-label="Предыдущее фото"
-                    className="flex absolute left-2 top-1/2 -translate-y-1/2 w-12 h-12 items-center justify-center rounded-full bg-black/55 text-white hover:bg-black/75 transition-all shadow-[0_4px_12px_rgba(0,0,0,0.35)]"
+                    className="flex absolute left-2 top-1/2 -translate-y-1/2 w-12 h-12 items-center justify-center rounded-full bg-black/55 text-white hover:bg-black/75 transition-all shadow-[0_4px_12px_rgba(0,0,0,0.35)] z-10"
                   >
                     <svg width="22" height="22" viewBox="0 0 20 20" fill="none"><path d="M12 4L6 10L12 16" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
                   </button>
@@ -287,7 +285,7 @@ export default function StorageModal({ items, open, onClose, onImprove }: Props)
                   <button
                     onClick={goNext}
                     aria-label="Следующее фото"
-                    className="flex absolute right-2 top-1/2 -translate-y-1/2 w-12 h-12 items-center justify-center rounded-full bg-black/55 text-white hover:bg-black/75 transition-all shadow-[0_4px_12px_rgba(0,0,0,0.35)]"
+                    className="flex absolute right-2 top-1/2 -translate-y-1/2 w-12 h-12 items-center justify-center rounded-full bg-black/55 text-white hover:bg-black/75 transition-all shadow-[0_4px_12px_rgba(0,0,0,0.35)] z-10"
                   >
                     <svg width="22" height="22" viewBox="0 0 20 20" fill="none"><path d="M8 4L14 10L8 16" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
                   </button>
@@ -383,16 +381,16 @@ export default function StorageModal({ items, open, onClose, onImprove }: Props)
                 </button>
               )}
 
-              {/* Share -- always visible */}
-              {shareLoading ? (
-                <div className="shrink-0 flex items-center justify-center py-2">
+              {/* Share -- reserved slot so height stays stable across slides */}
+              <div className="shrink-0 min-h-[44px] flex items-center justify-center">
+                {shareLoading ? (
                   <div className="w-5 h-5 border-2 border-t-transparent rounded-full animate-spin" style={{ borderColor: 'rgba(var(--accent-r),var(--accent-g),var(--accent-b),0.5)', borderTopColor: 'transparent' }} />
-                </div>
-              ) : shareData ? (
-                <div className="shrink-0">
-                  <ShareButtons url={shareData.url} text={shareData.text} imageUrl={shareData.imageUrl} />
-                </div>
-              ) : null}
+                ) : shareData ? (
+                  <div className="w-full">
+                    <ShareButtons url={shareData.url} text={shareData.text} imageUrl={shareData.imageUrl} />
+                  </div>
+                ) : null}
+              </div>
             </motion.div>
           )}
         </motion.div>

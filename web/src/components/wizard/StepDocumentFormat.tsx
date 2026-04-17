@@ -23,7 +23,7 @@ export default function StepDocumentFormat({ onNext }: Props) {
   }
 
   return (
-    <div className="flex flex-col h-full w-full max-w-[800px] mx-auto">
+    <div className="flex flex-col h-full w-full max-w-[520px] mx-auto">
       <div className="shrink-0 flex flex-col gap-[var(--space-4)] text-center pb-[var(--space-12)]">
         <h2 className="text-[20px] tablet:text-[24px] leading-[1.2] font-semibold text-[#E6EEF8]">
           Выберите формат
