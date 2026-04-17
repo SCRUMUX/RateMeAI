@@ -1,8 +1,9 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import { useApp } from '../../context/AppContext';
 import ProgressBar from './ProgressBar';
+import CategoryTabs from '../CategoryTabs';
 import { PARAM_LABELS } from './shared';
-import { STYLES_BY_CATEGORY } from '../../data/styles';
+import { COMING_SOON_CATEGORIES, type CategoryId } from '../../data/styles';
 
 interface Props {
   onNext: () => void;
@@ -32,17 +33,13 @@ export default function StepAnalysis({ onNext }: Props) {
         }))
     : null;
 
-  const recommendation = useMemo(() => {
-    if (!displayParams || displayParams.length === 0) return null;
-    const weakest = displayParams.reduce((min, p) => p.value < min.value ? p : min, displayParams[0]);
-    const styles = STYLES_BY_CATEGORY[activeTab];
-    const matching = styles
-      .filter(s => s.param === weakest.key)
-      .sort((a, b) => (b.deltaRange[0] + b.deltaRange[1]) - (a.deltaRange[0] + a.deltaRange[1]))
-      .slice(0, 2);
-    if (matching.length === 0) return null;
-    return { param: weakest, styles: matching };
-  }, [displayParams, activeTab]);
+  const directionLocked = COMING_SOON_CATEGORIES.includes(activeTab);
+  const canContinue = hasRealScores && !directionLocked;
+
+  function handleDirectionChange(id: CategoryId) {
+    app.setActiveCategory(id);
+    app.setSelectedStyleKey('');
+  }
 
   function handleStartAnalysis() {
     if (!app.photo) return;
@@ -171,24 +168,13 @@ export default function StepAnalysis({ onNext }: Props) {
                 )}
               </div>
 
-              {/* Recommended styles (hidden for simplified document mode) */}
-              {recommendation && !isSimplified && (
-                <div className="flex flex-col gap-[var(--space-8)]">
-                  <span className="text-[13px] leading-[18px] font-medium text-[var(--color-text-muted)]">Рекомендуемые стили</span>
-                  {recommendation.styles.map((s) => (
-                    <div
-                      key={s.key}
-                      onClick={() => { app.setSelectedStyleKey(s.key); onNext(); }}
-                      className="gradient-border-item flex items-center w-full px-[var(--space-16)] py-[var(--space-8)] gap-[var(--space-4)] min-h-[36px] cursor-pointer rounded-[var(--radius-12)] transition-all glass-row"
-                      style={{ '--gb-color': 'rgba(var(--accent-r), var(--accent-g), var(--accent-b), 0.15)' } as React.CSSProperties}
-                    >
-                      <div className="flex items-center justify-center w-5 h-5 shrink-0 text-[18px] leading-none">{s.icon}</div>
-                      <div className="flex flex-col flex-1 min-w-0 gap-[2px]">
-                        <span className="text-[16px] leading-[24px] text-[#E6EEF8] font-medium truncate">{s.name}</span>
-                        <span className="text-[11px] leading-[14px] text-[var(--color-text-muted)] truncate">{s.desc}</span>
-                      </div>
-                    </div>
-                  ))}
+              {/* Direction picker — обычный сценарий */}
+              {hasRealScores && !isSimplified && (
+                <div className="flex flex-col gap-[var(--space-10)]">
+                  <span className="text-[14px] leading-[20px] font-medium text-[#E6EEF8]">Для чего улучшаем фото?</span>
+                  {!app.scenarioHideCategoryTabs && (
+                    <CategoryTabs active={activeTab} onChange={handleDirectionChange} />
+                  )}
                 </div>
               )}
             </>
@@ -204,12 +190,21 @@ export default function StepAnalysis({ onNext }: Props) {
           )}
 
           {/* Next button */}
-          {hasRealScores && (
+          {hasRealScores && isSimplified && (
             <button
               onClick={onNext}
               className="glass-btn-primary w-full py-[var(--space-12)] text-[15px] leading-[22px] rounded-[var(--radius-12)] font-medium mt-[var(--space-8)]"
             >
-              {isSimplified ? 'Выбрать формат' : 'Выбрать стиль'}
+              Выбрать формат
+            </button>
+          )}
+          {hasRealScores && !isSimplified && (
+            <button
+              onClick={onNext}
+              disabled={!canContinue}
+              className="glass-btn-primary w-full py-[var(--space-12)] text-[15px] leading-[22px] rounded-[var(--radius-12)] font-medium mt-[var(--space-8)] disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              {directionLocked ? 'Направление скоро' : 'Продолжить'}
             </button>
           )}
         </div>

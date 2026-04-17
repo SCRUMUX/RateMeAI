@@ -4,15 +4,15 @@ import { CoinIcon } from '@ai-ds/core/icons';
 import { normalizePostPaymentPath } from '../../scenarios/config';
 import { createPayment, handleCreatePaymentError } from '../../lib/api';
 import { rememberFlowReturnPath, rememberFlowStep } from '../../lib/flow-resume';
-import { hasPendingTask } from '../../lib/pending-task';
 import { savePhotoBeforePayment } from '../../lib/photo-persist';
 import { PERCEPTION_FACTS, getRandomFact } from '../../data/ai-facts';
+import { CATEGORIES } from '../../data/styles';
 import { useApp } from '../../context/AppContext';
 import ProgressBar from './ProgressBar';
 import ShareModal from '../ShareModal';
 
 interface Props {
-  onGoToStep: (step: 'upload' | 'style') => void;
+  onGoToStep: (step: 'upload' | 'analysis' | 'style') => void;
   onOpenStorage?: () => void;
 }
 
@@ -68,7 +68,6 @@ export default function StepGenerate({ onGoToStep, onOpenStorage }: Props) {
   const [currentFact, setCurrentFact] = useState(() => PERCEPTION_FACTS.social[0]);
   const factIdxRef = useRef(0);
   const factTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const autoStartedRef = useRef(false);
   const [frozenStyle, setFrozenStyle] = useState<{ name: string; score: number } | null>(null);
   const [genFailed, setGenFailed] = useState(false);
 
@@ -164,14 +163,6 @@ export default function StepGenerate({ onGoToStep, onOpenStorage }: Props) {
   const isDocPaywall = app.scenarioDocumentPaywall;
   const paymentPackQty = app.scenarioPaymentPackQty ?? 5;
 
-  useEffect(() => {
-    if (isDocPaywall) return;
-    if (app.photo && !autoStartedRef.current && !hasGenResult && !app.isGenerating && !genFailed && !hasPendingTask()) {
-      autoStartedRef.current = true;
-      handleGenerate();
-    }
-  }, [app.photo]); // eslint-disable-line react-hooks/exhaustive-deps
-
   const [paymentLoading, setPaymentLoading] = useState(false);
 
   async function handleDocPaywallBuy(qty: number) {
@@ -246,6 +237,10 @@ export default function StepGenerate({ onGoToStep, onOpenStorage }: Props) {
     ? false
     : displayAfterScore == null && (!!frozenStyle || predictedAfterScore != null);
 
+  const directionLabel = CATEGORIES.find(c => c.id === activeTab)?.label ?? '';
+  const showSelectionSummary = !hasGenResult && !isDocPaywall;
+  const showStartGenerateCta = !isDocPaywall && !hasGenResult && !isRunning && !genFailed && !!app.photo;
+
   return (
     <div className="h-full flex flex-col gap-[var(--space-8)] w-full max-w-[800px] mx-auto">
       <div className="shrink-0 flex flex-col items-center gap-[2px] text-center">
@@ -258,6 +253,33 @@ export default function StepGenerate({ onGoToStep, onOpenStorage }: Props) {
             : 'AI генерирует улучшенное фото в выбранном стиле.'}
         </p>
       </div>
+
+      {/* Selection summary: direction + style (clickable → jump to corresponding step) */}
+      {showSelectionSummary && selectedStyle && (
+        <div className="shrink-0 flex flex-col items-center gap-[var(--space-4)]">
+          <span className="text-[12px] leading-[16px] text-[var(--color-text-muted)]">Вы выбрали</span>
+          <div className="flex flex-wrap items-center justify-center gap-x-[var(--space-8)] gap-y-[var(--space-4)] text-[13px] leading-[18px]">
+            {directionLabel && (
+              <button
+                type="button"
+                onClick={() => onGoToStep('analysis')}
+                className="glass-btn-ghost px-[var(--space-12)] py-[var(--space-4)] rounded-[var(--radius-pill)] text-[#E6EEF8] inline-flex items-center gap-[var(--space-6)]"
+              >
+                <span className="text-[var(--color-text-muted)]">Направление:</span>
+                <span className="font-medium">«{directionLabel}»</span>
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => onGoToStep('style')}
+              className="glass-btn-ghost px-[var(--space-12)] py-[var(--space-4)] rounded-[var(--radius-pill)] text-[#E6EEF8] inline-flex items-center gap-[var(--space-6)]"
+            >
+              <span className="text-[var(--color-text-muted)]">Стиль:</span>
+              <span className="font-medium">«{selectedStyle.name}»</span>
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Tab toggle (visible only when result is ready) */}
       {hasGenResult && (
@@ -287,10 +309,26 @@ export default function StepGenerate({ onGoToStep, onOpenStorage }: Props) {
         </div>
       )}
 
-      {/* Image card — flexible height */}
-      <div className="flex-1 min-h-0 flex justify-center">
+      {/* Fact streaming — above the photo, fixed height so the card doesn't jump */}
+      <div className="shrink-0 flex items-start justify-center px-[var(--space-16)] min-h-[56px] max-w-[520px] mx-auto">
+        {isRunning && (
+          <div className="flex items-start gap-[var(--space-8)]">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" className="shrink-0 mt-[2px]">
+              <path d="M12 2a7 7 0 0 1 7 7c0 2.38-1.19 4.47-3 5.74V17a1 1 0 0 1-1 1H9a1 1 0 0 1-1-1v-2.26C6.19 13.47 5 11.38 5 9a7 7 0 0 1 7-7z" stroke="rgb(var(--accent-r),var(--accent-g),var(--accent-b))" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+              <path d="M9 21h6M10 17v1a2 2 0 0 0 4 0v-1" stroke="rgb(var(--accent-r),var(--accent-g),var(--accent-b))" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+            <p className="text-[12px] tablet:text-[14px] leading-[16px] tablet:leading-[20px] text-[#E6EEF8] text-left">
+              {streamedFact}
+              <span className="inline-block w-[2px] h-[12px] bg-[var(--color-brand-primary)] ml-[2px] align-middle animate-pulse" />
+            </p>
+          </div>
+        )}
+      </div>
+
+      {/* Image card — fixed size so the card doesn't jump between states */}
+      <div className="shrink-0 flex justify-center">
         <div className="gradient-border-card glass-card flex flex-col w-full max-w-[340px] rounded-[var(--radius-12)] overflow-hidden">
-          <div className="flex-1 min-h-0 bg-[rgba(255,255,255,0.02)] overflow-hidden relative">
+          <div className="aspect-[3/4] bg-[rgba(255,255,255,0.02)] overflow-hidden relative">
             {/* Original photo (when toggled) */}
             {showingOriginal && app.photo && (
               <img src={app.photo.preview} alt="Original" className="w-full h-full object-cover" />
@@ -374,17 +412,16 @@ export default function StepGenerate({ onGoToStep, onOpenStorage }: Props) {
         </div>
       </div>
 
-      {/* Fact streaming */}
-      {isRunning && (
-        <div className="shrink-0 flex items-start justify-center gap-[var(--space-8)] max-w-[520px] mx-auto">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" className="shrink-0 mt-[1px]">
-            <path d="M12 2a7 7 0 0 1 7 7c0 2.38-1.19 4.47-3 5.74V17a1 1 0 0 1-1 1H9a1 1 0 0 1-1-1v-2.26C6.19 13.47 5 11.38 5 9a7 7 0 0 1 7-7z" stroke="rgb(var(--accent-r),var(--accent-g),var(--accent-b))" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-            <path d="M9 21h6M10 17v1a2 2 0 0 0 4 0v-1" stroke="rgb(var(--accent-r),var(--accent-g),var(--accent-b))" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-          </svg>
-          <p className="text-[12px] tablet:text-[14px] leading-[16px] tablet:leading-[20px] text-[#E6EEF8] text-left">
-            {streamedFact}
-            <span className="inline-block w-[2px] h-[12px] bg-[var(--color-brand-primary)] ml-[2px] align-middle animate-pulse" />
-          </p>
+      {/* Primary CTA — explicit "Запустить генерацию" for non-document scenarios */}
+      {showStartGenerateCta && (
+        <div className="shrink-0 flex flex-col items-center gap-[var(--space-8)]">
+          <button
+            onClick={handleGenerate}
+            disabled={app.isGenerating}
+            className="glass-btn-primary px-[var(--space-32)] py-[var(--space-12)] text-[15px] leading-[22px] rounded-[var(--radius-pill)] font-medium"
+          >
+            Запустить генерацию
+          </button>
         </div>
       )}
 
@@ -489,7 +526,7 @@ export default function StepGenerate({ onGoToStep, onOpenStorage }: Props) {
         )}
         {genFailed && !isRunning && !hasGenResult && (
           <button
-            onClick={() => { app.clearError(); autoStartedRef.current = false; setGenFailed(false); handleGenerate(); }}
+            onClick={() => { app.clearError(); setGenFailed(false); handleGenerate(); }}
             className="glass-btn-primary px-[var(--space-24)] py-[var(--space-10)] text-[14px] leading-[20px] rounded-[var(--radius-pill)]"
           >
             Повторить генерацию
