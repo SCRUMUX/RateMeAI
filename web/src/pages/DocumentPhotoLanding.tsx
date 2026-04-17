@@ -4,7 +4,9 @@ import Footer from '../sections/Footer';
 import AuthModal from '../components/AuthModal';
 import MeshGradientBg from '../components/effects/MeshGradientBg';
 import EnergyField from '../components/effects/EnergyField';
+import SocialProof from '../sections/SocialProof';
 import { useApp } from '../context/AppContext';
+import { DOCUMENT_SOCIAL_PROOF_PRESET } from '../data/social-proof';
 import { DOCUMENT_FORMAT_ITEMS } from '../scenarios/extraStyles';
 
 const STEPS = [
@@ -63,6 +65,8 @@ export default function DocumentPhotoLanding({ onStart, showAuth, onAuthClose }:
             <span className="text-[14px] text-[var(--color-text-muted)]">5 фото в пакете</span>
           </div>
         </section>
+
+        <SocialProof preset={DOCUMENT_SOCIAL_PROOF_PRESET} />
 
         {/* How it works */}
         <section className="relative z-[2] flex flex-col items-center gap-[var(--space-32)] px-[var(--space-16)] tablet:px-[var(--space-24)] py-[60px] tablet:py-[80px]">

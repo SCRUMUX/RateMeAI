@@ -122,6 +122,7 @@ async def process_analysis_remote(
         delete_after_process=True,
         retention_policy="ephemeral",
         data_class="regional_photo",
+        single_provider_call=True,
     )
     ctx: dict[str, Any] = {}
     if request.style.strip():

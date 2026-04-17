@@ -33,7 +33,7 @@ interface Props {
 const SWIPE_THRESHOLD = 50;
 
 export default function StorageModal({ items, open, onClose, onImprove }: Props) {
-  const { activeCategory } = useApp();
+  const { activeCategory, fetchTaskHistory } = useApp();
   const navigate = useNavigate();
   const [idx, setIdx] = useState(0);
   const [dir, setDir] = useState(0);
@@ -51,6 +51,12 @@ export default function StorageModal({ items, open, onClose, onImprove }: Props)
     if (open) { setIdx(0); setViewTab('result'); }
     if (!open) { setShareData(null); setShareLoading(false); }
   }, [open]);
+
+  useEffect(() => {
+    if (open) {
+      void fetchTaskHistory();
+    }
+  }, [open, fetchTaskHistory]);
 
   useEffect(() => {
     if (!open || !item?.task_id) return;

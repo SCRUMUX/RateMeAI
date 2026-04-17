@@ -193,27 +193,30 @@ class ImageGenerationExecutor:
                 }
             else:
                 logger.warning(
-                    "Multi-pass produced no output for task=%s, falling back to single-pass",
+                    "Multi-pass produced no output for task=%s; not retrying image generation",
                     task_id,
                 )
                 trace["decisions"].append({
                     "phase": "execute_plan",
-                    "decision": "Fallback to single-pass after multi-pass produced no output",
-                    "reason": "all steps failed or produced no output",
+                    "decision": "No output after multi-pass",
+                    "reason": "all steps failed or produced no output; no second provider pass allowed",
                 })
-                await self.single_pass(
-                    mode, style, image_bytes, result_dict, user_id, task_id, trace,
-                    gender=gender,
+                result_dict["image_gen_error"] = "empty_result"
+                result_dict.setdefault("generation_warnings", []).append(
+                    "Не удалось сгенерировать улучшенное фото. Попробуй загрузить другое фото или выбрать другой стиль."
                 )
 
         except Exception:
-            logger.exception("Multi-pass pipeline failed for task=%s, falling back to single-pass", task_id)
+            logger.exception("Multi-pass pipeline failed for task=%s without fallback", task_id)
             trace["decisions"].append({
                 "phase": "execute_plan",
-                "decision": "Fallback to single-pass after multi-pass failure",
-                "reason": "exception during multi-pass execution",
+                "decision": "Multi-pass failed",
+                "reason": "exception during multi-pass execution; no second provider pass allowed",
             })
-            await self.single_pass(mode, style, image_bytes, result_dict, user_id, task_id, trace, gender=gender)
+            result_dict["image_gen_error"] = "generation_failed"
+            result_dict.setdefault("generation_warnings", []).append(
+                "Произошла ошибка при генерации. Попробуй ещё раз или загрузи другое фото."
+            )
 
     async def _run_single_step(
         self, step, i: int, plan, mode, style, current_image, original_image,
@@ -275,7 +278,11 @@ class ImageGenerationExecutor:
             raw = await model_spec.provider.generate(
                 prompt, reference_image=current_image, params=dict(params),
             )
-            REVE_CALLS.labels(mode=mode.value, step=step.step).inc()
+            REVE_CALLS.labels(
+                mode=mode.value,
+                step=step.step,
+                provider=type(model_spec.provider).__name__,
+            ).inc()
             if not raw or len(raw) <= 100:
                 return None, model_spec.cost_per_call
 
@@ -330,7 +337,12 @@ class ImageGenerationExecutor:
             )
             with _trace_step(trace, "image_gen"):
                 raw = await self._image_gen.generate(prompt, reference_image=image_bytes, params=extra or None)
-            REVE_CALLS.labels(mode=mode.value, step="single_pass").inc()
+            provider_name = type(self._image_gen).__name__
+            REVE_CALLS.labels(
+                mode=mode.value,
+                step="single_pass",
+                provider=provider_name,
+            ).inc()
 
             if not raw or len(raw) <= 100:
                 logger.warning("Image gen returned empty/tiny result (%s bytes)", len(raw) if raw else 0)
@@ -432,7 +444,6 @@ class ImageGenerationExecutor:
                 result_dict["generated_image_url"] = gen_url
                 result_dict["image_url"] = gen_url
 
-                provider_name = type(self._image_gen).__name__
                 estimated_cost = settings.model_cost_reve
                 if "replicate" in provider_name.lower():
                     estimated_cost = settings.model_cost_replicate

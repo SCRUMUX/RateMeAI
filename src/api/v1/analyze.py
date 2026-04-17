@@ -331,6 +331,7 @@ async def create_analysis(
         delete_after_process=False,
         retention_policy="market_default",
         data_class="user_photo",
+        single_provider_call=True,
     )
     ctx = build_task_context(
         ctx,

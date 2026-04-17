@@ -13,7 +13,7 @@ PIPELINE_DURATION = Histogram(
 REVE_CALLS = Counter(
     "ratemeai_reve_calls_total",
     "Number of Reve API calls",
-    labelnames=["mode", "step"],
+    labelnames=["mode", "step", "provider"],
 )
 
 LLM_CALLS = Counter(

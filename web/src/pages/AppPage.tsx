@@ -17,6 +17,7 @@ import { type WizardStepId, getWizardStepsForScenario } from '../components/wiza
 import { getScenario } from '../scenarios/config';
 import { consumeFlowStep } from '../lib/flow-resume';
 import { restorePhotoAfterPayment, clearPersistedPaymentPhoto } from '../lib/photo-persist';
+import { hasPendingTask } from '../lib/pending-task';
 
 const STEP_ORDER: WizardStepId[] = ['upload', 'analysis', 'style', 'generate'];
 
@@ -58,6 +59,9 @@ export default function AppPage({ scenarioSlugOverride, onBackToLanding }: AppPa
   const hasScenarioAccess = app.canAccessApp;
 
   const [returnedStep] = useState<WizardStepId | null>(() => {
+    if (hasPendingTask()) {
+      return 'generate';
+    }
     const saved = consumeFlowStep();
     if (saved && STEP_ORDER.includes(saved)) {
       return saved;
@@ -130,11 +134,20 @@ export default function AppPage({ scenarioSlugOverride, onBackToLanding }: AppPa
 
   useEffect(() => {
     if (restoringPhoto) return;
-    if (!app.photo && currentStep !== 'upload') {
+    if (!app.photo && !app.currentTask && currentStep !== 'upload') {
       setCurrentStep('upload');
       visitedSteps.current = new Set(['upload']);
     }
-  }, [app.photo, currentStep, restoringPhoto]);
+  }, [app.photo, app.currentTask, currentStep, restoringPhoto]);
+
+  useEffect(() => {
+    if (app.isGenerating || app.currentTask || hasPendingTask()) {
+      visitedSteps.current.add('generate');
+      if (currentStep !== 'generate') {
+        setCurrentStep('generate');
+      }
+    }
+  }, [app.isGenerating, app.currentTask, currentStep]);
 
   async function handleImproveFromStorage(imageUrl: string) {
     try {

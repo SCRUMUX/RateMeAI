@@ -16,7 +16,11 @@ from src.config import settings
 from src.models.db import Task, UsageLog, User, CreditTransaction
 from src.models.enums import AnalysisMode, TaskStatus
 from src.services.reconciliation import STUCK_TASK_THRESHOLD_MINUTES  # noqa: F401 — re-export for backward compat
-from src.services.task_contract import get_market_id, should_delete_after_process
+from src.services.task_contract import (
+    get_market_id,
+    get_policy_flags,
+    should_delete_after_process,
+)
 from src.orchestrator.pipeline import AnalysisPipeline
 from src.providers.factory import get_image_gen, get_llm, get_storage
 from src.utils.redis_keys import (
@@ -200,6 +204,8 @@ async def _process_analysis_inner(ctx: dict, task_id: str):
 
             last_exc: Exception | None = None
             analysis_result = None
+            policy_flags = get_policy_flags(context)
+            allow_pipeline_retry = not bool(policy_flags.get("single_provider_call"))
             for attempt in range(_MAX_PIPELINE_RETRIES + 1):
                 try:
                     analysis_result = await pipeline.execute(
@@ -213,7 +219,7 @@ async def _process_analysis_inner(ctx: dict, task_id: str):
                     break
                 except Exception as exc:
                     last_exc = exc
-                    if attempt < _MAX_PIPELINE_RETRIES and _is_transient(exc):
+                    if attempt < _MAX_PIPELINE_RETRIES and allow_pipeline_retry and _is_transient(exc):
                         PIPELINE_RETRIES.inc()
                         wait = _RETRY_BACKOFF_BASE * (2 ** attempt)
                         logger.warning(

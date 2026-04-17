@@ -1,21 +1,27 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import NavBar from '../sections/NavBar';
 import Hero from '../sections/Hero';
 import HowItWorks from '../sections/HowItWorks';
 import Simulation from '../sections/Simulation';
 import Pricing from '../sections/Pricing';
+import SocialProof from '../sections/SocialProof';
 import Footer from '../sections/Footer';
 import AuthModal from '../components/AuthModal';
 import MeshGradientBg from '../components/effects/MeshGradientBg';
 import EnergyField from '../components/effects/EnergyField';
 import { useApp } from '../context/AppContext';
+import { getLandingSocialProofPreset } from '../data/social-proof';
 import logoSrc from '../assets/logo.png';
 
 export default function Landing() {
   const app = useApp();
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const canAccessApp = app.canAccessApp;
+  const socialProofPreset = useMemo(
+    () => getLandingSocialProofPreset(app.activeCategory),
+    [app.activeCategory],
+  );
 
   return (
     <div data-category={app.activeCategory} className="min-h-screen w-full overflow-x-hidden selection:bg-brand-primary/30">
@@ -27,6 +33,7 @@ export default function Landing() {
         <MeshGradientBg />
         <EnergyField />
         <Hero />
+        <SocialProof preset={socialProofPreset} />
         <HowItWorks />
         <Simulation />
 

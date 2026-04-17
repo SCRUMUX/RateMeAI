@@ -6,6 +6,7 @@ import { STYLES_BY_CATEGORY } from '../data/styles';
 import { restorePhotoAfterOAuth, clearPersistedPhoto } from '../lib/photo-persist';
 import { rememberOAuthReturnPath } from '../lib/flow-resume';
 import { normalizeImageUrl } from '../lib/image-url';
+import { clearPendingTask, peekPendingTask, rememberPendingTask } from '../lib/pending-task';
 import {
   getScenario,
   resolveScenarioStyles,
@@ -178,6 +179,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const sseRef = useRef<EventSource | null>(null);
   const deltaRefreshRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const historyRefreshRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const preAnalysisCacheRef = useRef<Record<string, api.PreAnalysisResponse>>({});
   const preAnalyzeInFlightRef = useRef(false);
   const preAnalyzeGenRef = useRef(0);
@@ -340,6 +342,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const logout = useCallback(() => {
     authLogout();
+    clearPendingTask();
     localStorage.removeItem('ailook_provider');
     setSession(null);
     setIsAuthenticated(false);
@@ -381,6 +384,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
     if (deltaRefreshRef.current) {
       clearTimeout(deltaRefreshRef.current);
       deltaRefreshRef.current = null;
+    }
+  }, []);
+
+  const stopHistoryRefresh = useCallback(() => {
+    if (historyRefreshRef.current) {
+      clearTimeout(historyRefreshRef.current);
+      historyRefreshRef.current = null;
     }
   }, []);
 
@@ -439,6 +449,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       const t = await api.getTask(taskId);
       setCurrentTask({ taskId: t.task_id, status: t.status, result: t.result });
       if (t.status === 'completed') {
+        clearPendingTask(taskId);
         const r = t.result as Record<string, unknown> | null;
         if (r) {
           const imgUrl = normalizeImageUrl(
@@ -474,6 +485,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         refreshBalance();
         fetchTaskHistory();
       } else if (t.status === 'failed') {
+        clearPendingTask(taskId);
         setIsGenerating(false);
         setError(t.error_message ?? 'Generation failed');
       }
@@ -521,6 +533,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const sseUrl = `${api.API_BASE}/api/v1/sse/progress?task_id=${taskId}`;
 
     try {
+      const initialTask = await api.getTask(taskId);
+      setCurrentTask({ taskId: initialTask.task_id, status: initialTask.status, result: initialTask.result });
+      if (initialTask.status === 'completed' || initialTask.status === 'failed') {
+        await handleTaskResult(taskId, mode, category);
+        return;
+      }
+
       let ticketParam = '';
       try {
         const { ticket } = await api.createSseTicket();
@@ -566,7 +585,80 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
   }, [stopPolling, handleTaskResult, startPollingFallback]);
 
-  useEffect(() => () => stopPolling(), [stopPolling]);
+  useEffect(() => () => {
+    stopPolling();
+    stopHistoryRefresh();
+  }, [stopPolling, stopHistoryRefresh]);
+
+  useEffect(() => {
+    const pending = peekPendingTask();
+    if (!pending || !canAccessApp) return;
+
+    const def = pending.scenarioSlug ? getScenario(pending.scenarioSlug) : null;
+    const apiMode = def?.apiMode ?? pending.apiMode;
+    const category = (
+      def?.scoresCategory
+      ?? (pending.category === 'cv' || pending.category === 'dating' || pending.category === 'social'
+        ? pending.category
+        : activeCategory)
+    ) as CategoryId;
+
+    setIsGenerating(true);
+    if (pending.scenarioSlug) {
+      setScenarioSlug(pending.scenarioSlug);
+    }
+    void startPolling(pending.taskId, category, apiMode);
+  }, [canAccessApp, activeCategory, startPolling]);
+
+  useEffect(() => {
+    if (!canAccessApp) return;
+
+    void refreshBalance();
+    void fetchTaskHistory();
+
+    const refreshLiveData = () => {
+      void refreshBalance();
+      void fetchTaskHistory();
+      const pending = peekPendingTask();
+      if (!pending) return;
+
+      const def = pending.scenarioSlug ? getScenario(pending.scenarioSlug) : null;
+      const apiMode = def?.apiMode ?? pending.apiMode;
+      const category = (
+        def?.scoresCategory
+        ?? (pending.category === 'cv' || pending.category === 'dating' || pending.category === 'social'
+          ? pending.category
+          : activeCategory)
+      ) as CategoryId;
+      setIsGenerating(true);
+      void startPolling(pending.taskId, category, apiMode);
+    };
+
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        refreshLiveData();
+      }
+    };
+
+    window.addEventListener('focus', refreshLiveData);
+    document.addEventListener('visibilitychange', onVisibilityChange);
+    return () => {
+      window.removeEventListener('focus', refreshLiveData);
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+    };
+  }, [canAccessApp, activeCategory, refreshBalance, fetchTaskHistory, startPolling]);
+
+  useEffect(() => {
+    stopHistoryRefresh();
+    if (!isGenerating || !canAccessApp) return;
+
+    historyRefreshRef.current = setTimeout(() => {
+      void fetchTaskHistory();
+      void refreshBalance();
+    }, 8000);
+
+    return stopHistoryRefresh;
+  }, [isGenerating, canAccessApp, fetchTaskHistory, refreshBalance, stopHistoryRefresh]);
 
   const generate = useCallback(async (onTaskCreated?: () => void, styleKeyOverride?: string) => {
     const effectiveStyle = styleKeyOverride || selectedStyleKey;
@@ -589,17 +681,26 @@ export function AppProvider({ children }: { children: ReactNode }) {
         scenarioEntryMode ?? undefined,
       );
       setCurrentTask({ taskId: res.task_id, status: res.status, result: null });
+      rememberPendingTask({
+        taskId: res.task_id,
+        apiMode: effectiveApiMode,
+        category: activeCategory,
+        scenarioSlug: scenarioSlug ?? undefined,
+        startedAt: Date.now(),
+      });
       onTaskCreated?.();
       startPolling(res.task_id, activeCategory, effectiveApiMode);
     } catch (e) {
       if (e instanceof api.ApiError && e.status === 401) {
         const reauthed = await handleAuthError(e);
         setIsGenerating(false);
+        clearPendingTask();
         if (reauthed) {
           setError('Сессия обновлена. Попробуйте ещё раз.');
         }
       } else {
         setIsGenerating(false);
+        clearPendingTask();
         if (e instanceof api.ApiError && e.status === 402) {
           setNoCreditsError(true);
         } else {
@@ -634,12 +735,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const clearNoCreditsError = useCallback(() => setNoCreditsError(false), []);
   const clearGeneratedImage = useCallback(() => {
     stopPolling();
+    clearPendingTask();
     setGeneratedImageUrl(null);
     setCurrentTask(null);
     setIsGenerating(false);
   }, [stopPolling]);
 
   const resetGeneration = useCallback(() => {
+    clearPendingTask();
     setGeneratedImageUrl(null);
     setAfterScore(null);
     setAfterPerception(null);

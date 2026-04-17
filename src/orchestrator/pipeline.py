@@ -16,7 +16,11 @@ from src.orchestrator.router import ModeRouter
 from src.providers.base import ImageGenProvider, LLMProvider, StorageProvider
 from src.prompts.engine import PromptEngine
 from src.services.share import ShareCardGenerator
-from src.services.task_contract import get_market_id, is_cache_allowed
+from src.services.task_contract import (
+    get_market_id,
+    is_cache_allowed,
+    should_force_single_provider_call,
+)
 from src.utils.humanize import humanize_result_scores
 from src.utils.image import validate_and_normalize, has_face_heuristic, estimate_blur_score
 from src.utils.redis_keys import (
@@ -242,8 +246,10 @@ class AnalysisPipeline:
         if skip_gen:
             result_dict["upgrade_prompt"] = True
         else:
+            force_single_provider_call = should_force_single_provider_call(context)
             use_multipass = (
-                settings.segmentation_enabled
+                not force_single_provider_call
+                and settings.segmentation_enabled
                 and mode in (AnalysisMode.DATING, AnalysisMode.CV, AnalysisMode.SOCIAL)
             )
 
@@ -270,10 +276,15 @@ class AnalysisPipeline:
                         gender=gender,
                     )
             else:
+                single_pass_reason = (
+                    "single_provider_call=True"
+                    if force_single_provider_call
+                    else "Multi-pass disabled or mode does not support it"
+                )
                 trace["decisions"].append({
                     "phase": "planning",
                     "decision": "Single-pass fallback",
-                    "reason": "Multi-pass disabled or mode does not support it",
+                    "reason": single_pass_reason,
                 })
                 with _trace_step(trace, "generate_image"):
                     await self._executor.single_pass(

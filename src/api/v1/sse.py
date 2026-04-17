@@ -105,11 +105,22 @@ async def task_progress_stream(
     done_channel = f"ratemeai:task_done:{task_id}"
 
     async def event_generator():
+        if task.status == "completed":
+            yield "event: done\ndata: completed\n\n"
+            return
+        if task.status == "failed":
+            yield "event: done\ndata: failed\n\n"
+            return
+
         pubsub = redis.pubsub()
         await pubsub.subscribe(progress_channel, done_channel)
         try:
             while True:
                 if await request.is_disconnected():
+                    break
+                current = await db.get(Task, task.id)
+                if current is not None and current.status in {"completed", "failed"}:
+                    yield f"event: done\ndata: {current.status}\n\n"
                     break
                 msg = await pubsub.get_message(ignore_subscribe_messages=True, timeout=1.0)
                 if msg and msg["type"] == "message":

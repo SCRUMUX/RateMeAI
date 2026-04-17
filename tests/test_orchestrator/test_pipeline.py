@@ -398,7 +398,7 @@ def test_multipass_dating_executes_plan(mock_nsfw, mock_norm, mock_face, mock_se
 @patch("src.orchestrator.pipeline.validate_and_normalize", side_effect=lambda b: (b, {}))
 @patch("src.orchestrator.pipeline.extract_nsfw_from_analysis", return_value=(True, ""))
 def test_multipass_fallback_on_error(mock_nsfw, mock_norm, mock_face, mock_settings):
-    """Multi-pass failure falls back to single-pass."""
+    """Multi-pass failure does not trigger a second image-gen pass."""
     mock_settings.segmentation_enabled = True
     mock_settings.identity_threshold = 0.85
     mock_settings.identity_max_retries = 2
@@ -452,8 +452,9 @@ def test_multipass_fallback_on_error(mock_nsfw, mock_norm, mock_face, mock_setti
     )
 
     trace = merged.get("pipeline_trace", {})
-    assert any("Fallback" in d.get("decision", "") for d in trace.get("decisions", []))
-    assert merged.get("generated_image_url") or merged.get("enhancement")
+    assert any(d.get("decision") == "Multi-pass failed" for d in trace.get("decisions", []))
+    assert merged.get("generated_image_url") is None
+    assert merged.get("image_gen_error") == "generation_failed"
 
 
 @patch("src.orchestrator.pipeline.settings")

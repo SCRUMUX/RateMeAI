@@ -47,6 +47,7 @@ def build_policy_flags(
     delete_after_process: bool = False,
     retention_policy: str = "standard",
     data_class: str = "user_photo",
+    single_provider_call: bool = False,
 ) -> dict[str, Any]:
     flags = dict(existing or {})
     flags["cache_allowed"] = bool(flags.get("cache_allowed", cache_allowed))
@@ -57,6 +58,9 @@ def build_policy_flags(
         flags.get("retention_policy", retention_policy)
     ).strip() or retention_policy
     flags["data_class"] = str(flags.get("data_class", data_class)).strip() or data_class
+    flags["single_provider_call"] = bool(
+        flags.get("single_provider_call", single_provider_call)
+    )
     return flags
 
 
@@ -177,6 +181,16 @@ def should_delete_after_process(
     if "delete_after_process" not in flags:
         return default
     return bool(flags["delete_after_process"])
+
+
+def should_force_single_provider_call(
+    context: dict[str, Any] | None,
+    default: bool = False,
+) -> bool:
+    flags = get_policy_flags(context)
+    if "single_provider_call" not in flags:
+        return default
+    return bool(flags["single_provider_call"])
 
 
 def get_trace_id(context: dict[str, Any] | None) -> str | None:

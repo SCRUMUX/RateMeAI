@@ -4,6 +4,7 @@ import { CoinIcon } from '@ai-ds/core/icons';
 import { normalizePostPaymentPath } from '../../scenarios/config';
 import { createPayment, ApiError } from '../../lib/api';
 import { rememberFlowReturnPath, rememberFlowStep } from '../../lib/flow-resume';
+import { hasPendingTask } from '../../lib/pending-task';
 import { savePhotoBeforePayment } from '../../lib/photo-persist';
 import { PERCEPTION_FACTS, getRandomFact } from '../../data/ai-facts';
 import { useApp } from '../../context/AppContext';
@@ -165,7 +166,7 @@ export default function StepGenerate({ onGoToStep, onOpenStorage }: Props) {
 
   useEffect(() => {
     if (isDocPaywall) return;
-    if (app.photo && !autoStartedRef.current && !hasGenResult && !app.isGenerating && !genFailed) {
+    if (app.photo && !autoStartedRef.current && !hasGenResult && !app.isGenerating && !genFailed && !hasPendingTask()) {
       autoStartedRef.current = true;
       handleGenerate();
     }
