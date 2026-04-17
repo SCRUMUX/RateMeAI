@@ -1,0 +1,57 @@
+name: Fetch Railway Logs
+
+on:
+  workflow_dispatch:
+    inputs:
+      service:
+        description: "Which Railway service"
+        required: true
+        default: "bot"
+        type: choice
+        options:
+          - bot
+          - app
+          - worker
+      lines:
+        description: "Number of log lines to fetch"
+        required: false
+        default: "300"
+
+jobs:
+  fetch:
+    name: Fetch ${{ inputs.service }} logs
+    runs-on: ubuntu-latest
+    env:
+      RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+      RAILWAY_PROJECT_ID: ${{ secrets.RAILWAY_PROJECT_ID }}
+    steps:
+      - name: Install Railway CLI
+        run: npm install -g @railway/cli
+
+      - name: Link project
+        run: railway link -p "$RAILWAY_PROJECT_ID" -e production
+
+      - name: Pull logs (deployment + build)
+        run: |
+          set +e
+          SERVICE="${{ inputs.service }}"
+          LINES="${{ inputs.lines }}"
+
+          echo "::group::Deployment logs for $SERVICE"
+          railway logs -s "$SERVICE" --deployment 2>&1 | tail -n "$LINES"
+          echo "::endgroup::"
+
+          echo "::group::Build logs for $SERVICE"
+          railway logs -s "$SERVICE" --build 2>&1 | tail -n 80
+          echo "::endgroup::"
+
+          mkdir -p artifacts
+          railway logs -s "$SERVICE" --deployment 2>&1 | tail -n 1500 > "artifacts/${SERVICE}-deployment.log"
+          railway logs -s "$SERVICE" --build 2>&1 | tail -n 200 > "artifacts/${SERVICE}-build.log"
+
+      - name: Upload log artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: railway-${{ inputs.service }}-logs
+          path: artifacts/
+          retention-days: 7
