@@ -17,7 +17,7 @@ import { type WizardStepId, getWizardStepsForScenario } from '../components/wiza
 import { getScenario } from '../scenarios/config';
 import { consumeFlowStep } from '../lib/flow-resume';
 import { restorePhotoAfterPayment, clearPersistedPaymentPhoto } from '../lib/photo-persist';
-import { hasPendingTask } from '../lib/pending-task';
+import { hasPendingTask, peekLastGenerationError } from '../lib/pending-task';
 
 const STEP_ORDER: WizardStepId[] = ['upload', 'analysis', 'style', 'generate'];
 
@@ -48,8 +48,17 @@ export default function AppPage({ scenarioSlugOverride, onBackToLanding }: AppPa
   const scenarioConfig = getScenario(scenarioSlug);
 
   useEffect(() => {
+    // Если слаг в URL не задан, но есть незавершённая задача с конкретным
+    // сценарием — не затираем контекст сценария, чтобы не потерять его
+    // после возврата с главной страницы.
+    if (!scenarioSlug) {
+      const pending = hasPendingTask();
+      if (pending && (app.scenarioSlug || peekLastGenerationError())) {
+        return;
+      }
+    }
     app.syncScenarioFromRoute(scenarioSlug);
-  }, [scenarioSlug, app.syncScenarioFromRoute]);
+  }, [scenarioSlug, app.syncScenarioFromRoute, app.scenarioSlug]);
 
   const wizardSteps = useMemo(
     () => getWizardStepsForScenario(app.scenarioStep3Mode),
@@ -59,9 +68,12 @@ export default function AppPage({ scenarioSlugOverride, onBackToLanding }: AppPa
   const hasScenarioAccess = app.canAccessApp;
 
   const [returnedStep] = useState<WizardStepId | null>(() => {
-    if (hasPendingTask()) {
-      return 'generate';
-    }
+    // Если есть незавершённая задача или недавняя ошибка/результат генерации —
+    // возвращаем пользователя на шаг generate, чтобы не терять контекст при
+    // возврате с Landing после ухода во время генерации.
+    if (hasPendingTask()) return 'generate';
+    if (peekLastGenerationError()) return 'generate';
+    if (app.generatedImageUrl) return 'generate';
     const saved = consumeFlowStep();
     if (saved && STEP_ORDER.includes(saved)) {
       return saved;
@@ -134,20 +146,36 @@ export default function AppPage({ scenarioSlugOverride, onBackToLanding }: AppPa
 
   useEffect(() => {
     if (restoringPhoto) return;
-    if (!app.photo && !app.currentTask && currentStep !== 'upload') {
+    // НЕ сбрасываем на upload, если есть результат/ошибка/незавершённая задача —
+    // пользователю нужно увидеть исход генерации, которая шла в фоне, а не пустую
+    // форму загрузки.
+    if (
+      !app.photo
+      && !app.currentTask
+      && !app.generatedImageUrl
+      && !hasPendingTask()
+      && !peekLastGenerationError()
+      && currentStep !== 'upload'
+    ) {
       setCurrentStep('upload');
       visitedSteps.current = new Set(['upload']);
     }
-  }, [app.photo, app.currentTask, currentStep, restoringPhoto]);
+  }, [app.photo, app.currentTask, app.generatedImageUrl, currentStep, restoringPhoto]);
 
   useEffect(() => {
-    if (app.isGenerating || app.currentTask || hasPendingTask()) {
+    if (
+      app.isGenerating
+      || app.currentTask
+      || app.generatedImageUrl
+      || hasPendingTask()
+      || peekLastGenerationError()
+    ) {
       visitedSteps.current.add('generate');
       if (currentStep !== 'generate') {
         setCurrentStep('generate');
       }
     }
-  }, [app.isGenerating, app.currentTask, currentStep]);
+  }, [app.isGenerating, app.currentTask, app.generatedImageUrl, currentStep]);
 
   async function handleImproveFromStorage(imageUrl: string) {
     try {
@@ -188,7 +216,13 @@ export default function AppPage({ scenarioSlugOverride, onBackToLanding }: AppPa
 
   return (
     <div data-category={app.activeCategory} className="h-dvh flex flex-col w-full overflow-hidden selection:bg-brand-primary/30">
-      <NavBar mode="app" onLoginClick={() => setAuthModalOpen(true)} onOpenStorage={() => setStorageModalOpen(true)} onHomeClick={onBackToLanding} />
+      <NavBar
+        mode="app"
+        onLoginClick={() => setAuthModalOpen(true)}
+        onOpenStorage={() => setStorageModalOpen(true)}
+        onHomeClick={onBackToLanding}
+        logoTo={scenarioConfig?.entryMode === 'landing' ? scenarioConfig.canonicalPath : '/'}
+      />
 
       <main ref={scrollRef} className="relative flex-1 min-h-0 flex flex-col overflow-hidden">
         <MeshGradientBg />

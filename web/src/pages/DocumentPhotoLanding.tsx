@@ -30,7 +30,7 @@ export default function DocumentPhotoLanding({ onStart, showAuth, onAuthClose }:
 
   return (
     <div data-category="cv" className="min-h-screen w-full overflow-x-hidden selection:bg-brand-primary/30">
-      <NavBar onLoginClick={() => setAuthModalOpen(true)} onCtaClick={onStart} hideNavLinks />
+      <NavBar onLoginClick={() => setAuthModalOpen(true)} onCtaClick={onStart} hideNavLinks logoTo="/dokumenty" />
       <main className="relative">
         <MeshGradientBg />
         <EnergyField />

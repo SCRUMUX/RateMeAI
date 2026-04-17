@@ -52,3 +52,50 @@ export function clearPendingTask(expectedTaskId?: string): void {
     /* ignore */
   }
 }
+
+const LAST_ERROR_KEY = 'ailook_last_generation_error';
+
+export interface LastGenerationError {
+  taskId: string;
+  message: string;
+  at: number;
+}
+
+export function rememberLastGenerationError(taskId: string, message: string): void {
+  try {
+    sessionStorage.setItem(LAST_ERROR_KEY, JSON.stringify({
+      taskId,
+      message,
+      at: Date.now(),
+    } as LastGenerationError));
+  } catch {
+    /* ignore */
+  }
+}
+
+export function peekLastGenerationError(): LastGenerationError | null {
+  try {
+    const raw = sessionStorage.getItem(LAST_ERROR_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as Partial<LastGenerationError>;
+    if (
+      parsed && typeof parsed === 'object'
+      && typeof parsed.taskId === 'string'
+      && typeof parsed.message === 'string'
+      && typeof parsed.at === 'number'
+    ) {
+      return parsed as LastGenerationError;
+    }
+  } catch {
+    /* ignore */
+  }
+  return null;
+}
+
+export function clearLastGenerationError(): void {
+  try {
+    sessionStorage.removeItem(LAST_ERROR_KEY);
+  } catch {
+    /* ignore */
+  }
+}

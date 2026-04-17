@@ -1092,12 +1092,41 @@ def build_dating_prompt(style: str = "", gender: str = "male") -> str:
     )
 
 
+_DOCUMENT_STYLE_KEYS = frozenset({
+    "photo_3x4",
+    "passport_rf",
+    "visa_eu",
+    "visa_schengen",
+    "visa_us",
+    "photo_4x6",
+    "driver_license",
+})
+
+
+def is_document_style(style: str) -> bool:
+    """True для CV-стилей «Фото на документы», где требуется строгая композиция."""
+    return (style or "").strip() in _DOCUMENT_STYLE_KEYS
+
+
 def build_cv_prompt(style: str = "", gender: str = "male") -> str:
-    return _build_mode_prompt(
-        "cv", style, gender,
-        "Change ONLY background and clothing to professional attire. "
-        "Keep the person's face, pose, and body identical.",
-    )
+    style_key = (style or "").strip()
+    if style_key in _DOCUMENT_STYLE_KEYS:
+        change_instruction = (
+            "This is a strict identification document photo. "
+            "Replace ONLY the background with a clean uniform official backdrop "
+            "(white or very light neutral grey, no shadows, no gradient). "
+            "Replace clothing with a plain neutral top (simple white or light-grey shirt/blouse), "
+            "no patterns, no accessories, no headwear, no glasses unless already worn. "
+            "Preserve the person's face, facial features, hair, skin tone, and body proportions ABSOLUTELY identical. "
+            "Keep the head centered, shoulders straight, frontal gaze. "
+            "Do NOT add makeup, do NOT smooth skin, do NOT change expression beyond what is specified."
+        )
+    else:
+        change_instruction = (
+            "Change ONLY background and clothing to professional attire. "
+            "Keep the person's face, pose, and body identical."
+        )
+    return _build_mode_prompt("cv", style_key, gender, change_instruction)
 
 
 def build_social_prompt(style: str = "", gender: str = "male") -> str:

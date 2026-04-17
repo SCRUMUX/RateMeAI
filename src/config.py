@@ -37,7 +37,8 @@ class Settings(BaseSettings):
     storage_http_fallback_base: str = ""
 
     # Image generation (CV / emoji): mock | reve | replicate | auto
-    image_gen_provider: str = "auto"
+    # Default: reve (Replicate временно отключён до ручного переключения обратно на auto).
+    image_gen_provider: str = "reve"
 
     # Reve (https://api.reve.com — official SDK)
     reve_api_token: str = ""
@@ -45,6 +46,9 @@ class Settings(BaseSettings):
     reve_aspect_ratio: str = "1:1"
     reve_version: str = "latest"
     reve_test_time_scaling: int = 4
+    # Максимум HTTP-вызовов Reve на одну generate()-операцию. Ретрай применяется
+    # только к rate-limit (429, ответ не биллится). На 5xx/сетевые/прочие — моментальный fail.
+    reve_max_retries: int = 1
 
     # Replicate (image generation)
     replicate_api_token: str = ""

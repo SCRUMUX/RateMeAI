@@ -129,6 +129,12 @@ jobs:
           rl_set MARKET_ID="global" -s worker -e production --skip-deploys
           rl_set SERVICE_ROLE="worker" -s worker -e production --skip-deploys
           rl_set COMPUTE_MODE="local" -s worker -e production --skip-deploys
+          # Image generation provider policy: Reve-only, one billable call per task.
+          # Replicate temporarily disabled — re-enable later by flipping to "auto".
+          rl_set IMAGE_GEN_PROVIDER="reve" -s app -e production --skip-deploys
+          rl_set IMAGE_GEN_PROVIDER="reve" -s worker -e production --skip-deploys
+          rl_set REVE_MAX_RETRIES="1" -s app -e production --skip-deploys
+          rl_set REVE_MAX_RETRIES="1" -s worker -e production --skip-deploys
           rl_set DEPLOY_GIT_SHA="$SHORT_SHA" -s bot -e production --skip-deploys
           rl_set DEPLOYMENT_MODE="primary" -s bot -e production --skip-deploys
           rl_set MARKET_ID="global" -s bot -e production --skip-deploys

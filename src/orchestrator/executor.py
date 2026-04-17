@@ -29,6 +29,22 @@ _LEVEL_TO_TTS: dict[int, int] = {
     4: 5,
 }
 
+# Строго заданные пропорции для CV-стилей «Фото на документы».
+# Для остальных стилей — "auto" (Reve сам подбирает под reference_image).
+_CV_DOCUMENT_ASPECT: dict[str, str] = {
+    "photo_3x4": "3:4",        # 30×40 мм
+    "passport_rf": "3:4",      # 35×45 мм ≈ 3:4
+    "visa_eu": "3:4",          # 35×45 мм ≈ 3:4
+    "visa_schengen": "3:4",    # 35×45 мм
+    "visa_us": "1:1",          # 50×50 мм
+    "photo_4x6": "2:3",        # 40×60 мм
+    "driver_license": "3:4",
+}
+
+
+def _cv_style_aspect_ratio(style: str) -> str:
+    return _CV_DOCUMENT_ASPECT.get((style or "").strip(), "auto")
+
 logger = logging.getLogger(__name__)
 
 
@@ -321,8 +337,11 @@ class ImageGenerationExecutor:
 
             extra: dict = {}
             if mode in (AnalysisMode.CV, AnalysisMode.DATING, AnalysisMode.SOCIAL):
+                aspect_ratio = "auto"
+                if mode == AnalysisMode.CV:
+                    aspect_ratio = _cv_style_aspect_ratio(style)
                 extra = {
-                    "aspect_ratio": "auto",
+                    "aspect_ratio": aspect_ratio,
                     "test_time_scaling": settings.reve_test_time_scaling,
                     "use_edit": True,
                     "postprocessing": [{"process": "upscale", "upscale_factor": 2}],

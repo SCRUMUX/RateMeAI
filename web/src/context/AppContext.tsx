@@ -6,7 +6,15 @@ import { STYLES_BY_CATEGORY } from '../data/styles';
 import { restorePhotoAfterOAuth, clearPersistedPhoto } from '../lib/photo-persist';
 import { rememberOAuthReturnPath } from '../lib/flow-resume';
 import { normalizeImageUrl } from '../lib/image-url';
-import { clearPendingTask, peekPendingTask, rememberPendingTask } from '../lib/pending-task';
+import {
+  clearPendingTask,
+  peekPendingTask,
+  rememberPendingTask,
+  rememberLastGenerationError,
+  clearLastGenerationError,
+  peekLastGenerationError,
+  hasPendingTask,
+} from '../lib/pending-task';
 import {
   getScenario,
   resolveScenarioStyles,
@@ -127,7 +135,16 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [selectedStyleKey, setSelectedStyleKey] = useState('');
   const [currentTask, setCurrentTask] = useState<TaskState | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(() => {
+    // Если пользователь перезагрузил страницу, а фоновая генерация успела
+    // упасть — подхватим маркер из sessionStorage, чтобы показать баннер ошибки.
+    try {
+      const last = peekLastGenerationError();
+      return last && !hasPendingTask() ? last.message : null;
+    } catch {
+      return null;
+    }
+  });
   const [generatedImageUrl, setGeneratedImageUrl] = useState<string | null>(null);
   const [afterScore, setAfterScore] = useState<number | null>(null);
   const [afterPerception, setAfterPerception] = useState<Record<string, number> | null>(null);
@@ -179,7 +196,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const sseRef = useRef<EventSource | null>(null);
   const deltaRefreshRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const historyRefreshRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // ID задачи, для которой уже поднят SSE/polling — нужно, чтобы resume-эффект
+  // и refreshLiveData (focus/visibility) не пересоздавали соединение каждый раз.
+  const resumedTaskIdRef = useRef<string | null>(null);
+  // Периодический refresh баланса/истории пока идёт генерация.
+  const historyIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const preAnalysisCacheRef = useRef<Record<string, api.PreAnalysisResponse>>({});
   const preAnalyzeInFlightRef = useRef(false);
   const preAnalyzeGenRef = useRef(0);
@@ -343,6 +364,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const logout = useCallback(() => {
     authLogout();
     clearPendingTask();
+    clearLastGenerationError();
+    resumedTaskIdRef.current = null;
     localStorage.removeItem('ailook_provider');
     setSession(null);
     setIsAuthenticated(false);
@@ -388,9 +411,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const stopHistoryRefresh = useCallback(() => {
-    if (historyRefreshRef.current) {
-      clearTimeout(historyRefreshRef.current);
-      historyRefreshRef.current = null;
+    if (historyIntervalRef.current) {
+      clearInterval(historyIntervalRef.current);
+      historyIntervalRef.current = null;
     }
   }, []);
 
@@ -459,8 +482,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
             const available = await verifyImageUrl(imgUrl);
             if (available) {
               setGeneratedImageUrl(imgUrl);
+              clearLastGenerationError();
             } else {
-              setError('Не удалось загрузить сгенерированное изображение. Попробуйте снова.');
+              const msg = 'Не удалось загрузить сгенерированное изображение. Попробуйте снова.';
+              setError(msg);
+              rememberLastGenerationError(taskId, msg);
               api.refundTask(taskId).then(() => refreshBalance()).catch(() => {});
             }
           } else {
@@ -471,7 +497,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
               upgrade_required: 'Для генерации изображения необходимо пополнить баланс.',
               not_applicable: 'Для данного режима генерация изображения недоступна.',
             };
-            setError(NO_IMAGE_MESSAGES[reason ?? ''] ?? 'Анализ завершён без изображения.');
+            const msg = NO_IMAGE_MESSAGES[reason ?? ''] ?? 'Анализ завершён без изображения.';
+            setError(msg);
+            rememberLastGenerationError(taskId, msg);
           }
           const { score, perception } = extractAfterScores(r, mode);
           if (score != null) setAfterScore(score);
@@ -482,12 +510,18 @@ export function AppProvider({ children }: { children: ReactNode }) {
         }
         setGenerationMode(category);
         setIsGenerating(false);
+        resumedTaskIdRef.current = null;
         refreshBalance();
         fetchTaskHistory();
       } else if (t.status === 'failed') {
         clearPendingTask(taskId);
         setIsGenerating(false);
-        setError(t.error_message ?? 'Generation failed');
+        resumedTaskIdRef.current = null;
+        const msg = t.error_message ?? 'Не удалось сгенерировать фото. Кредит возвращён, попробуйте ещё раз.';
+        setError(msg);
+        rememberLastGenerationError(taskId, msg);
+        refreshBalance();
+        fetchTaskHistory();
       }
     } catch {
       setIsGenerating(false);
@@ -590,7 +624,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
     stopHistoryRefresh();
   }, [stopPolling, stopHistoryRefresh]);
 
+  // activeCategory нужен только как fallback при восстановлении; держим в ref,
+  // чтобы не перезапускать resume-эффект при каждом переключении таба.
+  const activeCategoryRef = useRef<CategoryId>(activeCategory);
   useEffect(() => {
+    activeCategoryRef.current = activeCategory;
+  }, [activeCategory]);
+
+  const resumePendingIfNeeded = useCallback(() => {
     const pending = peekPendingTask();
     if (!pending || !canAccessApp) return;
 
@@ -600,15 +641,26 @@ export function AppProvider({ children }: { children: ReactNode }) {
       def?.scoresCategory
       ?? (pending.category === 'cv' || pending.category === 'dating' || pending.category === 'social'
         ? pending.category
-        : activeCategory)
+        : activeCategoryRef.current)
     ) as CategoryId;
 
     setIsGenerating(true);
     if (pending.scenarioSlug) {
       setScenarioSlug(pending.scenarioSlug);
     }
+
+    // Уже поднято соединение для этой задачи — не пересоздаём, чтобы не терять события.
+    const alreadyRunning = resumedTaskIdRef.current === pending.taskId
+      && (pollingRef.current !== null || sseRef.current !== null);
+    if (alreadyRunning) return;
+
+    resumedTaskIdRef.current = pending.taskId;
     void startPolling(pending.taskId, category, apiMode);
-  }, [canAccessApp, activeCategory, startPolling]);
+  }, [canAccessApp, startPolling]);
+
+  useEffect(() => {
+    resumePendingIfNeeded();
+  }, [canAccessApp, resumePendingIfNeeded]);
 
   useEffect(() => {
     if (!canAccessApp) return;
@@ -619,19 +671,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const refreshLiveData = () => {
       void refreshBalance();
       void fetchTaskHistory();
-      const pending = peekPendingTask();
-      if (!pending) return;
-
-      const def = pending.scenarioSlug ? getScenario(pending.scenarioSlug) : null;
-      const apiMode = def?.apiMode ?? pending.apiMode;
-      const category = (
-        def?.scoresCategory
-        ?? (pending.category === 'cv' || pending.category === 'dating' || pending.category === 'social'
-          ? pending.category
-          : activeCategory)
-      ) as CategoryId;
-      setIsGenerating(true);
-      void startPolling(pending.taskId, category, apiMode);
+      resumePendingIfNeeded();
     };
 
     const onVisibilityChange = () => {
@@ -646,19 +686,29 @@ export function AppProvider({ children }: { children: ReactNode }) {
       window.removeEventListener('focus', refreshLiveData);
       document.removeEventListener('visibilitychange', onVisibilityChange);
     };
-  }, [canAccessApp, activeCategory, refreshBalance, fetchTaskHistory, startPolling]);
+  }, [canAccessApp, refreshBalance, fetchTaskHistory, resumePendingIfNeeded]);
 
   useEffect(() => {
-    stopHistoryRefresh();
+    // Пока идёт генерация — регулярно тянем свежий баланс и историю, чтобы
+    // в "Хранилище" быстро появилось новое фото и обновился счётчик кредитов.
+    if (historyIntervalRef.current) {
+      clearInterval(historyIntervalRef.current);
+      historyIntervalRef.current = null;
+    }
     if (!isGenerating || !canAccessApp) return;
 
-    historyRefreshRef.current = setTimeout(() => {
+    historyIntervalRef.current = setInterval(() => {
       void fetchTaskHistory();
       void refreshBalance();
-    }, 8000);
+    }, 6000);
 
-    return stopHistoryRefresh;
-  }, [isGenerating, canAccessApp, fetchTaskHistory, refreshBalance, stopHistoryRefresh]);
+    return () => {
+      if (historyIntervalRef.current) {
+        clearInterval(historyIntervalRef.current);
+        historyIntervalRef.current = null;
+      }
+    };
+  }, [isGenerating, canAccessApp, fetchTaskHistory, refreshBalance]);
 
   const generate = useCallback(async (onTaskCreated?: () => void, styleKeyOverride?: string) => {
     const effectiveStyle = styleKeyOverride || selectedStyleKey;
@@ -668,6 +718,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setGeneratedImageUrl(null);
     setAfterScore(null);
     setAfterPerception(null);
+    clearLastGenerationError();
+    resumedTaskIdRef.current = null;
     try {
       const enhancementLevel = 1;
       const res = await api.analyze(
@@ -688,6 +740,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         scenarioSlug: scenarioSlug ?? undefined,
         startedAt: Date.now(),
       });
+      resumedTaskIdRef.current = res.task_id;
       onTaskCreated?.();
       startPolling(res.task_id, activeCategory, effectiveApiMode);
     } catch (e) {
@@ -731,7 +784,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
   }, [currentTask]);
 
-  const clearError = useCallback(() => setError(null), []);
+  const clearError = useCallback(() => {
+    setError(null);
+    clearLastGenerationError();
+  }, []);
   const clearNoCreditsError = useCallback(() => setNoCreditsError(false), []);
   const clearGeneratedImage = useCallback(() => {
     stopPolling();
@@ -743,6 +799,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const resetGeneration = useCallback(() => {
     clearPendingTask();
+    clearLastGenerationError();
+    resumedTaskIdRef.current = null;
     setGeneratedImageUrl(null);
     setAfterScore(null);
     setAfterPerception(null);

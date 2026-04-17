@@ -114,14 +114,26 @@ async def task_progress_stream(
 
         pubsub = redis.pubsub()
         await pubsub.subscribe(progress_channel, done_channel)
+
+        # Fallback poll каждые _DB_POLL_INTERVAL секунд — против потерянных pubsub-сообщений.
+        # Используем select() + отдельный refresh, чтобы SQLAlchemy не отдавал закешированный объект.
+        _DB_POLL_INTERVAL = 15.0
+        last_db_poll = 0.0
+
+        async def _fetch_status() -> str | None:
+            try:
+                res = await db.execute(select(Task.status).where(Task.id == task.id))
+                return res.scalar_one_or_none()
+            except Exception:
+                logger.debug("SSE status refetch failed", exc_info=True)
+                return None
+
         try:
+            loop = asyncio.get_running_loop()
             while True:
                 if await request.is_disconnected():
                     break
-                current = await db.get(Task, task.id)
-                if current is not None and current.status in {"completed", "failed"}:
-                    yield f"event: done\ndata: {current.status}\n\n"
-                    break
+
                 msg = await pubsub.get_message(ignore_subscribe_messages=True, timeout=1.0)
                 if msg and msg["type"] == "message":
                     data = msg["data"]
@@ -135,12 +147,28 @@ async def task_progress_stream(
                         break
                     else:
                         yield f"event: progress\ndata: {data}\n\n"
-                else:
-                    yield ": heartbeat\n\n"
-                    await asyncio.sleep(2)
+                    continue
+
+                # Нет сообщения → heartbeat. Раз в _DB_POLL_INTERVAL сек страхуемся
+                # повторным чтением статуса из БД, чтобы поймать пропущенный pubsub.
+                now = loop.time()
+                if now - last_db_poll >= _DB_POLL_INTERVAL:
+                    last_db_poll = now
+                    status = await _fetch_status()
+                    if status in {"completed", "failed"}:
+                        yield f"event: done\ndata: {status}\n\n"
+                        break
+                yield ": heartbeat\n\n"
+                await asyncio.sleep(2)
         finally:
-            await pubsub.unsubscribe(progress_channel, done_channel)
-            await pubsub.close()
+            try:
+                await pubsub.unsubscribe(progress_channel, done_channel)
+            except Exception:
+                logger.debug("SSE pubsub unsubscribe failed", exc_info=True)
+            try:
+                await pubsub.close()
+            except Exception:
+                logger.debug("SSE pubsub close failed", exc_info=True)
 
     return StreamingResponse(
         event_generator(),

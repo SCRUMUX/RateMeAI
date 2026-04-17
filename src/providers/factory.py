@@ -68,6 +68,7 @@ def get_image_gen() -> ImageGenProvider:
             aspect_ratio=settings.reve_aspect_ratio,
             version=settings.reve_version,
             test_time_scaling=settings.reve_test_time_scaling,
+            max_retries=settings.reve_max_retries,
         )
 
     if mode == "replicate":
@@ -84,29 +85,22 @@ def get_image_gen() -> ImageGenProvider:
             storage=get_storage(),
         )
 
-    # auto — chain available providers; FLUX (Replicate) first, Reve fallback
-    from src.providers.image_gen.chain import ChainImageGen
-
-    providers: list[ImageGenProvider] = []
-    if not _missing_replicate_config():
-        providers.append(ReplicateImageGen(
-            api_token=settings.replicate_api_token,
-            model_version=settings.replicate_model_version,
-            storage=get_storage(),
-        ))
+    # auto — Replicate временно отключён. Идём напрямую в Reve (если настроен),
+    # иначе fallback Mock в dev или ошибка в production.
     if settings.reve_api_token.strip():
-        providers.append(ReveImageGen(
+        return ReveImageGen(
             api_token=settings.reve_api_token,
             api_host=settings.reve_api_host,
             aspect_ratio=settings.reve_aspect_ratio,
             version=settings.reve_version,
             test_time_scaling=settings.reve_test_time_scaling,
-        ))
-    if not providers:
-        return MockImageGen()
-    if len(providers) == 1:
-        return providers[0]
-    return ChainImageGen(providers)
+            max_retries=settings.reve_max_retries,
+        )
+    if prod:
+        raise RuntimeError(
+            "IMAGE_GEN_PROVIDER=auto requires REVE_API_TOKEN (Replicate disabled)",
+        )
+    return MockImageGen()
 
 
 @lru_cache(maxsize=1)

@@ -13,9 +13,13 @@ interface Props {
   onCtaClick?: () => void;
   hideNavLinks?: boolean;
   mode?: 'landing' | 'app';
+  /** Куда ведёт клик по логотипу, если onHomeClick не задан. По умолчанию — '/'
+   *  (главный лендинг). На сценарных лендингах передавайте путь того же
+   *  сценарного лендинга, чтобы не уводить пользователя на общий лендинг. */
+  logoTo?: string;
 }
 
-export default function NavBar({ onLoginClick, onOpenStorage, onHomeClick, onCtaClick, hideNavLinks, mode = 'landing' }: Props) {
+export default function NavBar({ onLoginClick, onOpenStorage, onHomeClick, onCtaClick, hideNavLinks, mode = 'landing', logoTo = '/' }: Props) {
   const { session, balance, logout, taskHistoryCount, canAccessApp } = useApp();
   const [menuOpen, setMenuOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -56,7 +60,17 @@ export default function NavBar({ onLoginClick, onOpenStorage, onHomeClick, onCta
             </span>
           </button>
         ) : (
-          <Link to="/" className="flex items-center gap-[var(--space-8)] px-[var(--space-8)] py-[var(--space-4)] no-underline">
+          <Link
+            to={logoTo}
+            onClick={() => {
+              // Если Link ведёт на текущий маршрут, Router не перерисовывает
+              // страницу — пусть клик хотя бы прокрутит к началу сценарного лендинга.
+              if (typeof window !== 'undefined' && window.location.pathname === logoTo) {
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+              }
+            }}
+            className="flex items-center gap-[var(--space-8)] px-[var(--space-8)] py-[var(--space-4)] no-underline"
+          >
             <div className="relative w-10 h-10 tablet:w-11 tablet:h-11 shrink-0">
               <div className="absolute inset-0 rounded-xl" style={{ background: 'rgba(var(--accent-r), var(--accent-g), var(--accent-b), 0.18)' }} />
               <img src={logoSrc} alt="AI Look Studio" className="relative w-full h-full rounded-xl object-contain" style={{ mixBlendMode: 'lighten' }} />
@@ -83,7 +97,7 @@ export default function NavBar({ onLoginClick, onOpenStorage, onHomeClick, onCta
               </button>
             ) : (
               <Link
-                to="/"
+                to={logoTo}
                 className="flex items-center gap-[var(--space-6)] px-[var(--space-12)] py-[var(--space-6)] text-[14px] leading-[20px] font-medium text-[var(--color-text-secondary)] hover:text-[#E6EEF8] transition-colors no-underline"
               >
                 <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
@@ -257,7 +271,7 @@ export default function NavBar({ onLoginClick, onOpenStorage, onHomeClick, onCta
                 </button>
               ) : (
                 <Link
-                  to="/"
+                  to={logoTo}
                   onClick={() => setMobileMenuOpen(false)}
                   className="flex items-center gap-[var(--space-8)] px-[var(--space-12)] py-[var(--space-12)] text-[16px] leading-[24px] font-medium text-[var(--color-text-secondary)] hover:text-[#E6EEF8] transition-colors cursor-pointer rounded-[var(--radius-12)] hover:bg-[rgba(255,255,255,0.06)] no-underline"
                 >
