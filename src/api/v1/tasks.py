@@ -6,7 +6,7 @@ from pathlib import Path
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from redis.asyncio import Redis
-from sqlalchemy import select, func
+from sqlalchemy import select, func, cast, String
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.config import settings
@@ -86,13 +86,15 @@ async def list_tasks(
     ``result.has_generated_image`` (его выставляет worker на финальном шаге)
     и по ``_image_available`` (чтобы не показывать файлы, подчищенные TTL).
     """
-    # Отфильтровываем tasks, у которых нет сгенерированного URL/пути: старые
-    # записи без маркера has_generated_image всё равно попадут сюда, если у них
-    # есть image_url или generated_image_url/generated_image_path в result.
+    # Отфильтровываем tasks, у которых нет сгенерированного URL/пути. Используем
+    # CAST(... AS VARCHAR) — это работает и для sqlalchemy.JSON, и для JSONB, в
+    # отличие от диалект-специфичного .astext. Старые записи без маркера
+    # has_generated_image тоже попадут, если у них есть любой из трёх URL-ключей
+    # в result.
     gen_url_filter = (
-        Task.result["generated_image_url"].astext.isnot(None)
-        | Task.result["image_url"].astext.isnot(None)
-        | Task.result["generated_image_path"].astext.isnot(None)
+        cast(Task.result["generated_image_url"], String).isnot(None)
+        | cast(Task.result["image_url"], String).isnot(None)
+        | cast(Task.result["generated_image_path"], String).isnot(None)
     )
     count_q = (
         select(func.count(Task.id))
