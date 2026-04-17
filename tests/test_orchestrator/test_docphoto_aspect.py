@@ -39,12 +39,15 @@ def test_document_style_detection():
 
 
 def test_cv_prompt_document_has_strict_instruction():
-    """Для document-стилей промт должен запрещать смену выражения и
-    требовать нейтральный фон/одежду, не «professional attire»."""
-    doc_prompt = build_cv_prompt(style="photo_3x4", gender="male")
-    assert "identification document" in doc_prompt.lower() or "identification" in doc_prompt.lower()
-    # В document-promпт НЕ должно быть generic "professional attire" изменения
-    assert "professional attire" not in doc_prompt.lower()
+    """Для document-стилей промт должен требовать нейтральный фон/одежду
+    и использовать softened ID-style язык (а не generic «professional attire»).
+    Формулировки смягчили ради content-safety, но смысл сохранён.
+    """
+    doc_prompt = build_cv_prompt(style="photo_3x4", gender="male").lower()
+    assert "id-style headshot" in doc_prompt or "id-style" in doc_prompt
+    assert "neutral" in doc_prompt
+    # Generic CV-ветка не должна активироваться для document-стиля.
+    assert "professional attire" not in doc_prompt
 
-    normal_prompt = build_cv_prompt(style="ceo", gender="male")
-    assert "professional attire" in normal_prompt.lower()
+    normal_prompt = build_cv_prompt(style="ceo", gender="male").lower()
+    assert "professional attire" in normal_prompt

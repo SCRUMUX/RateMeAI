@@ -491,15 +491,25 @@ export function AppProvider({ children }: { children: ReactNode }) {
             }
           } else {
             const reason = r.no_image_reason as string | undefined;
+            const refunded = Boolean(r.credit_refunded);
             const NO_IMAGE_MESSAGES: Record<string, string> = {
               no_credits: 'Недостаточно кредитов для генерации изображения. Пополните баланс.',
-              generation_error: 'Не удалось сгенерировать изображение. Попробуйте другой стиль или фото.',
+              generation_error: refunded
+                ? 'Не удалось сгенерировать изображение. Кредит возвращён — попробуйте другой стиль или фото.'
+                : 'Не удалось сгенерировать изображение. Попробуйте другой стиль или фото.',
               upgrade_required: 'Для генерации изображения необходимо пополнить баланс.',
               not_applicable: 'Для данного режима генерация изображения недоступна.',
             };
             const msg = NO_IMAGE_MESSAGES[reason ?? ''] ?? 'Анализ завершён без изображения.';
             setError(msg);
             rememberLastGenerationError(taskId, msg);
+            // Подстраховка на случай, если worker почему-то не вернул кредит
+            // (например, упал при рефанде): endpoint идемпотентный — вернёт 409,
+            // если кредит уже был возвращён, и реально списан + картинки нет —
+            // иначе вернёт кредит и обновит баланс.
+            if (!refunded && reason === 'generation_error') {
+              api.refundTask(taskId).then(() => refreshBalance()).catch(() => {});
+            }
           }
           const { score, perception } = extractAfterScores(r, mode);
           if (score != null) setAfterScore(score);

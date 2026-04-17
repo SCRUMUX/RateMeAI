@@ -53,14 +53,13 @@ REALISM = (
 )
 
 DOCUMENT_PHOTO_REALISM = (
-    "ABSOLUTE PHOTOREALISM. The result must look like a real unedited photograph. "
-    "FACE: preserve 100% identical facial features, bone structure, skin texture, pores, "
-    "natural imperfections. Remove ONLY temporary blemishes (pimples, redness). "
-    "Do NOT smooth skin, alter face shape, improve features, or change proportions. "
-    "EXPRESSION: neutral, mouth closed, eyes open, direct forward gaze. "
-    "LIGHTING: flat, even, shadowless studio lighting. No harsh shadows on face or background. "
-    "True-to-life skin tones. No color grading or artistic filters. "
-    "Head-and-shoulders centered crop suitable for official documents."
+    "Photorealistic head-and-shoulders portrait. Natural unedited photo look. "
+    "Face: keep the same facial features, bone structure and natural skin texture; "
+    "remove only temporary blemishes (small pimples, redness). "
+    "Expression: calm neutral, mouth relaxed and closed, eyes open, looking straight at the camera. "
+    "Lighting: soft even studio light, minimal shadows on face and backdrop. "
+    "True-to-life skin tones, no heavy color grading, no artistic filters. "
+    "Centered head-and-shoulders framing, suitable for a professional ID-style headshot."
 )
 
 # ---------------------------------------------------------------------------
@@ -608,43 +607,38 @@ CV_STYLES: dict[str, str] = {
     ),
     "photo_3x4": (
         f"{DOCUMENT_PHOTO_REALISM} "
-        "Format: standard 3x4 photo, 30x40mm, 3:4 aspect ratio. "
-        "Face occupies 70-80% of the frame, 2-4mm top margin above head. "
-        "Background: light white or neutral grey, uniform, no gradients. "
-        "No headwear except religious. "
-        "Clothing: conservative neutral top, solid color, neat collar."
+        "Composition: 3:4 portrait framing, face fills about 70-80% of the frame with a small margin above the head. "
+        "Background: clean uniform light tone (white or very soft neutral grey), no gradient. "
+        "No headwear. "
+        "Clothing: simple solid-color top with a neat collar."
     ),
     "passport_rf": (
         f"{DOCUMENT_PHOTO_REALISM} "
-        "Format: Russian passport photo, 35x45mm, 7:9 aspect ratio. "
-        "Strictly frontal, face occupies 70-80% of the frame, 4-6mm top margin. "
-        "Background: pure uniform white, no texture or shadows. "
-        "Even symmetrical lighting, no side shadows. "
-        "Clothing: dark solid-color formal top, neat collar, no patterns or logos."
+        "Composition: 7:9 portrait framing, frontal pose, face fills about 70-80% of the frame with a small margin above the head. "
+        "Background: clean uniform white, no texture or shadows. "
+        "Even symmetrical soft lighting, no strong side shadows. "
+        "Clothing: simple dark solid-color top with a neat collar, no patterns or logos."
     ),
     "visa_eu": (
         f"{DOCUMENT_PHOTO_REALISM} "
-        "Format: Schengen visa / EU travel document, 35x45mm, 7:9 aspect ratio. "
-        "Face centered, occupies 70-80% of the frame, 3-5mm top margin. "
-        "Background: bright light uniform white or very light grey, zero shadows on backdrop. "
-        "High contrast between subject and background. "
-        "Clothing: business formal shirt or blouse, solid neutral color."
+        "Composition: 7:9 portrait framing, face centered and fills about 70-80% of the frame with a small margin above the head. "
+        "Background: clean uniform white or very light grey, no shadows on the backdrop. "
+        "Clear contrast between subject and background. "
+        "Clothing: simple solid-color business top."
     ),
     "visa_us": (
         f"{DOCUMENT_PHOTO_REALISM} "
-        "Format: US visa photo, 50x50mm, strictly 1:1 square aspect ratio. "
-        "Head height 25-35mm within the frame, face 50-70% of the frame, centered. "
-        "Background: pure white, bright even frontal lighting. "
-        "Meets digital requirements: sharp, high resolution, JPEG-suitable. "
-        "Clothing: professional top, no uniform, no headwear."
+        "Composition: strictly 1:1 square framing, face centered, fills roughly 50-70% of the frame. "
+        "Background: clean uniform white, soft even frontal lighting. "
+        "Sharp high-resolution look, JPEG-friendly. "
+        "Clothing: simple business top, no uniform, no headwear."
     ),
     "photo_4x6": (
         f"{DOCUMENT_PHOTO_REALISM} "
-        "Format: universal 4x6 photo, 40x60mm, 2:3 aspect ratio. "
-        "Face occupies 60-75% of the frame, flexible top margin. "
-        "Background: any light neutral tone (white, light grey, light blue acceptable). "
-        "Less strict requirements, natural adaptable composition. "
-        "Clothing: neat semi-formal or formal top, solid neutral colors."
+        "Composition: 2:3 portrait framing, face fills about 60-75% of the frame, relaxed top margin. "
+        "Background: any clean light neutral tone (white, light grey or very light blue). "
+        "Softer requirements, natural adaptable composition. "
+        "Clothing: tidy semi-formal or formal top, solid neutral color."
     ),
 }
 
@@ -1112,14 +1106,14 @@ def build_cv_prompt(style: str = "", gender: str = "male") -> str:
     style_key = (style or "").strip()
     if style_key in _DOCUMENT_STYLE_KEYS:
         change_instruction = (
-            "This is a strict identification document photo. "
-            "Replace ONLY the background with a clean uniform official backdrop "
-            "(white or very light neutral grey, no shadows, no gradient). "
-            "Replace clothing with a plain neutral top (simple white or light-grey shirt/blouse), "
-            "no patterns, no accessories, no headwear, no glasses unless already worn. "
-            "Preserve the person's face, facial features, hair, skin tone, and body proportions ABSOLUTELY identical. "
-            "Keep the head centered, shoulders straight, frontal gaze. "
-            "Do NOT add makeup, do NOT smooth skin, do NOT change expression beyond what is specified."
+            "Style: professional ID-style headshot. "
+            "Replace only the background with a clean uniform neutral backdrop "
+            "(white or very light grey, no shadows, no gradient). "
+            "Replace clothing with a simple neutral top (solid white or light-grey shirt/blouse), "
+            "no patterns, no accessories, no headwear; keep glasses only if already worn. "
+            "Keep the person's face, hair, skin tone and body proportions the same as in the reference. "
+            "Keep the head centered, shoulders straight, looking at the camera. "
+            "Do not add makeup, do not smooth the skin, and do not change the expression beyond the style notes."
         )
     else:
         change_instruction = (

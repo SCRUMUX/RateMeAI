@@ -361,9 +361,38 @@ async def _submit_analysis(callback: CallbackQuery, api_base_url: str, redis: Re
                     headers=auth_headers,
                 )
 
+        def _safe_json(r: httpx.Response) -> dict:
+            """Parse JSON from response, returning an empty dict if body is non-JSON
+            (например, HTML-страница 502/504 от edge-прокси во время рестарта).
+            """
+            ct = (r.headers.get("content-type") or "").lower()
+            if "application/json" not in ct:
+                logger.warning(
+                    "Non-JSON response from %s: status=%s content-type=%s body[:500]=%r",
+                    r.request.url if r.request else "?",
+                    r.status_code, ct, r.text[:500],
+                )
+                return {}
+            try:
+                return r.json()
+            except ValueError:
+                logger.warning(
+                    "Failed to parse JSON from %s: status=%s body[:500]=%r",
+                    r.request.url if r.request else "?",
+                    r.status_code, r.text[:500],
+                )
+                return {}
+
         if resp.status_code == 202:
-            task_data = resp.json()
-            task_id = task_data["task_id"]
+            task_data = _safe_json(resp)
+            task_id = task_data.get("task_id") if task_data else None
+            if not task_id:
+                await redis.delete(lock_key)
+                await status_msg.edit_text(
+                    "\u274c Сервер не вернул идентификатор задачи. Попробуй ещё раз.",
+                    reply_markup=error_keyboard(),
+                )
+                return
 
             if not hasattr(bot, "_pending_tasks"):
                 bot._pending_tasks = {}
@@ -382,11 +411,36 @@ async def _submit_analysis(callback: CallbackQuery, api_base_url: str, redis: Re
                 "\u26a0\ufe0f Дневной лимит исчерпан. Попробуй завтра!",
                 reply_markup=error_keyboard(),
             )
+        elif resp.status_code == 402:
+            await redis.delete(lock_key)
+            detail = _safe_json(resp).get("detail") or "Недостаточно кредитов"
+            await status_msg.edit_text(
+                f"\u274c {detail}",
+                reply_markup=error_keyboard(),
+            )
         else:
             await redis.delete(lock_key)
-            detail = resp.json().get("detail", "Unknown error")
+            detail = _safe_json(resp).get("detail") or f"HTTP {resp.status_code}"
+            logger.warning(
+                "Analyze failed for user %s: status=%s detail=%s",
+                user_id, resp.status_code, detail,
+            )
             await status_msg.edit_text(f"\u274c Ошибка: {detail}", reply_markup=error_keyboard())
 
+    except httpx.TimeoutException:
+        await redis.delete(lock_key)
+        logger.warning("Analyze timeout for user %s", user_id, exc_info=True)
+        await status_msg.edit_text(
+            "\u274c Сервис долго отвечает. Попробуй ещё раз через минуту.",
+            reply_markup=error_keyboard(),
+        )
+    except httpx.HTTPError as e:
+        await redis.delete(lock_key)
+        logger.warning("Analyze network error for user %s: %s", user_id, e, exc_info=True)
+        await status_msg.edit_text(
+            "\u274c Проблема с подключением к сервису. Попробуй ещё раз.",
+            reply_markup=error_keyboard(),
+        )
     except Exception:
         await redis.delete(lock_key)
         logger.exception("Failed to submit analysis for user %s", user_id)

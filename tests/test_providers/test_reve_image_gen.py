@@ -63,8 +63,8 @@ async def test_reve_image_gen_create_without_reference():
 
 
 @pytest.mark.asyncio
-async def test_reve_image_gen_no_retry_on_api_error():
-    """На 5xx/ReveAPIError ретрая быть не должно: один HTTP-вызов = один биллинг."""
+async def test_reve_image_gen_no_retry_on_4xx_api_error():
+    """4xx (не 429) не ретраим: ответ биллится, повтор не поможет."""
     from reve.exceptions import ReveAPIError
 
     gen = ReveImageGen(
@@ -72,11 +72,62 @@ async def test_reve_image_gen_no_retry_on_api_error():
         api_host="https://api.reve.com",
         max_retries=3,
     )
-    err = ReveAPIError("boom")
+    err = ReveAPIError("bad request")
+    err.status_code = 400
     with patch("reve.v1.image.remix", side_effect=err) as remix_mock:
         with pytest.raises(RuntimeError, match="Reve API error"):
             await gen.generate("x", reference_image=b"ref")
     assert remix_mock.call_count == 1
+
+
+@pytest.mark.asyncio
+async def test_reve_image_gen_retries_on_5xx_then_succeeds():
+    """5xx/сетевые ошибки — ответа нет, биллинга нет, ретраим в пределах max_retries."""
+    from reve.exceptions import ReveAPIError
+
+    img = Image.new("RGB", (8, 8), color="yellow")
+    buf = io.BytesIO()
+    img.save(buf, format="JPEG")
+    jpeg_bytes = buf.getvalue()
+    ok_resp = _fake_response(jpeg_bytes)
+
+    err = ReveAPIError("upstream 500")
+    err.status_code = 500
+
+    gen = ReveImageGen(
+        api_token="papi.x",
+        api_host="https://api.reve.com",
+        max_retries=2,
+    )
+    with patch(
+        "reve.v1.image.remix",
+        side_effect=[err, ok_resp],
+    ) as remix_mock, patch("time.sleep"):
+        out = await gen.generate("x", reference_image=b"ref")
+    assert out == jpeg_bytes
+    assert remix_mock.call_count == 2
+
+
+@pytest.mark.asyncio
+async def test_reve_image_gen_5xx_exhausts_retries():
+    """При постоянных 5xx вызовов не больше max_retries."""
+    from reve.exceptions import ReveAPIError
+
+    err = ReveAPIError("upstream 502")
+    err.status_code = 502
+
+    gen = ReveImageGen(
+        api_token="papi.x",
+        api_host="https://api.reve.com",
+        max_retries=2,
+    )
+    with patch(
+        "reve.v1.image.remix",
+        side_effect=err,
+    ) as remix_mock, patch("time.sleep"):
+        with pytest.raises(RuntimeError, match="failed after"):
+            await gen.generate("x", reference_image=b"ref")
+    assert remix_mock.call_count == 2
 
 
 @pytest.mark.asyncio
@@ -124,7 +175,7 @@ async def test_reve_image_gen_single_call_by_default():
         "reve.v1.image.remix",
         side_effect=rate_err,
     ) as remix_mock, patch("time.sleep"):
-        with pytest.raises(RuntimeError, match="rate limit"):
+        with pytest.raises(RuntimeError, match="failed after"):
             await gen.generate("x", reference_image=b"ref")
     assert remix_mock.call_count == 1
 

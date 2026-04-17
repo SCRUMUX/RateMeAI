@@ -46,9 +46,11 @@ class Settings(BaseSettings):
     reve_aspect_ratio: str = "1:1"
     reve_version: str = "latest"
     reve_test_time_scaling: int = 4
-    # Максимум HTTP-вызовов Reve на одну generate()-операцию. Ретрай применяется
-    # только к rate-limit (429, ответ не биллится). На 5xx/сетевые/прочие — моментальный fail.
-    reve_max_retries: int = 1
+    # Максимум HTTP-вызовов Reve на одну generate()-операцию. Ретраим только
+    # небиллящиеся исходы: 429 (rate-limit) и 5xx/сетевые сбои (ответа не было,
+    # значит и биллинга нет). 4xx (кроме 429) и content-policy — мгновенный
+    # fail. Значение 2 = максимум 1 ретрай поверх первого вызова.
+    reve_max_retries: int = 2
 
     # Replicate (image generation)
     replicate_api_token: str = ""

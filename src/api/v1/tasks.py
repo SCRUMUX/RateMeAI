@@ -77,10 +77,30 @@ async def list_tasks(
     limit: int = Query(20, ge=1, le=100),
     offset: int = Query(0, ge=0),
 ):
-    """List completed tasks that have a generated image (for the Storage gallery)."""
-    count_q = select(func.count(Task.id)).where(
-        Task.user_id == user.id,
-        Task.status == TaskStatus.COMPLETED.value,
+    """List completed tasks that have a generated image (for the Storage gallery).
+
+    Counter (``total_count``) и список ``items`` должны идти вровень: если задача
+    закрылась без картинки (Reve / moderation / ошибка), её нельзя учитывать —
+    иначе счётчик хранилища растёт, а галерея пуста (и пользователь пугается,
+    думая что его фото пропало). Мы фильтруем COMPLETED-задачи по флагу
+    ``result.has_generated_image`` (его выставляет worker на финальном шаге)
+    и по ``_image_available`` (чтобы не показывать файлы, подчищенные TTL).
+    """
+    # Отфильтровываем tasks, у которых нет сгенерированного URL/пути: старые
+    # записи без маркера has_generated_image всё равно попадут сюда, если у них
+    # есть image_url или generated_image_url/generated_image_path в result.
+    gen_url_filter = (
+        Task.result["generated_image_url"].astext.isnot(None)
+        | Task.result["image_url"].astext.isnot(None)
+        | Task.result["generated_image_path"].astext.isnot(None)
+    )
+    count_q = (
+        select(func.count(Task.id))
+        .where(
+            Task.user_id == user.id,
+            Task.status == TaskStatus.COMPLETED.value,
+            gen_url_filter,
+        )
     )
     total_count = (await db.execute(count_q)).scalar() or 0
 
@@ -89,6 +109,7 @@ async def list_tasks(
         .where(
             Task.user_id == user.id,
             Task.status == TaskStatus.COMPLETED.value,
+            gen_url_filter,
         )
         .order_by(Task.completed_at.desc())
     )

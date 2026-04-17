@@ -154,6 +154,33 @@ async def test_process_analysis_no_credits_skip_gen():
 
 
 @pytest.mark.asyncio
+async def test_process_analysis_completed_without_image_refunds_credit():
+    """Pipeline вернулась без картинки (image_gen_error) с пре-резервом —
+    воркёр должен вернуть кредит и всё равно проставить COMPLETED.
+    """
+    task_id = uuid.uuid4()
+    user_id = uuid.uuid4()
+    task = _FakeTask(task_id, user_id, context={"credit_pre_reserved": True})
+    user = _FakeUser(user_id, credits=3)
+    initial_credits = user.image_credits
+
+    result = {
+        "score": 6.2,
+        "image_gen_error": "generation_failed",
+    }
+    ctx, _db = _build_ctx(task, user, pipeline_result=result)
+    await process_analysis(ctx, str(task_id))
+
+    assert task.status == TaskStatus.COMPLETED.value
+    assert task.result is not None
+    assert task.result.get("has_generated_image") is False
+    assert task.result.get("no_image_reason") == "generation_error"
+    assert task.result.get("credit_refunded") is True
+    assert task.result.get("credit_deducted") is False
+    assert user.image_credits == initial_credits + 1
+
+
+@pytest.mark.asyncio
 async def test_process_analysis_failure_refunds_credit():
     """On pipeline failure with pre-reserved credit, credit should be refunded."""
     task_id = uuid.uuid4()

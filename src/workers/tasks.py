@@ -307,6 +307,40 @@ async def _process_analysis_inner(ctx: dict, task_id: str):
                 else:
                     analysis_result["no_image_reason"] = "not_applicable"
 
+                # Credit was pre-reserved at request time (check_credits декрементирует
+                # image_credits сразу). Задача дошла до COMPLETED, но картинки нет —
+                # возвращаем кредит здесь, чтобы пользователь не терял его на сбое
+                # провайдера / модерации. Без этого рефанда web / bot / edge уходят с
+                # «completed + no image» и кредит оставался бы списанным.
+                if (
+                    credit_pre_reserved
+                    and not context.get("skip_image_gen")
+                    and not analysis_result.get("credit_refunded")
+                ):
+                    try:
+                        u_ref = await db.execute(
+                            select(User).where(User.id == task.user_id).with_for_update()
+                        )
+                        user_ref = u_ref.scalar_one()
+                        user_ref.image_credits += 1
+                        db.add(CreditTransaction(
+                            user_id=task.user_id,
+                            amount=1,
+                            balance_after=user_ref.image_credits,
+                            tx_type="refund_no_image",
+                        ))
+                        analysis_result["credit_refunded"] = True
+                        analysis_result["credit_deducted"] = False
+                        logger.info(
+                            "Refunded 1 image credit for completed-without-image task %s (reason=%s)",
+                            task_id, analysis_result.get("no_image_reason", "unknown"),
+                        )
+                    except Exception:
+                        logger.exception(
+                            "Failed to refund credit for completed-without-image task %s",
+                            task_id,
+                        )
+
             task.result = analysis_result
             task.share_card_path = analysis_result.get("share", {}).get("card_url")
             task.status = TaskStatus.COMPLETED.value

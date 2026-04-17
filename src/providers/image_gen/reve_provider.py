@@ -14,9 +14,15 @@ logger = logging.getLogger(__name__)
 class ReveImageGen(ImageGenProvider):
     """Reve API via official sync SDK; runs blocking calls in a thread pool.
 
-    Политика вызовов: один биллящийся HTTP-запрос на generate().
-    Ретрай только на 429 (rate-limit) — до `max_retries` попыток. На 5xx/network/прочие
-    ошибки — моментальный fail, чтобы не дублировать оплату у провайдера.
+    Политика вызовов: один биллящийся успешный HTTP-запрос на generate().
+    Ретраим:
+      - 429 (rate-limit) — Reve не биллит такие попытки;
+      - 5xx / сетевые сбои — аналогично ответа нет, биллинга тоже.
+    Не ретраим:
+      - content-policy violation;
+      - 4xx кроме 429 (биллинга нет, но и ретрай не поможет);
+      - произвольные runtime-ошибки, чьи причины неизвестны.
+    Общее количество попыток ограничено `max_retries`, поэтому дорого не выйдет.
     """
 
     def __init__(
@@ -158,15 +164,34 @@ class ReveImageGen(ImageGenProvider):
                 )
                 time.sleep(float(wait))
             except ReveAPIError as e:
-                # 5xx / прочие ошибки: НЕ ретраим (чтобы не получить двойной биллинг).
+                # Определяем статус: 5xx / сетевые ошибки не биллятся, значит
+                # можно безопасно ретраить в пределах max_attempts. 4xx (кроме
+                # 429 — он выше) не ретраим: это или content-policy, или
+                # параметрическая ошибка, повтор не поможет.
+                last_err = e
+                status = getattr(e, "status_code", None) or getattr(e, "status", None)
                 msg = getattr(e, "message", None) or str(e)
-                logger.exception("Reve API error (no retry): %s", msg)
-                raise RuntimeError(f"Reve API error: {msg}") from e
+                retryable = status is None or (isinstance(status, int) and status >= 500)
+                if not retryable:
+                    logger.exception("Reve API error (no retry, status=%s): %s", status, msg)
+                    raise RuntimeError(f"Reve API error: {msg}") from e
+                if attempt + 1 >= max_attempts:
+                    logger.warning(
+                        "Reve transient error, no retries left (attempt %d/%d, status=%s): %s",
+                        attempt + 1, max_attempts, status, msg,
+                    )
+                    break
+                wait = 2 * (attempt + 1)
+                logger.warning(
+                    "Reve transient error (status=%s), retrying in %ss (attempt %d/%d): %s",
+                    status, wait, attempt + 1, max_attempts, msg,
+                )
+                time.sleep(float(wait))
         if resp is None:
             if last_err is not None:
                 msg = getattr(last_err, "message", None) or str(last_err)
                 raise RuntimeError(
-                    f"Reve rate limit after {max_attempts} attempt(s): {msg}"
+                    f"Reve failed after {max_attempts} attempt(s): {msg}"
                 ) from last_err
             raise RuntimeError("Reve: no response")
 
