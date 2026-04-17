@@ -113,6 +113,26 @@ async def lifespan(app: FastAPI):
             "image URLs will be broken for clients",
             settings.api_base_url,
         )
+    # YooKassa hard gate: на primary не должно быть ни shop_id, ни secret_key.
+    # Это критично — иначе случайные/тестовые креды в env превращают боевой
+    # домен в «тестовый ЮKassa», и реальные пользователи получают ссылку на
+    # «Это тестовый платёж / yoomoney.ru Test», а деньги оседают в тестовом
+    # кабинете. ЮKassa принимает вебхуки только с российских IP, так что
+    # платёжный контур живёт исключительно на RU-edge.
+    if not settings.is_edge:
+        leftover_shop = settings.yookassa_shop_id.strip()
+        leftover_key = settings.yookassa_secret_key.strip()
+        if leftover_shop or leftover_key:
+            log.error(
+                "YooKassa credentials are set on a non-edge deployment "
+                "(shop_id_present=%s, secret_present=%s) — nullifying in memory "
+                "and refusing to create any payments here. YooKassa must run "
+                "only on DEPLOYMENT_MODE=edge.",
+                bool(leftover_shop), bool(leftover_key),
+            )
+            settings.yookassa_shop_id = ""
+            settings.yookassa_secret_key = ""
+
     if settings.uses_remote_ai:
         if not settings.vk_id_app_id.strip():
             log.warning("VK_ID_APP_ID is empty — VK ID OAuth will not work on edge")

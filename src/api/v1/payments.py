@@ -16,6 +16,26 @@ from src.models.db import User, CreditTransaction, UserIdentity
 logger = logging.getLogger(__name__)
 router = APIRouter()
 
+
+def _ensure_edge_only() -> None:
+    """YooKassa работает только с российскими IP, поэтому физически принимать и
+    создавать платежи можем только на RU-edge сервере (DEPLOYMENT_MODE=edge).
+
+    На primary (Railway) хостится основной AI-бекенд, куда ЮKassa не пропустит
+    свои webhook'и, а SDK при попытке создать платёж из США/Европы часто падает
+    на проверке локации. Поэтому на primary эти эндпоинты намеренно возвращают
+    410 Gone — клиенту (web / bot) сразу видно, что платёж нужно делать через
+    RU-домен, и случайные тестовые креды в env не могут привести к созданию
+    «фейкового» платежа.
+    """
+    if not settings.is_edge:
+        raise HTTPException(
+            status_code=410,
+            detail="payments_disabled_on_primary",
+            headers={"X-Payments-Channel": "edge-only"},
+        )
+
+
 _YOOKASSA_IP_RANGES = (
     "185.71.76.", "185.71.77.",
     "77.75.153.", "77.75.154.", "77.75.156.",
@@ -55,6 +75,7 @@ async def yookassa_webhook(
     db: AsyncSession = Depends(get_db),
     redis=Depends(get_redis),
 ):
+    _ensure_edge_only()
     client_ip = request.headers.get("x-forwarded-for", "").split(",")[0].strip() or request.client.host
     body = await request.json()
     event = body.get("event", "")
@@ -141,6 +162,7 @@ async def create_payment_link(
     db: AsyncSession = Depends(get_db),
 ):
     """Create a YooKassa payment and return the confirmation URL for web checkout."""
+    _ensure_edge_only()
     result = await db.execute(
         select(UserIdentity).where(
             UserIdentity.user_id == user.id,

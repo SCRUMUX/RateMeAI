@@ -199,11 +199,38 @@ export function createSseTicket() {
 
 // -- Payments --
 
+/**
+ * Публичный URL российской витрины, где живёт платёжный контур (ЮKassa).
+ * Оплата обрабатывается ТОЛЬКО этим сервером, потому что ЮKassa принимает
+ * вебхуки исключительно с российских IP. На основном домене эндпоинт
+ * /api/v1/payments/create возвращает 410 (payments_disabled_on_primary).
+ */
+export const RU_PAYMENTS_SITE_URL = 'https://ru.ailookstudio.ru';
+
 export function createPayment(packQty: number) {
   return request<{ payment_id: string; confirmation_url: string }>('/api/v1/payments/create', {
     method: 'POST',
     body: JSON.stringify({ pack_qty: packQty }),
   });
+}
+
+/**
+ * Нормализует ошибку создания платежа в человекочитаемое сообщение.
+ * Если сервер вернул 410 (primary без YooKassa), редиректим на RU-домен
+ * вместо alert — пользователь сразу попадает туда, где реально можно
+ * оплатить, без загадочных «Ошибка создания платежа».
+ */
+export function handleCreatePaymentError(e: unknown): string {
+  if (e instanceof ApiError && e.status === 410) {
+    try {
+      const returnUrl = `${RU_PAYMENTS_SITE_URL}/#тарифы`;
+      window.location.href = returnUrl;
+    } catch {
+      /* fall through */
+    }
+    return 'Оплата принимается только через ru.ailookstudio.ru — перенаправляем…';
+  }
+  return 'Не удалось создать платёж. Попробуй ещё раз.';
 }
 
 // -- Identity Linking --

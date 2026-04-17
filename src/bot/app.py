@@ -31,9 +31,35 @@ def create_bot() -> Bot:
     )
 
 
+def _resolve_bot_api_base_url() -> str:
+    """Выбор бэкенда, к которому ходит бот.
+
+    Архитектура геосплита: на Railway (primary) живёт AI-часть, а auth /
+    payments / tasks / user storage держатся на RU-edge — потому что ЮKassa
+    умеет только российские IP и своя БД на RU хранит реальные балансы
+    пользователей. Поэтому бот обязан ходить на EDGE_API_URL, если он задан,
+    и edge сам проксирует AI-вызовы на Railway через INTERNAL_API_KEY.
+
+    Фолбек на API_BASE_URL нужен только для dev / локального запуска (когда
+    edge-сервера нет). В production без EDGE_API_URL бот работать не должен —
+    мы об этом громко пишем в лог.
+    """
+    edge = (settings.edge_api_url or "").strip()
+    if edge:
+        return edge.rstrip("/")
+    if settings.is_production:
+        logger.error(
+            "EDGE_API_URL is empty in production — bot will fall back to "
+            "API_BASE_URL=%s, but /payments/* endpoints on primary return 410 "
+            "and users cannot top up credits until EDGE_API_URL is configured.",
+            settings.api_base_url,
+        )
+    return settings.api_base_url.rstrip("/")
+
+
 def create_dispatcher(redis: Redis) -> Dispatcher:
     dp = Dispatcher()
-    api_url = settings.api_base_url
+    api_url = _resolve_bot_api_base_url()
     dp.message.middleware(UserRegistrationMiddleware(api_url, redis))
     dp.callback_query.middleware(UserRegistrationMiddleware(api_url, redis))
 
@@ -92,8 +118,12 @@ async def main():
         settings.resolved_compute_mode,
         f" git={sha[:12]}" if sha else "",
     )
-    if settings.edge_api_url:
-        logger.info("Ignoring EDGE_API_URL for bot traffic; bot is pinned to API_BASE_URL=%s", settings.api_base_url)
+    bot_api_url = _resolve_bot_api_base_url()
+    logger.info(
+        "Bot traffic pinned to %s (edge_api_url=%s, api_base_url=%s) — "
+        "auth/payments/tasks live on RU-edge, AI is proxied to primary.",
+        bot_api_url, settings.edge_api_url or "<empty>", settings.api_base_url,
+    )
     bot = create_bot()
     redis = Redis.from_url(settings.redis_url, decode_responses=True)
     dp = create_dispatcher(redis)

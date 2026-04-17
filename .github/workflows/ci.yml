@@ -81,6 +81,7 @@ jobs:
       RAILWAY_PROJECT_ID: ${{ secrets.RAILWAY_PROJECT_ID }}
       GLOBAL_API_BASE_URL: ${{ secrets.RAILWAY_API_URL }}
       GLOBAL_WEB_BASE_URL: https://ailookstudio.ru
+      RU_PUBLIC_BASE_URL: ${{ secrets.RU_PUBLIC_BASE_URL }}
     steps:
       - uses: actions/checkout@v4
 
@@ -156,6 +157,27 @@ jobs:
           rl_set API_BASE_URL="$GLOBAL_API_BASE_URL" -s bot -e production --skip-deploys
           rl_set API_BASE_URL="$GLOBAL_API_BASE_URL" -s worker -e production --skip-deploys
           rl_set WEB_BASE_URL="$GLOBAL_WEB_BASE_URL" -s app -e production --skip-deploys
+          # YooKassa живёт только на RU-edge: закрепляем это на уровне инфры.
+          # Бот ходит к edge за /auth, /payments/*, /tasks и /analyze, edge сам
+          # проксирует AI на primary через INTERNAL_API_KEY. Без EDGE_API_URL
+          # бот упадёт на API_BASE_URL (Railway), где /payments/* возвращает 410.
+          if [ -n "$RU_PUBLIC_BASE_URL" ]; then
+            echo "Syncing EDGE_API_URL=$RU_PUBLIC_BASE_URL to bot service..."
+            rl_set EDGE_API_URL="$RU_PUBLIC_BASE_URL" -s bot -e production --skip-deploys
+          else
+            echo "::warning::RU_PUBLIC_BASE_URL not set — bot cannot route to RU edge"
+          fi
+          # Зануляем любые тестовые YOOKASSA_* на primary: платежи обрабатывает
+          # только RU-edge сервер, у него свой .env.ru с live-кредами.
+          # Пустая строка на Railway означает «не настроено» — startup guard в
+          # src/main.py дополнительно зачистит значения в памяти.
+          echo "Clearing YOOKASSA_* from Railway services (payments live only on RU edge)..."
+          rl_set YOOKASSA_SHOP_ID="" -s app -e production --skip-deploys
+          rl_set YOOKASSA_SECRET_KEY="" -s app -e production --skip-deploys
+          rl_set YOOKASSA_SHOP_ID="" -s worker -e production --skip-deploys
+          rl_set YOOKASSA_SECRET_KEY="" -s worker -e production --skip-deploys
+          rl_set YOOKASSA_SHOP_ID="" -s bot -e production --skip-deploys
+          rl_set YOOKASSA_SECRET_KEY="" -s bot -e production --skip-deploys
           if [ "$FAILED" -ne 0 ]; then
             echo "::error::One or more Railway variable updates failed"
             exit 1

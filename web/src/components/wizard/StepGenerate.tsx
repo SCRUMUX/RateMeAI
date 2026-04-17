@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { CoinIcon } from '@ai-ds/core/icons';
 import { normalizePostPaymentPath } from '../../scenarios/config';
-import { createPayment, ApiError } from '../../lib/api';
+import { createPayment, handleCreatePaymentError } from '../../lib/api';
 import { rememberFlowReturnPath, rememberFlowStep } from '../../lib/flow-resume';
 import { hasPendingTask } from '../../lib/pending-task';
 import { savePhotoBeforePayment } from '../../lib/photo-persist';
@@ -190,7 +190,7 @@ export default function StepGenerate({ onGoToStep, onOpenStorage }: Props) {
       const res = await createPayment(qty);
       window.location.href = res.confirmation_url;
     } catch (e) {
-      alert(e instanceof ApiError ? 'Ошибка создания платежа' : 'Ошибка');
+      alert(handleCreatePaymentError(e));
       setPaymentLoading(false);
     }
   }

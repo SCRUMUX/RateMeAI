@@ -32,3 +32,26 @@ def client():
 
     with TestClient(app) as c:
         yield c
+
+
+@pytest.fixture
+def edge_client(monkeypatch):
+    """TestClient c deployment_mode=edge.
+
+    Платёжный контур (create / yookassa webhook) живёт только на RU-edge —
+    на primary эти эндпоинты намеренно отдают 410. Тесты, которые проверяют
+    бизнес-логику зачисления кредитов, используют этот клиент, чтобы guard
+    не мешал.
+    """
+    if not _integration_services_alive():
+        pytest.skip(
+            "Postgres (127.0.0.1:5432) and Redis (127.0.0.1:6379) required — "
+            "e.g. docker compose up -d postgres redis",
+        )
+    from fastapi.testclient import TestClient
+    from src.config import settings
+    from src.main import app
+
+    monkeypatch.setattr(settings, "deployment_mode", "edge")
+    with TestClient(app) as c:
+        yield c

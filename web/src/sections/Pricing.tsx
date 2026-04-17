@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { CoinIcon, ImageIcon } from '@ai-ds/core/icons';
 import { useApp } from '../context/AppContext';
-import { createPayment, ApiError } from '../lib/api';
+import { createPayment, handleCreatePaymentError } from '../lib/api';
 import { normalizePostPaymentPath, getPostPaymentReturnPath } from '../scenarios/config';
 import { rememberFlowReturnPath } from '../lib/flow-resume';
 
@@ -45,7 +45,7 @@ export default function Pricing() {
       const res = await createPayment(packQty);
       window.location.href = res.confirmation_url;
     } catch (e) {
-      alert(e instanceof ApiError ? 'Ошибка создания платежа' : 'Ошибка');
+      alert(handleCreatePaymentError(e));
       setLoading(null);
     }
   }
