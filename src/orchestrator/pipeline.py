@@ -25,10 +25,7 @@ from src.services.task_contract import (
 from src.utils.humanize import humanize_result_scores
 from src.utils.image import validate_and_normalize
 from src.services.input_quality import analyze_input_quality, InputQualityReport
-from src.utils.redis_keys import (
-    embedding_cache_key,
-    preanalysis_cache_keys,
-)
+from src.utils.redis_keys import preanalysis_cache_keys
 from src.utils.security import extract_nsfw_from_analysis
 from src.tracing import async_span
 
@@ -80,18 +77,24 @@ class AnalysisPipeline:
             storage=storage,
             identity_svc_getter=self._get_identity_service,
             gate_runner_getter=self._get_gate_runner,
-            embedding_getter=self._get_or_compute_embedding,
             segmentation_getter=self._get_segmentation_service,
         )
         self._delta_scorer = DeltaScorer(router=self._router, storage=storage, redis=redis)
 
     def _get_identity_service(self):
+        """Return the (lightweight) face-presence detector, if available.
+
+        No longer loads InsightFace / ArcFace — the returned service only
+        exposes ``detect_face`` (MediaPipe) and ``face_bbox`` (for optional
+        segmentation). Identity preservation is verified by the VLM quality
+        gate on two images (see services/quality_gates.py).
+        """
         if self._identity is None:
             try:
                 from src.services.identity import IdentityService
-                self._identity = IdentityService(threshold=settings.identity_threshold)
+                self._identity = IdentityService()
             except ImportError:
-                logger.warning("InsightFace not installed — identity gate disabled")
+                logger.warning("MediaPipe not installed — face presence detection disabled")
         return self._identity
 
     @property
@@ -109,46 +112,7 @@ class AnalysisPipeline:
 
     def _get_gate_runner(self):
         from src.services.quality_gates import QualityGateRunner
-        return QualityGateRunner(identity_svc=self._get_identity_service(), llm=self._llm)
-
-    async def _get_or_compute_embedding(
-        self,
-        task_id: str,
-        image_bytes: bytes,
-        market_id: str | None = None,
-    ):
-        """Return cached embedding from Redis, or compute and cache it."""
-        import numpy as np
-
-        identity_svc = self._get_identity_service()
-        if identity_svc is None:
-            return None
-
-        if self._redis:
-            try:
-                cached = await self._redis.get(embedding_cache_key(task_id, market_id))
-                if cached:
-                    if isinstance(cached, str):
-                        import base64
-                        cached = base64.b64decode(cached)
-                    return np.frombuffer(cached, dtype=np.float32).copy()
-            except Exception:
-                logger.debug("Embedding cache miss for task %s", task_id)
-
-        emb = identity_svc.compute_embedding(image_bytes)
-        if emb is not None and self._redis:
-            try:
-                import base64
-                b64 = base64.b64encode(emb.astype(np.float32).tobytes()).decode()
-                await self._redis.set(
-                    embedding_cache_key(task_id, market_id),
-                    b64,
-                    ex=settings.embedding_redis_ttl_seconds,
-                )
-            except Exception:
-                logger.debug("Failed to cache embedding for task %s", task_id)
-
-        return emb
+        return QualityGateRunner(llm=self._llm)
 
     async def execute(
         self,

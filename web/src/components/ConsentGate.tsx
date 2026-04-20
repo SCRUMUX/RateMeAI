@@ -5,7 +5,7 @@ interface Props {
   children: React.ReactNode;
 }
 
-const REQUIRED_KINDS = ['data_processing', 'ai_transfer'] as const;
+const REQUIRED_KINDS = ['data_processing', 'ai_transfer', 'age_confirmed_16'] as const;
 type RequiredKind = typeof REQUIRED_KINDS[number];
 
 const LABELS: Record<RequiredKind, string> = {
@@ -13,6 +13,8 @@ const LABELS: Record<RequiredKind, string> = {
     'Я даю согласие на обработку персональных данных, включая фото лица.',
   ai_transfer:
     'Я соглашаюсь на передачу фото во внешние AI-сервисы (OpenRouter, Reve и др.), в том числе за пределы РФ.',
+  age_confirmed_16:
+    'Мне 16 лет или больше. Я понимаю, что сервис не предназначен для лиц младше 16 лет.',
 };
 
 const HINTS: Record<RequiredKind, string> = {
@@ -20,6 +22,8 @@ const HINTS: Record<RequiredKind, string> = {
     'Оригинал фото не сохраняется: после обработки он удаляется. Скоры и сгенерированное изображение хранятся 72 часа.',
   ai_transfer:
     'Без этого согласия я не смогу сгенерировать новое изображение — это юридическое ограничение.',
+  age_confirmed_16:
+    'Требование ст. 8 GDPR и внутренних политик. При ложном подтверждении аккаунт может быть заблокирован.',
 };
 
 const PRIVACY_POLICY_URL = '/privacy';
@@ -29,6 +33,7 @@ export default function ConsentGate({ children }: Props) {
   const [checked, setChecked] = useState<Record<RequiredKind, boolean>>({
     data_processing: false,
     ai_transfer: false,
+    age_confirmed_16: false,
   });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -77,7 +82,7 @@ export default function ConsentGate({ children }: Props) {
           Согласия на обработку данных
         </h2>
         <p className="text-[13px] leading-[18px] text-[var(--color-text-secondary)] mb-[var(--space-16)]">
-          Прежде чем загрузить фото, подтвердите оба согласия. Они обязательны
+          Прежде чем загрузить фото, подтвердите все пункты. Они обязательны
           по закону. Вы можете отозвать их в любой момент в настройках профиля.
         </p>
 

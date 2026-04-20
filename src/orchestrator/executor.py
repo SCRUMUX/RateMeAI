@@ -18,7 +18,7 @@ from src.orchestrator.model_router import ModelRouter
 from src.orchestrator.planner import PipelinePlan
 from src.prompts.engine import PromptEngine
 from src.providers.base import ImageGenProvider, StorageProvider
-from src.services.postprocess import composite_face_region, inject_exif_only
+from src.services.postprocess import inject_exif_only
 # TODO: A/B framework — uncomment when experiments are registered via register_experiment()
 # from src.services.prompt_ab import get_active_experiments, assign_variant, record_result
 
@@ -73,7 +73,6 @@ class ImageGenerationExecutor:
         storage: StorageProvider,
         identity_svc_getter: Callable,
         gate_runner_getter: Callable,
-        embedding_getter: Callable,
         segmentation_getter: Callable | None = None,
     ):
         self._image_gen = image_gen
@@ -82,7 +81,6 @@ class ImageGenerationExecutor:
         self._storage = storage
         self._get_identity_service = identity_svc_getter
         self._get_gate_runner = gate_runner_getter
-        self._get_or_compute_embedding = embedding_getter
         self._get_segmentation = segmentation_getter
 
     # TODO: A/B framework — uncomment when experiments are registered via register_experiment()
@@ -92,7 +90,7 @@ class ImageGenerationExecutor:
     #         variant = assign_variant(exp.experiment_id, task_id)
     #         if variant:
     #             metrics = {
-    #                 "identity_score": float(quality_report.get("face_similarity") or 0),
+    #                 "identity_match": float(quality_report.get("identity_match") or 0),
     #                 "aesthetic_score": float(quality_report.get("aesthetic_score") or 0),
     #                 "niqe_score": float(quality_report.get("niqe_score") or 0),
     #             }
@@ -114,7 +112,6 @@ class ImageGenerationExecutor:
         input_quality: Any | None = None,
     ) -> None:
         gate_runner = self._get_gate_runner()
-        original_embedding = await self._get_or_compute_embedding(task_id, image_bytes)
         current_image = image_bytes
         intermediates: list[str] = []
         remaining_budget = plan.cost_budget
@@ -131,7 +128,7 @@ class ImageGenerationExecutor:
 
                 raw, cost = await self._run_single_step(
                     step, i, plan, mode, style, current_image, image_bytes,
-                    original_embedding, gate_runner, remaining_budget, trace,
+                    gate_runner, remaining_budget, trace,
                     enhancement_level, gender=gender,
                 )
                 remaining_budget -= cost
@@ -153,7 +150,7 @@ class ImageGenerationExecutor:
 
             if current_image is not image_bytes and len(current_image) > 100:
                 global_passed, global_results, quality_report = await gate_runner.run_global_gates(
-                    plan.global_gates, image_bytes, current_image, original_embedding,
+                    plan.global_gates, image_bytes, current_image,
                 )
                 result_dict["quality_report"] = quality_report
                 trace["global_gates"] = [
@@ -199,12 +196,14 @@ class ImageGenerationExecutor:
                 result_dict["generated_image_url"] = gen_url
                 result_dict["image_url"] = gen_url
 
-                identity_score = quality_report.get("face_similarity") or 0.0
+                identity_match = quality_report.get("identity_match") or 0.0
+                if identity_match:
+                    IDENTITY_SCORE.observe(float(identity_match) / 10.0)
                 result_dict["enhancement"] = {
                     "style": style or "default",
                     "mode": mode.value,
                     "provider": "multi_pass",
-                    "identity_score": round(identity_score, 3) if identity_score else 0.0,
+                    "identity_match": round(float(identity_match), 2) if identity_match else 0.0,
                     "steps_executed": len(intermediates),
                     "pipeline_type": "multi_pass",
                 }
@@ -237,7 +236,7 @@ class ImageGenerationExecutor:
 
     async def _run_single_step(
         self, step, i: int, plan, mode, style, current_image, original_image,
-        original_embedding, gate_runner, budget, trace, enhancement_level: int = 0,
+        gate_runner, budget, trace, enhancement_level: int = 0,
         gender: str = "male",
     ) -> tuple[bytes | None, float]:
         """Execute one pipeline step. Returns (output_bytes, cost_spent)."""
@@ -303,20 +302,13 @@ class ImageGenerationExecutor:
             if not raw or len(raw) <= 100:
                 return None, model_spec.cost_per_call
 
-            if step.gate.get("face_similarity") and original_embedding is not None:
-                gate_results = await gate_runner.run_gates(
-                    {"face_similarity": step.gate["face_similarity"]},
-                    original_image, raw, original_embedding,
-                )
-                step_entry["gate"] = [
-                    {"gate": gr.gate_name, "passed": gr.passed, "value": gr.value, "threshold": gr.threshold}
-                    for gr in gate_results
-                ]
-                if not all(gr.passed for gr in gate_results):
-                    logger.warning(
-                        "Step %s identity gate failed — accepting result (no retries)",
-                        step.step,
-                    )
+            # Per-step identity gate is intentionally a *soft* check here: an
+            # extra per-step VLM call doubles the cost of every intermediate
+            # pass and `run_global_gates` at the end of the plan already makes
+            # the binding identity check on the final result. We therefore
+            # skip per-step VLM calls and rely on the global gate only.
+            if step.gate.get("identity_match"):
+                step_entry["gate"] = [{"gate": "identity_match", "deferred": "global"}]
 
             return raw, model_spec.cost_per_call
 
@@ -330,8 +322,6 @@ class ImageGenerationExecutor:
             return
         if self._image_gen is None:
             return
-
-        identity_svc = self._get_identity_service()
 
         try:
             desc = str(result_dict.get("base_description", ""))
@@ -404,7 +394,7 @@ class ImageGenerationExecutor:
                     )
 
             raw = None
-            identity_score = 0.0
+            identity_match: float = 0.0
 
             if extra.get("mask_image"):
                 mask_label = "bg_pixel"
@@ -435,67 +425,11 @@ class ImageGenerationExecutor:
 
             warnings: list[str] = result_dict.setdefault("generation_warnings", [])
 
-            if raw and mode != AnalysisMode.EMOJI and identity_svc:
-                with _trace_step(trace, "identity_check") as gate_entry:
-                    passed, identity_score = identity_svc.verify(image_bytes, raw)
-                    gate_entry["similarity"] = round(identity_score, 3)
-                    gate_entry["passed"] = passed
-                IDENTITY_SCORE.observe(identity_score)
-
-                # Try face compositing whenever identity dropped noticeably.
-                # The PIL-level compositing is free (no API calls) and the
-                # downstream gate picks the better of (original, composited).
-                if not passed and 0.0 < identity_score < 0.78:
-                    with _trace_step(trace, "face_compositing") as comp_entry:
-                        composited, new_score = await composite_face_region(
-                            image_bytes, raw, identity_svc,
-                        )
-                        comp_entry["original_score"] = round(identity_score, 3)
-                        comp_entry["composited_score"] = round(new_score, 3)
-                    if new_score > identity_score:
-                        logger.info(
-                            "Face compositing improved identity: %.3f -> %.3f (task=%s)",
-                            identity_score, new_score, task_id,
-                        )
-                        raw = composited
-                        identity_score = new_score
-                        passed = identity_score >= settings.identity_threshold
-
-                if identity_score == 0.0:
-                    warnings.append(
-                        "На обработанном фото не распознано лицо. "
-                        "Загрузи чёткое портретное фото анфас с хорошим освещением "
-                        "для более точного результата."
-                    )
-                elif identity_score < 0.5:
-                    warnings.append(
-                        "Сильное отличие от оригинала — рекомендуем другое фото. "
-                        "Лучше всего работает чёткое лицо крупным планом, анфас, "
-                        "без затемнений и без сложного фона."
-                    )
-                elif identity_score < 0.65:
-                    warnings.append(
-                        "Результат может заметно отличаться от оригинала. "
-                        "Для лучшего сходства загрузи фото в более высоком качестве."
-                    )
-                elif identity_score < 0.75:
-                    warnings.append(
-                        "Небольшие отличия от оригинала. "
-                        "Для максимальной точности используй фото с чётким лицом "
-                        "крупным планом."
-                    )
-
-                logger.info(
-                    "Identity gate: similarity=%.3f threshold=%.2f passed=%s warnings=%d (task=%s)",
-                    identity_score, settings.identity_threshold, passed,
-                    len(warnings), task_id,
-                )
-
             if raw and len(raw) > 100 and mode != AnalysisMode.EMOJI:
                 try:
                     gate_runner = self._get_gate_runner()
-                    original_embedding = await self._get_or_compute_embedding(task_id, image_bytes)
                     sp_gates: dict[str, float] = {
+                        "identity_match": settings.identity_match_threshold,
                         "aesthetic_score": settings.aesthetic_threshold,
                     }
                     if settings.photorealism_enabled:
@@ -504,13 +438,36 @@ class ImageGenerationExecutor:
 
                     with _trace_step(trace, "single_pass_gates") as sp_entry:
                         sp_passed, sp_results, sp_report = await gate_runner.run_global_gates(
-                            sp_gates, image_bytes, raw, original_embedding,
+                            sp_gates, image_bytes, raw,
                         )
                         sp_entry["gates"] = [
                             {"gate": gr.gate_name, "passed": gr.passed, "value": gr.value}
                             for gr in sp_results
                         ]
                     result_dict["quality_report"] = sp_report
+
+                    identity_match = float(sp_report.get("identity_match") or 0.0)
+                    if identity_match:
+                        IDENTITY_SCORE.observe(identity_match / 10.0)
+
+                    # Soft, user-facing warnings when identity preservation
+                    # drops — mirrors the previous ArcFace-based UX messaging,
+                    # but with the new 0-10 identity_match scale.
+                    if identity_match == 0.0 and not sp_report.get("identity_match"):
+                        # VLM returned null (not a failure, just no comparison)
+                        pass
+                    elif identity_match < settings.identity_match_soft_threshold:
+                        warnings.append(
+                            "Сильное отличие от оригинала — рекомендуем другое фото. "
+                            "Лучше всего работает чёткое лицо крупным планом, анфас, "
+                            "без затемнений и без сложного фона."
+                        )
+                    elif identity_match < settings.identity_match_threshold:
+                        warnings.append(
+                            "Результат может заметно отличаться от оригинала. "
+                            "Для лучшего сходства загрузи фото в более высоком качестве."
+                        )
+
                     if not sp_passed:
                         logger.warning(
                             "Single-pass quality gates failed for task=%s: %s",
@@ -562,7 +519,7 @@ class ImageGenerationExecutor:
                     "style": style or "default",
                     "mode": mode.value,
                     "provider": provider_name,
-                    "identity_score": round(identity_score, 3),
+                    "identity_match": round(identity_match, 2),
                     "generation_attempts": 1,
                     "pipeline_type": "single_pass_edit",
                 }
@@ -572,7 +529,7 @@ class ImageGenerationExecutor:
                     "total_usd": round(estimated_cost, 4),
                     "budget_usd": settings.pipeline_budget_max_usd,
                 }
-                logger.info("Image generated (edit mode): %s (identity=%.3f)", gkey, identity_score)
+                logger.info("Image generated (edit mode): %s (identity_match=%.2f)", gkey, identity_match)
             else:
                 logger.warning("Image gen returned no usable result for task=%s", task_id)
                 result_dict["image_gen_error"] = "empty_result"
@@ -622,8 +579,19 @@ def _compute_authenticity(quality_report: dict) -> float:
 
     Authenticity is a guarantee parameter (not a growth metric): it reflects
     how real and identity-preserving the generated photo is.
+
+    Inputs are purely stateless scalars produced by the VLM quality gate
+    (no local face embeddings): ``identity_match`` on 0-10 scale is
+    rescaled to 0-1, everything else is used as-is.
     """
-    face_sim = float(quality_report.get("face_similarity") or 0.9)
+    # identity_match is 0-10 (VLM scale); if absent (e.g. single-image
+    # quality check without reference), fall back to a neutral 0.9 ≈ 9/10.
+    id_match_raw = quality_report.get("identity_match")
+    if id_match_raw is None:
+        id_factor = 0.9
+    else:
+        id_factor = max(0.0, min(1.0, float(id_match_raw) / 10.0))
+
     photorealism = float(quality_report.get("photorealism_confidence") or 0.8)
     is_real = quality_report.get("is_photorealistic", True)
     teeth_ok = quality_report.get("teeth_natural", True)
@@ -633,7 +601,7 @@ def _compute_authenticity(quality_report: dict) -> float:
     if not is_real:
         photorealism *= 0.5
 
-    raw = face_sim * 4.0 + photorealism * 3.0 + naturalness * 3.0
+    raw = id_factor * 4.0 + photorealism * 3.0 + naturalness * 3.0
     return round(min(9.99, max(5.0, raw)), 2)
 
 
@@ -694,9 +662,10 @@ class DeltaScorer:
         The original bytes are no longer needed here — pre-scores are taken
         from ``result_dict`` (populated by the primary LLM pass or cached
         pre-analysis), and authenticity is derived from the quality report
-        which itself relies on the already-cached ArcFace embedding. This
-        keeps the original image out of the worker's working set after
-        preprocessing.
+        that was already produced during the synchronous single-pass/
+        multi-pass quality gate (stateless VLM check, no persisted
+        biometric artefacts). This keeps the original image out of the
+        worker's working set after preprocessing.
         """
         try:
             gen_key = f"generated/{user_id}/{task_id}.jpg"

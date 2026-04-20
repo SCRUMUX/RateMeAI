@@ -1,9 +1,13 @@
 """Pre-flight input quality gate.
 
-Analyzes an uploaded photo locally (InsightFace + mediapipe + Laplacian) to decide
-whether we should spend a Reve API call on it. The gate is designed to be cheap
-(no LLM, no image generation) and to surface precise, actionable reasons to the
-user BEFORE any paid API is invoked.
+Analyzes an uploaded photo locally (MediaPipe FaceDetection + Laplacian)
+to decide whether we should spend a Reve API call on it. The gate is
+designed to be cheap (no LLM, no image generation) and to surface
+precise, actionable reasons to the user BEFORE any paid API is invoked.
+
+Privacy note: we use only MediaPipe FaceDetection here, which returns a
+bounding box plus a handful of keypoints (eyes, nose, ears, mouth). No
+face-recognition feature vector (embedding) is computed or stored.
 
 Two levels of findings:
   - blocking issues → HTTP 400, no Reve call, user must re-upload
@@ -133,14 +137,122 @@ def _laplacian_variance(arr: np.ndarray) -> float:
     return float(np.var(lap))
 
 
-def _detect_faces(arr_rgb: np.ndarray) -> list[Any]:
-    """Return InsightFace detections (empty list on any failure)."""
+_mp_detector = None
+_mp_available: bool | None = None
+
+
+def _get_mp_detector():
+    """Lazy-load MediaPipe FaceDetection (full-range model)."""
+    global _mp_detector, _mp_available
+    if _mp_available is False:
+        return None
+    if _mp_detector is not None:
+        return _mp_detector
     try:
-        from src.services.identity import _get_app
-        return list(_get_app().get(arr_rgb))
+        import mediapipe as mp
+        _mp_detector = mp.solutions.face_detection.FaceDetection(
+            model_selection=1, min_detection_confidence=0.4,
+        )
+        _mp_available = True
+        return _mp_detector
     except Exception:
-        logger.debug("InsightFace detection failed", exc_info=True)
+        _mp_available = False
+        logger.info("MediaPipe FaceDetection unavailable — input-quality face gate degraded")
+        return None
+
+
+@dataclass
+class _MPFace:
+    """Normalized face detection with the fields input-quality needs.
+
+    Mirrors the subset of the InsightFace `Face` shape previously relied on:
+    ``bbox`` (x1,y1,x2,y2), ``det_score``, and a ``pose`` array we derive
+    from MediaPipe keypoints (MediaPipe does not expose head pose natively).
+    """
+    bbox: tuple[int, int, int, int]
+    det_score: float
+    keypoints: dict[str, tuple[float, float]]
+
+    @property
+    def pose(self) -> tuple[float, float, float]:
+        """Approximate (yaw, pitch, roll) in degrees from 2D keypoints.
+
+        Heuristic, not calibrated — the caller only uses a >30° yaw / >25°
+        pitch heuristic to emit soft warnings, so rough accuracy is fine.
+        """
+        kp = self.keypoints
+        left_eye = kp.get("left_eye")
+        right_eye = kp.get("right_eye")
+        nose = kp.get("nose_tip")
+        if not (left_eye and right_eye and nose):
+            return 0.0, 0.0, 0.0
+
+        import math
+
+        eye_mid_x = (left_eye[0] + right_eye[0]) / 2.0
+        eye_mid_y = (left_eye[1] + right_eye[1]) / 2.0
+        eye_dist = math.hypot(right_eye[0] - left_eye[0], right_eye[1] - left_eye[1])
+        if eye_dist <= 1e-6:
+            return 0.0, 0.0, 0.0
+
+        # Yaw: horizontal offset of nose from midpoint between eyes (in eye-width units)
+        yaw_norm = (nose[0] - eye_mid_x) / eye_dist
+        yaw = max(-60.0, min(60.0, yaw_norm * 60.0))
+
+        # Pitch: vertical offset of nose below eye-line (expected ~0.5×eye_dist for frontal)
+        pitch_norm = (nose[1] - eye_mid_y) / eye_dist - 0.5
+        pitch = max(-60.0, min(60.0, pitch_norm * 60.0))
+
+        # Roll: angle of the eye line
+        roll_rad = math.atan2(right_eye[1] - left_eye[1], right_eye[0] - left_eye[0])
+        roll = math.degrees(roll_rad)
+
+        return float(yaw), float(pitch), float(roll)
+
+
+def _detect_faces(arr_rgb: np.ndarray) -> list[_MPFace]:
+    """Return MediaPipe face detections normalized to the local _MPFace struct."""
+    detector = _get_mp_detector()
+    if detector is None:
         return []
+    try:
+        result = detector.process(arr_rgb)
+    except Exception:
+        logger.debug("MediaPipe face detection failed", exc_info=True)
+        return []
+    if not result.detections:
+        return []
+
+    h, w = arr_rgb.shape[:2]
+    out: list[_MPFace] = []
+    for det in result.detections:
+        try:
+            box = det.location_data.relative_bounding_box
+            x1 = max(0, int(box.xmin * w))
+            y1 = max(0, int(box.ymin * h))
+            x2 = min(w, int((box.xmin + box.width) * w))
+            y2 = min(h, int((box.ymin + box.height) * h))
+            if x2 <= x1 or y2 <= y1:
+                continue
+
+            # MediaPipe keypoint order (face_detection): 0=RIGHT_EYE, 1=LEFT_EYE,
+            # 2=NOSE_TIP, 3=MOUTH_CENTER, 4=RIGHT_EAR_TRAGION, 5=LEFT_EAR_TRAGION.
+            kps_raw = list(det.location_data.relative_keypoints)
+            names = ("right_eye", "left_eye", "nose_tip", "mouth_center",
+                     "right_ear", "left_ear")
+            keypoints: dict[str, tuple[float, float]] = {}
+            for name, kp in zip(names, kps_raw):
+                keypoints[name] = (kp.x * w, kp.y * h)
+
+            score = float(det.score[0]) if det.score else 0.0
+            out.append(_MPFace(
+                bbox=(x1, y1, x2, y2),
+                det_score=score,
+                keypoints=keypoints,
+            ))
+        except Exception:
+            continue
+    return out
 
 
 def _hair_bg_contrast(arr_rgb: np.ndarray, bbox: tuple[int, int, int, int]) -> float:
@@ -183,10 +295,11 @@ def _hair_bg_contrast(arr_rgb: np.ndarray, bbox: tuple[int, int, int, int]) -> f
 
 
 def _pose_angles(face: Any) -> tuple[float, float, float]:
-    """Extract (yaw, pitch, roll) in degrees from an InsightFace detection.
+    """Return (yaw, pitch, roll) for a detection; works with _MPFace via its ``pose``.
 
-    InsightFace exposes pose as [pitch, yaw, roll] in some builds, [yaw, pitch, roll]
-    in others. We query `pose` attribute and fall back to zeros on any mismatch.
+    Kept as a function for backward compatibility with tests that call it
+    directly. Any object exposing a ``.pose`` attribute with three values
+    is accepted.
     """
     pose = getattr(face, "pose", None)
     if pose is None:
@@ -195,9 +308,7 @@ def _pose_angles(face: Any) -> tuple[float, float, float]:
         arr = np.asarray(pose, dtype=np.float32).flatten()
         if arr.size < 3:
             return 0.0, 0.0, 0.0
-        # buffalo_l returns [pitch, yaw, roll] (degrees)
-        pitch, yaw, roll = float(arr[0]), float(arr[1]), float(arr[2])
-        return yaw, pitch, roll
+        return float(arr[0]), float(arr[1]), float(arr[2])
     except Exception:
         return 0.0, 0.0, 0.0
 

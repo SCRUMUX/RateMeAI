@@ -371,13 +371,38 @@ export default function StepGenerate({ onGoToStep, onOpenStorage }: Props) {
 
             {/* Generated result */}
             {!showingOriginal && hasGenResult && (
-              <img
-                src={app.generatedImageUrl!}
-                alt="Generated"
-                className="w-full h-full object-cover cursor-pointer"
-                onClick={() => onOpenStorage?.()}
-                onError={() => setImageLoadError(true)}
-              />
+              <>
+                <img
+                  src={app.generatedImageUrl!}
+                  alt="Generated"
+                  className="w-full h-full object-cover cursor-pointer"
+                  onClick={() => onOpenStorage?.()}
+                  onError={() => setImageLoadError(true)}
+                />
+                {/* AI transparency badge — EU AI Act Art. 50 / visible disclosure.
+                    Intentionally top-left, readable without zoom, and not removable
+                    by the user in the preview. A matching EXIF UserComment field
+                    is injected server-side (P1.5). */}
+                <div
+                  className="absolute top-[var(--space-8)] left-[var(--space-8)] z-20 pointer-events-none select-none"
+                  aria-label="Изображение сгенерировано искусственным интеллектом"
+                >
+                  <span
+                    className="inline-flex items-center gap-[4px] px-[8px] py-[3px] rounded-[var(--radius-pill)] text-[10px] leading-[12px] font-semibold tracking-[0.02em] text-white"
+                    style={{
+                      background: 'rgba(0,0,0,0.55)',
+                      backdropFilter: 'blur(6px)',
+                      WebkitBackdropFilter: 'blur(6px)',
+                      border: '1px solid rgba(255,255,255,0.18)',
+                    }}
+                  >
+                    <svg width="10" height="10" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                      <path d="M8 2L9.5 6.5L14 8L9.5 9.5L8 14L6.5 9.5L2 8L6.5 6.5L8 2Z" fill="currentColor" />
+                    </svg>
+                    AI-generated
+                  </span>
+                </div>
+              </>
             )}
             {!showingOriginal && imageLoadError && app.generatedImageUrl && (
               <div className="w-full h-full flex flex-col items-center justify-center gap-3 text-center p-4">

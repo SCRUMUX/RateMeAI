@@ -61,8 +61,8 @@ def _make_jpeg_stub() -> bytes:
 def _base_settings(mock_settings) -> None:
     mock_settings.multi_pass_enabled = False
     mock_settings.reve_test_time_scaling = 3
-    mock_settings.identity_threshold = 0.70
-    mock_settings.identity_max_retries = 0
+    mock_settings.identity_match_threshold = 7.0
+    mock_settings.identity_match_soft_threshold = 5.0
     mock_settings.aesthetic_threshold = 6.0
     mock_settings.artifact_threshold = 0.05
     mock_settings.photorealism_enabled = False
@@ -83,10 +83,10 @@ def _build_executor(
     storage.upload = AsyncMock(return_value=None)
     storage.build_public_url = MagicMock(return_value="https://example/result.jpg")
     identity_svc = MagicMock()
-    identity_svc.verify = MagicMock(return_value=(True, 0.85))
+    identity_svc.detect_face = MagicMock(return_value=True)
     gate_runner = MagicMock()
     gate_runner.run_global_gates = AsyncMock(
-        return_value=(True, [], {"aesthetic_score": 7.0})
+        return_value=(True, [], {"aesthetic_score": 7.0, "identity_match": 8.5})
     )
 
     executor = ImageGenerationExecutor(
@@ -96,7 +96,6 @@ def _build_executor(
         storage=storage,
         identity_svc_getter=lambda: identity_svc,
         gate_runner_getter=lambda: gate_runner,
-        embedding_getter=AsyncMock(return_value=[0.1] * 128),
         segmentation_getter=(lambda: seg_svc) if seg_svc is not None else None,
     )
     return executor, image_gen

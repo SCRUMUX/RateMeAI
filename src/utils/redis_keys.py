@@ -40,10 +40,6 @@ def gen_image_cache_keys(task_id: str, market_id: str | None = None) -> list[str
     return [key] if key == legacy else [key, legacy]
 
 
-def embedding_cache_key(task_id: str, market_id: str | None = None) -> str:
-    return _scoped("embedding", task_id, market_id)
-
-
 def preanalysis_cache_key(pre_analysis_id: str, market_id: str | None = None) -> str:
     return _scoped("preanalysis", pre_analysis_id, market_id)
 

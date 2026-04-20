@@ -1,7 +1,8 @@
 """Image segmentation service: face, body, background, and clothing masks.
 
-Uses mediapipe SelfieSegmentation for body-vs-background and InsightFace
-face detection (already loaded by IdentityService) for face bounding box.
+Uses mediapipe SelfieSegmentation for body-vs-background and MediaPipe
+FaceDetection (via ``IdentityService``) for the face bounding box. No
+ArcFace embeddings, no face-recognition features — just bounding boxes.
 Clothing mask is derived as body minus face region.
 """
 from __future__ import annotations
@@ -33,15 +34,13 @@ def _image_to_array(image_bytes: bytes) -> tuple[np.ndarray, Image.Image]:
 
 
 def _face_bbox_mask(image_bytes: bytes, width: int, height: int, padding: float = 0.15) -> Image.Image | None:
-    """Build a soft rectangular mask around the dominant face using InsightFace."""
+    """Build a soft rectangular mask around the dominant face (MediaPipe)."""
     try:
-        from src.services.identity import _get_app, _image_to_array as id_to_array
-        arr = id_to_array(image_bytes)
-        faces = _get_app().get(arr)
-        if not faces:
+        from src.services.identity import IdentityService
+        bbox = IdentityService().face_bbox(image_bytes)
+        if bbox is None:
             return None
-        best = max(faces, key=lambda f: f.det_score)
-        x1, y1, x2, y2 = best.bbox.astype(int)
+        x1, y1, x2, y2 = bbox
         bw, bh = x2 - x1, y2 - y1
         pad_x, pad_y = int(bw * padding), int(bh * padding)
         x1 = max(0, x1 - pad_x)

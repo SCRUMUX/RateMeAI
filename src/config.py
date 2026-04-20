@@ -22,8 +22,6 @@ class Settings(BaseSettings):
     task_input_redis_ttl_seconds: int = 3600
     # TTL for generated image cache in Redis (seconds); bridges worker→app on Railway (3 days default)
     gen_image_redis_ttl_seconds: int = 259200
-    # TTL for face embedding cache in Redis (privacy-layer: 72h — matches result retention)
-    embedding_redis_ttl_seconds: int = 259200
     # TTL for staged (sanitized) image bytes in Redis before worker picks them up
     privacy_stash_ttl_seconds: int = 900
     # Privacy GC: physical deletion of generated/* + share cards after N seconds
@@ -74,9 +72,12 @@ class Settings(BaseSettings):
     admin_secret: str = ""
     api_key_pepper: str = ""
 
-    # Identity gate (face similarity — logged for telemetry, no retries in edit mode)
-    identity_threshold: float = 0.70
-    identity_max_retries: int = 0
+    # Identity preservation gate thresholds.
+    # Identity check is a VLM-based 1:1 photo comparison at quality-gate time;
+    # no embeddings are extracted or stored. The LLM returns ``identity_match``
+    # on a 0–10 scale (see QUALITY_CHECK_PROMPT in quality_gates.py).
+    identity_match_threshold: float = 7.0
+    identity_match_soft_threshold: float = 5.0
 
     # Segmentation / multi-pass pipeline.
     # Segmentation is DISABLED because Reve SDK 0.1.2 does not accept a

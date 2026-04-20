@@ -107,6 +107,9 @@ async def require_consents(
     x_consent_ai_transfer: str | None = Header(
         None, alias="X-Consent-AI-Transfer"
     ),
+    x_consent_age_16: str | None = Header(
+        None, alias="X-Consent-Age-16"
+    ),
 ) -> User:
     """Enforce both mandatory consents.
 
@@ -120,6 +123,7 @@ async def require_consents(
         REQUIRED_CONSENT_KINDS,
         CONSENT_DATA_PROCESSING,
         CONSENT_AI_TRANSFER,
+        CONSENT_AGE_CONFIRMED_16,
         get_active_consents,
         grant_consent,
         hash_marker,
@@ -142,6 +146,11 @@ async def require_consents(
             and _parse_bool_header(x_consent_ai_transfer)
         ):
             header_grants.append(CONSENT_AI_TRANSFER)
+        if (
+            CONSENT_AGE_CONFIRMED_16 in missing
+            and _parse_bool_header(x_consent_age_16)
+        ):
+            header_grants.append(CONSENT_AGE_CONFIRMED_16)
         if header_grants:
             client_ip = request.client.host if request.client else None
             active = await grant_consent(
@@ -213,9 +222,9 @@ async def check_credits_with_consent(
 ) -> User:
     """Consent-gated credit reservation.
 
-    Applied to the user-facing ``POST /analyze``. The caller must have granted
-    both ``data_processing`` and ``ai_transfer`` consents, otherwise a 451 is
-    raised before any credit is touched.
+    Applied to the user-facing ``POST /analyze``.     The caller must have granted
+    ``data_processing``, ``ai_transfer`` and ``age_confirmed_16`` consents,
+    otherwise a 451 is raised before any credit is touched.
     """
     return await _reserve_credit_for(user, db)
 

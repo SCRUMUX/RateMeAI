@@ -349,3 +349,65 @@ def test_natural_mouth_anchor_works_for_documents_too():
     p = ig.build_cv_prompt(style="passport_rf", gender="female")
     preserve = p.split("[PRESERVE]", 1)[1].split("[QUALITY]", 1)[0]
     assert "MOUTH:" in preserve
+
+
+# ---------------------------------------------------------------------------
+# Phase 6: sport-style deep focus + complex hand pose anchors
+# ---------------------------------------------------------------------------
+
+
+def test_sport_styles_get_deep_focus_and_complex_hands():
+    """Athletic styles receive SPORT_DEEP_FOCUS and HANDS_COMPLEX_POSE in
+    [PRESERVE] to counter the bokeh bias of sport photography and protect
+    fingers in complex poses (fists, grips, overlapping hands).
+    """
+    for mode, style_key in ig._SPORT_STYLES:
+        builder = _BUILDERS_BY_MODE[mode]
+        p = builder(style=style_key, gender="male")
+        preserve = p.split("[PRESERVE]", 1)[1].split("[QUALITY]", 1)[0]
+        assert "athletic setting" in preserve, (
+            f"{mode}/{style_key}: SPORT_DEEP_FOCUS missing"
+        )
+        assert "HANDS DETAIL" in preserve, (
+            f"{mode}/{style_key}: HANDS_COMPLEX_POSE missing"
+        )
+
+
+def test_sport_styles_cover_expected_set():
+    """Regression guard: all gym/running/yoga/cycling/tennis/swim/hike styles
+    must remain in _SPORT_STYLES."""
+    required = {
+        ("dating", "gym_fitness"),
+        ("dating", "running"),
+        ("dating", "tennis"),
+        ("dating", "swimming_pool"),
+        ("dating", "hiking"),
+        ("dating", "yoga_outdoor"),
+        ("dating", "cycling"),
+        ("social", "fitness_lifestyle"),
+        ("social", "yoga_social"),
+        ("social", "cycling_social"),
+    }
+    missing = required - set(ig._SPORT_STYLES)
+    assert not missing, f"Sport styles regressed: {missing}"
+
+
+def test_non_sport_style_has_no_sport_anchors():
+    p = ig.build_dating_prompt(style="restaurant", gender="male")
+    assert "athletic setting" not in p
+    assert "HANDS DETAIL" not in p
+
+
+def test_gym_fitness_gets_full_sharp_background_stack():
+    """The user's reported failure case: gym_fitness must end up with every
+    anti-bokeh and anti-finger-merge anchor we have.
+    """
+    p = ig.build_dating_prompt(style="gym_fitness", gender="male")
+    preserve = p.split("[PRESERVE]", 1)[1].split("[QUALITY]", 1)[0]
+    quality = p.split("[QUALITY]", 1)[1]
+
+    assert "athletic setting" in preserve
+    assert "HANDS DETAIL" in preserve
+    assert "HANDS:" in preserve
+    assert "no background blur" in quality
+    assert "no bokeh" in quality

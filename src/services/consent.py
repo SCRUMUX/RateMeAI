@@ -22,17 +22,26 @@ from redis.asyncio import Redis
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.models.db import UserConsent
-from src.utils.redis_keys import CONSENT_CACHE_TTL, consent_cache_key
+from src.models.db import Task, UserConsent
+from src.services.task_contract import get_market_id
+from src.utils.redis_keys import (
+    CONSENT_CACHE_TTL,
+    consent_cache_key,
+    gen_image_cache_keys,
+    preanalysis_cache_keys,
+    task_input_cache_keys,
+)
 
 logger = logging.getLogger(__name__)
 
 CONSENT_DATA_PROCESSING = "data_processing"
 CONSENT_AI_TRANSFER = "ai_transfer"
+CONSENT_AGE_CONFIRMED_16 = "age_confirmed_16"
 
 REQUIRED_CONSENT_KINDS: tuple[str, ...] = (
     CONSENT_DATA_PROCESSING,
     CONSENT_AI_TRANSFER,
+    CONSENT_AGE_CONFIRMED_16,
 )
 
 CURRENT_CONSENT_VERSION = "1"
@@ -141,6 +150,49 @@ async def invalidate_consent_cache(redis: Redis | None, user_id: uuid.UUID) -> N
         logger.debug("consent cache invalidate failed", exc_info=True)
 
 
+async def purge_user_pipeline_caches(
+    db: AsyncSession,
+    redis: Redis | None,
+    user_id: uuid.UUID,
+) -> int:
+    """Drop every Redis key tied to the user's in-flight or cached tasks.
+
+    Used on ``revoke_consent`` so that, immediately after the user pulls
+    their AI-transfer consent, we cannot accidentally re-serve a cached
+    generation or send a cached task_input to a provider. The physical
+    deletion of already-stored generated files is still the job of
+    ``privacy_gc_cron`` / ``DELETE /users/me``; this function only
+    evicts short-lived pipeline caches (task_input, gen_image,
+    preanalysis). Returns the number of Redis keys attempted for
+    deletion.
+    """
+    if redis is None:
+        return 0
+
+    from src.config import settings as _settings  # local import to avoid cycle at module load
+
+    result = await db.execute(select(Task.id, Task.context).where(Task.user_id == user_id))
+    keys: list[str] = []
+    for task_id, context in result.all():
+        market_id = get_market_id(context, fallback=_settings.resolved_market_id)
+        tid = str(task_id)
+        keys.extend(task_input_cache_keys(tid, market_id))
+        keys.extend(gen_image_cache_keys(tid, market_id))
+        keys.extend(preanalysis_cache_keys(tid, market_id))
+
+    keys.append(consent_cache_key(str(user_id)))
+
+    if not keys:
+        return 0
+
+    try:
+        await redis.delete(*keys)
+    except Exception:
+        logger.debug("pipeline cache purge failed", exc_info=True)
+        return 0
+    return len(keys)
+
+
 async def grant_consent(
     db: AsyncSession,
     redis: Redis | None,
@@ -202,12 +254,41 @@ async def revoke_consent(
             changed = True
     if changed:
         await db.commit()
-        await invalidate_consent_cache(redis, user_id)
+        # Full cache purge — a revoke must take effect *immediately*, so in
+        # addition to the consent-state cache we also evict every pipeline
+        # artefact that could still be served from Redis (P1.4 privacy
+        # audit). Physical deletion of storage files is handled
+        # separately by privacy_gc_cron / DELETE /users/me.
+        purged = await purge_user_pipeline_caches(db, redis, user_id)
+        logger.info(
+            "consent.revoked.cache_purge",
+            extra={"user_id": str(user_id), "kinds": kinds, "purged_keys": purged},
+        )
     return await get_active_consents(db, redis, user_id)
 
 
 def missing_required(active: dict[str, ActiveConsent]) -> list[str]:
-    return [kind for kind in REQUIRED_CONSENT_KINDS if kind not in active]
+    """Return kinds that are missing OR stale relative to ``CURRENT_CONSENT_VERSION``.
+
+    A consent is considered *missing* when either:
+
+    - no active (non-revoked) row exists for that kind, OR
+    - the latest active row was granted against an *older* policy version.
+
+    The second branch implements re-consent on policy bumps: whenever the
+    privacy-policy text changes materially we increment
+    ``CURRENT_CONSENT_VERSION`` and every user is forced through the
+    consent flow again (HTTP 451 via ``require_consents``).
+    """
+    missing: list[str] = []
+    for kind in REQUIRED_CONSENT_KINDS:
+        entry = active.get(kind)
+        if entry is None:
+            missing.append(kind)
+            continue
+        if str(entry.version) != str(CURRENT_CONSENT_VERSION):
+            missing.append(kind)
+    return missing
 
 
 def snapshot_for_task(active: dict[str, ActiveConsent]) -> dict[str, dict[str, str]]:

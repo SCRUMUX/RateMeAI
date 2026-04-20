@@ -40,6 +40,36 @@ def _load_font(size: int) -> ImageFont.FreeTypeFont | ImageFont.ImageFont:
     return ImageFont.load_default()
 
 
+def _draw_ai_watermark(draw: ImageDraw.ImageDraw) -> None:
+    """Render the mandatory «AI-generated» pill at top-left of the share card.
+
+    This is the share-card equivalent of the on-preview badge rendered by
+    StepGenerate.tsx and fulfils the visible-disclosure clause of EU AI Act
+    Art. 50 for the downloadable/shared asset.
+    """
+    pad_x, pad_y = 16, 10
+    label = "AI-generated"
+    font = _load_font(22)
+
+    text_bbox = draw.textbbox((0, 0), label, font=font)
+    text_w = text_bbox[2] - text_bbox[0]
+    text_h = text_bbox[3] - text_bbox[1]
+
+    x = 24
+    y = 24
+    box = [
+        (x, y),
+        (x + text_w + 2 * pad_x, y + text_h + 2 * pad_y),
+    ]
+    draw.rounded_rectangle(box, radius=20, fill=(0, 0, 0, 160), outline=(255, 255, 255), width=1)
+    draw.text(
+        (x + pad_x, y + pad_y - 2),
+        label,
+        fill=(255, 255, 255),
+        font=font,
+    )
+
+
 class ShareCardGenerator:
     def __init__(self, storage: StorageProvider):
         self._storage = storage
@@ -131,6 +161,12 @@ class ShareCardGenerator:
             font=font_medium,
             anchor="mt",
         )
+
+        # AI transparency watermark (EU AI Act Art. 50): a small but clearly
+        # legible badge at the top-left stating that the hero image is
+        # AI-generated. Complemented by the EXIF ``UserComment`` tag injected
+        # on the generated JPEG itself (see P1.5).
+        _draw_ai_watermark(draw)
 
         buf = io.BytesIO()
         card.save(buf, format="JPEG", quality=90)

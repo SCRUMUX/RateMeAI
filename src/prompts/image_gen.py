@@ -90,6 +90,33 @@ LOW_KEY_SHARPNESS = (
     "Background details fully visible, no cinematic blur, no defocus."
 )
 
+SPORT_DEEP_FOCUS = (
+    "SCENE FOCUS: athletic setting rendered in full deep focus. "
+    "Gym equipment, court surface, trail or training environment is crisply "
+    "resolved across the whole frame. Resist any portrait-lens bokeh bias "
+    "common to sport photography — the background must stay in focus."
+)
+
+HANDS_COMPLEX_POSE = (
+    "HANDS DETAIL: if the hands are partially occluded, overlapped, closed in "
+    "a fist, or tightly posed, reconstruct each finger cleanly with crisp "
+    "boundaries. Do not let finger contours bleed into background textures "
+    "or merge fingers together. Preserve any worn watch or wristband exactly."
+)
+
+_SPORT_STYLES: frozenset[tuple[str, str]] = frozenset({
+    ("dating", "gym_fitness"),
+    ("dating", "running"),
+    ("dating", "tennis"),
+    ("dating", "swimming_pool"),
+    ("dating", "hiking"),
+    ("dating", "yoga_outdoor"),
+    ("dating", "cycling"),
+    ("social", "fitness_lifestyle"),
+    ("social", "yoga_social"),
+    ("social", "cycling_social"),
+})
+
 _LOW_KEY_STYLES: frozenset[tuple[str, str]] = frozenset({
     ("dating", "restaurant"),
     ("dating", "bar_lounge"),
@@ -1172,6 +1199,9 @@ def _build_mode_prompt(
     ]
     if (mode, style_key_norm) in _LOW_KEY_STYLES:
         preserve_parts.append(LOW_KEY_SHARPNESS)
+    if (mode, style_key_norm) in _SPORT_STYLES:
+        preserve_parts.append(SPORT_DEEP_FOCUS)
+        preserve_parts.append(HANDS_COMPLEX_POSE)
     preserve_parts.extend(_conditional_preserve(input_hints))
     preserve_block = " ".join(preserve_parts)
 

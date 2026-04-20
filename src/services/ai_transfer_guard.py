@@ -19,6 +19,7 @@ import logging
 from contextlib import contextmanager
 from contextvars import ContextVar
 
+from src.config import settings
 from src.services.task_contract import get_policy_flags
 
 logger = logging.getLogger(__name__)
@@ -66,12 +67,29 @@ def assert_external_transfer_allowed(
 ) -> None:
     """Raise :class:`AITransferForbiddenError` if consent is missing.
 
-    Safe no-op when called outside a pipeline request (no bound context) — in
-    that situation we fall back to "allow" to avoid breaking dev/tests and
-    standalone tooling. Production pipelines always set a context.
+    Fail-closed policy:
+
+    - In **production** (``settings.is_production``): if no pipeline
+      context is bound (meaning the caller forgot to wrap the
+      cross-border-sending code in ``task_context_scope``), we treat
+      that as a *hard failure* and raise ``AITransferForbiddenError``.
+      This closes the previous "fail-open backdoor" where a developer
+      could accidentally bypass the consent check by calling a provider
+      from outside a pipeline scope (flagged as Critical C3 in the
+      v1.10 privacy audit).
+    - In **dev / tests**: we keep the safe no-op behaviour for missing
+      context so standalone tooling (notebooks, migration scripts,
+      unit-tests that don't care about consent) can still exercise the
+      providers directly.
     """
     ctx = context if context is not None else _current_task_context.get()
     if ctx is None:
+        if settings.is_production:
+            logger.error(
+                "ai_transfer.no_context",
+                extra={"provider": provider},
+            )
+            raise AITransferForbiddenError(provider, reason="no_pipeline_context")
         return
     if not is_external_transfer_allowed(ctx):
         logger.warning(

@@ -8,7 +8,7 @@ from src.orchestrator.planner import PipelinePlanner
 
 
 def _apply_planner_settings(mock_settings):
-    mock_settings.identity_threshold = 0.85
+    mock_settings.identity_match_threshold = 7.0
     mock_settings.aesthetic_threshold = 6.0
     mock_settings.artifact_threshold = 0.05
     mock_settings.pipeline_budget_max_usd = 0.15
@@ -101,7 +101,7 @@ def test_plan_to_dict(mock_settings):
 
 @patch("src.orchestrator.planner.settings")
 def test_global_gates_use_config_thresholds(mock_settings):
-    mock_settings.identity_threshold = 0.90
+    mock_settings.identity_match_threshold = 8.5
     mock_settings.aesthetic_threshold = 7.0
     mock_settings.artifact_threshold = 0.03
     mock_settings.pipeline_budget_max_usd = 0.20
@@ -110,7 +110,7 @@ def test_global_gates_use_config_thresholds(mock_settings):
 
     planner = PipelinePlanner()
     plan = planner.plan(mode=AnalysisMode.CV, style="", task_id="t8")
-    assert plan.global_gates["face_similarity"] == 0.90
+    assert plan.global_gates["identity_match"] == 8.5
     assert plan.global_gates["aesthetic_score"] == 7.0
     assert plan.global_gates["artifact_ratio"] == 0.03
     assert plan.global_gates["photorealism"] == 0.6

@@ -138,6 +138,33 @@ class UserConsent(Base):
     user: Mapped["User"] = relationship(back_populates="consents")
 
 
+class DeletionLog(Base):
+    """Audit trail for GDPR Art. 17 / 152-ФЗ ст. 14 "right to erasure".
+
+    Rows are *intentionally PII-free*: ``user_id_hash`` is SHA-256 of the
+    user UUID, so the record remains valid evidence after the underlying
+    ``users`` row has been removed. See ``DELETE /api/v1/users/me`` in
+    src/api/v1/users_data.py.
+    """
+
+    __tablename__ = "deletion_log"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id_hash: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    source: Mapped[str] = mapped_column(String(32), nullable=False, default="api")
+    ip_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    user_agent_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    tasks_deleted: Mapped[int] = mapped_column(Integer, default=0)
+    generated_files_deleted: Mapped[int] = mapped_column(Integer, default=0)
+    share_cards_deleted: Mapped[int] = mapped_column(Integer, default=0)
+    consents_deleted: Mapped[int] = mapped_column(Integer, default=0)
+    perception_records_deleted: Mapped[int] = mapped_column(Integer, default=0)
+    identities_deleted: Mapped[int] = mapped_column(Integer, default=0)
+    deleted_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+
+
 class UserPerceptionRecord(Base):
     """Best perception scores per user/mode/style combination."""
     __tablename__ = "user_perception_records"

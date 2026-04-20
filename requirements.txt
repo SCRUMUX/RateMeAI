@@ -16,9 +16,12 @@ tenacity==9.0.0
 yookassa==3.4.0
 reve[all]==0.1.2
 aioboto3==13.4.0
-insightface>=0.7.3,<1.0
-onnxruntime>=1.17.0,<2.0
+# Privacy overhaul (v1.10): InsightFace/onnxruntime removed — identity-check
+# migrated to stateless VLM comparison (no local face embeddings). MediaPipe
+# retained for ephemeral face *presence* detection only (no feature vectors).
 mediapipe>=0.10.0,<0.10.21
+# EXIF metadata injection for AI-generated JPEGs (EU AI Act Art. 50 compliance)
+piexif>=1.1.3,<2.0
 python-json-logger>=2.0.0,<3.0
 prometheus-fastapi-instrumentator>=7.0.0,<8.0
 # Optional: pixel-level image quality metric (NIQE); requires torch

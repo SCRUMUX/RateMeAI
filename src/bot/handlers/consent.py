@@ -26,12 +26,14 @@ logger = logging.getLogger(__name__)
 router = Router()
 
 CONSENT_REQUIRED_MESSAGE = (
-    "\U0001f512 Прежде чем я смогу обработать фото, нужны два согласия:\n\n"
+    "\U0001f512 Прежде чем я смогу обработать фото, нужны три согласия:\n\n"
     "1\ufe0f\u20e3 *Обработка персональных данных* — я анализирую лицо и сохраняю "
     "скоры. Оригинал фото не хранится.\n\n"
     "2\ufe0f\u20e3 *Передача во внешние AI-сервисы* — для генерации я отправляю "
     "фото в OpenRouter / Reve (зарубежные провайдеры).\n\n"
-    "Оба согласия обязательны. Отозвать можно в любой момент через /privacy."
+    "3\ufe0f\u20e3 *Подтверждение возраста 16+* — сервис не обслуживает "
+    "несовершеннолетних младше 16 лет.\n\n"
+    "Все согласия обязательны. Отозвать можно в любой момент через /privacy."
 )
 
 _PRIVACY_URL_FALLBACK = "https://ailookstudio.ru/privacy"
@@ -54,6 +56,13 @@ def _consent_keyboard(
             InlineKeyboardButton(
                 text="\u2705 Согласен на передачу во внешние AI",
                 callback_data="consent:grant:ai_transfer",
+            )
+        ])
+    if "age_confirmed_16" in missing:
+        buttons.append([
+            InlineKeyboardButton(
+                text="\u2705 Мне 16 лет или больше",
+                callback_data="consent:grant:age_confirmed_16",
             )
         ])
     buttons.append([
@@ -158,7 +167,7 @@ async def on_consent_grant(
         return
 
     kind = callback.data.split(":")[-1] if callback.data else ""
-    if kind not in ("data_processing", "ai_transfer"):
+    if kind not in ("data_processing", "ai_transfer", "age_confirmed_16"):
         await callback.answer("Неизвестный тип согласия.", show_alert=True)
         return
 
@@ -185,7 +194,7 @@ async def on_consent_grant(
             reply_markup=_consent_keyboard(missing)
         )
         await callback.answer(
-            "Согласие сохранено. Подтверди второе, чтобы продолжить.",
+            "Согласие сохранено. Подтверди оставшиеся, чтобы продолжить.",
         )
         return
 

@@ -7,6 +7,7 @@ import DocumentPhotoPage from './pages/DocumentPhotoPage';
 import PaymentSuccess from './pages/PaymentSuccess';
 import AuthCallback from './pages/AuthCallback';
 import LinkPage from './pages/LinkPage';
+import PrivacyPolicy from './pages/PrivacyPolicy';
 
 export default function App() {
   return (
@@ -22,6 +23,7 @@ export default function App() {
             <Route path="/payment-success" element={<PaymentSuccess />} />
             <Route path="/auth/callback" element={<AuthCallback />} />
             <Route path="/link" element={<LinkPage />} />
+            <Route path="/privacy" element={<PrivacyPolicy />} />
           </Routes>
         </AppProvider>
       </ToastProvider>

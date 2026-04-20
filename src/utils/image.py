@@ -93,14 +93,19 @@ def estimate_blur_score(image_bytes: bytes) -> float:
 
 
 def has_face_heuristic(image_bytes: bytes) -> bool:
-    """Detect face using InsightFace if available, falling back to aspect-ratio heuristic."""
+    """Detect a face using the lightweight MediaPipe detector.
+
+    Falls back to an aspect-ratio heuristic when MediaPipe is unavailable.
+    No feature vectors or identity-grade embeddings are produced here —
+    this is purely a presence check used for input validation.
+    """
     try:
         from src.services.identity import IdentityService
         return IdentityService().detect_face(image_bytes)
     except ImportError:
         pass
     except Exception:
-        logger.debug("InsightFace detection failed, falling back to heuristic")
+        logger.debug("MediaPipe detection failed, falling back to heuristic")
 
     try:
         img = Image.open(io.BytesIO(image_bytes))

@@ -51,8 +51,12 @@ class PipelinePlan:
         }
 
 
+# Identity match gate: 0-10 scale (VLM-based), no embeddings. Thresholds are
+# chosen to be strict enough to catch obvious person-swaps while tolerating
+# cosmetic retouching / expression hints. See docs/PRIVACY_AUDIT.md §9 and
+# src/services/quality_gates.py::QUALITY_CHECK_PROMPT for scoring semantics.
 _DEFAULT_GLOBAL_GATES = {
-    "face_similarity": 0.85,
+    "identity_match": 8.0,
     "aesthetic_score": 6.0,
     "artifact_ratio": 0.05,
     "photorealism": 0.5,
@@ -66,28 +70,28 @@ _DATING_STEPS = [
         step="background_edit",
         region="background",
         prompt_template="background_edit",
-        gate={"face_similarity": 0.80},
+        gate={"identity_match": 7.5},
         model_preference="edit",
     ),
     PipelineStep(
         step="lighting_adjust",
         region="full",
         prompt_template="lighting_adjust",
-        gate={"face_similarity": 0.78},
+        gate={"identity_match": 7.0},
         model_preference="edit",
     ),
     PipelineStep(
         step="expression_hint",
         region="face",
         prompt_template="expression_hint",
-        gate={"face_similarity": 0.75, "aesthetic_score": 6.0},
+        gate={"identity_match": 6.5, "aesthetic_score": 6.0},
         model_preference="edit",
     ),
     PipelineStep(
         step="skin_correction",
         region="face",
         prompt_template="skin_correction",
-        gate={"face_similarity": 0.80},
+        gate={"identity_match": 7.5},
         model_preference="edit",
     ),
 ]
@@ -97,21 +101,21 @@ _CV_STEPS = [
         step="background_edit",
         region="background",
         prompt_template="background_edit",
-        gate={"face_similarity": 0.80},
+        gate={"identity_match": 7.5},
         model_preference="edit",
     ),
     PipelineStep(
         step="clothing_edit",
         region="clothing",
         prompt_template="clothing_edit",
-        gate={"face_similarity": 0.80},
+        gate={"identity_match": 7.5},
         model_preference="edit",
     ),
     PipelineStep(
         step="expression_hint",
         region="face",
         prompt_template="expression_hint",
-        gate={"face_similarity": 0.75},
+        gate={"identity_match": 6.5},
         model_preference="edit",
     ),
 ]
@@ -121,21 +125,21 @@ _SOCIAL_STEPS = [
         step="background_edit",
         region="background",
         prompt_template="background_edit",
-        gate={"face_similarity": 0.80},
+        gate={"identity_match": 7.5},
         model_preference="edit",
     ),
     PipelineStep(
         step="style_overall",
         region="full",
         prompt_template="style_overall",
-        gate={"face_similarity": 0.78, "aesthetic_score": 6.0},
+        gate={"identity_match": 7.0, "aesthetic_score": 6.0},
         model_preference="edit",
     ),
     PipelineStep(
         step="expression_hint",
         region="face",
         prompt_template="expression_hint",
-        gate={"face_similarity": 0.75},
+        gate={"identity_match": 6.5},
         model_preference="edit",
     ),
 ]
@@ -220,7 +224,7 @@ class PipelinePlanner:
             steps = [s for s in steps if self._step_needed(s, analysis_result)]
 
         global_gates = dict(_DEFAULT_GLOBAL_GATES)
-        global_gates["face_similarity"] = settings.identity_threshold
+        global_gates["identity_match"] = settings.identity_match_threshold
         global_gates["aesthetic_score"] = settings.aesthetic_threshold
         global_gates["artifact_ratio"] = settings.artifact_threshold
         if settings.photorealism_enabled:

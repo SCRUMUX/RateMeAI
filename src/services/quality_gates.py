@@ -1,8 +1,12 @@
-"""Quality gate runner: face similarity, aesthetic score, artifact ratio, photorealism, NIQE.
+"""Quality gate runner: identity match, aesthetic score, artifact ratio, photorealism, NIQE.
 
-Aesthetic, artifact, and photorealism checks are combined into a single LLM call
-for cost efficiency. Face similarity uses the existing IdentityService.
-NIQE (Natural Image Quality Evaluator) is a pixel-level naturalness metric.
+All LLM-based checks — including identity preservation — are combined into
+a single VLM call (two images, one prompt) for cost efficiency. Identity
+match is a stateless holistic comparison: the VLM returns a 0-10 score,
+no face geometry is extracted on our side and nothing is persisted.
+
+NIQE (Natural Image Quality Evaluator) is a pixel-level naturalness
+metric computed locally (no external transfer).
 """
 from __future__ import annotations
 
@@ -56,9 +60,23 @@ def compute_niqe_score(image_bytes: bytes) -> float | None:
         logger.debug("NIQE computation failed")
         return None
 
+
+# The quality prompt is used in two modes:
+#   (a) single-image: generated photo only — identity_match is ignored;
+#   (b) two-image: original + generated — VLM compares them holistically.
+# The same JSON schema is returned in both cases, only identity_match is
+# defined when the original is provided.
 QUALITY_CHECK_PROMPT = (
-    "Analyze this AI-enhanced photo for quality. Return ONLY a JSON object:\n"
+    "You are given one or two photos. When two photos are provided, the FIRST is the original reference "
+    "and the SECOND is an AI-enhanced version of the same subject. "
+    "Evaluate the AI-enhanced photo (the last one) for quality and, when a reference is provided, "
+    "for identity preservation. Return ONLY a JSON object:\n"
     "{\n"
+    '  "identity_match": <float 0-10, ONLY when two photos are provided. 10 = clearly the same person '
+    '(same bone structure, facial proportions, age, gender, eye and lip shape); 7-9 = same person with '
+    'minor differences; 4-6 = possibly the same person but significant changes; 0-3 = different person. '
+    'Do NOT perform face recognition or identification — compare based on visible portrait features only. '
+    'Use null if only one photo is provided.>,\n'
     '  "aesthetic_score": <float 1-10, consider lighting, composition, skin naturalness>,\n'
     '  "artifact_ratio": <float 0.0-1.0, proportion of visible AI artifacts or distortions>,\n'
     '  "is_photorealistic": <bool, true if it looks like a genuine photograph>,\n'
@@ -89,10 +107,11 @@ class QualityGateRunner:
 
     def __init__(
         self,
-        identity_svc=None,
         llm: LLMProvider | None = None,
+        # Back-compat: older callers still pass identity_svc=...; accept and
+        # ignore it. Identity-match is now purely VLM-based.
+        identity_svc=None,
     ):
-        self._identity = identity_svc
         self._llm = llm
         self._quality_cache: dict | None = None
 
@@ -101,15 +120,25 @@ class QualityGateRunner:
         gate_spec: dict[str, float],
         original_bytes: bytes | None,
         generated_bytes: bytes,
-        original_embedding: np.ndarray | None = None,
     ) -> list[GateResult]:
         """Evaluate all gates from gate_spec. Returns list of GateResult."""
         results: list[GateResult] = []
 
-        if "face_similarity" in gate_spec and self._identity is not None:
-            results.append(await self._check_face_similarity(
-                gate_spec["face_similarity"], original_bytes, generated_bytes, original_embedding,
-            ))
+        # Identity match is a VLM check: only evaluated when we have the
+        # original reference photo. Value comes from the cached quality
+        # payload (same LLM call as aesthetic/anatomy — one vision call
+        # per generated image, at most).
+        if "identity_match" in gate_spec:
+            quality = await self._get_quality_metrics(generated_bytes, original_bytes)
+            val = quality.get("identity_match")
+            if val is None:
+                # No reference provided or VLM could not score — treat as pass
+                # to avoid blocking, surface as telemetry only.
+                results.append(GateResult("identity_match", True, 0.0, gate_spec["identity_match"]))
+            else:
+                val = float(val)
+                thr = gate_spec["identity_match"]
+                results.append(GateResult("identity_match", val >= thr, round(val, 2), thr))
 
         if "niqe" in gate_spec:
             niqe_score = compute_niqe_score(generated_bytes)
@@ -120,7 +149,7 @@ class QualityGateRunner:
         _LLM_GATE_KEYS = ("aesthetic_score", "artifact_ratio", "photorealism", "naturalness", "anatomy")
         llm_gates = {k: v for k, v in gate_spec.items() if k in _LLM_GATE_KEYS}
         if llm_gates and self._llm is not None:
-            quality = await self._get_quality_metrics(generated_bytes)
+            quality = await self._get_quality_metrics(generated_bytes, original_bytes)
             if "aesthetic_score" in llm_gates:
                 val = quality.get("aesthetic_score", 5.0)
                 thr = llm_gates["aesthetic_score"]
@@ -157,16 +186,15 @@ class QualityGateRunner:
         gate_spec: dict[str, float],
         original_bytes: bytes,
         generated_bytes: bytes,
-        original_embedding: np.ndarray | None = None,
     ) -> tuple[bool, list[GateResult], dict]:
         """Run global gates and return (all_passed, results, quality_report)."""
         self._quality_cache = None
-        results = await self.run_gates(gate_spec, original_bytes, generated_bytes, original_embedding)
+        results = await self.run_gates(gate_spec, original_bytes, generated_bytes)
 
         quality = self._quality_cache or {}
 
         report = {
-            "face_similarity": next((r.value for r in results if r.gate_name == "face_similarity"), None),
+            "identity_match": quality.get("identity_match"),
             "niqe_score": next((r.value for r in results if r.gate_name == "niqe"), None),
             "aesthetic_score": quality.get("aesthetic_score"),
             "artifact_ratio": quality.get("artifact_ratio"),
@@ -177,6 +205,9 @@ class QualityGateRunner:
             "proportions_natural": quality.get("proportions_natural"),
             "pose_natural": quality.get("pose_natural"),
             "hands_correct": quality.get("hands_correct"),
+            "hair_outline_preserved": quality.get("hair_outline_preserved"),
+            "background_consistent": quality.get("background_consistent"),
+            "identity_plausible": quality.get("identity_plausible"),
             "gates_passed": [r.gate_name for r in results if r.passed],
             "gates_failed": [r.gate_name for r in results if not r.passed],
         }
@@ -184,30 +215,17 @@ class QualityGateRunner:
         all_passed = all(r.passed for r in results)
         return all_passed, results, report
 
-    async def _check_face_similarity(
+    async def _get_quality_metrics(
         self,
-        threshold: float,
-        original_bytes: bytes | None,
-        generated_bytes: bytes,
-        original_embedding: np.ndarray | None,
-    ) -> GateResult:
-        if self._identity is None or original_bytes is None:
-            return GateResult("face_similarity", True, 0.0, threshold)
+        image_bytes: bytes,
+        reference_bytes: bytes | None = None,
+    ) -> dict:
+        """Single VLM call for aesthetic + artifact + photorealism + identity.
 
-        if original_embedding is not None:
-            gen_emb = self._identity.compute_embedding(generated_bytes)
-            if gen_emb is None:
-                return GateResult("face_similarity", False, 0.0, threshold)
-            sim = self._identity.compare(original_embedding, gen_emb)
-        else:
-            passed, sim = self._identity.verify(original_bytes, generated_bytes)
-            if sim == 0.0 and passed:
-                return GateResult("face_similarity", True, 0.0, threshold)
-
-        return GateResult("face_similarity", sim >= threshold, round(sim, 3), threshold)
-
-    async def _get_quality_metrics(self, image_bytes: bytes) -> dict:
-        """Single LLM call for aesthetic + artifact + photorealism."""
+        When ``reference_bytes`` is provided, the prompt sees both images in
+        the same message and scores ``identity_match``. When only the
+        generated image is provided, ``identity_match`` stays None.
+        """
         if self._quality_cache is not None:
             return self._quality_cache
 
@@ -215,10 +233,27 @@ class QualityGateRunner:
             return {}
 
         try:
-            result = await self._llm.analyze_image(
-                image_bytes, QUALITY_CHECK_PROMPT, temperature=0.0,
-            )
+            if reference_bytes is not None and hasattr(self._llm, "compare_images"):
+                result = await self._llm.compare_images(
+                    reference_bytes, image_bytes, QUALITY_CHECK_PROMPT, temperature=0.0,
+                )
+            else:
+                result = await self._llm.analyze_image(
+                    image_bytes, QUALITY_CHECK_PROMPT, temperature=0.0,
+                )
+
+            raw_identity = result.get("identity_match")
+            identity_match: float | None
+            if raw_identity is None:
+                identity_match = None
+            else:
+                try:
+                    identity_match = float(raw_identity)
+                except (TypeError, ValueError):
+                    identity_match = None
+
             self._quality_cache = {
+                "identity_match": identity_match,
                 "aesthetic_score": float(result.get("aesthetic_score", 5.0)),
                 "artifact_ratio": float(result.get("artifact_ratio", 0.0)),
                 "is_photorealistic": bool(result.get("is_photorealistic", True)),
@@ -228,6 +263,9 @@ class QualityGateRunner:
                 "proportions_natural": bool(result.get("proportions_natural", True)),
                 "pose_natural": bool(result.get("pose_natural", True)),
                 "hands_correct": bool(result.get("hands_correct", True)),
+                "hair_outline_preserved": bool(result.get("hair_outline_preserved", True)),
+                "background_consistent": bool(result.get("background_consistent", True)),
+                "identity_plausible": bool(result.get("identity_plausible", True)),
                 "details": str(result.get("details", "")),
             }
         except Exception:

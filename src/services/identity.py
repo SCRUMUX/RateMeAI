@@ -1,98 +1,101 @@
-"""Face identity verification using InsightFace (ArcFace).
+"""Lightweight face presence detection.
 
-Computes face embeddings and compares them to ensure the generated image
-preserves the identity of the original photo.
+Historical context: this module used to compute ArcFace embeddings via
+InsightFace for 1:1 identity verification. As part of the v1.10 privacy
+overhaul (see docs/PRIVACY_AUDIT.md), all face-geometry extraction and
+embedding persistence were removed — identity preservation is now
+verified by the quality-gate VLM with two images in a single LLM call
+(see src/services/quality_gates.py). What remains here is a minimal,
+purely ephemeral *face presence* check used only for input validation.
+
+Contract intentionally narrow:
+- Input: JPEG/PNG bytes (already sanitized by validate_and_normalize).
+- Output: bool (is there at least one face?).
+- No feature vector is computed, stored, compared or returned.
 """
 from __future__ import annotations
 
 import io
 import logging
 
-import numpy as np
 from PIL import Image
 
 logger = logging.getLogger(__name__)
 
-_app = None
+_mp_detector = None
+_mp_available: bool | None = None
 
 
-def _get_app():
-    """Lazy-load InsightFace app (heavy model, load once)."""
-    global _app
-    if _app is None:
-        from insightface.app import FaceAnalysis
-        _app = FaceAnalysis(
-            name="buffalo_l",
-            providers=["CPUExecutionProvider"],
+def _get_detector():
+    """Lazy-load MediaPipe FaceDetection (~5 MB model)."""
+    global _mp_detector, _mp_available
+    if _mp_available is False:
+        return None
+    if _mp_detector is not None:
+        return _mp_detector
+    try:
+        import mediapipe as mp
+
+        # model_selection=1: full-range model (handles faces further from camera)
+        _mp_detector = mp.solutions.face_detection.FaceDetection(
+            model_selection=1, min_detection_confidence=0.4
         )
-        _app.prepare(ctx_id=0, det_size=(640, 640))
-        logger.info("InsightFace model loaded")
-    return _app
-
-
-def _image_to_array(image_bytes: bytes) -> np.ndarray:
-    img = Image.open(io.BytesIO(image_bytes)).convert("RGB")
-    return np.array(img)
+        _mp_available = True
+        logger.info("MediaPipe FaceDetection model loaded")
+        return _mp_detector
+    except Exception:
+        _mp_available = False
+        logger.info("MediaPipe not available — face detection disabled")
+        return None
 
 
 class IdentityService:
-    """Face identity verification via ArcFace embeddings."""
+    """Face presence detection only. No embeddings, no comparison.
 
-    def __init__(self, threshold: float = 0.85):
-        self._threshold = threshold
-
-    def compute_embedding(self, image_bytes: bytes) -> np.ndarray | None:
-        """Extract the dominant face embedding from image bytes.
-
-        Returns None if no face is detected.
-        """
-        try:
-            arr = _image_to_array(image_bytes)
-            app = _get_app()
-            faces = app.get(arr)
-            if not faces:
-                logger.warning("No face detected for embedding")
-                return None
-            best = max(faces, key=lambda f: f.det_score)
-            return best.normed_embedding
-        except Exception:
-            logger.exception("Failed to compute face embedding")
-            return None
-
-    def compare(self, emb1: np.ndarray, emb2: np.ndarray) -> float:
-        """Cosine similarity between two embeddings. Returns 0.0-1.0."""
-        if emb1 is None or emb2 is None:
-            return 0.0
-        sim = float(np.dot(emb1, emb2) / (np.linalg.norm(emb1) * np.linalg.norm(emb2) + 1e-8))
-        return max(0.0, min(1.0, sim))
-
-    def verify(self, original_bytes: bytes, generated_bytes: bytes) -> tuple[bool, float]:
-        """Check if generated image preserves identity of original.
-
-        Returns (passed, similarity_score).
-        """
-        emb_orig = self.compute_embedding(original_bytes)
-        if emb_orig is None:
-            logger.warning("No face in original — skipping identity gate")
-            return True, 0.0
-
-        emb_gen = self.compute_embedding(generated_bytes)
-        if emb_gen is None:
-            logger.warning("No face in generated image — identity gate failed")
-            return False, 0.0
-
-        sim = self.compare(emb_orig, emb_gen)
-        passed = sim >= self._threshold
-        logger.info("Identity gate: similarity=%.3f threshold=%.2f passed=%s", sim, self._threshold, passed)
-        return passed, sim
+    Kept as a class for backward compatibility with callers that inject it
+    as a dependency (executor, segmentation). All legacy methods
+    (compute_embedding / compare / verify) have been removed.
+    """
 
     def detect_face(self, image_bytes: bytes) -> bool:
-        """Check if the image contains at least one face."""
-        try:
-            arr = _image_to_array(image_bytes)
-            app = _get_app()
-            faces = app.get(arr)
-            return len(faces) > 0
-        except Exception:
-            logger.exception("Face detection failed")
+        """Return True if the image contains at least one face."""
+        detector = _get_detector()
+        if detector is None:
             return False
+        try:
+            import numpy as np
+
+            img = Image.open(io.BytesIO(image_bytes)).convert("RGB")
+            arr = np.array(img)
+            result = detector.process(arr)
+            return bool(result.detections)
+        except Exception:
+            logger.debug("Face detection failed", exc_info=True)
+            return False
+
+    def face_bbox(self, image_bytes: bytes) -> tuple[int, int, int, int] | None:
+        """Return (x1, y1, x2, y2) of the most confident face, or None."""
+        detector = _get_detector()
+        if detector is None:
+            return None
+        try:
+            import numpy as np
+
+            img = Image.open(io.BytesIO(image_bytes)).convert("RGB")
+            arr = np.array(img)
+            h, w = arr.shape[:2]
+            result = detector.process(arr)
+            if not result.detections:
+                return None
+            best = max(result.detections, key=lambda d: d.score[0])
+            bbox = best.location_data.relative_bounding_box
+            x1 = max(0, int(bbox.xmin * w))
+            y1 = max(0, int(bbox.ymin * h))
+            x2 = min(w, int((bbox.xmin + bbox.width) * w))
+            y2 = min(h, int((bbox.ymin + bbox.height) * h))
+            if x2 <= x1 or y2 <= y1:
+                return None
+            return x1, y1, x2, y2
+        except Exception:
+            logger.debug("Face bbox extraction failed", exc_info=True)
+            return None

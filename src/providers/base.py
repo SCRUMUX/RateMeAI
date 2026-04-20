@@ -12,6 +12,25 @@ class LLMProvider(ABC):
     async def generate_text(self, prompt: str) -> str:
         """Generate text completion."""
 
+    async def compare_images(
+        self,
+        image_a_bytes: bytes,
+        image_b_bytes: bytes,
+        prompt: str,
+        *,
+        temperature: float = 0.0,
+    ) -> dict:
+        """Send two images + prompt to the VLM in a single call.
+
+        Default implementation: raise NotImplementedError. Providers that
+        support multi-image vision (OpenRouter) should override this.
+        Used by the quality-gate VLM identity check — no embeddings, no
+        persistent state.
+        """
+        raise NotImplementedError(
+            "This LLM provider does not support multi-image comparison"
+        )
+
     async def close(self) -> None:
         """Release resources (HTTP clients, connections)."""
 

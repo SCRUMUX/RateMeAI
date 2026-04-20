@@ -76,11 +76,16 @@ async def startup(ctx: dict):
     if settings.is_production and not settings.openrouter_api_key.strip():
         logger.error("OPENROUTER_API_KEY is empty — tasks will fail at LLM step")
 
-    identity_ok = ctx["pipeline"].identity_available
-    if not identity_ok:
-        logger.error(
-            "InsightFace NOT loaded — identity gate DISABLED. "
-            "Generated images may show a different person. Install insightface to fix."
+    # Privacy note: identity is now verified by the quality-gate VLM (see
+    # services/quality_gates.py), not by a local face detector. We still log
+    # whether the lightweight MediaPipe face-presence check is available so
+    # ops can spot a misconfigured image — a missing detector is a *soft*
+    # warning, not a blocker for task processing.
+    if not ctx["pipeline"].identity_available:
+        logger.warning(
+            "MediaPipe face-presence detector not loaded — input face "
+            "validation will fall back to aspect-ratio heuristic. "
+            "Identity preservation itself is unaffected (handled by VLM)."
         )
     import time
     await ctx["redis"].set(WORKER_HEARTBEAT_KEY, str(time.time()), ex=WORKER_HEARTBEAT_TTL)
@@ -475,8 +480,9 @@ async def compute_delta_scores(ctx: dict, task_id: str):
             # Privacy: the original image is intentionally gone by this point.
             # DeltaScorer works purely off the generated image (downloaded
             # from storage inside compute()) and pre-scores already captured
-            # in task_result, with authenticity derived from the cached
-            # ArcFace embedding. No original-image re-download is performed.
+            # in task_result. Authenticity is derived from the quality
+            # report produced earlier by the stateless VLM check — no
+            # biometric feature vectors are ever read/written here.
             from src.services.ai_transfer_guard import task_context_scope
             with task_context_scope(task.context):
                 await pipeline._delta_scorer.compute(mode, task_result, str(task.user_id), task_id)

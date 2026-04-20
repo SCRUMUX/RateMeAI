@@ -7,9 +7,11 @@ path. Its invariants:
    filesystem). They live only in process memory and a short-lived Redis
    stash (default 15 minutes) until the worker picks them up.
 2. All EXIF / ICC / XMP metadata is explicitly stripped during normalize.
-3. The ArcFace embedding is persisted (Redis, 72h TTL) as the primary
-   identity artefact used by delta-scoring, so the original bytes can be
-   deleted immediately after preprocessing.
+3. No biometric feature vectors (face embeddings, ArcFace descriptors)
+   are computed, cached or persisted anywhere. Identity preservation is
+   verified via a stateless VLM check at quality-gate time (see
+   src/services/quality_gates.py), which operates on two in-memory
+   images in a single LLM call and retains no per-user state.
 """
 from __future__ import annotations
 
@@ -17,15 +19,11 @@ import base64
 import logging
 from dataclasses import dataclass
 
-import numpy as np
 from redis.asyncio import Redis
 
 from src.config import settings
 from src.utils.image import validate_and_normalize
-from src.utils.redis_keys import (
-    embedding_cache_key,
-    task_input_cache_key,
-)
+from src.utils.redis_keys import task_input_cache_key
 
 logger = logging.getLogger(__name__)
 
@@ -78,37 +76,3 @@ class PrivacyLayer:
             logger.warning("privacy.stash_failed", exc_info=True)
             return None
         return key
-
-    async def cache_embedding(
-        self,
-        embedding: np.ndarray,
-        task_id: str,
-        market_id: str | None = None,
-    ) -> None:
-        """Persist embedding as primary identity object (72h TTL by default)."""
-        if self._redis is None or embedding is None:
-            return
-        try:
-            payload = base64.b64encode(
-                embedding.astype(np.float32).tobytes()
-            ).decode("ascii")
-            await self._redis.set(
-                embedding_cache_key(task_id, market_id),
-                payload,
-                ex=settings.embedding_redis_ttl_seconds,
-            )
-        except Exception:
-            logger.warning("privacy.embedding_cache_failed", exc_info=True)
-
-    @staticmethod
-    def compute_embedding_in_memory(image_bytes: bytes) -> np.ndarray | None:
-        """Thin wrapper around IdentityService.compute_embedding (best-effort)."""
-        try:
-            from src.services.identity import IdentityService
-            return IdentityService().compute_embedding(image_bytes)
-        except ImportError:
-            logger.debug("InsightFace not installed — embedding skipped")
-            return None
-        except Exception:
-            logger.debug("Embedding computation failed", exc_info=True)
-            return None
