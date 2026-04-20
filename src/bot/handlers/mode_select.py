@@ -53,6 +53,96 @@ _POLL_SLEEP_NOTIFIED = 1.0
 _POLL_SLEEP_FALLBACK = 3.0
 
 
+_GENERIC_FAILED_MESSAGE = (
+    "\u274c Не удалось обработать фото. Попробуй загрузить другое фото."
+)
+
+
+def _user_message_for_failed(error_message: str) -> str:
+    """Map a structured task.error_message to a user-friendly Russian hint.
+
+    The worker writes ``[stage=<stage>] <ExcType>: <message>`` into
+    ``error_message`` (see _format_task_error). We pattern-match on stage,
+    exception type and substrings to give the user an actionable reason
+    instead of a single generic message that leads to support tickets.
+    Stages & markers intentionally checked case-insensitively.
+    """
+    if not error_message:
+        return _GENERIC_FAILED_MESSAGE
+
+    em = error_message.lower()
+
+    # Input-quality pre-flight blockers (fast fail, stage=preprocess).
+    if (
+        "no_face" in em
+        or "не обнаружено лицо" in em
+        or "лицо не обнаружено" in em
+        or "не нашлось" in em
+        or "face_too_small" in em
+        or "blurry_photo" in em
+        or "low_resolution" in em
+        or "лицо слишком мал" in em
+        or "лицо слишком мелк" in em
+        or "низкое разреш" in em
+        or "слишком размыт" in em
+        or "размыт" in em
+    ):
+        return (
+            "\u274c На фото не нашлось чёткого лица. Попробуй фронтальный "
+            "портрет крупным планом, в хорошем свете, без сильного размытия."
+        )
+
+    # External provider overload / transient network problems.
+    if (
+        "readtimeout" in em
+        or "writetimeout" in em
+        or "pooltimeout" in em
+        or "connecttimeout" in em
+        or "connectionerror" in em
+        or "timeouterror" in em
+        or "timeout" in em
+        or " 429" in em or "]429" in em or ":429" in em
+        or " 503" in em or "]503" in em or ":503" in em
+        or " 502" in em or "]502" in em or ":502" in em
+        or " 504" in em or "]504" in em or ":504" in em
+        or "rate limit" in em
+        or "temporarily" in em
+    ):
+        return (
+            "\u23f3 Серверы AI сейчас перегружены. Попробуй ещё раз через "
+            "минуту — кредиты не списаны."
+        )
+
+    # Content policy / moderation.
+    if (
+        "content policy" in em
+        or "moderation" in em
+        or "nsfw" in em
+        or "модерац" in em
+        or "запрещ" in em
+    ):
+        return (
+            "\u274c Фото не прошло проверку безопасности. Загрузи другое фото."
+        )
+
+    # AI transfer forbidden (consent or policy) — should be blocked at API
+    # level with HTTP 451, but surface clearly if a task somehow reached worker.
+    if "aitransferforbidden" in em or "ai_transfer" in em:
+        return (
+            "\u274c Для обработки нужны все согласия. Открой /consent и "
+            "подтверди обработку данных, передачу в AI и возраст 16+."
+        )
+
+    # No pipeline context (guard tripped) — internal bug, hide from user.
+    if "no_pipeline_context" in em:
+        return (
+            "\u26a0\ufe0f Произошла внутренняя ошибка. Мы уже разбираемся — "
+            "попробуй ещё раз через пару минут."
+        )
+
+    return _GENERIC_FAILED_MESSAGE
+
+
 @router.callback_query(F.data.startswith("pick_style:"))
 async def on_pick_style(callback: CallbackQuery, api_base_url: str, redis: Redis):
     """Call pre-analyze, show scores + perception profile + style suggestions."""
@@ -825,8 +915,13 @@ async def _poll_task(bot, api_base_url: str, user_id: int, task_id: str, chat_id
                 return
             if status == "failed":
                 await redis.delete(lock_key)
+                err_msg = data.get("error_message") or ""
+                logger.warning(
+                    "Task %s failed (user=%s) error_message=%s",
+                    task_id, user_id, err_msg,
+                )
                 await bot.edit_message_text(
-                    "\u274c Не удалось обработать фото. Попробуй загрузить другое фото.",
+                    _user_message_for_failed(err_msg),
                     chat_id=chat_id,
                     message_id=status_msg_id,
                     reply_markup=error_keyboard(),
@@ -852,8 +947,13 @@ async def _poll_task(bot, api_base_url: str, user_id: int, task_id: str, chat_id
                 return
             if data and data.get("status") == "failed":
                 await redis.delete(lock_key)
+                err_msg = data.get("error_message") or ""
+                logger.warning(
+                    "Task %s failed during grace window (user=%s) error_message=%s",
+                    task_id, user_id, err_msg,
+                )
                 await bot.edit_message_text(
-                    "\u274c Не удалось обработать фото. Попробуй загрузить другое фото.",
+                    _user_message_for_failed(err_msg),
                     chat_id=chat_id,
                     message_id=status_msg_id,
                     reply_markup=error_keyboard(),

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import uuid
@@ -92,7 +93,9 @@ async def pre_analyze(
         ),
     }
 
-    quality_report = analyze_input_quality(image_bytes)
+    # Offload CPU-bound MediaPipe/Laplacian analysis to a thread so the
+    # FastAPI event loop can continue serving other requests.
+    quality_report = await asyncio.to_thread(analyze_input_quality, image_bytes)
     if not quality_report.can_generate:
         primary = quality_report.blocking[0]
         raise HTTPException(

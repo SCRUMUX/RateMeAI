@@ -353,6 +353,18 @@ def analyze_input_quality(image_bytes: bytes) -> InputQualityReport:
     faces = _detect_faces(arr_rgb)
     report.num_faces = len(faces)
     if not faces:
+        # Fail-soft when MediaPipe itself is unavailable in this container
+        # (common on slim images missing libGL/libEGL). We must not block
+        # every user with NO_FACE just because the detector failed to load —
+        # identity preservation is re-checked by the VLM gate after
+        # generation (see src/services/quality_gates.py). Soft-warn the
+        # user instead so they understand the preview is not face-verified.
+        if _mp_available is False:
+            report.issues.append(_issue(IssueCode.FACE_DETECTOR_UNAVAILABLE, "warn"))
+            logger.warning(
+                "input_quality: MediaPipe unavailable — skipping hard NO_FACE block"
+            )
+            return report
         report.can_generate = False
         report.issues.append(_issue(IssueCode.NO_FACE, "block"))
         return report

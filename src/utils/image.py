@@ -92,21 +92,8 @@ def estimate_blur_score(image_bytes: bytes) -> float:
         return -1.0
 
 
-def has_face_heuristic(image_bytes: bytes) -> bool:
-    """Detect a face using the lightweight MediaPipe detector.
-
-    Falls back to an aspect-ratio heuristic when MediaPipe is unavailable.
-    No feature vectors or identity-grade embeddings are produced here —
-    this is purely a presence check used for input validation.
-    """
-    try:
-        from src.services.identity import IdentityService
-        return IdentityService().detect_face(image_bytes)
-    except ImportError:
-        pass
-    except Exception:
-        logger.debug("MediaPipe detection failed, falling back to heuristic")
-
+def _aspect_ratio_face_heuristic(image_bytes: bytes) -> bool:
+    """Portrait-shaped photo heuristic used when MediaPipe isn't available."""
     try:
         img = Image.open(io.BytesIO(image_bytes))
         w, h = img.size
@@ -114,3 +101,34 @@ def has_face_heuristic(image_bytes: bytes) -> bool:
         return 0.3 < aspect < 3.0 and w >= MIN_DIMENSION and h >= MIN_DIMENSION
     except Exception:
         return False
+
+
+def has_face_heuristic(image_bytes: bytes) -> bool:
+    """Detect a face using the lightweight MediaPipe detector.
+
+    Fails soft when MediaPipe is unavailable in this environment (e.g. the
+    native wheel can't load because ``libGL`` / ``libEGL`` are missing in
+    the container): we fall back to an aspect-ratio heuristic instead of
+    returning ``False`` and blocking every user. No feature vectors or
+    identity-grade embeddings are produced here — this is purely a
+    presence check used for input validation (real identity preservation
+    is verified by the VLM quality gate after generation).
+    """
+    try:
+        from src.services.identity import IdentityService, _mp_available
+    except ImportError:
+        return _aspect_ratio_face_heuristic(image_bytes)
+
+    try:
+        if IdentityService().detect_face(image_bytes):
+            return True
+    except Exception:
+        logger.debug("MediaPipe detection failed, falling back to heuristic")
+        return _aspect_ratio_face_heuristic(image_bytes)
+
+    # Detector ran but found no face. If MediaPipe is unavailable
+    # (native wheel didn't load), ``detect_face`` always returns False —
+    # use the heuristic instead of a hard False.
+    if _mp_available is False:
+        return _aspect_ratio_face_heuristic(image_bytes)
+    return False

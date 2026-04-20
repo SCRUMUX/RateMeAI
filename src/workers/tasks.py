@@ -45,10 +45,79 @@ _TRANSIENT_MARKERS = ("rate limit", "timeout", "connect", "temporarily", "503", 
 
 
 def _is_transient(exc: Exception) -> bool:
-    msg = str(exc).lower()
-    if isinstance(exc, (TimeoutError, ConnectionError, OSError)):
+    # Unwrap PipelineStageError so we classify against the *real* cause
+    # (a ReadTimeout wrapped as [stage=analyze] is still transient).
+    from src.orchestrator.pipeline import PipelineStageError
+    if isinstance(exc, PipelineStageError):
+        real = exc.original
+    else:
+        real = exc
+    msg = str(real).lower()
+    if isinstance(real, (TimeoutError, ConnectionError, OSError)):
         return True
     return any(marker in msg for marker in _TRANSIENT_MARKERS)
+
+
+def _format_task_error(exc: Exception) -> str:
+    """Build a structured `error_message` like ``[stage=analyze] ReadTimeout: ...``.
+
+    Truncated to 500 chars (DB column limit).  The stage helps ops pinpoint
+    *where* in the pipeline a task died without reading full tracebacks.
+    """
+    from src.orchestrator.pipeline import PipelineStageError
+    if isinstance(exc, PipelineStageError):
+        original = exc.original
+        stage = exc.stage
+    else:
+        original = exc
+        stage = "worker"
+    text = f"[stage={stage}] {type(original).__name__}: {str(original)[:380]}"
+    return text[:500]
+
+
+def _mediapipe_selfcheck() -> None:
+    """Probe MediaPipe at worker startup; write a clear log line either way.
+
+    This is observability-only: we do not raise or fail startup. The goal
+    is for ops to immediately see in Railway logs whether the native
+    MediaPipe wheel loaded successfully in this container (common failure
+    mode: ``mediapipe`` imports but the native .so misses ``libGL`` /
+    ``libEGL`` on slim images). If this warns, ``analyze_input_quality``
+    will degrade into a fail-soft mode (see B2) instead of hard-blocking
+    every user with NO_FACE.
+    """
+    try:
+        import io as _io
+        from PIL import Image as _Image
+        _buf = _io.BytesIO()
+        _Image.new("RGB", (64, 64), color=(128, 128, 128)).save(_buf, format="JPEG")
+        probe = _buf.getvalue()
+
+        from src.services.identity import IdentityService
+        svc = IdentityService()
+        svc.detect_face(probe)
+    except Exception:
+        logger.warning(
+            "MediaPipe FaceDetection probe FAILED at worker startup — "
+            "face-presence gate will degrade (fail-soft). "
+            "Identity preservation itself is unaffected (handled by VLM).",
+            exc_info=True,
+        )
+        return
+
+    from src.services.identity import _mp_available as _id_available
+    from src.services.input_quality import _get_mp_detector
+    _get_mp_detector()
+    from src.services.input_quality import _mp_available as _iq_available
+
+    if _id_available and _iq_available:
+        logger.info("MediaPipe FaceDetection available (identity + input_quality)")
+    else:
+        logger.warning(
+            "MediaPipe FaceDetection UNAVAILABLE at worker startup — "
+            "NO_FACE gate will degrade (fail-soft). identity=%s input_quality=%s",
+            _id_available, _iq_available,
+        )
 
 
 async def startup(ctx: dict):
@@ -81,12 +150,7 @@ async def startup(ctx: dict):
     # whether the lightweight MediaPipe face-presence check is available so
     # ops can spot a misconfigured image — a missing detector is a *soft*
     # warning, not a blocker for task processing.
-    if not ctx["pipeline"].identity_available:
-        logger.warning(
-            "MediaPipe face-presence detector not loaded — input face "
-            "validation will fall back to aspect-ratio heuristic. "
-            "Identity preservation itself is unaffected (handled by VLM)."
-        )
+    _mediapipe_selfcheck()
     import time
     await ctx["redis"].set(WORKER_HEARTBEAT_KEY, str(time.time()), ex=WORKER_HEARTBEAT_TTL)
 
@@ -407,7 +471,7 @@ async def _process_analysis_inner(ctx: dict, task_id: str):
         except Exception as e:
             logger.exception("Task %s failed", task_id)
             task.status = TaskStatus.FAILED.value
-            task.error_message = str(e)[:500]
+            task.error_message = _format_task_error(e)
             fail_reason = "transient" if _is_transient(e) else "permanent"
             TASKS_FAILED.labels(reason=fail_reason).inc()
 
@@ -612,4 +676,10 @@ class WorkerSettings:
     on_shutdown = shutdown
     redis_settings = RedisSettings.from_dsn(settings.redis_url)
     max_jobs = 5
-    job_timeout = 200
+    # 300s budget: preprocess (~1s) + LLM analyze (up to ~96s worst case
+    # with OpenRouter retries after B1) + planner (~0s) + 2-3 Reve steps
+    # (~60-90s total) + VLM compare_images quality gate (~10-20s) +
+    # finalize. Previous 200s was tight enough to kill borderline jobs
+    # before they reached Reve, leaving tasks in PROCESSING state until
+    # the 10-min reconciler cleaned them up.
+    job_timeout = 300

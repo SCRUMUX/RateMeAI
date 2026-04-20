@@ -5,7 +5,7 @@ import json
 import logging
 
 import httpx
-from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
+from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception
 
 from src.providers.base import LLMProvider
 from src.services.ai_transfer_guard import assert_external_transfer_allowed
@@ -13,17 +13,45 @@ from src.services.ai_transfer_guard import assert_external_transfer_allowed
 logger = logging.getLogger(__name__)
 
 
+# HTTP statuses worth a retry: 408 (request timeout), 429 (rate limit),
+# 5xx (server/proxy errors). 4xx other than 408/429 (401/403/404/422) are
+# terminal — retry would only waste time and our ARQ job_timeout budget.
+_RETRYABLE_STATUSES = frozenset({408, 425, 429, 500, 502, 503, 504})
+
+
+def _is_retryable_openrouter(exc: BaseException) -> bool:
+    # Network-level timeouts / connection issues → always retry.
+    if isinstance(exc, (
+        httpx.TimeoutException,       # covers ReadTimeout, WriteTimeout, ConnectTimeout, PoolTimeout
+        httpx.ConnectError,
+        httpx.RemoteProtocolError,
+        httpx.NetworkError,
+    )):
+        return True
+    if isinstance(exc, httpx.HTTPStatusError):
+        try:
+            return exc.response.status_code in _RETRYABLE_STATUSES
+        except Exception:
+            return False
+    return False
+
+
 class OpenRouterLLM(LLMProvider):
     def __init__(self, api_key: str, base_url: str, model: str):
         self._api_key = api_key
         self._base_url = base_url.rstrip("/")
         self._model = model
-        self._client = httpx.AsyncClient(timeout=60.0)
+        # Split timeout: quick connect (10s), moderate read/write (30s).
+        # Budget: worst case 3 tenacity attempts × 30s read + 2+4 backoff
+        # ≈ 96s, which fits into the ARQ job_timeout (300s after B5).
+        self._client = httpx.AsyncClient(
+            timeout=httpx.Timeout(connect=10.0, read=30.0, write=30.0, pool=10.0),
+        )
 
     @retry(
         stop=stop_after_attempt(3),
         wait=wait_exponential(multiplier=1, min=2, max=10),
-        retry=retry_if_exception_type((httpx.HTTPStatusError, httpx.ConnectError)),
+        retry=retry_if_exception(_is_retryable_openrouter),
     )
     async def analyze_image(
         self, image_bytes: bytes, prompt: str, *, temperature: float = 0.7,
@@ -65,7 +93,7 @@ class OpenRouterLLM(LLMProvider):
     @retry(
         stop=stop_after_attempt(3),
         wait=wait_exponential(multiplier=1, min=2, max=10),
-        retry=retry_if_exception_type((httpx.HTTPStatusError, httpx.ConnectError)),
+        retry=retry_if_exception(_is_retryable_openrouter),
     )
     async def compare_images(
         self,
@@ -119,7 +147,7 @@ class OpenRouterLLM(LLMProvider):
     @retry(
         stop=stop_after_attempt(3),
         wait=wait_exponential(multiplier=1, min=2, max=10),
-        retry=retry_if_exception_type((httpx.HTTPStatusError, httpx.ConnectError)),
+        retry=retry_if_exception(_is_retryable_openrouter),
     )
     async def generate_text(self, prompt: str) -> str:
         payload = {

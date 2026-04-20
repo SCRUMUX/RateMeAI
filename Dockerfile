@@ -5,7 +5,8 @@ WORKDIR /app
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
         gcc g++ libpq-dev curl fonts-dejavu-core \
-        libglib2.0-0 gosu && \
+        libglib2.0-0 gosu \
+        libgl1 libegl1 libsm6 libxext6 libxrender1 && \
     rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt .

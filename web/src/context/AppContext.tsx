@@ -6,6 +6,7 @@ import { STYLES_BY_CATEGORY } from '../data/styles';
 import { restorePhotoAfterOAuth, clearPersistedPhoto } from '../lib/photo-persist';
 import { rememberOAuthReturnPath } from '../lib/flow-resume';
 import { normalizeImageUrl } from '../lib/image-url';
+import { userMessageForFailed } from '../lib/task-error';
 import {
   clearPendingTask,
   peekPendingTask,
@@ -560,7 +561,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
         clearPendingTask(taskId);
         setIsGenerating(false);
         resumedTaskIdRef.current = null;
-        const msg = t.error_message ?? 'Не удалось сгенерировать фото. Кредит возвращён, попробуйте ещё раз.';
+        if (t.error_message) {
+          console.warn(`Task ${taskId} failed: ${t.error_message}`);
+        }
+        const msg = userMessageForFailed(t.error_message);
         setError(msg);
         rememberLastGenerationError(taskId, msg);
         refreshBalance();

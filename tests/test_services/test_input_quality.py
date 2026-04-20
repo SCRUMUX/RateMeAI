@@ -58,10 +58,26 @@ def test_low_resolution_blocks():
 
 
 def test_no_face_blocks():
-    with patch.object(iq, "_detect_faces", return_value=[]):
+    # MediaPipe *did* load and simply found no face → hard block.
+    with patch.object(iq, "_detect_faces", return_value=[]), \
+         patch.object(iq, "_mp_available", True):
         rep = iq.analyze_input_quality(_sharp_noise_bytes(800, 800))
     assert rep.can_generate is False
     assert any(i.code == IssueCode.NO_FACE for i in rep.blocking)
+
+
+def test_no_face_fail_soft_when_mediapipe_unavailable():
+    """B2 fail-soft: if MediaPipe itself can't load, we must not hard-block
+    every user with NO_FACE. The VLM quality gate re-checks identity after
+    generation, so a degraded detector only costs us a pre-flight filter."""
+    with patch.object(iq, "_detect_faces", return_value=[]), \
+         patch.object(iq, "_mp_available", False):
+        rep = iq.analyze_input_quality(_sharp_noise_bytes(800, 800))
+    assert rep.can_generate is True, "must not hard-block when MP is unavailable"
+    assert not rep.blocking
+    assert any(
+        i.code == IssueCode.FACE_DETECTOR_UNAVAILABLE for i in rep.soft_warnings
+    )
 
 
 def test_tiny_face_blocks():

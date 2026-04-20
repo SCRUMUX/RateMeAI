@@ -324,7 +324,12 @@ def test_no_face_raises(mock_norm, mock_face):
     pipeline, _, _ = _build_pipeline()
 
     import asyncio
-    with pytest.raises(ValueError, match="лицо"):
+    from src.orchestrator.pipeline import PipelineStageError
+
+    # After A1 every exception from a `_trace_step` block is wrapped in
+    # PipelineStageError so the worker can tag it with its stage. The
+    # original ValueError is available via `.original`.
+    with pytest.raises(PipelineStageError) as ei:
         asyncio.run(
             pipeline.execute(
                 mode=AnalysisMode.RATING,
@@ -333,6 +338,8 @@ def test_no_face_raises(mock_norm, mock_face):
                 task_id="t4",
             )
         )
+    assert isinstance(ei.value.original, ValueError)
+    assert "лицо" in str(ei.value.original)
 
 
 # ----- Multi-pass pipeline tests -----

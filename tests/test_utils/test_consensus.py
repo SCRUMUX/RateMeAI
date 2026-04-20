@@ -71,3 +71,21 @@ def test_median_dict_mixed_keys():
     ])
     assert result["score"] == 7.0
     assert result["label"] == "low"
+
+
+def test_consensus_wall_clock_timeout(monkeypatch):
+    """B6: if the fan-out exceeds the wall-clock cap, raise TimeoutError so
+    the worker's retry loop can classify it as transient."""
+    from src.utils import consensus as consensus_mod
+
+    monkeypatch.setattr(consensus_mod, "_CONSENSUS_WALL_TIMEOUT_S", 0.05)
+
+    async def _slow(*_a, **_kw):
+        await asyncio.sleep(1.0)
+        return {"score": 1.0}
+
+    llm = MagicMock()
+    llm.analyze_image = AsyncMock(side_effect=_slow)
+
+    with pytest.raises(TimeoutError):
+        _run(consensus_analyze(llm, b"img", "prompt", n=3))

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import logging
 
 from aiogram import Router, F
@@ -67,12 +68,12 @@ async def _run_preflight(message: Message, file_id: str) -> InputQualityReport |
     """
     try:
         raw = await download_photo_bytes(message.bot, file_id)
-        raw, _ = validate_and_normalize(raw)
+        raw, _ = await asyncio.to_thread(validate_and_normalize, raw)
     except Exception:
         logger.warning("Pre-flight: failed to download/normalize photo", exc_info=True)
         return None
 
-    report = analyze_input_quality(raw)
+    report = await asyncio.to_thread(analyze_input_quality, raw)
     if not report.can_generate:
         lines = ["\u26a0\ufe0f *Это фото не подойдёт для генерации.*", ""]
         for issue in report.blocking:

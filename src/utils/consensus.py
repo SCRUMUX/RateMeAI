@@ -10,6 +10,15 @@ from src.providers.base import LLMProvider
 logger = logging.getLogger(__name__)
 
 
+# Hard wall-clock cap on the whole consensus fan-out. Individual
+# ``analyze_image`` calls already have their own httpx timeout + tenacity
+# retries (~96s worst case), so the gather *can* in theory run that long
+# per worker, but we don't want to eat the entire ARQ job_timeout budget
+# on scoring alone. 60s is enough for 2-3 parallel successful calls and
+# forces us to fail fast if the provider is visibly overloaded.
+_CONSENSUS_WALL_TIMEOUT_S = 60.0
+
+
 async def consensus_analyze(
     llm: LLMProvider,
     image_bytes: bytes,
@@ -21,14 +30,31 @@ async def consensus_analyze(
     """Run ``n`` LLM analyses and return a median-merged result.
 
     When *n* <= 1 this is equivalent to a single ``llm.analyze_image`` call.
+    The whole fan-out is capped at :data:`_CONSENSUS_WALL_TIMEOUT_S` — if
+    the provider is slow enough that the gather cannot finish in time,
+    we surface a ``TimeoutError`` to the caller (worker classifies it as
+    transient; the rest of the pipeline won't start with partial data).
     """
     if n <= 1:
         return await llm.analyze_image(image_bytes, prompt, temperature=temperature)
 
-    results = await asyncio.gather(
-        *[llm.analyze_image(image_bytes, prompt, temperature=temperature) for _ in range(n)],
-        return_exceptions=True,
-    )
+    try:
+        results = await asyncio.wait_for(
+            asyncio.gather(
+                *[llm.analyze_image(image_bytes, prompt, temperature=temperature) for _ in range(n)],
+                return_exceptions=True,
+            ),
+            timeout=_CONSENSUS_WALL_TIMEOUT_S,
+        )
+    except asyncio.TimeoutError:
+        logger.warning(
+            "consensus_analyze: wall-clock timeout after %.0fs (n=%d)",
+            _CONSENSUS_WALL_TIMEOUT_S, n,
+        )
+        raise TimeoutError(
+            f"consensus gather exceeded {_CONSENSUS_WALL_TIMEOUT_S:.0f}s wall clock"
+        )
+
     valid = [r for r in results if isinstance(r, dict)]
     if not valid:
         raise RuntimeError("All consensus calls failed")

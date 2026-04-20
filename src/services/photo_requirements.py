@@ -26,6 +26,7 @@ class IssueCode:
     FACE_OFF_CENTER = "face_off_center"
     NOT_FRONTAL = "not_frontal"
     HAIR_BG_SIMILAR = "hair_bg_similar"
+    FACE_DETECTOR_UNAVAILABLE = "face_detector_unavailable"
 
 
 # Russian-language texts for each code.
@@ -75,6 +76,10 @@ ISSUE_TEXTS: dict[str, dict[str, str]] = {
     IssueCode.HAIR_BG_SIMILAR: {
         "message": "Волосы сливаются с фоном.",
         "suggestion": "Для чистого контура выберите фото с простым однотонным фоном.",
+    },
+    IssueCode.FACE_DETECTOR_UNAVAILABLE: {
+        "message": "Автопроверка лица временно недоступна.",
+        "suggestion": "Обработка продолжится — проверка лица пройдёт на этапе сравнения.",
     },
 }
 
