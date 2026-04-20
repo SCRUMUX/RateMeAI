@@ -14,6 +14,7 @@ from PIL import Image
 _CONSENT_HEADERS = {
     "X-Consent-Data-Processing": "1",
     "X-Consent-AI-Transfer": "1",
+    "X-Consent-Age-16": "1",
 }
 
 
@@ -104,21 +105,23 @@ def test_consents_api_returns_state_after_grant(client):
     token = _register(client, telegram_id=777003)
     auth = {"Authorization": f"Bearer {token}"}
 
+    required_set = {"data_processing", "ai_transfer", "age_confirmed_16"}
+
     r = client.get("/api/v1/users/me/consents", headers=auth)
     assert r.status_code == 200
     body = r.json()
-    assert set(body["required"]) == {"data_processing", "ai_transfer"}
-    assert set(body["missing"]) == {"data_processing", "ai_transfer"}
+    assert set(body["required"]) == required_set
+    assert set(body["missing"]) == required_set
 
     r = client.post(
         "/api/v1/users/me/consents",
-        json={"kinds": ["data_processing", "ai_transfer"], "source": "web"},
+        json={"kinds": list(required_set), "source": "web"},
         headers=auth,
     )
     assert r.status_code == 200, r.text
     body = r.json()
     assert body["missing"] == []
-    assert set(body["granted"].keys()) == {"data_processing", "ai_transfer"}
+    assert set(body["granted"].keys()) == required_set
 
 
 def test_consent_revoke_blocks_future_analyze(client):
@@ -127,7 +130,10 @@ def test_consent_revoke_blocks_future_analyze(client):
 
     r = client.post(
         "/api/v1/users/me/consents",
-        json={"kinds": ["data_processing", "ai_transfer"], "source": "web"},
+        json={
+            "kinds": ["data_processing", "ai_transfer", "age_confirmed_16"],
+            "source": "web",
+        },
         headers=auth,
     )
     assert r.status_code == 200

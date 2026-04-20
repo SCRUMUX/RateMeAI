@@ -9,6 +9,7 @@ from PIL import Image
 _CONSENT_HEADERS = {
     "X-Consent-Data-Processing": "1",
     "X-Consent-AI-Transfer": "1",
+    "X-Consent-Age-16": "1",
 }
 
 
