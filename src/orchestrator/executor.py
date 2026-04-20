@@ -358,6 +358,13 @@ class ImageGenerationExecutor:
                     "aspect_ratio": aspect_ratio,
                     "test_time_scaling": settings.reve_test_time_scaling,
                     "use_edit": True,
+                    # Textual-level protection: reve_provider translates this
+                    # into a "Change ONLY the background, keep the person
+                    # untouched." prefix on the edit instruction. Works with
+                    # or without a real mask_image (SDK 0.1.2 does not accept
+                    # one). Kept unconditional for CV/DATING/SOCIAL because
+                    # the background is always the legitimate edit target.
+                    "mask_region": "background",
                 }
                 # Upscale only when the face is large enough for the model to
                 # have enough detail to work with. Tiny faces get amplified
@@ -367,8 +374,11 @@ class ImageGenerationExecutor:
                         {"process": "upscale", "upscale_factor": 2},
                     ]
 
-            # Single-pass background mask: protects face + hair + body from the
-            # edit model while the background is replaced, all in ONE Reve call.
+            # Single-pass background mask: when Reve SDK gains `mask_image`
+            # support, flip settings.segmentation_enabled back to True and
+            # this block will supply a real mediapipe mask. Until then it
+            # is a no-op (flag is off in config), and background protection
+            # is realised purely through the textual mask_region hint above.
             if (
                 mode in (AnalysisMode.CV, AnalysisMode.DATING, AnalysisMode.SOCIAL)
                 and settings.segmentation_enabled
@@ -396,10 +406,16 @@ class ImageGenerationExecutor:
             raw = None
             identity_score = 0.0
 
+            if extra.get("mask_image"):
+                mask_label = "bg_pixel"
+            elif extra.get("mask_region"):
+                mask_label = f"text_hint:{extra['mask_region']}"
+            else:
+                mask_label = "none"
             logger.info(
                 "Image generation (edit mode) mode=%s style=%s task=%s mask=%s upscale=%s",
                 mode.value, style or "default", task_id,
-                "bg" if extra.get("mask_image") else "none",
+                mask_label,
                 "x2" if any(
                     p.get("process") == "upscale" for p in extra.get("postprocessing", [])
                 ) else "no",

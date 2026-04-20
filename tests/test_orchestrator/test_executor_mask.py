@@ -1,9 +1,18 @@
-"""Integration test: single-pass Reve call receives mask_image from segmentation.
+"""Integration test: single-pass params plumbing for Reve.
 
-Verifies that when `settings.segmentation_enabled=True` and a segmentation
-service is wired in, the executor runs exactly ONE Reve call and that call
-contains a PNG-encoded `mask_image` with region=background — satisfying
-the "one Reve call, maximum quality" requirement.
+After the mask_image regression (Reve SDK 0.1.2 does not accept mask_image in
+edit(), see reve_provider.py), the executor now relies on a textual hint
+driven by `mask_region` in the params. These tests verify:
+
+1. `mask_region="background"` is ALWAYS set for CV/DATING/SOCIAL, regardless
+   of segmentation state — this keeps the "change only background" hint in
+   the prompt even when mediapipe is off.
+2. Real `mask_image` bytes are only ever attached when
+   `settings.segmentation_enabled=True` (future-proofing for when the SDK
+   gains mask support).
+3. `upscale_factor=2` is conditional on face_area_ratio >= 0.15 (unchanged
+   from the original fix).
+4. Exactly ONE Reve call per single_pass (cost invariant).
 """
 from __future__ import annotations
 
@@ -49,11 +58,7 @@ def _make_jpeg_stub() -> bytes:
     return buf.getvalue()
 
 
-@pytest.mark.asyncio
-@patch("src.orchestrator.executor.settings")
-async def test_single_pass_passes_mask_image_to_reve(mock_settings):
-    """Single-pass Reve call must receive mask_image (PNG bytes) + mask_region=background."""
-    mock_settings.segmentation_enabled = True
+def _base_settings(mock_settings) -> None:
     mock_settings.multi_pass_enabled = False
     mock_settings.reve_test_time_scaling = 3
     mock_settings.identity_threshold = 0.70
@@ -62,30 +67,27 @@ async def test_single_pass_passes_mask_image_to_reve(mock_settings):
     mock_settings.artifact_threshold = 0.05
     mock_settings.photorealism_enabled = False
 
-    image_gen = MagicMock()
-    reve_output = b"\xff\xd8\xff\xe0" + b"0" * 2048
-    image_gen.generate = AsyncMock(return_value=reve_output)
 
+def _build_executor(
+    seg_svc=None,
+    *,
+    image_gen_bytes: bytes = b"\xff\xd8\xff\xe0" + b"0" * 2048,
+) -> tuple[ImageGenerationExecutor, MagicMock]:
+    image_gen = MagicMock()
+    image_gen.generate = AsyncMock(return_value=image_gen_bytes)
     prompt_engine = MagicMock()
     prompt_engine.build_image_prompt.return_value = "TEST_PROMPT"
-
     model_router = MagicMock()
     model_router.cheapest_cost = 0.02
-
     storage = MagicMock()
     storage.upload = AsyncMock(return_value=None)
     storage.build_public_url = MagicMock(return_value="https://example/result.jpg")
-
     identity_svc = MagicMock()
     identity_svc.verify = MagicMock(return_value=(True, 0.85))
-
     gate_runner = MagicMock()
     gate_runner.run_global_gates = AsyncMock(
         return_value=(True, [], {"aesthetic_score": 7.0})
     )
-
-    seg_svc = MagicMock()
-    seg_svc.segment = AsyncMock(return_value={"background": _make_png_mask()})
 
     executor = ImageGenerationExecutor(
         image_gen=image_gen,
@@ -95,83 +97,20 @@ async def test_single_pass_passes_mask_image_to_reve(mock_settings):
         identity_svc_getter=lambda: identity_svc,
         gate_runner_getter=lambda: gate_runner,
         embedding_getter=AsyncMock(return_value=[0.1] * 128),
-        segmentation_getter=lambda: seg_svc,
+        segmentation_getter=(lambda: seg_svc) if seg_svc is not None else None,
     )
-
-    image_bytes = _make_jpeg_stub()
-    result_dict: dict = {"base_description": "test subject"}
-    trace: dict = {"decisions": [], "steps": {}}
-
-    await executor.single_pass(
-        mode=AnalysisMode.DATING,
-        style="yacht",
-        image_bytes=image_bytes,
-        result_dict=result_dict,
-        user_id="u1",
-        task_id="t1",
-        trace=trace,
-        gender="male",
-        input_quality=_make_ok_report(),
-    )
-
-    assert image_gen.generate.await_count == 1, (
-        "single_pass must call Reve exactly ONCE"
-    )
-    _, kwargs = image_gen.generate.call_args
-    params = kwargs.get("params") or {}
-
-    assert "mask_image" in params, "mask_image must be passed to Reve"
-    assert isinstance(params["mask_image"], (bytes, bytearray))
-    assert params["mask_image"][:8] == b"\x89PNG\r\n\x1a\n", (
-        "mask_image must be valid PNG bytes"
-    )
-    assert params.get("mask_region") == "background"
-
-    seg_svc.segment.assert_awaited_once()
+    return executor, image_gen
 
 
 @pytest.mark.asyncio
 @patch("src.orchestrator.executor.settings")
-async def test_single_pass_skips_mask_when_segmentation_disabled(mock_settings):
-    """When segmentation_enabled=False — no segmentation call, no mask in params."""
+async def test_mask_region_always_set_for_dating_without_segmentation(mock_settings):
+    """With segmentation OFF (prod default) DATING must still carry
+    mask_region=background so reve_provider can attach the text hint."""
+    _base_settings(mock_settings)
     mock_settings.segmentation_enabled = False
-    mock_settings.multi_pass_enabled = False
-    mock_settings.reve_test_time_scaling = 3
-    mock_settings.identity_threshold = 0.70
-    mock_settings.identity_max_retries = 0
-    mock_settings.aesthetic_threshold = 6.0
-    mock_settings.artifact_threshold = 0.05
-    mock_settings.photorealism_enabled = False
 
-    image_gen = MagicMock()
-    image_gen.generate = AsyncMock(return_value=b"\xff\xd8\xff\xe0" + b"0" * 2048)
-    prompt_engine = MagicMock()
-    prompt_engine.build_image_prompt.return_value = "TEST_PROMPT"
-    model_router = MagicMock()
-    model_router.cheapest_cost = 0.02
-    storage = MagicMock()
-    storage.upload = AsyncMock(return_value=None)
-    storage.build_public_url = MagicMock(return_value="https://example/result.jpg")
-    identity_svc = MagicMock()
-    identity_svc.verify = MagicMock(return_value=(True, 0.85))
-    gate_runner = MagicMock()
-    gate_runner.run_global_gates = AsyncMock(
-        return_value=(True, [], {"aesthetic_score": 7.0})
-    )
-
-    seg_svc = MagicMock()
-    seg_svc.segment = AsyncMock(return_value={"background": _make_png_mask()})
-
-    executor = ImageGenerationExecutor(
-        image_gen=image_gen,
-        prompt_engine=prompt_engine,
-        model_router=model_router,
-        storage=storage,
-        identity_svc_getter=lambda: identity_svc,
-        gate_runner_getter=lambda: gate_runner,
-        embedding_getter=AsyncMock(return_value=[0.1] * 128),
-        segmentation_getter=lambda: seg_svc,
-    )
+    executor, image_gen = _build_executor()
 
     await executor.single_pass(
         mode=AnalysisMode.DATING,
@@ -188,49 +127,84 @@ async def test_single_pass_skips_mask_when_segmentation_disabled(mock_settings):
     assert image_gen.generate.await_count == 1
     _, kwargs = image_gen.generate.call_args
     params = kwargs.get("params") or {}
-    assert "mask_image" not in params
-    seg_svc.segment.assert_not_awaited()
+    assert params.get("mask_region") == "background", (
+        "mask_region must be set so reve_provider can prepend the text hint"
+    )
+    assert "mask_image" not in params, (
+        "real mask_image must NOT leak to SDK when segmentation is disabled"
+    )
+
+
+@pytest.mark.asyncio
+@patch("src.orchestrator.executor.settings")
+async def test_mask_region_always_set_for_cv(mock_settings):
+    """CV mode must also get mask_region=background (document + business headshots)."""
+    _base_settings(mock_settings)
+    mock_settings.segmentation_enabled = False
+
+    executor, image_gen = _build_executor()
+
+    await executor.single_pass(
+        mode=AnalysisMode.CV,
+        style="ceo",
+        image_bytes=_make_jpeg_stub(),
+        result_dict={"base_description": "test"},
+        user_id="u1",
+        task_id="t1",
+        trace={"decisions": [], "steps": {}},
+        gender="male",
+        input_quality=_make_ok_report(),
+    )
+
+    _, kwargs = image_gen.generate.call_args
+    params = kwargs.get("params") or {}
+    assert params.get("mask_region") == "background"
+
+
+@pytest.mark.asyncio
+@patch("src.orchestrator.executor.settings")
+async def test_segmentation_flag_attaches_real_mask_image(mock_settings):
+    """Future-proof: when segmentation_enabled=True, the executor must attach
+    PNG mask_image bytes alongside mask_region. This exercises the code path
+    that will be re-activated once the Reve SDK accepts mask_image."""
+    _base_settings(mock_settings)
+    mock_settings.segmentation_enabled = True
+
+    seg_svc = MagicMock()
+    seg_svc.segment = AsyncMock(return_value={"background": _make_png_mask()})
+
+    executor, image_gen = _build_executor(seg_svc=seg_svc)
+
+    await executor.single_pass(
+        mode=AnalysisMode.DATING,
+        style="yacht",
+        image_bytes=_make_jpeg_stub(),
+        result_dict={"base_description": "test"},
+        user_id="u1",
+        task_id="t1",
+        trace={"decisions": [], "steps": {}},
+        gender="male",
+        input_quality=_make_ok_report(),
+    )
+
+    assert image_gen.generate.await_count == 1
+    _, kwargs = image_gen.generate.call_args
+    params = kwargs.get("params") or {}
+    assert "mask_image" in params
+    assert isinstance(params["mask_image"], (bytes, bytearray))
+    assert params["mask_image"][:8] == b"\x89PNG\r\n\x1a\n"
+    assert params.get("mask_region") == "background"
+    seg_svc.segment.assert_awaited_once()
 
 
 @pytest.mark.asyncio
 @patch("src.orchestrator.executor.settings")
 async def test_single_pass_upscale_disabled_for_small_face(mock_settings):
     """Small face (face_area_ratio < 0.15) must disable upscale_factor=2."""
+    _base_settings(mock_settings)
     mock_settings.segmentation_enabled = False
-    mock_settings.multi_pass_enabled = False
-    mock_settings.reve_test_time_scaling = 3
-    mock_settings.identity_threshold = 0.70
-    mock_settings.identity_max_retries = 0
-    mock_settings.aesthetic_threshold = 6.0
-    mock_settings.artifact_threshold = 0.05
-    mock_settings.photorealism_enabled = False
 
-    image_gen = MagicMock()
-    image_gen.generate = AsyncMock(return_value=b"\xff\xd8\xff\xe0" + b"0" * 2048)
-    prompt_engine = MagicMock()
-    prompt_engine.build_image_prompt.return_value = "TEST_PROMPT"
-    model_router = MagicMock()
-    model_router.cheapest_cost = 0.02
-    storage = MagicMock()
-    storage.upload = AsyncMock(return_value=None)
-    storage.build_public_url = MagicMock(return_value="https://example/r.jpg")
-    identity_svc = MagicMock()
-    identity_svc.verify = MagicMock(return_value=(True, 0.85))
-    gate_runner = MagicMock()
-    gate_runner.run_global_gates = AsyncMock(
-        return_value=(True, [], {"aesthetic_score": 7.0})
-    )
-
-    executor = ImageGenerationExecutor(
-        image_gen=image_gen,
-        prompt_engine=prompt_engine,
-        model_router=model_router,
-        storage=storage,
-        identity_svc_getter=lambda: identity_svc,
-        gate_runner_getter=lambda: gate_runner,
-        embedding_getter=AsyncMock(return_value=[0.1] * 128),
-        segmentation_getter=None,
-    )
+    executor, image_gen = _build_executor()
 
     await executor.single_pass(
         mode=AnalysisMode.DATING,
@@ -256,41 +230,10 @@ async def test_single_pass_upscale_disabled_for_small_face(mock_settings):
 @patch("src.orchestrator.executor.settings")
 async def test_single_pass_upscale_enabled_for_normal_face(mock_settings):
     """Normal face (face_area_ratio >= 0.15) should get upscale_factor=2."""
+    _base_settings(mock_settings)
     mock_settings.segmentation_enabled = False
-    mock_settings.multi_pass_enabled = False
-    mock_settings.reve_test_time_scaling = 3
-    mock_settings.identity_threshold = 0.70
-    mock_settings.identity_max_retries = 0
-    mock_settings.aesthetic_threshold = 6.0
-    mock_settings.artifact_threshold = 0.05
-    mock_settings.photorealism_enabled = False
 
-    image_gen = MagicMock()
-    image_gen.generate = AsyncMock(return_value=b"\xff\xd8\xff\xe0" + b"0" * 2048)
-    prompt_engine = MagicMock()
-    prompt_engine.build_image_prompt.return_value = "TEST_PROMPT"
-    model_router = MagicMock()
-    model_router.cheapest_cost = 0.02
-    storage = MagicMock()
-    storage.upload = AsyncMock(return_value=None)
-    storage.build_public_url = MagicMock(return_value="https://example/r.jpg")
-    identity_svc = MagicMock()
-    identity_svc.verify = MagicMock(return_value=(True, 0.85))
-    gate_runner = MagicMock()
-    gate_runner.run_global_gates = AsyncMock(
-        return_value=(True, [], {"aesthetic_score": 7.0})
-    )
-
-    executor = ImageGenerationExecutor(
-        image_gen=image_gen,
-        prompt_engine=prompt_engine,
-        model_router=model_router,
-        storage=storage,
-        identity_svc_getter=lambda: identity_svc,
-        gate_runner_getter=lambda: gate_runner,
-        embedding_getter=AsyncMock(return_value=[0.1] * 128),
-        segmentation_getter=None,
-    )
+    executor, image_gen = _build_executor()
 
     await executor.single_pass(
         mode=AnalysisMode.DATING,

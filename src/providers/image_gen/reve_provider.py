@@ -111,11 +111,17 @@ class ReveImageGen(ImageGenProvider):
         self._log_available_effects(client)
         options = self._build_options(params)
 
-        mask_image_bytes = params.get("mask_image") if params else None
-        has_mask = bool(mask_image_bytes)
-        use_edit = bool(params and params.get("use_edit")) or has_mask
+        # Reve SDK 0.1.2 edit() does NOT accept a mask_image kwarg (only
+        # edit_instruction, reference_image, aspect_ratio, version,
+        # test_time_scaling, postprocessing). Passing one triggers a TypeError
+        # that our outer try swallows as "generation_failed" — so we strip it
+        # here and fall back to a textual "change only the background" hint.
+        # Re-enable real mask_image plumbing once the SDK supports it.
+        _ = params.get("mask_image") if params else None  # kept for future use
+        mask_region = params.get("mask_region") if params else None
+        use_edit = bool(params and params.get("use_edit")) or bool(mask_region)
 
-        if has_mask:
+        if mask_region:
             region_hint = self._mask_to_instruction_hint(params)
             if region_hint:
                 prompt = f"{region_hint} {prompt}"
@@ -135,8 +141,6 @@ class ReveImageGen(ImageGenProvider):
                         "client": client,
                         **options,
                     }
-                    if mask_image_bytes:
-                        edit_kwargs["mask_image"] = mask_image_bytes
                     resp = edit(**edit_kwargs)
                 elif reference_image:
                     resp = remix(
@@ -148,6 +152,12 @@ class ReveImageGen(ImageGenProvider):
                 else:
                     resp = create(prompt, client=client, **options)
                 break
+            except TypeError as e:
+                # SDK signature drift (e.g. new kwarg we pass that SDK does
+                # not know). Surface a precise error instead of letting the
+                # outer `except Exception` bury it as a generic failure.
+                logger.exception("Reve SDK signature mismatch: %s", e)
+                raise RuntimeError(f"Reve SDK signature mismatch: {e}") from e
             except ReveRateLimitError as e:
                 last_err = e
                 # 429 не биллится — можем ретраить, но только в пределах max_attempts.

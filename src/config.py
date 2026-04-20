@@ -73,9 +73,14 @@ class Settings(BaseSettings):
     identity_max_retries: int = 0
 
     # Segmentation / multi-pass pipeline.
-    # Segmentation is now used in single-pass edit (mask_image=background).
+    # Segmentation is DISABLED because Reve SDK 0.1.2 does not accept a
+    # `mask_image` kwarg in edit() — passing one raises TypeError and ends
+    # the generation as a generic failure. Until the SDK supports masking,
+    # we fall back to a textual "change only the background" hint driven
+    # by `mask_region` in executor.single_pass. Re-enable when SDK learns
+    # mask_image.
     # Multi-pass is intentionally OFF so every task stays within one Reve call.
-    segmentation_enabled: bool = True
+    segmentation_enabled: bool = False
     multi_pass_enabled: bool = False
     pipeline_budget_max_usd: float = 0.15
 

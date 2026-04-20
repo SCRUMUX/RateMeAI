@@ -192,3 +192,78 @@ async def test_reve_image_gen_uses_image_when_no_bytes():
     with patch("reve.v1.image.remix", return_value=fake):
         out = await gen.generate("x", reference_image=b"ref")
     assert out.startswith(b"\xff\xd8") or len(out) > 0
+
+
+@pytest.mark.asyncio
+async def test_reve_image_gen_strips_unsupported_mask_image_kwarg():
+    """SDK 0.1.2 edit() does not accept `mask_image`; provider must drop it
+    from kwargs instead of surfacing a TypeError."""
+    img = Image.new("RGB", (16, 16), color="purple")
+    buf = io.BytesIO()
+    img.save(buf, format="JPEG")
+    jpeg_bytes = buf.getvalue()
+    fake = _fake_response(jpeg_bytes)
+
+    gen = ReveImageGen(api_token="papi.x", api_host="https://api.reve.com")
+    with patch("reve.v1.image.edit", return_value=fake) as edit_mock:
+        out = await gen.generate(
+            "studio backdrop",
+            reference_image=b"\xff\xd8 fake",
+            params={
+                "mask_image": b"\x89PNG\r\n\x1a\n" + b"0" * 32,
+                "mask_region": "background",
+                "use_edit": True,
+            },
+        )
+
+    assert out == jpeg_bytes
+    edit_mock.assert_called_once()
+    kwargs = edit_mock.call_args.kwargs
+    assert "mask_image" not in kwargs, (
+        "mask_image must be stripped before calling the SDK (0.1.2 does not accept it)"
+    )
+    assert "mask_region" not in kwargs
+    assert "use_edit" not in kwargs
+
+
+@pytest.mark.asyncio
+async def test_reve_image_gen_applies_region_text_hint_via_mask_region():
+    """`mask_region` alone (no byte-level mask) must still inject the
+    'Change ONLY the background' hint at the start of the edit_instruction."""
+    img = Image.new("RGB", (16, 16), color="orange")
+    buf = io.BytesIO()
+    img.save(buf, format="JPEG")
+    jpeg_bytes = buf.getvalue()
+    fake = _fake_response(jpeg_bytes)
+
+    gen = ReveImageGen(api_token="papi.x", api_host="https://api.reve.com")
+    with patch("reve.v1.image.edit", return_value=fake) as edit_mock:
+        await gen.generate(
+            "studio backdrop, soft lighting",
+            reference_image=b"\xff\xd8 fake",
+            params={"mask_region": "background"},
+        )
+
+    instruction = edit_mock.call_args.kwargs["edit_instruction"]
+    assert instruction.startswith("Change ONLY the background"), (
+        f"expected background-only hint prefix, got: {instruction!r}"
+    )
+    assert "studio backdrop, soft lighting" in instruction
+
+
+@pytest.mark.asyncio
+async def test_reve_image_gen_type_error_becomes_runtime_error():
+    """Any future SDK-signature drift (unexpected kwarg) must surface as a
+    RuntimeError with a clear message instead of being swallowed as a generic
+    'generation_failed' upstream."""
+    gen = ReveImageGen(api_token="papi.x", api_host="https://api.reve.com")
+    with patch(
+        "reve.v1.image.edit",
+        side_effect=TypeError("edit() got an unexpected keyword argument 'foo'"),
+    ):
+        with pytest.raises(RuntimeError, match="Reve SDK signature mismatch"):
+            await gen.generate(
+                "x",
+                reference_image=b"ref",
+                params={"mask_region": "background"},
+            )
