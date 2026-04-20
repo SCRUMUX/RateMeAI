@@ -63,3 +63,11 @@ def preanalysis_cache_keys(
 
 WORKER_HEARTBEAT_KEY = "ratemeai:worker:heartbeat"
 WORKER_HEARTBEAT_TTL = 120
+
+
+def consent_cache_key(user_id: str) -> str:
+    """Redis cache of current consent state for a user (JSON list of kinds)."""
+    return f"ratemeai:consent:{user_id}"
+
+
+CONSENT_CACHE_TTL = 3600

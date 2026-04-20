@@ -27,6 +27,7 @@ class User(Base):
     credit_transactions: Mapped[list["CreditTransaction"]] = relationship(back_populates="user", cascade="all, delete-orphan")
     identities: Mapped[list["UserIdentity"]] = relationship(back_populates="user", cascade="all, delete-orphan")
     perception_records: Mapped[list["UserPerceptionRecord"]] = relationship(back_populates="user", cascade="all, delete-orphan")
+    consents: Mapped[list["UserConsent"]] = relationship(back_populates="user", cascade="all, delete-orphan")
 
 
 class UserIdentity(Base):
@@ -107,6 +108,34 @@ class CreditTransaction(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     user: Mapped["User"] = relationship(back_populates="credit_transactions")
+
+
+class UserConsent(Base):
+    """Audit trail of user consents for privacy/compliance.
+
+    One row per grant/revoke event. The "current" state for a given
+    (user_id, kind) is the row with the latest `granted_at` and
+    `revoked_at IS NULL`.
+    """
+    __tablename__ = "user_consents"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), index=True
+    )
+    kind: Mapped[str] = mapped_column(String(32), nullable=False)
+    version: Mapped[str] = mapped_column(String(16), nullable=False, default="1")
+    source: Mapped[str] = mapped_column(String(32), nullable=False, default="web")
+    ip_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    user_agent_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    granted_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+    revoked_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+
+    user: Mapped["User"] = relationship(back_populates="consents")
 
 
 class UserPerceptionRecord(Base):

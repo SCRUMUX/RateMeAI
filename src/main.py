@@ -20,6 +20,8 @@ from src.version import APP_VERSION
 
 
 def _configure_logging() -> None:
+    from src.utils.log_filters import PIIFilter
+
     root = logging.getLogger()
     root.setLevel(logging.INFO)
     handler = logging.StreamHandler()
@@ -35,6 +37,9 @@ def _configure_logging() -> None:
             "%(asctime)s [%(levelname)s] %(name)s: %(message)s",
         ))
 
+    pii_filter = PIIFilter()
+    handler.addFilter(pii_filter)
+    root.addFilter(pii_filter)
     root.addHandler(handler)
 
 

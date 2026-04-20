@@ -63,6 +63,7 @@ interface AppState {
   effectiveApiMode: string;
   hasRealAuth: boolean;
   canAccessApp: boolean;
+  consentState: api.ConsentState | null;
 }
 
 interface AppActions {
@@ -83,6 +84,9 @@ interface AppActions {
   loginWithToken: (token: string, userId?: string, provider?: string) => Promise<void>;
   logout: () => void;
   refreshIdentities: () => Promise<void>;
+  fetchConsents: () => Promise<void>;
+  grantConsents: (kinds: string[]) => Promise<void>;
+  revokeConsents: (kinds: string[]) => Promise<void>;
 }
 
 const Ctx = createContext<(AppState & AppActions) | null>(null);
@@ -158,6 +162,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [taskHistoryCount, setTaskHistoryCount] = useState(0);
   const [identities, setIdentities] = useState<api.LinkedIdentity[]>([]);
   const [scenarioSlug, setScenarioSlug] = useState<string | null>(null);
+  const [consentState, setConsentState] = useState<api.ConsentState | null>(null);
 
   const hasRealAuth = useMemo(
     () => identities.some(id => id.provider !== 'web'),
@@ -251,6 +256,25 @@ export function AppProvider({ children }: { children: ReactNode }) {
     } catch (e) { await handleAuthError(e); }
   }, [handleAuthError]);
 
+  const fetchConsents = useCallback(async () => {
+    try {
+      const res = await api.getConsents();
+      setConsentState(res);
+    } catch (e) {
+      await handleAuthError(e);
+    }
+  }, [handleAuthError]);
+
+  const grantConsents = useCallback(async (kinds: string[]) => {
+    const res = await api.grantConsents(kinds, 'web');
+    setConsentState(res);
+  }, []);
+
+  const revokeConsents = useCallback(async (kinds: string[]) => {
+    const res = await api.revokeConsents(kinds);
+    setConsentState(res);
+  }, []);
+
   const fetchTaskHistory = useCallback(async () => {
     try {
       const res = await api.getTaskHistory(100, 0);
@@ -300,13 +324,19 @@ export function AppProvider({ children }: { children: ReactNode }) {
         await handleAuthError(e);
         return;
       }
+      if (e instanceof api.ApiError && e.status === 451) {
+        void fetchConsents();
+        setPreAnalyzeError(false);
+        setError('Нужно подтвердить согласия на обработку данных.');
+        return;
+      }
       setPreAnalyzeError(true);
       setError(e instanceof api.ApiError ? e.body : 'Pre-analyze failed');
     } finally {
       preAnalyzeInFlightRef.current = false;
       setPreAnalyzeLoading(false);
     }
-  }, [photo, effectiveApiMode, handleAuthError]);
+  }, [photo, effectiveApiMode, handleAuthError, fetchConsents]);
 
   const loginWithOAuth = useCallback(async (provider: 'yandex' | 'vk-id' | 'google') => {
     const returnPath = typeof window !== 'undefined' ? `${window.location.pathname}${window.location.search}` : '';
@@ -347,6 +377,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setIdentities(res.identities);
     }).catch(() => {});
 
+    api.getConsents().then(setConsentState).catch(() => {});
+
     const restored = await restorePhotoAfterOAuth();
     if (restored) {
       const preview = URL.createObjectURL(restored.file);
@@ -381,6 +413,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setIsGenerating(false);
     setIdentities([]);
     setScenarioSlug(null);
+    setConsentState(null);
   }, []);
 
   useEffect(() => {
@@ -766,6 +799,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
         clearPendingTask();
         if (e instanceof api.ApiError && e.status === 402) {
           setNoCreditsError(true);
+        } else if (e instanceof api.ApiError && e.status === 451) {
+          void fetchConsents();
+          setError('Нужно подтвердить согласия на обработку данных.');
         } else {
           setError(e instanceof api.ApiError ? e.body : 'Generation failed');
         }
@@ -783,6 +819,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     scenarioSlug,
     scenarioType,
     scenarioEntryMode,
+    fetchConsents,
   ]);
 
   const share = useCallback(async () => {
@@ -827,11 +864,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
     scenarioSlug, scenarioType, scenarioEntryMode, scenarioHideCategoryTabs, scenarioStep3Mode,
     scenarioDocumentPaywall, scenarioPrimaryCtaMainApp, scenarioSimplifiedAnalysis,
     scenarioPaymentPackQty, effectiveStyleList, effectiveApiMode, hasRealAuth, canAccessApp,
+    consentState,
     syncScenarioFromRoute,
     setActiveCategory, setSelectedStyleKey, uploadPhoto, runPreAnalyze,
     generate, share, refreshBalance, clearError, clearGeneratedImage, clearNoCreditsError,
     resetGeneration, fetchTaskHistory,
     loginWithOAuth, loginWithToken, logout, refreshIdentities,
+    fetchConsents, grantConsents, revokeConsents,
   };
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;

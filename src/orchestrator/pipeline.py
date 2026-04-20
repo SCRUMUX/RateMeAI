@@ -16,6 +16,7 @@ from src.orchestrator.router import ModeRouter
 from src.providers.base import ImageGenProvider, LLMProvider, StorageProvider
 from src.prompts.engine import PromptEngine
 from src.services.share import ShareCardGenerator
+from src.services.ai_transfer_guard import task_context_scope
 from src.services.task_contract import (
     get_market_id,
     is_cache_allowed,
@@ -142,7 +143,7 @@ class AnalysisPipeline:
                 await self._redis.set(
                     embedding_cache_key(task_id, market_id),
                     b64,
-                    ex=3600,
+                    ex=settings.embedding_redis_ttl_seconds,
                 )
             except Exception:
                 logger.debug("Failed to cache embedding for task %s", task_id)
@@ -171,9 +172,10 @@ class AnalysisPipeline:
             "pipeline.user_id": user_id,
             "pipeline.market_id": market_id,
         }):
-          return await self._execute_inner(
-              mode, image_bytes, user_id, task_id, context, progress_callback, trace,
-          )
+          with task_context_scope(context):
+            return await self._execute_inner(
+                mode, image_bytes, user_id, task_id, context, progress_callback, trace,
+            )
 
     async def _execute_inner(
         self,
@@ -300,7 +302,7 @@ class AnalysisPipeline:
                     })
                 else:
                     with _trace_step(trace, "post_gen_rescore"):
-                        await self._delta_scorer.compute(mode, image_bytes, result_dict, user_id, task_id)
+                        await self._delta_scorer.compute(mode, result_dict, user_id, task_id)
 
         trace["pipeline_ended_at"] = time.time()
         duration_s = trace["pipeline_ended_at"] - trace["pipeline_started_at"]

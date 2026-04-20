@@ -16,20 +16,51 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
 
   if (!res.ok) {
     const text = await res.text().catch(() => '');
-    let detail = text;
+    let detail: unknown = text;
+    let body: string = text;
     try {
       const json = JSON.parse(text);
-      detail = json.detail ?? json.message ?? text;
+      detail = json.detail ?? json.message ?? json;
+      body = typeof detail === 'string' ? detail : JSON.stringify(detail);
     } catch { /* not JSON — keep raw text */ }
-    throw new ApiError(res.status, detail);
+    throw new ApiError(res.status, body, detail);
   }
   return res.json() as Promise<T>;
 }
 
 export class ApiError extends Error {
-  constructor(public status: number, public body: string) {
+  constructor(
+    public status: number,
+    public body: string,
+    public detail?: unknown,
+  ) {
     super(`API ${status}: ${body.slice(0, 200)}`);
   }
+}
+
+export interface ConsentState {
+  required: string[];
+  granted: Record<string, { version: string; granted_at: string; source: string }>;
+  missing: string[];
+  current_version: string;
+}
+
+export function getConsents() {
+  return request<ConsentState>('/api/v1/users/me/consents');
+}
+
+export function grantConsents(kinds: string[], source = 'web') {
+  return request<ConsentState>('/api/v1/users/me/consents', {
+    method: 'POST',
+    body: JSON.stringify({ kinds, source }),
+  });
+}
+
+export function revokeConsents(kinds: string[]) {
+  return request<ConsentState>('/api/v1/users/me/consents/revoke', {
+    method: 'POST',
+    body: JSON.stringify({ kinds }),
+  });
 }
 
 // -- Auth --
@@ -169,6 +200,7 @@ export interface TaskHistoryItem {
   score_before: number | null;
   score_after: number | null;
   perception_scores: Record<string, number> | null;
+  purged?: boolean;
 }
 
 export interface TaskHistoryResponse {

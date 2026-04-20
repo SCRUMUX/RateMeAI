@@ -1,11 +1,23 @@
 from __future__ import annotations
 
+import io
 from unittest.mock import AsyncMock, MagicMock, patch
 
-_MIN_JPEG = (
-    b"\xff\xd8\xff\xe0\x00\x10JFIF\x00\x01\x01\x01\x00H\x00H\x00\x00"
-    b"\xff\xdb\x00C\x00\x08\x06\x06\x07\x06\x05\x08\x07\x07\x07\t\t\x08\n\x0c\x14\r\x0c\x0b\x0b\x0c\x19\x12\x13\x0f\x14\x1d\x1a\x1f\x1e\x1d\x1a\x1c\x1c $.' \",#\x1c\x1c(7),01444\x1f'9=82<.342\xff\xc0\x00\x0b\x08\x00\x01\x00\x01\x01\x01\x11\x00\xff\xc4\x00\x14\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x08\xff\xda\x00\x08\x01\x01\x00\x00?\x00\x7f\xff\xd9"
-)
+from PIL import Image
+
+_CONSENT_HEADERS = {
+    "X-Consent-Data-Processing": "1",
+    "X-Consent-AI-Transfer": "1",
+}
+
+
+def _valid_jpeg(size: tuple[int, int] = (1024, 1024)) -> bytes:
+    buf = io.BytesIO()
+    Image.new("RGB", size, color=(128, 128, 128)).save(buf, format="JPEG", quality=90)
+    return buf.getvalue()
+
+
+_VALID_JPEG = _valid_jpeg()
 
 
 def _register_user(client, telegram_id: int = 999001) -> str:
@@ -16,6 +28,10 @@ def _register_user(client, telegram_id: int = 999001) -> str:
     )
     assert r.status_code == 200, r.text
     return r.json()["session_token"]
+
+
+def _auth(token: str) -> dict[str, str]:
+    return {"Authorization": f"Bearer {token}", **_CONSENT_HEADERS}
 
 
 @patch("src.api.v1.analyze._get_arq", new_callable=AsyncMock)
@@ -33,9 +49,9 @@ def test_create_analysis_returns_202(mock_get_storage, mock_get_arq, client):
 
     r = client.post(
         "/api/v1/analyze",
-        files={"image": ("x.jpg", _MIN_JPEG, "image/jpeg")},
+        files={"image": ("x.jpg", _VALID_JPEG, "image/jpeg")},
         data={"mode": "rating"},
-        headers={"Authorization": f"Bearer {token}"},
+        headers=_auth(token),
     )
     assert r.status_code == 202, r.text
     body = r.json()
@@ -58,9 +74,9 @@ def test_get_task_after_create(mock_get_storage, mock_get_arq, client):
 
     r = client.post(
         "/api/v1/analyze",
-        files={"image": ("x.jpg", _MIN_JPEG, "image/jpeg")},
+        files={"image": ("x.jpg", _VALID_JPEG, "image/jpeg")},
         data={"mode": "dating"},
-        headers={"Authorization": f"Bearer {token}"},
+        headers=_auth(token),
     )
     assert r.status_code == 202
     task_id = r.json()["task_id"]
@@ -74,3 +90,20 @@ def test_get_task_after_create(mock_get_storage, mock_get_arq, client):
     assert data["task_id"] == task_id
     assert data["status"] == "pending"
     assert data["mode"] == "dating"
+
+
+def test_analyze_without_consent_returns_451(client):
+    token = _register_user(client, telegram_id=999004)
+
+    r = client.post(
+        "/api/v1/analyze",
+        files={"image": ("x.jpg", _VALID_JPEG, "image/jpeg")},
+        data={"mode": "rating"},
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert r.status_code == 451, r.text
+    detail = r.json().get("detail", {})
+    assert detail.get("code") == "consent_required"
+    missing = detail.get("missing") or []
+    assert "data_processing" in missing
+    assert "ai_transfer" in missing

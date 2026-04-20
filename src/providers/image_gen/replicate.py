@@ -8,6 +8,7 @@ import httpx
 from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_exponential
 
 from src.providers.base import ImageGenProvider, StorageProvider
+from src.services.ai_transfer_guard import assert_external_transfer_allowed
 
 logger = logging.getLogger(__name__)
 
@@ -59,6 +60,7 @@ class ReplicateImageGen(ImageGenProvider):
         reference_image: bytes | None = None,
         params: dict | None = None,
     ) -> bytes:
+        assert_external_transfer_allowed("replicate")
         if not self._version:
             raise ValueError("REPLICATE_MODEL_VERSION is required for image generation")
 

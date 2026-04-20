@@ -126,18 +126,24 @@ async def _cleanup_ephemeral_artifacts(
     *,
     include_generated: bool,
 ) -> None:
+    # Privacy: the Redis stash that carried the sanitized input bytes is
+    # always disposed, regardless of legacy retention policy.
     for cache_key in task_input_cache_keys(str(task.id), market_id):
         try:
             await redis.delete(cache_key)
         except Exception:
             logger.debug("Failed to delete input cache key %s", cache_key, exc_info=True)
 
-    if not should_delete_after_process(task.context):
-        return
+    # Privacy: original image must never remain in storage after processing.
+    # For legacy tasks that still have a storage key attached, we purge it
+    # here unconditionally. New tasks are created with input_image_path=None.
+    if task.input_image_path:
+        await _delete_storage_key(storage, task.input_image_path)
 
-    await _delete_storage_key(storage, task.input_image_path)
-
-    if include_generated:
+    # The generated result honours the legacy `delete_after_process` flag
+    # (edge/worker synchronous flow). For the regular primary flow the
+    # generated image lives for 72h and is GC'd by `privacy_gc_cron`.
+    if include_generated and should_delete_after_process(task.context):
         for cache_key in gen_image_cache_keys(str(task.id), market_id):
             try:
                 await redis.delete(cache_key)
@@ -181,6 +187,16 @@ async def _process_analysis_inner(ctx: dict, task_id: str):
                 logger.info("Task %s input loaded from Redis cache (%s)", task_id, cache_key)
                 break
             if image_bytes is None:
+                if not task.input_image_path:
+                    # Privacy mode: sanitized bytes live only in Redis. If the
+                    # stash expired or the worker was restarted past the 15-min
+                    # TTL, we cannot recover the input — fail cleanly instead
+                    # of crashing on storage.download(None).
+                    raise RuntimeError(
+                        "Task input stash expired and no legacy storage key "
+                        "is available (privacy retention policy). Task must "
+                        "be re-submitted by the user."
+                    )
                 image_bytes = await storage.download(task.input_image_path)
 
             u_row = await db.execute(
@@ -456,13 +472,14 @@ async def compute_delta_scores(ctx: dict, task_id: str):
             return
 
         try:
-            input_bytes = await storage.download(task.input_image_path)
-        except Exception:
-            logger.exception("Delta scoring: failed to download input for task %s", task_id)
-            return
-
-        try:
-            await pipeline._delta_scorer.compute(mode, input_bytes, task_result, str(task.user_id), task_id)
+            # Privacy: the original image is intentionally gone by this point.
+            # DeltaScorer works purely off the generated image (downloaded
+            # from storage inside compute()) and pre-scores already captured
+            # in task_result, with authenticity derived from the cached
+            # ArcFace embedding. No original-image re-download is performed.
+            from src.services.ai_transfer_guard import task_context_scope
+            with task_context_scope(task.context):
+                await pipeline._delta_scorer.compute(mode, task_result, str(task.user_id), task_id)
             task_result["delta_status"] = "completed"
             task.result = task_result
             await db.commit()
@@ -513,11 +530,77 @@ async def reconcile_stuck_tasks_cron(ctx: dict):
     )
 
 
+async def privacy_gc_cron(ctx: dict):
+    """Physical deletion of generated images + share cards after 72h retention.
+
+    Selects tasks whose ``completed_at`` is older than the configured
+    retention window (default 72h), deletes their generated/share storage
+    keys, clears the corresponding Redis cache, and zeroes out the URLs in
+    ``task.result``. The task row itself (scores, before/after perception)
+    is preserved for the user's gallery; a ``_purged_at`` marker lets the
+    frontend show "the generated image is no longer available".
+    """
+    from datetime import timedelta
+    from sqlalchemy import select as sa_select
+
+    db_sessionmaker = ctx["db_sessionmaker"]
+    storage = ctx["storage"]
+    redis = ctx["redis"]
+
+    retention = settings.privacy_result_retention_seconds
+    threshold = datetime.now(timezone.utc) - timedelta(seconds=retention)
+
+    try:
+        async with db_sessionmaker() as db:
+            rows = await db.execute(
+                sa_select(Task)
+                .where(
+                    Task.status == TaskStatus.COMPLETED.value,
+                    Task.completed_at.is_not(None),
+                    Task.completed_at < threshold,
+                )
+                .limit(500)
+            )
+            purged = 0
+            for task in rows.scalars().all():
+                result = dict(task.result or {})
+                if result.get("_purged_at"):
+                    continue
+                market_id = get_market_id(task.context, fallback=settings.resolved_market_id)
+
+                await _delete_storage_key(storage, f"generated/{task.user_id}/{task.id}.jpg")
+                if task.share_card_path:
+                    await _delete_storage_key(storage, task.share_card_path)
+
+                for cache_key in gen_image_cache_keys(str(task.id), market_id):
+                    try:
+                        await redis.delete(cache_key)
+                    except Exception:
+                        logger.debug("privacy_gc: redis delete failed", exc_info=True)
+
+                result.pop("generated_image_url", None)
+                result.pop("generated_image_b64", None)
+                result["_purged_at"] = datetime.now(timezone.utc).isoformat()
+                task.result = result
+                task.share_card_path = None
+                if task.input_image_path:
+                    await _delete_storage_key(storage, task.input_image_path)
+                    task.input_image_path = None
+                purged += 1
+
+            if purged:
+                await db.commit()
+                logger.info("privacy_gc: purged %d task(s)", purged)
+    except Exception:
+        logger.exception("privacy_gc_cron failed")
+
+
 class WorkerSettings:
     functions = [process_analysis, compute_delta_scores]
     cron_jobs = [
         cron(reconcile_stuck_tasks_cron, minute={0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55}),
         cron(worker_heartbeat, second={0, 30}),
+        cron(privacy_gc_cron, minute={0, 30}),
     ]
     on_startup = startup
     on_shutdown = shutdown

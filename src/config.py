@@ -22,6 +22,12 @@ class Settings(BaseSettings):
     task_input_redis_ttl_seconds: int = 3600
     # TTL for generated image cache in Redis (seconds); bridges worker→app on Railway (3 days default)
     gen_image_redis_ttl_seconds: int = 259200
+    # TTL for face embedding cache in Redis (privacy-layer: 72h — matches result retention)
+    embedding_redis_ttl_seconds: int = 259200
+    # TTL for staged (sanitized) image bytes in Redis before worker picks them up
+    privacy_stash_ttl_seconds: int = 900
+    # Privacy GC: physical deletion of generated/* + share cards after N seconds
+    privacy_result_retention_seconds: int = 259200  # 72h
 
     # Storage
     storage_provider: str = "local"

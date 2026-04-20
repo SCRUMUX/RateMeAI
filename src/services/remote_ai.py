@@ -181,6 +181,7 @@ class RemoteAIService:
         profession: str = "",
         market_id: str = "global",
         trace_id: str = "",
+        policy_flags: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         """Proxy pre-analysis to the primary backend. Returns the response dict."""
         payload = {
@@ -190,6 +191,7 @@ class RemoteAIService:
             "skip_validation": True,
             "market_id": market_id,
             "trace_id": trace_id,
+            "policy_flags": build_policy_flags(policy_flags),
         }
         try:
             resp = await self._client.post(

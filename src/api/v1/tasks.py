@@ -45,6 +45,9 @@ async def _image_available(task: Task, redis: Redis) -> bool:
     """Check whether generated image data is still reachable."""
     r = task.result or {}
 
+    if r.get("_purged_at"):
+        return False
+
     # 1. local file
     for key in ("generated_image_url", "image_url", "generated_image_path"):
         raw = r.get(key, "")
@@ -145,11 +148,13 @@ async def list_tasks(
             mode=t.mode,
             style=ctx.get("style", ""),
             completed_at=t.completed_at,
-            input_image_url=_normalize_storage_url(t.input_image_path or ""),
+            # Privacy: original photo is never exposed to clients — deleted after preprocessing.
+            input_image_url="",
             generated_image_url=gen_url,
             score_before=float(score_before) if score_before is not None else None,
             score_after=float(score_after) if score_after is not None else None,
             perception_scores=ps if isinstance(ps, dict) else None,
+            purged=bool(r.get("_purged_at")),
         ))
 
         if len(items) >= limit:
@@ -172,14 +177,29 @@ async def get_task(
     if task.user_id != user.id:
         raise HTTPException(status_code=403, detail="Access denied")
 
+    result_view = dict(task.result) if task.result else None
+    if result_view is not None:
+        for k in ("input_image_url", "input_image_path", "original_image_url"):
+            if k in result_view:
+                result_view[k] = None
+        if result_view.get("_purged_at"):
+            for k in ("generated_image_url", "image_url", "generated_image_path", "generated_image_b64"):
+                if k in result_view:
+                    result_view[k] = None
+            result_view["purged"] = True
+
+    share_card = task.share_card_path
+    if result_view and result_view.get("_purged_at"):
+        share_card = None
+
     return TaskResponse(
         task_id=task.id,
         status=TaskStatus(task.status),
         mode=AnalysisMode(task.mode),
         created_at=task.created_at,
         completed_at=task.completed_at,
-        result=task.result,
-        share_card_url=task.share_card_path,
+        result=result_view,
+        share_card_url=share_card,
         error_message=task.error_message,
     )
 

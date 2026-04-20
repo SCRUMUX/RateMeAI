@@ -48,6 +48,8 @@ def build_policy_flags(
     retention_policy: str = "standard",
     data_class: str = "user_photo",
     single_provider_call: bool = False,
+    consent_data_processing: bool = False,
+    consent_ai_transfer: bool = False,
 ) -> dict[str, Any]:
     flags = dict(existing or {})
     flags["cache_allowed"] = bool(flags.get("cache_allowed", cache_allowed))
@@ -60,6 +62,12 @@ def build_policy_flags(
     flags["data_class"] = str(flags.get("data_class", data_class)).strip() or data_class
     flags["single_provider_call"] = bool(
         flags.get("single_provider_call", single_provider_call)
+    )
+    flags["consent_data_processing"] = bool(
+        flags.get("consent_data_processing", consent_data_processing)
+    )
+    flags["consent_ai_transfer"] = bool(
+        flags.get("consent_ai_transfer", consent_ai_transfer)
     )
     return flags
 

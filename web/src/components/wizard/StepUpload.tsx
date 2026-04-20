@@ -1,12 +1,13 @@
 import { useRef, useCallback, useState, useEffect } from 'react';
 import { useApp } from '../../context/AppContext';
 import { REQUIREMENTS_BULLETS, REJECT_BULLETS } from '../../data/photo-requirements';
+import ConsentGate from '../ConsentGate';
 
 interface Props {
   onNext: () => void;
 }
 
-export default function StepUpload({ onNext }: Props) {
+function StepUploadBody({ onNext }: Props) {
   const app = useApp();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [dragOver, setDragOver] = useState(false);
@@ -174,5 +175,13 @@ export default function StepUpload({ onNext }: Props) {
         </div>
       )}
     </div>
+  );
+}
+
+export default function StepUpload(props: Props) {
+  return (
+    <ConsentGate>
+      <StepUploadBody {...props} />
+    </ConsentGate>
   );
 }

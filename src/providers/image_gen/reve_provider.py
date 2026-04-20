@@ -7,6 +7,7 @@ import time
 from typing import Any
 
 from src.providers.base import ImageGenProvider
+from src.services.ai_transfer_guard import assert_external_transfer_allowed
 
 logger = logging.getLogger(__name__)
 
@@ -222,4 +223,5 @@ class ReveImageGen(ImageGenProvider):
         reference_image: bytes | None = None,
         params: dict | None = None,
     ) -> bytes:
+        assert_external_transfer_allowed("reve")
         return await asyncio.to_thread(self._generate_sync, prompt, reference_image, params)

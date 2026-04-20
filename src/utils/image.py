@@ -46,8 +46,15 @@ def validate_and_normalize(image_bytes: bytes) -> tuple[bytes, dict]:
         logger.info("Upscaled small image from %dx%d to %dx%d for better generation quality",
                      width, height, new_w, new_h)
 
+    # Privacy: explicitly drop EXIF/ICC/XMP/GPS and any other ancillary metadata.
+    # PIL's re-encode would implicitly lose most of them, but we assert it here
+    # so future PIL versions or kwargs cannot regress the invariant.
+    img.info = {}
+    if "exif" in img.info:
+        del img.info["exif"]
+
     buf = io.BytesIO()
-    img.save(buf, format="JPEG", quality=95)
+    img.save(buf, format="JPEG", quality=95, exif=b"", icc_profile=None)
     buf.seek(0)
 
     metadata = {

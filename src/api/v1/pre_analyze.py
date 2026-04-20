@@ -16,13 +16,19 @@ from src.models.schemas import (
     InputQualityPublic,
     InputQualityIssuePublic,
 )
-from src.api.deps import get_redis, get_auth_user
+from src.api.deps import get_redis, require_consents
 from src.orchestrator.router import ModeRouter
 from src.providers.factory import get_llm
 from src.prompts.engine import PromptEngine
+from src.services.ai_transfer_guard import task_context_scope
+from src.services.consent import (
+    CONSENT_AI_TRANSFER,
+    CONSENT_DATA_PROCESSING,
+)
 from src.services.input_quality import analyze_input_quality
+from src.services.privacy import PrivacyLayer
+from src.services.task_contract import build_policy_flags
 from src.utils.humanize import humanize_result_scores
-from src.utils.image import validate_and_normalize
 from src.utils.redis_keys import preanalysis_cache_key
 from src.utils.security import extract_nsfw_from_analysis
 from src.metrics import LLM_CALLS
@@ -55,7 +61,7 @@ async def pre_analyze(
     image: UploadFile = File(...),
     mode: AnalysisMode = Form(AnalysisMode.DATING),
     profession: str = Form(""),
-    user: User = Depends(get_auth_user),
+    user: User = Depends(require_consents),
     redis: Redis = Depends(get_redis),
 ):
     if mode not in (AnalysisMode.DATING, AnalysisMode.CV, AnalysisMode.SOCIAL):
@@ -65,14 +71,26 @@ async def pre_analyze(
     if not content_type.startswith("image/"):
         raise HTTPException(status_code=400, detail="File must be an image")
 
-    image_bytes = await image.read()
-    if len(image_bytes) > 10 * 1024 * 1024:
+    raw_bytes = await image.read()
+    if len(raw_bytes) > 10 * 1024 * 1024:
         raise HTTPException(status_code=400, detail="Image must be smaller than 10MB")
 
     try:
-        image_bytes, _meta = validate_and_normalize(image_bytes)
-    except Exception as e:
+        sanitized = PrivacyLayer.sanitize_and_normalize(raw_bytes)
+    except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
+    finally:
+        raw_bytes = b""  # noqa: F841 — explicit drop reference for GC
+    image_bytes = sanitized.bytes_
+
+    # Bind consent flags to the outbound AI guard ContextVar for this request.
+    consent_snapshot = getattr(user, "_consents_snapshot", None) or {}
+    ctx_flags = {
+        "policy_flags": build_policy_flags(
+            consent_data_processing=CONSENT_DATA_PROCESSING in consent_snapshot,
+            consent_ai_transfer=CONSENT_AI_TRANSFER in consent_snapshot,
+        ),
+    }
 
     quality_report = analyze_input_quality(image_bytes)
     if not quality_report.can_generate:
@@ -106,6 +124,7 @@ async def pre_analyze(
                 profession=profession.strip(),
                 market_id=settings.resolved_market_id,
                 trace_id=request.headers.get("x-trace-id", ""),
+                policy_flags=ctx_flags["policy_flags"],
             )
             # Attach locally-computed input quality — remote AI does not see it.
             resp = PreAnalysisResponse(**result_data)
@@ -118,11 +137,12 @@ async def pre_analyze(
     mode_router = _get_router()
     service = mode_router.get_service(mode)
 
-    if mode == AnalysisMode.CV:
-        prof = profession.strip() or "не указана"
-        result = await service.analyze(image_bytes, profession=prof)
-    else:
-        result = await service.analyze(image_bytes)
+    with task_context_scope(ctx_flags):
+        if mode == AnalysisMode.CV:
+            prof = profession.strip() or "не указана"
+            result = await service.analyze(image_bytes, profession=prof)
+        else:
+            result = await service.analyze(image_bytes)
     LLM_CALLS.labels(purpose=f"preanalyze_{mode.value}").inc()
 
     raw_dict = result if isinstance(result, dict) else (result.model_dump() if hasattr(result, "model_dump") else result)

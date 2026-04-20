@@ -23,6 +23,21 @@ from src.models.enums import AnalysisMode, TaskStatus
 from src.api.deps import get_db, get_redis
 from src.services.task_contract import build_policy_flags, build_task_context
 
+
+def _assert_consent_flags(policy_flags: dict[str, Any]) -> None:
+    """Edge→primary must forward both consent flags. Missing → HTTP 451."""
+    merged = build_policy_flags(policy_flags or None)
+    missing = []
+    if not merged.get("consent_data_processing"):
+        missing.append("data_processing")
+    if not merged.get("consent_ai_transfer"):
+        missing.append("ai_transfer")
+    if missing:
+        raise HTTPException(
+            status_code=451,
+            detail={"code": "consent_required", "missing": missing},
+        )
+
 logger = logging.getLogger(__name__)
 router = APIRouter()
 
@@ -59,6 +74,7 @@ class RemotePreAnalyzeRequest(BaseModel):
     skip_validation: bool = False
     market_id: str = "global"
     trace_id: str = ""
+    policy_flags: dict[str, Any] = Field(default_factory=dict)
 
 
 class RemoteAnalysisRequest(BaseModel):
@@ -100,6 +116,8 @@ async def process_analysis_remote(
     redis: Redis = Depends(get_redis),
 ):
     """Accept an AI analysis task from the edge server and enqueue it for processing."""
+    _assert_consent_flags(request.policy_flags)
+
     try:
         image_bytes = base64.b64decode(request.image_b64)
     except Exception:
@@ -108,13 +126,16 @@ async def process_analysis_remote(
     if len(image_bytes) > 10 * 1024 * 1024:
         raise HTTPException(status_code=400, detail="Image must be smaller than 10MB")
 
-    from src.providers.factory import get_storage
+    # Privacy: sanitize (strip EXIF) immediately; original bytes never leave memory.
+    from src.services.privacy import PrivacyLayer
+
+    try:
+        sanitized = PrivacyLayer.sanitize_and_normalize(image_bytes)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    image_bytes = sanitized.bytes_
 
     internal_user_id = uuid.uuid5(uuid.NAMESPACE_DNS, "edge-proxy.internal")
-
-    storage = get_storage()
-    image_key = f"inputs/{internal_user_id}/{uuid.uuid4()}.jpg"
-    await storage.upload(image_key, image_bytes)
 
     policy_flags = build_policy_flags(
         request.policy_flags or None,
@@ -149,34 +170,29 @@ async def process_analysis_remote(
         trace_id=request.trace_id or request.edge_task_id or str(uuid.uuid4()),
         remote_origin="market-proxy",
         policy_flags=policy_flags,
-        artifact_refs={
-            **request.artifact_refs,
-            "central_input_path": image_key,
-        },
+        artifact_refs={**request.artifact_refs} if request.artifact_refs else None,
     )
 
     task = Task(
         user_id=internal_user_id,
         mode=request.mode.value,
         status=TaskStatus.PENDING.value,
-        input_image_path=image_key,
+        input_image_path=None,
         context=ctx or None,
     )
     db.add(task)
     await db.commit()
     await db.refresh(task)
 
-    from src.utils.redis_keys import task_input_cache_key
-
-    cache_key = task_input_cache_key(str(task.id), request.market_id)
-    try:
-        await redis.set(
-            cache_key,
-            request.image_b64,
-            ex=settings.task_input_redis_ttl_seconds,
-        )
-    except Exception:
-        logger.exception("Redis error staging remote task input for %s", task.id)
+    # Privacy: stash sanitized bytes in Redis only (no storage write).
+    privacy = PrivacyLayer(redis=redis)
+    stash_key = await privacy.stash_for_pipeline(
+        sanitized,
+        str(task.id),
+        request.market_id,
+    )
+    if not stash_key:
+        logger.error("Privacy stash failed for remote task %s", task.id)
         raise HTTPException(status_code=500, detail="Failed to stage task input")
 
     arq = await _get_arq()
@@ -239,6 +255,8 @@ async def pre_analyze_remote(
     redis: Redis = Depends(get_redis),
 ):
     """Run pre-analysis on the primary backend for the edge server."""
+    _assert_consent_flags(request.policy_flags)
+
     try:
         image_bytes = base64.b64decode(request.image_b64)
     except Exception:
@@ -248,12 +266,14 @@ async def pre_analyze_remote(
         raise HTTPException(status_code=400, detail="Image must be smaller than 10MB")
 
     if not request.skip_validation:
-        from src.utils.image import validate_and_normalize, has_face_heuristic
+        from src.services.privacy import PrivacyLayer
+        from src.utils.image import has_face_heuristic
 
         try:
-            image_bytes, _meta = validate_and_normalize(image_bytes)
-        except Exception as e:
+            sanitized = PrivacyLayer.sanitize_and_normalize(image_bytes)
+        except ValueError as e:
             raise HTTPException(status_code=400, detail=str(e)) from e
+        image_bytes = sanitized.bytes_
 
         if not has_face_heuristic(image_bytes):
             raise HTTPException(
@@ -269,15 +289,19 @@ async def pre_analyze_remote(
     from src.models.schemas import RatingResult
     from src.metrics import LLM_CALLS
 
+    from src.services.ai_transfer_guard import task_context_scope
+
     llm = get_llm()
     mode_router = ModeRouter(llm, PromptEngine())
     service = mode_router.get_service(request.mode)
 
-    if request.mode == AnalysisMode.CV:
-        prof = request.profession.strip() or "не указана"
-        result = await service.analyze(image_bytes, profession=prof)
-    else:
-        result = await service.analyze(image_bytes)
+    guard_ctx = {"policy_flags": build_policy_flags(request.policy_flags or None)}
+    with task_context_scope(guard_ctx):
+        if request.mode == AnalysisMode.CV:
+            prof = request.profession.strip() or "не указана"
+            result = await service.analyze(image_bytes, profession=prof)
+        else:
+            result = await service.analyze(image_bytes)
     LLM_CALLS.labels(purpose=f"preanalyze_{request.mode.value}").inc()
 
     raw_dict = result if isinstance(result, dict) else (

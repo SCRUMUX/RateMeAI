@@ -255,19 +255,17 @@ export default function StorageModal({ items, open, onClose, onImprove }: Props)
                         </div>
                       )
                     ) : (
-                      item.input_image_url && !imgErrors[`input_${item.task_id}`] ? (
-                        <img
-                          src={normalizeImageUrl(item.input_image_url)}
-                          alt="Исходное"
-                          className="w-full h-full object-cover select-none pointer-events-none"
-                          draggable={false}
-                          onError={() => setImgErrors(p => ({ ...p, [`input_${item.task_id}`]: true }))}
-                        />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center text-[var(--color-text-muted)] text-[14px]">
-                          {imgErrors[`input_${item.task_id}`] ? 'Фото недоступно' : 'Нет фото'}
-                        </div>
-                      )
+                      <div className="w-full h-full flex flex-col items-center justify-center gap-2 text-[var(--color-text-muted)] text-[13px] text-center px-6">
+                        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                          <rect x="3" y="11" width="18" height="10" rx="2" />
+                          <path d="M7 11V7a5 5 0 0110 0v4" />
+                        </svg>
+                        <span>
+                          {item.purged
+                            ? 'Результат удалён по политике хранения (72 часа).'
+                            : 'Исходное фото не сохраняется — удаляется сразу после обработки.'}
+                        </span>
+                      </div>
                     )}
                   </motion.div>
                 </AnimatePresence>

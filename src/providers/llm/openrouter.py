@@ -8,6 +8,7 @@ import httpx
 from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
 
 from src.providers.base import LLMProvider
+from src.services.ai_transfer_guard import assert_external_transfer_allowed
 
 logger = logging.getLogger(__name__)
 
@@ -27,6 +28,7 @@ class OpenRouterLLM(LLMProvider):
     async def analyze_image(
         self, image_bytes: bytes, prompt: str, *, temperature: float = 0.7,
     ) -> dict:
+        assert_external_transfer_allowed("openrouter")
         b64 = base64.b64encode(image_bytes).decode()
         data_url = f"data:image/jpeg;base64,{b64}"
 

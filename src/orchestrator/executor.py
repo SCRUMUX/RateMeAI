@@ -683,9 +683,21 @@ class DeltaScorer:
             logger.debug("Failed to save scores for user=%s mode=%s style=%s", user_id, mode.value, style)
 
     async def compute(
-        self, mode: AnalysisMode, original_bytes: bytes,
-        result_dict: dict, user_id: str, task_id: str,
+        self,
+        mode: AnalysisMode,
+        result_dict: dict,
+        user_id: str,
+        task_id: str,
     ) -> None:
+        """Delta re-score the generated image.
+
+        The original bytes are no longer needed here — pre-scores are taken
+        from ``result_dict`` (populated by the primary LLM pass or cached
+        pre-analysis), and authenticity is derived from the quality report
+        which itself relies on the already-cached ArcFace embedding. This
+        keeps the original image out of the worker's working set after
+        preprocessing.
+        """
         try:
             gen_key = f"generated/{user_id}/{task_id}.jpg"
             gen_bytes = await self._storage.download(gen_key)

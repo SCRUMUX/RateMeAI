@@ -91,17 +91,87 @@ async def get_current_user(user: User = Depends(get_auth_user)) -> User:
     return user
 
 
-async def check_credits(
+def _parse_bool_header(value: str | None) -> bool:
+    if not value:
+        return False
+    return value.strip().lower() in ("1", "true", "yes", "on")
+
+
+async def require_consents(
+    request: Request,
     user: User = Depends(get_auth_user),
     db: AsyncSession = Depends(get_db),
+    x_consent_data_processing: str | None = Header(
+        None, alias="X-Consent-Data-Processing"
+    ),
+    x_consent_ai_transfer: str | None = Header(
+        None, alias="X-Consent-AI-Transfer"
+    ),
 ) -> User:
-    """Reserve one credit atomically using SELECT FOR UPDATE + immediate decrement.
+    """Enforce both mandatory consents.
 
-    If the task fails later, the worker/edge handler refunds the credit.
-    This prevents concurrent requests from over-committing credits.
+    B2B API clients can opt-in inline via ``X-Consent-*`` headers (auto-grant
+    for the request, persisted once). Web/bot users must have granted consents
+    via ``POST /users/me/consents`` beforehand.
+
+    Returns HTTP 451 with ``{code, missing}`` detail when any consent is absent.
     """
+    from src.services.consent import (
+        REQUIRED_CONSENT_KINDS,
+        CONSENT_DATA_PROCESSING,
+        CONSENT_AI_TRANSFER,
+        get_active_consents,
+        grant_consent,
+        hash_marker,
+        missing_required,
+    )
+
+    redis = request.app.state.redis
+    active = await get_active_consents(db, redis, user.id)
+    missing = missing_required(active)
+
+    if missing:
+        header_grants: list[str] = []
+        if (
+            CONSENT_DATA_PROCESSING in missing
+            and _parse_bool_header(x_consent_data_processing)
+        ):
+            header_grants.append(CONSENT_DATA_PROCESSING)
+        if (
+            CONSENT_AI_TRANSFER in missing
+            and _parse_bool_header(x_consent_ai_transfer)
+        ):
+            header_grants.append(CONSENT_AI_TRANSFER)
+        if header_grants:
+            client_ip = request.client.host if request.client else None
+            active = await grant_consent(
+                db,
+                redis,
+                user.id,
+                header_grants,
+                source="api_header",
+                ip_hash=hash_marker(client_ip),
+                user_agent_hash=hash_marker(request.headers.get("user-agent")),
+            )
+            missing = missing_required(active)
+
+    if missing:
+        raise HTTPException(
+            status_code=451,
+            detail={
+                "code": "consent_required",
+                "missing": missing,
+                "required": list(REQUIRED_CONSENT_KINDS),
+            },
+        )
+    user._consents_snapshot = active
+    return user
+
+
+async def _reserve_credit_for(user: User, db: AsyncSession) -> User:
     from sqlalchemy import select as sa_select
     from src.models.db import CreditTransaction
+
     result = await db.execute(
         sa_select(User).where(User.id == user.id).with_for_update()
     )
@@ -121,7 +191,33 @@ async def check_credits(
     ))
     fresh_user._credits_remaining = fresh_user.image_credits
     fresh_user._credit_reserved = True
+    fresh_user._consents_snapshot = getattr(user, "_consents_snapshot", None)
     return fresh_user
+
+
+async def check_credits(
+    user: User = Depends(get_auth_user),
+    db: AsyncSession = Depends(get_db),
+) -> User:
+    """Reserve one credit atomically using SELECT FOR UPDATE + immediate decrement.
+
+    If the task fails later, the worker/edge handler refunds the credit.
+    This prevents concurrent requests from over-committing credits.
+    """
+    return await _reserve_credit_for(user, db)
+
+
+async def check_credits_with_consent(
+    user: User = Depends(require_consents),
+    db: AsyncSession = Depends(get_db),
+) -> User:
+    """Consent-gated credit reservation.
+
+    Applied to the user-facing ``POST /analyze``. The caller must have granted
+    both ``data_processing`` and ``ai_transfer`` consents, otherwise a 451 is
+    raised before any credit is touched.
+    """
+    return await _reserve_credit_for(user, db)
 
 
 async def check_rate_limit(

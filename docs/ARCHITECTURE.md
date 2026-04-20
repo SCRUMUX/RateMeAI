@@ -648,4 +648,109 @@ Edge-only клиент. При `POST /analyze` на edge:
 3. **`RequestLoggingMiddleware`** — X-Request-Id, timing log
 4. **Prometheus Instrumentator** — wraps routes для метрик
 
-Per-route dependencies (не middleware): `get_db`, `get_redis`, `get_auth_user`, `check_credits`.
+Per-route dependencies (не middleware): `get_db`, `get_redis`, `get_auth_user`, `check_credits`, `require_consents`.
+
+---
+
+## 17. Privacy Layer & Consent Gate
+
+Слой реализует требования 152-ФЗ и минимизацию ПДн: оригинал фото не хранится, внешние AI вызываются только при явном согласии пользователя, логи не содержат ПДн.
+
+### Модель данных
+
+- `UserConsent(user_id, kind, version, source, ip_hash, user_agent_hash, granted_at, revoked_at)` — аудит-след (см. миграцию `009_user_consents.py`)
+- `Task.input_image_path` теперь **nullable**: оригинал в durable storage не пишется
+- Активные согласия кэшируются в Redis `ratemeai:consent:{user_id}` (TTL 1 час)
+
+### Kinds согласий
+
+| Kind | Что покрывает | Чем блокируется |
+|-----|-----|-----|
+| `data_processing` | Обработка ПДн, включая фото лица | Любой `/analyze`, `/pre-analyze` |
+| `ai_transfer` | Передача во внешние AI (OpenRouter / Reve / Replicate), в т.ч. за пределы РФ | Вызов `LLM.analyze_image`, `ImageGen.generate` |
+
+Оба — **обязательные, независимые** (можно отозвать только `ai_transfer`, оставив `data_processing`). Формальная основа — ст. 12 152-ФЗ (трансграничная передача — отдельное согласие).
+
+### Gate-компоненты
+
+- **Backend**: `src/api/deps.py::require_consents` → HTTP 451 `{code: "consent_required", missing: [...]}` при отсутствии согласий. Для B2B API-клиентов поддерживаются заголовки `X-Consent-Data-Processing` / `X-Consent-AI-Transfer` (автогрант+persist).
+- **Web**: `web/src/components/ConsentGate.tsx` оборачивает `StepUpload` — без активных согласий загрузка фото заблокирована. 451 в `AppContext` вызывает re-fetch состояния.
+- **Telegram**: `src/bot/handlers/consent.py` + pre-check в `handle_photo` — inline-кнопки, блокируют обработку до грантов.
+- **Edge → Primary** (`/internal/*`): `_assert_consent_flags` проверяет `policy_flags.consent_data_processing` + `consent_ai_transfer` из запроса, иначе 451. Edge прокладывает флаги из `Task.policy_flags` через `RemoteAIService`.
+
+### Guard трансграничной передачи
+
+`src/services/ai_transfer_guard.py`:
+- `task_context_scope(context)` — ContextVar-обёртка, активируется в `AnalysisPipeline.execute` и в local `/pre-analyze`
+- `assert_external_transfer_allowed()` вызывается в `OpenRouter.analyze_image`, `ReveProvider.generate`, `ReplicateProvider.generate`. Без активного согласия — `AITransferForbiddenError` → 451/fail.
+
+### Privacy Layer (бытие данных)
+
+`src/services/privacy.py::PrivacyLayer`:
+1. `sanitize_and_normalize(raw)` → удаляет EXIF / ICC / GPS / XMP, нормализует размер, перекодирует в JPEG. Использует `src/utils/image.py::validate_and_normalize` с явной очисткой `img.info`, `exif=b""`, `icc_profile=None`.
+2. `stash_for_pipeline(sanitized, task_id, market_id)` → кладёт санитизированные байты в Redis `ratemeai:task_input:{task}:{market}` (TTL 15 мин). **Durable storage не задействуется.**
+3. `cache_embedding(embedding, task_id, market_id)` → сохраняет ArcFace embedding на 72 часа (`ratemeai:embedding:{task}:{market}`). Это единственный долгоживущий идентичностный артефакт.
+
+### Жизненный цикл артефактов
+
+| Артефакт | Где живёт | TTL |
+|-----|-----|-----|
+| Оригинальное фото | Только память процесса / Redis stash | до конца `process_analysis` (≤ 15 мин) |
+| Sanitized bytes | Redis | 15 мин |
+| ArcFace embedding | Redis | 72 часа |
+| Pre-analysis (LLM) | Redis `ratemeai:preanalysis:{id}:{market}` | 30 мин |
+| Generated image | Local FS / Redis cache | 72 часа (GC `privacy_gc_cron` удаляет файлы и нулит `generated_image_url` в `Task.result`, выставляя `_purged_at`) |
+| `Task.input_image_path` | Postgres | `NULL` для всех новых задач |
+| `UserConsent` | Postgres | бессрочно (аудит) |
+
+### Worker GC
+
+`src/workers/tasks.py::privacy_gc_cron`:
+- Запускается периодически (cron из `worker.py`)
+- Находит задачи старше 72 ч со сгенерированным изображением
+- Физически удаляет `generated/*.jpg` и `share_card_path`, нулит URL-ы в `Task.result`, выставляет `result._purged_at`
+- Frontend видит `purged: true` в `GET /tasks` и отображает плашку «Результат удалён по политике хранения»
+
+`_cleanup_ephemeral_artifacts` (обычный worker path): всегда удаляет Redis `task_input` и любые legacy `input_image_path` (для задач, созданных до включения privacy layer).
+
+### Delta scoring без оригинала
+
+`src/orchestrator/executor.py::DeltaScorer.compute` больше не принимает `original_bytes`:
+- "Before"-скор берётся из сохранённого `pre-analysis` (уже есть `perception_scores`)
+- Authenticity compare — по кэшированному embedding (Redis, 72 ч)
+- Повторный LLM-анализ оригинала выключен — ничего не пишем, не передаём, не восстанавливаем
+
+### Логи
+
+`src/utils/log_filters.py::PIIFilter` навешен на root logger и stream handler. Перехватывает:
+- `bytes / bytearray / memoryview` в `args` → `[REDACTED_BYTES len=N]`
+- Base64 чанки длиной ≥ 200 символов → `[REDACTED_IMG]`
+- `data:image/*;base64,...` URLs → `[REDACTED_IMG]`
+- Поля с именами `image_bytes / image_b64 / raw_bytes / file_bytes / image` → `[REDACTED_IMG]`
+
+`RequestLoggingMiddleware` дополнительно маскирует UUID в `request.url.path` (`/tasks/{id}` вместо конкретного task_id).
+
+### Политика флагов (Task.policy_flags)
+
+Обязательный набор для user-facing задач:
+```
+{
+  "cache_allowed": true,
+  "delete_after_process": true,
+  "retention_policy": "privacy_72h",
+  "data_class": "user_photo",
+  "single_provider_call": true,
+  "consent_data_processing": true,
+  "consent_ai_transfer": true
+}
+```
+Edge-прокси прокладывает consent-флаги из запроса; primary отказывает с 451, если их нет.
+
+### Чек-лист верификации после деплоя
+
+1. `GET /api/v1/users/me/consents` без грантов → `missing: [data_processing, ai_transfer]`
+2. `POST /api/v1/analyze` без грантов → `451 {code: consent_required}`
+3. После гранта: `/analyze` → 202, `storage.upload` **не вызывается** для `inputs/*`
+4. `GET /api/v1/tasks/{id}` → `result.input_image_url/_path` = `null`
+5. Через 72 ч: `result.purged: true`, файлы `generated/*.jpg` физически удалены
+6. `docker logs app | grep -E 'base64|[A-Za-z0-9+/=]{200,}'` → 0 совпадений

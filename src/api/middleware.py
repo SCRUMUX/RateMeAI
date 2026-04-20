@@ -1,5 +1,6 @@
 import time
 import logging
+import re
 import uuid
 
 from starlette.middleware.base import BaseHTTPMiddleware
@@ -7,6 +8,13 @@ from starlette.requests import Request
 from starlette.responses import Response
 
 logger = logging.getLogger(__name__)
+
+_PATH_UUID_RE = re.compile(r"/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}")
+
+
+def _sanitize_path(path: str) -> str:
+    """Strip identifiers from paths so nothing PII-adjacent hits the log stream."""
+    return _PATH_UUID_RE.sub("/{id}", path)
 
 
 class RequestLoggingMiddleware(BaseHTTPMiddleware):
@@ -23,7 +31,7 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
         logger.info(
             "%s %s -> %s (%.3fs) [%s]",
             request.method,
-            request.url.path,
+            _sanitize_path(request.url.path),
             response.status_code,
             elapsed,
             correlation_id[:12],

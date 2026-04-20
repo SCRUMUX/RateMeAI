@@ -14,8 +14,14 @@ from src.config import settings
 from src.models.db import Task, User, CreditTransaction
 from src.models.enums import AnalysisMode, TaskStatus
 from src.models.schemas import TaskCreated
-from src.api.deps import get_db, get_redis, check_credits
+from src.api.deps import get_db, get_redis, check_credits_with_consent
 from src.providers.factory import get_storage
+from src.services.consent import (
+    CONSENT_AI_TRANSFER,
+    CONSENT_DATA_PROCESSING,
+    snapshot_for_task,
+)
+from src.services.privacy import PrivacyLayer
 from src.services.task_contract import (
     build_policy_flags,
     build_task_context,
@@ -25,7 +31,7 @@ from src.services.task_contract import (
     get_scenario_type,
     get_trace_id,
 )
-from src.utils.redis_keys import task_input_cache_key, gen_image_cache_key
+from src.utils.redis_keys import gen_image_cache_key
 from prometheus_client import Counter
 
 ANALYZE_REQUESTS = Counter(
@@ -287,7 +293,7 @@ async def create_analysis(
     # /analyze. Генерация лимитируется ТОЛЬКО балансом кредитов (check_credits
     # атомарно резервирует 1 кредит или возвращает 402). Старый 429
     # "Daily limit reached" для web/bot больше не возникает.
-    user: User = Depends(check_credits),
+    user: User = Depends(check_credits_with_consent),
     db: AsyncSession = Depends(get_db),
     redis: Redis = Depends(get_redis),
 ):
@@ -301,18 +307,22 @@ async def create_analysis(
     if not content_type.startswith("image/"):
         raise HTTPException(status_code=400, detail="File must be an image")
 
-    image_bytes = await image.read()
-    if len(image_bytes) > 10 * 1024 * 1024:
+    raw_bytes = await image.read()
+    if len(raw_bytes) > 10 * 1024 * 1024:
         raise HTTPException(status_code=400, detail="Image must be smaller than 10MB")
 
-    task_uuid = uuid.uuid4()
-    storage = get_storage()
-    image_key = f"inputs/{user.id}/{uuid.uuid4()}.jpg"
+    # Privacy layer: strip EXIF, normalize, discard raw bytes immediately.
+    # The sanitized image is the only representation that flows onward.
+    privacy = PrivacyLayer(redis=redis)
     try:
-        await storage.upload(image_key, image_bytes)
-    except Exception as exc:
-        logger.exception("Storage upload failed for user %s, key %s", user.id, image_key)
-        raise HTTPException(status_code=500, detail=f"Failed to store image: {type(exc).__name__}") from exc
+        sanitized = privacy.sanitize_and_normalize(raw_bytes)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    finally:
+        raw_bytes = b""  # noqa: F841 — explicit drop reference for GC
+    image_bytes = sanitized.bytes_
+
+    task_uuid = uuid.uuid4()
 
     ctx: dict = {}
     if style.strip():
@@ -328,13 +338,19 @@ async def create_analysis(
     if mode in (AnalysisMode.DATING, AnalysisMode.CV, AnalysisMode.SOCIAL):
         ctx["defer_delta_scoring"] = True
 
+    consent_snapshot = getattr(user, "_consents_snapshot", None) or {}
+    if consent_snapshot:
+        ctx["consent"] = snapshot_for_task(consent_snapshot)
+
     trace_id = request.headers.get("x-trace-id") or str(task_uuid)
     policy_flags = build_policy_flags(
         cache_allowed=not settings.uses_remote_ai,
-        delete_after_process=False,
-        retention_policy="market_default",
+        delete_after_process=True,
+        retention_policy="privacy_72h",
         data_class="user_photo",
         single_provider_call=True,
+        consent_data_processing=CONSENT_DATA_PROCESSING in consent_snapshot,
+        consent_ai_transfer=CONSENT_AI_TRANSFER in consent_snapshot,
     )
     ctx = build_task_context(
         ctx,
@@ -346,7 +362,6 @@ async def create_analysis(
         entry_mode=entry_mode,
         trace_id=trace_id,
         policy_flags=policy_flags,
-        artifact_refs={"market_input_path": image_key},
     )
 
     task = Task(
@@ -354,7 +369,7 @@ async def create_analysis(
         user_id=user.id,
         mode=mode.value,
         status=TaskStatus.PENDING.value,
-        input_image_path=image_key,
+        input_image_path=None,
         context=ctx or None,
     )
     db.add(task)
@@ -393,16 +408,17 @@ async def create_analysis(
             headers=headers,
         )
 
-    cache_key = task_input_cache_key(str(task.id), settings.resolved_market_id)
     try:
-        await redis.set(
-            cache_key,
-            base64.b64encode(image_bytes).decode("ascii"),
-            ex=settings.task_input_redis_ttl_seconds,
+        stash_key = await privacy.stash_for_pipeline(
+            sanitized,
+            str(task.id),
+            settings.resolved_market_id,
         )
     except Exception:
-        logger.exception("Redis error staging task input for %s", task.id)
+        logger.exception("Privacy stash failed for task %s", task.id)
         raise HTTPException(status_code=500, detail="Failed to stage task input") from None
+    if not stash_key:
+        raise HTTPException(status_code=500, detail="Failed to stage task input")
 
     arq = await _get_arq()
     await arq.enqueue_job("process_analysis", str(task.id))

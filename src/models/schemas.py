@@ -57,6 +57,7 @@ class TaskHistoryItem(BaseModel):
     score_before: float | None = None
     score_after: float | None = None
     perception_scores: dict | None = None
+    purged: bool = False
 
 
 class TaskHistoryResponse(BaseModel):
