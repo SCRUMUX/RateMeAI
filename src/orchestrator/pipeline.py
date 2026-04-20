@@ -234,6 +234,11 @@ class AnalysisPipeline:
         style = (context or {}).get("style", "")
         skip_gen = (context or {}).get("skip_image_gen", False)
         enhancement_level = int((context or {}).get("enhancement_level", 0))
+        # TODO(gender-single-source): detected_gender is currently driven by the
+        # LLM JSON output in four prompts (rating/dating/cv/social). A dedicated
+        # gender detector should own this value; the LLM value should only be used
+        # as a backup when the detector is unavailable. Until then we keep the
+        # current behaviour and read it from the analysis JSON.
         gender = str(result_dict.get("detected_gender", "male")).lower()
         if gender not in ("male", "female"):
             gender = "male"

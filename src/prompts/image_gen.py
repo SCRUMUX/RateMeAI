@@ -24,12 +24,24 @@ FACE_ANCHOR = (
     "FACE IDENTITY: keep exact bone structure, nose shape, eye shape and "
     "spacing, eyebrow shape, lip shape, jawline, chin, ears, cheekbones, "
     "forehead proportions. Same face as reference, instantly recognizable. "
-    "Keep original mouth expression and teeth exactly as-is."
+    "Preserve natural lip shape and teeth geometry; mouth expression may adapt to the requested style."
+)
+
+NATURAL_MOUTH = (
+    "MOUTH: natural mouth articulation consistent with the requested expression. "
+    "No frozen or mannequin look, no plastic smile, no artificial symmetry. "
+    "If teeth are visible, they should look real with subtle natural irregularity."
 )
 
 BODY_ANCHOR = (
     "BODY: keep original body proportions, head-to-body ratio, shoulder "
-    "width, pose, hand positions. Hands: exactly 5 fingers, natural joints."
+    "width, pose, hand positions."
+)
+
+HANDS_ANCHOR = (
+    "HANDS: anatomically correct hands, exactly 5 fingers per hand, "
+    "clearly separated fingers, visible knuckles and fingernails, "
+    "sharp and in focus. No fused, missing or extra fingers."
 )
 
 SKIN_FIX = (
@@ -49,6 +61,10 @@ COMPOSITION_ANCHOR = (
     "do not zoom, do not shift the subject."
 )
 
+DOC_COMPOSITION_ANCHOR = (
+    "COMPOSITION: center the head and shoulders to match the document format specified above."
+)
+
 # Conditional anchors — appended only when input quality analysis requests them.
 SMALL_FACE_PROTECTION = (
     "Face occupies a small portion of the frame. Preserve all facial features "
@@ -65,9 +81,35 @@ NON_FRONTAL_HINT = (
 )
 
 CAMERA = (
-    "High-quality digital photograph. Crisp detail throughout entire frame. "
-    "Clean natural colors."
+    "High-quality digital photograph. Crisp detail throughout entire frame, "
+    "background fully in focus, no background blur. Clean natural colors."
 )
+
+LOW_KEY_SHARPNESS = (
+    "SCENE FOCUS: moody lighting, but keep the entire scene sharply in focus. "
+    "Background details fully visible, no cinematic blur, no defocus."
+)
+
+_LOW_KEY_STYLES: frozenset[tuple[str, str]] = frozenset({
+    ("dating", "restaurant"),
+    ("dating", "bar_lounge"),
+    ("dating", "rainy_day"),
+    ("dating", "night_coffee"),
+    ("dating", "cafe"),
+    ("dating", "coffee_date"),
+    ("dating", "airplane_window"),
+    ("dating", "evening_home"),
+    ("dating", "travel_luxury"),
+    ("cv", "late_hustle"),
+    ("cv", "quiet_expert"),
+    ("cv", "intellectual"),
+    ("social", "neon_night"),
+    ("social", "dark_moody"),
+    ("social", "skyscraper_view"),
+    ("social", "focused_mood"),
+    ("social", "luxury"),
+    ("social", "evening_planning"),
+})
 
 REALISM = (
     "Photorealistic result. Natural skin texture. Sharp and clean. "
@@ -145,7 +187,7 @@ DATING_STYLES: dict[str, str] = {
     "swimming_pool": (
         "Background: infinity pool edge with blue water, palm trees, resort setting, "
         "bright daylight with sparkling reflections. "
-        "Clothing: fitted swim trunks, clean bare torso, optional sunglasses in hand."
+        "Clothing: fitted swim trunks, athletic build, optional sunglasses in hand."
     ),
     "hiking": (
         "Background: mountain trail with panoramic valley view at golden hour, "
@@ -164,12 +206,12 @@ DATING_STYLES: dict[str, str] = {
         "Clothing: soft knit sweater or henley, dark jeans, clean casual style."
     ),
     "restaurant": (
-        "Background: upscale restaurant, dim warm candlelight, dark wood and white linen, "
+        "Background: upscale restaurant, warm candlelight with clear interior details, dark wood and white linen, "
         "wine glass on table. "
         "Clothing: tailored dark shirt or blazer, smart evening look, subtle accessories."
     ),
     "bar_lounge": (
-        "Background: modern cocktail lounge, moody amber and teal lighting, "
+        "Background: modern cocktail lounge, amber and teal lighting, clear interior details, "
         "bar shelves with bottles in background. "
         "Clothing: dark fitted shirt, sleeves rolled, leather or fabric watch."
     ),
@@ -328,8 +370,8 @@ DATING_STYLES: dict[str, str] = {
         "Clothing: dark fitted coat or jacket, quality umbrella, polished rainy-day style."
     ),
     "night_coffee": (
-        "Background: cozy late-night coffee shop interior, warm dim tungsten lighting, "
-        "city lights visible through window, steaming cup on table. "
+        "Background: cozy late-night coffee shop interior, warm tungsten lighting, interior clearly visible, "
+        "city lights through window, steaming cup on table. "
         "Clothing: dark cozy layers, quality cashmere sweater or fitted dark shirt."
     ),
     "evening_home": (
@@ -361,7 +403,7 @@ DATING_STYLES: dict[str, str] = {
     ),
     "tinder_pack_rooftop_golden": (
         "Background: urban rooftop terrace at golden hour, warm rim light on skyline, "
-        "soft bokeh city lights beginning to glow, romantic open-air atmosphere. "
+        "distant city lights clearly visible across skyline, romantic open-air atmosphere. "
         "Clothing: fitted casual-smart outfit, clean lines, subtle accessories, date-ready polish."
     ),
     "tinder_pack_minimal_studio": (
@@ -371,7 +413,7 @@ DATING_STYLES: dict[str, str] = {
     ),
     "tinder_pack_cafe_window": (
         "Background: bright cafe interior by large window, natural daylight, "
-        "plants and warm wood tones softly blurred behind. "
+        "plants and warm wood tones visible behind, details preserved. "
         "Clothing: relaxed smart-casual, soft sweater or crisp shirt, approachable style."
     ),
 }
@@ -610,57 +652,52 @@ CV_STYLES: dict[str, str] = {
     "decision_moment": (
         "Background: standing at large window overlooking cityscape, contemplative atmosphere, "
         "dramatic rim light from window, expansive view behind. "
-        "Clothing: tailored dark suit, strong silhouette against bright window, executive presence."
+        "Clothing: tailored dark suit against bright window, face evenly lit, executive presence."
     ),
     "doc_passport_neutral": (
-        "Background: flat uniform light-grey or off-white wall, even frontal lighting, "
+        "Background: flat uniform light-grey wall, even frontal lighting, "
         "no shadows on backdrop, official document photo standard, centered head-and-shoulders crop feel. "
         "Clothing: conservative solid dark top, neat collar, minimal accessories, neutral professional grooming."
     ),
     "doc_visa_compliant": (
-        "Background: plain white-to-light-grey seamless backdrop, bright even lighting, "
+        "Background: plain light-grey seamless backdrop, bright even lighting, "
         "high clarity, embassy-style compliant framing, shoulders square to camera. "
-        "Clothing: business formal shirt or blouse, understated tie optional, clean executive appearance."
+        "Clothing: business formal shirt with subtle tie, clean executive appearance."
     ),
     "doc_resume_headshot": (
-        "Background: soft light-grey studio or bright blurred office bokeh, "
-        "flattering three-quarter or frontal portrait light, LinkedIn-standard professionalism. "
-        "Clothing: tailored blazer, crisp shirt, confident but approachable business attire."
+        "Background: soft light-grey studio with visible details, "
+        "flattering three-quarter portrait light, LinkedIn-standard professionalism. "
+        "Clothing: tailored blazer, crisp shirt, confident approachable business attire."
     ),
     "photo_3x4": (
         f"{DOCUMENT_PHOTO_REALISM} "
         "Composition: 3:4 portrait framing, face fills about 70-80% of the frame with a small margin above the head. "
-        "Background: clean uniform light tone (white or very soft neutral grey), no gradient. "
-        "No headwear. "
-        "Clothing: simple solid-color top with a neat collar."
+        "Background: clean uniform white, no gradient. "
+        "Clothing: simple solid-color top with a neat collar, no headwear."
     ),
     "passport_rf": (
         f"{DOCUMENT_PHOTO_REALISM} "
         "Composition: 7:9 portrait framing, frontal pose, face fills about 70-80% of the frame with a small margin above the head. "
-        "Background: clean uniform white, no texture or shadows. "
-        "Even symmetrical soft lighting, no strong side shadows. "
-        "Clothing: simple dark solid-color top with a neat collar, no patterns or logos."
+        "Background: clean uniform white, no texture, no shadows. "
+        "Clothing: simple dark solid-color top with a neat collar, no patterns, no logos."
     ),
     "visa_eu": (
         f"{DOCUMENT_PHOTO_REALISM} "
         "Composition: 7:9 portrait framing, face centered and fills about 70-80% of the frame with a small margin above the head. "
-        "Background: clean uniform white or very light grey, no shadows on the backdrop. "
-        "Clear contrast between subject and background. "
+        "Background: clean uniform white, no shadows on the backdrop. "
         "Clothing: simple solid-color business top."
     ),
     "visa_us": (
         f"{DOCUMENT_PHOTO_REALISM} "
         "Composition: strictly 1:1 square framing, face centered, fills roughly 50-70% of the frame. "
-        "Background: clean uniform white, soft even frontal lighting. "
-        "Sharp high-resolution look, JPEG-friendly. "
+        "Background: clean uniform white, soft even frontal lighting, sharp high-resolution look. "
         "Clothing: simple business top, no uniform, no headwear."
     ),
     "photo_4x6": (
         f"{DOCUMENT_PHOTO_REALISM} "
         "Composition: 2:3 portrait framing, face fills about 60-75% of the frame, relaxed top margin. "
-        "Background: any clean light neutral tone (white, light grey or very light blue). "
-        "Softer requirements, natural adaptable composition. "
-        "Clothing: tidy semi-formal or formal top, solid neutral color."
+        "Background: clean uniform white. "
+        "Clothing: tidy business top, solid neutral color."
     ),
 }
 
@@ -897,8 +934,8 @@ SOCIAL_STYLES: dict[str, str] = {
     # --- Cinematic / unique ---
     "panoramic_window": (
         "Background: standing before massive floor-to-ceiling window with dramatic "
-        "city panorama, silhouette rim light from behind, dramatic scale. "
-        "Clothing: minimal dark outfit, clean silhouette against bright cityscape."
+        "city panorama, soft rim light from the window, face clearly lit from front, dramatic scale. "
+        "Clothing: minimal dark outfit against bright cityscape, face evenly lit."
     ),
     "in_motion": (
         "Background: urban street with dynamic energy, caught walking "
@@ -924,7 +961,7 @@ SOCIAL_STYLES: dict[str, str] = {
     "skyscraper_view": (
         "Background: high-rise interior with floor-to-ceiling windows, city lights below "
         "at night, dramatic metropolitan atmosphere, warm interior accent light. "
-        "Clothing: elegant dark outfit, silhouette against glowing city skyline."
+        "Clothing: elegant dark outfit against glowing city skyline, face clearly visible."
     ),
     "after_work": (
         "Background: city sidewalk at dusk, warm streetlights beginning to glow, "
@@ -1011,11 +1048,6 @@ SOCIAL_PERSONALITIES: dict[str, str] = {
 STYLE_REGISTRY = StyleRegistry()
 
 _STYLE_OVERRIDES: dict[tuple[str, str], dict] = {
-    # Edit-incompatible: require impossible pose/geometry changes
-    ("social", "mirror_aesthetic"): {"edit_compatible": False},
-    ("social", "cycling_social"): {"edit_compatible": False},
-    ("dating", "cycling"): {"edit_compatible": False},
-    ("social", "in_motion"): {"edit_compatible": False},
     # Gender-specific female clothing overrides
     ("social", "pastel_soft"): {
         "clothing_female_override": (
@@ -1120,10 +1152,7 @@ def _build_mode_prompt(
     """
     spec = STYLE_REGISTRY.get_or_default(mode, style)
     clothing = spec.clothing_for(gender)
-    if not spec.edit_compatible:
-        bg = spec.background.split(",")[0] if "," in spec.background else spec.background
-    else:
-        bg = spec.background
+    bg = spec.background
 
     change_block = (
         f"{change_instruction} "
@@ -1131,7 +1160,18 @@ def _build_mode_prompt(
         f"{spec.expression}".strip()
     )
 
-    preserve_parts = [IDENTITY_FIRST, HAIR_ANCHOR, FACE_ANCHOR, BODY_ANCHOR, COMPOSITION_ANCHOR]
+    style_key_norm = (style or "").strip()
+    composition = (
+        DOC_COMPOSITION_ANCHOR
+        if mode == "cv" and style_key_norm in _DOCUMENT_STYLE_KEYS
+        else COMPOSITION_ANCHOR
+    )
+    preserve_parts = [
+        IDENTITY_FIRST, HAIR_ANCHOR, FACE_ANCHOR, NATURAL_MOUTH,
+        BODY_ANCHOR, HANDS_ANCHOR, composition,
+    ]
+    if (mode, style_key_norm) in _LOW_KEY_STYLES:
+        preserve_parts.append(LOW_KEY_SHARPNESS)
     preserve_parts.extend(_conditional_preserve(input_hints))
     preserve_block = " ".join(preserve_parts)
 
@@ -1164,6 +1204,9 @@ _DOCUMENT_STYLE_KEYS = frozenset({
     "visa_us",
     "photo_4x6",
     "driver_license",
+    "doc_passport_neutral",
+    "doc_visa_compliant",
+    "doc_resume_headshot",
 })
 
 
@@ -1215,38 +1258,38 @@ STEP_TEMPLATES: dict[str, str] = {
         "Change ONLY the background: {description}. "
         f"{HAIR_ANCHOR} "
         "Keep the person, clothing, pose, and body proportions identical. "
-        f"{BODY_ANCHOR} {FACE_ANCHOR} {COMPOSITION_ANCHOR} {CAMERA} {REALISM}"
+        f"{BODY_ANCHOR} {HANDS_ANCHOR} {FACE_ANCHOR} {COMPOSITION_ANCHOR} {CAMERA} {REALISM}"
     ),
     "clothing_edit": (
         f"{IDENTITY_FIRST} "
         "Change ONLY the clothing: {description}. "
         f"{HAIR_ANCHOR} "
         "Keep face, background, pose, and body proportions identical. "
-        f"{BODY_ANCHOR} {FACE_ANCHOR} {COMPOSITION_ANCHOR} {CAMERA} {REALISM}"
+        f"{BODY_ANCHOR} {HANDS_ANCHOR} {FACE_ANCHOR} {COMPOSITION_ANCHOR} {CAMERA} {REALISM}"
     ),
     "lighting_adjust": (
         f"{IDENTITY_FIRST} "
         "Improve ONLY lighting and color grading: {description}. "
         "Warm flattering light, natural studio quality, even skin tones. "
-        f"{HAIR_ANCHOR} {BODY_ANCHOR} {FACE_ANCHOR} {COMPOSITION_ANCHOR} {CAMERA} {REALISM}"
+        f"{HAIR_ANCHOR} {BODY_ANCHOR} {HANDS_ANCHOR} {FACE_ANCHOR} {COMPOSITION_ANCHOR} {CAMERA} {REALISM}"
     ),
     "expression_hint": (
         f"{IDENTITY_FIRST} "
         "Subtle expression adjustment: {description}. "
         "Keep face shape, features, and original mouth identical. "
-        f"{HAIR_ANCHOR} {BODY_ANCHOR} {FACE_ANCHOR} {COMPOSITION_ANCHOR} {CAMERA} {REALISM}"
+        f"{HAIR_ANCHOR} {BODY_ANCHOR} {HANDS_ANCHOR} {FACE_ANCHOR} {COMPOSITION_ANCHOR} {CAMERA} {REALISM}"
     ),
     "skin_correction": (
         f"{IDENTITY_FIRST} "
         "Minor skin tone correction and blemish removal. "
         "Keep all facial features identical. "
-        f"{HAIR_ANCHOR} {BODY_ANCHOR} {SKIN_FIX} {FACE_ANCHOR} {COMPOSITION_ANCHOR} {CAMERA} {REALISM}"
+        f"{HAIR_ANCHOR} {BODY_ANCHOR} {HANDS_ANCHOR} {SKIN_FIX} {FACE_ANCHOR} {COMPOSITION_ANCHOR} {CAMERA} {REALISM}"
     ),
     "style_overall": (
         f"{IDENTITY_FIRST} "
         "Apply overall style enhancement: {description}. "
         "Cohesive style, crisp detail. Keep body proportions and pose identical. "
-        f"{HAIR_ANCHOR} {BODY_ANCHOR} {FACE_ANCHOR} {COMPOSITION_ANCHOR} {CAMERA} {REALISM}"
+        f"{HAIR_ANCHOR} {BODY_ANCHOR} {HANDS_ANCHOR} {FACE_ANCHOR} {COMPOSITION_ANCHOR} {CAMERA} {REALISM}"
     ),
 }
 
@@ -1280,13 +1323,25 @@ def build_step_prompt(
     return prompt
 
 
-def build_emoji_prompt(base_description: str = "") -> str:
+_EMOJI_GENDER_HINT = {
+    "male": "Male character, masculine silhouette, short or styled hair as in the reference.",
+    "female": "Female character, feminine silhouette, hair styled as in the reference.",
+}
+
+
+def build_emoji_prompt(base_description: str = "", gender: str = "") -> str:
+    gender_key = (gender or "").strip().lower()
+    gender_line = _EMOJI_GENDER_HINT.get(gender_key, "")
     prompt = (
-        "Cartoon sticker avatar of the person from <ref>0</ref>. "
-        "Keep recognizable facial proportions, face shape, hairstyle and hair color. "
+        "Cartoon sticker avatar of the person shown in the reference photo. "
+        "Preserve recognizable facial proportions, face shape, eye shape and color, "
+        "hairstyle and hair color, and skin tone in cartoon style — the sticker must be "
+        "instantly recognizable as the same person. "
         "Clean up any skin defects in cartoon style. "
         "Bold outlines, flat vibrant colors, friendly expression, square composition."
     )
+    if gender_line:
+        prompt = f"{prompt} {gender_line}"
     desc = base_description[:400]
     if desc:
         prompt = f"{prompt} Character: {desc}"

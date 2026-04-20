@@ -122,5 +122,230 @@ def test_depth_of_field_prompt_variants():
         lighting="l", expression="e",
         depth_of_field="shallow",
     )
-    assert "deep depth of field" in deep.depth_of_field_prompt()
+    deep_prompt = deep.depth_of_field_prompt()
+    assert "entire frame in sharp focus" in deep_prompt
+    assert "no bokeh" in deep_prompt
     assert "shallow depth of field" in shallow.depth_of_field_prompt()
+
+
+# ---------------------------------------------------------------------------
+# Blur hygiene and hand anatomy anchors
+# ---------------------------------------------------------------------------
+
+
+_BLUR_WORDS = ("bokeh", "blurred", "softly blurred", "out of focus", "defocused")
+
+
+def test_no_bokeh_words_in_default_builds():
+    """The [CHANGE] block of every style must not positively request blur.
+
+    The [QUALITY] block legitimately contains "no bokeh"/"no defocus blur"
+    as a negative instruction, so we only inspect the style-driven section.
+    """
+    checks = (
+        (ig.build_dating_prompt, ig.DATING_STYLES),
+        (ig.build_cv_prompt, ig.CV_STYLES),
+        (ig.build_social_prompt, ig.SOCIAL_STYLES),
+    )
+    for builder, styles in checks:
+        for style_key in styles:
+            p = builder(style=style_key, gender="male")
+            change_block = p.split("[CHANGE]", 1)[1].split("[PRESERVE]", 1)[0].lower()
+            for word in _BLUR_WORDS:
+                assert word not in change_block, (
+                    f"{style_key}: leaked blur word {word!r} in [CHANGE]"
+                )
+
+
+def test_hands_anchor_present_in_preserve():
+    for builder in (
+        ig.build_dating_prompt,
+        ig.build_cv_prompt,
+        ig.build_social_prompt,
+    ):
+        p = builder(style="", gender="male")
+        assert "HANDS:" in p
+        preserve = p.split("[PRESERVE]", 1)[1].split("[QUALITY]", 1)[0]
+        assert "HANDS:" in preserve
+
+
+def test_hands_anchor_in_step_templates():
+    for step in ("background_edit", "clothing_edit"):
+        p = ig.build_step_prompt(step, style="warm_outdoor", mode="dating")
+        assert "HANDS:" in p
+
+
+# ---------------------------------------------------------------------------
+# Phase 1 hygiene: silhouette lighting, bare torso, FACE_ANCHOR flexibility
+# ---------------------------------------------------------------------------
+
+
+import re  # noqa: E402
+
+
+_SILHOUETTE_RE = re.compile(r"silhouette\s+(rim|against)", re.IGNORECASE)
+
+
+def test_no_silhouette_light_in_change():
+    """No style should describe the subject as a backlit silhouette in the
+    CHANGE block — that patterns blackens the face and kills identity.
+    """
+    checks = (
+        (ig.build_dating_prompt, ig.DATING_STYLES),
+        (ig.build_cv_prompt, ig.CV_STYLES),
+        (ig.build_social_prompt, ig.SOCIAL_STYLES),
+    )
+    for builder, styles in checks:
+        for style_key in styles:
+            p = builder(style=style_key, gender="male")
+            change_block = p.split("[CHANGE]", 1)[1].split("[PRESERVE]", 1)[0]
+            assert not _SILHOUETTE_RE.search(change_block), (
+                f"{style_key}: silhouette light pattern leaked in [CHANGE]"
+            )
+
+
+def test_no_bare_torso_in_change():
+    checks = (
+        (ig.build_dating_prompt, ig.DATING_STYLES),
+        (ig.build_cv_prompt, ig.CV_STYLES),
+        (ig.build_social_prompt, ig.SOCIAL_STYLES),
+    )
+    for builder, styles in checks:
+        for style_key in styles:
+            for gender in ("male", "female"):
+                p = builder(style=style_key, gender=gender)
+                change_block = p.split("[CHANGE]", 1)[1].split("[PRESERVE]", 1)[0]
+                assert "bare torso" not in change_block.lower(), (
+                    f"{style_key}/{gender}: 'bare torso' leaked in [CHANGE]"
+                )
+
+
+def test_face_anchor_allows_expression_change():
+    """FACE_ANCHOR must not freeze the mouth expression — personality-driven
+    styles need to adapt smile/laugh while keeping identity."""
+    assert "exactly as-is" not in ig.FACE_ANCHOR
+    assert (
+        "may adapt" in ig.FACE_ANCHOR
+        or "natural lip shape" in ig.FACE_ANCHOR
+    )
+
+
+# ---------------------------------------------------------------------------
+# Phase 2: low-key sharpness + shallow-DoF regression + doc composition
+# ---------------------------------------------------------------------------
+
+
+def test_no_style_triggers_shallow_dof():
+    """No style background in the registry should ship with shallow-DoF keywords.
+
+    If someone later writes 'softly blurred' or 'bokeh' into a style,
+    detect_depth_of_field() will flip it to shallow and the [QUALITY]
+    block will flip to bokeh wording — which contradicts the deep-DoF
+    guarantee we added to CAMERA. Catch that at CI.
+    """
+    from src.prompts.style_spec import _SHALLOW_DOF_KEYWORDS
+
+    for mode in ("dating", "cv", "social"):
+        for spec in ig.STYLE_REGISTRY.all_for_mode(mode):
+            low = spec.background.lower()
+            for kw in _SHALLOW_DOF_KEYWORDS:
+                assert kw not in low, (
+                    f"{mode}/{spec.key}: shallow-DoF keyword {kw!r} "
+                    f"leaked into style background"
+                )
+
+
+_BUILDERS_BY_MODE = {
+    "dating": ig.build_dating_prompt,
+    "cv": ig.build_cv_prompt,
+    "social": ig.build_social_prompt,
+}
+
+
+def test_low_key_styles_get_sharpness_anchor():
+    """Every style in _LOW_KEY_STYLES must receive LOW_KEY_SHARPNESS in PRESERVE.
+
+    This covers the original 8 styles plus the expanded set of dim/amber/
+    tungsten-lit styles across dating, cv, and social.
+    """
+    for mode, style_key in ig._LOW_KEY_STYLES:
+        builder = _BUILDERS_BY_MODE[mode]
+        p = builder(style=style_key, gender="male")
+        preserve = p.split("[PRESERVE]", 1)[1].split("[QUALITY]", 1)[0]
+        assert "SCENE FOCUS" in preserve, (
+            f"{mode}/{style_key}: LOW_KEY_SHARPNESS missing in [PRESERVE]"
+        )
+
+
+def test_low_key_styles_cover_expanded_set():
+    """Regression guard: the expanded low-key list must still contain the
+    dim/lamp/amber styles we identified in the follow-up audit."""
+    required = {
+        ("dating", "cafe"),
+        ("dating", "coffee_date"),
+        ("dating", "airplane_window"),
+        ("dating", "evening_home"),
+        ("dating", "travel_luxury"),
+        ("cv", "late_hustle"),
+        ("cv", "quiet_expert"),
+        ("cv", "intellectual"),
+        ("social", "luxury"),
+        ("social", "evening_planning"),
+    }
+    missing = required - set(ig._LOW_KEY_STYLES)
+    assert not missing, f"Low-key styles regressed: {missing}"
+
+
+def test_non_low_key_style_has_no_sharpness_anchor():
+    p = ig.build_dating_prompt(style="warm_outdoor", gender="male")
+    assert "SCENE FOCUS" not in p
+
+
+def test_document_styles_skip_rigid_composition():
+    """Document styles must use DOC_COMPOSITION_ANCHOR, not the rigid
+    'Do not re-pose' anchor — otherwise we block the model from actually
+    centering the head to the document format it just described.
+    """
+    for style_key in (
+        "passport_rf", "visa_us", "photo_3x4",
+        "doc_passport_neutral", "doc_visa_compliant", "doc_resume_headshot",
+    ):
+        p = ig.build_cv_prompt(style=style_key, gender="male")
+        assert "Do not re-pose" not in p, (
+            f"{style_key}: rigid composition anchor leaked into document style"
+        )
+        assert "center the head and shoulders" in p.lower()
+
+
+def test_non_document_cv_style_keeps_rigid_composition():
+    p = ig.build_cv_prompt(style="corporate", gender="male")
+    assert "Do not re-pose" in p
+
+
+# ---------------------------------------------------------------------------
+# Phase 5: NATURAL_MOUTH anchor — guards realism after FACE_ANCHOR relaxation
+# ---------------------------------------------------------------------------
+
+
+def test_natural_mouth_anchor_present_in_preserve():
+    """NATURAL_MOUTH must appear in [PRESERVE] for every mode — it is the
+    photorealism safety net that complements the relaxed FACE_ANCHOR.
+    """
+    for builder in (
+        ig.build_dating_prompt,
+        ig.build_cv_prompt,
+        ig.build_social_prompt,
+    ):
+        p = builder(style="", gender="male")
+        preserve = p.split("[PRESERVE]", 1)[1].split("[QUALITY]", 1)[0]
+        assert "MOUTH:" in preserve
+        assert "plastic smile" in preserve
+
+
+def test_natural_mouth_anchor_works_for_documents_too():
+    """Even for rigid document styles, NATURAL_MOUTH must stay in PRESERVE
+    so that passport/visa photos don't look mannequin-like.
+    """
+    p = ig.build_cv_prompt(style="passport_rf", gender="female")
+    preserve = p.split("[PRESERVE]", 1)[1].split("[QUALITY]", 1)[0]
+    assert "MOUTH:" in preserve

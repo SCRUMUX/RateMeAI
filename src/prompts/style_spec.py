@@ -38,7 +38,10 @@ class StyleSpec:
     def depth_of_field_prompt(self) -> str:
         if self.depth_of_field == "shallow":
             return "natural shallow depth of field, pleasant gentle background bokeh"
-        return "background in focus, deep depth of field, fully detailed"
+        return (
+            "entire frame in sharp focus from foreground to background, "
+            "background details fully resolved, no bokeh, no defocus blur"
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -50,7 +53,41 @@ _BANNED_PHRASES = [
     "bold patterns", "unique layering", "flowing fabrics",
 ]
 
-_NEGATIVE_RE = re.compile(r"\bno\s+\w+", re.IGNORECASE)
+# Whitelist of allowed "no X" fragments used in specific document/studio styles
+# where a short negative constraint is genuinely clearer than a positive
+# rewrite (e.g. "no patterns", "no headwear"). Everything else matched by
+# `_NEGATIVE_RE` counts as a quality warning.
+_ALLOWED_NEGATIVES = frozenset({
+    "no shadows",
+    "no gradient",
+    "no patterns",
+    "no logos",
+    "no headwear",
+    "no uniform",
+    "no makeup",
+    "no accessories",
+    "no texture",
+    "no clutter",
+    "no smile",
+    "no expression",
+    "no strong",
+    "no heavy",
+    "no artistic",
+    "no background",  # e.g. "no background blur"
+    "no cinematic",
+    "no defocus",
+    "no bokeh",
+    "no branches",
+})
+
+_NEGATIVE_RE = re.compile(r"\bno\s+[a-z-]+", re.IGNORECASE)
+
+
+def _has_disallowed_negative(text: str) -> bool:
+    for match in _NEGATIVE_RE.findall(text):
+        if match.lower() not in _ALLOWED_NEGATIVES:
+            return True
+    return False
 
 
 def validate_style(spec: StyleSpec) -> list[str]:
@@ -66,7 +103,7 @@ def validate_style(spec: StyleSpec) -> list[str]:
         for phrase in _BANNED_PHRASES:
             if phrase in text:
                 warnings.append(f"{spec.key}.{fname}: banned phrase '{phrase}'")
-        if _NEGATIVE_RE.search(text):
+        if _has_disallowed_negative(text):
             warnings.append(f"{spec.key}.{fname}: negative framing detected")
 
     return warnings
@@ -158,18 +195,21 @@ def adapt_female_clothing(male: str) -> str:
     r = male
 
     _full = [
-        ("fitted swim trunks, clean bare torso, optional sunglasses in hand",
+        ("fitted swim trunks, athletic build, optional sunglasses in hand",
          "elegant one-piece swimsuit, optional sunglasses, light sarong"),
-        ("fitted swim trunks, clean bare torso",
-         "elegant one-piece swimsuit, light cover-up"),
         ("swim trunks", "elegant swimsuit"),
-        ("clean bare torso", "fitted top"),
         ("compression shirt", "fitted athletic top"),
         ("athletic tank top", "fitted athletic top"),
         ("crew-neck t-shirt", "fitted crew-neck top"),
         ("crew-neck tee", "fitted crew-neck top"),
         ("band tee or flannel shirt", "vintage blouse or fitted flannel"),
         ("white crew-neck t-shirt", "white fitted top"),
+        # Handle tie-or-scarf collocations before the word-level swaps
+        # below, so we don't end up with redundant fragments like
+        # "statement necklace or silk scarf".
+        ("subtle tie or silk scarf", "delicate necklace or silk scarf"),
+        ("conservative tie or silk scarf", "elegant silk scarf"),
+        ("power tie or silk scarf", "statement necklace or silk scarf"),
     ]
     for old, new in _full:
         r = r.replace(old, new)
@@ -190,7 +230,7 @@ def adapt_female_clothing(male: str) -> str:
         ("button-down", "button-down blouse"),
         ("henley", "fitted henley or silk top"),
         ("polo shirt", "fitted polo or silk top"),
-        ("subtle tie", "statement necklace"),
+        ("subtle tie", "delicate necklace"),
         ("power tie", "statement necklace"),
         ("conservative tie", "elegant silk scarf"),
         ("tie,", "silk scarf,"),

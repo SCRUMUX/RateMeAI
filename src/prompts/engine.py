@@ -17,7 +17,7 @@ _IMAGE_PROMPT_MAP = {
     AnalysisMode.DATING: lambda style, _desc, gender, q: ig.build_dating_prompt(style, gender, input_hints=q),
     AnalysisMode.CV: lambda style, _desc, gender, q: ig.build_cv_prompt(style, gender, input_hints=q),
     AnalysisMode.SOCIAL: lambda style, _desc, gender, q: ig.build_social_prompt(style, gender, input_hints=q),
-    AnalysisMode.EMOJI: lambda _style, desc, _gender, _q: ig.build_emoji_prompt(desc),
+    AnalysisMode.EMOJI: lambda _style, desc, gender, _q: ig.build_emoji_prompt(desc, gender=gender),
 }
 
 _MODE_STYLE_DICTS: dict[AnalysisMode, dict[str, str]] = {
