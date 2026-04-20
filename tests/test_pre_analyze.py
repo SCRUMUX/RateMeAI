@@ -5,6 +5,11 @@ import json
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from src.models.enums import AnalysisMode
+from src.services.input_quality import InputQualityReport
+
+
+def _ok_report() -> InputQualityReport:
+    return InputQualityReport(can_generate=True, face_area_ratio=0.2)
 
 
 # ── Style catalog metadata ──
@@ -122,12 +127,13 @@ def _build_pipeline_with_redis(cached_pre: dict | None = None):
 
 
 @patch("src.orchestrator.pipeline.settings")
-@patch("src.orchestrator.pipeline.has_face_heuristic", return_value=True)
+@patch("src.orchestrator.pipeline.analyze_input_quality", side_effect=lambda b: _ok_report())
 @patch("src.orchestrator.pipeline.validate_and_normalize", side_effect=lambda b: (b, {}))
 @patch("src.orchestrator.pipeline.extract_nsfw_from_analysis", return_value=(True, ""))
 def test_pipeline_uses_cached_pre_analysis(mock_nsfw, mock_norm, mock_face, mock_settings):
     """When pre_analysis_id is provided and cache exists, pipeline skips LLM analysis."""
     mock_settings.segmentation_enabled = False
+    mock_settings.multi_pass_enabled = False
     mock_settings.identity_threshold = 0.85
     mock_settings.identity_max_retries = 2
     mock_settings.model_cost_reve = 0.02
@@ -166,12 +172,13 @@ def test_pipeline_uses_cached_pre_analysis(mock_nsfw, mock_norm, mock_face, mock
 
 
 @patch("src.orchestrator.pipeline.settings")
-@patch("src.orchestrator.pipeline.has_face_heuristic", return_value=True)
+@patch("src.orchestrator.pipeline.analyze_input_quality", side_effect=lambda b: _ok_report())
 @patch("src.orchestrator.pipeline.validate_and_normalize", side_effect=lambda b: (b, {}))
 @patch("src.orchestrator.pipeline.extract_nsfw_from_analysis", return_value=(True, ""))
 def test_pipeline_cache_miss_runs_llm(mock_nsfw, mock_norm, mock_face, mock_settings):
     """When pre_analysis_id is provided but cache is empty, pipeline runs normal LLM analysis."""
     mock_settings.segmentation_enabled = False
+    mock_settings.multi_pass_enabled = False
     mock_settings.identity_threshold = 0.85
     mock_settings.identity_max_retries = 2
     mock_settings.model_cost_reve = 0.02

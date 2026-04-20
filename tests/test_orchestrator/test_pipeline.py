@@ -6,6 +6,23 @@ import pytest
 
 from src.models.enums import AnalysisMode
 from src.orchestrator.pipeline import AnalysisPipeline
+from src.services.input_quality import InputQualityReport
+
+
+def _ok_report() -> InputQualityReport:
+    return InputQualityReport(can_generate=True, face_area_ratio=0.2)
+
+
+def _no_face_report() -> InputQualityReport:
+    from src.services.input_quality import InputQualityIssue
+    return InputQualityReport(
+        can_generate=False,
+        issues=[InputQualityIssue(
+            code="no_face", severity="block",
+            message="На фото не обнаружено лицо.",
+            suggestion="Загрузите портрет.",
+        )],
+    )
 
 
 def _make_jpeg_stub() -> bytes:
@@ -36,11 +53,12 @@ def _build_pipeline(image_gen=None):
 
 
 @patch("src.orchestrator.pipeline.settings")
-@patch("src.orchestrator.pipeline.has_face_heuristic", return_value=True)
+@patch("src.orchestrator.pipeline.analyze_input_quality", side_effect=lambda b: _ok_report())
 @patch("src.orchestrator.pipeline.validate_and_normalize", side_effect=lambda b: (b, {}))
 @patch("src.orchestrator.pipeline.extract_nsfw_from_analysis", return_value=(True, ""))
 def test_execute_rating_mode(mock_nsfw, mock_norm, mock_face, mock_settings):
     mock_settings.segmentation_enabled = False
+    mock_settings.multi_pass_enabled = False
     mock_settings.identity_threshold = 0.85
     mock_settings.identity_max_retries = 2
     mock_settings.model_cost_reve = 0.02
@@ -78,11 +96,12 @@ def test_execute_rating_mode(mock_nsfw, mock_norm, mock_face, mock_settings):
 
 
 @patch("src.orchestrator.pipeline.settings")
-@patch("src.orchestrator.pipeline.has_face_heuristic", return_value=True)
+@patch("src.orchestrator.pipeline.analyze_input_quality", side_effect=lambda b: _ok_report())
 @patch("src.orchestrator.pipeline.validate_and_normalize", side_effect=lambda b: (b, {}))
 @patch("src.orchestrator.pipeline.extract_nsfw_from_analysis", return_value=(True, ""))
 def test_execute_dating_with_image_gen(mock_nsfw, mock_norm, mock_face, mock_settings):
     mock_settings.segmentation_enabled = False
+    mock_settings.multi_pass_enabled = False
     mock_settings.identity_threshold = 0.85
     mock_settings.identity_max_retries = 2
     mock_settings.model_cost_reve = 0.02
@@ -122,11 +141,12 @@ def test_execute_dating_with_image_gen(mock_nsfw, mock_norm, mock_face, mock_set
 
 
 @patch("src.orchestrator.pipeline.settings")
-@patch("src.orchestrator.pipeline.has_face_heuristic", return_value=True)
+@patch("src.orchestrator.pipeline.analyze_input_quality", side_effect=lambda b: _ok_report())
 @patch("src.orchestrator.pipeline.validate_and_normalize", side_effect=lambda b: (b, {}))
 @patch("src.orchestrator.pipeline.extract_nsfw_from_analysis", return_value=(True, ""))
 def test_skip_image_gen_without_credits(mock_nsfw, mock_norm, mock_face, mock_settings):
     mock_settings.segmentation_enabled = False
+    mock_settings.multi_pass_enabled = False
     mock_settings.identity_threshold = 0.85
     mock_settings.identity_max_retries = 2
     mock_settings.model_cost_reve = 0.02
@@ -159,11 +179,12 @@ def test_skip_image_gen_without_credits(mock_nsfw, mock_norm, mock_face, mock_se
 
 
 @patch("src.orchestrator.pipeline.settings")
-@patch("src.orchestrator.pipeline.has_face_heuristic", return_value=True)
+@patch("src.orchestrator.pipeline.analyze_input_quality", side_effect=lambda b: _ok_report())
 @patch("src.orchestrator.pipeline.validate_and_normalize", side_effect=lambda b: (b, {}))
 @patch("src.orchestrator.pipeline.extract_nsfw_from_analysis", return_value=(True, ""))
 def test_execute_social_with_image_gen(mock_nsfw, mock_norm, mock_face, mock_settings):
     mock_settings.segmentation_enabled = False
+    mock_settings.multi_pass_enabled = False
     mock_settings.identity_threshold = 0.85
     mock_settings.identity_max_retries = 2
     mock_settings.model_cost_reve = 0.02
@@ -203,11 +224,12 @@ def test_execute_social_with_image_gen(mock_nsfw, mock_norm, mock_face, mock_set
 
 
 @patch("src.orchestrator.pipeline.settings")
-@patch("src.orchestrator.pipeline.has_face_heuristic", return_value=True)
+@patch("src.orchestrator.pipeline.analyze_input_quality", side_effect=lambda b: _ok_report())
 @patch("src.orchestrator.pipeline.validate_and_normalize", side_effect=lambda b: (b, {}))
 @patch("src.orchestrator.pipeline.extract_nsfw_from_analysis", return_value=(True, ""))
 def test_pipeline_trace_recorded(mock_nsfw, mock_norm, mock_face, mock_settings):
     mock_settings.segmentation_enabled = False
+    mock_settings.multi_pass_enabled = False
     mock_settings.identity_threshold = 0.85
     mock_settings.identity_max_retries = 2
     mock_settings.model_cost_reve = 0.02
@@ -251,11 +273,12 @@ def test_pipeline_trace_recorded(mock_nsfw, mock_norm, mock_face, mock_settings)
 
 
 @patch("src.orchestrator.pipeline.settings")
-@patch("src.orchestrator.pipeline.has_face_heuristic", return_value=True)
+@patch("src.orchestrator.pipeline.analyze_input_quality", side_effect=lambda b: _ok_report())
 @patch("src.orchestrator.pipeline.validate_and_normalize", side_effect=lambda b: (b, {}))
 @patch("src.orchestrator.pipeline.extract_nsfw_from_analysis", return_value=(True, ""))
 def test_delta_error_flagged_on_failure(mock_nsfw, mock_norm, mock_face, mock_settings):
     mock_settings.segmentation_enabled = False
+    mock_settings.multi_pass_enabled = False
     mock_settings.identity_threshold = 0.85
     mock_settings.identity_max_retries = 2
     mock_settings.model_cost_reve = 0.02
@@ -295,7 +318,7 @@ def test_delta_error_flagged_on_failure(mock_nsfw, mock_norm, mock_face, mock_se
     assert merged.get("delta_error") == "rescoring_failed"
 
 
-@patch("src.orchestrator.pipeline.has_face_heuristic", return_value=False)
+@patch("src.orchestrator.pipeline.analyze_input_quality", side_effect=lambda b: _no_face_report())
 @patch("src.orchestrator.pipeline.validate_and_normalize", side_effect=lambda b: (b, {}))
 def test_no_face_raises(mock_norm, mock_face):
     pipeline, _, _ = _build_pipeline()
@@ -315,12 +338,13 @@ def test_no_face_raises(mock_norm, mock_face):
 # ----- Multi-pass pipeline tests -----
 
 @patch("src.orchestrator.pipeline.settings")
-@patch("src.orchestrator.pipeline.has_face_heuristic", return_value=True)
+@patch("src.orchestrator.pipeline.analyze_input_quality", side_effect=lambda b: _ok_report())
 @patch("src.orchestrator.pipeline.validate_and_normalize", side_effect=lambda b: (b, {}))
 @patch("src.orchestrator.pipeline.extract_nsfw_from_analysis", return_value=(True, ""))
 def test_multipass_dating_executes_plan(mock_nsfw, mock_norm, mock_face, mock_settings):
-    """When segmentation_enabled=True and mode=DATING, multi-pass plan is executed."""
+    """When multi_pass_enabled=True and mode=DATING, multi-pass plan is executed."""
     mock_settings.segmentation_enabled = True
+    mock_settings.multi_pass_enabled = True
     mock_settings.identity_threshold = 0.85
     mock_settings.identity_max_retries = 2
     mock_settings.model_cost_reve = 0.02
@@ -394,12 +418,13 @@ def test_multipass_dating_executes_plan(mock_nsfw, mock_norm, mock_face, mock_se
 
 
 @patch("src.orchestrator.pipeline.settings")
-@patch("src.orchestrator.pipeline.has_face_heuristic", return_value=True)
+@patch("src.orchestrator.pipeline.analyze_input_quality", side_effect=lambda b: _ok_report())
 @patch("src.orchestrator.pipeline.validate_and_normalize", side_effect=lambda b: (b, {}))
 @patch("src.orchestrator.pipeline.extract_nsfw_from_analysis", return_value=(True, ""))
 def test_multipass_fallback_on_error(mock_nsfw, mock_norm, mock_face, mock_settings):
     """Multi-pass failure does not trigger a second image-gen pass."""
     mock_settings.segmentation_enabled = True
+    mock_settings.multi_pass_enabled = True
     mock_settings.identity_threshold = 0.85
     mock_settings.identity_max_retries = 2
     mock_settings.model_cost_reve = 0.02
@@ -458,12 +483,13 @@ def test_multipass_fallback_on_error(mock_nsfw, mock_norm, mock_face, mock_setti
 
 
 @patch("src.orchestrator.pipeline.settings")
-@patch("src.orchestrator.pipeline.has_face_heuristic", return_value=True)
+@patch("src.orchestrator.pipeline.analyze_input_quality", side_effect=lambda b: _ok_report())
 @patch("src.orchestrator.pipeline.validate_and_normalize", side_effect=lambda b: (b, {}))
 @patch("src.orchestrator.pipeline.extract_nsfw_from_analysis", return_value=(True, ""))
 def test_decisions_logged_in_trace(mock_nsfw, mock_norm, mock_face, mock_settings):
     """Pipeline trace includes decision log entries."""
     mock_settings.segmentation_enabled = False
+    mock_settings.multi_pass_enabled = False
     mock_settings.identity_threshold = 0.85
     mock_settings.identity_max_retries = 2
     mock_settings.model_cost_reve = 0.02
@@ -504,12 +530,13 @@ def test_decisions_logged_in_trace(mock_nsfw, mock_norm, mock_face, mock_setting
 
 
 @patch("src.orchestrator.pipeline.settings")
-@patch("src.orchestrator.pipeline.has_face_heuristic", return_value=True)
+@patch("src.orchestrator.pipeline.analyze_input_quality", side_effect=lambda b: _ok_report())
 @patch("src.orchestrator.pipeline.validate_and_normalize", side_effect=lambda b: (b, {}))
 @patch("src.orchestrator.pipeline.extract_nsfw_from_analysis", return_value=(True, ""))
 def test_multipass_global_gates_fail_still_delivers(mock_nsfw, mock_norm, mock_face, mock_settings):
     """When global gates fail, image is still delivered with quality_warning."""
     mock_settings.segmentation_enabled = True
+    mock_settings.multi_pass_enabled = True
     mock_settings.identity_threshold = 0.85
     mock_settings.identity_max_retries = 2
     mock_settings.model_cost_reve = 0.02

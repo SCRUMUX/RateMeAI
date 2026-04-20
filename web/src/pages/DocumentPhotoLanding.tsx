@@ -8,6 +8,7 @@ import SocialProof from '../sections/SocialProof';
 import { useApp } from '../context/AppContext';
 import { DOCUMENT_SOCIAL_PROOF_PRESET } from '../data/social-proof';
 import { DOCUMENT_FORMAT_ITEMS } from '../scenarios/extraStyles';
+import { REQUIREMENTS_SHORT, REJECT_BULLETS } from '../data/photo-requirements';
 
 const STEPS = [
   { num: '1', title: 'Загрузите фото', desc: 'Любое фото с чётким лицом' },
@@ -108,6 +109,26 @@ export default function DocumentPhotoLanding({ onStart, showAuth, onAuthClose }:
           <p className="text-[16px] text-[var(--color-text-secondary)] max-w-[400px]">
             Загрузите любое фото и получите результат, соответствующий требованиям документов
           </p>
+
+          <div className="flex flex-col tablet:flex-row gap-[var(--space-12)] w-full max-w-[640px] text-left">
+            <div className="flex-1 gradient-border-card glass-card rounded-[var(--radius-12)] p-[var(--space-12)]">
+              <p className="text-[13px] font-medium text-[#E6EEF8] mb-[var(--space-6)]">Подходит</p>
+              <ul className="flex flex-col gap-[var(--space-4)] text-[12px] leading-[16px] text-[var(--color-text-secondary)]">
+                {REQUIREMENTS_SHORT.map((t) => (
+                  <li key={t}>• {t}</li>
+                ))}
+              </ul>
+            </div>
+            <div className="flex-1 gradient-border-card glass-card rounded-[var(--radius-12)] p-[var(--space-12)]">
+              <p className="text-[13px] font-medium text-[#FF9EAD] mb-[var(--space-6)]">Не будет обработано</p>
+              <ul className="flex flex-col gap-[var(--space-4)] text-[12px] leading-[16px] text-[var(--color-text-muted)]">
+                {REJECT_BULLETS.slice(0, 4).map((t) => (
+                  <li key={t}>• {t}</li>
+                ))}
+              </ul>
+            </div>
+          </div>
+
           <button
             onClick={onStart}
             className="glass-btn-primary inline-flex items-center justify-center px-[var(--space-32)] py-[var(--space-16)] text-[18px] leading-[24px] rounded-[var(--radius-12)] font-medium cursor-pointer"

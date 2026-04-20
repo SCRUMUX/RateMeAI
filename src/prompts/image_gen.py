@@ -37,9 +37,31 @@ SKIN_FIX = (
     "Do not smooth or airbrush the skin. Minimal cleanup only."
 )
 
-BACKGROUND_FOCUS = (
-    "BACKGROUND FOCUS: sharp and in-focus background, fully detailed, "
-    "deep depth of field. The background must be as crisp as the subject."
+HAIR_ANCHOR = (
+    "HAIR: preserve the exact hairstyle, color, length, parting, and individual "
+    "strand silhouette from the reference. Keep hair outline crisp. Do not merge "
+    "hair with the new background — no branches, leaves, fabric or backdrop "
+    "bleeding into hair strands. Keep the original hairline."
+)
+
+COMPOSITION_ANCHOR = (
+    "COMPOSITION: keep original framing, crop, and head position. Do not re-pose, "
+    "do not zoom, do not shift the subject."
+)
+
+# Conditional anchors — appended only when input quality analysis requests them.
+SMALL_FACE_PROTECTION = (
+    "Face occupies a small portion of the frame. Preserve all facial features "
+    "with extra care, do not re-pose the head."
+)
+
+HAIR_BG_STRONG = (
+    "Hair silhouette must stay exactly as in the reference, with a crisp edge "
+    "against the new background."
+)
+
+NON_FRONTAL_HINT = (
+    "Keep the original head angle; do not rotate the face towards the camera."
 )
 
 CAMERA = (
@@ -1057,32 +1079,80 @@ for _key, _text in SOCIAL_STYLES.items():
 # Uses StyleSpec for structured, gender-aware prompt construction.
 # ---------------------------------------------------------------------------
 
-def _build_mode_prompt(mode: str, style: str, gender: str, change_instruction: str) -> str:
-    """Shared builder logic for all modes using the typed StyleSpec registry."""
+def _conditional_preserve(input_hints: dict | None) -> list[str]:
+    """Return additional PRESERVE-section anchors based on input quality hints."""
+    if not input_hints:
+        return []
+    extra: list[str] = []
+    try:
+        face_ratio = float(input_hints.get("face_area_ratio", 0) or 0)
+    except (TypeError, ValueError):
+        face_ratio = 0.0
+    try:
+        hair_bg = float(input_hints.get("hair_bg_contrast", 1) or 1)
+    except (TypeError, ValueError):
+        hair_bg = 1.0
+    try:
+        yaw = abs(float(input_hints.get("yaw", 0) or 0))
+    except (TypeError, ValueError):
+        yaw = 0.0
+
+    if 0.0 < face_ratio < 0.15:
+        extra.append(SMALL_FACE_PROTECTION)
+    if 0.0 <= hair_bg < 0.10:
+        extra.append(HAIR_BG_STRONG)
+    if yaw > 20.0:
+        extra.append(NON_FRONTAL_HINT)
+    return extra
+
+
+def _build_mode_prompt(
+    mode: str,
+    style: str,
+    gender: str,
+    change_instruction: str,
+    input_hints: dict | None = None,
+) -> str:
+    """Shared builder logic for all modes using the typed StyleSpec registry.
+
+    Prompt follows a sectioned [CHANGE] / [PRESERVE] / [QUALITY] layout that
+    edit-tuned models parse more reliably than a single run-on paragraph.
+    """
     spec = STYLE_REGISTRY.get_or_default(mode, style)
     clothing = spec.clothing_for(gender)
     if not spec.edit_compatible:
         bg = spec.background.split(",")[0] if "," in spec.background else spec.background
-        return (
-            f"{IDENTITY_FIRST} "
-            f"{change_instruction} "
-            f"{BACKGROUND_FOCUS} Background: {bg}. Clothing: {clothing}. "
-            f"{spec.expression} "
-            f"{BODY_ANCHOR} {SKIN_FIX} {FACE_ANCHOR} {CAMERA} {REALISM}"
-        )
-    return (
-        f"{IDENTITY_FIRST} "
+    else:
+        bg = spec.background
+
+    change_block = (
         f"{change_instruction} "
-        f"{BACKGROUND_FOCUS} Background: {spec.background}. Clothing: {clothing}. "
-        f"{spec.expression} "
-        f"{BODY_ANCHOR} {SKIN_FIX} {FACE_ANCHOR} {CAMERA} {REALISM}"
+        f"Background: {bg}. Clothing: {clothing}. "
+        f"{spec.expression}".strip()
+    )
+
+    preserve_parts = [IDENTITY_FIRST, HAIR_ANCHOR, FACE_ANCHOR, BODY_ANCHOR, COMPOSITION_ANCHOR]
+    preserve_parts.extend(_conditional_preserve(input_hints))
+    preserve_block = " ".join(preserve_parts)
+
+    quality_block = (
+        f"{SKIN_FIX} {CAMERA} {REALISM} {spec.depth_of_field_prompt()}."
+    )
+
+    return (
+        f"[CHANGE] {change_block}\n\n"
+        f"[PRESERVE] {preserve_block}\n\n"
+        f"[QUALITY] {quality_block}"
     )
 
 
-def build_dating_prompt(style: str = "", gender: str = "male") -> str:
+def build_dating_prompt(
+    style: str = "", gender: str = "male", input_hints: dict | None = None,
+) -> str:
     return _build_mode_prompt(
         "dating", style, gender,
         "Change ONLY background and clothing. Keep the person's face, pose, and body identical.",
+        input_hints=input_hints,
     )
 
 
@@ -1102,7 +1172,9 @@ def is_document_style(style: str) -> bool:
     return (style or "").strip() in _DOCUMENT_STYLE_KEYS
 
 
-def build_cv_prompt(style: str = "", gender: str = "male") -> str:
+def build_cv_prompt(
+    style: str = "", gender: str = "male", input_hints: dict | None = None,
+) -> str:
     style_key = (style or "").strip()
     if style_key in _DOCUMENT_STYLE_KEYS:
         change_instruction = (
@@ -1120,13 +1192,16 @@ def build_cv_prompt(style: str = "", gender: str = "male") -> str:
             "Change ONLY background and clothing to professional attire. "
             "Keep the person's face, pose, and body identical."
         )
-    return _build_mode_prompt("cv", style_key, gender, change_instruction)
+    return _build_mode_prompt("cv", style_key, gender, change_instruction, input_hints=input_hints)
 
 
-def build_social_prompt(style: str = "", gender: str = "male") -> str:
+def build_social_prompt(
+    style: str = "", gender: str = "male", input_hints: dict | None = None,
+) -> str:
     return _build_mode_prompt(
         "social", style, gender,
         "Change ONLY background and clothing. Keep the person's face, pose, and body identical.",
+        input_hints=input_hints,
     )
 
 
@@ -1138,44 +1213,40 @@ STEP_TEMPLATES: dict[str, str] = {
     "background_edit": (
         f"{IDENTITY_FIRST} "
         "Change ONLY the background: {description}. "
-        f"{BACKGROUND_FOCUS} "
+        f"{HAIR_ANCHOR} "
         "Keep the person, clothing, pose, and body proportions identical. "
-        f"{BODY_ANCHOR} {FACE_ANCHOR} {CAMERA} {REALISM}"
+        f"{BODY_ANCHOR} {FACE_ANCHOR} {COMPOSITION_ANCHOR} {CAMERA} {REALISM}"
     ),
     "clothing_edit": (
         f"{IDENTITY_FIRST} "
         "Change ONLY the clothing: {description}. "
-        f"{BACKGROUND_FOCUS} "
+        f"{HAIR_ANCHOR} "
         "Keep face, background, pose, and body proportions identical. "
-        f"{BODY_ANCHOR} {FACE_ANCHOR} {CAMERA} {REALISM}"
+        f"{BODY_ANCHOR} {FACE_ANCHOR} {COMPOSITION_ANCHOR} {CAMERA} {REALISM}"
     ),
     "lighting_adjust": (
         f"{IDENTITY_FIRST} "
         "Improve ONLY lighting and color grading: {description}. "
-        f"{BACKGROUND_FOCUS} "
         "Warm flattering light, natural studio quality, even skin tones. "
-        f"{BODY_ANCHOR} {FACE_ANCHOR} {CAMERA} {REALISM}"
+        f"{HAIR_ANCHOR} {BODY_ANCHOR} {FACE_ANCHOR} {COMPOSITION_ANCHOR} {CAMERA} {REALISM}"
     ),
     "expression_hint": (
         f"{IDENTITY_FIRST} "
         "Subtle expression adjustment: {description}. "
-        f"{BACKGROUND_FOCUS} "
         "Keep face shape, features, and original mouth identical. "
-        f"{BODY_ANCHOR} {FACE_ANCHOR} {CAMERA} {REALISM}"
+        f"{HAIR_ANCHOR} {BODY_ANCHOR} {FACE_ANCHOR} {COMPOSITION_ANCHOR} {CAMERA} {REALISM}"
     ),
     "skin_correction": (
         f"{IDENTITY_FIRST} "
         "Minor skin tone correction and blemish removal. "
-        f"{BACKGROUND_FOCUS} "
         "Keep all facial features identical. "
-        f"{BODY_ANCHOR} {SKIN_FIX} {FACE_ANCHOR} {CAMERA} {REALISM}"
+        f"{HAIR_ANCHOR} {BODY_ANCHOR} {SKIN_FIX} {FACE_ANCHOR} {COMPOSITION_ANCHOR} {CAMERA} {REALISM}"
     ),
     "style_overall": (
         f"{IDENTITY_FIRST} "
         "Apply overall style enhancement: {description}. "
-        f"{BACKGROUND_FOCUS} "
         "Cohesive style, crisp detail. Keep body proportions and pose identical. "
-        f"{BODY_ANCHOR} {FACE_ANCHOR} {CAMERA} {REALISM}"
+        f"{HAIR_ANCHOR} {BODY_ANCHOR} {FACE_ANCHOR} {COMPOSITION_ANCHOR} {CAMERA} {REALISM}"
     ),
 }
 

@@ -111,6 +111,7 @@ class ImageGenerationExecutor:
         enhancement_level: int = 0,
         progress_callback: ProgressCallback | None = None,
         gender: str = "male",
+        input_quality: Any | None = None,
     ) -> None:
         gate_runner = self._get_gate_runner()
         original_embedding = await self._get_or_compute_embedding(task_id, image_bytes)
@@ -323,6 +324,7 @@ class ImageGenerationExecutor:
         self, mode: AnalysisMode, style: str, image_bytes: bytes,
         result_dict: dict, user_id: str, task_id: str, trace: dict,
         gender: str = "male",
+        input_quality: Any | None = None,
     ) -> None:
         if mode not in (AnalysisMode.CV, AnalysisMode.EMOJI, AnalysisMode.DATING, AnalysisMode.SOCIAL):
             return
@@ -333,7 +335,19 @@ class ImageGenerationExecutor:
 
         try:
             desc = str(result_dict.get("base_description", ""))
-            prompt = self._prompt_engine.build_image_prompt(mode, style=style, base_description=desc, gender=gender)
+            input_hints = input_quality.to_prompt_hints() if input_quality is not None else None
+            prompt = self._prompt_engine.build_image_prompt(
+                mode, style=style, base_description=desc, gender=gender,
+                input_hints=input_hints,
+            )
+
+            # Face area ratio drives two decisions:
+            #   - whether to upscale x2 (bad idea for tiny faces, amplifies artefacts)
+            #   - how strict HAIR protection should be
+            face_area_ratio = (
+                float(getattr(input_quality, "face_area_ratio", 0.0) or 0.0)
+                if input_quality is not None else 0.0
+            )
 
             extra: dict = {}
             if mode in (AnalysisMode.CV, AnalysisMode.DATING, AnalysisMode.SOCIAL):
@@ -344,15 +358,51 @@ class ImageGenerationExecutor:
                     "aspect_ratio": aspect_ratio,
                     "test_time_scaling": settings.reve_test_time_scaling,
                     "use_edit": True,
-                    "postprocessing": [{"process": "upscale", "upscale_factor": 2}],
                 }
+                # Upscale only when the face is large enough for the model to
+                # have enough detail to work with. Tiny faces get amplified
+                # artefacts, which is the opposite of "natural".
+                if face_area_ratio >= 0.15:
+                    extra["postprocessing"] = [
+                        {"process": "upscale", "upscale_factor": 2},
+                    ]
+
+            # Single-pass background mask: protects face + hair + body from the
+            # edit model while the background is replaced, all in ONE Reve call.
+            if (
+                mode in (AnalysisMode.CV, AnalysisMode.DATING, AnalysisMode.SOCIAL)
+                and settings.segmentation_enabled
+                and self._get_segmentation
+            ):
+                try:
+                    seg_svc = self._get_segmentation()
+                    if seg_svc:
+                        with _trace_step(trace, "segmentation") as seg_entry:
+                            masks = await seg_svc.segment(image_bytes)
+                        bg_mask = masks.get("background")
+                        if bg_mask is not None:
+                            import io as _io
+                            mask_buf = _io.BytesIO()
+                            bg_mask.save(mask_buf, format="PNG")
+                            extra["mask_image"] = mask_buf.getvalue()
+                            extra["mask_region"] = "background"
+                            seg_entry["mask_provided"] = True
+                except Exception:
+                    logger.debug(
+                        "Single-pass segmentation failed for task=%s — proceeding without mask",
+                        task_id, exc_info=True,
+                    )
 
             raw = None
             identity_score = 0.0
 
             logger.info(
-                "Image generation (edit mode) mode=%s style=%s task=%s",
+                "Image generation (edit mode) mode=%s style=%s task=%s mask=%s upscale=%s",
                 mode.value, style or "default", task_id,
+                "bg" if extra.get("mask_image") else "none",
+                "x2" if any(
+                    p.get("process") == "upscale" for p in extra.get("postprocessing", [])
+                ) else "no",
             )
             with _trace_step(trace, "image_gen"):
                 raw = await self._image_gen.generate(prompt, reference_image=image_bytes, params=extra or None)
@@ -376,7 +426,10 @@ class ImageGenerationExecutor:
                     gate_entry["passed"] = passed
                 IDENTITY_SCORE.observe(identity_score)
 
-                if not passed and 0.3 <= identity_score < settings.identity_threshold:
+                # Try face compositing whenever identity dropped noticeably.
+                # The PIL-level compositing is free (no API calls) and the
+                # downstream gate picks the better of (original, composited).
+                if not passed and 0.0 < identity_score < 0.78:
                     with _trace_step(trace, "face_compositing") as comp_entry:
                         composited, new_score = await composite_face_region(
                             image_bytes, raw, identity_svc,
@@ -398,23 +451,22 @@ class ImageGenerationExecutor:
                         "Загрузи чёткое портретное фото анфас с хорошим освещением "
                         "для более точного результата."
                     )
-                elif identity_score < 0.3:
-                    warnings.append(
-                        "Результат значительно отличается от оригинала. "
-                        "Для лучшего сходства загрузи более качественное фото: "
-                        "чёткое лицо, ровное освещение, фронтальный ракурс."
-                    )
                 elif identity_score < 0.5:
                     warnings.append(
-                        "Результат может немного отличаться от оригинала. "
-                        "Загрузи фото в более высоком качестве — чёткий портрет "
-                        "анфас даст лучший результат."
+                        "Сильное отличие от оригинала — рекомендуем другое фото. "
+                        "Лучше всего работает чёткое лицо крупным планом, анфас, "
+                        "без затемнений и без сложного фона."
+                    )
+                elif identity_score < 0.65:
+                    warnings.append(
+                        "Результат может заметно отличаться от оригинала. "
+                        "Для лучшего сходства загрузи фото в более высоком качестве."
                     )
                 elif identity_score < 0.75:
                     warnings.append(
                         "Небольшие отличия от оригинала. "
-                        "Для максимальной точности используй качественное фото "
-                        "с чётким лицом крупным планом."
+                        "Для максимальной точности используй фото с чётким лицом "
+                        "крупным планом."
                     )
 
                 logger.info(
@@ -449,6 +501,29 @@ class ImageGenerationExecutor:
                             task_id, sp_report.get("gates_failed"),
                         )
                         result_dict["quality_warning"] = True
+
+                    # Actionable warnings from LLM quality check — surfaced as
+                    # soft notices (we deliver the photo anyway per policy).
+                    if sp_report.get("hair_outline_preserved") is False:
+                        warnings.append(
+                            "Контур волос на итоговом фото отличается от оригинала. "
+                            "Для лучшего результата снимите фото на простом однотонном фоне."
+                        )
+                    if sp_report.get("background_consistent") is False:
+                        warnings.append(
+                            "На фото заметны артефакты стыка с фоном. "
+                            "Попробуйте фото с чистым ровным фоном без сложных деталей."
+                        )
+                    if sp_report.get("hands_correct") is False:
+                        warnings.append(
+                            "На фото могут быть неточности в изображении рук. "
+                            "Попробуйте снимок, где руки не видны или сложены спокойно."
+                        )
+                    if sp_report.get("pose_natural") is False:
+                        warnings.append(
+                            "Поза на итоговом фото выглядит не совсем естественно. "
+                            "Лучше всего работает прямая осанка и симметричный кадр."
+                        )
 
                     # await self._record_ab_metrics(task_id, sp_report)
                 except Exception:

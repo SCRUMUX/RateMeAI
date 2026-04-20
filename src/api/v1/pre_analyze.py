@@ -10,13 +10,19 @@ from redis.asyncio import Redis
 from src.config import settings
 from src.models.db import User
 from src.models.enums import AnalysisMode
-from src.models.schemas import PreAnalysisResponse, RatingResult
+from src.models.schemas import (
+    PreAnalysisResponse,
+    RatingResult,
+    InputQualityPublic,
+    InputQualityIssuePublic,
+)
 from src.api.deps import get_redis, get_auth_user
 from src.orchestrator.router import ModeRouter
 from src.providers.factory import get_llm
 from src.prompts.engine import PromptEngine
+from src.services.input_quality import analyze_input_quality
 from src.utils.humanize import humanize_result_scores
-from src.utils.image import validate_and_normalize, has_face_heuristic
+from src.utils.image import validate_and_normalize
 from src.utils.redis_keys import preanalysis_cache_key
 from src.utils.security import extract_nsfw_from_analysis
 from src.metrics import LLM_CALLS
@@ -68,8 +74,26 @@ async def pre_analyze(
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
 
-    if not has_face_heuristic(image_bytes):
-        raise HTTPException(status_code=400, detail="На фото не обнаружено лицо. Загрузи портретное фото.")
+    quality_report = analyze_input_quality(image_bytes)
+    if not quality_report.can_generate:
+        primary = quality_report.blocking[0]
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "message": primary.message,
+                "suggestion": primary.suggestion,
+                "code": primary.code,
+                "blocking_issues": [i.to_dict() for i in quality_report.blocking],
+            },
+        )
+
+    input_quality_public = InputQualityPublic(
+        can_generate=quality_report.can_generate,
+        soft_warnings=[
+            InputQualityIssuePublic(**i.to_dict()) for i in quality_report.soft_warnings
+        ],
+        blocking_issues=[],
+    )
 
     if settings.uses_remote_ai:
         import base64 as _b64
@@ -83,7 +107,10 @@ async def pre_analyze(
                 market_id=settings.resolved_market_id,
                 trace_id=request.headers.get("x-trace-id", ""),
             )
-            return PreAnalysisResponse(**result_data)
+            # Attach locally-computed input quality — remote AI does not see it.
+            resp = PreAnalysisResponse(**result_data)
+            resp.input_quality = input_quality_public
+            return resp
         except RemoteAIError as exc:
             logger.error("Edge pre-analyze proxy failed: %s", exc)
             raise HTTPException(status_code=502, detail=f"Не удалось выполнить анализ через основной сервер: {exc}") from exc
@@ -142,6 +169,7 @@ async def pre_analyze(
         perception_scores=perception,
         perception_insights=insights,
         enhancement_opportunities=opportunities,
+        input_quality=input_quality_public,
     )
 
 

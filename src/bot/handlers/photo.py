@@ -7,7 +7,10 @@ from aiogram.types import Message
 from redis.asyncio import Redis
 
 from src.bot.middleware import PHOTO_KEY
-from src.bot.keyboards import scenario_keyboard
+from src.bot.keyboards import scenario_keyboard, back_keyboard
+from src.bot.utils.photo import download_photo_bytes
+from src.services.input_quality import analyze_input_quality, InputQualityReport
+from src.utils.image import validate_and_normalize
 
 router = Router()
 logger = logging.getLogger(__name__)
@@ -53,13 +56,55 @@ async def _reset_depth(redis: Redis, user_id: int) -> None:
                 break
 
 
+async def _run_preflight(message: Message, file_id: str) -> InputQualityReport | None:
+    """Download Telegram file and run input quality gate.
+
+    Returns the report on success (can be empty of issues). Returns None if
+    download failed — caller should treat this as a soft error and proceed.
+    Sends a rejection message directly to the user if the gate blocks the photo
+    and returns None in that case too.
+    """
+    try:
+        raw = await download_photo_bytes(message.bot, file_id)
+        raw, _ = validate_and_normalize(raw)
+    except Exception:
+        logger.warning("Pre-flight: failed to download/normalize photo", exc_info=True)
+        return None
+
+    report = analyze_input_quality(raw)
+    if not report.can_generate:
+        lines = ["\u26a0\ufe0f *Это фото не подойдёт для генерации.*", ""]
+        for issue in report.blocking:
+            lines.append(f"• {issue.message} {issue.suggestion}".rstrip())
+        lines.append("")
+        lines.append("Пришли другое фото или набери /photo\\_help для подробностей.")
+        await message.answer("\n".join(lines), parse_mode="Markdown", reply_markup=back_keyboard())
+        return None
+    return report
+
+
+def _format_soft_warnings(report: InputQualityReport) -> str:
+    """Compact warning block appended to the scenario-selection message."""
+    if not report.soft_warnings:
+        return ""
+    lines = ["", "\u26a0\ufe0f *Обрати внимание на качество фото:*"]
+    for w in report.soft_warnings:
+        lines.append(f"• {w.message}")
+    lines.append("Продолжим — но результат может отличаться от оригинала.")
+    return "\n".join(lines)
+
+
 @router.message(F.photo)
 async def handle_photo(message: Message, redis: Redis):
-    """Store the photo file_id in Redis and show scenario selection."""
+    """Pre-flight check, store file_id in Redis and show scenario selection."""
     try:
         photo = message.photo[-1]
         user_id = message.from_user.id
         logger.info("Photo received from user %s, file_id=%s", user_id, photo.file_id[:20])
+
+        report = await _run_preflight(message, photo.file_id)
+        if report is None:
+            return
 
         await redis.set(PHOTO_KEY.format(user_id), photo.file_id, ex=86400)
         await _reset_depth(redis, user_id)
@@ -69,9 +114,11 @@ async def handle_photo(message: Message, redis: Redis):
             await message.answer(mode_redirect["text"], reply_markup=mode_redirect["kb"])
             return
 
+        text = "Выбери направление, и я подберу лучший образ:" + _format_soft_warnings(report)
         await message.answer(
-            "Выбери направление, и я подберу лучший образ:",
+            text,
             reply_markup=scenario_keyboard(),
+            parse_mode="Markdown",
         )
     except Exception:
         logger.exception("handle_photo failed for user %s", message.from_user.id if message.from_user else "?")
@@ -84,6 +131,10 @@ async def handle_document(message: Message, redis: Redis):
         content_type = message.document.mime_type or ""
         if content_type.startswith("image/"):
             user_id = message.from_user.id
+            report = await _run_preflight(message, message.document.file_id)
+            if report is None:
+                return
+
             await redis.set(PHOTO_KEY.format(user_id), message.document.file_id, ex=86400)
             await _reset_depth(redis, user_id)
 
@@ -92,12 +143,13 @@ async def handle_document(message: Message, redis: Redis):
                 await message.answer(mode_redirect["text"], reply_markup=mode_redirect["kb"])
                 return
 
+            text = "Выбери направление, и я подберу лучший образ:" + _format_soft_warnings(report)
             await message.answer(
-                "Выбери направление, и я подберу лучший образ:",
+                text,
                 reply_markup=scenario_keyboard(),
+                parse_mode="Markdown",
             )
         else:
-            from src.bot.keyboards import back_keyboard
             await message.answer(
                 "Пожалуйста, отправь фотографию (изображение).",
                 reply_markup=back_keyboard(),

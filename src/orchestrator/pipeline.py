@@ -22,7 +22,8 @@ from src.services.task_contract import (
     should_force_single_provider_call,
 )
 from src.utils.humanize import humanize_result_scores
-from src.utils.image import validate_and_normalize, has_face_heuristic, estimate_blur_score
+from src.utils.image import validate_and_normalize
+from src.services.input_quality import analyze_input_quality, InputQualityReport
 from src.utils.redis_keys import (
     embedding_cache_key,
     preanalysis_cache_keys,
@@ -186,7 +187,7 @@ class AnalysisPipeline:
     ) -> dict:
 
         with _trace_step(trace, "preprocess"):
-            image_bytes, img_meta = await self._preprocess(image_bytes)
+            image_bytes, img_meta, input_quality = await self._preprocess(image_bytes)
 
         with _trace_step(trace, "analyze"):
             pre_id = (context or {}).get("pre_analysis_id")
@@ -221,20 +222,12 @@ class AnalysisPipeline:
             humanize_result_scores(result_dict, task_id)
 
         warnings: list[str] = result_dict.setdefault("generation_warnings", [])
-        orig_w = img_meta.get("original_width", 0)
-        orig_h = img_meta.get("original_height", 0)
-        if orig_w < 400 or orig_h < 400:
-            warnings.append(
-                "Фото имеет низкое разрешение. "
-                "Загрузи фото в более высоком качестве для лучшего результата."
-            )
-
-        blur_score = estimate_blur_score(image_bytes)
-        if 0 <= blur_score < 100:
-            warnings.append(
-                "Фото выглядит размытым. "
-                "Загрузи более чёткое фото для лучшего результата."
-            )
+        # Surface soft warnings from input-quality gate as user-facing notices.
+        # Hard resolution/blur issues are already blocked in _preprocess, so we
+        # only translate actionable soft-warnings here.
+        for w in input_quality.soft_warnings:
+            warnings.append(f"{w.message} {w.suggestion}".strip())
+        result_dict["input_quality"] = input_quality.to_public_dict()
 
         style = (context or {}).get("style", "")
         skip_gen = (context or {}).get("skip_image_gen", False)
@@ -249,7 +242,7 @@ class AnalysisPipeline:
             force_single_provider_call = should_force_single_provider_call(context)
             use_multipass = (
                 not force_single_provider_call
-                and settings.segmentation_enabled
+                and settings.multi_pass_enabled
                 and mode in (AnalysisMode.DATING, AnalysisMode.CV, AnalysisMode.SOCIAL)
             )
 
@@ -274,6 +267,7 @@ class AnalysisPipeline:
                         plan, mode, style, image_bytes, result_dict,
                         user_id, task_id, trace, enhancement_level, progress_callback,
                         gender=gender,
+                        input_quality=input_quality,
                     )
             else:
                 single_pass_reason = (
@@ -290,6 +284,7 @@ class AnalysisPipeline:
                     await self._executor.single_pass(
                         mode, style, image_bytes, result_dict, user_id, task_id, trace,
                         gender=gender,
+                        input_quality=input_quality,
                     )
 
             if (
@@ -321,13 +316,20 @@ class AnalysisPipeline:
     # Preprocessing
     # ------------------------------------------------------------------
 
-    async def _preprocess(self, image_bytes: bytes) -> tuple[bytes, dict]:
+    async def _preprocess(
+        self, image_bytes: bytes,
+    ) -> tuple[bytes, dict, InputQualityReport]:
         image_bytes, meta = validate_and_normalize(image_bytes)
 
-        if not has_face_heuristic(image_bytes):
-            raise ValueError("На фото не обнаружено лицо. Загрузи портретное фото.")
+        report = analyze_input_quality(image_bytes)
+        if not report.can_generate:
+            # First blocking issue gives the most actionable error; we also
+            # attach machine codes in the exception args for API layer.
+            primary = report.blocking[0]
+            suffix = f" {primary.suggestion}".rstrip()
+            raise ValueError(f"{primary.message}{suffix}")
 
-        return image_bytes, meta
+        return image_bytes, meta, report
 
     # ------------------------------------------------------------------
     # Analysis (LLM scoring)

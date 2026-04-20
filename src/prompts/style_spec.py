@@ -7,6 +7,10 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
+from typing import Literal
+
+
+DepthOfField = Literal["deep", "shallow"]
 
 
 @dataclass
@@ -26,9 +30,15 @@ class StyleSpec:
     camera_note: str = ""
     complexity: str = "simple"  # simple | medium | complex
     edit_compatible: bool = True
+    depth_of_field: DepthOfField = "deep"
 
     def clothing_for(self, gender: str = "male") -> str:
         return self.clothing_female if gender == "female" else self.clothing_male
+
+    def depth_of_field_prompt(self) -> str:
+        if self.depth_of_field == "shallow":
+            return "natural shallow depth of field, pleasant gentle background bokeh"
+        return "background in focus, deep depth of field, fully detailed"
 
 
 # ---------------------------------------------------------------------------
@@ -196,6 +206,24 @@ def adapt_female_clothing(male: str) -> str:
     return r
 
 
+_SHALLOW_DOF_KEYWORDS = (
+    "bokeh", "blurred background", "blurred city lights", "softly blurred",
+    "soft bokeh", "out of focus", "soft out-of-focus", "defocused",
+)
+
+
+def detect_depth_of_field(background: str) -> DepthOfField:
+    """Guess depth_of_field from a legacy background description.
+
+    Returns 'shallow' when any bokeh-ish keyword is present, 'deep' otherwise.
+    """
+    low = (background or "").lower()
+    for kw in _SHALLOW_DOF_KEYWORDS:
+        if kw in low:
+            return "shallow"
+    return "deep"
+
+
 def build_spec_from_legacy(
     key: str,
     mode: str,
@@ -207,11 +235,13 @@ def build_spec_from_legacy(
     edit_compatible: bool = True,
     complexity: str = "simple",
     props: str = "",
+    depth_of_field: DepthOfField | None = None,
 ) -> StyleSpec:
     """Create a StyleSpec from a legacy dict entry plus optional overrides."""
     bg, clothing_male = parse_legacy_style(style_text)
     lighting = lighting_override or extract_lighting(bg)
     clothing_female = clothing_female_override or adapt_female_clothing(clothing_male)
+    dof: DepthOfField = depth_of_field or detect_depth_of_field(bg)
 
     return StyleSpec(
         key=key,
@@ -224,4 +254,5 @@ def build_spec_from_legacy(
         props=props,
         edit_compatible=edit_compatible,
         complexity=complexity,
+        depth_of_field=dof,
     )

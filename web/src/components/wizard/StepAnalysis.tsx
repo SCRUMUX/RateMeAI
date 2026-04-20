@@ -134,6 +134,41 @@ export default function StepAnalysis({ onNext }: Props) {
             </div>
           )}
 
+          {/* Soft warnings from pre-flight quality gate — shown BEFORE any paid call */}
+          {app.preAnalysis?.input_quality?.soft_warnings?.length ? (
+            <div
+              className="gradient-border-card glass-card rounded-[var(--radius-12)] p-[var(--space-12)]"
+              style={{ '--gb-color': 'rgba(255, 190, 120, 0.35)' } as React.CSSProperties}
+            >
+              <div className="flex items-start gap-[var(--space-10)]">
+                <svg
+                  width="18" height="18" viewBox="0 0 24 24" fill="none"
+                  className="shrink-0 mt-[2px]" aria-hidden="true"
+                >
+                  <path d="M12 3L2 21h20L12 3z" stroke="#FFC27A" strokeWidth="1.6" strokeLinejoin="round" />
+                  <path d="M12 10v5" stroke="#FFC27A" strokeWidth="1.6" strokeLinecap="round" />
+                  <circle cx="12" cy="18" r="0.9" fill="#FFC27A" />
+                </svg>
+                <div className="flex flex-col gap-[var(--space-6)]">
+                  <span className="text-[13px] leading-[18px] font-medium text-[#FFD6A8]">
+                    Качество фото может повлиять на результат
+                  </span>
+                  <ul className="flex flex-col gap-[var(--space-4)]">
+                    {app.preAnalysis!.input_quality!.soft_warnings.map((w) => (
+                      <li
+                        key={w.code}
+                        className="text-[12px] leading-[16px] text-[var(--color-text-secondary)]"
+                      >
+                        <span className="text-[#E6EEF8]">{w.message}</span>{' '}
+                        <span className="text-[var(--color-text-muted)]">{w.suggestion}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+            </div>
+          ) : null}
+
           {/* Results — show when API resolved (success or error) */}
           {(app.preAnalysis || app.preAnalyzeError) && (
             <>

@@ -68,6 +68,9 @@ QUALITY_CHECK_PROMPT = (
     '  "proportions_natural": <bool, true if head-to-body ratio looks natural and realistic; false if head is too large/small for body, or body parts look disproportionate>,\n'
     '  "pose_natural": <bool, true if the person\'s pose, limbs, and joints look anatomically correct and natural; false if pose looks contorted, limbs bent unnaturally, or body is warped>,\n'
     '  "hands_correct": <bool, true if hands are not visible OR have correct number of fingers with natural joint angles; false if extra/missing/merged fingers or deformed hands>,\n'
+    '  "hair_outline_preserved": <bool, true if the hair outline is crisp and clearly not blended with the new background (no branches, leaves or backdrop bleeding into hair strands)>,\n'
+    '  "background_consistent": <bool, true if the background looks natural and does not show visible stitching, seams or duplicated elements around the person>,\n'
+    '  "identity_plausible": <bool, true if the person in the result is clearly the same person as in a typical portrait — same bone structure, features, age>,\n'
     '  "details": "<one-sentence summary>"\n'
     "}"
 )

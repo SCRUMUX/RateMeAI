@@ -9,11 +9,15 @@ import httpx
 from redis.asyncio import Redis
 
 from src.bot.keyboards import back_keyboard, upgrade_keyboard
+from src.services.photo_requirements import (
+    format_requirements_plaintext,
+    short_requirements_block,
+)
 
 router = Router()
 logger = logging.getLogger(__name__)
 
-WELCOME_TEXT = """\u2728 *RateMe AI* \u2014 твой персональный AI-стилист.
+WELCOME_TEXT = f"""\u2728 *RateMe AI* \u2014 твой персональный AI-стилист.
 
 Теперь мощь и опыт лучших стилистов мира \u2014 в твоём телефоне.
 Давай усилим твой образ для разных жизненных ситуаций:
@@ -21,6 +25,8 @@ WELCOME_TEXT = """\u2728 *RateMe AI* \u2014 твой персональный AI
 \U0001f495 *Знакомства* \u2014 образы для дейтинга
 \U0001f4bc *Карьера* \u2014 профессиональный образ
 \U0001f4f8 *Соцсети* \u2014 образы для Instagram и соцсетей
+
+{short_requirements_block()}
 
 *Отправь мне фото* и выбери направление!
 
@@ -45,6 +51,16 @@ async def cmd_start(message: Message, api_base_url: str, redis: Redis):
         text += f"\n\n{balance_line}"
 
     await message.answer(text, parse_mode="Markdown", reply_markup=back_keyboard())
+
+
+@router.message(Command("photo_help"))
+async def cmd_photo_help(message: Message):
+    """Detailed photo requirements and rejection reasons."""
+    await message.answer(
+        format_requirements_plaintext(),
+        parse_mode="Markdown",
+        reply_markup=back_keyboard(),
+    )
 
 
 @router.message(Command("emoji"))

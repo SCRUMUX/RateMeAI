@@ -69,11 +69,14 @@ class Settings(BaseSettings):
     api_key_pepper: str = ""
 
     # Identity gate (face similarity — logged for telemetry, no retries in edit mode)
-    identity_threshold: float = 0.68
+    identity_threshold: float = 0.70
     identity_max_retries: int = 0
 
-    # Multi-pass pipeline / segmentation
-    segmentation_enabled: bool = False
+    # Segmentation / multi-pass pipeline.
+    # Segmentation is now used in single-pass edit (mask_image=background).
+    # Multi-pass is intentionally OFF so every task stays within one Reve call.
+    segmentation_enabled: bool = True
+    multi_pass_enabled: bool = False
     pipeline_budget_max_usd: float = 0.15
 
     # Quality gates
@@ -81,6 +84,13 @@ class Settings(BaseSettings):
     artifact_threshold: float = 0.15
     photorealism_enabled: bool = True
     photorealism_threshold: float = 0.5
+
+    # Pre-flight input quality gate (evaluated locally, no external API calls)
+    input_min_resolution: int = 400
+    input_min_face_area_ratio: float = 0.04
+    input_warn_face_area_ratio: float = 0.10
+    input_min_blur_face: float = 40.0
+    input_min_blur_full: float = 60.0
 
     # Legacy prompt_strength (unused in edit mode, kept for replicate fallback)
     image_gen_strength: float = 0.45

@@ -74,6 +74,19 @@ export function getUsage() {
 
 // -- Pre-analyze --
 
+export interface InputQualityIssue {
+  code: string;
+  severity: 'block' | 'warn';
+  message: string;
+  suggestion: string;
+}
+
+export interface InputQualityPublic {
+  can_generate: boolean;
+  soft_warnings: InputQualityIssue[];
+  blocking_issues: InputQualityIssue[];
+}
+
 export interface PreAnalysisResponse {
   pre_analysis_id: string;
   mode: string;
@@ -87,6 +100,7 @@ export interface PreAnalysisResponse {
     controllable_by: string;
   }>;
   enhancement_opportunities: string[];
+  input_quality?: InputQualityPublic | null;
 }
 
 export function preAnalyze(image: File, mode: string) {

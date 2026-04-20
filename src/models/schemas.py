@@ -247,6 +247,19 @@ class PhoneOTPVerifyBody(BaseModel):
 
 # ── Pre-Analysis ──
 
+class InputQualityIssuePublic(BaseModel):
+    code: str
+    severity: str
+    message: str
+    suggestion: str
+
+
+class InputQualityPublic(BaseModel):
+    can_generate: bool
+    soft_warnings: list[InputQualityIssuePublic] = Field(default_factory=list)
+    blocking_issues: list[InputQualityIssuePublic] = Field(default_factory=list)
+
+
 class PreAnalysisResponse(BaseModel):
     pre_analysis_id: str
     mode: AnalysisMode
@@ -255,3 +268,4 @@ class PreAnalysisResponse(BaseModel):
     perception_scores: dict
     perception_insights: list[dict] = Field(default_factory=list)
     enhancement_opportunities: list[str] = Field(default_factory=list)
+    input_quality: InputQualityPublic | None = None
