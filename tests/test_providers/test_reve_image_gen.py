@@ -111,7 +111,7 @@ async def test_reve_image_gen_remix_returns_bytes():
     assert out == jpeg
     assert len(fake.calls) == 1
     call = fake.calls[0]
-    assert call["url"].endswith("/v1/image/remix")
+    assert call["url"].endswith("/v1/image/remix/")
     assert call["json"]["prompt"] == "The subject from 0 in a studio"
     assert isinstance(call["json"]["reference_images"], list)
     assert call["json"]["reference_images"][0] == base64.b64encode(
@@ -131,7 +131,7 @@ async def test_reve_image_gen_create_without_reference():
         out = await gen.generate("A red square", reference_image=None)
 
     assert out == jpeg
-    assert fake.calls[0]["url"].endswith("/v1/image/create")
+    assert fake.calls[0]["url"].endswith("/v1/image/create/")
     assert "reference_images" not in fake.calls[0]["json"]
 
 
@@ -298,7 +298,7 @@ async def test_reve_image_gen_applies_region_text_hint_via_mask_region():
         )
 
     call = fake.calls[0]
-    assert call["url"].endswith("/v1/image/edit")
+    assert call["url"].endswith("/v1/image/edit/")
     instruction = call["json"]["edit_instruction"]
     assert instruction.startswith("Change ONLY the background"), (
         f"expected background-only hint prefix, got: {instruction!r}"

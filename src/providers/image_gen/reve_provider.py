@@ -59,9 +59,12 @@ class ReveImageGen(ImageGenProvider):
       * Content-policy violation → no retry (cost may or may not apply).
     """
 
-    API_CREATE = "/v1/image/create"
-    API_EDIT = "/v1/image/edit"
-    API_REMIX = "/v1/image/remix"
+    # NOTE: trailing slash is required by the Reve gateway. Without it the
+    # server replies with INVALID_PARAMETER_VALUE (observed 2026-04-21).
+    # Mirrors the official SDK at reve/v1/image.py which also uses "/".
+    API_CREATE = "/v1/image/create/"
+    API_EDIT = "/v1/image/edit/"
+    API_REMIX = "/v1/image/remix/"
     REQUEST_TIMEOUT = 120.0
 
     def __init__(
@@ -135,10 +138,12 @@ class ReveImageGen(ImageGenProvider):
         return base64.b64encode(data).decode("ascii")
 
     def _headers(self) -> dict[str, str]:
+        # Accept image/png first (Reve native), then fall back to JSON
+        # (base64-wrapped). Mirrors the official SDK which uses image/png.
         return {
             "Authorization": f"Bearer {self._token}",
             "Content-Type": "application/json",
-            "Accept": "application/json",
+            "Accept": "image/png, application/json;q=0.5",
         }
 
     def _parse_error(self, resp: httpx.Response) -> ReveAPIError:
