@@ -1,0 +1,91 @@
+name: One-time — Sync REVE_API_TOKEN to Railway
+
+on:
+  workflow_dispatch:
+
+# One-time workflow: reads the REVE_API_TOKEN GitHub secret and pushes it
+# into Railway env vars for the `app` and `worker` services. The token is
+# never echoed, logged, or committed to git — it lives only in GitHub
+# Secrets and Railway's variable store. Delete this file after a
+# successful run so the secret cannot be re-synced accidentally.
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    env:
+      RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+      RAILWAY_PROJECT_ID: ${{ secrets.RAILWAY_PROJECT_ID }}
+      REVE_API_TOKEN: ${{ secrets.REVE_API_TOKEN }}
+      API_URL: ${{ secrets.RAILWAY_API_URL }}
+      INTERNAL_API_KEY: ${{ secrets.INTERNAL_API_KEY }}
+    steps:
+      - name: Validate secrets
+        run: |
+          ok=true
+          [ -z "$RAILWAY_TOKEN" ]        && { echo "::error::RAILWAY_TOKEN missing";        ok=false; }
+          [ -z "$RAILWAY_PROJECT_ID" ]   && { echo "::error::RAILWAY_PROJECT_ID missing";   ok=false; }
+          [ -z "$REVE_API_TOKEN" ]       && { echo "::error::REVE_API_TOKEN missing (run 'gh secret set REVE_API_TOKEN' first)"; ok=false; }
+          [ -z "$API_URL" ]              && { echo "::error::RAILWAY_API_URL missing";     ok=false; }
+          [ -z "$INTERNAL_API_KEY" ]     && { echo "::error::INTERNAL_API_KEY missing";    ok=false; }
+          [ "$ok" = true ] || exit 1
+          echo "All required secrets are present"
+
+      - name: Install Railway CLI
+        run: npm install -g @railway/cli
+
+      - name: Push REVE_API_TOKEN to app and worker (no echo)
+        run: |
+          set -e
+          # `railway variables set` reads the value from the command line
+          # but GitHub Actions masks $REVE_API_TOKEN in logs because it
+          # came from a secret. We skip --skip-deploys intentionally so
+          # both services redeploy with the new token.
+          echo "Syncing REVE_API_TOKEN to app service..."
+          railway variables --set "REVE_API_TOKEN=$REVE_API_TOKEN" -s app -e production
+          echo "Syncing REVE_API_TOKEN to worker service..."
+          railway variables --set "REVE_API_TOKEN=$REVE_API_TOKEN" -s worker -e production
+          echo "Both services will redeploy with the new token"
+
+      - name: Wait for Railway to redeploy
+        run: |
+          echo "Sleeping 90s so Railway finishes rolling the new containers..."
+          sleep 90
+
+      - name: Probe image-gen end-to-end
+        run: |
+          set -e
+          mkdir -p artifacts
+          PROBE_URL="${API_URL}/api/v1/internal/diagnostics/image-gen-probe"
+          HTTP_CODE=$(curl -s -X POST -o artifacts/image-gen-probe.json -w "%{http_code}" \
+            -H "x-internal-key: ${INTERNAL_API_KEY}" \
+            -H "accept: application/json" \
+            --max-time 180 \
+            "$PROBE_URL")
+          echo "HTTP $HTTP_CODE"
+          cat artifacts/image-gen-probe.json
+          echo
+          if [ "$HTTP_CODE" != "200" ]; then
+            echo "::error::Image-gen-probe endpoint returned HTTP $HTTP_CODE"
+            exit 1
+          fi
+          python3 - <<'PY'
+          import json, pathlib, sys
+          data = json.loads(pathlib.Path("artifacts/image-gen-probe.json").read_text())
+          if not data.get("ok"):
+              print(f"::error::Reve still failing after token sync: {data!r}")
+              sys.exit(1)
+          print(f"OK — provider={data.get('provider')} bytes={data.get('bytes')} took_ms={data.get('took_ms')}")
+          PY
+
+      - name: Upload artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sync-reve-token-probe
+          path: artifacts/
+          retention-days: 7
+
+      - name: Reminder
+        if: success()
+        run: |
+          echo "REVE_API_TOKEN is live on Railway. DELETE .github/workflows/sync-reve-token.yml now."
