@@ -25,6 +25,13 @@ const TRANSIENT_MESSAGE =
   'Серверы AI сейчас перегружены. Попробуйте ещё раз через минуту — ' +
   'кредит возвращён.';
 
+// Temporary diagnostic prefix for surfacing raw provider codes in the UI
+// while we stabilise the generation pipeline. See plan
+// `recover_generation_pipeline_*.plan.md`: we intentionally weaken the
+// sanitiser for non-auth 4xx/5xx so ops can see ``code=...`` / ``req=...``
+// without opening the Railway DB.
+const DIAG_PREFIX = 'Не удалось сгенерировать фото';
+
 const MODERATION_MESSAGE =
   'Фото не прошло проверку безопасности. Загрузите другое фото.';
 
@@ -58,6 +65,16 @@ function looksHumanReadable(text: string): boolean {
   if (text.length < 6) return false;
   // Prefer Cyrillic sentences; avoid leaking raw Python tracebacks / keys.
   return /[А-ЯЁа-яё]/.test(text);
+}
+
+// Strip Python traceback/key-like noise but keep diagnostic markers like
+// ``http=400`` / ``code=INVALID_PARAMETER_VALUE`` / ``req=rsid-...`` so
+// ops can eyeball the root cause directly in the UI.
+function buildDiagnosticTail(errorMessage: string): string {
+  const tail = extractHumanTail(errorMessage).trim();
+  const noTb = tail.replace(/Traceback \(most recent call last\):.*$/s, '').trim();
+  const cap = noTb.length > 240 ? noTb.slice(0, 237).trimEnd() + '...' : noTb;
+  return cap;
 }
 
 export function userMessageForFailed(errorMessage: string | null | undefined): string {
@@ -137,42 +154,9 @@ export function userMessageForFailed(errorMessage: string | null | undefined): s
     return PROVIDER_AUTH_MESSAGE;
   }
 
-  // --- Transient provider / network issues -------------------------------
-
-  if (
-    em.includes('readtimeout') ||
-    em.includes('writetimeout') ||
-    em.includes('pooltimeout') ||
-    em.includes('connecttimeout') ||
-    em.includes('connectionerror') ||
-    em.includes('timeouterror') ||
-    em.includes('timeout') ||
-    em.includes('http=408') ||
-    em.includes('http=425') ||
-    em.includes('http=429') ||
-    em.includes('http=500') ||
-    em.includes('http=502') ||
-    em.includes('http=503') ||
-    em.includes('http=504') ||
-    em.includes(' 429') ||
-    em.includes(']429') ||
-    em.includes(':429') ||
-    em.includes(' 503') ||
-    em.includes(']503') ||
-    em.includes(':503') ||
-    em.includes(' 502') ||
-    em.includes(']502') ||
-    em.includes(':502') ||
-    em.includes(' 504') ||
-    em.includes(']504') ||
-    em.includes(':504') ||
-    em.includes('rate limit') ||
-    em.includes('temporarily')
-  ) {
-    return TRANSIENT_MESSAGE;
-  }
-
   // --- Moderation / safety -----------------------------------------------
+  // Checked BEFORE the generic 4xx diagnostic branch so a 400 with a
+  // moderation body still yields a friendly message.
 
   if (
     em.includes('content policy') ||
@@ -194,12 +178,39 @@ export function userMessageForFailed(errorMessage: string | null | undefined): s
     return INTERNAL_MESSAGE;
   }
 
+  // --- Provider / network issues: surface raw diagnostic tail ------------
+  // Recovery mode: the previous behaviour collapsed every 4xx/5xx into a
+  // single "AI overloaded" string, which hid root causes like
+  // INVALID_PARAMETER_VALUE from Reve. Until the generation pipeline is
+  // stabilised, show the actual backend message so the user (and ops)
+  // can see ``http=400 code=INVALID_PARAMETER_VALUE req=rsid-...``.
+  const hasHttpMarker = /http=\d{3}\b/.test(em);
+  const hasLooseStatusMarker = /(\s|[\]:])(408|425|429|500|502|503|504)\b/.test(em);
+  const hasTimeoutMarker =
+    em.includes('timeout') ||
+    em.includes('readtimeout') ||
+    em.includes('writetimeout') ||
+    em.includes('pooltimeout') ||
+    em.includes('connecttimeout') ||
+    em.includes('connectionerror') ||
+    em.includes('timeouterror') ||
+    em.includes('rate limit') ||
+    em.includes('temporarily');
+
+  if (hasHttpMarker || hasLooseStatusMarker || hasTimeoutMarker) {
+    const diag = buildDiagnosticTail(errorMessage);
+    if (diag) {
+      return `${DIAG_PREFIX}: ${diag} Кредит возвращён.`;
+    }
+    return TRANSIENT_MESSAGE;
+  }
+
   // --- Unknown pattern: try to surface the human-readable tail -----------
 
   const tail = extractHumanTail(errorMessage);
   if (looksHumanReadable(tail)) {
     const cap = tail.length > 220 ? tail.slice(0, 217).trimEnd() + '...' : tail;
-    return `Не удалось сгенерировать фото: ${cap} Кредит возвращён.`;
+    return `${DIAG_PREFIX}: ${cap} Кредит возвращён.`;
   }
 
   return GENERIC_FAILED_MESSAGE;

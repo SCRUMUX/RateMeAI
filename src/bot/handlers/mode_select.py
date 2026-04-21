@@ -181,31 +181,9 @@ def _user_message_for_failed(error_message: str) -> str:
             "попробуй позже."
         )
 
-    # --- Transient provider / network issues -------------------------------
-
-    if (
-        "readtimeout" in em
-        or "writetimeout" in em
-        or "pooltimeout" in em
-        or "connecttimeout" in em
-        or "connectionerror" in em
-        or "timeouterror" in em
-        or "timeout" in em
-        or "http=408" in em or "http=425" in em or "http=429" in em
-        or "http=500" in em or "http=502" in em or "http=503" in em or "http=504" in em
-        or " 429" in em or "]429" in em or ":429" in em
-        or " 503" in em or "]503" in em or ":503" in em
-        or " 502" in em or "]502" in em or ":502" in em
-        or " 504" in em or "]504" in em or ":504" in em
-        or "rate limit" in em
-        or "temporarily" in em
-    ):
-        return (
-            "\u23f3 Серверы AI сейчас перегружены. Попробуй ещё раз через "
-            "минуту — кредиты не списаны."
-        )
-
     # --- Content policy / moderation ---------------------------------------
+    # Checked BEFORE the generic 4xx diagnostic branch so a 400 with a
+    # moderation body still yields the friendly message.
 
     if (
         "content policy" in em
@@ -230,6 +208,44 @@ def _user_message_for_failed(error_message: str) -> str:
         return (
             "\u26a0\ufe0f Произошла внутренняя ошибка. Мы уже разбираемся — "
             "попробуй ещё раз через пару минут."
+        )
+
+    # --- Provider / network issues: surface raw diagnostic tail ------------
+    # Recovery mode: the previous behaviour collapsed every 4xx/5xx into a
+    # single "AI overloaded" string, which hid root causes like
+    # INVALID_PARAMETER_VALUE from Reve. Until the generation pipeline is
+    # stabilised, show the backend tail with ``http=/code=/req=`` markers.
+
+    has_http_marker = bool(re.search(r"http=\d{3}\b", em))
+    has_loose_status_marker = bool(
+        re.search(r"(\s|[\]:])(408|425|429|500|502|503|504)\b", em)
+    )
+    has_timeout_marker = (
+        "readtimeout" in em
+        or "writetimeout" in em
+        or "pooltimeout" in em
+        or "connecttimeout" in em
+        or "connectionerror" in em
+        or "timeouterror" in em
+        or "timeout" in em
+        or "rate limit" in em
+        or "temporarily" in em
+    )
+
+    if has_http_marker or has_loose_status_marker or has_timeout_marker:
+        diag_tail = _extract_human_tail(error_message).strip()
+        diag_tail = re.sub(
+            r"Traceback \(most recent call last\):.*$",
+            "",
+            diag_tail,
+            flags=re.S,
+        ).strip()
+        if diag_tail:
+            cap = (diag_tail[:237].rstrip() + "...") if len(diag_tail) > 240 else diag_tail
+            return f"\u274c Не удалось сгенерировать фото: {cap} Кредит возвращён."
+        return (
+            "\u23f3 Серверы AI сейчас перегружены. Попробуй ещё раз через "
+            "минуту — кредиты не списаны."
         )
 
     # --- Unknown pattern: surface the human-readable tail ------------------

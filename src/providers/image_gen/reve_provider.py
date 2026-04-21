@@ -91,16 +91,31 @@ class ReveImageGen(ImageGenProvider):
     async def close(self) -> None:
         pass
 
-    def _build_options(self, params: dict | None) -> dict[str, Any]:
-        opts: dict[str, Any] = {
-            "aspect_ratio": self._aspect_ratio,
-            "version": self._version,
-            "test_time_scaling": self._test_time_scaling,
-        }
-        if params:
-            for k in ("aspect_ratio", "version", "test_time_scaling", "postprocessing"):
-                if k in params and params[k] is not None:
-                    opts[k] = params[k]
+    def _build_options(
+        self,
+        params: dict | None,
+        endpoint: str,
+    ) -> dict[str, Any]:
+        """Build per-endpoint options.
+
+        Reve's three endpoints do **not** share the same parameter surface:
+        only ``/v1/image/create`` accepts the full generation config
+        (``aspect_ratio`` / ``version`` / ``test_time_scaling``). Sending
+        those keys to ``/v1/image/edit`` or ``/v1/image/remix`` produces
+        ``INVALID_PARAMETER_VALUE`` with credits_used=0 (observed in Reve
+        dashboard logs on 2026-04-21 at 16:07), which then cascades into
+        worker retries and hits the token rate limit. Keep edit/remix
+        payloads minimal.
+        """
+        opts: dict[str, Any] = {}
+        if endpoint == self.API_CREATE:
+            opts["aspect_ratio"] = self._aspect_ratio
+            opts["version"] = self._version
+            opts["test_time_scaling"] = self._test_time_scaling
+            if params:
+                for k in ("aspect_ratio", "version", "test_time_scaling"):
+                    if k in params and params[k] is not None:
+                        opts[k] = params[k]
         return opts
 
     @staticmethod
@@ -132,6 +147,11 @@ class ReveImageGen(ImageGenProvider):
         error_code_hdr = resp.headers.get("x-reve-error-code")
         message = ""
         parsed: dict[str, Any] = {}
+        raw_text = ""
+        try:
+            raw_text = resp.text or ""
+        except Exception:
+            raw_text = ""
         try:
             parsed = resp.json() if resp.content else {}
             message = (
@@ -140,9 +160,30 @@ class ReveImageGen(ImageGenProvider):
                 or (parsed.get("error_code") or "")
             )
         except Exception:
-            message = resp.text[:400] if resp.text else ""
+            message = raw_text[:400] if raw_text else ""
         error_code = error_code_hdr or parsed.get("error_code")
+
+        # For non-429 4xx log the raw body at WARN level — this is the
+        # only place we see which request field Reve rejected
+        # (``INVALID_PARAMETER_VALUE`` errors carry the culprit in the
+        # JSON body, not in the error_code). Also inline a short body
+        # snippet into the exception message so _format_task_error
+        # surfaces it in task.error_message for web/bot UI without a
+        # Railway log dive.
+        body_snippet = ""
+        if raw_text and status != 429 and status >= 400:
+            snippet = raw_text.strip().replace("\n", " ")
+            if len(snippet) > 200:
+                snippet = snippet[:197] + "..."
+            body_snippet = snippet
+            logger.warning(
+                "Reve %d error (code=%s req=%s): %s",
+                status, error_code, request_id, raw_text[:500],
+            )
+
         full_msg = f"http={status} {message or error_code or 'Reve error'}"
+        if body_snippet and body_snippet not in full_msg:
+            full_msg = f"{full_msg} body={body_snippet!r}"
         if status == 429:
             retry_after: float | None = None
             ra = resp.headers.get("retry-after")
@@ -255,15 +296,12 @@ class ReveImageGen(ImageGenProvider):
         reference_image: bytes | None,
         params: dict | None,
     ) -> bytes:
-        options = self._build_options(params)
         mask_region = params.get("mask_region") if params else None
         use_edit = bool(params and params.get("use_edit")) or bool(mask_region)
         if mask_region:
             hint = self._mask_to_instruction_hint(params)
             if hint:
                 prompt = f"{hint} {prompt}"
-        for k in ("mask_image", "mask_region", "use_edit"):
-            options.pop(k, None)
 
         if reference_image and use_edit:
             endpoint = self.API_EDIT
@@ -272,6 +310,7 @@ class ReveImageGen(ImageGenProvider):
         else:
             endpoint = self.API_CREATE
 
+        options = self._build_options(params, endpoint)
         body = self._build_body(endpoint, prompt, reference_image, options)
 
         last_err: Exception | None = None

@@ -101,6 +101,21 @@ def _is_transient(exc: Exception) -> bool:
     # transient). Equally, a 401/402/403 hidden behind RetryError is NOT
     # transient and must NOT be retried.
     real = _unwrap_exception(exc)
+
+    # Reve provider maintains its own retry loop (see
+    # ReveImageGen._generate_sync), including exponential backoff on 429
+    # and 5xx. Treating a ReveAPIError as worker-level "transient" layers
+    # a second retry on top and doubles the request count — which is
+    # exactly how a single user task bursts 3-6 calls into Reve's 100/min
+    # rate limit (see Reve logs at 16:06-16:07 on 2026-04-21). One retry
+    # layer is enough; worker accepts the provider's final verdict.
+    try:
+        from src.providers.image_gen.reve_provider import ReveAPIError
+        if isinstance(real, ReveAPIError):
+            return False
+    except Exception:
+        pass
+
     msg = str(real).lower()
     if isinstance(real, (TimeoutError, ConnectionError, OSError)):
         return True
@@ -154,6 +169,23 @@ def _format_task_error(exc: Exception) -> str:
                 extras.append(f"host={host}")
         except Exception:
             pass
+
+    # Reve provider errors are our own exception class (not httpx), so the
+    # generic ``response``/``request`` branches above miss them. Surface the
+    # Reve-specific ``error_code`` (e.g. INVALID_PARAMETER_VALUE) and
+    # ``request_id`` (rsid-...) directly — that is the single most useful
+    # piece of info for debugging image-gen failures. Without this, task
+    # error_message degrades to ``RuntimeError: Reve API error: http=400``
+    # and ops has to open Reve dashboard to match the rsid by hand.
+    try:
+        from src.providers.image_gen.reve_provider import ReveAPIError
+        if isinstance(original, ReveAPIError):
+            if original.error_code:
+                extras.append(f"code={original.error_code}")
+            if original.request_id:
+                extras.append(f"req={original.request_id}")
+    except Exception:
+        pass
 
     extras_suffix = (" " + " ".join(extras)) if extras else ""
     text = f"[stage={stage}] {exc_type}: {str(original)[:260]}{extras_suffix}"
