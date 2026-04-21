@@ -19,3 +19,7 @@ deploy/ru/_*.py
 deploy/ru/remote_exec.py
 deploy/ru/upload_files.py
 image*.png
+
+# temp probe/diag artifacts
+_tmp_*/
+

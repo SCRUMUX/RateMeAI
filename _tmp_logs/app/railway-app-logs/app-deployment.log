@@ -1,5 +1,0 @@
-Starting Container
-INFO:     Waiting for application startup.
-INFO:     Started server process [1]
-INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
-INFO  [alembic.runtime.migration] Will assume transactional DDL.
