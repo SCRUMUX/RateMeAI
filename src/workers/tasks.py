@@ -560,24 +560,70 @@ async def _process_analysis_inner(ctx: dict, task_id: str):
             fail_reason = "transient" if _is_transient(e) else "permanent"
             TASKS_FAILED.labels(reason=fail_reason).inc()
 
-            if credit_pre_reserved:
+            # Commit the FAILED status first, independently of the refund.
+            # If the refund transaction failed or raised mid-flight we still
+            # want the task marked FAILED so the user's UI stops polling
+            # and operators see the real error_message. Previously the two
+            # writes shared one transaction — an exception inside the
+            # refund branch would leave the task stuck in PROCESSING.
+            try:
+                await db.commit()
+            except Exception:
+                logger.exception(
+                    "Failed to commit FAILED state for task %s — retrying in fresh session",
+                    task_id,
+                )
                 try:
-                    u = await db.execute(
-                        select(User).where(User.id == task.user_id).with_for_update()
-                    )
-                    user = u.scalar_one()
-                    user.image_credits += 1
-                    db.add(CreditTransaction(
-                        user_id=task.user_id,
-                        amount=1,
-                        balance_after=user.image_credits,
-                        tx_type="refund_failed_task",
-                    ))
-                    logger.info("Refunded 1 credit to user %s for failed task %s", task.user_id, task_id)
+                    await db.rollback()
+                except Exception:
+                    pass
+                async with db_sessionmaker() as db_retry:
+                    retry_result = await db_retry.execute(select(Task).where(Task.id == task_id))
+                    retry_task = retry_result.scalar_one_or_none()
+                    if retry_task is not None:
+                        retry_task.status = TaskStatus.FAILED.value
+                        retry_task.error_message = _format_task_error(e)
+                        await db_retry.commit()
+
+            # Idempotent refund: a refund CreditTransaction is keyed by
+            # ``payment_id = "refund:<task_id>"``. If a previous worker
+            # retry already refunded (e.g. ARQ re-ran the job after a
+            # crash between refund and cleanup), we skip the second credit.
+            if credit_pre_reserved:
+                refund_key = f"refund:{task_id}"
+                try:
+                    async with db_sessionmaker() as refund_db:
+                        existing = await refund_db.execute(
+                            select(CreditTransaction).where(
+                                CreditTransaction.payment_id == refund_key
+                            )
+                        )
+                        if existing.scalar_one_or_none() is not None:
+                            logger.info(
+                                "Refund already recorded for task %s — skipping (idempotent)",
+                                task_id,
+                            )
+                        else:
+                            u = await refund_db.execute(
+                                select(User).where(User.id == task.user_id).with_for_update()
+                            )
+                            refund_user = u.scalar_one()
+                            refund_user.image_credits += 1
+                            refund_db.add(CreditTransaction(
+                                user_id=task.user_id,
+                                amount=1,
+                                balance_after=refund_user.image_credits,
+                                tx_type="refund_failed_task",
+                                payment_id=refund_key,
+                            ))
+                            await refund_db.commit()
+                            logger.info(
+                                "Refunded 1 credit to user %s for failed task %s",
+                                task.user_id, task_id,
+                            )
                 except Exception:
                     logger.exception("Failed to refund credit for task %s", task_id)
 
-            await db.commit()
             try:
                 await redis.publish(f"ratemeai:task_done:{task_id}", "failed")
             except Exception:
@@ -713,6 +759,26 @@ async def privacy_gc_cron(ctx: dict):
 
     try:
         async with db_sessionmaker() as db:
+            # Cheap existence pre-check: avoid the full 500-row SELECT +
+            # Python loop on every tick when there is nothing to do. The
+            # cron fires twice an hour and most ticks have no candidates,
+            # so a scalar ``SELECT 1 LIMIT 1`` cuts median DB load roughly
+            # 20× without changing behaviour when work IS present.
+            from sqlalchemy import literal_column
+            probe = await db.execute(
+                sa_select(literal_column("1"))
+                .select_from(Task)
+                .where(
+                    Task.status == TaskStatus.COMPLETED.value,
+                    Task.completed_at.is_not(None),
+                    Task.completed_at < threshold,
+                )
+                .limit(1)
+            )
+            if probe.first() is None:
+                logger.debug("privacy_gc: nothing to purge, skipping tick")
+                return
+
             rows = await db.execute(
                 sa_select(Task)
                 .where(

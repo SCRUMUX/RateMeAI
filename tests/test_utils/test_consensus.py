@@ -89,3 +89,24 @@ def test_consensus_wall_clock_timeout(monkeypatch):
 
     with pytest.raises(TimeoutError):
         _run(consensus_analyze(llm, b"img", "prompt", n=3))
+
+
+def test_consensus_wall_clock_timeout_n1(monkeypatch):
+    """Same wall-clock cap must apply when n=1.
+
+    Without it a hung provider could hold the worker slot for the whole
+    tenacity budget (~96s) and block the ARQ job_timeout.
+    """
+    from src.utils import consensus as consensus_mod
+
+    monkeypatch.setattr(consensus_mod, "_CONSENSUS_WALL_TIMEOUT_S", 0.05)
+
+    async def _slow(*_a, **_kw):
+        await asyncio.sleep(1.0)
+        return {"score": 1.0}
+
+    llm = MagicMock()
+    llm.analyze_image = AsyncMock(side_effect=_slow)
+
+    with pytest.raises(TimeoutError):
+        _run(consensus_analyze(llm, b"img", "prompt", n=1))

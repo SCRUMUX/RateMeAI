@@ -36,7 +36,23 @@ async def consensus_analyze(
     transient; the rest of the pipeline won't start with partial data).
     """
     if n <= 1:
-        return await llm.analyze_image(image_bytes, prompt, temperature=temperature)
+        # Apply the same wall-clock cap to the n=1 case. Previously a hung
+        # provider could hold the worker slot for the full tenacity budget
+        # (~96s) blocking the ARQ job_timeout. Now a slow provider fails
+        # fast and the worker can accept the next job.
+        try:
+            return await asyncio.wait_for(
+                llm.analyze_image(image_bytes, prompt, temperature=temperature),
+                timeout=_CONSENSUS_WALL_TIMEOUT_S,
+            )
+        except asyncio.TimeoutError:
+            logger.warning(
+                "consensus_analyze: n=1 wall-clock timeout after %.0fs",
+                _CONSENSUS_WALL_TIMEOUT_S,
+            )
+            raise TimeoutError(
+                f"analyze_image exceeded {_CONSENSUS_WALL_TIMEOUT_S:.0f}s wall clock"
+            )
 
     try:
         results = await asyncio.wait_for(

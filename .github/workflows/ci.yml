@@ -206,7 +206,7 @@ jobs:
             echo "Attempt $i: $RESP"
             if echo "$RESP" | grep -q '"ok"'; then
               echo "Health check passed"
-              exit 0
+              break
             fi
             if [ "$i" -eq 8 ]; then
               echo "::error::Health check failed after 8 attempts"
@@ -214,6 +214,66 @@ jobs:
             fi
             sleep 45
           done
+
+      # Post-deploy live provider smoke. /health only says FastAPI is up;
+      # it doesn't say our OpenRouter key, Reve partner token, or the
+      # Gemini model are still healthy. Run the same three diagnostics
+      # the hourly smoke-live workflow runs, but as a blocking step of
+      # the deploy — if a provider is dead we surface it within 4 minutes
+      # of pushing to main instead of hours later.
+      - name: Live provider smoke
+        env:
+          API_URL: ${{ secrets.RAILWAY_API_URL }}
+          INTERNAL_API_KEY: ${{ secrets.INTERNAL_API_KEY }}
+        run: |
+          set -e
+          if [ -z "$INTERNAL_API_KEY" ]; then
+            echo "::warning::INTERNAL_API_KEY secret not configured — skipping post-deploy smoke"
+            exit 0
+          fi
+          base="${API_URL:-$GLOBAL_API_BASE_URL}"
+          echo "Smoke base: $base"
+          for path in \
+            "diagnostics/provider-probe" \
+            "diagnostics/synthetic-analyze?mode=social" \
+            "diagnostics/image-gen-probe" ; do
+            url="$base/api/v1/internal/$path"
+            method=GET
+            case "$path" in
+              diagnostics/synthetic-analyze*|diagnostics/image-gen-probe*) method=POST;;
+            esac
+            echo "-> $method $url"
+            out=$(mktemp)
+            code=$(curl -s -X "$method" -o "$out" -w "%{http_code}" \
+              -H "x-internal-key: $INTERNAL_API_KEY" \
+              -H "accept: application/json" \
+              --max-time 180 \
+              "$url")
+            echo "   http=$code"
+            if [ "$code" != "200" ]; then
+              echo "::error::post-deploy smoke failed on $path (HTTP $code)"
+              cat "$out"
+              exit 1
+            fi
+            python3 -c "
+          import json, sys
+          data = json.load(open('$out'))
+          # provider-probe: vision_json_mode + vision_plain must both be 200
+          if 'vision_json_mode' in data:
+              v1 = (data.get('vision_json_mode') or {}).get('status')
+              v2 = (data.get('vision_plain') or {}).get('status')
+              if v1 != 200 or v2 != 200:
+                  print(f'::error::provider-probe vision non-200: json={v1} plain={v2}')
+                  print(json.dumps(data, indent=2)[:1500])
+                  sys.exit(1)
+          elif 'ok' in data:
+              if not data.get('ok'):
+                  print(f\"::error::{data.get('mode') or 'probe'} reported ok=false: \" + (data.get('error_message') or ''))
+                  print(json.dumps(data, indent=2)[:1500])
+                  sys.exit(1)
+          "
+          done
+          echo "All post-deploy provider smokes passed"
 
       - name: Deploy summary
         if: always()

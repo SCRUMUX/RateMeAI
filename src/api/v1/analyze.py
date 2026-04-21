@@ -44,11 +44,18 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
+# Lazy fallback pool used only when running outside a FastAPI lifespan
+# (e.g. unit tests, one-off scripts). In production ``app.state.arq_pool``
+# is always provisioned in ``src/main.py`` lifespan and takes precedence.
 _arq_pool: ArqRedis | None = None
 
 
-async def _get_arq() -> ArqRedis:
+async def _get_arq(app=None) -> ArqRedis:
     global _arq_pool
+    if app is not None:
+        pool = getattr(app.state, "arq_pool", None)
+        if pool is not None:
+            return pool
     if _arq_pool is None:
         _arq_pool = await create_pool(RedisSettings.from_dsn(settings.redis_url))
     return _arq_pool
@@ -385,7 +392,7 @@ async def create_analysis(
     if settings.uses_remote_ai:
         import asyncio
 
-        asyncio.create_task(
+        edge_task = asyncio.create_task(
             _handle_edge_analysis(
                 app_state=request.app.state,
                 task_id=task.id,
@@ -399,8 +406,31 @@ async def create_analysis(
                 scenario_slug=scenario_slug.strip(),
                 scenario_type=scenario_type.strip(),
                 entry_mode=entry_mode.strip(),
-            )
+            ),
+            name=f"edge-analysis-{task.id}",
         )
+        # Keep a strong reference so the task cannot be garbage-collected
+        # mid-flight (asyncio only holds a weakref) and so lifespan shutdown
+        # can drain it. Any unhandled exception is logged — without this
+        # callback an error inside _handle_edge_analysis before the task's
+        # own try/except would silently disappear.
+        edge_tasks: set = getattr(request.app.state, "edge_tasks", None)
+        if edge_tasks is not None:
+            edge_tasks.add(edge_task)
+            edge_task.add_done_callback(edge_tasks.discard)
+
+        def _log_edge_failure(t: asyncio.Task) -> None:
+            if t.cancelled():
+                return
+            exc = t.exception()
+            if exc is not None:
+                logger.exception(
+                    "Edge-proxy task %s crashed with unhandled exception",
+                    task.id,
+                    exc_info=exc,
+                )
+
+        edge_task.add_done_callback(_log_edge_failure)
         body = TaskCreated(task_id=task.id, status=TaskStatus.PENDING, estimated_seconds=30)
         return JSONResponse(
             content=body.model_dump(mode="json"),
@@ -420,7 +450,7 @@ async def create_analysis(
     if not stash_key:
         raise HTTPException(status_code=500, detail="Failed to stage task input")
 
-    arq = await _get_arq()
+    arq = await _get_arq(request.app)
     await arq.enqueue_job("process_analysis", str(task.id))
 
     body = TaskCreated(task_id=task.id, status=TaskStatus.PENDING, estimated_seconds=15)

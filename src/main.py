@@ -91,6 +91,19 @@ async def lifespan(app: FastAPI):
 
     app.state.db_sessionmaker = async_sessionmaker(engine, expire_on_commit=False)
     app.state.redis = Redis.from_url(settings.redis_url, decode_responses=True)
+    # Track live edge-proxy background tasks so (a) unhandled exceptions in
+    # the fire-and-forget coroutine get a dedicated log line and (b) at
+    # shutdown we can wait for in-flight tasks instead of dropping them.
+    app.state.edge_tasks = set()
+    # Single shared ARQ pool for the whole FastAPI process. Previously each
+    # router module held its own module-level singleton that was never
+    # refreshed; if Redis briefly dropped the connection, all enqueue_job
+    # calls started failing until the process restarted. A single pool
+    # managed by lifespan is easier to reason about and to close cleanly.
+    from arq.connections import create_pool as _create_arq_pool, RedisSettings as _ArqRedisSettings
+    app.state.arq_pool = await _create_arq_pool(
+        _ArqRedisSettings.from_dsn(settings.redis_url),
+    )
 
     if settings.internal_api_key and not settings.uses_remote_ai:
         from src.models.db import User
@@ -177,10 +190,33 @@ async def lifespan(app: FastAPI):
         except asyncio.CancelledError:
             pass
 
+    # Drain in-flight edge-proxy background tasks. Give them a short grace
+    # period (10s) so ongoing remote polls can finish naturally; anything
+    # still running after that is cancelled so the worker can exit.
+    pending_edge = {t for t in app.state.edge_tasks if not t.done()}
+    if pending_edge:
+        log.info("Draining %d in-flight edge-proxy tasks", len(pending_edge))
+        try:
+            await asyncio.wait_for(
+                asyncio.gather(*pending_edge, return_exceptions=True),
+                timeout=10.0,
+            )
+        except asyncio.TimeoutError:
+            for t in pending_edge:
+                if not t.done():
+                    t.cancel()
+
     if settings.uses_remote_ai:
         from src.services import remote_ai as _rai_mod
         if _rai_mod._instance is not None:
             await _rai_mod._instance.close()
+
+    arq_pool = getattr(app.state, "arq_pool", None)
+    if arq_pool is not None:
+        try:
+            await arq_pool.close()
+        except Exception:
+            log.exception("Failed to close ARQ pool cleanly")
 
     await app.state.redis.close()
     await engine.dispose()

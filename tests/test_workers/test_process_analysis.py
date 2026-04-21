@@ -74,7 +74,17 @@ def _build_ctx(task, user, *, pipeline_result=None):
 
     call_count = [0]
 
-    def _execute_side_effect(*args, **kwargs):
+    def _execute_side_effect(statement=None, *args, **kwargs):
+        # The idempotent refund path runs a dedup query against
+        # ``credit_transactions`` by ``payment_id``. Pretend no prior
+        # refund exists so the refund branch still fires and tests remain
+        # deterministic regardless of how many `execute` calls precede it.
+        sql = str(statement).lower() if statement is not None else ""
+        if "credit_transactions" in sql and "payment_id" in sql:
+            empty = MagicMock()
+            empty.scalar_one_or_none.return_value = None
+            empty.first.return_value = None
+            return empty
         call_count[0] += 1
         if call_count[0] == 1:
             return task_result

@@ -1,0 +1,99 @@
+name: Smoke — Live Providers
+
+# Hourly smoke test of all external AI providers against the production
+# backend: hits the live OpenRouter vision endpoint, runs synthetic-analyze
+# (social mode uses the real production prompt) and image-gen-probe
+# (Reve partner API). Any HTTP non-200 or ``ok=false`` response fails the
+# job, so an expired/revoked token (like the Reve 401 we caught on
+# 2026-04-21) is visible within the hour instead of only when a real user
+# tries to generate.
+
+on:
+  schedule:
+    - cron: "17 * * * *"   # hourly at :17 (off-peak from CI/CD deploys)
+  workflow_dispatch:
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    env:
+      API_URL: ${{ secrets.RAILWAY_API_URL }}
+      INTERNAL_API_KEY: ${{ secrets.INTERNAL_API_KEY }}
+    steps:
+      - name: Validate secrets
+        run: |
+          ok=true
+          [ -z "$API_URL" ] && { echo "::error::RAILWAY_API_URL missing"; ok=false; }
+          [ -z "$INTERNAL_API_KEY" ] && { echo "::error::INTERNAL_API_KEY missing"; ok=false; }
+          [ "$ok" = true ] || exit 1
+
+      - name: Provider probe (OpenRouter)
+        run: |
+          set -e
+          mkdir -p artifacts
+          URL="${API_URL}/api/v1/internal/diagnostics/provider-probe"
+          HTTP_CODE=$(curl -s -o artifacts/provider-probe.json -w "%{http_code}" \
+            -H "x-internal-key: ${INTERNAL_API_KEY}" \
+            -H "accept: application/json" \
+            --max-time 45 \
+            "$URL")
+          [ "$HTTP_CODE" = "200" ] || { echo "::error::provider-probe returned $HTTP_CODE"; cat artifacts/provider-probe.json; exit 1; }
+          python3 -c "
+          import json, pathlib
+          data = json.loads(pathlib.Path('artifacts/provider-probe.json').read_text())
+          v_json = data.get('vision_json_mode') or {}
+          v_plain = data.get('vision_plain') or {}
+          if v_json.get('status') != 200 or v_plain.get('status') != 200:
+              print('::error::OpenRouter vision probe non-200:', v_json.get('status'), v_plain.get('status'))
+              print(json.dumps(data, indent=2)[:2000])
+              raise SystemExit(1)
+          print('OpenRouter vision: OK')
+          "
+
+      - name: Synthetic analyze (production prompt)
+        run: |
+          set -e
+          URL="${API_URL}/api/v1/internal/diagnostics/synthetic-analyze?mode=social"
+          HTTP_CODE=$(curl -s -X POST -o artifacts/synthetic-analyze.json -w "%{http_code}" \
+            -H "x-internal-key: ${INTERNAL_API_KEY}" \
+            -H "accept: application/json" \
+            --max-time 120 \
+            "$URL")
+          [ "$HTTP_CODE" = "200" ] || { echo "::error::synthetic-analyze returned $HTTP_CODE"; cat artifacts/synthetic-analyze.json; exit 1; }
+          python3 -c "
+          import json, pathlib
+          data = json.loads(pathlib.Path('artifacts/synthetic-analyze.json').read_text())
+          if not data.get('ok'):
+              print('::error::synthetic-analyze failed:', data.get('error_message'))
+              print(json.dumps(data, indent=2)[:2000])
+              raise SystemExit(1)
+          print('Synthetic analyze: OK', data.get('took_ms'), 'ms')
+          "
+
+      - name: Image-gen probe (Reve)
+        run: |
+          set -e
+          URL="${API_URL}/api/v1/internal/diagnostics/image-gen-probe"
+          HTTP_CODE=$(curl -s -X POST -o artifacts/image-gen-probe.json -w "%{http_code}" \
+            -H "x-internal-key: ${INTERNAL_API_KEY}" \
+            -H "accept: application/json" \
+            --max-time 180 \
+            "$URL")
+          [ "$HTTP_CODE" = "200" ] || { echo "::error::image-gen-probe returned $HTTP_CODE"; cat artifacts/image-gen-probe.json; exit 1; }
+          python3 -c "
+          import json, pathlib
+          data = json.loads(pathlib.Path('artifacts/image-gen-probe.json').read_text())
+          if not data.get('ok'):
+              print('::error::image-gen-probe failed:', data.get('error_message'))
+              print(json.dumps(data, indent=2)[:2000])
+              raise SystemExit(1)
+          print('Image-gen probe: OK', data.get('bytes'), 'bytes')
+          "
+
+      - name: Upload artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: smoke-live-${{ github.run_id }}
+          path: artifacts/
+          retention-days: 7

@@ -12,7 +12,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from arq.connections import ArqRedis, create_pool, RedisSettings
-from fastapi import APIRouter, Depends, Header, HTTPException, Query
+from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request as FastAPIRequest
 from pydantic import BaseModel, Field
 from redis.asyncio import Redis
 from sqlalchemy import select
@@ -42,11 +42,18 @@ def _assert_consent_flags(policy_flags: dict[str, Any]) -> None:
 logger = logging.getLogger(__name__)
 router = APIRouter()
 
+# Lazy fallback pool used only when running outside a FastAPI lifespan.
+# In production ``app.state.arq_pool`` is provisioned once in
+# ``src/main.py`` lifespan and takes precedence.
 _arq_pool: ArqRedis | None = None
 
 
-async def _get_arq() -> ArqRedis:
+async def _get_arq(app=None) -> ArqRedis:
     global _arq_pool
+    if app is not None:
+        pool = getattr(app.state, "arq_pool", None)
+        if pool is not None:
+            return pool
     if _arq_pool is None:
         _arq_pool = await create_pool(RedisSettings.from_dsn(settings.redis_url))
     return _arq_pool
@@ -112,6 +119,7 @@ class RemoteTaskStatusResponse(BaseModel):
 @router.post("/process-analysis", response_model=RemoteAnalysisResponse, status_code=202)
 async def process_analysis_remote(
     request: RemoteAnalysisRequest,
+    http_request: FastAPIRequest,
     _key: str = Depends(_verify_internal_key),
     db: AsyncSession = Depends(get_db),
     redis: Redis = Depends(get_redis),
@@ -196,7 +204,7 @@ async def process_analysis_remote(
         logger.error("Privacy stash failed for remote task %s", task.id)
         raise HTTPException(status_code=500, detail="Failed to stage task input")
 
-    arq = await _get_arq()
+    arq = await _get_arq(http_request.app)
     await arq.enqueue_job("process_analysis", str(task.id))
 
     logger.info(
