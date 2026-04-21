@@ -1,26 +1,24 @@
-name: Diag — Recent FAILED tasks
+name: Diag — Recent errors (read-only)
 
 on:
   workflow_dispatch:
     inputs:
       hours:
-        description: "How many hours back to look"
+        description: "Look-back window in hours (1..168)"
         default: "2"
-      limit:
-        description: "Max items"
-        default: "20"
+        required: false
 
-# Read-only: fetches the last FAILED tasks (no PII, no tokens, no inputs)
-# from the primary backend. Use when a user reports a failed generation —
-# we want the exact worker error_message for mapping/root-causing without
-# touching Reve/OpenRouter again.
+# Pulls the last N errors recorded by the primary backend. Read-only:
+# does NOT call any external provider, so it never burns Reve rate-limit
+# or OpenRouter credit.
 
 jobs:
-  fetch:
+  pull:
     runs-on: ubuntu-latest
     env:
       API_URL: ${{ secrets.RAILWAY_API_URL }}
       INTERNAL_API_KEY: ${{ secrets.INTERNAL_API_KEY }}
+      HOURS: ${{ inputs.hours }}
     steps:
       - name: Validate secrets
         run: |
@@ -28,30 +26,19 @@ jobs:
           [ -z "$INTERNAL_API_KEY" ] && { echo "::error::INTERNAL_API_KEY missing";    exit 1; }
           echo ok
 
-      - name: Fetch recent errors
+      - name: Pull recent-errors
         run: |
           set -e
           mkdir -p artifacts
-          HRS="${{ github.event.inputs.hours }}"
-          LIM="${{ github.event.inputs.limit }}"
-          URL="${API_URL}/api/v1/internal/diagnostics/recent-errors?hours=${HRS}&limit=${LIM}"
+          H="${HOURS:-2}"
+          URL="${API_URL}/api/v1/internal/diagnostics/recent-errors?limit=30&hours=${H}"
           HTTP_CODE=$(curl -s -o artifacts/recent-errors.json -w "%{http_code}" \
             -H "x-internal-key: ${INTERNAL_API_KEY}" \
             -H "accept: application/json" \
-            --max-time 60 "$URL")
+            --max-time 60 \
+            "$URL")
           echo "HTTP $HTTP_CODE"
-          python3 - <<'PY'
-          import json, pathlib
-          data = json.loads(pathlib.Path("artifacts/recent-errors.json").read_text())
-          items = data.get("items", []) if isinstance(data, dict) else data
-          print(f"Total: {len(items)}")
-          for it in items:
-              print("---")
-              for k in ("task_id", "mode", "stage", "exc_type",
-                       "updated_at", "duration_ms"):
-                  print(f"{k}: {it.get(k)}")
-              print(f"error: {it.get('error_message')}")
-          PY
+          cat artifacts/recent-errors.json | python3 -m json.tool || cat artifacts/recent-errors.json
 
       - name: Upload artifact
         if: always()
