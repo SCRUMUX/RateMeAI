@@ -44,17 +44,72 @@ _RETRY_BACKOFF_BASE = 3.0
 _TRANSIENT_MARKERS = ("rate limit", "timeout", "connect", "temporarily", "503", "429")
 
 
-def _is_transient(exc: Exception) -> bool:
-    # Unwrap PipelineStageError so we classify against the *real* cause
-    # (a ReadTimeout wrapped as [stage=analyze] is still transient).
+def _unwrap_exception(exc: BaseException) -> BaseException:
+    """Peel tenacity.RetryError / PipelineStageError down to the real cause.
+
+    Without this, worker writes ``RetryError[<Future at 0x… raised
+    HTTPStatusError>]`` into ``Task.error_message`` — which tells us
+    **nothing** (no HTTP status, no body, no URL). That "opaque" string was
+    exactly the blocker that hid the root cause of the fast generation
+    failures: we need the real httpx.HTTPStatusError behind the retry
+    wrapper to know whether it's 401/402/429/5xx etc.
+    """
     from src.orchestrator.pipeline import PipelineStageError
-    if isinstance(exc, PipelineStageError):
-        real = exc.original
-    else:
-        real = exc
+    seen: set[int] = set()
+    cur: BaseException = exc
+    for _ in range(8):
+        if id(cur) in seen:
+            break
+        seen.add(id(cur))
+        if isinstance(cur, PipelineStageError):
+            cur = cur.original
+            continue
+        try:
+            from tenacity import RetryError as _RetryError
+            if isinstance(cur, _RetryError):
+                last = getattr(cur, "last_attempt", None)
+                if last is not None:
+                    nested = last.exception()
+                    if nested is not None:
+                        cur = nested
+                        continue
+        except Exception:
+            pass
+        cause = getattr(cur, "__cause__", None) or getattr(cur, "__context__", None)
+        if cause is not None and cause is not cur:
+            cur = cause
+            continue
+        break
+    return cur
+
+
+def _http_status_of(exc: BaseException) -> int | None:
+    """Extract HTTP status code from httpx.HTTPStatusError-like exceptions."""
+    response = getattr(exc, "response", None)
+    code = getattr(response, "status_code", None)
+    if isinstance(code, int):
+        return code
+    status = getattr(exc, "status_code", None)
+    if isinstance(status, int):
+        return status
+    return None
+
+
+def _is_transient(exc: Exception) -> bool:
+    # Unwrap PipelineStageError + RetryError so we classify against the
+    # *real* cause (a ReadTimeout wrapped as [stage=analyze] is still
+    # transient). Equally, a 401/402/403 hidden behind RetryError is NOT
+    # transient and must NOT be retried.
+    real = _unwrap_exception(exc)
     msg = str(real).lower()
     if isinstance(real, (TimeoutError, ConnectionError, OSError)):
         return True
+    status = _http_status_of(real)
+    if status is not None:
+        # 408/429/5xx are transient. 401/402/403/404 are hard failures.
+        if status in (408, 425, 429) or 500 <= status < 600:
+            return True
+        return False
     return any(marker in msg for marker in _TRANSIENT_MARKERS)
 
 
@@ -63,15 +118,45 @@ def _format_task_error(exc: Exception) -> str:
 
     Truncated to 500 chars (DB column limit).  The stage helps ops pinpoint
     *where* in the pipeline a task died without reading full tracebacks.
+    For HTTP-layer failures we also embed ``http=<code>`` and host — this
+    is the single most important bit when debugging LLM/provider outages.
     """
     from src.orchestrator.pipeline import PipelineStageError
     if isinstance(exc, PipelineStageError):
-        original = exc.original
         stage = exc.stage
     else:
-        original = exc
         stage = "worker"
-    text = f"[stage={stage}] {type(original).__name__}: {str(original)[:380]}"
+
+    original = _unwrap_exception(exc)
+    exc_type = type(original).__name__
+
+    extras: list[str] = []
+    status = _http_status_of(original)
+    if status is not None:
+        extras.append(f"http={status}")
+    response = getattr(original, "response", None)
+    if response is not None:
+        try:
+            body = getattr(response, "text", "") or ""
+            if body:
+                snippet = body.strip().replace("\n", " ")
+                if len(snippet) > 140:
+                    snippet = snippet[:137] + "..."
+                extras.append(f"body={snippet!r}")
+        except Exception:
+            pass
+    request = getattr(original, "request", None)
+    url = getattr(request, "url", None) if request is not None else None
+    if url is not None:
+        try:
+            host = getattr(url, "host", None) or str(url).split("/")[2]
+            if host:
+                extras.append(f"host={host}")
+        except Exception:
+            pass
+
+    extras_suffix = (" " + " ".join(extras)) if extras else ""
+    text = f"[stage={stage}] {exc_type}: {str(original)[:260]}{extras_suffix}"
     return text[:500]
 
 

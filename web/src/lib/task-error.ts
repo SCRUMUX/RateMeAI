@@ -36,6 +36,10 @@ const INTERNAL_MESSAGE =
   'Произошла внутренняя ошибка. Мы уже разбираемся — попробуйте ещё раз ' +
   'через пару минут.';
 
+const PROVIDER_AUTH_MESSAGE =
+  'Сервис AI временно недоступен из-за проблемы с подключением к модели. ' +
+  'Мы уже чиним — кредит возвращён, попробуйте позже.';
+
 // The worker writes `error_message` as:
 //   [stage=<stage>] <ExcType>: <human message>
 // We want to surface the human message (Cyrillic allowed) for unknown
@@ -111,6 +115,25 @@ export function userMessageForFailed(errorMessage: string | null | undefined): s
     return STASH_EXPIRED_MESSAGE;
   }
 
+  // --- Provider auth / billing (non-transient) ---------------------------
+  // Worker now emits "http=<code>" after unwrapping RetryError — see
+  // src/workers/tasks.py::_format_task_error. 401/402/403/404 from the
+  // LLM/image-gen provider are permanent on our side and need an ops fix;
+  // we tell the user it's our problem and the credit was refunded.
+
+  if (
+    em.includes('http=401') ||
+    em.includes('http=402') ||
+    em.includes('http=403') ||
+    em.includes('http=404') ||
+    em.includes('insufficient_credits') ||
+    em.includes('unauthorized') ||
+    em.includes('invalid api key') ||
+    em.includes('api key')
+  ) {
+    return PROVIDER_AUTH_MESSAGE;
+  }
+
   // --- Transient provider / network issues -------------------------------
 
   if (
@@ -121,6 +144,13 @@ export function userMessageForFailed(errorMessage: string | null | undefined): s
     em.includes('connectionerror') ||
     em.includes('timeouterror') ||
     em.includes('timeout') ||
+    em.includes('http=408') ||
+    em.includes('http=425') ||
+    em.includes('http=429') ||
+    em.includes('http=500') ||
+    em.includes('http=502') ||
+    em.includes('http=503') ||
+    em.includes('http=504') ||
     em.includes(' 429') ||
     em.includes(']429') ||
     em.includes(':429') ||

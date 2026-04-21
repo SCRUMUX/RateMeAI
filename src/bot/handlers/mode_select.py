@@ -157,6 +157,27 @@ def _user_message_for_failed(error_message: str) -> str:
             "и запусти генерацию — кредит возвращён."
         )
 
+    # --- Provider auth / billing (non-transient) ---------------------------
+    # Worker now surfaces "http=<code>" after unwrapping RetryError. Codes
+    # 401/402/403/404 from the LLM/image-gen provider are permanent on our
+    # side (bad key, out of credits, disabled model) — route them to a
+    # dedicated ops-flavored message rather than to the overload bucket.
+
+    if (
+        "http=401" in em
+        or "http=402" in em
+        or "http=403" in em
+        or "http=404" in em
+        or "insufficient_credits" in em
+        or "unauthorized" in em
+        or "invalid api key" in em
+    ):
+        return (
+            "\u26a0\ufe0f Сервис AI временно недоступен из-за проблемы с "
+            "подключением к модели. Мы уже чиним — кредит возвращён, "
+            "попробуй позже."
+        )
+
     # --- Transient provider / network issues -------------------------------
 
     if (
@@ -167,6 +188,8 @@ def _user_message_for_failed(error_message: str) -> str:
         or "connectionerror" in em
         or "timeouterror" in em
         or "timeout" in em
+        or "http=408" in em or "http=425" in em or "http=429" in em
+        or "http=500" in em or "http=502" in em or "http=503" in em or "http=504" in em
         or " 429" in em or "]429" in em or ":429" in em
         or " 503" in em or "]503" in em or ":503" in em
         or " 502" in em or "]502" in em or ":502" in em

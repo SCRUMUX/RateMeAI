@@ -69,10 +69,29 @@ def test_stash_expired(msg):
     "[stage=analyze] HTTPStatusError: 503 Service Unavailable",
     "[stage=analyze] HTTPStatusError: 429 Too Many Requests",
     "[stage=generate_image] RuntimeError: rate limit exceeded",
+    "[stage=analyze] HTTPStatusError: Server error '503' http=503 host=openrouter.ai",
+    "[stage=analyze] HTTPStatusError: too many requests http=429 host=openrouter.ai",
+    "[stage=analyze] HTTPStatusError: gateway http=502 host=openrouter.ai",
 ])
 def test_transient_overload_variants(msg):
     out = _user_message_for_failed(msg)
     assert "перегруж" in out.lower() or "через минуту" in out.lower()
+    assert out != _GENERIC_FAILED_MESSAGE
+
+
+@pytest.mark.parametrize("msg", [
+    "[stage=analyze] HTTPStatusError: unauthorized http=401 host=openrouter.ai body='{\"error\":\"Invalid API key\"}'",
+    "[stage=analyze] HTTPStatusError: payment required http=402 host=openrouter.ai body='{\"error\":\"insufficient_credits\"}'",
+    "[stage=analyze] HTTPStatusError: forbidden http=403 host=openrouter.ai",
+    "[stage=analyze] HTTPStatusError: not found http=404 host=openrouter.ai",
+    "[stage=generate_image] HTTPStatusError: Reve unauthorized http=401 host=api.reve.art",
+])
+def test_provider_auth_non_transient_variants(msg):
+    """After v1.12.2 unwrap: 4xx auth/billing errors land in the dedicated
+    ops-flavored bucket, not in the overload bucket."""
+    out = _user_message_for_failed(msg)
+    assert "подключением к модели" in out or "временно недоступен" in out.lower()
+    assert "перегруж" not in out.lower()  # must NOT be the transient bucket
     assert out != _GENERIC_FAILED_MESSAGE
 
 
