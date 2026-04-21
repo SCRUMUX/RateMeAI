@@ -742,8 +742,7 @@ async def synthetic_analyze(
             "repr": repr(original)[:400],
             "error_message": _fmt_err(exc),
         }
-    finally:
-        try:
-            await llm.close()
-        except Exception:
-            pass
+    # NB: do NOT close ``llm`` here — ``get_llm()`` is a module-level
+    # ``lru_cache`` singleton shared with the rest of the FastAPI process.
+    # Closing it would poison every subsequent request with
+    # ``RuntimeError: Cannot send a request, as the client has been closed``.
