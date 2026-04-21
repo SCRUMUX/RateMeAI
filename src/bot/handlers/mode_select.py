@@ -171,6 +171,9 @@ def _user_message_for_failed(error_message: str) -> str:
         or "insufficient_credits" in em
         or "unauthorized" in em
         or "invalid api key" in em
+        or "invalid partner api" in em
+        or "bearer token" in em
+        or "partner_api_token_invalid" in em
     ):
         return (
             "\u26a0\ufe0f Сервис AI временно недоступен из-за проблемы с "

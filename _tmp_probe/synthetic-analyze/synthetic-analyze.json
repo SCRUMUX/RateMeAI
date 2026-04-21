@@ -1,0 +1,1 @@
+{"ok":false,"mode":"social","model":"google/gemini-2.0-flash-001","took_ms":6,"exc_type":"AITransferForbiddenError","exc_class_chain":"AITransferForbiddenError","http_status":null,"body":"","url":null,"repr":"AITransferForbiddenError('openrouter: no_pipeline_context')","error_message":"[stage=worker] AITransferForbiddenError: openrouter: no_pipeline_context"}

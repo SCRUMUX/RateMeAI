@@ -1,0 +1,52 @@
+
+[35m[Region: europe-west4][0m
+[35m=========================
+Using Detected Dockerfile
+=========================
+[0m
+context: pj3s-Je_a
+[INFO] [internal] load build definition from Dockerfile
+[INFO] [internal] load build definition from Dockerfile
+[INFO] [internal] load build definition from Dockerfile
+[INFO] [internal] load build definition from Dockerfile
+[INFO] [internal] load build definition from Dockerfile
+[INFO] [internal] load metadata for docker.io/library/python:3.12-slim
+[INFO] [internal] load metadata for docker.io/library/python:3.12-slim
+[INFO] [internal] load .dockerignore
+[INFO] [internal] load .dockerignore
+[INFO] [internal] load .dockerignore
+[INFO] [internal] load .dockerignore
+[INFO] [10/10] RUN chmod +x /usr/local/bin/docker-entrypoint.sh
+[INFO] [ 9/10] COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
+[INFO] [ 8/10] RUN mkdir -p /app/storage &&     chown -R appuser:appuser /app
+[INFO] [ 7/10] COPY . .
+[INFO] [ 6/10] RUN groupadd -r appuser && useradd -r -g appuser -d /app -s /sbin/nologin appuser
+[INFO] [ 5/10] RUN pip install --no-cache-dir -r requirements.txt &&     pip install --no-cache-dir --force-reinstall --no-deps         opencv-python-headless opencv-contrib-python-headless
+[INFO] [ 4/10] COPY requirements.txt .
+[INFO] [internal] load build context
+[INFO] [ 3/10] RUN apt-get update &&     apt-get install -y --no-install-recommends         gcc g++ libpq-dev curl fonts-dejavu-core         libglib2.0-0 gosu         libgl1 libegl1 libsm6 libxext6 libxrender1 &&     rm -rf /var/lib/apt/lists/*
+[INFO] [ 2/10] WORKDIR /app
+[INFO] [ 1/10] FROM docker.io/library/python:3.12-slim@sha256:804ddf3251a60bbf9c92e73b7566c40428d54d0e79d3428194edf40da6521286
+[INFO] [ 1/10] FROM docker.io/library/python:3.12-slim@sha256:804ddf3251a60bbf9c92e73b7566c40428d54d0e79d3428194edf40da6521286
+[INFO] [internal] load build context
+[INFO] [ 1/10] FROM docker.io/library/python:3.12-slim@sha256:804ddf3251a60bbf9c92e73b7566c40428d54d0e79d3428194edf40da6521286
+[INFO] [internal] load build context
+[INFO] [internal] load build context
+[INFO] [ 2/10] WORKDIR /app
+[INFO] [ 3/10] RUN apt-get update &&     apt-get install -y --no-install-recommends         gcc g++ libpq-dev curl fonts-dejavu-core         libglib2.0-0 gosu         libgl1 libegl1 libsm6 libxext6 libxrender1 &&     rm -rf /var/lib/apt/lists/*
+[INFO] [ 4/10] COPY requirements.txt .
+[INFO] [ 5/10] RUN pip install --no-cache-dir -r requirements.txt &&     pip install --no-cache-dir --force-reinstall --no-deps         opencv-python-headless opencv-contrib-python-headless
+[INFO] [ 6/10] RUN groupadd -r appuser && useradd -r -g appuser -d /app -s /sbin/nologin appuser
+[INFO] [ 7/10] COPY . .
+[INFO] [ 7/10] COPY . .
+[INFO] [ 8/10] RUN mkdir -p /app/storage &&     chown -R appuser:appuser /app
+[INFO] [ 8/10] RUN mkdir -p /app/storage &&     chown -R appuser:appuser /app
+[INFO] [ 9/10] COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
+[INFO] [ 9/10] COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
+[INFO] [10/10] RUN chmod +x /usr/local/bin/docker-entrypoint.sh
+[INFO] [10/10] RUN chmod +x /usr/local/bin/docker-entrypoint.sh
+[INFO] [auth] sharing credentials for production-europe-west4-drams3a.railway-registry.com
+[INFO] [auth] sharing credentials for production-europe-west4-drams3a.railway-registry.com
+[INFO] importing to docker
+[INFO] importing to docker
+[92mBuild time: 20.59 seconds[0m

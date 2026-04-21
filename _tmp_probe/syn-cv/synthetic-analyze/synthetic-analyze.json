@@ -1,0 +1,1 @@
+{"ok":false,"mode":"cv","model":"google/gemini-2.0-flash-001","took_ms":0,"exc_type":"RuntimeError","exc_class_chain":"RuntimeError","http_status":null,"body":"","url":null,"repr":"RuntimeError('Cannot send a request, as the client has been closed.')","error_message":"[stage=worker] RuntimeError: Cannot send a request, as the client has been closed."}

@@ -129,7 +129,10 @@ export function userMessageForFailed(errorMessage: string | null | undefined): s
     em.includes('insufficient_credits') ||
     em.includes('unauthorized') ||
     em.includes('invalid api key') ||
-    em.includes('api key')
+    em.includes('api key') ||
+    em.includes('invalid partner api') ||
+    em.includes('bearer token') ||
+    em.includes('partner_api_token_invalid')
   ) {
     return PROVIDER_AUTH_MESSAGE;
   }
