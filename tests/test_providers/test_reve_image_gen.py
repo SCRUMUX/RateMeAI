@@ -105,13 +105,13 @@ async def test_reve_image_gen_remix_returns_bytes():
         out = await gen.generate(
             "The subject from 0 in a studio",
             reference_image=b"\xff\xd8 fake",
-            params=None,
+            params={"use_edit": False},
         )
 
     assert out == jpeg
     assert len(fake.calls) == 1
     call = fake.calls[0]
-    assert call["url"].endswith("/v1/image/remix/")
+    assert call["url"].endswith("/v1/image/remix")
     assert call["json"]["prompt"] == "The subject from 0 in a studio"
     assert isinstance(call["json"]["reference_images"], list)
     assert call["json"]["reference_images"][0] == base64.b64encode(
@@ -131,7 +131,7 @@ async def test_reve_image_gen_create_without_reference():
         out = await gen.generate("A red square", reference_image=None)
 
     assert out == jpeg
-    assert fake.calls[0]["url"].endswith("/v1/image/create/")
+    assert fake.calls[0]["url"].endswith("/v1/image/create")
     assert "reference_images" not in fake.calls[0]["json"]
 
 
@@ -283,8 +283,10 @@ async def test_reve_image_gen_handles_empty_image_field():
 
 
 @pytest.mark.asyncio
-async def test_reve_image_gen_applies_region_text_hint_via_mask_region():
-    """`mask_region` alone must prefix the edit_instruction with the hint."""
+async def test_reve_image_gen_edit_uses_plain_edit_instruction():
+    """With the strict whitelist, `mask_region` is stripped and the prompt
+    is passed verbatim as `edit_instruction` — no hint prefixing, no masks
+    are forwarded to Reve (that contract is tested separately)."""
     jpeg = _jpeg_bytes("orange")
     fake = _FakeClient([_response_image(jpeg)])
 
@@ -298,12 +300,11 @@ async def test_reve_image_gen_applies_region_text_hint_via_mask_region():
         )
 
     call = fake.calls[0]
-    assert call["url"].endswith("/v1/image/edit/")
-    instruction = call["json"]["edit_instruction"]
-    assert instruction.startswith("Change ONLY the background"), (
-        f"expected background-only hint prefix, got: {instruction!r}"
-    )
-    assert "studio backdrop, soft lighting" in instruction
+    assert call["url"].endswith("/v1/image/edit")
+    payload = call["json"]
+    assert payload["edit_instruction"] == "studio backdrop, soft lighting"
+    assert "mask_region" not in payload
+    assert "mask_image" not in payload
 
 
 @pytest.mark.asyncio

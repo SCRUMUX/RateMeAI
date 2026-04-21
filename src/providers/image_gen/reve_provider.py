@@ -59,12 +59,13 @@ class ReveImageGen(ImageGenProvider):
       * Content-policy violation → no retry (cost may or may not apply).
     """
 
-    # NOTE: trailing slash is required by the Reve gateway. Without it the
-    # server replies with INVALID_PARAMETER_VALUE (observed 2026-04-21).
-    # Mirrors the official SDK at reve/v1/image.py which also uses "/".
-    API_CREATE = "/v1/image/create/"
-    API_EDIT = "/v1/image/edit/"
-    API_REMIX = "/v1/image/remix/"
+    # Endpoints match the canonical Pixeltable wrapper over api.reve.com
+    # (see pixeltable/functions/reve.py on GitHub). No trailing slash —
+    # the previously-observed INVALID_PARAMETER_VALUE with slash was
+    # actually caused by sending unsupported body keys, not by the URL.
+    API_CREATE = "/v1/image/create"
+    API_EDIT = "/v1/image/edit"
+    API_REMIX = "/v1/image/remix"
     REQUEST_TIMEOUT = 120.0
 
     def __init__(
@@ -94,41 +95,23 @@ class ReveImageGen(ImageGenProvider):
     async def close(self) -> None:
         pass
 
-    def _build_options(self, params: dict | None) -> dict[str, Any]:
-        """Build generation options shared by all three endpoints.
+    # Strict per-endpoint whitelists. The canonical Pixeltable wrapper
+    # over api.reve.com (pixeltable/functions/reve.py) shows that Reve
+    # REST only accepts these keys; anything else yields
+    # INVALID_PARAMETER_VALUE. Post-processing (AR crop, upscale) is
+    # handled locally by src.services.postprocess, not by Reve.
 
-        The official Reve SDK (``reve/v1/image.py``) forwards
-        ``aspect_ratio`` / ``version`` / ``test_time_scaling`` /
-        ``postprocessing`` into **every** endpoint body (``create`` /
-        ``edit`` / ``remix``) — the server expects them uniformly. Our
-        earlier attempt to strip these keys from edit/remix was based on
-        a wrong guess: it caused ``INVALID_PARAMETER_VALUE`` from
-        2026-04-21 12:28 onward because Reve treats missing/unknown
-        values on those fields as a validation failure. Match the SDK
-        contract exactly.
-        """
-        opts: dict[str, Any] = {
-            "aspect_ratio": self._aspect_ratio,
-            "version": self._version,
-            "test_time_scaling": self._test_time_scaling,
-        }
-        if params:
-            for k in ("aspect_ratio", "version", "test_time_scaling", "postprocessing"):
-                if k in params and params[k] is not None:
-                    opts[k] = params[k]
-        return opts
+    def _params_version(self, params: dict | None) -> str | None:
+        v = (params or {}).get("version") if params else None
+        return v if v is not None else self._version
 
-    @staticmethod
-    def _mask_to_instruction_hint(params: dict | None) -> str:
-        if not params:
-            return ""
-        region = params.get("mask_region", "")
-        hints = {
-            "background": "Change ONLY the background, keep the person untouched.",
-            "clothing": "Change ONLY the clothing/outfit, keep face and background untouched.",
-            "face": "Make subtle adjustments to lighting/expression on the face ONLY.",
-        }
-        return hints.get(region, "")
+    def _params_aspect_ratio(self, params: dict | None) -> str | None:
+        ar = (params or {}).get("aspect_ratio") if params else None
+        if ar is None:
+            ar = self._aspect_ratio
+        if ar in (None, "", "auto"):
+            return None
+        return ar
 
     @staticmethod
     def _b64(data: bytes) -> str:
@@ -270,27 +253,59 @@ class ReveImageGen(ImageGenProvider):
         endpoint: str,
         prompt: str,
         reference_image: bytes | None,
-        options: dict[str, Any],
+        params: dict | None,
     ) -> dict[str, Any]:
+        """Build a strict whitelist body per endpoint.
+
+        Reve REST API allowed keys (from canonical Pixeltable wrapper):
+          - /v1/image/create: {prompt, aspect_ratio?, version?}
+          - /v1/image/edit:   {edit_instruction, reference_image, version?}
+          - /v1/image/remix:  {prompt, reference_images, aspect_ratio?, version?}
+
+        Anything else (test_time_scaling, postprocessing, mask_*,
+        use_edit, etc.) must not appear in the wire body.
+        """
+        version = self._params_version(params)
+        aspect_ratio = self._params_aspect_ratio(params)
+
         if endpoint == self.API_CREATE:
-            return {"prompt": prompt, **options}
+            body: dict[str, Any] = {"prompt": prompt}
+            if aspect_ratio:
+                body["aspect_ratio"] = aspect_ratio
+            if version:
+                body["version"] = version
+            return body
+
         if endpoint == self.API_EDIT:
             if not reference_image:
                 raise ValueError("edit requires reference_image")
-            return {
+            body = {
                 "edit_instruction": prompt,
                 "reference_image": self._b64(reference_image),
-                **options,
             }
+            if version:
+                body["version"] = version
+            return body
+
         if endpoint == self.API_REMIX:
             if not reference_image:
                 raise ValueError("remix requires reference_image")
-            return {
+            body = {
                 "prompt": prompt,
                 "reference_images": [self._b64(reference_image)],
-                **options,
             }
+            if aspect_ratio:
+                body["aspect_ratio"] = aspect_ratio
+            if version:
+                body["version"] = version
+            return body
+
         raise ValueError(f"unknown endpoint {endpoint}")
+
+    @staticmethod
+    def _log_keys(body: dict[str, Any]) -> list[str]:
+        """Return a safe list of body keys for logging (no binary)."""
+        return sorted(body.keys())
 
     def _generate_sync(
         self,
@@ -298,12 +313,7 @@ class ReveImageGen(ImageGenProvider):
         reference_image: bytes | None,
         params: dict | None,
     ) -> bytes:
-        mask_region = params.get("mask_region") if params else None
-        use_edit = bool(params and params.get("use_edit")) or bool(mask_region)
-        if mask_region:
-            hint = self._mask_to_instruction_hint(params)
-            if hint:
-                prompt = f"{hint} {prompt}"
+        use_edit = bool((params or {}).get("use_edit", True))
 
         if reference_image and use_edit:
             endpoint = self.API_EDIT
@@ -312,12 +322,11 @@ class ReveImageGen(ImageGenProvider):
         else:
             endpoint = self.API_CREATE
 
-        options = self._build_options(params)
-        # Internal-only keys must never reach the Reve wire protocol —
-        # the server rejects them with INVALID_PARAMETER_VALUE.
-        for k in ("mask_image", "mask_region", "use_edit"):
-            options.pop(k, None)
-        body = self._build_body(endpoint, prompt, reference_image, options)
+        body = self._build_body(endpoint, prompt, reference_image, params)
+        logger.info(
+            "Reve request endpoint=%s prompt_len=%d keys=%s",
+            endpoint, len(prompt or ""), self._log_keys(body),
+        )
 
         last_err: Exception | None = None
         for attempt in range(self._max_retries):

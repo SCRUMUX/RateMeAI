@@ -342,6 +342,105 @@ def inject_exif_only(image_bytes: bytes) -> bytes:
 
 
 # ---------------------------------------------------------------------------
+# Local aspect-ratio crop and upscale.
+# Reve REST does not accept aspect_ratio on /v1/image/edit and does not
+# expose a post-processing pipeline. Document AR (3:4, 7:9, 2:3, 1:1)
+# and large-face 2x upscale are therefore applied locally with PIL.
+# ---------------------------------------------------------------------------
+
+
+def _parse_aspect_ratio(target_ar: str) -> tuple[int, int] | None:
+    """Accept '3:4', '16:9', '1:1' etc. Return (w, h) or None if invalid."""
+    if not target_ar or ":" not in target_ar:
+        return None
+    try:
+        w_str, h_str = target_ar.split(":", 1)
+        w = int(w_str.strip())
+        h = int(h_str.strip())
+    except ValueError:
+        return None
+    if w <= 0 or h <= 0:
+        return None
+    return w, h
+
+
+def crop_to_aspect(image_bytes: bytes, target_ar: str) -> bytes:
+    """Crop the image to ``target_ar`` (e.g. '3:4', '2:3', '7:9', '1:1').
+
+    Uses a head-biased crop: horizontally centred, vertically anchored
+    to the upper 45% so the face — almost always in the upper third of
+    portraits — is preserved. Re-encodes to PNG to avoid a double JPEG
+    compression. Returns original bytes if input is malformed or the
+    aspect ratio string is invalid.
+    """
+    ratio = _parse_aspect_ratio(target_ar)
+    if ratio is None:
+        return image_bytes
+    tw, th = ratio
+
+    try:
+        img = Image.open(io.BytesIO(image_bytes)).convert("RGB")
+    except Exception:
+        logger.debug("crop_to_aspect: input is not a valid image, returning as-is")
+        return image_bytes
+
+    w, h = img.size
+    if w <= 0 or h <= 0:
+        return image_bytes
+
+    current_ar = w / h
+    target_aspect = tw / th
+
+    if abs(current_ar - target_aspect) < 1e-3:
+        return image_bytes
+
+    if current_ar > target_aspect:
+        new_w = int(round(h * target_aspect))
+        new_w = max(1, min(new_w, w))
+        x0 = (w - new_w) // 2
+        box = (x0, 0, x0 + new_w, h)
+    else:
+        new_h = int(round(w / target_aspect))
+        new_h = max(1, min(new_h, h))
+        y0 = int(round((h - new_h) * 0.45))
+        y0 = max(0, min(y0, h - new_h))
+        box = (0, y0, w, y0 + new_h)
+
+    cropped = img.crop(box)
+    buf = io.BytesIO()
+    cropped.save(buf, format="PNG", optimize=False)
+    return buf.getvalue()
+
+
+def upscale_lanczos(image_bytes: bytes, factor: int = 2) -> bytes:
+    """Upscale the image by an integer factor using PIL LANCZOS resampling.
+
+    Used after Reve generation when the detected face area is large
+    enough that a native 1024px crop would deliver an under-detailed
+    headshot. Re-encodes to PNG. Returns the original bytes on any
+    failure so the pipeline never stalls on post-processing.
+    """
+    if factor is None or int(factor) <= 1:
+        return image_bytes
+    factor = int(factor)
+
+    try:
+        img = Image.open(io.BytesIO(image_bytes)).convert("RGB")
+    except Exception:
+        logger.debug("upscale_lanczos: input is not a valid image, returning as-is")
+        return image_bytes
+
+    w, h = img.size
+    if w <= 0 or h <= 0:
+        return image_bytes
+
+    upscaled = img.resize((w * factor, h * factor), Image.LANCZOS)
+    buf = io.BytesIO()
+    upscaled.save(buf, format="PNG", optimize=False)
+    return buf.getvalue()
+
+
+# ---------------------------------------------------------------------------
 # Public API
 # ---------------------------------------------------------------------------
 

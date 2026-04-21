@@ -1,17 +1,14 @@
-"""Integration test: single-pass params plumbing for Reve.
+"""Integration test: single-pass Reve params + local post-processing (v1.13.3).
 
-After the mask_image regression (Reve SDK 0.1.2 does not accept mask_image in
-edit(), see reve_provider.py), the executor now relies on a textual hint
-driven by `mask_region` in the params. These tests verify:
+The executor must NOT leak any Reve-forbidden keys into the params dict
+that reaches ``ImageGenProvider.generate``. Upscale and document AR are
+now handled locally via ``src.services.postprocess``:
 
-1. `mask_region="background"` is ALWAYS set for CV/DATING/SOCIAL, regardless
-   of segmentation state — this keeps the "change only background" hint in
-   the prompt even when mediapipe is off.
-2. Real `mask_image` bytes are only ever attached when
-   `settings.segmentation_enabled=True` (future-proofing for when the SDK
-   gains mask support).
-3. `upscale_factor=2` is conditional on face_area_ratio >= 0.15 (unchanged
-   from the original fix).
+1. ``mask_region`` / ``mask_image`` / ``postprocessing`` / ``aspect_ratio``
+   / ``test_time_scaling`` are absent from the provider call.
+2. ``upscale_lanczos(factor=2)`` is invoked after generate when
+   ``face_area_ratio >= 0.15``.
+3. ``crop_to_aspect`` is invoked for CV document styles only.
 4. Exactly ONE Reve call per single_pass (cost invariant).
 """
 from __future__ import annotations
@@ -25,6 +22,15 @@ from PIL import Image
 from src.models.enums import AnalysisMode
 from src.orchestrator.executor import ImageGenerationExecutor
 from src.services.input_quality import InputQualityReport
+
+
+_REVE_FORBIDDEN_KEYS = (
+    "mask_region",
+    "mask_image",
+    "postprocessing",
+    "test_time_scaling",
+    "aspect_ratio",
+)
 
 
 def _make_ok_report(face_area_ratio: float = 0.25) -> InputQualityReport:
@@ -43,36 +49,36 @@ def _make_ok_report(face_area_ratio: float = 0.25) -> InputQualityReport:
     )
 
 
-def _make_png_mask() -> Image.Image:
-    """Simple L-mode binary mask for 'background'."""
-    img = Image.new("L", (512, 512), color=0)
-    for x in range(256):
-        for y in range(512):
-            img.putpixel((x, y), 255)
-    return img
-
-
 def _make_jpeg_stub() -> bytes:
     buf = io.BytesIO()
     Image.new("RGB", (512, 512), color=(128, 128, 128)).save(buf, format="JPEG")
     return buf.getvalue()
 
 
+def _make_png_stub() -> bytes:
+    buf = io.BytesIO()
+    Image.new("RGB", (1024, 1024), color=(200, 200, 200)).save(buf, format="PNG")
+    return buf.getvalue()
+
+
 def _base_settings(mock_settings) -> None:
     mock_settings.multi_pass_enabled = False
-    mock_settings.reve_test_time_scaling = 3
     mock_settings.identity_match_threshold = 7.0
     mock_settings.identity_match_soft_threshold = 5.0
     mock_settings.aesthetic_threshold = 6.0
     mock_settings.artifact_threshold = 0.05
     mock_settings.photorealism_enabled = False
+    mock_settings.segmentation_enabled = False
+    mock_settings.model_cost_reve = 0.02
+    mock_settings.pipeline_budget_max_usd = 0.10
 
 
 def _build_executor(
-    seg_svc=None,
     *,
-    image_gen_bytes: bytes = b"\xff\xd8\xff\xe0" + b"0" * 2048,
+    image_gen_bytes: bytes | None = None,
 ) -> tuple[ImageGenerationExecutor, MagicMock]:
+    if image_gen_bytes is None:
+        image_gen_bytes = _make_png_stub()
     image_gen = MagicMock()
     image_gen.generate = AsyncMock(return_value=image_gen_bytes)
     prompt_engine = MagicMock()
@@ -81,7 +87,7 @@ def _build_executor(
     model_router.cheapest_cost = 0.02
     storage = MagicMock()
     storage.upload = AsyncMock(return_value=None)
-    storage.build_public_url = MagicMock(return_value="https://example/result.jpg")
+    storage.get_url = AsyncMock(return_value="https://example/result.jpg")
     identity_svc = MagicMock()
     identity_svc.detect_face = MagicMock(return_value=True)
     gate_runner = MagicMock()
@@ -96,19 +102,22 @@ def _build_executor(
         storage=storage,
         identity_svc_getter=lambda: identity_svc,
         gate_runner_getter=lambda: gate_runner,
-        segmentation_getter=(lambda: seg_svc) if seg_svc is not None else None,
+        segmentation_getter=None,
     )
     return executor, image_gen
 
 
+def _assert_no_forbidden_keys(params: dict) -> None:
+    for key in _REVE_FORBIDDEN_KEYS:
+        assert key not in params, (
+            f"forbidden Reve key {key!r} leaked into generate(params=...): {params!r}"
+        )
+
+
 @pytest.mark.asyncio
 @patch("src.orchestrator.executor.settings")
-async def test_mask_region_always_set_for_dating_without_segmentation(mock_settings):
-    """With segmentation OFF (prod default) DATING must still carry
-    mask_region=background so reve_provider can attach the text hint."""
+async def test_dating_params_have_no_forbidden_keys(mock_settings):
     _base_settings(mock_settings)
-    mock_settings.segmentation_enabled = False
-
     executor, image_gen = _build_executor()
 
     await executor.single_pass(
@@ -126,21 +135,13 @@ async def test_mask_region_always_set_for_dating_without_segmentation(mock_setti
     assert image_gen.generate.await_count == 1
     _, kwargs = image_gen.generate.call_args
     params = kwargs.get("params") or {}
-    assert params.get("mask_region") == "background", (
-        "mask_region must be set so reve_provider can prepend the text hint"
-    )
-    assert "mask_image" not in params, (
-        "real mask_image must NOT leak to SDK when segmentation is disabled"
-    )
+    _assert_no_forbidden_keys(params)
 
 
 @pytest.mark.asyncio
 @patch("src.orchestrator.executor.settings")
-async def test_mask_region_always_set_for_cv(mock_settings):
-    """CV mode must also get mask_region=background (document + business headshots)."""
+async def test_cv_params_have_no_forbidden_keys(mock_settings):
     _base_settings(mock_settings)
-    mock_settings.segmentation_enabled = False
-
     executor, image_gen = _build_executor()
 
     await executor.single_pass(
@@ -157,53 +158,17 @@ async def test_mask_region_always_set_for_cv(mock_settings):
 
     _, kwargs = image_gen.generate.call_args
     params = kwargs.get("params") or {}
-    assert params.get("mask_region") == "background"
+    _assert_no_forbidden_keys(params)
 
 
 @pytest.mark.asyncio
+@patch("src.orchestrator.executor.upscale_lanczos")
 @patch("src.orchestrator.executor.settings")
-async def test_segmentation_flag_attaches_real_mask_image(mock_settings):
-    """Future-proof: when segmentation_enabled=True, the executor must attach
-    PNG mask_image bytes alongside mask_region. This exercises the code path
-    that will be re-activated once the Reve SDK accepts mask_image."""
+async def test_upscale_disabled_for_small_face(mock_settings, mock_upscale):
+    """upscale_lanczos must NOT be called when face_area_ratio < 0.15."""
     _base_settings(mock_settings)
-    mock_settings.segmentation_enabled = True
-
-    seg_svc = MagicMock()
-    seg_svc.segment = AsyncMock(return_value={"background": _make_png_mask()})
-
-    executor, image_gen = _build_executor(seg_svc=seg_svc)
-
-    await executor.single_pass(
-        mode=AnalysisMode.DATING,
-        style="yacht",
-        image_bytes=_make_jpeg_stub(),
-        result_dict={"base_description": "test"},
-        user_id="u1",
-        task_id="t1",
-        trace={"decisions": [], "steps": {}},
-        gender="male",
-        input_quality=_make_ok_report(),
-    )
-
-    assert image_gen.generate.await_count == 1
-    _, kwargs = image_gen.generate.call_args
-    params = kwargs.get("params") or {}
-    assert "mask_image" in params
-    assert isinstance(params["mask_image"], (bytes, bytearray))
-    assert params["mask_image"][:8] == b"\x89PNG\r\n\x1a\n"
-    assert params.get("mask_region") == "background"
-    seg_svc.segment.assert_awaited_once()
-
-
-@pytest.mark.asyncio
-@patch("src.orchestrator.executor.settings")
-async def test_single_pass_upscale_disabled_for_small_face(mock_settings):
-    """Small face (face_area_ratio < 0.15) must disable upscale_factor=2."""
-    _base_settings(mock_settings)
-    mock_settings.segmentation_enabled = False
-
-    executor, image_gen = _build_executor()
+    mock_upscale.return_value = _make_png_stub()
+    executor, _ = _build_executor()
 
     await executor.single_pass(
         mode=AnalysisMode.DATING,
@@ -217,22 +182,17 @@ async def test_single_pass_upscale_disabled_for_small_face(mock_settings):
         input_quality=_make_ok_report(face_area_ratio=0.08),
     )
 
-    _, kwargs = image_gen.generate.call_args
-    params = kwargs.get("params") or {}
-    postproc = params.get("postprocessing") or []
-    assert not any(p.get("process") == "upscale" for p in postproc), (
-        "upscale must NOT be applied for tiny faces"
-    )
+    mock_upscale.assert_not_called()
 
 
 @pytest.mark.asyncio
+@patch("src.orchestrator.executor.upscale_lanczos")
 @patch("src.orchestrator.executor.settings")
-async def test_single_pass_upscale_enabled_for_normal_face(mock_settings):
-    """Normal face (face_area_ratio >= 0.15) should get upscale_factor=2."""
+async def test_upscale_enabled_for_normal_face(mock_settings, mock_upscale):
+    """upscale_lanczos(factor=2) must run when face_area_ratio >= 0.15."""
     _base_settings(mock_settings)
-    mock_settings.segmentation_enabled = False
-
-    executor, image_gen = _build_executor()
+    mock_upscale.return_value = _make_png_stub()
+    executor, _ = _build_executor()
 
     await executor.single_pass(
         mode=AnalysisMode.DATING,
@@ -246,10 +206,57 @@ async def test_single_pass_upscale_enabled_for_normal_face(mock_settings):
         input_quality=_make_ok_report(face_area_ratio=0.25),
     )
 
-    _, kwargs = image_gen.generate.call_args
-    params = kwargs.get("params") or {}
-    postproc = params.get("postprocessing") or []
-    assert any(
-        p.get("process") == "upscale" and p.get("upscale_factor") == 2
-        for p in postproc
-    ), "upscale x2 must be applied for normal-sized faces"
+    mock_upscale.assert_called_once()
+    _, kwargs = mock_upscale.call_args
+    pos, _kw = mock_upscale.call_args
+    assert pos[0] is not None
+    assert kwargs.get("factor", pos[1] if len(pos) > 1 else None) == 2
+
+
+@pytest.mark.asyncio
+@patch("src.orchestrator.executor.crop_to_aspect")
+@patch("src.orchestrator.executor.settings")
+async def test_document_style_triggers_local_crop(mock_settings, mock_crop):
+    """CV document styles should invoke crop_to_aspect(...) with the mapped AR."""
+    _base_settings(mock_settings)
+    mock_crop.return_value = _make_png_stub()
+    executor, _ = _build_executor()
+
+    await executor.single_pass(
+        mode=AnalysisMode.CV,
+        style="photo_3x4",
+        image_bytes=_make_jpeg_stub(),
+        result_dict={"base_description": "test"},
+        user_id="u1",
+        task_id="t1",
+        trace={"decisions": [], "steps": {}},
+        gender="female",
+        input_quality=_make_ok_report(face_area_ratio=0.05),
+    )
+
+    mock_crop.assert_called_once()
+    pos, _kw = mock_crop.call_args
+    assert pos[1] == "3:4"
+
+
+@pytest.mark.asyncio
+@patch("src.orchestrator.executor.crop_to_aspect")
+@patch("src.orchestrator.executor.settings")
+async def test_non_document_style_skips_local_crop(mock_settings, mock_crop):
+    """Non-document CV styles should NOT invoke crop_to_aspect(...)."""
+    _base_settings(mock_settings)
+    executor, _ = _build_executor()
+
+    await executor.single_pass(
+        mode=AnalysisMode.CV,
+        style="ceo",
+        image_bytes=_make_jpeg_stub(),
+        result_dict={"base_description": "test"},
+        user_id="u1",
+        task_id="t1",
+        trace={"decisions": [], "steps": {}},
+        gender="male",
+        input_quality=_make_ok_report(face_area_ratio=0.05),
+    )
+
+    mock_crop.assert_not_called()

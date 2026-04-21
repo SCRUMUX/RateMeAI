@@ -1,188 +1,58 @@
 """Centralized image-generation prompt builder for all modes.
 
-Prompt structure follows the Change -> Preserve -> Quality pattern
-proven to achieve 91% first-attempt success in edit-mode models.
-Constants use positive framing to avoid diffusion "NO Syndrome".
+Compact photorealistic template (v1.13): a single natural paragraph in
+the 800–1200 character budget. The Reve REST API rejects oversized or
+overstuffed prompts, and tag-sectioned layouts ([CHANGE]/[PRESERVE]/
+[QUALITY]) waste characters without improving adherence. Two short
+anchors — PRESERVE_PHOTO and QUALITY_PHOTO — cover the semantics that
+previously required 10+ individual constants.
 """
 from __future__ import annotations
+
+import logging
 
 from src.prompts.style_spec import (
     StyleRegistry,
     build_spec_from_legacy,
 )
 
+logger = logging.getLogger(__name__)
+
+# Hard cap — worker logs a warning and truncates anything above this
+# before handing off to Reve. Matches the test budget in
+# tests/test_prompts/test_prompt_length_budget.py.
+PROMPT_MAX_LEN = 1200
+
 # ---------------------------------------------------------------------------
-# Core anchors — positive framing, no negation overload
+# Compact anchors — one PRESERVE phrase + one QUALITY phrase.
 # ---------------------------------------------------------------------------
 
-IDENTITY_FIRST = (
-    "CRITICAL: Preserve the person's face identity exactly as in the reference photo. "
-    "The result must be immediately recognizable as the same person."
+PRESERVE_PHOTO = (
+    "Preserve the exact same person from the reference photo: identical face "
+    "(bone structure, eyes, nose, mouth, lips, jawline, ears, hairline, hair "
+    "color, length and parting), natural skin with real pores and subtle "
+    "imperfections, original pose, framing and body proportions. Keep hair "
+    "silhouette crisp against the new background. Hands must have exactly "
+    "five clearly separated fingers."
 )
 
-FACE_ANCHOR = (
-    "FACE IDENTITY: keep exact bone structure, nose shape, eye shape and "
-    "spacing, eyebrow shape, lip shape, jawline, chin, ears, cheekbones, "
-    "forehead proportions. Same face as reference, instantly recognizable. "
-    "Preserve natural lip shape and teeth geometry; mouth expression may adapt to the requested style."
+QUALITY_PHOTO = (
+    "Photorealistic unedited photograph. Entire scene rendered sharp from "
+    "subject to background — architecture, textures, foliage and distant "
+    "objects remain crisp and legible. Natural colors and lighting, no "
+    "artificial blur, no bokeh, no airbrush, no plastic smile."
 )
 
-NATURAL_MOUTH = (
-    "MOUTH: natural mouth articulation consistent with the requested expression. "
-    "No frozen or mannequin look, no plastic smile, no artificial symmetry. "
-    "If teeth are visible, they should look real with subtle natural irregularity."
+DOC_PRESERVE = (
+    "Preserve the exact same person from the reference photo: identical face "
+    "(bone structure, eyes, nose, mouth, hairline), natural skin texture with "
+    "real pores, same hair color and length, original head shape."
 )
 
-BODY_ANCHOR = (
-    "BODY: keep original body proportions, head-to-body ratio, shoulder "
-    "width, pose, hand positions."
-)
-
-HANDS_ANCHOR = (
-    "HANDS: anatomically correct hands, exactly 5 fingers per hand, "
-    "clearly separated fingers, visible knuckles and fingernails, "
-    "sharp and in focus. No fused, missing or extra fingers."
-)
-
-SKIN_FIX = (
-    "SKIN: keep natural skin texture with visible pores and subtle imperfections. "
-    "Do not smooth or airbrush the skin. Minimal cleanup only."
-)
-
-HAIR_ANCHOR = (
-    "HAIR: preserve the exact hairstyle, color, length, parting, and individual "
-    "strand silhouette from the reference. Keep hair outline crisp. Do not merge "
-    "hair with the new background — no branches, leaves, fabric or backdrop "
-    "bleeding into hair strands. Keep the original hairline."
-)
-
-COMPOSITION_ANCHOR = (
-    "COMPOSITION: keep original framing, crop, and head position. Do not re-pose, "
-    "do not zoom, do not shift the subject."
-)
-
-DOC_COMPOSITION_ANCHOR = (
-    "COMPOSITION: center the head and shoulders to match the document format specified above."
-)
-
-# Conditional anchors — appended only when input quality analysis requests them.
-SMALL_FACE_PROTECTION = (
-    "Face occupies a small portion of the frame. Preserve all facial features "
-    "with extra care, do not re-pose the head."
-)
-
-HAIR_BG_STRONG = (
-    "Hair silhouette must stay exactly as in the reference, with a crisp edge "
-    "against the new background."
-)
-
-NON_FRONTAL_HINT = (
-    "Keep the original head angle; do not rotate the face towards the camera."
-)
-
-CAMERA = (
-    "High-quality digital photograph. Sharp natural detail across the entire frame, "
-    "background subjects, textures and surfaces remain legible and clearly resolved. "
-    "Clean natural colors, mid-aperture look that keeps both the person and their "
-    "surroundings equally readable."
-)
-
-LOW_KEY_SHARPNESS = (
-    "SCENE FOCUS: moody lighting with the entire scene rendered sharp and readable. "
-    "Background architecture, furniture, bar shelves, window frames and ambient "
-    "objects remain crisp and recognizable, lit just enough to be clearly visible."
-)
-
-SPORT_DEEP_FOCUS = (
-    "SCENE FOCUS: athletic setting rendered with full deep focus. "
-    "Gym equipment, court lines, trail, foliage and training environment are crisply "
-    "resolved across the whole frame, shot on a standard mid-aperture lens that keeps "
-    "subject and environment equally sharp."
-)
-
-DISTANT_ATMOSPHERE_OK = (
-    "ATMOSPHERE: mid-distance and near-background elements stay sharp and fully "
-    "resolved. Only very far light sources (distant skyline lights, stars, horizon "
-    "mist) may soften naturally from atmospheric perspective — never the nearby "
-    "scene, never the subject's immediate surroundings."
-)
-
-HANDS_COMPLEX_POSE = (
-    "HANDS DETAIL: if the hands are partially occluded, overlapped, closed in "
-    "a fist, or tightly posed, reconstruct each finger cleanly with crisp "
-    "boundaries. Do not let finger contours bleed into background textures "
-    "or merge fingers together. Preserve any worn watch or wristband exactly."
-)
-
-_SPORT_STYLES: frozenset[tuple[str, str]] = frozenset({
-    ("dating", "gym_fitness"),
-    ("dating", "running"),
-    ("dating", "tennis"),
-    ("dating", "swimming_pool"),
-    ("dating", "hiking"),
-    ("dating", "yoga_outdoor"),
-    ("dating", "cycling"),
-    ("social", "fitness_lifestyle"),
-    ("social", "yoga_social"),
-    ("social", "cycling_social"),
-})
-
-_LOW_KEY_STYLES: frozenset[tuple[str, str]] = frozenset({
-    ("dating", "restaurant"),
-    ("dating", "bar_lounge"),
-    ("dating", "rainy_day"),
-    ("dating", "night_coffee"),
-    ("dating", "cafe"),
-    ("dating", "coffee_date"),
-    ("dating", "airplane_window"),
-    ("dating", "evening_home"),
-    ("dating", "travel_luxury"),
-    ("dating", "rooftop_city"),
-    ("dating", "dubai_burj_khalifa"),
-    ("dating", "singapore_marina_bay"),
-    ("dating", "nyc_times_square"),
-    ("cv", "late_hustle"),
-    ("cv", "quiet_expert"),
-    ("cv", "intellectual"),
-    ("cv", "creative_director"),
-    ("cv", "speaker_stage"),
-    ("cv", "decision_moment"),
-    ("cv", "man_with_mission"),
-    ("social", "neon_night"),
-    ("social", "dark_moody"),
-    ("social", "skyscraper_view"),
-    ("social", "focused_mood"),
-    ("social", "luxury"),
-    ("social", "evening_planning"),
-    ("social", "after_work"),
-    ("social", "panoramic_window"),
-})
-
-_DISTANT_SOFTNESS_STYLES: frozenset[tuple[str, str]] = frozenset({
-    ("dating", "rooftop_city"),
-    ("dating", "nyc_brooklyn_bridge"),
-    ("dating", "dubai_burj_khalifa"),
-    ("dating", "singapore_marina_bay"),
-    ("dating", "nyc_times_square"),
-    ("social", "skyscraper_view"),
-    ("social", "neon_night"),
-    ("social", "panoramic_window"),
-    ("social", "after_work"),
-})
-
-REALISM = (
-    "Photorealistic result. Natural skin texture. Sharp and clean. "
-    "Looks like a real unedited photo."
-)
-
-DOCUMENT_PHOTO_REALISM = (
-    "Photorealistic head-and-shoulders portrait. Natural unedited photo look. "
-    "Face: keep the same facial features, bone structure and natural skin texture; "
-    "remove only temporary blemishes (small pimples, redness). "
-    "Expression: calm neutral, mouth relaxed and closed, eyes open, looking straight at the camera. "
-    "Lighting: soft even studio light, minimal shadows on face and backdrop. "
-    "True-to-life skin tones, no heavy color grading, no artistic filters. "
-    "Centered head-and-shoulders framing, suitable for a professional ID-style headshot."
+DOC_QUALITY = (
+    "Photorealistic ID-style headshot. Soft even frontal studio light, minimal "
+    "shadows on face and backdrop, true-to-life skin tones, sharp detail, no "
+    "airbrush, no artistic filters, no heavy color grading."
 )
 
 # ---------------------------------------------------------------------------
@@ -729,32 +599,22 @@ CV_STYLES: dict[str, str] = {
         "Clothing: tailored blazer, crisp shirt, confident approachable business attire."
     ),
     "photo_3x4": (
-        f"{DOCUMENT_PHOTO_REALISM} "
-        "Composition: 3:4 portrait framing, face fills about 70-80% of the frame with a small margin above the head. "
         "Background: clean uniform white, no gradient. "
         "Clothing: simple solid-color top with a neat collar, no headwear."
     ),
     "passport_rf": (
-        f"{DOCUMENT_PHOTO_REALISM} "
-        "Composition: 7:9 portrait framing, frontal pose, face fills about 70-80% of the frame with a small margin above the head. "
         "Background: clean uniform white, no texture, no shadows. "
         "Clothing: simple dark solid-color top with a neat collar, no patterns, no logos."
     ),
     "visa_eu": (
-        f"{DOCUMENT_PHOTO_REALISM} "
-        "Composition: 7:9 portrait framing, face centered and fills about 70-80% of the frame with a small margin above the head. "
         "Background: clean uniform white, no shadows on the backdrop. "
         "Clothing: simple solid-color business top."
     ),
     "visa_us": (
-        f"{DOCUMENT_PHOTO_REALISM} "
-        "Composition: strictly 1:1 square framing, face centered, fills roughly 50-70% of the frame. "
-        "Background: clean uniform white, soft even frontal lighting, sharp high-resolution look. "
+        "Background: clean uniform white, soft even frontal lighting. "
         "Clothing: simple business top, no uniform, no headwear."
     ),
     "photo_4x6": (
-        f"{DOCUMENT_PHOTO_REALISM} "
-        "Composition: 2:3 portrait framing, face fills about 60-75% of the frame, relaxed top margin. "
         "Background: clean uniform white. "
         "Clothing: tidy business top, solid neutral color."
     ),
@@ -1166,99 +1026,8 @@ for _key, _text in SOCIAL_STYLES.items():
 
 
 # ---------------------------------------------------------------------------
-# Prompt builders — Change -> Preserve -> Quality order
-# Uses StyleSpec for structured, gender-aware prompt construction.
+# Prompt builders — compact 800–1200 char photorealistic template
 # ---------------------------------------------------------------------------
-
-def _conditional_preserve(input_hints: dict | None) -> list[str]:
-    """Return additional PRESERVE-section anchors based on input quality hints."""
-    if not input_hints:
-        return []
-    extra: list[str] = []
-    try:
-        face_ratio = float(input_hints.get("face_area_ratio", 0) or 0)
-    except (TypeError, ValueError):
-        face_ratio = 0.0
-    try:
-        hair_bg = float(input_hints.get("hair_bg_contrast", 1) or 1)
-    except (TypeError, ValueError):
-        hair_bg = 1.0
-    try:
-        yaw = abs(float(input_hints.get("yaw", 0) or 0))
-    except (TypeError, ValueError):
-        yaw = 0.0
-
-    if 0.0 < face_ratio < 0.15:
-        extra.append(SMALL_FACE_PROTECTION)
-    if 0.0 <= hair_bg < 0.10:
-        extra.append(HAIR_BG_STRONG)
-    if yaw > 20.0:
-        extra.append(NON_FRONTAL_HINT)
-    return extra
-
-
-def _build_mode_prompt(
-    mode: str,
-    style: str,
-    gender: str,
-    change_instruction: str,
-    input_hints: dict | None = None,
-) -> str:
-    """Shared builder logic for all modes using the typed StyleSpec registry.
-
-    Prompt follows a sectioned [CHANGE] / [PRESERVE] / [QUALITY] layout that
-    edit-tuned models parse more reliably than a single run-on paragraph.
-    """
-    spec = STYLE_REGISTRY.get_or_default(mode, style)
-    clothing = spec.clothing_for(gender)
-    bg = spec.background
-
-    change_block = (
-        f"{change_instruction} "
-        f"Background: {bg}. Clothing: {clothing}. "
-        f"{spec.expression}".strip()
-    )
-
-    style_key_norm = (style or "").strip()
-    composition = (
-        DOC_COMPOSITION_ANCHOR
-        if mode == "cv" and style_key_norm in _DOCUMENT_STYLE_KEYS
-        else COMPOSITION_ANCHOR
-    )
-    preserve_parts = [
-        IDENTITY_FIRST, HAIR_ANCHOR, FACE_ANCHOR, NATURAL_MOUTH,
-        BODY_ANCHOR, HANDS_ANCHOR, composition,
-    ]
-    if (mode, style_key_norm) in _LOW_KEY_STYLES:
-        preserve_parts.append(LOW_KEY_SHARPNESS)
-    if (mode, style_key_norm) in _SPORT_STYLES:
-        preserve_parts.append(SPORT_DEEP_FOCUS)
-        preserve_parts.append(HANDS_COMPLEX_POSE)
-    if (mode, style_key_norm) in _DISTANT_SOFTNESS_STYLES:
-        preserve_parts.append(DISTANT_ATMOSPHERE_OK)
-    preserve_parts.extend(_conditional_preserve(input_hints))
-    preserve_block = " ".join(preserve_parts)
-
-    quality_block = (
-        f"{SKIN_FIX} {CAMERA} {REALISM} {spec.depth_of_field_prompt()}."
-    )
-
-    return (
-        f"[CHANGE] {change_block}\n\n"
-        f"[PRESERVE] {preserve_block}\n\n"
-        f"[QUALITY] {quality_block}"
-    )
-
-
-def build_dating_prompt(
-    style: str = "", gender: str = "male", input_hints: dict | None = None,
-) -> str:
-    return _build_mode_prompt(
-        "dating", style, gender,
-        "Change ONLY background and clothing. Keep the person's face, pose, and body identical.",
-        input_hints=input_hints,
-    )
-
 
 _DOCUMENT_STYLE_KEYS = frozenset({
     "photo_3x4",
@@ -1279,25 +1048,101 @@ def is_document_style(style: str) -> bool:
     return (style or "").strip() in _DOCUMENT_STYLE_KEYS
 
 
+_DOC_COMPOSITION_HINT: dict[str, str] = {
+    "photo_3x4": "3:4 portrait framing, face fills 70-80% of the frame, small margin above the head.",
+    "passport_rf": "7:9 portrait framing, frontal pose, face fills 70-80% of the frame.",
+    "visa_eu": "7:9 portrait framing, face centered, 70-80% of the frame.",
+    "visa_schengen": "7:9 portrait framing, face centered, 70-80% of the frame.",
+    "visa_us": "1:1 square framing, face centered, 50-70% of the frame.",
+    "photo_4x6": "2:3 portrait framing, face fills 60-75% of the frame.",
+    "driver_license": "3:4 portrait framing, face centered.",
+    "doc_passport_neutral": "Centered head-and-shoulders, shoulders square to camera.",
+    "doc_visa_compliant": "Centered head-and-shoulders, shoulders square to camera.",
+    "doc_resume_headshot": "Head-and-shoulders business portrait framing.",
+}
+
+
+def _truncate(prompt: str) -> str:
+    """Enforce the PROMPT_MAX_LEN budget in production."""
+    if len(prompt) <= PROMPT_MAX_LEN:
+        return prompt
+    logger.warning(
+        "prompt exceeded budget (%d > %d), truncating",
+        len(prompt), PROMPT_MAX_LEN,
+    )
+    return prompt[:PROMPT_MAX_LEN].rstrip()
+
+
+def _build_mode_prompt(
+    mode: str,
+    style: str,
+    gender: str,
+    change_instruction: str,
+    input_hints: dict | None = None,  # noqa: ARG001 — kept for backward compat
+) -> str:
+    """Assemble a compact photorealistic paragraph.
+
+    Layout: change line → Background/Clothing → expression → PRESERVE → QUALITY.
+    No section tags, no redundant anchors, no conditional DoF — one natural
+    paragraph that Reve parses cleanly and stays well under 1200 chars.
+    """
+    style_key_norm = (style or "").strip()
+    is_doc = mode == "cv" and style_key_norm in _DOCUMENT_STYLE_KEYS
+
+    spec = STYLE_REGISTRY.get_or_default(mode, style)
+    clothing = spec.clothing_for(gender)
+    bg = spec.background
+
+    parts: list[str] = [change_instruction]
+    if bg:
+        parts.append(f"Background: {bg}.")
+    if clothing:
+        parts.append(f"Clothing: {clothing}.")
+    if spec.expression:
+        parts.append(spec.expression)
+
+    if is_doc:
+        composition = _DOC_COMPOSITION_HINT.get(
+            style_key_norm,
+            "Centered head-and-shoulders framing.",
+        )
+        parts.append(f"Composition: {composition}")
+        parts.append(DOC_PRESERVE)
+        parts.append(DOC_QUALITY)
+    else:
+        parts.append(PRESERVE_PHOTO)
+        parts.append(QUALITY_PHOTO)
+
+    prompt = " ".join(p.strip() for p in parts if p and p.strip())
+    return _truncate(prompt)
+
+
+def build_dating_prompt(
+    style: str = "", gender: str = "male", input_hints: dict | None = None,
+) -> str:
+    return _build_mode_prompt(
+        "dating", style, gender,
+        "Change only the background and clothing. Keep the person's face, pose and body identical to the reference.",
+        input_hints=input_hints,
+    )
+
+
 def build_cv_prompt(
     style: str = "", gender: str = "male", input_hints: dict | None = None,
 ) -> str:
     style_key = (style or "").strip()
     if style_key in _DOCUMENT_STYLE_KEYS:
         change_instruction = (
-            "Style: professional ID-style headshot. "
             "Replace only the background with a clean uniform neutral backdrop "
-            "(white or very light grey, no shadows, no gradient). "
-            "Replace clothing with a simple neutral top (solid white or light-grey shirt/blouse), "
-            "no patterns, no accessories, no headwear; keep glasses only if already worn. "
-            "Keep the person's face, hair, skin tone and body proportions the same as in the reference. "
-            "Keep the head centered, shoulders straight, looking at the camera. "
-            "Do not add makeup, do not smooth the skin, and do not change the expression beyond the style notes."
+            "and replace clothing with a simple neutral top; no patterns, no "
+            "accessories, no headwear. Keep the same face, hair, skin tone and "
+            "body proportions as the reference, head centered and shoulders "
+            "straight, eyes open looking at the camera, mouth relaxed and closed."
         )
     else:
         change_instruction = (
-            "Change ONLY background and clothing to professional attire. "
-            "Keep the person's face, pose, and body identical."
+            "Change only the background and clothing to professional attire. "
+            "Keep the person's face, pose and body identical to the reference."
         )
     return _build_mode_prompt("cv", style_key, gender, change_instruction, input_hints=input_hints)
 
@@ -1307,54 +1152,27 @@ def build_social_prompt(
 ) -> str:
     return _build_mode_prompt(
         "social", style, gender,
-        "Change ONLY background and clothing. Keep the person's face, pose, and body identical.",
+        "Change only the background and clothing. Keep the person's face, pose and body identical to the reference.",
         input_hints=input_hints,
     )
 
 
 # ---------------------------------------------------------------------------
-# Multi-pass step templates — same Change -> Preserve -> Quality order
+# Multi-pass step templates — compact single-paragraph variants
 # ---------------------------------------------------------------------------
 
+_STEP_CHANGE: dict[str, str] = {
+    "background_edit": "Change only the background: {description}. Keep the person, clothing, pose and body proportions identical to the reference.",
+    "clothing_edit": "Change only the clothing: {description}. Keep face, background, pose and body proportions identical to the reference.",
+    "lighting_adjust": "Improve only the lighting and color grading: {description}. Keep everything else identical to the reference.",
+    "expression_hint": "Subtle expression adjustment: {description}. Keep face shape, features and the original mouth identical to the reference.",
+    "skin_correction": "Minor skin tone correction and blemish removal only. Keep all facial features identical to the reference.",
+    "style_overall": "Apply overall style enhancement: {description}. Keep body proportions and pose identical to the reference.",
+}
+
 STEP_TEMPLATES: dict[str, str] = {
-    "background_edit": (
-        f"{IDENTITY_FIRST} "
-        "Change ONLY the background: {description}. "
-        f"{HAIR_ANCHOR} "
-        "Keep the person, clothing, pose, and body proportions identical. "
-        f"{BODY_ANCHOR} {HANDS_ANCHOR} {FACE_ANCHOR} {COMPOSITION_ANCHOR} {CAMERA} {REALISM}"
-    ),
-    "clothing_edit": (
-        f"{IDENTITY_FIRST} "
-        "Change ONLY the clothing: {description}. "
-        f"{HAIR_ANCHOR} "
-        "Keep face, background, pose, and body proportions identical. "
-        f"{BODY_ANCHOR} {HANDS_ANCHOR} {FACE_ANCHOR} {COMPOSITION_ANCHOR} {CAMERA} {REALISM}"
-    ),
-    "lighting_adjust": (
-        f"{IDENTITY_FIRST} "
-        "Improve ONLY lighting and color grading: {description}. "
-        "Warm flattering light, natural studio quality, even skin tones. "
-        f"{HAIR_ANCHOR} {BODY_ANCHOR} {HANDS_ANCHOR} {FACE_ANCHOR} {COMPOSITION_ANCHOR} {CAMERA} {REALISM}"
-    ),
-    "expression_hint": (
-        f"{IDENTITY_FIRST} "
-        "Subtle expression adjustment: {description}. "
-        "Keep face shape, features, and original mouth identical. "
-        f"{HAIR_ANCHOR} {BODY_ANCHOR} {HANDS_ANCHOR} {FACE_ANCHOR} {COMPOSITION_ANCHOR} {CAMERA} {REALISM}"
-    ),
-    "skin_correction": (
-        f"{IDENTITY_FIRST} "
-        "Minor skin tone correction and blemish removal. "
-        "Keep all facial features identical. "
-        f"{HAIR_ANCHOR} {BODY_ANCHOR} {HANDS_ANCHOR} {SKIN_FIX} {FACE_ANCHOR} {COMPOSITION_ANCHOR} {CAMERA} {REALISM}"
-    ),
-    "style_overall": (
-        f"{IDENTITY_FIRST} "
-        "Apply overall style enhancement: {description}. "
-        "Cohesive style, crisp detail. Keep body proportions and pose identical. "
-        f"{HAIR_ANCHOR} {BODY_ANCHOR} {HANDS_ANCHOR} {FACE_ANCHOR} {COMPOSITION_ANCHOR} {CAMERA} {REALISM}"
-    ),
+    key: f"{change} {PRESERVE_PHOTO} {QUALITY_PHOTO}"
+    for key, change in _STEP_CHANGE.items()
 }
 
 

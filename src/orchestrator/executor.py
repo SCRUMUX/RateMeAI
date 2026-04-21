@@ -18,19 +18,17 @@ from src.orchestrator.model_router import ModelRouter
 from src.orchestrator.planner import PipelinePlan
 from src.prompts.engine import PromptEngine
 from src.providers.base import ImageGenProvider, StorageProvider
-from src.services.postprocess import inject_exif_only
+from src.services.postprocess import (
+    crop_to_aspect,
+    inject_exif_only,
+    upscale_lanczos,
+)
 # TODO: A/B framework — uncomment when experiments are registered via register_experiment()
 # from src.services.prompt_ab import get_active_experiments, assign_variant, record_result
 
-_LEVEL_TO_TTS: dict[int, int] = {
-    1: 3,
-    2: 4,
-    3: 4,
-    4: 5,
-}
-
-# Строго заданные пропорции для CV-стилей «Фото на документы».
-# Для остальных стилей — "auto" (Reve сам подбирает под reference_image).
+# Target aspect ratio for CV document styles. Applied *locally* after
+# generation via PIL (see src.services.postprocess.crop_to_aspect) —
+# Reve's /v1/image/edit endpoint does not accept aspect_ratio.
 _CV_DOCUMENT_ASPECT: dict[str, str] = {
     "photo_3x4": "3:4",        # 30×40 мм
     "passport_rf": "3:4",      # 35×45 мм ≈ 3:4
@@ -42,8 +40,44 @@ _CV_DOCUMENT_ASPECT: dict[str, str] = {
 }
 
 
-def _cv_style_aspect_ratio(style: str) -> str:
-    return _CV_DOCUMENT_ASPECT.get((style or "").strip(), "auto")
+def _document_target_aspect(style: str) -> str | None:
+    """Return the local-crop target AR for a CV document style, else None."""
+    return _CV_DOCUMENT_ASPECT.get((style or "").strip())
+
+
+# Face-area threshold above which we locally LANCZOS-upscale the
+# generated image x2 (bigger faces benefit from extra detail; smaller
+# faces just amplify upscaling artefacts).
+_UPSCALE_FACE_THRESHOLD = 0.15
+
+
+def _apply_local_postprocess(
+    raw: bytes, mode: AnalysisMode, style: str, face_area_ratio: float,
+) -> bytes:
+    """Apply local PIL post-processing (AR crop for documents, LANCZOS x2 for large faces).
+
+    This replaces the previous Reve ``postprocessing=[{upscale}]`` and
+    ``aspect_ratio`` fields that the Reve REST API does not accept.
+    Silent-safe: any PIL failure returns the original bytes.
+    """
+    if not raw or len(raw) <= 100:
+        return raw
+
+    if mode == AnalysisMode.CV:
+        target_ar = _document_target_aspect(style)
+        if target_ar:
+            try:
+                raw = crop_to_aspect(raw, target_ar)
+            except Exception:
+                logger.debug("crop_to_aspect failed, using original", exc_info=True)
+
+    if face_area_ratio and face_area_ratio >= _UPSCALE_FACE_THRESHOLD:
+        try:
+            raw = upscale_lanczos(raw, factor=2)
+        except Exception:
+            logger.debug("upscale_lanczos failed, using original", exc_info=True)
+
+    return raw
 
 logger = logging.getLogger(__name__)
 
@@ -228,6 +262,16 @@ class ImageGenerationExecutor:
 
                 # await self._record_ab_metrics(task_id, quality_report)
 
+                try:
+                    mp_face_area_ratio = (
+                        float(getattr(input_quality, "face_area_ratio", 0.0) or 0.0)
+                        if input_quality is not None else 0.0
+                    )
+                except (TypeError, ValueError):
+                    mp_face_area_ratio = 0.0
+                current_image = _apply_local_postprocess(
+                    current_image, mode, style or "", mp_face_area_ratio,
+                )
                 current_image = inject_exif_only(current_image)
 
                 gkey = f"generated/{user_id}/{task_id}.jpg"
@@ -308,30 +352,12 @@ class ImageGenerationExecutor:
                 "reason": f"tier={model_spec.quality_tier}, cost=${model_spec.cost_per_call:.3f}, budget_left=${budget:.3f}",
             })
 
-            tts = _LEVEL_TO_TTS.get(enhancement_level, settings.reve_test_time_scaling)
-            params: dict = {
-                "aspect_ratio": "auto",
-                "test_time_scaling": tts,
-                "use_edit": True,
-                "postprocessing": [{"process": "upscale", "upscale_factor": 2}],
-            }
+            # Reve REST rejects aspect_ratio / test_time_scaling /
+            # postprocessing / mask_* on /v1/image/edit; only use_edit is
+            # kept as an internal endpoint selector inside reve_provider
+            # (stripped from the wire body by the whitelist builder).
+            params: dict = {"use_edit": True}
             params.update(extra_params)
-            if step.region != "full":
-                params["mask_region"] = step.region
-                if settings.segmentation_enabled and self._get_segmentation:
-                    try:
-                        seg_svc = self._get_segmentation()
-                        if seg_svc:
-                            masks = await seg_svc.segment(current_image)
-                            region_mask = masks.get(step.region)
-                            if region_mask is not None:
-                                import io as _io
-                                mask_buf = _io.BytesIO()
-                                region_mask.save(mask_buf, format="PNG")
-                                params["mask_image"] = mask_buf.getvalue()
-                                step_entry["mask_provided"] = True
-                    except Exception:
-                        logger.debug("Segmentation mask failed for step %s, using text hint", step.step)
 
             raw = await model_spec.provider.generate(
                 prompt, reference_image=current_image, params=dict(params),
@@ -381,79 +407,36 @@ class ImageGenerationExecutor:
                 if input_quality is not None else 0.0
             )
 
-            extra: dict = {}
-            if mode in (AnalysisMode.CV, AnalysisMode.DATING, AnalysisMode.SOCIAL):
-                aspect_ratio = "auto"
-                if mode == AnalysisMode.CV:
-                    aspect_ratio = _cv_style_aspect_ratio(style)
-                extra = {
-                    "aspect_ratio": aspect_ratio,
-                    "test_time_scaling": settings.reve_test_time_scaling,
-                    "use_edit": True,
-                    # Textual-level protection: reve_provider translates this
-                    # into a "Change ONLY the background, keep the person
-                    # untouched." prefix on the edit instruction. Works with
-                    # or without a real mask_image (SDK 0.1.2 does not accept
-                    # one). Kept unconditional for CV/DATING/SOCIAL because
-                    # the background is always the legitimate edit target.
-                    "mask_region": "background",
-                }
-                # Upscale only when the face is large enough for the model to
-                # have enough detail to work with. Tiny faces get amplified
-                # artefacts, which is the opposite of "natural".
-                if face_area_ratio >= 0.15:
-                    extra["postprocessing"] = [
-                        {"process": "upscale", "upscale_factor": 2},
-                    ]
-
-            # Single-pass background mask: when Reve SDK gains `mask_image`
-            # support, flip settings.segmentation_enabled back to True and
-            # this block will supply a real mediapipe mask. Until then it
-            # is a no-op (flag is off in config), and background protection
-            # is realised purely through the textual mask_region hint above.
-            if (
-                mode in (AnalysisMode.CV, AnalysisMode.DATING, AnalysisMode.SOCIAL)
-                and settings.segmentation_enabled
-                and self._get_segmentation
-            ):
-                try:
-                    seg_svc = self._get_segmentation()
-                    if seg_svc:
-                        with _trace_step(trace, "segmentation") as seg_entry:
-                            masks = await seg_svc.segment(image_bytes)
-                        bg_mask = masks.get("background")
-                        if bg_mask is not None:
-                            import io as _io
-                            mask_buf = _io.BytesIO()
-                            bg_mask.save(mask_buf, format="PNG")
-                            extra["mask_image"] = mask_buf.getvalue()
-                            extra["mask_region"] = "background"
-                            seg_entry["mask_provided"] = True
-                except Exception:
-                    logger.debug(
-                        "Single-pass segmentation failed for task=%s — proceeding without mask",
-                        task_id, exc_info=True,
-                    )
+            # Reve REST /v1/image/edit accepts only
+            # {edit_instruction, reference_image, version}. All prior
+            # "richer" fields (aspect_ratio, test_time_scaling,
+            # postprocessing, mask_image, mask_region) triggered
+            # INVALID_PARAMETER_VALUE. AR for document photos and the
+            # x2 upscale are applied locally after generate() — see
+            # _apply_local_postprocess. `use_edit` is an internal flag
+            # only: the reve_provider uses it to pick the edit vs remix
+            # endpoint and never puts it on the wire.
+            extra: dict = {"use_edit": True}
 
             raw = None
             identity_match: float = 0.0
 
-            if extra.get("mask_image"):
-                mask_label = "bg_pixel"
-            elif extra.get("mask_region"):
-                mask_label = f"text_hint:{extra['mask_region']}"
-            else:
-                mask_label = "none"
+            will_upscale = bool(
+                mode in (AnalysisMode.CV, AnalysisMode.DATING, AnalysisMode.SOCIAL)
+                and face_area_ratio >= _UPSCALE_FACE_THRESHOLD
+            )
+            doc_ar = _document_target_aspect(style) if mode == AnalysisMode.CV else None
             logger.info(
-                "Image generation (edit mode) mode=%s style=%s task=%s mask=%s upscale=%s",
+                "Image generation (edit mode) mode=%s style=%s task=%s local_upscale=%s local_crop_ar=%s",
                 mode.value, style or "default", task_id,
-                mask_label,
-                "x2" if any(
-                    p.get("process") == "upscale" for p in extra.get("postprocessing", [])
-                ) else "no",
+                "x2" if will_upscale else "no",
+                doc_ar or "none",
             )
             with _trace_step(trace, "image_gen"):
                 raw = await self._image_gen.generate(prompt, reference_image=image_bytes, params=extra or None)
+
+            if raw and len(raw) > 100:
+                raw = _apply_local_postprocess(raw, mode, style, face_area_ratio)
             provider_name = type(self._image_gen).__name__
             REVE_CALLS.labels(
                 mode=mode.value,
