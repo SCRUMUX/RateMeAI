@@ -74,9 +74,21 @@ def test_stash_expired(msg):
     "[stage=analyze] HTTPStatusError: gateway http=502 host=openrouter.ai",
 ])
 def test_transient_overload_variants(msg):
+    """Recovery-mode contract: non-auth 4xx/5xx no longer collapse into the
+    single "AI overloaded" fallback — the raw diagnostic tail is surfaced
+    so ops see the real provider marker (http=/rate limit/timeout) in the
+    UI without opening the DB. The old "перегружен / через минуту" text is
+    retained only as a last-resort when the tail is empty.
+
+    Keep in sync with web/src/lib/task-error.ts::userMessageForFailed.
+    """
     out = _user_message_for_failed(msg)
-    assert "перегруж" in out.lower() or "через минуту" in out.lower()
+    out_l = out.lower()
     assert out != _GENERIC_FAILED_MESSAGE
+    assert "не удалось сгенерировать фото" in out_l
+    tail = msg.split(": ", 1)[1].lower()
+    marker = tail.split()[0] if tail else ""
+    assert marker and marker in out_l
 
 
 @pytest.mark.parametrize("msg", [

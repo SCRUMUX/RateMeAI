@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import io
 import logging
-import re
 
 from aiogram import Router, F
 from aiogram.types import CallbackQuery
@@ -56,206 +55,25 @@ _POLL_SLEEP_FALLBACK = 3.0
 
 
 _GENERIC_FAILED_MESSAGE = (
-    "\u274c Не удалось обработать фото. Попробуй загрузить другое фото."
+    "\u274c Не удалось обработать фото. Попробуй ещё раз."
 )
 
 
-_RE_STAGE_PREFIX = re.compile(r"^\[stage=[^\]]+\]\s*", re.IGNORECASE)
-_RE_HAS_CYRILLIC = re.compile(r"[А-ЯЁа-яё]")
+def _user_message_for_failed(error_message: str | None) -> str:
+    """Pass the raw worker ``error_message`` through to the user.
 
-
-def _extract_human_tail(error_message: str) -> str:
-    """Return the human-readable tail of a structured worker error_message.
-
-    Worker writes ``[stage=<stage>] <ExcType>: <human message>``; for
-    unknown patterns we still want to surface ``<human message>`` to the
-    user instead of ``_GENERIC_FAILED_MESSAGE``.
-    """
-    without_stage = _RE_STAGE_PREFIX.sub("", error_message, count=1)
-    idx = without_stage.find(": ")
-    tail = without_stage[idx + 2:] if idx >= 0 else without_stage
-    return tail.strip()
-
-
-def _looks_human_readable(text: str) -> bool:
-    if not text or len(text) < 6:
-        return False
-    return bool(_RE_HAS_CYRILLIC.search(text))
-
-
-def _user_message_for_failed(error_message: str) -> str:
-    """Map a structured task.error_message to a user-friendly Russian hint.
-
-    The worker writes ``[stage=<stage>] <ExcType>: <message>`` into
-    ``error_message`` (see _format_task_error). We pattern-match on stage,
-    exception type and substrings to give the user an actionable reason
-    instead of a single generic message that leads to support tickets.
-    Stages & markers intentionally checked case-insensitively.
-
-    Keep in sync with ``web/src/lib/task-error.ts::userMessageForFailed``.
+    The sanitiser was intentionally removed — during pipeline recovery we
+    need the real backend tail (``[stage=...] ExcType: ... http=... code=...
+    req=rsid-...``) visible in both UI and chat so ops can diagnose at a
+    glance without opening the DB / Railway logs. The fallback is used only
+    when the worker wrote nothing at all.
     """
     if not error_message:
         return _GENERIC_FAILED_MESSAGE
-
-    em = error_message.lower()
-
-    # --- Input-quality / preprocess blockers -------------------------------
-
-    if (
-        "multiple_faces" in em
-        or "несколько человек" in em
-        or "несколько лиц" in em
-    ):
-        return (
-            "\u274c На фото несколько человек. Загрузи портрет одного "
-            "человека — без посторонних в кадре."
-        )
-
-    if (
-        "no_face" in em
-        or "не обнаружено лицо" in em
-        or "лицо не обнаружено" in em
-        or "не нашлось" in em
-        or "face_too_small" in em
-        or "blurry_photo" in em
-        or "face_blurred" in em
-        or "low_resolution" in em
-        or "лицо слишком мал" in em
-        or "лицо слишком мелк" in em
-        or "низкое разреш" in em
-        or "слишком размыт" in em
-        or "размыт" in em
-    ):
-        return (
-            "\u274c На фото не нашлось чёткого лица. Попробуй фронтальный "
-            "портрет крупным планом, в хорошем свете, без сильного размытия."
-        )
-
-    if (
-        "invalid_image" in em
-        or "invalid image file" in em
-        or "unsupported format" in em
-        or "image too small" in em
-        or "не удалось открыть изображение" in em
-        or "неподдерживаемый формат" in em
-    ):
-        return (
-            "\u274c Не удалось открыть изображение. Загрузи фото в формате "
-            "JPG или PNG, не меньше 400×400 пикселей и до 10 МБ."
-        )
-
-    # --- Privacy / stash lifecycle -----------------------------------------
-
-    if (
-        "task input stash" in em
-        or "stash expired" in em
-        or "must be re-submitted" in em
-        or "privacy retention policy" in em
-    ):
-        return (
-            "\u23f3 Время на обработку фото истекло. Загрузи фото ещё раз "
-            "и запусти генерацию — кредит возвращён."
-        )
-
-    # --- Provider auth / billing (non-transient) ---------------------------
-    # Worker now surfaces "http=<code>" after unwrapping RetryError. Codes
-    # 401/402/403/404 from the LLM/image-gen provider are permanent on our
-    # side (bad key, out of credits, disabled model) — route them to a
-    # dedicated ops-flavored message rather than to the overload bucket.
-
-    if (
-        "http=401" in em
-        or "http=402" in em
-        or "http=403" in em
-        or "http=404" in em
-        or "insufficient_credits" in em
-        or "unauthorized" in em
-        or "invalid api key" in em
-        or "invalid partner api" in em
-        or "bearer token" in em
-        or "partner_api_token_invalid" in em
-    ):
-        return (
-            "\u26a0\ufe0f Сервис AI временно недоступен из-за проблемы с "
-            "подключением к модели. Мы уже чиним — кредит возвращён, "
-            "попробуй позже."
-        )
-
-    # --- Content policy / moderation ---------------------------------------
-    # Checked BEFORE the generic 4xx diagnostic branch so a 400 with a
-    # moderation body still yields the friendly message.
-
-    if (
-        "content policy" in em
-        or "moderation" in em
-        or "nsfw" in em
-        or "модерац" in em
-        or "запрещ" in em
-    ):
-        return (
-            "\u274c Фото не прошло проверку безопасности. Загрузи другое фото."
-        )
-
-    # --- AI transfer forbidden (consent or policy) -------------------------
-
-    if "aitransferforbidden" in em or "ai_transfer" in em:
-        return (
-            "\u274c Для обработки нужны все согласия. Открой /consent и "
-            "подтверди обработку данных, передачу в AI и возраст 16+."
-        )
-
-    if "no_pipeline_context" in em:
-        return (
-            "\u26a0\ufe0f Произошла внутренняя ошибка. Мы уже разбираемся — "
-            "попробуй ещё раз через пару минут."
-        )
-
-    # --- Provider / network issues: surface raw diagnostic tail ------------
-    # Recovery mode: the previous behaviour collapsed every 4xx/5xx into a
-    # single "AI overloaded" string, which hid root causes like
-    # INVALID_PARAMETER_VALUE from Reve. Until the generation pipeline is
-    # stabilised, show the backend tail with ``http=/code=/req=`` markers.
-
-    has_http_marker = bool(re.search(r"http=\d{3}\b", em))
-    has_loose_status_marker = bool(
-        re.search(r"(\s|[\]:])(408|425|429|500|502|503|504)\b", em)
-    )
-    has_timeout_marker = (
-        "readtimeout" in em
-        or "writetimeout" in em
-        or "pooltimeout" in em
-        or "connecttimeout" in em
-        or "connectionerror" in em
-        or "timeouterror" in em
-        or "timeout" in em
-        or "rate limit" in em
-        or "temporarily" in em
-    )
-
-    if has_http_marker or has_loose_status_marker or has_timeout_marker:
-        diag_tail = _extract_human_tail(error_message).strip()
-        diag_tail = re.sub(
-            r"Traceback \(most recent call last\):.*$",
-            "",
-            diag_tail,
-            flags=re.S,
-        ).strip()
-        if diag_tail:
-            cap = (diag_tail[:237].rstrip() + "...") if len(diag_tail) > 240 else diag_tail
-            return f"\u274c Не удалось сгенерировать фото: {cap} Кредит возвращён."
-        return (
-            "\u23f3 Серверы AI сейчас перегружены. Попробуй ещё раз через "
-            "минуту — кредиты не списаны."
-        )
-
-    # --- Unknown pattern: surface the human-readable tail ------------------
-
-    tail = _extract_human_tail(error_message)
-    if _looks_human_readable(tail):
-        cap = (tail[:217].rstrip() + "...") if len(tail) > 220 else tail
-        return f"\u274c Не удалось сгенерировать фото: {cap} Кредит возвращён."
-
-    return _GENERIC_FAILED_MESSAGE
+    text = error_message.strip()
+    if len(text) > 500:
+        text = text[:497].rstrip() + "..."
+    return f"\u274c {text}"
 
 
 @router.callback_query(F.data.startswith("pick_style:"))
