@@ -247,10 +247,129 @@ export default function StepGenerate({ onGoToStep, onOpenStorage }: Props) {
   const showStartGenerateCta = !isDocPaywall && !hasGenResult && !isRunning && !genFailed && !!app.photo;
 
   return (
-    <div className="h-full flex flex-col tablet:flex-row gap-[var(--space-12)] tablet:gap-[var(--space-20)] w-full max-w-[800px] tablet:max-w-[960px] mx-auto min-h-0 overflow-y-auto tablet:overflow-visible tablet:items-stretch">
-      {/* Left column — image card only */}
-      <div className="shrink-0 flex justify-center tablet:w-[300px]">
-        <div className="gradient-border-card glass-card flex flex-col w-full max-w-[300px] tablet:max-w-none rounded-[var(--radius-12)] overflow-hidden">
+    <div className="h-full flex flex-col gap-[var(--space-8)] w-full max-w-[800px] mx-auto min-h-0 overflow-y-auto tablet:overflow-hidden">
+      <div className="shrink-0 flex flex-col items-center gap-[2px] text-center">
+        <h2 className="text-[18px] tablet:text-[24px] leading-[1.2] font-semibold text-[#E6EEF8]">
+          {hasGenResult ? 'Результат готов' : isRunning ? 'Генерация...' : genFailed ? 'Ошибка генерации' : 'Генерация'}
+        </h2>
+        <p className="text-[12px] tablet:text-[13px] leading-[16px] tablet:leading-[18px] text-[var(--color-text-secondary)] max-w-[440px]">
+          {hasGenResult
+            ? 'Сравните с исходным и сохраните лучший вариант.'
+            : genFailed
+              ? 'Попробуйте запустить ещё раз — фото и настройки сохранены.'
+              : isRunning
+                ? 'Обычно занимает 2–3 минуты. Можно свернуть вкладку — результат дождётся.'
+                : 'Генерация занимает 2–3 минуты. Запустите, когда будете готовы.'}
+        </p>
+      </div>
+
+      {/* Selection summary: direction + style (clickable → jump to corresponding step) */}
+      {showSelectionSummary && selectedStyle && (
+        <div className="shrink-0 flex flex-col items-center gap-[var(--space-4)]">
+          <span className="text-[12px] leading-[16px] text-[var(--color-text-muted)]">Вы выбрали</span>
+          <div className="flex flex-wrap items-center justify-center gap-x-[var(--space-8)] gap-y-[var(--space-4)] text-[13px] leading-[18px]">
+            {directionLabel && (
+              <button
+                type="button"
+                onClick={() => onGoToStep('analysis')}
+                className="glass-btn-ghost px-[var(--space-12)] py-[var(--space-4)] rounded-[var(--radius-pill)] text-[#E6EEF8] inline-flex items-center gap-[var(--space-6)]"
+              >
+                <span className="text-[var(--color-text-muted)]">Направление:</span>
+                <span className="font-medium">«{directionLabel}»</span>
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => onGoToStep('style')}
+              className="glass-btn-ghost px-[var(--space-12)] py-[var(--space-4)] rounded-[var(--radius-pill)] text-[#E6EEF8] inline-flex items-center gap-[var(--space-6)]"
+            >
+              <span className="text-[var(--color-text-muted)]">Стиль:</span>
+              <span className="font-medium">«{selectedStyle.name}»</span>
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Tab toggle (visible only when result is ready) */}
+      {hasGenResult && (
+        <div className="shrink-0 flex items-center justify-center">
+          <div className="inline-flex rounded-[var(--radius-pill)] glass-card p-1 gap-1">
+            <button
+              onClick={() => setViewTab('result')}
+              className={`px-[var(--space-16)] py-[var(--space-4)] rounded-[var(--radius-pill)] text-[13px] leading-[18px] font-medium transition-all ${
+                viewTab === 'result'
+                  ? 'glass-btn-primary text-white'
+                  : 'text-[var(--color-text-secondary)] hover:text-[#E6EEF8]'
+              }`}
+            >
+              Результат
+            </button>
+            <button
+              onClick={() => setViewTab('original')}
+              className={`px-[var(--space-16)] py-[var(--space-4)] rounded-[var(--radius-pill)] text-[13px] leading-[18px] font-medium transition-all ${
+                viewTab === 'original'
+                  ? 'glass-btn-primary text-white'
+                  : 'text-[var(--color-text-secondary)] hover:text-[#E6EEF8]'
+              }`}
+            >
+              Исходное
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Slot above the photo: streaming while running, download CTAs when result is ready.
+          Fixed min-height keeps the card from jumping between states. */}
+      <div className="shrink-0 flex items-center justify-center px-[var(--space-16)] min-h-[56px] max-w-[520px] mx-auto">
+        {isRunning && (
+          <div className="flex items-start gap-[var(--space-8)]">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" className="shrink-0 mt-[2px]">
+              <path d="M12 2a7 7 0 0 1 7 7c0 2.38-1.19 4.47-3 5.74V17a1 1 0 0 1-1 1H9a1 1 0 0 1-1-1v-2.26C6.19 13.47 5 11.38 5 9a7 7 0 0 1 7-7z" stroke="rgb(var(--accent-r),var(--accent-g),var(--accent-b))" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+              <path d="M9 21h6M10 17v1a2 2 0 0 0 4 0v-1" stroke="rgb(var(--accent-r),var(--accent-g),var(--accent-b))" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+            <p className="text-[12px] tablet:text-[14px] leading-[16px] tablet:leading-[20px] text-[#E6EEF8] text-left">
+              {streamedFact}
+              <span className="inline-block w-[2px] h-[12px] bg-[var(--color-brand-primary)] ml-[2px] align-middle animate-pulse" />
+            </p>
+          </div>
+        )}
+        {!isRunning && hasGenResult && app.generatedImageUrl && (
+          <div className="flex flex-wrap items-center justify-center gap-[var(--space-6)]">
+            <a
+              href={app.generatedImageUrl}
+              download={isDocPaywall ? 'document-photo.jpg' : 'ai-look-photo.jpg'}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="glass-btn-primary px-[var(--space-20)] py-[var(--space-6)] text-[13px] leading-[18px] rounded-[var(--radius-pill)] font-medium no-underline inline-flex items-center gap-[var(--space-6)]"
+            >
+              <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M8 2v8m0 0L5 7m3 3l3-3M3 12h10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+              Скачать фото
+            </a>
+            <button
+              onClick={handleShowShare}
+              disabled={shareLoading}
+              className="glass-btn-ghost px-[var(--space-20)] py-[var(--space-6)] text-[13px] leading-[18px] rounded-[var(--radius-pill)] font-medium disabled:opacity-40 inline-flex items-center gap-[var(--space-6)]"
+            >
+              <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                <path d="M12 5a2 2 0 1 0-1.9-1.4L5.9 6.1a2 2 0 1 0 0 3.8l4.2 2.5A2 2 0 1 0 11 11l-4.2-2.5a2 2 0 0 0 0-1L11 5c.3.3.6.4 1 .5z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+              {shareLoading ? 'Загрузка...' : 'Поделиться'}
+            </button>
+            {app.scenarioPrimaryCtaMainApp && (
+              <Link
+                to="/app"
+                className="glass-btn-ghost px-[var(--space-20)] py-[var(--space-6)] text-[13px] leading-[18px] rounded-[var(--radius-pill)] font-medium no-underline inline-flex items-center justify-center"
+              >
+                Открыть AI Look Studio
+              </Link>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Image card — fixed size so the card doesn't jump between states */}
+      <div className="shrink-0 flex justify-center">
+        <div className="gradient-border-card glass-card flex flex-col w-full tablet:max-w-[340px] rounded-[var(--radius-12)] overflow-hidden">
           <div className="aspect-[3/4] bg-[rgba(255,255,255,0.02)] overflow-hidden relative">
             {/* Original photo (when toggled) */}
             {showingOriginal && app.photo && (
@@ -360,191 +479,72 @@ export default function StepGenerate({ onGoToStep, onOpenStorage }: Props) {
         </div>
       </div>
 
-      {/* Right column — header, summary, controls, CTAs */}
-      <div className="flex-1 flex flex-col gap-[var(--space-8)] tablet:gap-[var(--space-10)] tablet:min-h-0">
-        {/* Header */}
-        <div className="shrink-0 flex flex-col items-center tablet:items-start gap-[2px] text-center tablet:text-left">
-          <h2 className="text-[18px] tablet:text-[22px] leading-[1.2] font-semibold text-[#E6EEF8]">
-            {hasGenResult ? 'Результат готов' : isRunning ? 'Генерация...' : genFailed ? 'Ошибка генерации' : 'Генерация'}
-          </h2>
-          <p className="text-[12px] tablet:text-[13px] leading-[16px] tablet:leading-[18px] text-[var(--color-text-secondary)] max-w-[440px]">
-            {hasGenResult
-              ? 'Сравните с исходным и сохраните лучший вариант.'
-              : genFailed
-                ? 'Попробуйте запустить ещё раз — фото и настройки сохранены.'
-                : isRunning
-                  ? 'Обычно занимает 2–3 минуты. Можно свернуть вкладку — результат дождётся.'
-                  : 'Генерация занимает 2–3 минуты. Запустите, когда будете готовы.'}
-          </p>
+      {/* Primary CTA — explicit "Запустить генерацию" for non-document scenarios */}
+      {showStartGenerateCta && (
+        <div className="shrink-0 flex flex-col items-center gap-[var(--space-8)]">
+          <button
+            onClick={handleGenerate}
+            disabled={app.isGenerating}
+            className="glass-btn-primary px-[var(--space-32)] py-[var(--space-12)] text-[15px] leading-[22px] rounded-[var(--radius-pill)] font-medium"
+          >
+            Запустить генерацию
+          </button>
         </div>
+      )}
 
-        {/* Selection summary: direction + style (clickable → jump to corresponding step) */}
-        {showSelectionSummary && selectedStyle && (
-          <div className="shrink-0 flex flex-col items-center tablet:items-start gap-[var(--space-4)]">
-            <span className="text-[12px] leading-[16px] text-[var(--color-text-muted)]">Вы выбрали</span>
-            <div className="flex flex-wrap items-center justify-center tablet:justify-start gap-x-[var(--space-8)] gap-y-[var(--space-4)] text-[13px] leading-[18px]">
-              {directionLabel && (
-                <button
-                  type="button"
-                  onClick={() => onGoToStep('analysis')}
-                  className="glass-btn-ghost px-[var(--space-12)] py-[var(--space-4)] rounded-[var(--radius-pill)] text-[#E6EEF8] inline-flex items-center gap-[var(--space-6)]"
-                >
-                  <span className="text-[var(--color-text-muted)]">Направление:</span>
-                  <span className="font-medium">«{directionLabel}»</span>
-                </button>
-              )}
-              <button
-                type="button"
-                onClick={() => onGoToStep('style')}
-                className="glass-btn-ghost px-[var(--space-12)] py-[var(--space-4)] rounded-[var(--radius-pill)] text-[#E6EEF8] inline-flex items-center gap-[var(--space-6)]"
-              >
-                <span className="text-[var(--color-text-muted)]">Стиль:</span>
-                <span className="font-medium">«{selectedStyle.name}»</span>
-              </button>
-            </div>
-          </div>
-        )}
+      {/* Document scenario — primary CTA (always visible; no-credit path opens a modal). */}
+      {isDocPaywall && !hasGenResult && !isRunning && !genFailed && app.isAuthenticated && !!app.photo && (
+        <div className="shrink-0 flex flex-col items-center gap-[var(--space-8)]">
+          <button
+            onClick={handleGenerate}
+            disabled={app.isGenerating}
+            className="glass-btn-primary px-[var(--space-32)] py-[var(--space-12)] text-[15px] leading-[22px] rounded-[var(--radius-pill)] font-medium"
+          >
+            Генерировать фото
+          </button>
+        </div>
+      )}
 
-        {/* Tab toggle (visible only when result is ready) */}
+      {/* CTA buttons */}
+      <div className="shrink-0 flex flex-col items-center gap-[var(--space-6)]">
         {hasGenResult && (
-          <div className="shrink-0 flex items-center justify-center tablet:justify-start">
-            <div className="inline-flex rounded-[var(--radius-pill)] glass-card p-1 gap-1">
-              <button
-                onClick={() => setViewTab('result')}
-                className={`px-[var(--space-16)] py-[var(--space-4)] rounded-[var(--radius-pill)] text-[13px] leading-[18px] font-medium transition-all ${
-                  viewTab === 'result'
-                    ? 'glass-btn-primary text-white'
-                    : 'text-[var(--color-text-secondary)] hover:text-[#E6EEF8]'
-                }`}
-              >
-                Результат
-              </button>
-              <button
-                onClick={() => setViewTab('original')}
-                className={`px-[var(--space-16)] py-[var(--space-4)] rounded-[var(--radius-pill)] text-[13px] leading-[18px] font-medium transition-all ${
-                  viewTab === 'original'
-                    ? 'glass-btn-primary text-white'
-                    : 'text-[var(--color-text-secondary)] hover:text-[#E6EEF8]'
-                }`}
-              >
-                Исходное
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* Slot: streaming fact while running, download CTAs when result is ready */}
-        <div className="shrink-0 flex items-center justify-center tablet:justify-start min-h-[44px]">
-          {isRunning && (
-            <div className="flex items-start gap-[var(--space-8)]">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" className="shrink-0 mt-[2px]">
-                <path d="M12 2a7 7 0 0 1 7 7c0 2.38-1.19 4.47-3 5.74V17a1 1 0 0 1-1 1H9a1 1 0 0 1-1-1v-2.26C6.19 13.47 5 11.38 5 9a7 7 0 0 1 7-7z" stroke="rgb(var(--accent-r),var(--accent-g),var(--accent-b))" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                <path d="M9 21h6M10 17v1a2 2 0 0 0 4 0v-1" stroke="rgb(var(--accent-r),var(--accent-g),var(--accent-b))" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-              </svg>
-              <p className="text-[12px] tablet:text-[13px] leading-[16px] tablet:leading-[18px] text-[#E6EEF8] text-left">
-                {streamedFact}
-                <span className="inline-block w-[2px] h-[12px] bg-[var(--color-brand-primary)] ml-[2px] align-middle animate-pulse" />
-              </p>
-            </div>
-          )}
-          {!isRunning && hasGenResult && app.generatedImageUrl && (
-            <div className="flex flex-wrap items-center justify-center tablet:justify-start gap-[var(--space-6)]">
-              <a
-                href={app.generatedImageUrl}
-                download={isDocPaywall ? 'document-photo.jpg' : 'ai-look-photo.jpg'}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="glass-btn-primary px-[var(--space-20)] py-[var(--space-6)] text-[13px] leading-[18px] rounded-[var(--radius-pill)] font-medium no-underline inline-flex items-center gap-[var(--space-6)]"
-              >
-                <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M8 2v8m0 0L5 7m3 3l3-3M3 12h10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
-                Скачать фото
-              </a>
-              {app.scenarioPrimaryCtaMainApp && (
-                <Link
-                  to="/app"
-                  className="glass-btn-ghost px-[var(--space-20)] py-[var(--space-6)] text-[13px] leading-[18px] rounded-[var(--radius-pill)] font-medium no-underline inline-flex items-center justify-center"
-                >
-                  Открыть AI Look Studio
-                </Link>
-              )}
-            </div>
-          )}
-        </div>
-
-        {/* Primary CTA — explicit "Запустить генерацию" for non-document scenarios */}
-        {showStartGenerateCta && (
-          <div className="shrink-0 flex flex-col items-center tablet:items-start gap-[var(--space-8)]">
+          <div className="flex flex-wrap gap-[var(--space-6)] justify-center">
             <button
-              onClick={handleGenerate}
-              disabled={app.isGenerating}
-              className="glass-btn-primary w-full tablet:w-auto px-[var(--space-32)] py-[var(--space-12)] text-[15px] leading-[22px] rounded-[var(--radius-pill)] font-medium"
+              onClick={() => {
+                app.resetGeneration();
+                setFrozenStyle(null);
+                onGoToStep('upload');
+              }}
+              className="glass-btn-ghost px-[var(--space-20)] py-[var(--space-6)] text-[13px] leading-[18px] rounded-[var(--radius-pill)] font-medium"
             >
-              Запустить генерацию
+              Другое фото
+            </button>
+            <button
+              onClick={() => {
+                app.resetGeneration();
+                setFrozenStyle(null);
+                onGoToStep('style');
+              }}
+              className="glass-btn-ghost px-[var(--space-20)] py-[var(--space-6)] text-[13px] leading-[18px] rounded-[var(--radius-pill)] font-medium"
+            >
+              {isDocPaywall ? 'Другой формат' : 'Другой стиль'}
+            </button>
+            <button
+              onClick={handleImproveGenerated}
+              className="glass-btn-ghost px-[var(--space-20)] py-[var(--space-6)] text-[13px] leading-[18px] rounded-[var(--radius-pill)] font-medium"
+            >
+              Улучшить ещё
             </button>
           </div>
         )}
-
-        {/* Document scenario — primary CTA (always visible; no-credit path opens a modal). */}
-        {isDocPaywall && !hasGenResult && !isRunning && !genFailed && app.isAuthenticated && !!app.photo && (
-          <div className="shrink-0 flex flex-col items-center tablet:items-start gap-[var(--space-8)]">
-            <button
-              onClick={handleGenerate}
-              disabled={app.isGenerating}
-              className="glass-btn-primary w-full tablet:w-auto px-[var(--space-32)] py-[var(--space-12)] text-[15px] leading-[22px] rounded-[var(--radius-pill)] font-medium"
-            >
-              Генерировать фото
-            </button>
-          </div>
+        {genFailed && !isRunning && !hasGenResult && (
+          <button
+            onClick={() => { app.clearError(); setGenFailed(false); handleGenerate(); }}
+            className="glass-btn-primary px-[var(--space-24)] py-[var(--space-10)] text-[14px] leading-[20px] rounded-[var(--radius-pill)]"
+          >
+            Повторить генерацию
+          </button>
         )}
-
-        {/* Secondary CTA row — pinned to bottom of right column on desktop */}
-        <div className="shrink-0 flex flex-col items-center tablet:items-start gap-[var(--space-6)] tablet:mt-auto">
-          {hasGenResult && (
-            <div className="flex flex-wrap gap-[var(--space-6)] justify-center tablet:justify-start">
-              <button
-                onClick={() => {
-                  app.resetGeneration();
-                  setFrozenStyle(null);
-                  onGoToStep('upload');
-                }}
-                className="glass-btn-ghost px-[var(--space-20)] py-[var(--space-6)] text-[13px] leading-[18px] rounded-[var(--radius-pill)] font-medium"
-              >
-                Другое фото
-              </button>
-              <button
-                onClick={() => {
-                  app.resetGeneration();
-                  setFrozenStyle(null);
-                  onGoToStep('style');
-                }}
-                className="glass-btn-ghost px-[var(--space-20)] py-[var(--space-6)] text-[13px] leading-[18px] rounded-[var(--radius-pill)] font-medium"
-              >
-                {isDocPaywall ? 'Другой формат' : 'Другой стиль'}
-              </button>
-              <button
-                onClick={handleImproveGenerated}
-                className="glass-btn-ghost px-[var(--space-20)] py-[var(--space-6)] text-[13px] leading-[18px] rounded-[var(--radius-pill)] font-medium"
-              >
-                Улучшить ещё
-              </button>
-              <button
-                onClick={handleShowShare}
-                disabled={shareLoading}
-                className="glass-btn-ghost px-[var(--space-20)] py-[var(--space-6)] text-[13px] leading-[18px] rounded-[var(--radius-pill)] font-medium disabled:opacity-40"
-              >
-                {shareLoading ? 'Загрузка...' : 'Поделиться'}
-              </button>
-            </div>
-          )}
-          {genFailed && !isRunning && !hasGenResult && (
-            <button
-              onClick={() => { app.clearError(); setGenFailed(false); handleGenerate(); }}
-              className="glass-btn-primary px-[var(--space-24)] py-[var(--space-10)] text-[14px] leading-[20px] rounded-[var(--radius-pill)]"
-            >
-              Повторить генерацию
-            </button>
-          )}
-        </div>
       </div>
 
       {docPaywallOpen && (

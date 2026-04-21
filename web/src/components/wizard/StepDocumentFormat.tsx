@@ -41,7 +41,7 @@ export default function StepDocumentFormat({ onNext }: Props) {
               key={fmt.key}
               type="button"
               onClick={() => handleSelect(fmt.key)}
-              className={`gradient-border-item flex items-center w-full px-[var(--space-16)] py-[var(--space-8)] gap-[var(--space-4)] min-h-[40px] cursor-pointer rounded-[var(--radius-12)] transition-all text-left ${
+              className={`gradient-border-item flex items-center w-full px-[var(--space-16)] py-[var(--space-8)] gap-[var(--space-4)] min-h-[44px] cursor-pointer rounded-[var(--radius-12)] transition-all text-left ${
                 isActive ? 'glass-row-active' : 'glass-row'
               }`}
               style={{
