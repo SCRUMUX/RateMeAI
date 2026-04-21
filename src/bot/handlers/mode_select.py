@@ -17,6 +17,7 @@ from src.bot.keyboards import (
     STYLE_CATALOG,
 )
 from src.services.enhancement_advisor import build_enhancement_preview
+from src.utils.text_sanitize import sanitize_llm_text
 
 logger = logging.getLogger(__name__)
 router = Router()
@@ -339,7 +340,7 @@ async def _call_pre_analyze(bot, api_base_url: str, user_id: int, file_id: str, 
 
 def _format_pre_analysis_message(header: str, kind: str, user_id: int, data: dict) -> str:
     """Format the pre-analysis scores + suggestions into a Telegram message."""
-    first_impression = data.get("first_impression", "")
+    first_impression = sanitize_llm_text(data.get("first_impression", ""), max_len=600)
     score = data.get("score", 0)
     ps = data.get("perception_scores", {})
 
@@ -365,14 +366,18 @@ def _format_pre_analysis_message(header: str, kind: str, user_id: int, data: dic
         lines.append("")
         lines.append("\U0001f4a1 *Рекомендации:*")
         for opp in opportunities[:3]:
-            lines.append(f"\u2022 {opp}")
+            clean_opp = sanitize_llm_text(opp, max_len=200)
+            if clean_opp:
+                lines.append(f"\u2022 {clean_opp}")
 
     preview = build_enhancement_preview(kind, user_id, depth=1, count=3)
     if preview.suggestions:
         lines.append("")
         lines.append("\U0001f680 *Как усилить:*")
         for s in preview.suggestions[:3]:
-            lines.append(f"\u2022 {s.line}")
+            clean_line = sanitize_llm_text(s.line, max_len=200)
+            if clean_line:
+                lines.append(f"\u2022 {clean_line}")
 
     lines.append("")
     lines.append("*Выбери стиль:*")

@@ -3,6 +3,7 @@ import { useSearchParams, useNavigate } from 'react-router-dom';
 import { startOAuth, setToken } from '../lib/auth';
 import * as api from '../lib/api';
 import { useApp } from '../context/AppContext';
+import { humanizeApiError } from '../lib/sanitize';
 
 export default function LinkPage() {
   const [params] = useSearchParams();
@@ -76,7 +77,7 @@ export default function LinkPage() {
         setTimeout(() => navigate('/', { replace: true }), 2000);
       }
     } catch (e) {
-      setError(e instanceof api.ApiError ? e.body : 'Неверный код.');
+      setError(humanizeApiError(e, 'Неверный код или срок его действия истёк.'));
     } finally {
       setLoading(null);
     }

@@ -5,6 +5,7 @@ import { Link } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
 import { getCurrentMarketConfig } from '../config/market';
 import { ApiError } from '../lib/api';
+import { humanizeApiError } from '../lib/sanitize';
 
 interface Props {
   open: boolean;
@@ -43,9 +44,11 @@ export default function AuthModal({ open, onClose, onOAuth, required }: Props) {
       await onOAuth(provider);
     } catch (err) {
       if (err instanceof ApiError && err.status === 503) {
-        setError('Авторизация через этот сервис временно недоступна на сервере.');
+        setError('Авторизация через этот сервис временно недоступна. Попробуйте позже.');
       } else if (err instanceof ApiError) {
-        setError(`Ошибка авторизации: ${err.body}`);
+        setError(
+          humanizeApiError(err, 'Не удалось авторизоваться. Попробуйте ещё раз.'),
+        );
       } else {
         setError('Не удалось начать авторизацию. Проверьте подключение к сети.');
       }

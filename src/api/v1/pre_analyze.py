@@ -28,6 +28,7 @@ from src.services.consent import (
 )
 from src.services.input_quality import analyze_input_quality
 from src.services.privacy import PrivacyLayer
+from src.utils.text_sanitize import sanitize_llm_text
 from src.services.task_contract import build_policy_flags
 from src.utils.humanize import humanize_result_scores
 from src.utils.redis_keys import preanalysis_cache_key
@@ -184,10 +185,13 @@ async def pre_analyze(
 
     opportunities = result_dict.get("enhancement_opportunities", [])
 
+    raw_first_impression = result_dict.get(
+        "first_impression", result_dict.get("analysis", "")
+    )
     return PreAnalysisResponse(
         pre_analysis_id=pre_id,
         mode=mode,
-        first_impression=result_dict.get("first_impression", result_dict.get("analysis", "")),
+        first_impression=sanitize_llm_text(raw_first_impression, max_len=600),
         score=score,
         perception_scores=perception,
         perception_insights=insights,

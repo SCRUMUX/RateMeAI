@@ -4,6 +4,7 @@ import ProgressBar from './ProgressBar';
 import CategoryTabs from '../CategoryTabs';
 import { PARAM_LABELS } from './shared';
 import { COMING_SOON_CATEGORIES, type CategoryId } from '../../data/styles';
+import { sanitizeLLMText } from '../../lib/sanitize';
 
 interface Props {
   onNext: () => void;
@@ -98,9 +99,9 @@ export default function StepAnalysis({ onNext }: Props) {
 
         {/* Analysis panel */}
         <div className="flex-1 flex flex-col gap-[var(--space-16)]">
-          {/* Description text */}
-          <p className="text-[14px] leading-[20px] text-[var(--color-text-secondary)] min-h-[40px]">
-            {app.preAnalysis?.first_impression || (isSimplified ? DOC_DEFAULT_DESCRIPTION : DEFAULT_DESCRIPTION)}
+          {/* Description text (plain prose — any stray HTML/markdown from the LLM is stripped) */}
+          <p className="text-[14px] leading-[20px] text-[var(--color-text-secondary)] min-h-[40px] whitespace-pre-wrap">
+            {sanitizeLLMText(app.preAnalysis?.first_impression, 600) || (isSimplified ? DOC_DEFAULT_DESCRIPTION : DEFAULT_DESCRIPTION)}
           </p>
 
           {/* Analysis button — shown before any analysis starts */}

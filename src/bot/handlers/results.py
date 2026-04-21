@@ -17,6 +17,7 @@ from redis.asyncio import Redis
 from src.bot.keyboards import post_result_keyboard, upgrade_keyboard, action_keyboard
 from src.config import settings
 from src.services.enhancement_advisor import build_enhancement_preview
+from src.utils.text_sanitize import sanitize_llm_text
 from src.utils.redis_keys import gen_image_cache_keys
 
 logger = logging.getLogger(__name__)
@@ -193,7 +194,9 @@ def _build_next_level(
     )
     lines = ["\n\U0001f680 *Как усилить дальше:*"]
     for s in preview.suggestions[:2]:
-        lines.append(f"\u2022 {s.line}")
+        clean_line = sanitize_llm_text(s.line, max_len=200)
+        if clean_line:
+            lines.append(f"\u2022 {clean_line}")
     text = "\n".join(lines)
 
     options: list[dict] = []
@@ -322,9 +325,9 @@ async def _send_enhanced(
 
     text_parts = [mode_titles.get(mode, "\u2728 *Твой образ*")]
 
-    impression = result.get("first_impression", "")
+    impression = sanitize_llm_text(result.get("first_impression", ""), max_len=200)
     if impression:
-        text_parts.append(f"\n{impression[:200]}")
+        text_parts.append(f"\n{impression}")
 
     delta = result.get("delta", {})
     score_block = _format_score_block(mode, delta, result)

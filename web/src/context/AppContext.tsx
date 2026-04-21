@@ -7,6 +7,7 @@ import { restorePhotoAfterOAuth, clearPersistedPhoto } from '../lib/photo-persis
 import { rememberOAuthReturnPath } from '../lib/flow-resume';
 import { normalizeImageUrl } from '../lib/image-url';
 import { userMessageForFailed } from '../lib/task-error';
+import { humanizeApiError } from '../lib/sanitize';
 import {
   clearPendingTask,
   peekPendingTask,
@@ -332,7 +333,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
         return;
       }
       setPreAnalyzeError(true);
-      setError(e instanceof api.ApiError ? e.body : 'Pre-analyze failed');
+      setError(
+        humanizeApiError(
+          e,
+          'Не удалось проанализировать фото. Попробуйте загрузить другое или повторите попытку.',
+        ),
+      );
     } finally {
       preAnalyzeInFlightRef.current = false;
       setPreAnalyzeLoading(false);
@@ -807,7 +813,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
           void fetchConsents();
           setError('Нужно подтвердить согласия на обработку данных.');
         } else {
-          setError(e instanceof api.ApiError ? e.body : 'Generation failed');
+          setError(
+            humanizeApiError(
+              e,
+              'Не удалось запустить генерацию. Попробуйте ещё раз через минуту.',
+            ),
+          );
         }
       }
     }
