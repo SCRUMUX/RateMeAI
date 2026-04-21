@@ -247,9 +247,9 @@ export default function StepGenerate({ onGoToStep, onOpenStorage }: Props) {
   const showStartGenerateCta = !isDocPaywall && !hasGenResult && !isRunning && !genFailed && !!app.photo;
 
   return (
-    <div className="h-full flex flex-col gap-[var(--space-8)] w-full max-w-[800px] mx-auto min-h-0 overflow-y-auto tablet:overflow-hidden">
+    <div className="h-full flex flex-col gap-[var(--space-8)] tablet:gap-[var(--space-6)] w-full max-w-[800px] mx-auto min-h-0 overflow-y-auto tablet:overflow-visible">
       <div className="shrink-0 flex flex-col items-center gap-[2px] text-center">
-        <h2 className="text-[18px] tablet:text-[24px] leading-[1.2] font-semibold text-[#E6EEF8]">
+        <h2 className="text-[18px] tablet:text-[22px] leading-[1.2] font-semibold text-[#E6EEF8]">
           {hasGenResult ? 'Результат готов' : isRunning ? 'Генерация...' : genFailed ? 'Ошибка генерации' : 'Генерация'}
         </h2>
         <p className="text-[12px] tablet:text-[13px] leading-[16px] tablet:leading-[18px] text-[var(--color-text-secondary)] max-w-[440px]">
@@ -263,30 +263,28 @@ export default function StepGenerate({ onGoToStep, onOpenStorage }: Props) {
         </p>
       </div>
 
-      {/* Selection summary: direction + style (clickable → jump to corresponding step) */}
+      {/* Selection summary: "Вы выбрали" label sits in the same row as pills */}
       {showSelectionSummary && selectedStyle && (
-        <div className="shrink-0 flex flex-col items-center gap-[var(--space-4)]">
+        <div className="shrink-0 flex flex-wrap items-center justify-center gap-x-[var(--space-8)] gap-y-[var(--space-4)] text-[13px] leading-[18px]">
           <span className="text-[12px] leading-[16px] text-[var(--color-text-muted)]">Вы выбрали</span>
-          <div className="flex flex-wrap items-center justify-center gap-x-[var(--space-8)] gap-y-[var(--space-4)] text-[13px] leading-[18px]">
-            {directionLabel && (
-              <button
-                type="button"
-                onClick={() => onGoToStep('analysis')}
-                className="glass-btn-ghost px-[var(--space-12)] py-[var(--space-4)] rounded-[var(--radius-pill)] text-[#E6EEF8] inline-flex items-center gap-[var(--space-6)]"
-              >
-                <span className="text-[var(--color-text-muted)]">Направление:</span>
-                <span className="font-medium">«{directionLabel}»</span>
-              </button>
-            )}
+          {directionLabel && (
             <button
               type="button"
-              onClick={() => onGoToStep('style')}
+              onClick={() => onGoToStep('analysis')}
               className="glass-btn-ghost px-[var(--space-12)] py-[var(--space-4)] rounded-[var(--radius-pill)] text-[#E6EEF8] inline-flex items-center gap-[var(--space-6)]"
             >
-              <span className="text-[var(--color-text-muted)]">Стиль:</span>
-              <span className="font-medium">«{selectedStyle.name}»</span>
+              <span className="text-[var(--color-text-muted)]">Направление:</span>
+              <span className="font-medium">«{directionLabel}»</span>
             </button>
-          </div>
+          )}
+          <button
+            type="button"
+            onClick={() => onGoToStep('style')}
+            className="glass-btn-ghost px-[var(--space-12)] py-[var(--space-4)] rounded-[var(--radius-pill)] text-[#E6EEF8] inline-flex items-center gap-[var(--space-6)]"
+          >
+            <span className="text-[var(--color-text-muted)]">Стиль:</span>
+            <span className="font-medium">«{selectedStyle.name}»</span>
+          </button>
         </div>
       )}
 
@@ -320,7 +318,7 @@ export default function StepGenerate({ onGoToStep, onOpenStorage }: Props) {
 
       {/* Slot above the photo: streaming while running, download CTAs when result is ready.
           Fixed min-height keeps the card from jumping between states. */}
-      <div className="shrink-0 flex items-center justify-center px-[var(--space-16)] min-h-[56px] max-w-[520px] mx-auto">
+      <div className="shrink-0 flex items-center justify-center px-[var(--space-16)] min-h-[44px] max-w-[520px] mx-auto">
         {isRunning && (
           <div className="flex items-start gap-[var(--space-8)]">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" className="shrink-0 mt-[2px]">
@@ -369,7 +367,7 @@ export default function StepGenerate({ onGoToStep, onOpenStorage }: Props) {
 
       {/* Image card — fixed size so the card doesn't jump between states */}
       <div className="shrink-0 flex justify-center">
-        <div className="gradient-border-card glass-card flex flex-col w-full tablet:max-w-[340px] rounded-[var(--radius-12)] overflow-hidden">
+        <div className="gradient-border-card glass-card flex flex-col w-full max-w-[260px] tablet:max-w-[260px] rounded-[var(--radius-12)] overflow-hidden">
           <div className="aspect-[3/4] bg-[rgba(255,255,255,0.02)] overflow-hidden relative">
             {/* Original photo (when toggled) */}
             {showingOriginal && app.photo && (
@@ -485,7 +483,7 @@ export default function StepGenerate({ onGoToStep, onOpenStorage }: Props) {
           <button
             onClick={handleGenerate}
             disabled={app.isGenerating}
-            className="glass-btn-primary px-[var(--space-32)] py-[var(--space-12)] text-[15px] leading-[22px] rounded-[var(--radius-pill)] font-medium"
+            className="glass-btn-primary px-[var(--space-32)] py-[var(--space-10)] tablet:py-[var(--space-8)] text-[15px] leading-[22px] rounded-[var(--radius-pill)] font-medium"
           >
             Запустить генерацию
           </button>
@@ -498,7 +496,7 @@ export default function StepGenerate({ onGoToStep, onOpenStorage }: Props) {
           <button
             onClick={handleGenerate}
             disabled={app.isGenerating}
-            className="glass-btn-primary px-[var(--space-32)] py-[var(--space-12)] text-[15px] leading-[22px] rounded-[var(--radius-pill)] font-medium"
+            className="glass-btn-primary px-[var(--space-32)] py-[var(--space-10)] tablet:py-[var(--space-8)] text-[15px] leading-[22px] rounded-[var(--radius-pill)] font-medium"
           >
             Генерировать фото
           </button>
