@@ -78,12 +78,12 @@ export default function StepBar({ currentStep, completedSteps, onStepClick, phot
               key={step.id}
               onClick={() => isClickable && onStepClick(step.id)}
               disabled={!isClickable}
-              className={`relative z-[1] flex flex-col items-center gap-[var(--space-8)] transition-all ${
+              className={`relative z-[1] flex flex-col items-center gap-[var(--space-4)] transition-all ${
                 isClickable ? 'cursor-pointer' : 'cursor-not-allowed'
               }`}
             >
               <div
-                className={`w-10 h-10 rounded-full flex items-center justify-center font-semibold transition-all duration-300 ${
+                className={`w-9 h-9 rounded-full flex items-center justify-center font-semibold transition-all duration-300 ${
                   showAvatar ? 'overflow-hidden p-0' : 'text-[14px]'
                 } ${
                   isCurrent
