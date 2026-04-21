@@ -1,21 +1,19 @@
-name: Diag — Recent Failed Tasks
+name: Diag — Recent FAILED tasks
 
 on:
   workflow_dispatch:
     inputs:
       hours:
-        description: "Look-back window (hours)"
-        required: true
-        default: "24"
+        description: "How many hours back to look"
+        default: "2"
       limit:
-        description: "Max tasks to return (1..200)"
-        required: true
-        default: "100"
+        description: "Max items"
+        default: "20"
 
-# Calls the ops-only GET /api/v1/internal/diagnostics/recent-errors on the
-# primary backend using INTERNAL_API_KEY. Dumps the JSON as a workflow
-# artifact so maintainers can root-cause "Ошибка генерации" incidents
-# without needing Railway shell access.
+# Read-only: fetches the last FAILED tasks (no PII, no tokens, no inputs)
+# from the primary backend. Use when a user reports a failed generation —
+# we want the exact worker error_message for mapping/root-causing without
+# touching Reve/OpenRouter again.
 
 jobs:
   fetch:
@@ -23,69 +21,40 @@ jobs:
     env:
       API_URL: ${{ secrets.RAILWAY_API_URL }}
       INTERNAL_API_KEY: ${{ secrets.INTERNAL_API_KEY }}
-      HOURS: ${{ inputs.hours }}
-      LIMIT: ${{ inputs.limit }}
     steps:
       - name: Validate secrets
         run: |
-          ok=true
-          [ -z "$API_URL" ] && { echo "::error::RAILWAY_API_URL missing"; ok=false; }
-          [ -z "$INTERNAL_API_KEY" ] && { echo "::error::INTERNAL_API_KEY missing"; ok=false; }
-          [ "$ok" = true ] || exit 1
+          [ -z "$API_URL" ]          && { echo "::error::RAILWAY_API_URL missing";     exit 1; }
+          [ -z "$INTERNAL_API_KEY" ] && { echo "::error::INTERNAL_API_KEY missing";    exit 1; }
+          echo ok
 
       - name: Fetch recent errors
         run: |
           set -e
           mkdir -p artifacts
-          URL="${API_URL}/api/v1/internal/diagnostics/recent-errors?hours=${HOURS}&limit=${LIMIT}"
-          echo "GET $URL"
+          HRS="${{ github.event.inputs.hours }}"
+          LIM="${{ github.event.inputs.limit }}"
+          URL="${API_URL}/api/v1/internal/diagnostics/recent-errors?hours=${HRS}&limit=${LIM}"
           HTTP_CODE=$(curl -s -o artifacts/recent-errors.json -w "%{http_code}" \
             -H "x-internal-key: ${INTERNAL_API_KEY}" \
             -H "accept: application/json" \
-            "$URL")
+            --max-time 60 "$URL")
           echo "HTTP $HTTP_CODE"
-          if [ "$HTTP_CODE" != "200" ]; then
-            echo "::error::Diagnostics endpoint returned $HTTP_CODE"
-            cat artifacts/recent-errors.json || true
-            exit 1
-          fi
-
-      - name: Summarize
-        run: |
-          set -e
           python3 - <<'PY'
-          import json, os, pathlib
+          import json, pathlib
           data = json.loads(pathlib.Path("artifacts/recent-errors.json").read_text())
-          total = data.get("total", 0)
-          window = data.get("window_hours")
-          print(f"window_hours={window}  total_failed={total}")
-          print("── breakdown (stage :: exc_type) ──")
-          for row in data.get("breakdown", []):
-              print(f"  {row['count']:4d}  {row['stage_exc']}")
-          print("── first 20 items ──")
-          for it in (data.get("items") or [])[:20]:
-              msg = (it.get("error_message") or "").replace("\n", " ")
-              if len(msg) > 220: msg = msg[:217] + "..."
-              print(
-                  f"- {it.get('updated_at')}  mode={it.get('mode')}  "
-                  f"style={it.get('style')}  stage={it.get('stage')}  "
-                  f"exc={it.get('exc_type')}  dur={it.get('duration_ms')}ms"
-              )
-              print(f"    {msg}")
-              print(f"    ctx_keys={it.get('context_keys')}  "
-                    f"credit_pre={it.get('credit_pre_reserved')}  "
-                    f"skip_gen={it.get('skip_image_gen')}  "
-                    f"has_input={it.get('has_input_path')}")
-          # Write a markdown summary too
-          md = pathlib.Path("artifacts/summary.md")
-          with md.open("w") as f:
-              f.write(f"# Recent failed tasks (last {window}h)\n\n")
-              f.write(f"Total: **{total}**\n\n## Breakdown\n\n")
-              for row in data.get("breakdown", []):
-                  f.write(f"- `{row['stage_exc']}` × {row['count']}\n")
+          items = data.get("items", []) if isinstance(data, dict) else data
+          print(f"Total: {len(items)}")
+          for it in items:
+              print("---")
+              for k in ("task_id", "mode", "stage", "exc_type",
+                       "updated_at", "duration_ms"):
+                  print(f"{k}: {it.get(k)}")
+              print(f"error: {it.get('error_message')}")
           PY
 
       - name: Upload artifact
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: recent-errors
