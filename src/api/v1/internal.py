@@ -756,6 +756,69 @@ async def synthetic_analyze(
     # ``RuntimeError: Cannot send a request, as the client has been closed``.
 
 
+@router.post("/diagnostics/reve-raw")
+async def reve_raw_probe(_key: str = Depends(_verify_internal_key)):
+    """Bypass Reve SDK and hit /v1/image/create directly via httpx.
+
+    Purpose: distinguish between (a) stale token in process memory, (b) SDK
+    misbehaviour, and (c) actual Reve-side rate limit. Returns the token
+    prefix/suffix as seen in ``settings`` so we can confirm whether the
+    Railway redeploy actually picked up the freshly synced env var.
+    """
+    import time as _time
+    import httpx
+    from src.config import settings as _settings
+
+    token = (_settings.reve_api_token or "").strip()
+    host = (_settings.reve_api_host or "https://api.reve.com").rstrip("/")
+    token_mask = (
+        f"{token[:8]}…{token[-6:]}" if len(token) >= 14 else f"len={len(token)}"
+    )
+    body = {"prompt": "a neutral portrait placeholder in soft daylight"}
+    t0 = _time.monotonic()
+    try:
+        async with httpx.AsyncClient(timeout=120.0) as client:
+            resp = await client.post(
+                f"{host}/v1/image/create",
+                json=body,
+                headers={
+                    "Authorization": f"Bearer {token}",
+                    "Content-Type": "application/json",
+                    "Accept": "application/json",
+                },
+            )
+        took_ms = int((_time.monotonic() - t0) * 1000)
+        body_preview = ""
+        if resp.status_code != 200:
+            try:
+                body_preview = resp.text[:400]
+            except Exception:
+                body_preview = "<cannot read>"
+        return {
+            "ok": resp.status_code == 200,
+            "status": resp.status_code,
+            "took_ms": took_ms,
+            "token_mask": token_mask,
+            "host": host,
+            "reve_request_id": resp.headers.get("x-reve-request-id"),
+            "reve_token_id": resp.headers.get("x-reve-token-id"),
+            "reve_error_code": resp.headers.get("x-reve-error-code"),
+            "content_length": resp.headers.get("content-length"),
+            "body_preview": body_preview,
+        }
+    except Exception as exc:
+        took_ms = int((_time.monotonic() - t0) * 1000)
+        return {
+            "ok": False,
+            "status": None,
+            "took_ms": took_ms,
+            "token_mask": token_mask,
+            "host": host,
+            "exc_type": type(exc).__name__,
+            "exc": repr(exc)[:400],
+        }
+
+
 @router.post("/diagnostics/image-gen-probe")
 async def image_gen_probe(_key: str = Depends(_verify_internal_key)):
     """Fire one ``image_gen.generate`` call to verify Reve (or the configured
