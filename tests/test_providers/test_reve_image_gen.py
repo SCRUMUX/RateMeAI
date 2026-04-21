@@ -1,211 +1,320 @@
 from __future__ import annotations
 
+import base64
 import io
+import json
 from unittest.mock import MagicMock, patch
 
+import httpx
 import pytest
 from PIL import Image
 
-from src.providers.image_gen.reve_provider import ReveImageGen
+from src.providers.image_gen.reve_provider import (
+    ReveAPIError,
+    ReveImageGen,
+    ReveRateLimitError,
+)
 
 
-def _fake_response(image_bytes: bytes) -> MagicMock:
-    r = MagicMock()
-    r.content_violation = False
-    r.image_bytes = image_bytes
-    r.image = Image.open(io.BytesIO(image_bytes))
+def _jpeg_bytes(color: str | tuple = "red", size: int = 16) -> bytes:
+    img = Image.new("RGB", (size, size), color=color)
+    buf = io.BytesIO()
+    img.save(buf, format="JPEG", quality=80)
+    return buf.getvalue()
+
+
+def _response_image(image_bytes: bytes, status: int = 200) -> MagicMock:
+    """Fake httpx.Response returning a base64-image JSON payload."""
+    r = MagicMock(spec=httpx.Response)
+    r.status_code = status
+    r.headers = {
+        "content-type": "application/json",
+        "x-reve-request-id": "rsid-test",
+        "x-reve-content-violation": "false",
+    }
+    payload = {"image": base64.b64encode(image_bytes).decode("ascii")}
+    body = json.dumps(payload).encode("utf-8")
+    r.content = body
+    r.text = body.decode("utf-8")
+    r.json = MagicMock(return_value=payload)
     return r
+
+
+def _response_error(
+    status: int,
+    message: str = "error",
+    error_code: str | None = None,
+    retry_after: str | None = None,
+) -> MagicMock:
+    r = MagicMock(spec=httpx.Response)
+    r.status_code = status
+    hdrs = {
+        "content-type": "application/json",
+        "x-reve-request-id": "rsid-err",
+    }
+    if error_code:
+        hdrs["x-reve-error-code"] = error_code
+    if retry_after is not None:
+        hdrs["retry-after"] = retry_after
+    r.headers = hdrs
+    payload = {"error_code": error_code or "ERR", "message": message}
+    body = json.dumps(payload).encode("utf-8")
+    r.content = body
+    r.text = body.decode("utf-8")
+    r.json = MagicMock(return_value=payload)
+    return r
+
+
+class _FakeClient:
+    """Minimal httpx.Client replacement that returns a queued response."""
+
+    def __init__(self, responses: list):
+        self._responses = list(responses)
+        self.calls: list[dict] = []
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        return False
+
+    def post(self, url, json=None, headers=None):
+        self.calls.append({"url": url, "json": json, "headers": headers})
+        if not self._responses:
+            raise AssertionError("no more fake responses queued")
+        resp = self._responses.pop(0)
+        if isinstance(resp, Exception):
+            raise resp
+        return resp
+
+
+def _patch_client(responses):
+    fake = _FakeClient(responses)
+    return patch("src.providers.image_gen.reve_provider.httpx.Client",
+                 return_value=fake), fake
 
 
 @pytest.mark.asyncio
 async def test_reve_image_gen_remix_returns_bytes():
-    img = Image.new("RGB", (32, 32), color=(128, 64, 32))
-    buf = io.BytesIO()
-    img.save(buf, format="JPEG")
-    jpeg_bytes = buf.getvalue()
+    jpeg = _jpeg_bytes(color=(128, 64, 32), size=32)
+    fake = _FakeClient([_response_image(jpeg)])
 
-    fake = _fake_response(jpeg_bytes)
-    gen = ReveImageGen(
-        api_token="papi.test-token",
-        api_host="https://api.reve.com",
-    )
-
-    with patch("reve.v1.image.remix", return_value=fake) as remix_mock:
+    gen = ReveImageGen(api_token="papi.test-token", api_host="https://api.reve.com")
+    with patch("src.providers.image_gen.reve_provider.httpx.Client",
+               return_value=fake):
         out = await gen.generate(
             "The subject from 0 in a studio",
             reference_image=b"\xff\xd8 fake",
             params=None,
         )
 
-    assert len(out) > 100
-    assert out == jpeg_bytes
-    remix_mock.assert_called_once()
-    call_kw = remix_mock.call_args
-    assert call_kw[0][0] == "The subject from 0 in a studio"
-    assert call_kw[0][1] == [b"\xff\xd8 fake"]
+    assert out == jpeg
+    assert len(fake.calls) == 1
+    call = fake.calls[0]
+    assert call["url"].endswith("/v1/image/remix")
+    assert call["json"]["prompt"] == "The subject from 0 in a studio"
+    assert isinstance(call["json"]["reference_images"], list)
+    assert call["json"]["reference_images"][0] == base64.b64encode(
+        b"\xff\xd8 fake"
+    ).decode("ascii")
+    assert call["headers"]["Authorization"].startswith("Bearer ")
 
 
 @pytest.mark.asyncio
 async def test_reve_image_gen_create_without_reference():
-    img = Image.new("RGB", (16, 16), color="red")
-    buf = io.BytesIO()
-    img.save(buf, format="JPEG")
-    jpeg_bytes = buf.getvalue()
-    fake = _fake_response(jpeg_bytes)
+    jpeg = _jpeg_bytes("red")
+    fake = _FakeClient([_response_image(jpeg)])
 
     gen = ReveImageGen(api_token="papi.x", api_host="https://api.reve.com")
-
-    with patch("reve.v1.image.create", return_value=fake) as create_mock:
+    with patch("src.providers.image_gen.reve_provider.httpx.Client",
+               return_value=fake):
         out = await gen.generate("A red square", reference_image=None)
 
-    assert out == jpeg_bytes
-    create_mock.assert_called_once()
+    assert out == jpeg
+    assert fake.calls[0]["url"].endswith("/v1/image/create")
+    assert "reference_images" not in fake.calls[0]["json"]
 
 
 @pytest.mark.asyncio
 async def test_reve_image_gen_no_retry_on_4xx_api_error():
-    """4xx (не 429) не ретраим: ответ биллится, повтор не поможет."""
-    from reve.exceptions import ReveAPIError
-
+    """4xx (not 429) must surface as RuntimeError without retry."""
+    fake = _FakeClient([
+        _response_error(400, message="bad request", error_code="BAD_REQUEST"),
+    ])
     gen = ReveImageGen(
         api_token="papi.x",
         api_host="https://api.reve.com",
         max_retries=3,
     )
-    err = ReveAPIError("bad request")
-    err.status_code = 400
-    with patch("reve.v1.image.remix", side_effect=err) as remix_mock:
-        with pytest.raises(RuntimeError, match="Reve API error"):
+    with patch("src.providers.image_gen.reve_provider.httpx.Client",
+               return_value=fake), patch(
+                   "src.providers.image_gen.reve_provider.time.sleep"):
+        with pytest.raises(RuntimeError, match="http=400") as exc_info:
             await gen.generate("x", reference_image=b"ref")
-    assert remix_mock.call_count == 1
+        assert "Reve API error" in str(exc_info.value)
+        assert "bad request" in str(exc_info.value)
+    assert len(fake.calls) == 1
+
+
+@pytest.mark.asyncio
+async def test_reve_image_gen_401_includes_http_code_for_frontend_mapper():
+    """401 (expired partner token) must contain 'http=401' — the frontend
+    mapper relies on that substring to route into PROVIDER_AUTH_MESSAGE."""
+    fake = _FakeClient([
+        _response_error(401, message="Invalid partner API bearer token.",
+                        error_code="PARTNER_API_TOKEN_INVALID"),
+    ])
+    gen = ReveImageGen(
+        api_token="papi.expired",
+        api_host="https://api.reve.com",
+        max_retries=3,
+    )
+    with patch("src.providers.image_gen.reve_provider.httpx.Client",
+               return_value=fake), patch(
+                   "src.providers.image_gen.reve_provider.time.sleep"):
+        with pytest.raises(RuntimeError, match="http=401") as exc_info:
+            await gen.generate("prompt")
+        assert "Invalid partner API bearer token" in str(exc_info.value)
+    assert len(fake.calls) == 1
 
 
 @pytest.mark.asyncio
 async def test_reve_image_gen_retries_on_5xx_then_succeeds():
-    """5xx/сетевые ошибки — ответа нет, биллинга нет, ретраим в пределах max_retries."""
-    from reve.exceptions import ReveAPIError
-
-    img = Image.new("RGB", (8, 8), color="yellow")
-    buf = io.BytesIO()
-    img.save(buf, format="JPEG")
-    jpeg_bytes = buf.getvalue()
-    ok_resp = _fake_response(jpeg_bytes)
-
-    err = ReveAPIError("upstream 500")
-    err.status_code = 500
-
+    """5xx / transport errors are retried within max_retries."""
+    jpeg = _jpeg_bytes("yellow")
+    fake = _FakeClient([
+        _response_error(500, message="upstream 500"),
+        _response_image(jpeg),
+    ])
     gen = ReveImageGen(
         api_token="papi.x",
         api_host="https://api.reve.com",
         max_retries=2,
     )
-    with patch(
-        "reve.v1.image.remix",
-        side_effect=[err, ok_resp],
-    ) as remix_mock, patch("time.sleep"):
+    with patch("src.providers.image_gen.reve_provider.httpx.Client",
+               return_value=fake), patch(
+                   "src.providers.image_gen.reve_provider.time.sleep"):
         out = await gen.generate("x", reference_image=b"ref")
-    assert out == jpeg_bytes
-    assert remix_mock.call_count == 2
+    assert out == jpeg
+    assert len(fake.calls) == 2
 
 
 @pytest.mark.asyncio
 async def test_reve_image_gen_5xx_exhausts_retries():
-    """При постоянных 5xx вызовов не больше max_retries."""
-    from reve.exceptions import ReveAPIError
-
-    err = ReveAPIError("upstream 502")
-    err.status_code = 502
-
+    fake = _FakeClient([
+        _response_error(502, message="upstream 502"),
+        _response_error(502, message="upstream 502"),
+    ])
     gen = ReveImageGen(
         api_token="papi.x",
         api_host="https://api.reve.com",
         max_retries=2,
     )
-    with patch(
-        "reve.v1.image.remix",
-        side_effect=err,
-    ) as remix_mock, patch("time.sleep"):
+    with patch("src.providers.image_gen.reve_provider.httpx.Client",
+               return_value=fake), patch(
+                   "src.providers.image_gen.reve_provider.time.sleep"):
         with pytest.raises(RuntimeError, match="failed after"):
             await gen.generate("x", reference_image=b"ref")
-    assert remix_mock.call_count == 2
+    assert len(fake.calls) == 2
 
 
 @pytest.mark.asyncio
 async def test_reve_image_gen_retries_only_on_rate_limit():
-    """429 ретраим в пределах max_retries; успешный второй вызов даёт результат."""
-    from reve.exceptions import ReveRateLimitError
-
-    img = Image.new("RGB", (8, 8), color="green")
-    buf = io.BytesIO()
-    img.save(buf, format="JPEG")
-    jpeg_bytes = buf.getvalue()
-    ok_resp = _fake_response(jpeg_bytes)
-
-    rate_err = ReveRateLimitError("slow down")
-    rate_err.retry_after = 0
-
+    """429 is retried within max_retries."""
+    jpeg = _jpeg_bytes("green")
+    fake = _FakeClient([
+        _response_error(429, message="slow down",
+                        error_code="PARTNER_API_TOKEN_RATE_LIMIT_EXCEEDED",
+                        retry_after="0"),
+        _response_image(jpeg),
+    ])
     gen = ReveImageGen(
         api_token="papi.x",
         api_host="https://api.reve.com",
         max_retries=2,
     )
-    with patch(
-        "reve.v1.image.remix",
-        side_effect=[rate_err, ok_resp],
-    ) as remix_mock, patch("time.sleep"):
+    with patch("src.providers.image_gen.reve_provider.httpx.Client",
+               return_value=fake), patch(
+                   "src.providers.image_gen.reve_provider.time.sleep"):
         out = await gen.generate("x", reference_image=b"ref")
-    assert out == jpeg_bytes
-    assert remix_mock.call_count == 2
+    assert out == jpeg
+    assert len(fake.calls) == 2
 
 
 @pytest.mark.asyncio
 async def test_reve_image_gen_single_call_by_default():
-    """max_retries=1 ⇒ при 429 второго вызова НЕ будет."""
-    from reve.exceptions import ReveRateLimitError
-
-    rate_err = ReveRateLimitError("slow down")
-    rate_err.retry_after = 0
-
+    """max_retries=1 ⇒ 429 terminates after a single call."""
+    fake = _FakeClient([
+        _response_error(429, message="slow down",
+                        error_code="PARTNER_API_TOKEN_RATE_LIMIT_EXCEEDED",
+                        retry_after="0"),
+    ])
     gen = ReveImageGen(
         api_token="papi.x",
         api_host="https://api.reve.com",
         max_retries=1,
     )
-    with patch(
-        "reve.v1.image.remix",
-        side_effect=rate_err,
-    ) as remix_mock, patch("time.sleep"):
+    with patch("src.providers.image_gen.reve_provider.httpx.Client",
+               return_value=fake), patch(
+                   "src.providers.image_gen.reve_provider.time.sleep"):
         with pytest.raises(RuntimeError, match="failed after"):
             await gen.generate("x", reference_image=b"ref")
-    assert remix_mock.call_count == 1
+    assert len(fake.calls) == 1
 
 
 @pytest.mark.asyncio
-async def test_reve_image_gen_uses_image_when_no_bytes():
-    img = Image.new("RGB", (8, 8), color="blue")
-    fake = MagicMock()
-    fake.content_violation = False
-    fake.image_bytes = b""
-    fake.image = img
+async def test_reve_image_gen_handles_empty_image_field():
+    """If the API unexpectedly returns an empty image field, surface a
+    RuntimeError instead of silently returning b''."""
+    r = MagicMock(spec=httpx.Response)
+    r.status_code = 200
+    r.headers = {"content-type": "application/json", "x-reve-request-id": "x"}
+    r.content = b'{"image":""}'
+    r.text = '{"image":""}'
+    r.json = MagicMock(return_value={"image": ""})
+
+    fake = _FakeClient([r])
 
     gen = ReveImageGen(api_token="papi.x", api_host="https://api.reve.com")
-    with patch("reve.v1.image.remix", return_value=fake):
-        out = await gen.generate("x", reference_image=b"ref")
-    assert out.startswith(b"\xff\xd8") or len(out) > 0
+    with patch("src.providers.image_gen.reve_provider.httpx.Client",
+               return_value=fake):
+        with pytest.raises(RuntimeError):
+            await gen.generate("x", reference_image=b"ref")
+
+
+@pytest.mark.asyncio
+async def test_reve_image_gen_applies_region_text_hint_via_mask_region():
+    """`mask_region` alone must prefix the edit_instruction with the hint."""
+    jpeg = _jpeg_bytes("orange")
+    fake = _FakeClient([_response_image(jpeg)])
+
+    gen = ReveImageGen(api_token="papi.x", api_host="https://api.reve.com")
+    with patch("src.providers.image_gen.reve_provider.httpx.Client",
+               return_value=fake):
+        await gen.generate(
+            "studio backdrop, soft lighting",
+            reference_image=b"\xff\xd8 fake",
+            params={"mask_region": "background"},
+        )
+
+    call = fake.calls[0]
+    assert call["url"].endswith("/v1/image/edit")
+    instruction = call["json"]["edit_instruction"]
+    assert instruction.startswith("Change ONLY the background"), (
+        f"expected background-only hint prefix, got: {instruction!r}"
+    )
+    assert "studio backdrop, soft lighting" in instruction
 
 
 @pytest.mark.asyncio
 async def test_reve_image_gen_strips_unsupported_mask_image_kwarg():
-    """SDK 0.1.2 edit() does not accept `mask_image`; provider must drop it
-    from kwargs instead of surfacing a TypeError."""
-    img = Image.new("RGB", (16, 16), color="purple")
-    buf = io.BytesIO()
-    img.save(buf, format="JPEG")
-    jpeg_bytes = buf.getvalue()
-    fake = _fake_response(jpeg_bytes)
+    """mask_image / mask_region / use_edit are internal — never sent to Reve."""
+    jpeg = _jpeg_bytes("purple")
+    fake = _FakeClient([_response_image(jpeg)])
 
     gen = ReveImageGen(api_token="papi.x", api_host="https://api.reve.com")
-    with patch("reve.v1.image.edit", return_value=fake) as edit_mock:
+    with patch("src.providers.image_gen.reve_provider.httpx.Client",
+               return_value=fake):
         out = await gen.generate(
             "studio backdrop",
             reference_image=b"\xff\xd8 fake",
@@ -216,54 +325,39 @@ async def test_reve_image_gen_strips_unsupported_mask_image_kwarg():
             },
         )
 
-    assert out == jpeg_bytes
-    edit_mock.assert_called_once()
-    kwargs = edit_mock.call_args.kwargs
-    assert "mask_image" not in kwargs, (
-        "mask_image must be stripped before calling the SDK (0.1.2 does not accept it)"
-    )
-    assert "mask_region" not in kwargs
-    assert "use_edit" not in kwargs
+    assert out == jpeg
+    payload = fake.calls[0]["json"]
+    assert "mask_image" not in payload
+    assert "mask_region" not in payload
+    assert "use_edit" not in payload
 
 
 @pytest.mark.asyncio
-async def test_reve_image_gen_applies_region_text_hint_via_mask_region():
-    """`mask_region` alone (no byte-level mask) must still inject the
-    'Change ONLY the background' hint at the start of the edit_instruction."""
-    img = Image.new("RGB", (16, 16), color="orange")
-    buf = io.BytesIO()
-    img.save(buf, format="JPEG")
-    jpeg_bytes = buf.getvalue()
-    fake = _fake_response(jpeg_bytes)
+async def test_reve_image_gen_content_violation_surfaces_error():
+    """Content-policy violation flagged in the response body must raise."""
+    r = MagicMock(spec=httpx.Response)
+    r.status_code = 200
+    r.headers = {
+        "content-type": "application/json",
+        "x-reve-request-id": "rsid-cv",
+        "x-reve-content-violation": "true",
+    }
+    payload = {"content_violation": True, "message": "blocked"}
+    body = json.dumps(payload).encode()
+    r.content = body
+    r.text = body.decode()
+    r.json = MagicMock(return_value=payload)
+
+    fake = _FakeClient([r])
 
     gen = ReveImageGen(api_token="papi.x", api_host="https://api.reve.com")
-    with patch("reve.v1.image.edit", return_value=fake) as edit_mock:
-        await gen.generate(
-            "studio backdrop, soft lighting",
-            reference_image=b"\xff\xd8 fake",
-            params={"mask_region": "background"},
-        )
-
-    instruction = edit_mock.call_args.kwargs["edit_instruction"]
-    assert instruction.startswith("Change ONLY the background"), (
-        f"expected background-only hint prefix, got: {instruction!r}"
-    )
-    assert "studio backdrop, soft lighting" in instruction
+    with patch("src.providers.image_gen.reve_provider.httpx.Client",
+               return_value=fake):
+        with pytest.raises(Exception) as exc_info:
+            await gen.generate("x", reference_image=b"ref")
+        assert "content policy" in str(exc_info.value).lower()
 
 
-@pytest.mark.asyncio
-async def test_reve_image_gen_type_error_becomes_runtime_error():
-    """Any future SDK-signature drift (unexpected kwarg) must surface as a
-    RuntimeError with a clear message instead of being swallowed as a generic
-    'generation_failed' upstream."""
-    gen = ReveImageGen(api_token="papi.x", api_host="https://api.reve.com")
-    with patch(
-        "reve.v1.image.edit",
-        side_effect=TypeError("edit() got an unexpected keyword argument 'foo'"),
-    ):
-        with pytest.raises(RuntimeError, match="Reve SDK signature mismatch"):
-            await gen.generate(
-                "x",
-                reference_image=b"ref",
-                params={"mask_region": "background"},
-            )
+def test_reve_api_error_module_exports():
+    """Make sure the custom error classes are importable by name."""
+    assert issubclass(ReveRateLimitError, ReveAPIError)
