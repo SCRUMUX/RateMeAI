@@ -793,14 +793,23 @@ async def reve_raw_probe(
     elif endpoint_norm == "remix":
         path = "/v1/image/remix"
         body = {
-            "prompt": "a neutral portrait placeholder in soft daylight",
+            "prompt": (
+                "A neutral portrait placeholder in soft daylight, centred "
+                "composition, calm and professional mood. Do not render text."
+            ),
             "reference_images": [ref_b64],
+            "aspect_ratio": "1:1",
+            "version": "latest",
+            "test_time_scaling": 3,
         }
     else:
         path = "/v1/image/edit"
         body = {
             "edit_instruction": "soften the lighting",
             "reference_image": ref_b64,
+            "aspect_ratio": "1:1",
+            "version": "latest",
+            "test_time_scaling": 3,
         }
 
     t0 = _time.monotonic()
