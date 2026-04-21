@@ -719,9 +719,28 @@ class DeltaScorer:
             if mode == AnalysisMode.CV:
                 pre_vals = [delta[k]["pre"] for k in ("trust", "competence", "hireability") if k in delta]
                 result_dict["score_before"] = round(sum(pre_vals) / len(pre_vals), 2) if pre_vals else None
+                post_vals = [delta[k]["post"] for k in ("trust", "competence", "hireability") if k in delta]
+                result_dict["score_after"] = round(sum(post_vals) / len(post_vals), 2) if post_vals else None
             else:
                 first_key = next(iter(delta), None)
                 result_dict["score_before"] = delta[first_key]["pre"] if first_key else None
+                result_dict["score_after"] = delta[first_key]["post"] if first_key else None
+
+            # IMPORTANT: overwrite top-level scalar score fields with post-gen
+            # values so that any downstream consumer that reads the flat
+            # `dating_score` / `social_score` / `score` / CV metrics (e.g. the
+            # `/tasks/history` endpoint) sees the improvement dynamics of the
+            # generated photo, not the pre-generation baseline.
+            if mode == AnalysisMode.DATING and "dating_score" in delta:
+                result_dict["dating_score"] = delta["dating_score"]["post"]
+                result_dict["score"] = delta["dating_score"]["post"]
+            elif mode == AnalysisMode.SOCIAL and "social_score" in delta:
+                result_dict["social_score"] = delta["social_score"]["post"]
+                result_dict["score"] = delta["social_score"]["post"]
+            elif mode == AnalysisMode.CV:
+                for key in ("trust", "competence", "hireability"):
+                    if key in delta:
+                        result_dict[key] = delta[key]["post"]
 
             pre_perception = result_dict.get("perception_scores", {})
             if hasattr(pre_perception, "model_dump"):
@@ -751,12 +770,21 @@ class DeltaScorer:
                 auth_score = _compute_authenticity(quality_report)
             else:
                 auth_score = 9.0
-            result_dict.setdefault("perception_scores", {})
-            ps = result_dict["perception_scores"]
-            if isinstance(ps, dict):
-                ps["authenticity"] = auth_score
-            elif hasattr(ps, "authenticity"):
-                ps.authenticity = auth_score
+
+            # Update perception_scores in place so that personal-best tracking
+            # (`_persist_perception_scores`) and any API consumer reading the
+            # flat map see the post-generation values. We normalise to a dict
+            # first — the analysis layer may have returned a pydantic model.
+            ps = result_dict.get("perception_scores")
+            if hasattr(ps, "model_dump"):
+                ps = ps.model_dump()
+            if not isinstance(ps, dict):
+                ps = {}
+            for key in ("warmth", "presence", "appeal"):
+                if key in perception_delta:
+                    ps[key] = perception_delta[key]["post"]
+            ps["authenticity"] = auth_score
+            result_dict["perception_scores"] = ps
 
             result_dict["post_score"] = post_dict
             logger.info("Delta computed for task=%s: %s perception: %s", task_id, delta, perception_delta)

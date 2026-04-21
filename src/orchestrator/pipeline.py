@@ -421,7 +421,14 @@ class AnalysisPipeline:
             except Exception:
                 logger.exception("Failed to generate share card")
 
-        await self._persist_perception_scores(mode, result_dict, user_id)
+        # When delta scoring is deferred to a separate ARQ job, the
+        # `perception_scores` map still holds pre-generation values at this
+        # point. Persisting now would save the baseline as the user's personal
+        # best, which defeats the purpose of the gamification tracker. The
+        # deferred `compute_delta_scores` worker takes over the persist step
+        # after `DeltaScorer.compute` has re-scored the generated image.
+        if result_dict.get("delta_status") != "pending":
+            await self._persist_perception_scores(mode, result_dict, user_id)
 
         return self._merger.merge(result_dict, share_card_url, user_id)
 

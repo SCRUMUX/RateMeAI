@@ -368,7 +368,7 @@ export default function StepGenerate({ onGoToStep, onOpenStorage }: Props) {
       {/* Image card — fixed size so the card doesn't jump between states */}
       <div className="shrink-0 flex justify-center">
         <div className="gradient-border-card glass-card flex flex-col w-full max-w-[260px] tablet:max-w-[260px] rounded-[var(--radius-12)] overflow-hidden">
-          <div className="aspect-[3/4] bg-[rgba(255,255,255,0.02)] overflow-hidden relative">
+          <div className="aspect-[4/5] bg-[rgba(255,255,255,0.02)] overflow-hidden relative">
             {/* Original photo (when toggled) */}
             {showingOriginal && app.photo && (
               <img src={app.photo.preview} alt="Original" className="w-full h-full object-cover" />

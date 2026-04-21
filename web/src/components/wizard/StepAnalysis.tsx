@@ -75,8 +75,8 @@ export default function StepAnalysis({ onNext }: Props) {
 
       <div className="flex flex-col tablet:flex-row gap-[var(--space-16)] tablet:gap-[var(--space-24)]">
         {/* Photo card with score — fixed compact size on desktop, aspect on mobile */}
-        <div className="gradient-border-card glass-card flex flex-col w-full max-w-[280px] tablet:w-[260px] tablet:max-w-[260px] mx-auto tablet:mx-0 shrink-0 rounded-[var(--radius-12)] overflow-hidden">
-          <div className="w-full aspect-[3/4] shrink-0 bg-[rgba(255,255,255,0.02)] overflow-hidden">
+        <div className="gradient-border-card glass-card flex flex-col w-full max-w-[260px] tablet:w-[260px] tablet:max-w-[260px] mx-auto tablet:mx-0 shrink-0 rounded-[var(--radius-12)] overflow-hidden">
+          <div className="w-full aspect-[4/5] shrink-0 bg-[rgba(255,255,255,0.02)] overflow-hidden">
             {app.photo ? (
               <img src={app.photo.preview} alt="Original" className="w-full h-full object-cover" />
             ) : (

@@ -123,9 +123,13 @@ def test_depth_of_field_prompt_variants():
         depth_of_field="shallow",
     )
     deep_prompt = deep.depth_of_field_prompt()
-    assert "entire frame in sharp focus" in deep_prompt
-    assert "no bokeh" in deep_prompt
-    assert "shallow depth of field" in shallow.depth_of_field_prompt()
+    shallow_prompt = shallow.depth_of_field_prompt()
+    assert "deep natural focus" in deep_prompt
+    assert "fully resolved" in deep_prompt
+    for token in ("bokeh", "defocus", "blur"):
+        assert token not in deep_prompt
+        assert token not in shallow_prompt
+    assert "mid-aperture" in shallow_prompt
 
 
 # ---------------------------------------------------------------------------
@@ -139,8 +143,10 @@ _BLUR_WORDS = ("bokeh", "blurred", "softly blurred", "out of focus", "defocused"
 def test_no_bokeh_words_in_default_builds():
     """The [CHANGE] block of every style must not positively request blur.
 
-    The [QUALITY] block legitimately contains "no bokeh"/"no defocus blur"
-    as a negative instruction, so we only inspect the style-driven section.
+    After the positive-framing rewrite the [QUALITY] block also no longer
+    contains any blur/bokeh/defocus tokens (see
+    test_no_blur_tokens_anywhere_in_prompt), but this guard specifically
+    pins down the style-driven [CHANGE] section.
     """
     checks = (
         (ig.build_dating_prompt, ig.DATING_STYLES),
@@ -286,11 +292,21 @@ def test_low_key_styles_cover_expanded_set():
         ("dating", "airplane_window"),
         ("dating", "evening_home"),
         ("dating", "travel_luxury"),
+        ("dating", "rooftop_city"),
+        ("dating", "dubai_burj_khalifa"),
+        ("dating", "singapore_marina_bay"),
+        ("dating", "nyc_times_square"),
         ("cv", "late_hustle"),
         ("cv", "quiet_expert"),
         ("cv", "intellectual"),
+        ("cv", "creative_director"),
+        ("cv", "speaker_stage"),
+        ("cv", "decision_moment"),
+        ("cv", "man_with_mission"),
         ("social", "luxury"),
         ("social", "evening_planning"),
+        ("social", "after_work"),
+        ("social", "panoramic_window"),
     }
     missing = required - set(ig._LOW_KEY_STYLES)
     assert not missing, f"Low-key styles regressed: {missing}"
@@ -409,5 +425,56 @@ def test_gym_fitness_gets_full_sharp_background_stack():
     assert "athletic setting" in preserve
     assert "HANDS DETAIL" in preserve
     assert "HANDS:" in preserve
-    assert "no background blur" in quality
-    assert "no bokeh" in quality
+    assert "legible and clearly resolved" in quality
+    assert "fully resolved" in quality
+    for token in ("blur", "bokeh", "defocus"):
+        assert token not in quality.lower(), (
+            f"gym_fitness QUALITY block leaked blur-family token {token!r}"
+        )
+
+
+# ---------------------------------------------------------------------------
+# Phase 7: positive-framing guard + distant-softness anchor
+# ---------------------------------------------------------------------------
+
+
+_NO_SYNDROME_TOKENS = ("blur", "bokeh", "defocus")
+
+
+def test_no_blur_tokens_anywhere_in_prompt():
+    """After the positive-framing rewrite, no prompt block (CHANGE, PRESERVE,
+    QUALITY) should contain the tokens blur/bokeh/defocus for any style.
+
+    Diffusion models tend to latch onto these as positive tokens even when
+    they are embedded in "no X" phrases — so the whole pipeline now avoids
+    them entirely.
+    """
+    checks = (
+        (ig.build_dating_prompt, ig.DATING_STYLES),
+        (ig.build_cv_prompt, ig.CV_STYLES),
+        (ig.build_social_prompt, ig.SOCIAL_STYLES),
+    )
+    for builder, styles in checks:
+        for style_key in styles:
+            p = builder(style=style_key, gender="male").lower()
+            for token in _NO_SYNDROME_TOKENS:
+                assert token not in p, (
+                    f"{style_key}: leaked blur-family token {token!r} in prompt"
+                )
+
+
+def test_distant_softness_styles_get_anchor():
+    """Every style in _DISTANT_SOFTNESS_STYLES must receive the new
+    DISTANT_ATMOSPHERE_OK anchor in [PRESERVE]."""
+    for mode, style_key in ig._DISTANT_SOFTNESS_STYLES:
+        builder = _BUILDERS_BY_MODE[mode]
+        p = builder(style=style_key, gender="male")
+        preserve = p.split("[PRESERVE]", 1)[1].split("[QUALITY]", 1)[0]
+        assert "ATMOSPHERE:" in preserve, (
+            f"{mode}/{style_key}: DISTANT_ATMOSPHERE_OK missing in [PRESERVE]"
+        )
+
+
+def test_non_distant_softness_style_has_no_atmosphere_anchor():
+    p = ig.build_dating_prompt(style="warm_outdoor", gender="male")
+    assert "ATMOSPHERE:" not in p

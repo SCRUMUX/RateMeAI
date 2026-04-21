@@ -81,20 +81,30 @@ NON_FRONTAL_HINT = (
 )
 
 CAMERA = (
-    "High-quality digital photograph. Crisp detail throughout entire frame, "
-    "background fully in focus, no background blur. Clean natural colors."
+    "High-quality digital photograph. Sharp natural detail across the entire frame, "
+    "background subjects, textures and surfaces remain legible and clearly resolved. "
+    "Clean natural colors, mid-aperture look that keeps both the person and their "
+    "surroundings equally readable."
 )
 
 LOW_KEY_SHARPNESS = (
-    "SCENE FOCUS: moody lighting, but keep the entire scene sharply in focus. "
-    "Background details fully visible, no cinematic blur, no defocus."
+    "SCENE FOCUS: moody lighting with the entire scene rendered sharp and readable. "
+    "Background architecture, furniture, bar shelves, window frames and ambient "
+    "objects remain crisp and recognizable, lit just enough to be clearly visible."
 )
 
 SPORT_DEEP_FOCUS = (
-    "SCENE FOCUS: athletic setting rendered in full deep focus. "
-    "Gym equipment, court surface, trail or training environment is crisply "
-    "resolved across the whole frame. Resist any portrait-lens bokeh bias "
-    "common to sport photography — the background must stay in focus."
+    "SCENE FOCUS: athletic setting rendered with full deep focus. "
+    "Gym equipment, court lines, trail, foliage and training environment are crisply "
+    "resolved across the whole frame, shot on a standard mid-aperture lens that keeps "
+    "subject and environment equally sharp."
+)
+
+DISTANT_ATMOSPHERE_OK = (
+    "ATMOSPHERE: mid-distance and near-background elements stay sharp and fully "
+    "resolved. Only very far light sources (distant skyline lights, stars, horizon "
+    "mist) may soften naturally from atmospheric perspective — never the nearby "
+    "scene, never the subject's immediate surroundings."
 )
 
 HANDS_COMPLEX_POSE = (
@@ -127,15 +137,37 @@ _LOW_KEY_STYLES: frozenset[tuple[str, str]] = frozenset({
     ("dating", "airplane_window"),
     ("dating", "evening_home"),
     ("dating", "travel_luxury"),
+    ("dating", "rooftop_city"),
+    ("dating", "dubai_burj_khalifa"),
+    ("dating", "singapore_marina_bay"),
+    ("dating", "nyc_times_square"),
     ("cv", "late_hustle"),
     ("cv", "quiet_expert"),
     ("cv", "intellectual"),
+    ("cv", "creative_director"),
+    ("cv", "speaker_stage"),
+    ("cv", "decision_moment"),
+    ("cv", "man_with_mission"),
     ("social", "neon_night"),
     ("social", "dark_moody"),
     ("social", "skyscraper_view"),
     ("social", "focused_mood"),
     ("social", "luxury"),
     ("social", "evening_planning"),
+    ("social", "after_work"),
+    ("social", "panoramic_window"),
+})
+
+_DISTANT_SOFTNESS_STYLES: frozenset[tuple[str, str]] = frozenset({
+    ("dating", "rooftop_city"),
+    ("dating", "nyc_brooklyn_bridge"),
+    ("dating", "dubai_burj_khalifa"),
+    ("dating", "singapore_marina_bay"),
+    ("dating", "nyc_times_square"),
+    ("social", "skyscraper_view"),
+    ("social", "neon_night"),
+    ("social", "panoramic_window"),
+    ("social", "after_work"),
 })
 
 REALISM = (
@@ -166,7 +198,7 @@ DATING_STYLES: dict[str, str] = {
     ),
     "studio_elegant": (
         "Background: studio with smooth gradient lighting, charcoal-to-warm-grey "
-        "backdrop, subtle vignette. "
+        "backdrop, clean even studio falloff. "
         "Clothing: elegant evening wear, dark tones, silk or fine wool textures."
     ),
     "near_car": (
@@ -191,7 +223,7 @@ DATING_STYLES: dict[str, str] = {
         "Clothing: white linen shirt unbuttoned at top, navy shorts or chinos, deck shoes."
     ),
     "rooftop_city": (
-        "Background: rooftop terrace at blue hour, city skyline with warm lights, "
+        "Background: rooftop terrace at blue hour, city skyline rendered in sharp legible detail with warm lights, "
         "modern glass railing, ambient string lights. "
         "Clothing: dark fitted blazer over black tee, tailored trousers, minimalist watch."
     ),
@@ -280,77 +312,77 @@ DATING_STYLES: dict[str, str] = {
     ),
     # --- Landmarks ---
     "paris_eiffel": (
-        "Background: Parisian boulevard with Eiffel Tower visible behind, "
+        "Background: Parisian boulevard with Eiffel Tower visible behind rendered crisply and clearly resolved, "
         "morning golden light, cafe table with croissant and coffee visible. "
         "Clothing: fitted navy blazer over white tee, dark jeans, clean white sneakers."
     ),
     "nyc_brooklyn_bridge": (
         "Background: Brooklyn Bridge walkway at golden sunset, warm orange sky, "
-        "Manhattan skyline visible behind. "
+        "Manhattan skyline visible behind rendered crisply and clearly resolved. "
         "Clothing: casual fitted jacket, dark jeans, comfortable walking shoes."
     ),
     "rome_colosseum": (
-        "Background: outdoor cafe terrace with Colosseum visible behind, "
+        "Background: outdoor cafe terrace with Colosseum visible behind rendered crisply and clearly resolved, "
         "warm Mediterranean afternoon light, cobblestone street visible. "
         "Clothing: linen shirt, light chinos, leather loafers, relaxed Italian style."
     ),
     "dubai_burj_khalifa": (
-        "Background: modern Dubai boulevard with Burj Khalifa illuminated at blue hour, "
+        "Background: modern Dubai boulevard with Burj Khalifa illuminated at blue hour rendered crisply and clearly resolved, "
         "glass reflections, warm city lights, luxury urban atmosphere. "
         "Clothing: fitted dark shirt, tailored trousers, luxury watch, polished modern style."
     ),
     "nyc_times_square": (
         "Background: Times Square with vibrant billboards and neon lights, "
-        "bustling energy, cinematic urban night atmosphere. "
+        "bustling energy, sharp vibrant night street atmosphere with neon reflections clearly rendered. "
         "Clothing: streetwear layers, statement jacket, fitted dark pants, designer sneakers."
     ),
     "barcelona_sagrada": (
-        "Background: sunlit Barcelona terrace with Sagrada Familia spires in background, "
+        "Background: sunlit Barcelona terrace with Sagrada Familia spires in background rendered crisply and clearly resolved, "
         "warm morning light, breakfast table with juice and pastries. "
         "Clothing: relaxed summer shirt, light chinos, straw hat, Mediterranean casual."
     ),
     "london_eye": (
-        "Background: Thames embankment with London Eye visible in background, "
+        "Background: Thames embankment with London Eye visible in background rendered crisply and clearly resolved, "
         "grey-blue London sky with golden patches, river reflections. "
         "Clothing: tailored overcoat or trench, dark scarf, smart casual British layers."
     ),
     "sydney_opera": (
-        "Background: Sydney harbour with Opera House sails in background, "
+        "Background: Sydney harbour with Opera House sails in background rendered crisply and clearly resolved, "
         "sparkling blue water, bright Australian daylight. "
         "Clothing: casual smart outfit, fitted polo or button-down, clean summer style."
     ),
     "tokyo_tower": (
-        "Background: minimalist Tokyo street with Tokyo Tower visible behind, "
+        "Background: minimalist Tokyo street with Tokyo Tower visible behind rendered crisply and clearly resolved, "
         "cherry blossoms or clean urban aesthetic, diffused light. "
         "Clothing: minimal Japanese-inspired outfit, clean dark fitted layers."
     ),
     "sf_golden_gate": (
         "Background: Golden Gate Bridge at sunset with fog rolling in, "
-        "warm orange and teal tones, Pacific Ocean behind. "
+        "warm orange and teal tones, Pacific Ocean behind rendered crisply and clearly resolved. "
         "Clothing: fitted fleece or casual jacket, dark jeans, relaxed outdoor-casual style."
     ),
     "athens_acropolis": (
-        "Background: narrow Athens street with Acropolis on hilltop in warm light, "
+        "Background: narrow Athens street with Acropolis on hilltop in warm light rendered crisply and clearly resolved, "
         "whitewashed walls, Mediterranean plants and bougainvillea. "
         "Clothing: relaxed white linen shirt, light trousers, leather sandals."
     ),
     "singapore_marina_bay": (
-        "Background: Marina Bay Sands and Singapore skyline at night, "
+        "Background: Marina Bay Sands and Singapore skyline at night rendered crisply and clearly resolved, "
         "illuminated reflections on water, modern futuristic architecture. "
         "Clothing: smart fitted shirt, tailored dark trousers, polished modern shoes."
     ),
     "venice_san_marco": (
-        "Background: Piazza San Marco at golden hour, historic Venetian architecture, "
+        "Background: Piazza San Marco at golden hour, historic Venetian architecture rendered crisply and clearly resolved, "
         "warm amber light, canal water reflections in distance. "
         "Clothing: elegant smart-casual, fitted blazer, quality leather shoes, refined style."
     ),
     "nyc_central_park": (
         "Background: Central Park with autumn foliage in warm tones, "
-        "dappled sunlight through trees, green lawns and pathway. "
+        "dappled sunlight through trees, green lawns and pathway rendered crisply and clearly resolved. "
         "Clothing: casual fitted sweater, dark jeans, clean casual sneakers."
     ),
     "london_big_ben": (
-        "Background: Westminster with Big Ben and Parliament in background, "
+        "Background: Westminster with Big Ben and Parliament in background rendered crisply and clearly resolved, "
         "classic London overcast light, Thames embankment visible. "
         "Clothing: classic British smart-casual, tailored jacket, polished accessories."
     ),
@@ -435,7 +467,7 @@ DATING_STYLES: dict[str, str] = {
     ),
     "tinder_pack_minimal_studio": (
         "Background: pure neutral studio backdrop soft grey-to-white gradient, "
-        "even beauty-dish lighting, no clutter, portrait photographer setup. "
+        "even beauty-dish lighting, no clutter, clean studio setup with backdrop fully visible. "
         "Clothing: simple fitted top in solid color, minimal jewelry, fresh grooming."
     ),
     "tinder_pack_cafe_window": (
@@ -494,7 +526,7 @@ DATING_PERSONALITIES: dict[str, str] = {
     "old_town_walk": "Curious warm expression, gentle smile, cultural wanderer energy.",
     "street_market": "Bright curious expression, warm genuine smile, adventurous explorer energy.",
     # Atmosphere expanded
-    "rainy_day": "Contemplative gaze, mysterious half-smile, cinematic moody confidence.",
+    "rainy_day": "Contemplative gaze, mysterious half-smile, moody atmospheric confidence.",
     "night_coffee": "Warm intimate gaze, gentle smile, cozy late-night thoughtful energy.",
     "evening_home": "Calm contented expression, warm genuine smile, comfortable domestic confidence.",
     # Status
@@ -559,7 +591,7 @@ CV_STYLES: dict[str, str] = {
     ),
     "creative_director": (
         "Background: design studio, mood boards and sketches behind, "
-        "dramatic directional spotlight. "
+        "warm directional studio light, mood boards fully visible and clearly resolved. "
         "Clothing: black turtleneck, minimalist dark outfit, statement glasses optional."
     ),
     "medical": (
@@ -580,7 +612,7 @@ CV_STYLES: dict[str, str] = {
     # --- Expertise ---
     "speaker_stage": (
         "Background: conference stage, podium with microphone, presentation screen "
-        "behind, dramatic spotlight from above. "
+        "clearly visible behind, warm stage key light from above keeping both speaker and screen readable. "
         "Clothing: tailored suit without tie, open collar, confident speaker style."
     ),
     "podcast": (
@@ -678,7 +710,7 @@ CV_STYLES: dict[str, str] = {
     ),
     "decision_moment": (
         "Background: standing at large window overlooking cityscape, contemplative atmosphere, "
-        "dramatic rim light from window, expansive view behind. "
+        "warm rim light from window, cityscape clearly visible and sharp through the window. "
         "Clothing: tailored dark suit against bright window, face evenly lit, executive presence."
     ),
     "doc_passport_neutral": (
@@ -778,13 +810,13 @@ CV_PERSONALITIES: dict[str, str] = {
 SOCIAL_STYLES: dict[str, str] = {
     # --- Influencer ---
     "influencer": (
-        "Background: trendy urban rooftop at golden hour, city skyline visible, "
-        "warm directional light with lens flare. "
+        "Background: trendy urban rooftop at golden hour, city skyline clearly visible, "
+        "warm directional side light, natural highlights on edges. "
         "Clothing: stylish streetwear, statement accessories, layered textures."
     ),
     "influencer_urban": (
-        "Background: trendy urban rooftop at golden hour, city skyline visible, "
-        "warm directional light with lens flare. "
+        "Background: trendy urban rooftop at golden hour, city skyline clearly visible, "
+        "warm directional side light, natural highlights on edges. "
         "Clothing: streetwear layers, statement accessories, designer sneakers."
     ),
     "influencer_minimal": (
@@ -841,7 +873,7 @@ SOCIAL_STYLES: dict[str, str] = {
     ),
     "neon_night": (
         "Background: city street at night with neon signs, vibrant pink-blue-purple "
-        "reflections on wet pavement, cinematic lighting. "
+        "reflections on wet pavement, sharp vibrant neon-lit street scene with signage clearly legible. "
         "Clothing: dark streetwear, leather jacket or fitted dark outfit, reflective elements."
     ),
     "vintage_film": (
@@ -987,12 +1019,12 @@ SOCIAL_STYLES: dict[str, str] = {
     # --- Evening social ---
     "skyscraper_view": (
         "Background: high-rise interior with floor-to-ceiling windows, city lights below "
-        "at night, dramatic metropolitan atmosphere, warm interior accent light. "
+        "at night rendered with crisp distant detail, dramatic metropolitan atmosphere, warm interior accent light. "
         "Clothing: elegant dark outfit against glowing city skyline, face clearly visible."
     ),
     "after_work": (
         "Background: city sidewalk at dusk, warm streetlights beginning to glow, "
-        "office buildings behind, golden-blue transition sky. "
+        "office buildings behind rendered sharply, golden-blue transition sky. "
         "Clothing: professional outfit slightly relaxed, jacket over shoulder, end-of-day vibe."
     ),
     "evening_planning": (
@@ -1002,8 +1034,8 @@ SOCIAL_STYLES: dict[str, str] = {
     ),
     # --- Mood ---
     "focused_mood": (
-        "Background: clean minimal backdrop with dramatic close-up framing, "
-        "single directional light source creating depth and shadow on face. "
+        "Background: clean minimal backdrop fully visible, "
+        "single directional key light with rich shadow on face, backdrop surfaces cleanly readable. "
         "Clothing: minimal dark outfit, all attention drawn to face and expression."
     ),
     "light_irony": (
@@ -1026,7 +1058,7 @@ SOCIAL_PERSONALITIES: dict[str, str] = {
     "travel_blogger": "Excited adventurous expression, bright wanderlust energy, open smile.",
     "artistic": "Thoughtful creative gaze, expressive intensity, unconventional character.",
     "golden_hour": "Soft dreamy gaze, warm peaceful expression, ethereal golden-lit energy.",
-    "neon_night": "Intense direct gaze, cinematic edgy energy, bold confident expression.",
+    "neon_night": "Intense direct gaze, bold edgy energy, bold confident expression.",
     "vintage_film": "Nostalgic thoughtful gaze, gentle analog expression, timeless romantic energy.",
     "dark_moody": "Dramatic shadow-play on face, intense mysterious gaze, powerful brooding energy.",
     "pastel_soft": "Gentle soft smile, relaxed gentle energy, light airy expression.",
@@ -1053,7 +1085,7 @@ SOCIAL_PERSONALITIES: dict[str, str] = {
     "yoga_social": "Serene calm expression, healthy glow, peaceful mindful energy.",
     "cycling_social": "Fresh active expression, bright confident smile, healthy outdoor glow.",
     # Cinematic
-    "panoramic_window": "Contemplative expression, profound calm gaze, cinematic scale energy.",
+    "panoramic_window": "Contemplative expression, profound calm gaze, grand-scale composed energy.",
     "in_motion": "Confident forward gaze, dynamic unstoppable energy, bold expression.",
     "creative_insight": "Excited eureka expression, bright inspired eyes, energetic creative energy.",
     "architecture_shadow": "Mysterious confident expression, dramatic artistic presence, partial shadow.",
@@ -1202,6 +1234,8 @@ def _build_mode_prompt(
     if (mode, style_key_norm) in _SPORT_STYLES:
         preserve_parts.append(SPORT_DEEP_FOCUS)
         preserve_parts.append(HANDS_COMPLEX_POSE)
+    if (mode, style_key_norm) in _DISTANT_SOFTNESS_STYLES:
+        preserve_parts.append(DISTANT_ATMOSPHERE_OK)
     preserve_parts.extend(_conditional_preserve(input_hints))
     preserve_block = " ".join(preserve_parts)
 

@@ -36,7 +36,6 @@ export default function StorageModal({ items, open, onClose, onImprove }: Props)
   const navigate = useNavigate();
   const [idx, setIdx] = useState(0);
   const [dir, setDir] = useState(0);
-  const [viewTab, setViewTab] = useState<'result' | 'original'>('result');
   const [shareData, setShareData] = useState<{ url: string; text: string; imageUrl: string } | null>(null);
   const [shareLoading, setShareLoading] = useState(false);
   const [downloadError, setDownloadError] = useState(false);
@@ -47,7 +46,7 @@ export default function StorageModal({ items, open, onClose, onImprove }: Props)
   const item = items[idx];
 
   useEffect(() => {
-    if (open) { setIdx(0); setViewTab('result'); }
+    if (open) { setIdx(0); }
     if (!open) { setShareData(null); setShareLoading(false); }
   }, [open]);
 
@@ -86,7 +85,6 @@ export default function StorageModal({ items, open, onClose, onImprove }: Props)
     if (!canPrev) return;
     setDir(-1);
     setIdx(i => i - 1);
-    setViewTab('result');
     setShareData(null);
   }, [canPrev]);
 
@@ -94,7 +92,6 @@ export default function StorageModal({ items, open, onClose, onImprove }: Props)
     if (!canNext) return;
     setDir(1);
     setIdx(i => i + 1);
-    setViewTab('result');
     setShareData(null);
   }, [canNext]);
 
@@ -192,43 +189,22 @@ export default function StorageModal({ items, open, onClose, onImprove }: Props)
                 </svg>
               </button>
 
-              {/* Header row: counter left + centered tabs */}
-              <div className="shrink-0 flex items-center justify-center relative">
-                {items.length > 1 && (
-                  <span className="absolute left-0 text-[12px] text-[var(--color-text-muted)] tabular-nums">
-                    {idx + 1} / {items.length}
-                  </span>
-                )}
-
-                <div className="inline-flex rounded-[var(--radius-pill)] glass-card p-0.5 gap-0.5">
-                  <button
-                    onClick={() => setViewTab('result')}
-                    className={`px-3 py-[3px] rounded-[var(--radius-pill)] text-[12px] leading-[16px] font-medium transition-all ${
-                      viewTab === 'result'
-                        ? 'glass-btn-primary text-white'
-                        : 'text-[var(--color-text-secondary)] hover:text-[#E6EEF8]'
-                    }`}
-                  >
-                    Результат
-                  </button>
-                  <button
-                    onClick={() => setViewTab('original')}
-                    className={`px-3 py-[3px] rounded-[var(--radius-pill)] text-[12px] leading-[16px] font-medium transition-all ${
-                      viewTab === 'original'
-                        ? 'glass-btn-primary text-white'
-                        : 'text-[var(--color-text-secondary)] hover:text-[#E6EEF8]'
-                    }`}
-                  >
-                    Исходное
-                  </button>
-                </div>
+              {/* Header row: counter + retention notice (we intentionally do not
+                  keep the original photo, so there is no "Исходное" tab) */}
+              <div className="shrink-0 flex items-center justify-between gap-[var(--space-8)] pr-[var(--space-32)]">
+                <span className="text-[12px] text-[var(--color-text-muted)] tabular-nums shrink-0">
+                  {items.length > 1 ? `${idx + 1} / ${items.length}` : 'Ваша генерация'}
+                </span>
+                <span className="text-[11px] leading-[14px] text-[var(--color-text-muted)] text-right">
+                  Генерация хранится 24 часа —<br />сохраните фото удобным способом.
+                </span>
               </div>
 
               {/* Photo with swipe — fixed aspect keeps the card stable between slide transitions */}
-              <div className="shrink-0 relative w-full max-w-[380px] mx-auto aspect-[3/4] rounded-[var(--radius-12)] overflow-hidden bg-[rgba(255,255,255,0.02)]">
+              <div className="shrink-0 relative w-full max-w-[380px] mx-auto aspect-[4/5] rounded-[var(--radius-12)] overflow-hidden bg-[rgba(255,255,255,0.02)]">
                 <AnimatePresence mode="wait" custom={dir} initial={false}>
                   <motion.div
-                    key={`${item.task_id}_${viewTab}`}
+                    key={item.task_id}
                     custom={dir}
                     initial={{ x: dir > 0 ? 80 : dir < 0 ? -80 : 0, opacity: 0 }}
                     animate={{ x: 0, opacity: 1 }}
@@ -240,20 +216,14 @@ export default function StorageModal({ items, open, onClose, onImprove }: Props)
                     onDragEnd={handleDragEnd}
                     className="absolute inset-0 cursor-grab active:cursor-grabbing"
                   >
-                    {viewTab === 'result' ? (
-                      item.generated_image_url && !imgErrors[`gen_${item.task_id}`] ? (
-                        <img
-                          src={normalizeImageUrl(item.generated_image_url)}
-                          alt="Результат"
-                          className="w-full h-full object-cover select-none pointer-events-none"
-                          draggable={false}
-                          onError={() => setImgErrors(p => ({ ...p, [`gen_${item.task_id}`]: true }))}
-                        />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center text-[var(--color-text-muted)] text-[14px]">
-                          {imgErrors[`gen_${item.task_id}`] ? 'Фото недоступно' : 'Нет фото'}
-                        </div>
-                      )
+                    {item.generated_image_url && !imgErrors[`gen_${item.task_id}`] ? (
+                      <img
+                        src={normalizeImageUrl(item.generated_image_url)}
+                        alt="Результат"
+                        className="w-full h-full object-cover select-none pointer-events-none"
+                        draggable={false}
+                        onError={() => setImgErrors(p => ({ ...p, [`gen_${item.task_id}`]: true }))}
+                      />
                     ) : (
                       <div className="w-full h-full flex flex-col items-center justify-center gap-2 text-[var(--color-text-muted)] text-[13px] text-center px-6">
                         <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -262,8 +232,10 @@ export default function StorageModal({ items, open, onClose, onImprove }: Props)
                         </svg>
                         <span>
                           {item.purged
-                            ? 'Результат удалён по политике хранения (72 часа).'
-                            : 'Исходное фото не сохраняется — удаляется сразу после обработки.'}
+                            ? 'Генерация удалена по политике хранения (24 часа).'
+                            : imgErrors[`gen_${item.task_id}`]
+                              ? 'Фото недоступно'
+                              : 'Нет фото'}
                         </span>
                       </div>
                     )}
@@ -296,7 +268,7 @@ export default function StorageModal({ items, open, onClose, onImprove }: Props)
                   {items.map((_, i) => (
                     <button
                       key={i}
-                      onClick={() => { setDir(i > idx ? 1 : -1); setIdx(i); setViewTab('result'); setShareData(null); }}
+                      onClick={() => { setDir(i > idx ? 1 : -1); setIdx(i); setShareData(null); }}
                       className={`rounded-full transition-all ${
                         i === idx
                           ? 'w-5 h-1.5 bg-[rgb(var(--accent-r),var(--accent-g),var(--accent-b))]'
@@ -310,10 +282,8 @@ export default function StorageModal({ items, open, onClose, onImprove }: Props)
               {/* Score row */}
               <div className="shrink-0 flex items-center justify-between px-1">
                 <span className="text-[13px] leading-[18px] text-[#E6EEF8] font-medium truncate flex items-center gap-1.5">
-                  {viewTab === 'result'
-                    ? (styleInfo ? `${styleInfo.icon} ${styleInfo.name}` : (item.style || item.mode))
-                    : 'Исходное фото'}
-                  {viewTab === 'result' && DOCUMENT_STYLE_KEYS.has(item.style) && (
+                  {styleInfo ? `${styleInfo.icon} ${styleInfo.name}` : (item.style || item.mode)}
+                  {DOCUMENT_STYLE_KEYS.has(item.style) && (
                     <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] leading-[12px] font-medium"
                       style={{ background: 'rgba(var(--accent-r),var(--accent-g),var(--accent-b),0.15)', color: 'rgb(var(--accent-r),var(--accent-g),var(--accent-b))' }}
                     >
@@ -322,12 +292,10 @@ export default function StorageModal({ items, open, onClose, onImprove }: Props)
                   )}
                 </span>
                 <span className="flex items-center gap-1.5 shrink-0">
-                  <span className={`text-[13px] leading-[18px] tabular-nums font-semibold ${viewTab === 'result' ? 'text-[var(--color-brand-primary)]' : 'text-[var(--color-text-secondary)]'}`}>
-                    {viewTab === 'result'
-                      ? (item.score_after != null ? item.score_after.toFixed(2) : '—')
-                      : (item.score_before != null ? item.score_before.toFixed(2) : '—')}
+                  <span className="text-[13px] leading-[18px] tabular-nums font-semibold text-[var(--color-brand-primary)]">
+                    {item.score_after != null ? item.score_after.toFixed(2) : '—'}
                   </span>
-                  {viewTab === 'result' && item.score_before != null && item.score_after != null && (
+                  {item.score_before != null && item.score_after != null && (
                     <span className="text-[11px] leading-[14px] text-[var(--color-success-base)] tabular-nums font-medium">
                       +{(item.score_after - item.score_before).toFixed(2)}
                     </span>
@@ -335,10 +303,7 @@ export default function StorageModal({ items, open, onClose, onImprove }: Props)
                 </span>
               </div>
               <div className="shrink-0 px-1">
-                <ProgressBar
-                  value={viewTab === 'result' ? (item.score_after ?? 0) : (item.score_before ?? 0)}
-                  accent={viewTab === 'result'}
-                />
+                <ProgressBar value={item.score_after ?? 0} accent />
               </div>
 
               {downloadError && (

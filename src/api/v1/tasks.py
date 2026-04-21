@@ -41,6 +41,46 @@ def _normalize_storage_url(url: str) -> str:
     return f"{base}/storage/{url.lstrip('/')}"
 
 
+def _extract_history_score_after(result: dict, mode: str) -> float | None:
+    """Pick the post-generation score for the storage history UI.
+
+    Preference order:
+      1. Explicit `score_after` field (written by `DeltaScorer` on new runs).
+      2. `delta.<mode_key>.post` — defensive path for tasks where
+         `DeltaScorer` populated the delta dict but not the flat fields
+         (legacy rows, partial regressions).
+      3. Flat scalar fields (`dating_score` / `social_score` / `score`,
+         or the average of `trust/competence/hireability` for CV) —
+         final fallback for very old rows predating delta scoring.
+    """
+    delta_map = result.get("delta") or {}
+    score_after = result.get("score_after")
+    if score_after is None and delta_map:
+        if mode == "dating" and isinstance(delta_map.get("dating_score"), dict):
+            score_after = delta_map["dating_score"].get("post")
+        elif mode == "social" and isinstance(delta_map.get("social_score"), dict):
+            score_after = delta_map["social_score"].get("post")
+        elif mode == "cv":
+            cv_post_vals = [
+                float(delta_map[k]["post"])
+                for k in ("trust", "competence", "hireability")
+                if isinstance(delta_map.get(k), dict) and delta_map[k].get("post") is not None
+            ]
+            if cv_post_vals:
+                score_after = round(sum(cv_post_vals) / len(cv_post_vals), 2)
+    if score_after is None:
+        score_after = result.get("dating_score") or result.get("social_score") or result.get("score")
+    if score_after is None and mode == "cv":
+        cv_vals = [
+            float(result[k])
+            for k in ("trust", "competence", "hireability")
+            if result.get(k) is not None
+        ]
+        if cv_vals:
+            score_after = round(sum(cv_vals) / len(cv_vals), 2)
+    return float(score_after) if score_after is not None else None
+
+
 async def _image_available(task: Task, redis: Redis) -> bool:
     """Check whether generated image data is still reachable."""
     r = task.result or {}
@@ -135,11 +175,7 @@ async def list_tasks(
         if not gen_url:
             gen_url = _normalize_storage_url(r.get("generated_image_path", ""))
 
-        score_after = r.get("dating_score") or r.get("social_score") or r.get("score")
-        if score_after is None and t.mode == "cv":
-            cv_vals = [float(r[k]) for k in ("trust", "competence", "hireability") if r.get(k) is not None]
-            if cv_vals:
-                score_after = round(sum(cv_vals) / len(cv_vals), 2)
+        score_after = _extract_history_score_after(r, t.mode)
         score_before = r.get("score_before")
         ps = r.get("perception_scores")
 

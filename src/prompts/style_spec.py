@@ -37,10 +37,14 @@ class StyleSpec:
 
     def depth_of_field_prompt(self) -> str:
         if self.depth_of_field == "shallow":
-            return "natural shallow depth of field, pleasant gentle background bokeh"
+            return (
+                "natural mid-aperture look with the subject and near scene fully sharp; "
+                "only very distant light points may soften from atmospheric perspective"
+            )
         return (
-            "entire frame in sharp focus from foreground to background, "
-            "background details fully resolved, no bokeh, no defocus blur"
+            "entire frame rendered in deep natural focus from the subject all the way "
+            "to the background; textures, surfaces and distant objects remain crisp, "
+            "legible and fully resolved"
         )
 
 

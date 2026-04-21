@@ -550,6 +550,12 @@ async def compute_delta_scores(ctx: dict, task_id: str):
             from src.services.ai_transfer_guard import task_context_scope
             with task_context_scope(task.context):
                 await pipeline._delta_scorer.compute(mode, task_result, str(task.user_id), task_id)
+                # Persist personal-best perception record now — the main
+                # pipeline skipped it because scores were still pre-gen at
+                # the time of `_finalize`. After DeltaScorer.compute the
+                # perception_scores map holds post-gen values, which is
+                # what gamification should track.
+                await pipeline._persist_perception_scores(mode, task_result, str(task.user_id))
             task_result["delta_status"] = "completed"
             task.result = task_result
             await db.commit()

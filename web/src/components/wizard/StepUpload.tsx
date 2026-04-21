@@ -123,7 +123,7 @@ function StepUploadBody({ onNext }: Props) {
       {app.photo ? (
         <div className="flex flex-col items-center gap-[var(--space-12)] w-full">
           <div className="gradient-border-card glass-card rounded-[var(--radius-12)] overflow-hidden w-full max-w-[260px]">
-            <div className="w-full aspect-[3/4] bg-[rgba(255,255,255,0.02)] overflow-hidden">
+            <div className="w-full aspect-[4/5] bg-[rgba(255,255,255,0.02)] overflow-hidden">
               <img src={app.photo.preview} alt="Загруженное фото" className="w-full h-full object-cover" />
             </div>
           </div>
