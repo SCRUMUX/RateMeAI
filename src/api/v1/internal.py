@@ -674,6 +674,7 @@ async def synthetic_analyze(
     from src.orchestrator.router import ModeRouter as _ModeRouter
     from src.prompts.engine import PromptEngine as _PromptEngine
     from src.providers.factory import get_llm as _get_llm
+    from src.services.ai_transfer_guard import task_context_scope as _task_context_scope
     from src.workers.tasks import (
         _format_task_error as _fmt_err,
         _unwrap_exception as _unwrap,
@@ -690,9 +691,21 @@ async def synthetic_analyze(
     service = router.get_service(mode_enum)
     image = _synthetic_test_jpeg(512)
 
+    # Diagnostics run outside the normal AnalysisPipeline, so we have to
+    # open an explicit task_context_scope — otherwise the AI-transfer guard
+    # trips on ``no_pipeline_context`` before the LLM call even goes out.
+    guard_ctx = {"policy_flags": build_policy_flags({
+        "consent_data_processing": True,
+        "consent_ai_transfer": True,
+    })}
+
     t0 = _time.monotonic()
     try:
-        res = await service.analyze(image)
+        with _task_context_scope(guard_ctx):
+            if mode_enum == _AnalysisMode.CV:
+                res = await service.analyze(image, profession="синтетический тест")
+            else:
+                res = await service.analyze(image)
         took_ms = int((_time.monotonic() - t0) * 1000)
         public = res.model_dump() if hasattr(res, "model_dump") else (
             res.dict() if hasattr(res, "dict") else {"repr": repr(res)[:300]}
