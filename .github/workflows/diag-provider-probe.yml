@@ -1,0 +1,47 @@
+name: Diag — Provider Probe
+
+on:
+  workflow_dispatch:
+
+# Calls GET /api/v1/internal/diagnostics/provider-probe on the primary
+# backend using INTERNAL_API_KEY. This actively hits OpenRouter with the
+# live production API key and reports the exact HTTP statuses — so we can
+# root-cause a "RetryError[HTTPStatusError]" without having to wait for a
+# real user to trigger a failing generation.
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    env:
+      API_URL: ${{ secrets.RAILWAY_API_URL }}
+      INTERNAL_API_KEY: ${{ secrets.INTERNAL_API_KEY }}
+    steps:
+      - name: Validate secrets
+        run: |
+          ok=true
+          [ -z "$API_URL" ] && { echo "::error::RAILWAY_API_URL missing"; ok=false; }
+          [ -z "$INTERNAL_API_KEY" ] && { echo "::error::INTERNAL_API_KEY missing"; ok=false; }
+          [ "$ok" = true ] || exit 1
+
+      - name: Fetch provider probe
+        run: |
+          set -e
+          mkdir -p artifacts
+          URL="${API_URL}/api/v1/internal/diagnostics/provider-probe"
+          HTTP_CODE=$(curl -s -o artifacts/provider-probe.json -w "%{http_code}" \
+            -H "x-internal-key: ${INTERNAL_API_KEY}" \
+            -H "accept: application/json" \
+            "$URL")
+          echo "HTTP $HTTP_CODE"
+          cat artifacts/provider-probe.json
+          if [ "$HTTP_CODE" != "200" ]; then
+            echo "::error::Provider-probe endpoint returned $HTTP_CODE"
+            exit 1
+          fi
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: provider-probe
+          path: artifacts/
+          retention-days: 7

@@ -467,3 +467,69 @@ async def recent_errors(
         "breakdown": breakdown,
         "items": items,
     }
+
+
+@router.get("/diagnostics/provider-probe")
+async def provider_probe(_key: str = Depends(_verify_internal_key)):
+    """Actively probe the LLM provider using the live production API key.
+
+    Goal: confirm in <5s whether OpenRouter would return 4xx/5xx *right now*
+    with our credentials — without having to wait for a real user to hit
+    "generate" and fail. Calls two cheap, always-free endpoints:
+
+      * ``GET /auth/key``   — tells us if the key itself is valid / has
+        any credit (returns 401 if revoked, 200 + is_free_tier bool otherwise);
+      * ``GET /models``     — tells us the API is reachable and the
+        configured model is in the active catalog.
+
+    Returns raw status codes + short body snippets. No PII involved.
+    """
+    import httpx as _httpx
+
+    result: dict[str, Any] = {
+        "base_url": settings.openrouter_base_url,
+        "model": settings.openrouter_model,
+        "key_present": bool(settings.openrouter_api_key.strip()),
+    }
+    if not result["key_present"]:
+        result["error"] = "OPENROUTER_API_KEY is empty in settings"
+        return result
+
+    headers = {"Authorization": f"Bearer {settings.openrouter_api_key}"}
+    async with _httpx.AsyncClient(timeout=10.0) as client:
+        # 1) key validity
+        try:
+            r = await client.get(
+                f"{settings.openrouter_base_url}/auth/key", headers=headers
+            )
+            snippet = (r.text or "").strip().replace("\n", " ")
+            result["auth_key"] = {
+                "status": r.status_code,
+                "body": snippet[:300],
+            }
+        except Exception as exc:
+            result["auth_key"] = {"error": f"{type(exc).__name__}: {exc}"}
+
+        # 2) model availability
+        try:
+            r = await client.get(
+                f"{settings.openrouter_base_url}/models", headers=headers
+            )
+            result["models"] = {"status": r.status_code}
+            if r.status_code == 200:
+                try:
+                    data = r.json()
+                    ids = [m.get("id", "") for m in (data.get("data") or [])]
+                    result["models"]["count"] = len(ids)
+                    result["models"]["configured_model_in_catalog"] = (
+                        settings.openrouter_model in ids
+                    )
+                except Exception:
+                    result["models"]["parse_error"] = True
+            else:
+                body = (r.text or "").strip().replace("\n", " ")
+                result["models"]["body"] = body[:300]
+        except Exception as exc:
+            result["models"] = {"error": f"{type(exc).__name__}: {exc}"}
+
+    return result
