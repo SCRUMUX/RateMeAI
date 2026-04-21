@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import io
 import logging
+import re
 
 from aiogram import Router, F
 from aiogram.types import CallbackQuery
@@ -59,6 +60,29 @@ _GENERIC_FAILED_MESSAGE = (
 )
 
 
+_RE_STAGE_PREFIX = re.compile(r"^\[stage=[^\]]+\]\s*", re.IGNORECASE)
+_RE_HAS_CYRILLIC = re.compile(r"[А-ЯЁа-яё]")
+
+
+def _extract_human_tail(error_message: str) -> str:
+    """Return the human-readable tail of a structured worker error_message.
+
+    Worker writes ``[stage=<stage>] <ExcType>: <human message>``; for
+    unknown patterns we still want to surface ``<human message>`` to the
+    user instead of ``_GENERIC_FAILED_MESSAGE``.
+    """
+    without_stage = _RE_STAGE_PREFIX.sub("", error_message, count=1)
+    idx = without_stage.find(": ")
+    tail = without_stage[idx + 2:] if idx >= 0 else without_stage
+    return tail.strip()
+
+
+def _looks_human_readable(text: str) -> bool:
+    if not text or len(text) < 6:
+        return False
+    return bool(_RE_HAS_CYRILLIC.search(text))
+
+
 def _user_message_for_failed(error_message: str) -> str:
     """Map a structured task.error_message to a user-friendly Russian hint.
 
@@ -67,13 +91,26 @@ def _user_message_for_failed(error_message: str) -> str:
     exception type and substrings to give the user an actionable reason
     instead of a single generic message that leads to support tickets.
     Stages & markers intentionally checked case-insensitively.
+
+    Keep in sync with ``web/src/lib/task-error.ts::userMessageForFailed``.
     """
     if not error_message:
         return _GENERIC_FAILED_MESSAGE
 
     em = error_message.lower()
 
-    # Input-quality pre-flight blockers (fast fail, stage=preprocess).
+    # --- Input-quality / preprocess blockers -------------------------------
+
+    if (
+        "multiple_faces" in em
+        or "несколько человек" in em
+        or "несколько лиц" in em
+    ):
+        return (
+            "\u274c На фото несколько человек. Загрузи портрет одного "
+            "человека — без посторонних в кадре."
+        )
+
     if (
         "no_face" in em
         or "не обнаружено лицо" in em
@@ -81,6 +118,7 @@ def _user_message_for_failed(error_message: str) -> str:
         or "не нашлось" in em
         or "face_too_small" in em
         or "blurry_photo" in em
+        or "face_blurred" in em
         or "low_resolution" in em
         or "лицо слишком мал" in em
         or "лицо слишком мелк" in em
@@ -93,7 +131,34 @@ def _user_message_for_failed(error_message: str) -> str:
             "портрет крупным планом, в хорошем свете, без сильного размытия."
         )
 
-    # External provider overload / transient network problems.
+    if (
+        "invalid_image" in em
+        or "invalid image file" in em
+        or "unsupported format" in em
+        or "image too small" in em
+        or "не удалось открыть изображение" in em
+        or "неподдерживаемый формат" in em
+    ):
+        return (
+            "\u274c Не удалось открыть изображение. Загрузи фото в формате "
+            "JPG или PNG, не меньше 400×400 пикселей и до 10 МБ."
+        )
+
+    # --- Privacy / stash lifecycle -----------------------------------------
+
+    if (
+        "task input stash" in em
+        or "stash expired" in em
+        or "must be re-submitted" in em
+        or "privacy retention policy" in em
+    ):
+        return (
+            "\u23f3 Время на обработку фото истекло. Загрузи фото ещё раз "
+            "и запусти генерацию — кредит возвращён."
+        )
+
+    # --- Transient provider / network issues -------------------------------
+
     if (
         "readtimeout" in em
         or "writetimeout" in em
@@ -114,7 +179,8 @@ def _user_message_for_failed(error_message: str) -> str:
             "минуту — кредиты не списаны."
         )
 
-    # Content policy / moderation.
+    # --- Content policy / moderation ---------------------------------------
+
     if (
         "content policy" in em
         or "moderation" in em
@@ -126,20 +192,26 @@ def _user_message_for_failed(error_message: str) -> str:
             "\u274c Фото не прошло проверку безопасности. Загрузи другое фото."
         )
 
-    # AI transfer forbidden (consent or policy) — should be blocked at API
-    # level with HTTP 451, but surface clearly if a task somehow reached worker.
+    # --- AI transfer forbidden (consent or policy) -------------------------
+
     if "aitransferforbidden" in em or "ai_transfer" in em:
         return (
             "\u274c Для обработки нужны все согласия. Открой /consent и "
             "подтверди обработку данных, передачу в AI и возраст 16+."
         )
 
-    # No pipeline context (guard tripped) — internal bug, hide from user.
     if "no_pipeline_context" in em:
         return (
             "\u26a0\ufe0f Произошла внутренняя ошибка. Мы уже разбираемся — "
             "попробуй ещё раз через пару минут."
         )
+
+    # --- Unknown pattern: surface the human-readable tail ------------------
+
+    tail = _extract_human_tail(error_message)
+    if _looks_human_readable(tail):
+        cap = (tail[:217].rstrip() + "...") if len(tail) > 220 else tail
+        return f"\u274c Не удалось сгенерировать фото: {cap} Кредит возвращён."
 
     return _GENERIC_FAILED_MESSAGE
 
