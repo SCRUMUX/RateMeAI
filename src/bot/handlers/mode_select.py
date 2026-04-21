@@ -71,6 +71,8 @@ def _user_message_for_failed(error_message: str | None) -> str:
     if not error_message:
         return _GENERIC_FAILED_MESSAGE
     text = error_message.strip()
+    if not text:
+        return _GENERIC_FAILED_MESSAGE
     if len(text) > 500:
         text = text[:497].rstrip() + "..."
     return f"\u274c {text}"
