@@ -757,14 +757,18 @@ async def synthetic_analyze(
 
 
 @router.post("/diagnostics/reve-raw")
-async def reve_raw_probe(_key: str = Depends(_verify_internal_key)):
-    """Bypass Reve SDK and hit /v1/image/create directly via httpx.
+async def reve_raw_probe(
+    endpoint: str = Query("create", description="create|remix|edit"),
+    _key: str = Depends(_verify_internal_key),
+):
+    """Bypass Reve SDK and hit a chosen Reve endpoint directly via httpx.
 
-    Purpose: distinguish between (a) stale token in process memory, (b) SDK
-    misbehaviour, and (c) actual Reve-side rate limit. Returns the token
-    prefix/suffix as seen in ``settings`` so we can confirm whether the
-    Railway redeploy actually picked up the freshly synced env var.
+    Purpose: distinguish between (a) stale token in process memory,
+    (b) SDK misbehaviour, (c) actual Reve-side rate limit per endpoint.
+    Returns the token prefix/suffix plus the exact body/headers Reve
+    returns, so we can diff against a successful local curl call.
     """
+    import base64 as _base64
     import time as _time
     import httpx
     from src.config import settings as _settings
@@ -774,12 +778,36 @@ async def reve_raw_probe(_key: str = Depends(_verify_internal_key)):
     token_mask = (
         f"{token[:8]}…{token[-6:]}" if len(token) >= 14 else f"len={len(token)}"
     )
-    body = {"prompt": "a neutral portrait placeholder in soft daylight"}
+
+    endpoint_norm = (endpoint or "create").strip().lower()
+    if endpoint_norm not in {"create", "remix", "edit"}:
+        raise HTTPException(status_code=400, detail=f"unknown endpoint '{endpoint}'")
+
+    reference = _synthetic_test_jpeg(512)
+    ref_b64 = _base64.b64encode(reference).decode("ascii")
+    if endpoint_norm == "create":
+        path = "/v1/image/create"
+        body: dict[str, Any] = {
+            "prompt": "a neutral portrait placeholder in soft daylight",
+        }
+    elif endpoint_norm == "remix":
+        path = "/v1/image/remix"
+        body = {
+            "prompt": "a neutral portrait placeholder in soft daylight",
+            "reference_images": [ref_b64],
+        }
+    else:
+        path = "/v1/image/edit"
+        body = {
+            "edit_instruction": "soften the lighting",
+            "reference_image": ref_b64,
+        }
+
     t0 = _time.monotonic()
     try:
         async with httpx.AsyncClient(timeout=120.0) as client:
             resp = await client.post(
-                f"{host}/v1/image/create",
+                f"{host}{path}",
                 json=body,
                 headers={
                     "Authorization": f"Bearer {token}",
@@ -796,10 +824,14 @@ async def reve_raw_probe(_key: str = Depends(_verify_internal_key)):
                 body_preview = "<cannot read>"
         return {
             "ok": resp.status_code == 200,
+            "endpoint": endpoint_norm,
+            "path": path,
             "status": resp.status_code,
             "took_ms": took_ms,
             "token_mask": token_mask,
             "host": host,
+            "reference_bytes": len(reference),
+            "reference_b64_len": len(ref_b64),
             "reve_request_id": resp.headers.get("x-reve-request-id"),
             "reve_token_id": resp.headers.get("x-reve-token-id"),
             "reve_error_code": resp.headers.get("x-reve-error-code"),
@@ -810,6 +842,7 @@ async def reve_raw_probe(_key: str = Depends(_verify_internal_key)):
         took_ms = int((_time.monotonic() - t0) * 1000)
         return {
             "ok": False,
+            "endpoint": endpoint_norm,
             "status": None,
             "took_ms": took_ms,
             "token_mask": token_mask,

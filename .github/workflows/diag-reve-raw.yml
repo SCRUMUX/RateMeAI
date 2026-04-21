@@ -21,19 +21,22 @@ jobs:
           [ -z "$INTERNAL_API_KEY" ] && { echo "::error::INTERNAL_API_KEY missing";    exit 1; }
           echo ok
 
-      - name: Fire reve-raw probe
+      - name: Fire reve-raw probe (create | remix | edit)
         run: |
           set -e
           mkdir -p artifacts
-          URL="${API_URL}/api/v1/internal/diagnostics/reve-raw"
-          HTTP_CODE=$(curl -s -X POST -o artifacts/reve-raw.json -w "%{http_code}" \
-            -H "x-internal-key: ${INTERNAL_API_KEY}" \
-            -H "accept: application/json" \
-            --max-time 180 \
-            "$URL")
-          echo "HTTP $HTTP_CODE"
-          cat artifacts/reve-raw.json
-          echo
+          for ep in create remix edit; do
+            echo "=== endpoint=$ep ==="
+            URL="${API_URL}/api/v1/internal/diagnostics/reve-raw?endpoint=$ep"
+            HTTP_CODE=$(curl -s -X POST -o artifacts/reve-raw-$ep.json -w "%{http_code}" \
+              -H "x-internal-key: ${INTERNAL_API_KEY}" \
+              -H "accept: application/json" \
+              --max-time 180 \
+              "$URL")
+            echo "HTTP $HTTP_CODE"
+            cat artifacts/reve-raw-$ep.json
+            echo
+          done
 
       - name: Upload artifact
         if: always()
