@@ -746,3 +746,69 @@ async def synthetic_analyze(
     # ``lru_cache`` singleton shared with the rest of the FastAPI process.
     # Closing it would poison every subsequent request with
     # ``RuntimeError: Cannot send a request, as the client has been closed``.
+
+
+@router.post("/diagnostics/image-gen-probe")
+async def image_gen_probe(_key: str = Depends(_verify_internal_key)):
+    """Fire one ``image_gen.generate`` call to verify Reve (or the configured
+    provider) is reachable from the primary backend.
+
+    Rationale: the analyze stage is now covered by
+    ``provider-probe`` + ``synthetic-analyze``. The last remaining blind
+    spot in the generation pipeline is the image-gen provider (Reve token
+    validity, quota, SDK version mismatch). This endpoint uses a neutral
+    prompt and a 512×512 synthetic reference image so no user content is
+    involved.
+    """
+    import time as _time
+    from src.providers.factory import get_image_gen as _get_image_gen
+    from src.services.ai_transfer_guard import task_context_scope as _task_context_scope
+    from src.workers.tasks import (
+        _format_task_error as _fmt_err,
+        _unwrap_exception as _unwrap,
+        _http_status_of as _http_status,
+    )
+
+    image_gen = _get_image_gen()
+    provider_name = type(image_gen).__name__
+    reference = _synthetic_test_jpeg(512)
+    prompt = (
+        "A neutral portrait placeholder in soft daylight, centred composition, "
+        "calm and professional mood. Do not render text."
+    )
+    guard_ctx = {"policy_flags": build_policy_flags({
+        "consent_data_processing": True,
+        "consent_ai_transfer": True,
+    })}
+
+    t0 = _time.monotonic()
+    try:
+        with _task_context_scope(guard_ctx):
+            out = await image_gen.generate(prompt=prompt, reference_image=reference)
+        took_ms = int((_time.monotonic() - t0) * 1000)
+        return {
+            "ok": True,
+            "provider": provider_name,
+            "took_ms": took_ms,
+            "bytes": len(out) if isinstance(out, (bytes, bytearray)) else 0,
+        }
+    except Exception as exc:
+        took_ms = int((_time.monotonic() - t0) * 1000)
+        original = _unwrap(exc)
+        response = getattr(original, "response", None)
+        body = ""
+        if response is not None:
+            try:
+                body = (getattr(response, "text", "") or "").strip().replace("\n", " ")
+            except Exception:
+                body = ""
+        return {
+            "ok": False,
+            "provider": provider_name,
+            "took_ms": took_ms,
+            "exc_type": type(original).__name__,
+            "http_status": _http_status(original),
+            "body": body[:800],
+            "repr": repr(original)[:400],
+            "error_message": _fmt_err(exc),
+        }

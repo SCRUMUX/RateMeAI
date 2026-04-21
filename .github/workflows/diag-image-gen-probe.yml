@@ -1,0 +1,78 @@
+name: Diag — Image Gen Probe
+
+on:
+  workflow_dispatch:
+
+# Calls POST /api/v1/internal/diagnostics/image-gen-probe on the primary
+# backend. The endpoint fires one image_gen.generate call with a neutral
+# prompt and a synthetic 512x512 reference image, so we can verify that
+# Reve (or the currently configured image-gen provider) is reachable and
+# the API token / quota are healthy — without waiting for a real user.
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    env:
+      API_URL: ${{ secrets.RAILWAY_API_URL }}
+      INTERNAL_API_KEY: ${{ secrets.INTERNAL_API_KEY }}
+    steps:
+      - name: Validate secrets
+        run: |
+          ok=true
+          [ -z "$API_URL" ] && { echo "::error::RAILWAY_API_URL missing"; ok=false; }
+          [ -z "$INTERNAL_API_KEY" ] && { echo "::error::INTERNAL_API_KEY missing"; ok=false; }
+          [ "$ok" = true ] || exit 1
+
+      - name: Fire image-gen probe
+        run: |
+          set -e
+          mkdir -p artifacts
+          URL="${API_URL}/api/v1/internal/diagnostics/image-gen-probe"
+          HTTP_CODE=$(curl -s -X POST -o artifacts/image-gen-probe.json -w "%{http_code}" \
+            -H "x-internal-key: ${INTERNAL_API_KEY}" \
+            -H "accept: application/json" \
+            --max-time 180 \
+            "$URL")
+          echo "HTTP $HTTP_CODE"
+          cat artifacts/image-gen-probe.json
+          if [ "$HTTP_CODE" != "200" ]; then
+            echo "::error::Image-gen-probe endpoint returned $HTTP_CODE"
+            exit 1
+          fi
+
+      - name: Summarise outcome
+        run: |
+          python3 - <<'PY'
+          import json, os, pathlib
+          data = json.loads(pathlib.Path("artifacts/image-gen-probe.json").read_text())
+          lines = ["### Image-gen probe result", ""]
+          ok = bool(data.get("ok"))
+          lines.append(f"* **ok**: `{ok}`")
+          for k in ("provider", "took_ms", "bytes", "http_status", "exc_type"):
+              if k in data:
+                  lines.append(f"* **{k}**: `{data.get(k)}`")
+          if not ok:
+              body = (data.get("body") or "")[:600]
+              lines.append("")
+              lines.append("**body:**")
+              lines.append("")
+              lines.append("```")
+              lines.append(body)
+              lines.append("```")
+              err = data.get("error_message")
+              if err:
+                  lines.append("")
+                  lines.append(f"**error_message:** `{err}`")
+          summary = "\n".join(lines)
+          step_summary = os.environ.get("GITHUB_STEP_SUMMARY")
+          if step_summary:
+              pathlib.Path(step_summary).write_text(summary)
+          print(summary)
+          PY
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: image-gen-probe
+          path: artifacts/
+          retention-days: 7
