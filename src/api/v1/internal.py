@@ -8,10 +8,11 @@ from __future__ import annotations
 import base64
 import logging
 import uuid
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from arq.connections import ArqRedis, create_pool, RedisSettings
-from fastapi import APIRouter, Depends, Header, HTTPException
+from fastapi import APIRouter, Depends, Header, HTTPException, Query
 from pydantic import BaseModel, Field
 from redis.asyncio import Redis
 from sqlalchemy import select
@@ -355,4 +356,114 @@ async def pre_analyze_remote(
         "perception_scores": perception,
         "perception_insights": insights,
         "enhancement_opportunities": opportunities,
+    }
+
+
+# ── Diagnostics ──
+#
+# Read-only, ops-facing view of recent FAILED tasks so we can diagnose
+# "why generation died fast" without needing Railway log access. Protected
+# by INTERNAL_API_KEY just like the rest of this router.
+#
+# Only surface-level metadata is returned (no image paths, no user PII):
+#   - task_id, mode, status
+#   - error_message (already truncated to 500 chars by _format_task_error)
+#   - created_at / updated_at and duration_ms
+#   - context_keys (keys only, without values — prevents leaking emails,
+#     prompts, trace_ids, etc.)
+#   - has_input_path / has_result flags
+#
+# Purpose: pin-point which stage of the pipeline kills the task. Since the
+# worker stores errors as "[stage=<stage>] <ExcType>: <msg>", one query
+# immediately tells us whether the issue is input_quality, privacy stash,
+# moderation, provider, or something else. Required for proper root-cause
+# analysis of the 2–3s "Ошибка генерации" report.
+
+_RECENT_ERRORS_DEFAULT_HOURS = 24
+_RECENT_ERRORS_MAX_LIMIT = 200
+
+
+@router.get("/diagnostics/recent-errors")
+async def recent_errors(
+    limit: int = Query(50, ge=1, le=_RECENT_ERRORS_MAX_LIMIT),
+    hours: int = Query(_RECENT_ERRORS_DEFAULT_HOURS, ge=1, le=168),
+    _key: str = Depends(_verify_internal_key),
+    db: AsyncSession = Depends(get_db),
+):
+    """Return recent FAILED tasks with structured error metadata.
+
+    Safe to call against production: no PII, no task inputs, no tokens.
+    """
+    since = datetime.now(timezone.utc) - timedelta(hours=hours)
+    stmt = (
+        select(Task)
+        .where(Task.status == TaskStatus.FAILED.value)
+        .where(Task.updated_at >= since)
+        .order_by(Task.updated_at.desc())
+        .limit(limit)
+    )
+    rows = (await db.execute(stmt)).scalars().all()
+
+    items: list[dict[str, Any]] = []
+    for t in rows:
+        created_at = t.created_at
+        updated_at = t.updated_at
+        duration_ms: int | None = None
+        if created_at and updated_at:
+            duration_ms = int((updated_at - created_at).total_seconds() * 1000)
+
+        err = t.error_message or ""
+        stage: str | None = None
+        exc_type: str | None = None
+        # Error format from src/workers/tasks.py::_format_task_error:
+        #   "[stage=<stage>] <ExcType>: <message>"
+        if err.startswith("[stage="):
+            try:
+                closing = err.index("]")
+                stage = err[len("[stage=") : closing]
+                tail = err[closing + 1 :].lstrip()
+                colon = tail.find(":")
+                if colon > 0:
+                    exc_type = tail[:colon]
+            except ValueError:
+                pass
+
+        ctx = t.context or {}
+        items.append(
+            {
+                "task_id": str(t.id),
+                "mode": t.mode,
+                "stage": stage,
+                "exc_type": exc_type,
+                "error_message": err,
+                "created_at": created_at.isoformat() if created_at else None,
+                "updated_at": updated_at.isoformat() if updated_at else None,
+                "duration_ms": duration_ms,
+                "context_keys": sorted(ctx.keys()) if isinstance(ctx, dict) else [],
+                "has_input_path": bool(t.input_image_path),
+                "has_result": bool(t.result),
+                "market_id": (ctx.get("market_id") if isinstance(ctx, dict) else None),
+                "scenario_type": (ctx.get("scenario_type") if isinstance(ctx, dict) else None),
+                "scenario_slug": (ctx.get("scenario_slug") if isinstance(ctx, dict) else None),
+                "style": (ctx.get("style") if isinstance(ctx, dict) else None),
+                "skip_image_gen": (ctx.get("skip_image_gen") if isinstance(ctx, dict) else None),
+                "credit_pre_reserved": (ctx.get("credit_pre_reserved") if isinstance(ctx, dict) else None),
+            }
+        )
+
+    # Aggregate counts by (stage, exc_type) to make triage trivial.
+    counters: dict[str, int] = {}
+    for it in items:
+        key = f"{it.get('stage') or '?'}::{it.get('exc_type') or '?'}"
+        counters[key] = counters.get(key, 0) + 1
+    breakdown = [
+        {"stage_exc": k, "count": v}
+        for k, v in sorted(counters.items(), key=lambda kv: (-kv[1], kv[0]))
+    ]
+
+    return {
+        "window_hours": hours,
+        "total": len(items),
+        "breakdown": breakdown,
+        "items": items,
     }
