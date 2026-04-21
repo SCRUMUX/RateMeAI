@@ -62,6 +62,46 @@ def _trace_step(trace: dict, step_name: str):
 ProgressCallback = Callable[[str, int, int], Awaitable[None]]
 
 
+def _format_image_gen_error(exc: BaseException) -> str:
+    """Compact, UI-safe description of an image-generation failure.
+
+    When multi-pass / single-pass catches an exception, we set
+    ``image_gen_error="generation_failed"`` and the worker marks the task
+    as ``completed`` with ``no_image_reason="generation_error"``. The web
+    UI then picks a hard-coded "Попробуйте другой стиль" string and the
+    real provider cause (e.g. Reve INVALID_PARAMETER_VALUE / rsid-...) is
+    lost. Store a short diagnostic here so the frontend can surface it
+    instead of the generic message.
+    """
+    exc_type = type(exc).__name__
+    msg = str(exc) or exc_type
+    parts: list[str] = []
+    try:
+        from src.providers.image_gen.reve_provider import ReveAPIError
+        real: BaseException = exc
+        for _ in range(5):
+            if isinstance(real, ReveAPIError):
+                break
+            cause = getattr(real, "__cause__", None) or getattr(real, "__context__", None)
+            if cause is None or cause is real:
+                break
+            real = cause
+        if isinstance(real, ReveAPIError):
+            if getattr(real, "status_code", None) is not None:
+                parts.append(f"http={real.status_code}")
+            if getattr(real, "error_code", None):
+                parts.append(f"code={real.error_code}")
+            if getattr(real, "request_id", None):
+                parts.append(f"req={real.request_id}")
+            msg = str(real) or msg
+            exc_type = type(real).__name__
+    except Exception:
+        pass
+    extras = (" " + " ".join(parts)) if parts else ""
+    text = f"{exc_type}: {msg[:220]}{extras}"
+    return text[:320]
+
+
 class ImageGenerationExecutor:
     """Runs image generation: multi-pass plans or single-pass fallback."""
 
@@ -222,14 +262,16 @@ class ImageGenerationExecutor:
                     "Не удалось сгенерировать улучшенное фото. Попробуй загрузить другое фото или выбрать другой стиль."
                 )
 
-        except Exception:
+        except Exception as exc:
             logger.exception("Multi-pass pipeline failed for task=%s without fallback", task_id)
+            err_text = _format_image_gen_error(exc)
             trace["decisions"].append({
                 "phase": "execute_plan",
                 "decision": "Multi-pass failed",
-                "reason": "exception during multi-pass execution; no second provider pass allowed",
+                "reason": f"exception during multi-pass execution: {err_text}",
             })
             result_dict["image_gen_error"] = "generation_failed"
+            result_dict["image_gen_error_message"] = err_text
             result_dict.setdefault("generation_warnings", []).append(
                 "Произошла ошибка при генерации. Попробуй ещё раз или загрузи другое фото."
             )
@@ -537,9 +579,10 @@ class ImageGenerationExecutor:
                     "Не удалось сгенерировать улучшенное фото. "
                     "Попробуй загрузить другое фото или выбрать другой стиль."
                 )
-        except Exception:
+        except Exception as exc:
             logger.exception("Image generation failed for mode %s", mode.value)
             result_dict["image_gen_error"] = "generation_failed"
+            result_dict["image_gen_error_message"] = _format_image_gen_error(exc)
             result_dict.setdefault("generation_warnings", []).append(
                 "Произошла ошибка при генерации. Попробуй ещё раз или загрузи другое фото."
             )

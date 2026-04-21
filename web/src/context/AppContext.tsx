@@ -532,11 +532,19 @@ export function AppProvider({ children }: { children: ReactNode }) {
           } else {
             const reason = r.no_image_reason as string | undefined;
             const refunded = Boolean(r.credit_refunded);
+            const diagTail = typeof r.image_gen_error_message === 'string'
+              ? (r.image_gen_error_message as string).trim()
+              : '';
+            const refundSuffix = refunded
+              ? ' Кредит возвращён.'
+              : '';
             const NO_IMAGE_MESSAGES: Record<string, string> = {
               no_credits: 'Недостаточно кредитов для генерации изображения. Пополните баланс.',
-              generation_error: refunded
-                ? 'Не удалось сгенерировать изображение. Кредит возвращён — попробуйте другой стиль или фото.'
-                : 'Не удалось сгенерировать изображение. Попробуйте другой стиль или фото.',
+              generation_error: diagTail
+                ? `Не удалось сгенерировать изображение: ${diagTail}.${refundSuffix}`
+                : refunded
+                  ? 'Не удалось сгенерировать изображение. Кредит возвращён — попробуйте другой стиль или фото.'
+                  : 'Не удалось сгенерировать изображение. Попробуйте другой стиль или фото.',
               upgrade_required: 'Для генерации изображения необходимо пополнить баланс.',
               not_applicable: 'Для данного режима генерация изображения недоступна.',
             };
