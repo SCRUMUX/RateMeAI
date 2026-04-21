@@ -1,0 +1,86 @@
+name: Diag — Synthetic Analyze
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "Analysis mode: rating|dating|cv|social|emoji"
+        required: false
+        default: "social"
+
+# Calls POST /api/v1/internal/diagnostics/synthetic-analyze on the primary
+# backend using INTERNAL_API_KEY. The endpoint rebuilds the exact OpenRouter
+# `analyze_image` payload the worker would send (mode prompt + 512x512 JPEG)
+# and returns the unwrapped httpx.HTTPStatusError (status + body + url) if
+# it fails. This is the definitive tool to root-cause the fast 4xx on
+# generation without waiting for a real user to trigger it.
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    env:
+      API_URL: ${{ secrets.RAILWAY_API_URL }}
+      INTERNAL_API_KEY: ${{ secrets.INTERNAL_API_KEY }}
+      MODE: ${{ inputs.mode }}
+    steps:
+      - name: Validate secrets
+        run: |
+          ok=true
+          [ -z "$API_URL" ] && { echo "::error::RAILWAY_API_URL missing"; ok=false; }
+          [ -z "$INTERNAL_API_KEY" ] && { echo "::error::INTERNAL_API_KEY missing"; ok=false; }
+          [ "$ok" = true ] || exit 1
+
+      - name: Fire synthetic analyze
+        run: |
+          set -e
+          mkdir -p artifacts
+          MODE_SAFE="${MODE:-social}"
+          URL="${API_URL}/api/v1/internal/diagnostics/synthetic-analyze?mode=${MODE_SAFE}"
+          HTTP_CODE=$(curl -s -X POST -o artifacts/synthetic-analyze.json -w "%{http_code}" \
+            -H "x-internal-key: ${INTERNAL_API_KEY}" \
+            -H "accept: application/json" \
+            --max-time 120 \
+            "$URL")
+          echo "HTTP $HTTP_CODE"
+          cat artifacts/synthetic-analyze.json
+          if [ "$HTTP_CODE" != "200" ]; then
+            echo "::error::Synthetic-analyze endpoint returned $HTTP_CODE"
+            exit 1
+          fi
+
+      - name: Summarise outcome
+        run: |
+          python3 - <<'PY'
+          import json, os, pathlib
+          data = json.loads(pathlib.Path("artifacts/synthetic-analyze.json").read_text())
+          lines = ["### Synthetic analyze result", ""]
+          ok = bool(data.get("ok"))
+          lines.append(f"* **ok**: `{ok}`")
+          for k in ("mode", "model", "took_ms", "http_status", "exc_type", "url"):
+              if k in data:
+                  lines.append(f"* **{k}**: `{data.get(k)}`")
+          if not ok:
+              body = (data.get("body") or "")[:600]
+              lines.append("")
+              lines.append("**body:**")
+              lines.append("")
+              lines.append("```")
+              lines.append(body)
+              lines.append("```")
+              err = data.get("error_message")
+              if err:
+                  lines.append("")
+                  lines.append(f"**error_message:** `{err}`")
+          summary = "\n".join(lines)
+          step_summary = os.environ.get("GITHUB_STEP_SUMMARY")
+          if step_summary:
+              pathlib.Path(step_summary).write_text(summary)
+          print(summary)
+          PY
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: synthetic-analyze
+          path: artifacts/
+          retention-days: 7

@@ -469,18 +469,88 @@ async def recent_errors(
     }
 
 
+def _minimal_jpeg_bytes() -> bytes:
+    """16x16 solid-grey JPEG — smallest payload that a vision model accepts.
+
+    Used by the vision probe to reproduce the exact shape of
+    ``OpenRouterLLM.analyze_image`` without sending any user content. Kept
+    as a function (not a module-level const) so Pillow import stays lazy.
+    """
+    import io as _io
+    from PIL import Image as _Image
+
+    buf = _io.BytesIO()
+    _Image.new("RGB", (16, 16), color=(128, 128, 128)).save(buf, format="JPEG", quality=80)
+    return buf.getvalue()
+
+
+async def _vision_probe_once(
+    client,
+    *,
+    model: str,
+    image_b64: str,
+    use_response_format: bool,
+    headers: dict[str, str],
+    base_url: str,
+) -> dict[str, Any]:
+    """Fire one ``chat.completions`` call shaped like ``analyze_image``.
+
+    Returns status / body snippet / latency. Never raises — any transport
+    failure is reported as ``error``.
+    """
+    import time as _time
+    payload: dict[str, Any] = {
+        "model": model,
+        "messages": [{
+            "role": "user",
+            "content": [
+                {"type": "text", "text": 'Return strictly {"ok":true} as JSON.'},
+                {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{image_b64}"}},
+            ],
+        }],
+        "max_tokens": 100,
+        "temperature": 0.0,
+    }
+    if use_response_format:
+        payload["response_format"] = {"type": "json_object"}
+
+    t0 = _time.monotonic()
+    try:
+        r = await client.post(
+            f"{base_url}/chat/completions", headers=headers, json=payload,
+        )
+        took_ms = int((_time.monotonic() - t0) * 1000)
+        body = (r.text or "").strip().replace("\n", " ")
+        return {
+            "status": r.status_code,
+            "body": body[:500],
+            "took_ms": took_ms,
+            "response_format": use_response_format,
+        }
+    except Exception as exc:
+        took_ms = int((_time.monotonic() - t0) * 1000)
+        return {
+            "error": f"{type(exc).__name__}: {exc}",
+            "took_ms": took_ms,
+            "response_format": use_response_format,
+        }
+
+
 @router.get("/diagnostics/provider-probe")
 async def provider_probe(_key: str = Depends(_verify_internal_key)):
     """Actively probe the LLM provider using the live production API key.
 
     Goal: confirm in <5s whether OpenRouter would return 4xx/5xx *right now*
     with our credentials — without having to wait for a real user to hit
-    "generate" and fail. Calls two cheap, always-free endpoints:
+    "generate" and fail. Calls three cheap endpoints:
 
-      * ``GET /auth/key``   — tells us if the key itself is valid / has
-        any credit (returns 401 if revoked, 200 + is_free_tier bool otherwise);
-      * ``GET /models``     — tells us the API is reachable and the
-        configured model is in the active catalog.
+      * ``GET  /auth/key``          — key validity / credit (always free);
+      * ``GET  /models``            — API reachable and model in catalog;
+      * ``POST /chat/completions``  — vision call identical in shape to
+        ``OpenRouterLLM.analyze_image`` (16×16 JPEG, same structured
+        content blocks). Run twice: with ``response_format=json_object``
+        and without, so a 400 exclusively caused by that parameter is
+        immediately distinguishable from a safety / payload failure.
 
     Returns raw status codes + short body snippets. No PII involved.
     """
@@ -496,7 +566,7 @@ async def provider_probe(_key: str = Depends(_verify_internal_key)):
         return result
 
     headers = {"Authorization": f"Bearer {settings.openrouter_api_key}"}
-    async with _httpx.AsyncClient(timeout=10.0) as client:
+    async with _httpx.AsyncClient(timeout=15.0) as client:
         # 1) key validity
         try:
             r = await client.get(
@@ -532,4 +602,135 @@ async def provider_probe(_key: str = Depends(_verify_internal_key)):
         except Exception as exc:
             result["models"] = {"error": f"{type(exc).__name__}: {exc}"}
 
+        # 3) vision chat.completions — the real smoking gun
+        try:
+            jpeg = _minimal_jpeg_bytes()
+            b64 = base64.b64encode(jpeg).decode("ascii")
+            result["vision_json_mode"] = await _vision_probe_once(
+                client,
+                model=settings.openrouter_model,
+                image_b64=b64,
+                use_response_format=True,
+                headers=headers,
+                base_url=settings.openrouter_base_url,
+            )
+            result["vision_plain"] = await _vision_probe_once(
+                client,
+                model=settings.openrouter_model,
+                image_b64=b64,
+                use_response_format=False,
+                headers=headers,
+                base_url=settings.openrouter_base_url,
+            )
+        except Exception as exc:
+            result["vision_probe_error"] = f"{type(exc).__name__}: {exc}"
+
     return result
+
+
+def _synthetic_test_jpeg(size: int = 512) -> bytes:
+    """Build a deterministic ``size×size`` JPEG for synthetic pipeline probes.
+
+    We intentionally draw a simple two-tone gradient with a crude face-like
+    oval so face-presence heuristics downstream don't auto-reject, but the
+    key point is this endpoint *bypasses* preprocess/face gates and calls
+    the mode service directly — see ``synthetic_analyze``.
+    """
+    import io as _io
+    from PIL import Image as _Image, ImageDraw as _ImageDraw
+
+    img = _Image.new("RGB", (size, size), color=(210, 200, 190))
+    draw = _ImageDraw.Draw(img)
+    cx, cy, r = size // 2, size // 2, size // 4
+    draw.ellipse((cx - r, cy - r, cx + r, cy + r), fill=(230, 200, 180))
+    draw.ellipse((cx - r // 2, cy - r // 3, cx - r // 4, cy - r // 5), fill=(50, 40, 30))
+    draw.ellipse((cx + r // 4, cy - r // 3, cx + r // 2, cy - r // 5), fill=(50, 40, 30))
+    buf = _io.BytesIO()
+    img.save(buf, format="JPEG", quality=85)
+    return buf.getvalue()
+
+
+@router.post("/diagnostics/synthetic-analyze")
+async def synthetic_analyze(
+    mode: str = Query("social", description="Analysis mode: rating|dating|cv|social|emoji"),
+    _key: str = Depends(_verify_internal_key),
+):
+    """Reproduce ``OpenRouterLLM.analyze_image`` with the production prompt.
+
+    Unlike a real task this endpoint:
+
+    * skips DB / Redis / preprocess — goes straight to the mode service;
+    * uses a deterministic synthetic JPEG (no user content);
+    * never retries on 4xx (same tenacity policy as worker — we inherit it
+      from ``OpenRouterLLM`` itself, not re-wrap);
+    * unwraps ``RetryError`` / ``PipelineStageError`` and returns the true
+      ``httpx.HTTPStatusError`` body + status code + URL.
+
+    This is the single fastest path to get the real 4xx that kills
+    generation in production, without waiting for a user to hit "generate".
+    """
+    import time as _time
+    from src.models.enums import AnalysisMode as _AnalysisMode
+    from src.orchestrator.router import ModeRouter as _ModeRouter
+    from src.prompts.engine import PromptEngine as _PromptEngine
+    from src.providers.factory import get_llm as _get_llm
+    from src.workers.tasks import (
+        _format_task_error as _fmt_err,
+        _unwrap_exception as _unwrap,
+        _http_status_of as _http_status,
+    )
+
+    try:
+        mode_enum = _AnalysisMode(mode.strip().lower())
+    except ValueError:
+        raise HTTPException(status_code=400, detail=f"Unknown mode '{mode}'")
+
+    llm = _get_llm()
+    router = _ModeRouter(llm, _PromptEngine())
+    service = router.get_service(mode_enum)
+    image = _synthetic_test_jpeg(512)
+
+    t0 = _time.monotonic()
+    try:
+        res = await service.analyze(image)
+        took_ms = int((_time.monotonic() - t0) * 1000)
+        public = res.model_dump() if hasattr(res, "model_dump") else (
+            res.dict() if hasattr(res, "dict") else {"repr": repr(res)[:300]}
+        )
+        return {
+            "ok": True,
+            "mode": mode_enum.value,
+            "model": settings.openrouter_model,
+            "took_ms": took_ms,
+            "keys": sorted(public.keys()) if isinstance(public, dict) else None,
+        }
+    except Exception as exc:
+        took_ms = int((_time.monotonic() - t0) * 1000)
+        original = _unwrap(exc)
+        response = getattr(original, "response", None)
+        body = ""
+        if response is not None:
+            try:
+                body = (getattr(response, "text", "") or "").strip().replace("\n", " ")
+            except Exception:
+                body = ""
+        request = getattr(original, "request", None)
+        url = getattr(request, "url", None) if request is not None else None
+        return {
+            "ok": False,
+            "mode": mode_enum.value,
+            "model": settings.openrouter_model,
+            "took_ms": took_ms,
+            "exc_type": type(original).__name__,
+            "exc_class_chain": type(exc).__name__,
+            "http_status": _http_status(original),
+            "body": body[:800],
+            "url": str(url) if url is not None else None,
+            "repr": repr(original)[:400],
+            "error_message": _fmt_err(exc),
+        }
+    finally:
+        try:
+            await llm.close()
+        except Exception:
+            pass
