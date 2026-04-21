@@ -94,31 +94,28 @@ class ReveImageGen(ImageGenProvider):
     async def close(self) -> None:
         pass
 
-    def _build_options(
-        self,
-        params: dict | None,
-        endpoint: str,
-    ) -> dict[str, Any]:
-        """Build per-endpoint options.
+    def _build_options(self, params: dict | None) -> dict[str, Any]:
+        """Build generation options shared by all three endpoints.
 
-        Reve's three endpoints do **not** share the same parameter surface:
-        only ``/v1/image/create`` accepts the full generation config
-        (``aspect_ratio`` / ``version`` / ``test_time_scaling``). Sending
-        those keys to ``/v1/image/edit`` or ``/v1/image/remix`` produces
-        ``INVALID_PARAMETER_VALUE`` with credits_used=0 (observed in Reve
-        dashboard logs on 2026-04-21 at 16:07), which then cascades into
-        worker retries and hits the token rate limit. Keep edit/remix
-        payloads minimal.
+        The official Reve SDK (``reve/v1/image.py``) forwards
+        ``aspect_ratio`` / ``version`` / ``test_time_scaling`` /
+        ``postprocessing`` into **every** endpoint body (``create`` /
+        ``edit`` / ``remix``) — the server expects them uniformly. Our
+        earlier attempt to strip these keys from edit/remix was based on
+        a wrong guess: it caused ``INVALID_PARAMETER_VALUE`` from
+        2026-04-21 12:28 onward because Reve treats missing/unknown
+        values on those fields as a validation failure. Match the SDK
+        contract exactly.
         """
-        opts: dict[str, Any] = {}
-        if endpoint == self.API_CREATE:
-            opts["aspect_ratio"] = self._aspect_ratio
-            opts["version"] = self._version
-            opts["test_time_scaling"] = self._test_time_scaling
-            if params:
-                for k in ("aspect_ratio", "version", "test_time_scaling"):
-                    if k in params and params[k] is not None:
-                        opts[k] = params[k]
+        opts: dict[str, Any] = {
+            "aspect_ratio": self._aspect_ratio,
+            "version": self._version,
+            "test_time_scaling": self._test_time_scaling,
+        }
+        if params:
+            for k in ("aspect_ratio", "version", "test_time_scaling", "postprocessing"):
+                if k in params and params[k] is not None:
+                    opts[k] = params[k]
         return opts
 
     @staticmethod
@@ -315,7 +312,11 @@ class ReveImageGen(ImageGenProvider):
         else:
             endpoint = self.API_CREATE
 
-        options = self._build_options(params, endpoint)
+        options = self._build_options(params)
+        # Internal-only keys must never reach the Reve wire protocol —
+        # the server rejects them with INVALID_PARAMETER_VALUE.
+        for k in ("mask_image", "mask_region", "use_edit"):
+            options.pop(k, None)
         body = self._build_body(endpoint, prompt, reference_image, options)
 
         last_err: Exception | None = None
