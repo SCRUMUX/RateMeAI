@@ -1,0 +1,27 @@
+v1.19.1 HOTFIX: drop max_sequence_length from fal-ai/pulid body
+
+v1.19.0 added `max_sequence_length: 512` to every PuLID request on
+the false assumption that PuLID mirrors the FLUX.1 text-to-image
+schema. It does not — fal-ai/pulid's Pydantic validator rejected the
+field with HTTP 422 on every identity_scene call, so the entire
+hybrid pipeline was failing end-to-end despite the `/health`
+endpoint reporting v1.19.0 as running.
+
+Scope of the fix:
+* Removed the key from `FalPuLIDImageGen._build_body`.
+* Dropped `max_sequence_length` from the constructor signature /
+  attributes / `_MAX_SEQUENCE_LENGTHS` constant.
+* Dropped `max_sequence_length=` from `_build_fal_pulid` in the
+  factory.
+* Marked `pulid_max_sequence_length` deprecated in `src/config.py`
+  (kept as a harmless setting for env backwards compatibility).
+* Removed `PULID_MAX_SEQUENCE_LENGTH` from `.env.example`.
+* Replaced the two "ships max_sequence_length" tests with a single
+  regression guard (`test_body_does_not_ship_max_sequence_length`).
+
+All other v1.19.0 fixes (25-step preset, negative_prompt, 1 MP
+image_size, tighter face crop, CodeFormer gating, retry escalation)
+remain unchanged — they never actually ran because every call was
+failing at validation before reaching the sampler.
+
+Tests: 2274 pass / 37 skip.

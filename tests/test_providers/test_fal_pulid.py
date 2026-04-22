@@ -149,21 +149,18 @@ def test_body_honours_custom_negative_prompt():
     assert body["negative_prompt"] == "custom negative override"
 
 
-def test_body_ships_max_sequence_length_512_by_default():
-    # v1.19: default 512 so the full 1200-char builder reaches the
-    # sampler instead of being truncated at ~500 chars by the API
-    # default (128).
+def test_body_does_not_ship_max_sequence_length():
+    # v1.19.1 regression guard — fal-ai/pulid does NOT accept
+    # ``max_sequence_length`` in its schema (that's a FLUX.1 knob).
+    # v1.19.0 wrongly added the field and FAL returned 422 on every
+    # identity_scene generation. The body builder must never emit it.
     gen = _make_gen()
     body = gen._build_body("x", _jpeg_bytes(), None)
-    assert body["max_sequence_length"] == 512
-
-
-def test_body_max_sequence_length_falls_back_to_512_on_invalid():
-    gen = _make_gen()
-    body = gen._build_body(
-        "x", _jpeg_bytes(), {"max_sequence_length": 1024},
+    assert "max_sequence_length" not in body
+    body_with_extras = gen._build_body(
+        "x", _jpeg_bytes(), {"max_sequence_length": 512},
     )
-    assert body["max_sequence_length"] == 512
+    assert "max_sequence_length" not in body_with_extras
 
 
 def test_body_seed_default_is_random_int():

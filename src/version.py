@@ -473,4 +473,22 @@
 #                                        + $0.002 ESRGAN = $0.036
 #            weighted (70/30 split)    : ~$0.023 / image — still
 #                                        below the $0.025 ceiling.
-APP_VERSION = "1.19.0"
+# 1.19.1 — HOTFIX: v1.19.0 shipped with ``max_sequence_length: 512``
+#          injected into every fal-ai/pulid request, but that field is
+#          not in the PuLID input schema (it's a FLUX.1 text-to-image
+#          knob). FAL's Pydantic validator rejected it with HTTP 422
+#          on every identity_scene generation, breaking the whole
+#          hybrid pipeline end-to-end.
+#
+#          Fix: removed the ``max_sequence_length`` key from the
+#          PuLID body builder, the constructor, the factory wiring,
+#          the config setting and ``PULID_MAX_SEQUENCE_LENGTH`` from
+#          ``.env.example``. Added a regression test
+#          (``test_body_does_not_ship_max_sequence_length``) to catch
+#          re-introduction. All other v1.19.0 fixes (25-step preset,
+#          negative_prompt, 1 MP image_size, tighter face crop,
+#          CodeFormer gating, retry escalation) remain unchanged —
+#          they are orthogonal to the broken key and were not in
+#          effect because every call was failing at validation before
+#          ever reaching the sampler.
+APP_VERSION = "1.19.1"

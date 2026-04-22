@@ -185,10 +185,12 @@ class Settings(BaseSettings):
     # stylisation, not identity recovery. The retry path stays on
     # ``fidelity`` and instead raises id_scale / steps / guidance.
     pulid_mode: str = "fidelity"
-    # Maximum CLIP sequence length. 128 (API default) truncates long
-    # scene+clothing prompts at ~500 chars; 512 lets the full 1200-char
-    # builder reach the sampler.
-    pulid_max_sequence_length: int = 512
+    # NOTE: ``pulid_max_sequence_length`` was added in v1.19.0 under
+    # the wrong assumption that fal-ai/pulid mirrors the FLUX.1
+    # text-to-image schema. It does not — PuLID's schema rejects the
+    # field with HTTP 422. Do NOT re-add; the constant is kept out of
+    # the request body in v1.19.1+.
+    #
     # Retry-escalation knobs (used only when the VLM gate flags
     # identity_match below the soft threshold).
     pulid_retry_id_scale: float = 1.2

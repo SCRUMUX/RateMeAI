@@ -75,8 +75,6 @@ _PRESET_IMAGE_SIZES = frozenset({
 
 _PULID_MODES = frozenset({"fidelity", "extreme style"})
 
-_MAX_SEQUENCE_LENGTHS = frozenset({128, 256, 512})
-
 # Default negative prompt baked into every PuLID request.
 #
 # v1.19 — the hybrid pipeline shipped without a negative_prompt, which
@@ -122,7 +120,6 @@ class FalPuLIDImageGen(FalQueueClient, ImageGenProvider):
         num_inference_steps: int = 25,
         guidance_scale: float = 3.5,
         default_image_size: Any = "portrait_4_3",
-        max_sequence_length: int = 512,
         negative_prompt: str | None = None,
         max_retries: int = 2,
         request_timeout: float = 180.0,
@@ -147,10 +144,6 @@ class FalPuLIDImageGen(FalQueueClient, ImageGenProvider):
         self._steps = max(1, min(50, int(num_inference_steps)))
         self._guidance_scale = max(1.0, min(10.0, float(guidance_scale)))
         self._default_image_size = default_image_size
-        msl = int(max_sequence_length)
-        self._max_sequence_length = (
-            msl if msl in _MAX_SEQUENCE_LENGTHS else 512
-        )
         self._negative_prompt = (
             negative_prompt.strip()
             if isinstance(negative_prompt, str) and negative_prompt.strip()
@@ -241,13 +234,10 @@ class FalPuLIDImageGen(FalQueueClient, ImageGenProvider):
         if body["mode"] not in _PULID_MODES:
             body["mode"] = "fidelity"
 
-        msl_raw = extras.get("max_sequence_length")
-        msl = int(msl_raw) if isinstance(msl_raw, (int, float)) else (
-            self._max_sequence_length
-        )
-        body["max_sequence_length"] = (
-            msl if msl in _MAX_SEQUENCE_LENGTHS else 512
-        )
+        # NOTE: fal-ai/pulid does **not** accept ``max_sequence_length``
+        # (that's a FLUX.1 text-to-image knob, not a PuLID one). v1.19.0
+        # wrongly added it and the API returned 422 on every call;
+        # v1.19.1 removed it. Do not re-introduce without schema proof.
 
         seed = extras.get("seed")
         if isinstance(seed, int):
@@ -276,11 +266,10 @@ class FalPuLIDImageGen(FalQueueClient, ImageGenProvider):
         body = self._build_body(prompt, reference_image, params)
         logger.info(
             "FAL PuLID request model=%s prompt_len=%d mode=%s id_scale=%.2f "
-            "steps=%d guidance=%.2f msl=%d seed=%s size=%s neg_len=%d",
+            "steps=%d guidance=%.2f seed=%s size=%s neg_len=%d",
             self._model, len(prompt or ""), body.get("mode"),
             body.get("id_scale"), body.get("num_inference_steps"),
             body.get("guidance_scale", 0.0),
-            body.get("max_sequence_length", 0),
             body.get("seed"), body.get("image_size", "default"),
             len(body.get("negative_prompt") or ""),
         )

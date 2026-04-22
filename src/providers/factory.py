@@ -101,9 +101,6 @@ def _build_fal_pulid():
         pulid_mode=settings.pulid_mode,
         num_inference_steps=settings.pulid_steps,
         guidance_scale=settings.pulid_guidance_scale,
-        max_sequence_length=getattr(
-            settings, "pulid_max_sequence_length", 512,
-        ),
         max_retries=settings.fal_max_retries,
         request_timeout=settings.fal_request_timeout,
         poll_interval=settings.fal_poll_interval,
