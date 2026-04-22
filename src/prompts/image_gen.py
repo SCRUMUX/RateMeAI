@@ -13,8 +13,10 @@ import logging
 
 from src.prompts.style_spec import (
     StyleRegistry,
+    StyleVariant,
     build_spec_from_legacy,
 )
+from src.prompts.style_variants import STYLE_VARIANTS
 
 logger = logging.getLogger(__name__)
 
@@ -29,30 +31,47 @@ PROMPT_MAX_LEN = 1200
 
 PRESERVE_PHOTO = (
     "Preserve the exact same person from the reference photo: identical face "
-    "(bone structure, eyes, nose, mouth, lips, jawline, ears, hairline, hair "
-    "color, length and parting), natural skin with real pores and subtle "
-    "imperfections, original pose, framing and body proportions. Keep hair "
-    "silhouette crisp against the new background. Hands must have exactly "
-    "five clearly separated fingers."
+    "(bone structure, eyes, nose, mouth, jawline, ears, hairline, hair color "
+    "and parting), identical skin tone and undertone with natural pores, "
+    "same head-to-shoulders proportion and neck length, original pose and "
+    "body proportions, hair silhouette crisp against the new background, "
+    "hands with exactly five clearly separated fingers."
+)
+
+# Body-change variant: the target scene (yoga mat, beach, running track,
+# etc.) inherently requires a different pose from the reference, so we must
+# NOT ask FLUX to keep the original pose/framing — that contradictory signal
+# is exactly what produced the disfigured "yoga_outdoor" results in
+# production. Identity (face, hair, skin) is still pinned.
+PRESERVE_PHOTO_FACE_ONLY = (
+    "Preserve the exact same person's identity from the reference photo: "
+    "identical face (bone structure, eyes, nose, mouth, jawline, ears, "
+    "hairline, hair color and parting), identical skin tone with natural "
+    "pores, same age and gender, same head-to-shoulders proportion, hair "
+    "silhouette crisp. Render a natural full-body pose fitting the new "
+    "scene with realistic body proportions, hands with five clearly "
+    "separated fingers."
 )
 
 QUALITY_PHOTO = (
-    "Photorealistic unedited photograph. Entire scene rendered sharp from "
-    "subject to background — architecture, textures, foliage and distant "
-    "objects remain crisp and legible. Natural colors and lighting, no "
-    "artificial blur, no bokeh, no airbrush, no plastic smile."
+    "Photorealistic unedited photograph, entire scene sharp from subject to "
+    "background with textures and distant objects crisp and legible, natural "
+    "true-to-life colors, even realistic lighting, deep field of focus, "
+    "genuine relaxed expression, authentic skin texture."
 )
 
 DOC_PRESERVE = (
     "Preserve the exact same person from the reference photo: identical face "
-    "(bone structure, eyes, nose, mouth, hairline), natural skin texture with "
-    "real pores, same hair color and length, original head shape."
+    "(bone structure, eyes, nose, mouth, hairline, ear position), identical "
+    "skin tone with natural pores, same hair color and length, same head "
+    "shape and head-to-shoulders proportion."
 )
 
 DOC_QUALITY = (
-    "Photorealistic ID-style headshot. Soft even frontal studio light, minimal "
-    "shadows on face and backdrop, true-to-life skin tones, sharp detail, no "
-    "airbrush, no artistic filters, no heavy color grading."
+    "Photorealistic ID-style headshot, soft even frontal studio light, clean "
+    "backdrop with minimal residual shadow, true-to-life skin tones, "
+    "authentic skin texture, sharp detail across the face, balanced natural "
+    "color."
 )
 
 # ---------------------------------------------------------------------------
@@ -182,77 +201,77 @@ DATING_STYLES: dict[str, str] = {
     ),
     # --- Landmarks ---
     "paris_eiffel": (
-        "Background: Parisian boulevard with Eiffel Tower visible behind rendered crisply and clearly resolved, "
+        "Background: Parisian boulevard with Eiffel Tower landmark visible in sharp detail, "
         "morning golden light, cafe table with croissant and coffee visible. "
         "Clothing: fitted navy blazer over white tee, dark jeans, clean white sneakers."
     ),
     "nyc_brooklyn_bridge": (
         "Background: Brooklyn Bridge walkway at golden sunset, warm orange sky, "
-        "Manhattan skyline visible behind rendered crisply and clearly resolved. "
+        "Manhattan skyline visible behind. "
         "Clothing: casual fitted jacket, dark jeans, comfortable walking shoes."
     ),
     "rome_colosseum": (
-        "Background: outdoor cafe terrace with Colosseum visible behind rendered crisply and clearly resolved, "
+        "Background: outdoor cafe terrace with Colosseum landmark visible in sharp detail, "
         "warm Mediterranean afternoon light, cobblestone street visible. "
         "Clothing: linen shirt, light chinos, leather loafers, relaxed Italian style."
     ),
     "dubai_burj_khalifa": (
-        "Background: modern Dubai boulevard with Burj Khalifa illuminated at blue hour rendered crisply and clearly resolved, "
-        "glass reflections, warm city lights, luxury urban atmosphere. "
+        "Background: modern Dubai boulevard with Burj Khalifa landmark illuminated at blue hour, "
+        "glass reflections, warm amber city lights, luxury urban atmosphere. "
         "Clothing: fitted dark shirt, tailored trousers, luxury watch, polished modern style."
     ),
     "nyc_times_square": (
         "Background: Times Square with vibrant billboards and neon lights, "
-        "bustling energy, sharp vibrant night street atmosphere with neon reflections clearly rendered. "
+        "bustling atmosphere, sharp vibrant night street scene with teal and magenta neon reflections on pavement. "
         "Clothing: streetwear layers, statement jacket, fitted dark pants, designer sneakers."
     ),
     "barcelona_sagrada": (
-        "Background: sunlit Barcelona terrace with Sagrada Familia spires in background rendered crisply and clearly resolved, "
+        "Background: sunlit Barcelona terrace with Sagrada Familia landmark visible in sharp detail, "
         "warm morning light, breakfast table with juice and pastries. "
         "Clothing: relaxed summer shirt, light chinos, straw hat, Mediterranean casual."
     ),
     "london_eye": (
-        "Background: Thames embankment with London Eye visible in background rendered crisply and clearly resolved, "
+        "Background: Thames embankment with London Eye in background, "
         "grey-blue London sky with golden patches, river reflections. "
         "Clothing: tailored overcoat or trench, dark scarf, smart casual British layers."
     ),
     "sydney_opera": (
-        "Background: Sydney harbour with Opera House sails in background rendered crisply and clearly resolved, "
+        "Background: Sydney harbour with Opera House sails landmark visible in sharp detail, "
         "sparkling blue water, bright Australian daylight. "
         "Clothing: casual smart outfit, fitted polo or button-down, clean summer style."
     ),
     "tokyo_tower": (
-        "Background: minimalist Tokyo street with Tokyo Tower visible behind rendered crisply and clearly resolved, "
+        "Background: minimalist Tokyo street with Tokyo Tower in background, "
         "cherry blossoms or clean urban aesthetic, diffused light. "
         "Clothing: minimal Japanese-inspired outfit, clean dark fitted layers."
     ),
     "sf_golden_gate": (
-        "Background: Golden Gate Bridge at sunset with fog rolling in, "
-        "warm orange and teal tones, Pacific Ocean behind rendered crisply and clearly resolved. "
+        "Background: Golden Gate Bridge landmark at sunset with fog rolling in, "
+        "warm orange and teal tones, Pacific Ocean behind. "
         "Clothing: fitted fleece or casual jacket, dark jeans, relaxed outdoor-casual style."
     ),
     "athens_acropolis": (
-        "Background: narrow Athens street with Acropolis on hilltop in warm light rendered crisply and clearly resolved, "
+        "Background: narrow Athens street with Acropolis landmark on hilltop in warm light, "
         "whitewashed walls, Mediterranean plants and bougainvillea. "
         "Clothing: relaxed white linen shirt, light trousers, leather sandals."
     ),
     "singapore_marina_bay": (
-        "Background: Marina Bay Sands and Singapore skyline at night rendered crisply and clearly resolved, "
+        "Background: Marina Bay Sands and Singapore skyline at night, "
         "illuminated reflections on water, modern futuristic architecture. "
         "Clothing: smart fitted shirt, tailored dark trousers, polished modern shoes."
     ),
     "venice_san_marco": (
-        "Background: Piazza San Marco at golden hour, historic Venetian architecture rendered crisply and clearly resolved, "
+        "Background: Piazza San Marco at golden hour, historic Venetian architecture, "
         "warm amber light, canal water reflections in distance. "
         "Clothing: elegant smart-casual, fitted blazer, quality leather shoes, refined style."
     ),
     "nyc_central_park": (
         "Background: Central Park with autumn foliage in warm tones, "
-        "dappled sunlight through trees, green lawns and pathway rendered crisply and clearly resolved. "
+        "dappled sunlight through trees, green lawns and pathway. "
         "Clothing: casual fitted sweater, dark jeans, clean casual sneakers."
     ),
     "london_big_ben": (
-        "Background: Westminster with Big Ben and Parliament in background rendered crisply and clearly resolved, "
+        "Background: Westminster with Big Ben landmark visible in sharp detail, "
         "classic London overcast light, Thames embankment visible. "
         "Clothing: classic British smart-casual, tailored jacket, polished accessories."
     ),
@@ -337,7 +356,7 @@ DATING_STYLES: dict[str, str] = {
     ),
     "tinder_pack_minimal_studio": (
         "Background: pure neutral studio backdrop soft grey-to-white gradient, "
-        "even beauty-dish lighting, no clutter, clean studio setup with backdrop fully visible. "
+        "even beauty-dish lighting, empty backdrop area, clean studio setup with backdrop fully visible. "
         "Clothing: simple fitted top in solid color, minimal jewelry, fresh grooming."
     ),
     "tinder_pack_cafe_window": (
@@ -349,63 +368,63 @@ DATING_STYLES: dict[str, str] = {
 
 DATING_PERSONALITIES: dict[str, str] = {
     "warm_outdoor": "Soft relaxed eyes, warm approachable look, gentle natural expression.",
-    "studio_elegant": "Strong direct gaze, calm self-assured energy, confident expression.",
-    "near_car": "Direct assured gaze, subtle half-smile, confident relaxed energy.",
-    "in_car": "Warm natural smile, easy confident energy, relaxed expression.",
-    "motorcycle": "Strong direct gaze, calm rugged confidence, bold energy.",
-    "yacht": "Wind-touched hair, warm bright smile, open carefree energy.",
-    "rooftop_city": "Composed sophisticated gaze, subtle confident smile, polished energy.",
+    "studio_elegant": "Strong direct gaze, calm self-assured eyes, confident closed-mouth expression.",
+    "near_car": "Direct assured gaze, subtle half-smile, relaxed brow and steady mouth.",
+    "in_car": "Warm natural smile, easy eye crinkles, relaxed expression.",
+    "motorcycle": "Strong direct gaze, calm rugged brow, bold closed-mouth line.",
+    "yacht": "Wind-touched hair, warm bright smile, open carefree eyes.",
+    "rooftop_city": "Composed sophisticated gaze, subtle confident smile, polished still mouth.",
     "gym_fitness": "Healthy glow, energetic direct look, determined confident expression.",
-    "running": "Fresh energetic expression, bright alert eyes, healthy athletic glow.",
-    "tennis": "Confident sporty smile, sun-kissed healthy look, athletic energy.",
-    "swimming_pool": "Natural tanned skin, warm easy smile, vacation energy.",
-    "hiking": "Accomplished peaceful expression, adventurous bright-eyed energy.",
-    "cafe": "Bright engaging eyes, magnetic energy, relaxed warm expression.",
-    "coffee_date": "Gentle attentive smile, warm inviting eye contact, cozy energy.",
-    "restaurant": "Charming engaged expression, sophisticated relaxed energy, warm gaze.",
-    "bar_lounge": "Mysterious half-smile, magnetic confident energy, alluring gaze.",
+    "running": "Fresh alert eyes, bright forward gaze, healthy athletic glow.",
+    "tennis": "Confident sporty smile, sun-kissed healthy look, focused ready stance.",
+    "swimming_pool": "Natural tanned skin, warm easy smile, soft relaxed eyes.",
+    "hiking": "Accomplished peaceful expression, adventurous bright-eyed open gaze.",
+    "cafe": "Bright engaging eyes, raised eyebrow warmth, relaxed warm expression.",
+    "coffee_date": "Gentle attentive smile, warm inviting eye contact, soft brow.",
+    "restaurant": "Charming engaged expression, sophisticated relaxed mouth, warm gaze.",
+    "bar_lounge": "Mysterious half-smile, direct steady eye contact, alluring gaze.",
     "cooking": "Genuine warm smile, approachable domestic charm, playful engaging eyes.",
-    "dog_lover": "Genuine bright laugh, warm open expression, kind approachable energy.",
-    "travel": "Easy composed smile, cosmopolitan energy, confident worldly expression.",
-    "beach_sunset": "Warm sunset light on face, peaceful genuine smile, free relaxed energy.",
-    "art_gallery": "Intellectual composed expression, subtle confident gaze, cultured refined energy.",
-    "street_urban": "Effortless cool expression, bold urban energy, confident gaze.",
-    "concert": "Passionate creative expression, magnetic artistic energy, soulful gaze.",
+    "dog_lover": "Genuine bright laugh, warm open expression, kind approachable eyes.",
+    "travel": "Easy composed smile, composed worldly gaze, confident worldly expression.",
+    "beach_sunset": "Warm sunset light on face, peaceful genuine smile, free relaxed eyes.",
+    "art_gallery": "Intellectual composed expression, subtle confident gaze, cultured refined mouth.",
+    "street_urban": "Effortless cool expression, bold urban half-smile, confident gaze.",
+    "concert": "Passionate creative expression, engaged eye contact, soulful gaze.",
     # Landmarks
-    "paris_eiffel": "Warm genuine smile, worldly romantic energy, relaxed morning gaze.",
+    "paris_eiffel": "Warm genuine smile, worldly romantic soft eyes, relaxed morning gaze.",
     "nyc_brooklyn_bridge": "Wind in hair, warm sunset glow on face, adventurous confident smile.",
-    "rome_colosseum": "Relaxed Mediterranean expression, warm open charm, easy-going energy.",
-    "dubai_burj_khalifa": "Composed modern gaze, subtle power smile, cosmopolitan confident energy.",
-    "nyc_times_square": "Bold confident expression, urban energy, effortless cool look.",
-    "barcelona_sagrada": "Relaxed sun-kissed expression, bright genuine smile, warm Mediterranean energy.",
-    "london_eye": "Thoughtful composed expression, subtle warm smile, elegant understated energy.",
-    "sydney_opera": "Bright warm smile, fresh natural look, open confident energy.",
-    "tokyo_tower": "Calm composed gaze, subtle confident expression, minimalist refined energy.",
+    "rome_colosseum": "Relaxed Mediterranean expression, warm open charm, easy-going half-smile.",
+    "dubai_burj_khalifa": "Composed modern gaze, subtle power smile, cosmopolitan confident eyes.",
+    "nyc_times_square": "Bold confident expression, steady urban gaze, effortless cool look.",
+    "barcelona_sagrada": "Relaxed sun-kissed expression, bright genuine smile, warm soft eyes.",
+    "london_eye": "Thoughtful composed expression, subtle warm smile, elegant understated eyes.",
+    "sydney_opera": "Bright warm smile, fresh natural look, open confident eyes.",
+    "tokyo_tower": "Calm composed gaze, subtle confident expression, minimalist refined mouth.",
     "sf_golden_gate": "Wind-touched hair, peaceful awe-inspired expression, adventurous warm smile.",
-    "athens_acropolis": "Relaxed thoughtful expression, warm gentle smile, cultural explorer energy.",
-    "singapore_marina_bay": "Polished confident gaze, subtle sophisticated smile, modern cosmopolitan energy.",
-    "venice_san_marco": "Romantic composed expression, warm charming smile, elegant European energy.",
-    "nyc_central_park": "Genuine bright smile, warm approachable look, easy natural energy.",
-    "london_big_ben": "Composed British elegance, subtle confident smile, refined worldly energy.",
+    "athens_acropolis": "Relaxed thoughtful expression, warm gentle smile, cultural explorer eyes.",
+    "singapore_marina_bay": "Polished confident gaze, subtle sophisticated smile, composed worldly eyes.",
+    "venice_san_marco": "Romantic composed expression, warm charming smile, elegant European gaze.",
+    "nyc_central_park": "Genuine bright smile, warm approachable look, easy natural eyes.",
+    "london_big_ben": "Composed British elegance, subtle confident smile, refined worldly gaze.",
     # Travel expanded
-    "airplane_window": "Relaxed contemplative gaze, calm easy smile, excited traveler energy.",
-    "train_journey": "Focused relaxed expression, calm thoughtful energy, modern explorer vibe.",
-    "hotel_checkin": "Warm confident smile, polished traveler energy, composed expression.",
-    "hotel_breakfast": "Relaxed morning expression, warm genuine smile, luxury morning energy.",
-    "sea_balcony": "Wind in hair, peaceful bright smile, warm morning energy.",
-    "old_town_walk": "Curious warm expression, gentle smile, cultural wanderer energy.",
-    "street_market": "Bright curious expression, warm genuine smile, adventurous explorer energy.",
+    "airplane_window": "Relaxed contemplative gaze, calm easy smile, excited traveler eyes.",
+    "train_journey": "Focused relaxed expression, calm thoughtful eyes, modern explorer half-smile.",
+    "hotel_checkin": "Warm confident smile, polished traveler gaze, composed expression.",
+    "hotel_breakfast": "Relaxed morning expression, warm genuine smile, luxury morning soft eyes.",
+    "sea_balcony": "Wind in hair, peaceful bright smile, warm morning open eyes.",
+    "old_town_walk": "Curious warm expression, gentle smile, cultural wanderer soft eyes.",
+    "street_market": "Bright curious expression, warm genuine smile, adventurous explorer eyes.",
     # Atmosphere expanded
     "rainy_day": "Contemplative gaze, mysterious half-smile, moody atmospheric confidence.",
-    "night_coffee": "Warm intimate gaze, gentle smile, cozy late-night thoughtful energy.",
+    "night_coffee": "Warm intimate gaze, gentle smile, cozy late-night thoughtful eyes.",
     "evening_home": "Calm contented expression, warm genuine smile, comfortable domestic confidence.",
     # Status
-    "car_exit": "Confident direct gaze, purposeful composed expression, polished energy.",
-    "travel_luxury": "Composed confident expression, subtle assured smile, elevated energy.",
+    "car_exit": "Confident direct gaze, purposeful composed expression, polished still mouth.",
+    "travel_luxury": "Composed confident expression, subtle assured smile, elevated still brow.",
     # Sport expanded
-    "yoga_outdoor": "Serene calm expression, gentle focused energy, healthy mindful glow.",
-    "cycling": "Fresh energetic expression, bright confident smile, active outdoor energy.",
-    "tinder_pack_rooftop_golden": "Warm confident smile, magnetic eye contact, relaxed romantic energy.",
+    "yoga_outdoor": "Serene calm expression, gentle focused eyes, healthy mindful glow.",
+    "cycling": "Fresh bright eyes, confident forward smile, active outdoor glow.",
+    "tinder_pack_rooftop_golden": "Warm confident smile, engaged eye contact, relaxed romantic gaze.",
     "tinder_pack_minimal_studio": "Open genuine expression, soft approachable gaze, clean natural confidence.",
     "tinder_pack_cafe_window": "Bright easy smile, warm inviting eyes, cozy authentic charm.",
 }
@@ -461,7 +480,7 @@ CV_STYLES: dict[str, str] = {
     ),
     "creative_director": (
         "Background: design studio, mood boards and sketches behind, "
-        "warm directional studio light, mood boards fully visible and clearly resolved. "
+        "warm directional studio light, mood boards in clear focus. "
         "Clothing: black turtleneck, minimalist dark outfit, statement glasses optional."
     ),
     "medical": (
@@ -483,7 +502,7 @@ CV_STYLES: dict[str, str] = {
     "speaker_stage": (
         "Background: conference stage, podium with microphone, presentation screen "
         "clearly visible behind, warm stage key light from above keeping both speaker and screen readable. "
-        "Clothing: tailored suit without tie, open collar, confident speaker style."
+        "Clothing: tailored suit with open-collar shirt, confident speaker style."
     ),
     "podcast": (
         "Background: podcast studio, professional microphone on boom arm, acoustic panels, "
@@ -580,13 +599,13 @@ CV_STYLES: dict[str, str] = {
     ),
     "decision_moment": (
         "Background: standing at large window overlooking cityscape, contemplative atmosphere, "
-        "warm rim light from window, cityscape clearly visible and sharp through the window. "
+        "warm rim light from window, cityscape in sharp focus through the window. "
         "Clothing: tailored dark suit against bright window, face evenly lit, executive presence."
     ),
     "doc_passport_neutral": (
-        "Background: flat uniform light-grey wall, even frontal lighting, "
-        "no shadows on backdrop, official document photo standard, centered head-and-shoulders crop feel. "
-        "Clothing: conservative solid dark top, neat collar, minimal accessories, neutral professional grooming."
+        "Background: flat uniform light-grey wall, evenly lit backdrop with minimal residual shadow, "
+        "frontal lighting, official document photo standard. "
+        "Clothing: conservative solid dark top, neat collar, minimal accessories, neutral grooming."
     ),
     "doc_visa_compliant": (
         "Background: plain light-grey seamless backdrop, bright even lighting, "
@@ -599,20 +618,20 @@ CV_STYLES: dict[str, str] = {
         "Clothing: tailored blazer, crisp shirt, confident approachable business attire."
     ),
     "photo_3x4": (
-        "Background: clean uniform white, no gradient. "
-        "Clothing: simple solid-color top with a neat collar, no headwear."
+        "Background: clean uniform matte white. "
+        "Clothing: simple solid-color top with a neat collar, bare head with hair fully visible."
     ),
     "passport_rf": (
-        "Background: clean uniform white, no texture, no shadows. "
-        "Clothing: simple dark solid-color top with a neat collar, no patterns, no logos."
+        "Background: clean uniform white, smooth matte finish, evenly lit backdrop. "
+        "Clothing: simple dark solid-color top with a neat collar, solid single-color fabric, plain unbranded."
     ),
     "visa_eu": (
-        "Background: clean uniform white, no shadows on the backdrop. "
+        "Background: clean uniform white, evenly lit backdrop. "
         "Clothing: simple solid-color business top."
     ),
     "visa_us": (
         "Background: clean uniform white, soft even frontal lighting. "
-        "Clothing: simple business top, no uniform, no headwear."
+        "Clothing: simple business top, civilian attire, bare head with hair visible."
     ),
     "photo_4x6": (
         "Background: clean uniform white. "
@@ -621,12 +640,12 @@ CV_STYLES: dict[str, str] = {
 }
 
 CV_PERSONALITIES: dict[str, str] = {
-    "corporate": "Trustworthy direct gaze, professional confident half-smile, composed energy.",
-    "boardroom": "Authoritative composed expression, leadership energy, strong confident gaze.",
+    "corporate": "Trustworthy direct gaze, professional confident half-smile, composed still mouth.",
+    "boardroom": "Authoritative composed expression, steady leadership gaze, strong confident brow.",
     "formal_portrait": "Steady composed direct gaze, neutral professional expression, timeless authority.",
-    "creative": "Bold expressive energy, artistic confident expression.",
-    "startup_casual": "Approachable energetic expression, relaxed innovative confidence.",
-    "coworking": "Collaborative friendly expression, modern entrepreneurial energy.",
+    "creative": "Bold expressive gaze, artistic confident half-smile.",
+    "startup_casual": "Approachable bright-eyed expression, relaxed innovative confidence.",
+    "coworking": "Collaborative friendly expression, modern entrepreneurial half-smile.",
     "standing_desk": "Focused productive expression, tech-savvy composed confidence.",
     "neutral": "Relaxed, approachable, open and friendly gaze.",
     "tech_developer": "Alert focused expression, intelligent confident gaze, calm technical authority.",
@@ -634,36 +653,36 @@ CV_PERSONALITIES: dict[str, str] = {
     "medical": "Warm empathetic expression, trustworthy caring gaze, calm medical authority.",
     "legal_finance": "Authoritative steady expression, distinguished gravitas, composed gaze.",
     "architect": "Precise analytical gaze, creative professional confidence, thoughtful expression.",
-    "speaker_stage": "Engaging animated expression, commanding charismatic presence, confident energy.",
-    "podcast": "Natural animated expression, engaging conversational energy, authentic approachable authority.",
-    "mentor": "Warm encouraging expression, wise approachable mentor energy, attentive gaze.",
-    "outdoor_business": "Confident relaxed smile, modern flexible professional energy.",
+    "speaker_stage": "Engaging animated expression, commanding charismatic presence, confident forward gaze.",
+    "podcast": "Natural animated expression, engaging conversational smile, authentic approachable authority.",
+    "mentor": "Warm encouraging expression, wise approachable mentor smile, attentive gaze.",
+    "outdoor_business": "Confident relaxed smile, modern flexible professional gaze.",
     # Career expanded
-    "video_call": "Engaged expression, warm professional smile, confident screen presence, trustworthy energy.",
-    "glass_wall_pose": "Composed powerful gaze, modern executive energy, confident expression.",
+    "video_call": "Engaged expression, warm professional smile, confident screen presence, trustworthy soft eyes.",
+    "glass_wall_pose": "Composed powerful gaze, modern executive steady brow, confident expression.",
     "analytics_review": "Sharp analytical expression, slight concentration furrow, intelligent authority.",
-    "tablet_stylus": "Focused creative expression, innovative gaze, modern productive energy.",
-    "notebook_ideas": "Thoughtful inspired expression, subtle focused smile, creative productive energy.",
-    "coffee_break_work": "Relaxed confident smile, approachable warm expression, human professional energy.",
-    "late_hustle": "Focused determined expression, intense productive gaze, ambitious driven energy.",
+    "tablet_stylus": "Focused creative expression, innovative gaze, modern productive still brow.",
+    "notebook_ideas": "Thoughtful inspired expression, subtle focused smile, creative productive gaze.",
+    "coffee_break_work": "Relaxed confident smile, approachable warm expression, human professional soft eyes.",
+    "late_hustle": "Focused determined expression, intense productive gaze, ambitious driven brow.",
     # Archetypes
     "quiet_expert": "Calm wise expression, subtle knowing smile, deep understated authority.",
-    "digital_nomad": "Easy confident smile, free productive expression, relaxed modern energy.",
-    "entrepreneur_on_move": "Dynamic confident expression, unstoppable momentum energy, sharp gaze.",
-    "intellectual": "Thoughtful composed gaze, deep contemplative expression, scholarly refined energy.",
-    "man_with_mission": "Strong direct gaze, determined composed expression, visionary leadership energy.",
+    "digital_nomad": "Easy confident smile, free productive expression, relaxed modern gaze.",
+    "entrepreneur_on_move": "Dynamic confident expression, purposeful forward gaze, sharp focused eyes.",
+    "intellectual": "Thoughtful composed gaze, deep contemplative expression, scholarly refined brow.",
+    "man_with_mission": "Strong direct gaze, determined composed expression, visionary leadership brow.",
     # Professional moments
-    "before_meeting": "Focused composed gaze, subtle prepared smile, polished professional energy.",
-    "between_meetings": "Relaxed but alert expression, composed ease, efficient professional energy.",
-    "business_lounge": "Composed traveler expression, confident relaxed smile, premium professional energy.",
-    "decision_moment": "Strong thoughtful expression, composed decisive energy, executive vision.",
+    "before_meeting": "Focused composed gaze, subtle prepared smile, polished professional still mouth.",
+    "between_meetings": "Relaxed but alert expression, composed ease, efficient professional gaze.",
+    "business_lounge": "Composed traveler expression, confident relaxed smile, premium professional gaze.",
+    "decision_moment": "Strong thoughtful expression, composed decisive brow, executive vision.",
     "doc_passport_neutral": "Neutral composed expression, mouth closed relaxed, direct even gaze, official photo calm.",
     "doc_visa_compliant": "Serious neutral expression, attentive steady gaze, formal compliant demeanor.",
-    "doc_resume_headshot": "Warm professional half-smile, confident approachable gaze, trustworthy executive energy.",
+    "doc_resume_headshot": "Warm professional half-smile, confident approachable gaze, trustworthy executive eyes.",
     "photo_3x4": "Neutral composed expression, mouth closed, eyes open, direct forward gaze, calm official demeanor.",
     "passport_rf": "Strictly neutral expression, mouth closed relaxed, eyes fully open, direct even frontal gaze, official composure.",
-    "visa_eu": "Serious neutral expression, attentive steady centered gaze, formal compliant demeanor, no smile.",
-    "visa_us": "Neutral calm expression, direct steady gaze, mouth closed, composed official look, no expression.",
+    "visa_eu": "Serious neutral expression, attentive steady centered gaze, formal compliant demeanor, mouth closed with a composed neutral line.",
+    "visa_us": "Neutral calm expression, direct steady gaze, mouth closed, composed official look, neutral official expression with relaxed mouth.",
     "photo_4x6": "Neutral relaxed expression, direct natural gaze, calm composed demeanor, mouth closed.",
 }
 
@@ -733,7 +752,7 @@ SOCIAL_STYLES: dict[str, str] = {
     ),
     "neon_night": (
         "Background: city street at night with neon signs, vibrant pink-blue-purple "
-        "reflections on wet pavement, sharp vibrant neon-lit street scene with signage clearly legible. "
+        "reflections on wet pavement, sharp vibrant neon-lit street scene with readable signage. "
         "Clothing: dark streetwear, leather jacket or fitted dark outfit, reflective elements."
     ),
     "vintage_film": (
@@ -906,57 +925,57 @@ SOCIAL_STYLES: dict[str, str] = {
 }
 
 SOCIAL_PERSONALITIES: dict[str, str] = {
-    "influencer": "Bright confident look, engaging direct eye contact, charismatic energy.",
-    "influencer_urban": "Engaging direct eye contact, charismatic high-energy expression, bold confidence.",
-    "influencer_minimal": "Calm confident gaze, serene sophisticated energy, poised expression.",
-    "influencer_luxury": "Mysterious allure, sophisticated calm expression, elegant energy.",
-    "luxury": "Elegant mysterious allure, sophisticated calm expression.",
-    "casual": "Genuine relaxed look, warm natural feel, approachable open vibe.",
+    "influencer": "Bright confident look, engaging direct eye contact, charismatic half-smile.",
+    "influencer_urban": "Engaging direct eye contact, animated charismatic expression, bold confidence.",
+    "influencer_minimal": "Calm confident gaze, serene sophisticated still mouth, poised expression.",
+    "influencer_luxury": "Mysterious soft eyes, sophisticated calm expression, elegant still brow.",
+    "luxury": "Elegant mysterious soft eyes, sophisticated calm expression.",
+    "casual": "Genuine relaxed look, warm natural feel, approachable open smile.",
     "morning_routine": "Peaceful fresh morning expression, warm genuine relaxed smile.",
-    "fitness_lifestyle": "Healthy glow, energetic bright expression, motivational confident energy.",
-    "food_blogger": "Warm engaging expression, inviting energy, bright genuine smile.",
-    "travel_blogger": "Excited adventurous expression, bright wanderlust energy, open smile.",
+    "fitness_lifestyle": "Healthy glow, energetic bright expression, motivational confident smile.",
+    "food_blogger": "Warm engaging expression, inviting soft eyes, bright genuine smile.",
+    "travel_blogger": "Excited adventurous expression, bright wanderlust wide eyes, open smile.",
     "artistic": "Thoughtful creative gaze, expressive intensity, unconventional character.",
-    "golden_hour": "Soft dreamy gaze, warm peaceful expression, ethereal golden-lit energy.",
-    "neon_night": "Intense direct gaze, bold edgy energy, bold confident expression.",
-    "vintage_film": "Nostalgic thoughtful gaze, gentle analog expression, timeless romantic energy.",
-    "dark_moody": "Dramatic shadow-play on face, intense mysterious gaze, powerful brooding energy.",
-    "pastel_soft": "Gentle soft smile, relaxed gentle energy, light airy expression.",
-    "youtube_creator": "Animated engaging expression, bright enthusiastic creator energy.",
-    "linkedin_premium": "Warm professional smile, trustworthy confident energy, approachable gaze.",
-    "tinder_top": "Natural genuine smile, warm attractive easy-going energy.",
-    "instagram_aesthetic": "Editorial confident expression, polished energy, striking gaze.",
-    "podcast_host": "Natural conversational smile, engaging authentic host energy.",
-    "creative_portrait": "Intense expressive gaze, bold artistic energy, striking expression.",
+    "golden_hour": "Soft dreamy gaze, warm peaceful expression, ethereal golden-lit soft eyes.",
+    "neon_night": "Intense direct gaze, bold edgy steady mouth, bold confident expression.",
+    "vintage_film": "Nostalgic thoughtful gaze, gentle analog expression, timeless romantic soft eyes.",
+    "dark_moody": "Dramatic shadow-play on face, intense mysterious gaze, powerful brooding brow.",
+    "pastel_soft": "Gentle soft smile, relaxed gentle eyes, light airy expression.",
+    "youtube_creator": "Animated engaging expression, bright enthusiastic creator smile.",
+    "linkedin_premium": "Warm professional smile, trustworthy confident soft eyes, approachable gaze.",
+    "tinder_top": "Natural genuine smile, warm attractive easy-going soft eyes.",
+    "instagram_aesthetic": "Editorial confident expression, polished still mouth, striking gaze.",
+    "podcast_host": "Natural conversational smile, engaging authentic attentive gaze.",
+    "creative_portrait": "Intense expressive gaze, bold artistic steady brow, striking expression.",
     # Social aesthetic
-    "mirror_aesthetic": "Calm confident gaze, effortless polished energy, composed expression.",
-    "elevator_clean": "Direct gaze, composed minimal expression, sharp modern energy.",
-    "book_and_coffee": "Warm thoughtful expression, gentle intellectual smile, cozy wisdom energy.",
-    "shopfront": "Natural fashion expression, confident modern street-style energy.",
-    "candid_street": "Genuine unposed look, authentic spontaneous energy, natural expression.",
+    "mirror_aesthetic": "Calm confident gaze, effortless polished still mouth, composed expression.",
+    "elevator_clean": "Direct gaze, composed minimal expression, sharp modern still brow.",
+    "book_and_coffee": "Warm thoughtful expression, gentle intellectual smile, cozy wisdom soft eyes.",
+    "shopfront": "Natural fashion expression, confident modern street-style half-smile.",
+    "candid_street": "Genuine unposed look, authentic spontaneous smile, natural expression.",
     # Hobbies
-    "reading_home": "Peaceful concentrated expression, warm genuine comfort, domestic intellectual energy.",
-    "reading_cafe": "Thoughtful calm expression, gentle content smile, quiet cultured energy.",
-    "sketching": "Creative concentrated expression, artistic flow energy, focused gaze.",
-    "photographer": "Focused creative expression, professional artistic energy, sharp gaze.",
-    "meditation": "Serene peaceful expression, calm balanced energy, mindful presence.",
-    "online_learning": "Engaged curious expression, productive concentration, growth-minded energy.",
+    "reading_home": "Peaceful concentrated expression, warm genuine comfort, domestic intellectual gaze.",
+    "reading_cafe": "Thoughtful calm expression, gentle content smile, quiet cultured soft eyes.",
+    "sketching": "Creative concentrated expression, artistic focused brow, focused gaze.",
+    "photographer": "Focused creative expression, professional artistic steady brow, sharp gaze.",
+    "meditation": "Serene peaceful expression, calm balanced soft eyes, mindful presence.",
+    "online_learning": "Engaged curious expression, productive concentration, growth-minded attentive gaze.",
     # Sport social
-    "yoga_social": "Serene calm expression, healthy glow, peaceful mindful energy.",
+    "yoga_social": "Serene calm expression, healthy glow, peaceful mindful soft eyes.",
     "cycling_social": "Fresh active expression, bright confident smile, healthy outdoor glow.",
     # Cinematic
-    "panoramic_window": "Contemplative expression, profound calm gaze, grand-scale composed energy.",
-    "in_motion": "Confident forward gaze, dynamic unstoppable energy, bold expression.",
-    "creative_insight": "Excited eureka expression, bright inspired eyes, energetic creative energy.",
+    "panoramic_window": "Contemplative expression, profound calm gaze, grand-scale composed brow.",
+    "in_motion": "Confident forward gaze, dynamic purposeful stride, bold expression.",
+    "creative_insight": "Excited eureka expression, bright inspired eyes, raised eyebrow insight.",
     "architecture_shadow": "Mysterious confident expression, dramatic artistic presence, partial shadow.",
-    "achievement_moment": "Genuine bright celebration expression, relieved proud smile, triumphant energy.",
+    "achievement_moment": "Genuine bright celebration expression, relieved proud smile, triumphant wide eyes.",
     # Evening social
-    "skyscraper_view": "Composed serene expression, elevated sophisticated energy, calm gaze.",
-    "after_work": "Relaxed relief expression, easy warm smile, comfortable end-of-day energy.",
-    "evening_planning": "Focused calm expression, quiet determination, productive evening energy.",
+    "skyscraper_view": "Composed serene expression, elevated sophisticated still mouth, calm gaze.",
+    "after_work": "Relaxed relief expression, easy warm smile, comfortable end-of-day soft eyes.",
+    "evening_planning": "Focused calm expression, quiet determination, productive evening still brow.",
     # Mood
-    "focused_mood": "Intense concentrated gaze, powerful focused presence, magnetic intensity.",
-    "light_irony": "Subtle smirk, playful knowing expression, witty confident energy.",
+    "focused_mood": "Intense concentrated gaze, powerful focused presence, steady direct eyes.",
+    "light_irony": "Subtle smirk, playful knowing expression, witty confident raised eyebrow.",
 }
 
 
@@ -1002,6 +1021,7 @@ for _key, _text in DATING_STYLES.items():
         clothing_female_override=_ovr.get("clothing_female_override", ""),
         edit_compatible=_ovr.get("edit_compatible", True),
         complexity=_ovr.get("complexity", "simple"),
+        variants=STYLE_VARIANTS.get(("dating", _key), ()),
     ))
 
 for _key, _text in CV_STYLES.items():
@@ -1012,6 +1032,7 @@ for _key, _text in CV_STYLES.items():
         clothing_female_override=_ovr.get("clothing_female_override", ""),
         edit_compatible=_ovr.get("edit_compatible", True),
         complexity=_ovr.get("complexity", "simple"),
+        variants=STYLE_VARIANTS.get(("cv", _key), ()),
     ))
 
 for _key, _text in SOCIAL_STYLES.items():
@@ -1022,6 +1043,7 @@ for _key, _text in SOCIAL_STYLES.items():
         clothing_female_override=_ovr.get("clothing_female_override", ""),
         edit_compatible=_ovr.get("edit_compatible", True),
         complexity=_ovr.get("complexity", "simple"),
+        variants=STYLE_VARIANTS.get(("social", _key), ()),
     ))
 
 
@@ -1073,18 +1095,32 @@ def _truncate(prompt: str) -> str:
     return prompt[:PROMPT_MAX_LEN].rstrip()
 
 
+# face_area_ratio threshold above which the reference is essentially a
+# head-crop selfie; kept in sync with
+# src/services/input_quality.FACE_TOO_TIGHT_FOR_BODY_THRESHOLD so both the
+# pre-gen warning and the prompt-conditioning branch fire on the same
+# input characteristic.
+_HEAD_CROP_FACE_RATIO: float = 0.35
+
+
 def _build_mode_prompt(
     mode: str,
     style: str,
     gender: str,
     change_instruction: str,
-    input_hints: dict | None = None,  # noqa: ARG001 — kept for backward compat
+    input_hints: dict | None = None,
+    variant: StyleVariant | None = None,
 ) -> str:
     """Assemble a compact photorealistic paragraph.
 
-    Layout: change line → Background/Clothing → expression → PRESERVE → QUALITY.
-    No section tags, no redundant anchors, no conditional DoF — one natural
-    paragraph that Reve parses cleanly and stays well under 1200 chars.
+    Layout: change line → Background/Clothing → expression → [framing hint
+    if head-crop × full-body] → PRESERVE → QUALITY. No section tags, no
+    redundant anchors, no conditional DoF — one natural paragraph that the
+    generation model parses cleanly and stays well under 1200 chars.
+
+    When ``variant`` is provided, its scene/lighting/props/camera/clothing
+    accent override (or append to) the fields from the base :class:`StyleSpec`
+    to diversify the generation without touching identity anchors.
     """
     style_key_norm = (style or "").strip()
     is_doc = mode == "cv" and style_key_norm in _DOCUMENT_STYLE_KEYS
@@ -1093,13 +1129,47 @@ def _build_mode_prompt(
     clothing = spec.clothing_for(gender)
     bg = spec.background
 
+    if variant is not None and not is_doc:
+        if variant.scene:
+            bg = variant.scene
+        accent = variant.clothing_accent_for(gender)
+        if accent:
+            clothing = f"{clothing}, {accent}" if clothing else accent
+
     parts: list[str] = [change_instruction]
     if bg:
         parts.append(f"Background: {bg}.")
     if clothing:
         parts.append(f"Clothing: {clothing}.")
+    if variant is not None and not is_doc:
+        if variant.lighting:
+            parts.append(f"Lighting: {variant.lighting}.")
+        if variant.props:
+            parts.append(f"Props: {variant.props}.")
+        if variant.camera:
+            parts.append(f"Camera: {variant.camera}.")
     if spec.expression:
         parts.append(spec.expression)
+
+    # Head-crop × full-body adaptation: when the reference shows mostly
+    # the face, instruct the model to keep the close-up framing instead
+    # of inventing legs / yoga mats / running tracks that it cannot
+    # anchor to any pixel in the input.
+    if (
+        not is_doc
+        and getattr(spec, "needs_full_body", False)
+        and input_hints is not None
+    ):
+        try:
+            face_ratio = float(input_hints.get("face_area_ratio", 0.0) or 0.0)
+        except (TypeError, ValueError):
+            face_ratio = 0.0
+        if face_ratio > _HEAD_CROP_FACE_RATIO:
+            parts.append(
+                "Framing note: the reference is a close-up portrait. Keep a "
+                "portrait / upper-body crop — do not extend the body below "
+                "the chest or invent limbs not visible in the reference."
+            )
 
     if is_doc:
         composition = _DOC_COMPOSITION_HINT.get(
@@ -1110,51 +1180,109 @@ def _build_mode_prompt(
         parts.append(DOC_PRESERVE)
         parts.append(DOC_QUALITY)
     else:
-        parts.append(PRESERVE_PHOTO)
+        # Full-body scenes (yoga, beach, running, hiking, ...) require a new
+        # pose that differs from the reference; the default PRESERVE_PHOTO
+        # pins "original pose and body proportions" and creates a
+        # contradiction for FLUX Kontext Pro. Fall back to the face-only
+        # variant for those styles.
+        if getattr(spec, "needs_full_body", False):
+            parts.append(PRESERVE_PHOTO_FACE_ONLY)
+        else:
+            parts.append(PRESERVE_PHOTO)
         parts.append(QUALITY_PHOTO)
 
     prompt = " ".join(p.strip() for p in parts if p and p.strip())
     return _truncate(prompt)
 
 
+def _dating_social_change_instruction(mode: str, style: str) -> str:
+    """Pick the base change-instruction for dating/social styles.
+
+    Full-body scenes (yoga, beach, running...) intentionally change the
+    pose — asking the model to also keep it "identical to the reference"
+    was the contradictory signal that destabilised FLUX Kontext Pro in
+    production. We drop that clamp for ``needs_full_body`` styles while
+    still pinning identity.
+    """
+    spec = STYLE_REGISTRY.get(mode, style)
+    if spec is not None and spec.needs_full_body:
+        return (
+            "Place the person from the reference photo into the new scene "
+            "described below, adopting a natural pose that fits the scene, "
+            "while maintaining the same facial features, skin tone and "
+            "head-to-body proportions."
+        )
+    return (
+        "Change the background and clothing of the person in the reference "
+        "photo while maintaining the same facial features, skin tone and "
+        "head-to-body proportions, keeping the original pose."
+    )
+
+
 def build_dating_prompt(
     style: str = "", gender: str = "male", input_hints: dict | None = None,
+    variant: StyleVariant | None = None,
 ) -> str:
     return _build_mode_prompt(
         "dating", style, gender,
-        "Change only the background and clothing. Keep the person's face, pose and body identical to the reference.",
+        _dating_social_change_instruction("dating", style),
         input_hints=input_hints,
+        variant=variant,
     )
 
 
 def build_cv_prompt(
     style: str = "", gender: str = "male", input_hints: dict | None = None,
+    variant: StyleVariant | None = None,
 ) -> str:
     style_key = (style or "").strip()
     if style_key in _DOCUMENT_STYLE_KEYS:
         change_instruction = (
-            "Replace only the background with a clean uniform neutral backdrop "
-            "and replace clothing with a simple neutral top; no patterns, no "
-            "accessories, no headwear. Keep the same face, hair, skin tone and "
-            "body proportions as the reference, head centered and shoulders "
-            "straight, eyes open looking at the camera, mouth relaxed and closed."
+            "Replace the background with a clean neutral backdrop and clothing "
+            "with a simple solid-color top, minimal plain accessories, bare "
+            "head, while maintaining the same facial features, skin tone and "
+            "head-to-body proportions. Head centered, shoulders straight, eyes "
+            "open looking at the camera, mouth relaxed and closed."
         )
     else:
         change_instruction = (
-            "Change only the background and clothing to professional attire. "
-            "Keep the person's face, pose and body identical to the reference."
+            "Change the background and clothing to professional attire of the "
+            "person in the reference photo while maintaining the same facial "
+            "features, skin tone and head-to-body proportions, keeping the "
+            "original pose."
         )
-    return _build_mode_prompt("cv", style_key, gender, change_instruction, input_hints=input_hints)
+    return _build_mode_prompt(
+        "cv", style_key, gender, change_instruction,
+        input_hints=input_hints, variant=variant,
+    )
 
 
 def build_social_prompt(
     style: str = "", gender: str = "male", input_hints: dict | None = None,
+    variant: StyleVariant | None = None,
 ) -> str:
     return _build_mode_prompt(
         "social", style, gender,
-        "Change only the background and clothing. Keep the person's face, pose and body identical to the reference.",
+        _dating_social_change_instruction("social", style),
         input_hints=input_hints,
+        variant=variant,
     )
+
+
+def resolve_style_variant(mode: str, style: str, variant_id: str) -> StyleVariant | None:
+    """Return the registered StyleVariant for (mode, style, variant_id).
+
+    Returns ``None`` for unknown combinations or for document styles —
+    callers can treat that as "fall back to the base style".
+    """
+    if not variant_id:
+        return None
+    if mode == "cv" and (style or "").strip() in _DOCUMENT_STYLE_KEYS:
+        return None
+    spec = STYLE_REGISTRY.get(mode, style)
+    if spec is None:
+        return None
+    return spec.variant_by_id(variant_id)
 
 
 # ---------------------------------------------------------------------------
@@ -1162,12 +1290,12 @@ def build_social_prompt(
 # ---------------------------------------------------------------------------
 
 _STEP_CHANGE: dict[str, str] = {
-    "background_edit": "Change only the background: {description}. Keep the person, clothing, pose and body proportions identical to the reference.",
-    "clothing_edit": "Change only the clothing: {description}. Keep face, background, pose and body proportions identical to the reference.",
-    "lighting_adjust": "Improve only the lighting and color grading: {description}. Keep everything else identical to the reference.",
-    "expression_hint": "Subtle expression adjustment: {description}. Keep face shape, features and the original mouth identical to the reference.",
-    "skin_correction": "Minor skin tone correction and blemish removal only. Keep all facial features identical to the reference.",
-    "style_overall": "Apply overall style enhancement: {description}. Keep body proportions and pose identical to the reference.",
+    "background_edit": "Change the background to {description} while maintaining facial features, skin tone and head-to-body proportions, keeping clothing and pose of the person in the reference photo.",
+    "clothing_edit": "Change the clothing to {description} while maintaining facial features, skin tone and head-to-body proportions, keeping the original background and pose.",
+    "lighting_adjust": "Adjust the lighting and color grading to {description} while maintaining facial features and skin tone of the person in the reference photo.",
+    "expression_hint": "Apply subtle expression adjustment toward {description} while maintaining facial features and skin tone.",
+    "skin_correction": "Apply minor skin tone refinement and blemish cleanup while maintaining facial features and skin undertone of the person in the reference photo.",
+    "style_overall": "Apply overall style enhancement toward {description} while maintaining facial features, skin tone and head-to-body proportions.",
 }
 
 STEP_TEMPLATES: dict[str, str] = {
@@ -1215,11 +1343,11 @@ def build_emoji_prompt(base_description: str = "", gender: str = "") -> str:
     gender_key = (gender or "").strip().lower()
     gender_line = _EMOJI_GENDER_HINT.get(gender_key, "")
     prompt = (
-        "Cartoon sticker avatar of the person shown in the reference photo. "
-        "Preserve recognizable facial proportions, face shape, eye shape and color, "
-        "hairstyle and hair color, and skin tone in cartoon style — the sticker must be "
-        "instantly recognizable as the same person. "
-        "Clean up any skin defects in cartoon style. "
+        "Cartoon-styled version of the same person from the reference photo. "
+        "Sticker avatar while maintaining exact facial proportions, face shape, "
+        "eye shape and color, hairstyle and hair color, and skin tone in "
+        "cartoon style — the sticker must be instantly recognizable as the "
+        "same person. Render clean even skin in cartoon style. "
         "Bold outlines, flat vibrant colors, friendly expression, square composition."
     )
     if gender_line:

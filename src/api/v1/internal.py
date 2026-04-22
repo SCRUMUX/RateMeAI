@@ -92,6 +92,7 @@ class RemoteAnalysisRequest(BaseModel):
     profession: str = ""
     enhancement_level: int = 0
     pre_analysis_id: str = ""
+    variant_id: str = ""
     edge_task_id: str = Field("", description="Task ID from the edge server for tracing")
     market_id: str = "global"
     scenario_slug: str = ""
@@ -163,6 +164,8 @@ async def process_analysis_remote(
         ctx["enhancement_level"] = request.enhancement_level
     if request.pre_analysis_id.strip():
         ctx["pre_analysis_id"] = request.pre_analysis_id.strip()
+    if request.variant_id.strip():
+        ctx["variant_id"] = request.variant_id.strip()
     if request.edge_task_id:
         ctx["edge_task_id"] = request.edge_task_id
 

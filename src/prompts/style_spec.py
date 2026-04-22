@@ -6,11 +6,39 @@ that enforces consistent prompt structure across all modes and styles.
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Literal
 
 
 DepthOfField = Literal["deep", "shallow"]
+
+
+@dataclass(frozen=True)
+class StyleVariant:
+    """One content-variant of a StyleSpec used to diversify generations.
+
+    Variants are applied on top of the base StyleSpec in ``_build_mode_prompt``:
+    the variant's ``scene`` overrides ``spec.background``; ``lighting`` appends
+    a dedicated Lighting line; ``props`` / ``camera`` add their own lines;
+    ``clothing_*_accent`` is concatenated with the gender-specific clothing
+    from the base spec. Identity anchors (PRESERVE_PHOTO / QUALITY_PHOTO) are
+    never varied — they stay stable to keep face reproducibility.
+    """
+
+    id: str
+    scene: str
+    lighting: str
+    props: str = ""
+    camera: str = ""
+    clothing_male_accent: str = ""
+    clothing_female_accent: str = ""
+    weight: float = 1.0
+
+    def clothing_accent_for(self, gender: str = "male") -> str:
+        return (
+            self.clothing_female_accent if gender == "female"
+            else self.clothing_male_accent
+        )
 
 
 @dataclass
@@ -31,6 +59,25 @@ class StyleSpec:
     complexity: str = "simple"  # simple | medium | complex
     edit_compatible: bool = True
     depth_of_field: DepthOfField = "deep"
+    # Styles whose scene semantically requires a visible torso/legs (yoga
+    # mat, running track, beach, swim pool, hiking trail, cycling, etc.).
+    # When the user's reference is a tight head-crop selfie, FLUX Kontext
+    # Pro must hallucinate the whole body — which is exactly where it
+    # drifts and destroys identity. Bot uses this flag to surface a
+    # pre-generation warning and give the user a choice to reupload.
+    needs_full_body: bool = False
+    # Optional content variants that rotate via the "Другой вариант"
+    # button in the bot. Document styles keep this empty — see
+    # ``image_gen._DOCUMENT_STYLE_KEYS``.
+    variants: tuple[StyleVariant, ...] = field(default_factory=tuple)
+
+    def variant_by_id(self, variant_id: str) -> StyleVariant | None:
+        if not variant_id or not self.variants:
+            return None
+        for v in self.variants:
+            if v.id == variant_id:
+                return v
+        return None
 
     def clothing_for(self, gender: str = "male") -> str:
         return self.clothing_female if gender == "female" else self.clothing_male
@@ -57,34 +104,15 @@ _BANNED_PHRASES = [
     "bold patterns", "unique layering", "flowing fabrics",
 ]
 
-# Whitelist of allowed "no X" fragments used in specific document/studio styles
-# where a short negative constraint is genuinely clearer than a positive
-# rewrite (e.g. "no patterns", "no headwear"). Everything else matched by
-# `_NEGATIVE_RE` counts as a quality warning.
-_ALLOWED_NEGATIVES = frozenset({
-    "no shadows",
-    "no gradient",
-    "no patterns",
-    "no logos",
-    "no headwear",
-    "no uniform",
-    "no makeup",
-    "no accessories",
-    "no texture",
-    "no clutter",
-    "no smile",
-    "no expression",
-    "no strong",
-    "no heavy",
-    "no artistic",
-    "no background",  # e.g. "no background blur"
-    "no cinematic",
-    "no defocus",
-    "no bokeh",
-    "no branches",
-})
+# After the 1.14.3 positive-framing refresh, no "no X" / "without X" /
+# "avoid X" / "don't X" fragments are allowed anywhere in style fields —
+# FLUX.1 Kontext Pro ignores negations (often rendering the opposite), so
+# we force every style to be expressed in positive terms. The detector
+# below hard-fails on any such token; the previous whitelist is kept as
+# an empty set purely as a future-proofing hook.
+_ALLOWED_NEGATIVES: frozenset[str] = frozenset()
 
-_NEGATIVE_RE = re.compile(r"\bno\s+[a-z-]+", re.IGNORECASE)
+_NEGATIVE_RE = re.compile(r"\b(?:no|without|avoid|don't)\s+[a-z-]+", re.IGNORECASE)
 
 
 def _has_disallowed_negative(text: str) -> bool:
@@ -109,6 +137,39 @@ def validate_style(spec: StyleSpec) -> list[str]:
                 warnings.append(f"{spec.key}.{fname}: banned phrase '{phrase}'")
         if _has_disallowed_negative(text):
             warnings.append(f"{spec.key}.{fname}: negative framing detected")
+
+    # Walk content variants with the same positive-framing discipline.
+    seen_ids: set[str] = set()
+    for idx, variant in enumerate(spec.variants or ()):
+        if not variant.id:
+            warnings.append(f"{spec.key}.variants[{idx}]: empty id")
+        elif variant.id in seen_ids:
+            warnings.append(f"{spec.key}.variants[{idx}]: duplicate id '{variant.id}'")
+        seen_ids.add(variant.id)
+
+        if not variant.scene.strip():
+            warnings.append(f"{spec.key}.variants[{variant.id or idx}]: empty scene")
+        if not variant.lighting.strip():
+            warnings.append(f"{spec.key}.variants[{variant.id or idx}]: empty lighting")
+
+        for vf in (
+            "scene", "lighting", "props", "camera",
+            "clothing_male_accent", "clothing_female_accent",
+        ):
+            text = getattr(variant, vf, "").lower()
+            if not text:
+                continue
+            for phrase in _BANNED_PHRASES:
+                if phrase in text:
+                    warnings.append(
+                        f"{spec.key}.variants[{variant.id or idx}].{vf}: "
+                        f"banned phrase '{phrase}'"
+                    )
+            if _has_disallowed_negative(text):
+                warnings.append(
+                    f"{spec.key}.variants[{variant.id or idx}].{vf}: "
+                    f"negative framing detected"
+                )
 
     return warnings
 
@@ -268,6 +329,36 @@ def detect_depth_of_field(background: str) -> DepthOfField:
     return "deep"
 
 
+# Style keys whose scene composition inherently requires a visible torso
+# and legs (sport / beach / pool / yoga / cycling / yacht, etc.). The set
+# is hand-curated rather than inferred from the prompt text: some scenes
+# read "sport" in the keywords but work fine with half-body crops
+# (studio_gym, locker_room), and we'd rather miss a warning than emit
+# a false-positive that confuses the user.
+_NEEDS_FULL_BODY_KEYS: frozenset[str] = frozenset({
+    # dating — sport / outdoor / water
+    "gym_fitness",
+    "running",
+    "tennis",
+    "swimming_pool",
+    "hiking",
+    "yoga_outdoor",
+    "cycling",
+    "beach_sunset",
+    "yacht",
+    "motorcycle",
+    # social — mirrors of the above
+    "yoga_social",
+    "cycling_social",
+    "in_motion",
+})
+
+
+def detect_needs_full_body(key: str, mode: str) -> bool:
+    """Return True when the style's scene requires visible torso/legs."""
+    return key in _NEEDS_FULL_BODY_KEYS
+
+
 def build_spec_from_legacy(
     key: str,
     mode: str,
@@ -280,6 +371,7 @@ def build_spec_from_legacy(
     complexity: str = "simple",
     props: str = "",
     depth_of_field: DepthOfField | None = None,
+    variants: tuple[StyleVariant, ...] = (),
 ) -> StyleSpec:
     """Create a StyleSpec from a legacy dict entry plus optional overrides."""
     bg, clothing_male = parse_legacy_style(style_text)
@@ -299,4 +391,6 @@ def build_spec_from_legacy(
         edit_compatible=edit_compatible,
         complexity=complexity,
         depth_of_field=dof,
+        needs_full_body=detect_needs_full_body(key, mode),
+        variants=variants,
     )

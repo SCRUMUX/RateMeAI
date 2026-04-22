@@ -14,10 +14,10 @@ _PROMPT_MAP = {
 }
 
 _IMAGE_PROMPT_MAP = {
-    AnalysisMode.DATING: lambda style, _desc, gender, q: ig.build_dating_prompt(style, gender, input_hints=q),
-    AnalysisMode.CV: lambda style, _desc, gender, q: ig.build_cv_prompt(style, gender, input_hints=q),
-    AnalysisMode.SOCIAL: lambda style, _desc, gender, q: ig.build_social_prompt(style, gender, input_hints=q),
-    AnalysisMode.EMOJI: lambda _style, desc, gender, _q: ig.build_emoji_prompt(desc, gender=gender),
+    AnalysisMode.DATING: lambda style, _desc, gender, q, variant: ig.build_dating_prompt(style, gender, input_hints=q, variant=variant),
+    AnalysisMode.CV: lambda style, _desc, gender, q, variant: ig.build_cv_prompt(style, gender, input_hints=q, variant=variant),
+    AnalysisMode.SOCIAL: lambda style, _desc, gender, q, variant: ig.build_social_prompt(style, gender, input_hints=q, variant=variant),
+    AnalysisMode.EMOJI: lambda _style, desc, gender, _q, _variant: ig.build_emoji_prompt(desc, gender=gender),
 }
 
 _MODE_STYLE_DICTS: dict[AnalysisMode, dict[str, str]] = {
@@ -50,11 +50,14 @@ class PromptEngine:
         self, mode: AnalysisMode, style: str = "",
         base_description: str = "", gender: str = "male",
         input_hints: dict | None = None,
+        variant_id: str = "",
     ) -> str:
         builder = _IMAGE_PROMPT_MAP.get(mode)
         if builder is None:
             raise ValueError(f"No image prompt for mode: {mode}")
-        return builder(style, base_description, gender, input_hints)
+        mode_str = _MODE_VALUE_MAP.get(mode, mode.value)
+        variant = ig.resolve_style_variant(mode_str, style, variant_id) if variant_id else None
+        return builder(style, base_description, gender, input_hints, variant)
 
     def build_step_prompt(
         self, step_template: str, style: str, mode: AnalysisMode,

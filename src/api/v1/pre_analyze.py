@@ -115,6 +115,7 @@ async def pre_analyze(
             InputQualityIssuePublic(**i.to_dict()) for i in quality_report.soft_warnings
         ],
         blocking_issues=[],
+        face_area_ratio=quality_report.face_area_ratio,
     )
 
     if settings.uses_remote_ai:

@@ -56,6 +56,11 @@ async def _reset_depth(redis: Redis, user_id: int) -> None:
                 await redis.delete(*keys)
             if cursor == 0:
                 break
+    # Drop any style × reference compat state from the previous photo.
+    await redis.delete(
+        f"ratemeai:preanalysis_ref:{user_id}",
+        f"ratemeai:face_area:{user_id}",
+    )
 
 
 async def _run_preflight(message: Message, file_id: str) -> InputQualityReport | None:

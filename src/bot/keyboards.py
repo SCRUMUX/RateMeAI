@@ -60,29 +60,46 @@ def post_result_keyboard(
     user_id: str,
     bot_username: str,
     next_options: list[dict] | None = None,
+    current_style: str = "",
 ) -> InlineKeyboardMarkup:
-    """Post-result: 2 next-level buttons + share + new photo."""
+    """Post-result: 2 next-level buttons + share + new photo.
+
+    When ``current_style`` is set and the mode supports styles, the primary
+    action becomes **«🎲 Другой вариант»** — rotates to the next un-seen
+    content variant of the same style (``variant:*`` callback).
+    """
     deep_link = f"https://t.me/{bot_username}?start=ref_{user_id}"
     rows = []
 
-    if next_options and len(next_options) >= 2:
+    if current_style and mode in ("dating", "cv", "social"):
+        rows.append([
+            InlineKeyboardButton(
+                text="\U0001f3b2 Другой вариант",
+                callback_data=f"variant:{mode}:{current_style}",
+            ),
+            InlineKeyboardButton(
+                text="\U0001f3a8 Другой стиль",
+                callback_data=f"restyle:{mode}",
+            ),
+        ])
+    elif next_options and len(next_options) >= 2:
         rows.append([
             InlineKeyboardButton(text=next_options[0]["label"], callback_data=next_options[0]["callback_data"]),
             InlineKeyboardButton(text=next_options[1]["label"], callback_data=next_options[1]["callback_data"]),
         ])
     elif mode == "dating":
         rows.append([
-            InlineKeyboardButton(text="\U0001f525 Уверенный", callback_data="enhance:dating:charismatic"),
+            InlineKeyboardButton(text="\U0001f3b2 Другой вариант", callback_data="variant:dating:warm_outdoor"),
             InlineKeyboardButton(text="\U0001f3a8 Другой стиль", callback_data="restyle:dating"),
         ])
     elif mode == "cv":
         rows.append([
-            InlineKeyboardButton(text="\U0001f4bc Строже", callback_data="enhance:cv:corporate"),
+            InlineKeyboardButton(text="\U0001f3b2 Другой вариант", callback_data="variant:cv:corporate"),
             InlineKeyboardButton(text="\U0001f3a8 Другой стиль", callback_data="restyle:cv"),
         ])
     elif mode == "social":
         rows.append([
-            InlineKeyboardButton(text="\U0001f31f Ярче", callback_data="enhance:social:influencer"),
+            InlineKeyboardButton(text="\U0001f3b2 Другой вариант", callback_data="variant:social:influencer"),
             InlineKeyboardButton(text="\U0001f3a8 Другой стиль", callback_data="restyle:social"),
         ])
     elif mode == "rating":

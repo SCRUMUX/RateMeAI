@@ -259,6 +259,12 @@ class InputQualityPublic(BaseModel):
     can_generate: bool
     soft_warnings: list[InputQualityIssuePublic] = Field(default_factory=list)
     blocking_issues: list[InputQualityIssuePublic] = Field(default_factory=list)
+    # Face area ratio is exposed so downstream clients (bot / web) can run
+    # a style × reference compatibility check at style-selection time —
+    # full-body styles (yoga / beach / running) combined with tight
+    # head-crop references (ratio > 0.35) are a known failure pattern for
+    # FLUX Kontext Pro and we warn the user explicitly.
+    face_area_ratio: float = 0.0
 
 
 class PreAnalysisResponse(BaseModel):

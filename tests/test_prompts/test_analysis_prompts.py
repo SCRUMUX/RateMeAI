@@ -89,7 +89,7 @@ def test_emoji_prompt_has_all_12_emotions():
 
 def test_emoji_image_prompt_preserves_identity():
     p = ig.build_emoji_prompt("", gender="male")
-    assert "Preserve recognizable facial proportions" in p
+    assert "maintaining exact facial proportions" in p
     assert "instantly recognizable as the same person" in p
 
 

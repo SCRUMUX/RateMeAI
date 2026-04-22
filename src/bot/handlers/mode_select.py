@@ -4,7 +4,7 @@ import io
 import logging
 
 from aiogram import Router, F
-from aiogram.types import CallbackQuery
+from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup
 import httpx
 from redis.asyncio import Redis
 
@@ -17,11 +17,16 @@ from src.bot.keyboards import (
     STYLE_CATALOG,
 )
 from src.services.enhancement_advisor import build_enhancement_preview
+from src.services.input_quality import check_style_reference_compat
 from src.utils.text_sanitize import sanitize_llm_text
 
 logger = logging.getLogger(__name__)
 router = Router()
 PRE_ANALYSIS_REF_KEY = "ratemeai:preanalysis_ref:{}"
+# face_area_ratio of the last uploaded photo, populated on pre-analyze and
+# read at style-selection time for the style × reference compat check.
+FACE_AREA_RATIO_KEY = "ratemeai:face_area:{}"
+_FACE_AREA_TTL = 1800  # matches pre-analysis cache
 
 LAST_GEN_KEY = "ratemeai:last_gen:{}"
 USED_STYLES_KEY = "ratemeai:used_styles:{}:{}"
@@ -123,6 +128,14 @@ async def on_pick_style(callback: CallbackQuery, api_base_url: str, redis: Redis
     if pre_id:
         await redis.set(PRE_ANALYSIS_REF_KEY.format(user_id), pre_id, ex=1800)
 
+    iq_block = pre_analysis.get("input_quality") or {}
+    try:
+        ratio = float(iq_block.get("face_area_ratio", 0.0) or 0.0)
+    except (TypeError, ValueError):
+        ratio = 0.0
+    if ratio > 0.0:
+        await redis.set(FACE_AREA_RATIO_KEY.format(user_id), f"{ratio:.4f}", ex=_FACE_AREA_TTL)
+
     text = _format_pre_analysis_message(header, kind, user_id, pre_analysis)
 
     try:
@@ -137,16 +150,164 @@ async def on_style_selected(callback: CallbackQuery, api_base_url: str, redis: R
     parts = callback.data.split(":")
     mode = parts[1]
     style = parts[2] if len(parts) > 2 else ""
+    if await _maybe_warn_style_reference_mismatch(callback, redis, mode, style):
+        return
     await _submit_analysis(callback, api_base_url, redis, mode, style)
 
 
 @router.callback_query(F.data.startswith("enhance:"))
 async def on_enhancement_choice(callback: CallbackQuery, api_base_url: str, redis: Redis):
-    """User picked a binary option — run the full pipeline."""
+    """Legacy alias for :func:`on_variant_request` — kept for one release
+    so in-flight messages with old callback data still work. New
+    keyboards always emit ``variant:*``.
+    """
     parts = callback.data.split(":")
-    mode = parts[1]
+    mode = parts[1] if len(parts) > 1 else ""
     style = parts[2] if len(parts) > 2 else ""
+    await _handle_variant_callback(callback, api_base_url, redis, mode, style)
+
+
+@router.callback_query(F.data.startswith("variant:"))
+async def on_variant_request(callback: CallbackQuery, api_base_url: str, redis: Redis):
+    """Rotate to the next un-seen content variant of the current style.
+
+    For document styles we skip variant resolution and simply rerun the
+    same style with a fresh random seed (handled automatically by the
+    FAL provider when no explicit seed is set).
+    """
+    parts = callback.data.split(":")
+    mode = parts[1] if len(parts) > 1 else ""
+    style = parts[2] if len(parts) > 2 else ""
+    await _handle_variant_callback(callback, api_base_url, redis, mode, style)
+
+
+async def _handle_variant_callback(
+    callback: CallbackQuery, api_base_url: str, redis: Redis,
+    mode: str, style: str,
+) -> None:
+    if not mode:
+        last = await redis.get(LAST_GEN_KEY.format(callback.from_user.id))
+        if last:
+            last_s = last.decode() if isinstance(last, bytes) else last
+            if ":" in last_s:
+                parsed_mode, parsed_style = last_s.split(":", 1)
+                mode = mode or parsed_mode
+                style = style or parsed_style
+    if not mode or not style:
+        await callback.answer()
+        await callback.message.answer(
+            "Выбери направление:", reply_markup=scenario_keyboard(),
+        )
+        return
+
+    if await _maybe_warn_style_reference_mismatch(callback, redis, mode, style):
+        return
+
+    variant_id = ""
+    try:
+        from src.prompts.image_gen import STYLE_REGISTRY, is_document_style
+        if not is_document_style(style):
+            spec = STYLE_REGISTRY.get(mode, style)
+            if spec is not None and spec.variants:
+                from src.services.variation import resolve_next_variant
+                chosen = await resolve_next_variant(
+                    redis, spec, callback.from_user.id, mode, style,
+                )
+                if chosen is not None:
+                    variant_id = chosen.id
+    except Exception:
+        logger.exception("variant resolve failed for %s:%s", mode, style)
+
+    await _submit_analysis(
+        callback, api_base_url, redis, mode, style, variant_id=variant_id,
+    )
+
+
+@router.callback_query(F.data.startswith("confirm_risk:"))
+async def on_confirm_risk(callback: CallbackQuery, api_base_url: str, redis: Redis):
+    """User explicitly accepted the style × reference mismatch risk."""
+    parts = callback.data.split(":")
+    mode = parts[1] if len(parts) > 1 else ""
+    style = parts[2] if len(parts) > 2 else ""
+    await callback.answer()
+    try:
+        await callback.message.edit_reply_markup(reply_markup=None)
+    except Exception:
+        pass
     await _submit_analysis(callback, api_base_url, redis, mode, style)
+
+
+@router.callback_query(F.data == "reupload_photo")
+async def on_reupload_photo(callback: CallbackQuery, redis: Redis):
+    """User chose to reupload photo — clear cached photo + pre-analysis."""
+    user_id = callback.from_user.id
+    await redis.delete(
+        PHOTO_KEY.format(user_id),
+        PRE_ANALYSIS_REF_KEY.format(user_id),
+        FACE_AREA_RATIO_KEY.format(user_id),
+    )
+    await callback.answer()
+    try:
+        await callback.message.edit_reply_markup(reply_markup=None)
+    except Exception:
+        pass
+    await callback.message.answer(
+        "\U0001f4f7 Отправь новое фото — лучше, чтобы были видны плечи и корпус."
+    )
+
+
+@router.callback_query(F.data == "accept_risky_result")
+async def on_accept_risky_result(callback: CallbackQuery):
+    """User accepted a low-similarity result — just dismiss the prompt."""
+    await callback.answer("Хорошо, оставили как есть")
+    try:
+        await callback.message.edit_reply_markup(reply_markup=None)
+    except Exception:
+        pass
+
+
+async def _maybe_warn_style_reference_mismatch(
+    callback: CallbackQuery, redis: Redis, mode: str, style: str,
+) -> bool:
+    """Show a warning keyboard if the chosen style requires visible body but
+    the reference is a tight head-crop. Returns True when the user was
+    prompted (caller must stop; continuation happens via `confirm_risk:`).
+    """
+    if not mode or not style:
+        return False
+
+    user_id = callback.from_user.id
+    raw = await redis.get(FACE_AREA_RATIO_KEY.format(user_id))
+    if not raw:
+        return False
+    try:
+        ratio = float(raw.decode() if isinstance(raw, bytes) else raw)
+    except (TypeError, ValueError):
+        return False
+
+    issue = check_style_reference_compat(ratio, mode, style)
+    if issue is None:
+        return False
+
+    await callback.answer()
+    keyboard = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(
+            text="\U0001f4f7 Загрузить другое фото",
+            callback_data="reupload_photo",
+        )],
+        [InlineKeyboardButton(
+            text="\u26a0\ufe0f Продолжить с риском",
+            callback_data=f"confirm_risk:{mode}:{style}",
+        )],
+    ])
+    text = (
+        f"\u26a0\ufe0f *{issue.message}*\n\n"
+        f"{issue.suggestion}\n\n"
+        "Для таких стилей нужно фото, где видно плечи и корпус — "
+        "иначе модель сама дорисует тело и сходство может снизиться."
+    )
+    await callback.message.answer(text, parse_mode="Markdown", reply_markup=keyboard)
+    return True
 
 
 @router.callback_query(F.data.startswith("mode:"))
@@ -318,7 +479,10 @@ def _format_pre_analysis_message(header: str, kind: str, user_id: int, data: dic
     return "\n".join(lines)
 
 
-async def _submit_analysis(callback: CallbackQuery, api_base_url: str, redis: Redis, mode: str, style: str):
+async def _submit_analysis(
+    callback: CallbackQuery, api_base_url: str, redis: Redis,
+    mode: str, style: str, *, variant_id: str = "",
+):
     user_id = callback.from_user.id
     bot = callback.bot
     analyze_api = api_base_url
@@ -363,6 +527,8 @@ async def _submit_analysis(callback: CallbackQuery, api_base_url: str, redis: Re
         form_data = {"mode": mode, "enhancement_level": str(enh_level)}
         if style:
             form_data["style"] = style
+        if variant_id:
+            form_data["variant_id"] = variant_id
 
         pre_id = await redis.get(PRE_ANALYSIS_REF_KEY.format(user_id))
         if pre_id:

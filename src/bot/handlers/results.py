@@ -11,7 +11,12 @@ from pathlib import Path
 
 import httpx
 from aiogram import Bot
-from aiogram.types import BufferedInputFile, FSInputFile
+from aiogram.types import (
+    BufferedInputFile,
+    FSInputFile,
+    InlineKeyboardButton,
+    InlineKeyboardMarkup,
+)
 from redis.asyncio import Redis
 
 from src.bot.keyboards import post_result_keyboard, upgrade_keyboard, action_keyboard
@@ -213,6 +218,60 @@ def _balance_line(credits: int | None) -> str:
     return f"\n\n\U0001f4b0 Баланс: *{credits} образов*"
 
 
+def _is_identity_risky(result: dict) -> bool:
+    """Return True when the generated photo is flagged as low-similarity.
+
+    Two independent signals raise the flag:
+      * ``identity_unverified=True`` — quality-gate LLM call failed
+        (e.g. Gemini returned non-dict JSON; see v1.14.2 fix). We cannot
+        attest that the photo preserves identity, so we must be transparent.
+      * ``enhancement.identity_match < 5.0`` — VLM scored the result below
+        the soft threshold (``settings.identity_match_soft_threshold``).
+
+    Kept in sync with the warnings emitted in
+    ``src/orchestrator/executor.py::single_pass``.
+    """
+    if result.get("identity_unverified"):
+        return True
+    enh = result.get("enhancement") or {}
+    try:
+        score = float(enh.get("identity_match", 0) or 0)
+    except (TypeError, ValueError):
+        score = 0.0
+    # score == 0.0 is the "no comparison" case (no reference supplied);
+    # strictly positive and below soft threshold is the real "low similarity".
+    return 0.0 < score < settings.identity_match_soft_threshold
+
+
+async def _send_identity_risk_prompt(bot: Bot, chat_id: int) -> None:
+    """Ask the user whether to reupload or keep the risky result.
+
+    Sent as a standalone follow-up message (the main image is already
+    delivered) so the two paths remain orthogonal: "Accept" just dismisses
+    the warning, "Reupload" clears photo cache and waits for a new file.
+    """
+    keyboard = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(
+            text="\U0001f4f7 Попробовать другое фото",
+            callback_data="reupload_photo",
+        )],
+        [InlineKeyboardButton(
+            text="\u2705 Оставить как есть",
+            callback_data="accept_risky_result",
+        )],
+    ])
+    await bot.send_message(
+        chat_id,
+        "\u26a0\ufe0f *Сходство с оригиналом оказалось низким*\n\n"
+        "Это бывает, когда на исходном фото видно только лицо крупным планом, "
+        "а выбранный стиль требует полноростовой сцены. "
+        "Можно загрузить другое фото (лучше — где видны плечи и корпус) "
+        "или оставить текущий результат.",
+        parse_mode="Markdown",
+        reply_markup=keyboard,
+    )
+
+
 async def deliver_result(bot: Bot, chat_id: int, status_msg_id: int, data: dict, user_id: int, redis: Redis | None = None, api_base_url: str = ""):
     result = data.get("result", {})
     mode = data.get("mode", "rating")
@@ -256,6 +315,12 @@ async def deliver_result(bot: Bot, chat_id: int, status_msg_id: int, data: dict,
     else:
         kb = action_keyboard(uname, str(user_id))
         await bot.send_message(chat_id, f"Результат:\n```\n{result}\n```{bal}", parse_mode="Markdown", reply_markup=kb)
+
+    if mode in ("dating", "cv", "social") and _is_identity_risky(result):
+        try:
+            await _send_identity_risk_prompt(bot, chat_id)
+        except Exception:
+            logger.warning("Failed to send identity-risk prompt for task=%s", task_id, exc_info=True)
 
 
 async def _send_rating(bot: Bot, chat_id: int, result: dict, user_id: int, uname: str, footer: str):
@@ -362,7 +427,9 @@ async def _send_enhanced(
 
     text = "\n".join(text_parts)
 
-    kb = upgrade_keyboard() if needs_upgrade else post_result_keyboard(mode, str(user_id), uname, next_opts)
+    kb = upgrade_keyboard() if needs_upgrade else post_result_keyboard(
+        mode, str(user_id), uname, next_opts, current_style=current_style,
+    )
     caption, full_text = _split_caption(text)
 
     if gen_image_bytes:

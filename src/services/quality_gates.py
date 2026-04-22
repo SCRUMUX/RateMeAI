@@ -67,10 +67,11 @@ def compute_niqe_score(image_bytes: bytes) -> float | None:
 # The same JSON schema is returned in both cases, only identity_match is
 # defined when the original is provided.
 QUALITY_CHECK_PROMPT = (
+    "Return a SINGLE JSON OBJECT (not an array, not wrapped in square brackets, not a list). "
     "You are given one or two photos. When two photos are provided, the FIRST is the original reference "
     "and the SECOND is an AI-enhanced version of the same subject. "
     "Evaluate the AI-enhanced photo (the last one) for quality and, when a reference is provided, "
-    "for identity preservation. Return ONLY a JSON object:\n"
+    "for identity preservation. Return ONLY a JSON object with the exact keys below:\n"
     "{\n"
     '  "identity_match": <float 0-10, ONLY when two photos are provided. 10 = clearly the same person '
     '(same bone structure, facial proportions, age, gender, eye and lip shape); 7-9 = same person with '
@@ -102,6 +103,9 @@ class GateResult:
     threshold: float
 
 
+_CHECK_FAILED_KEY = "_check_failed"
+
+
 class QualityGateRunner:
     """Run quality gates on a generated image."""
 
@@ -130,15 +134,21 @@ class QualityGateRunner:
         # per generated image, at most).
         if "identity_match" in gate_spec:
             quality = await self._get_quality_metrics(generated_bytes, original_bytes)
-            val = quality.get("identity_match")
-            if val is None:
-                # No reference provided or VLM could not score — treat as pass
-                # to avoid blocking, surface as telemetry only.
+            if quality.get(_CHECK_FAILED_KEY):
+                # VLM call or JSON parsing failed — report as pass so we do not
+                # block the pipeline, but upstream will see quality_check_failed
+                # in the report and surface a soft warning to the user.
                 results.append(GateResult("identity_match", True, 0.0, gate_spec["identity_match"]))
             else:
-                val = float(val)
-                thr = gate_spec["identity_match"]
-                results.append(GateResult("identity_match", val >= thr, round(val, 2), thr))
+                val = quality.get("identity_match")
+                if val is None:
+                    # No reference provided or VLM explicitly returned null — treat as
+                    # pass to avoid blocking, surface as telemetry only.
+                    results.append(GateResult("identity_match", True, 0.0, gate_spec["identity_match"]))
+                else:
+                    val = float(val)
+                    thr = gate_spec["identity_match"]
+                    results.append(GateResult("identity_match", val >= thr, round(val, 2), thr))
 
         if "niqe" in gate_spec:
             niqe_score = compute_niqe_score(generated_bytes)
@@ -192,6 +202,7 @@ class QualityGateRunner:
         results = await self.run_gates(gate_spec, original_bytes, generated_bytes)
 
         quality = self._quality_cache or {}
+        check_failed = bool(quality.get(_CHECK_FAILED_KEY))
 
         report = {
             "identity_match": quality.get("identity_match"),
@@ -208,6 +219,7 @@ class QualityGateRunner:
             "hair_outline_preserved": quality.get("hair_outline_preserved"),
             "background_consistent": quality.get("background_consistent"),
             "identity_plausible": quality.get("identity_plausible"),
+            "quality_check_failed": check_failed,
             "gates_passed": [r.gate_name for r in results if r.passed],
             "gates_failed": [r.gate_name for r in results if not r.passed],
         }
@@ -230,7 +242,10 @@ class QualityGateRunner:
             return self._quality_cache
 
         if self._llm is None:
-            return {}
+            # No LLM wired up — behaves like "check unavailable"; upstream
+            # treats this as a pass (no reference data either).
+            self._quality_cache = {_CHECK_FAILED_KEY: True}
+            return self._quality_cache
 
         try:
             if reference_bytes is not None and hasattr(self._llm, "compare_images"):
@@ -240,6 +255,14 @@ class QualityGateRunner:
             else:
                 result = await self._llm.analyze_image(
                     image_bytes, QUALITY_CHECK_PROMPT, temperature=0.0,
+                )
+
+            if not isinstance(result, dict):
+                # Defensive: _parse_json now normalises shapes and raises on
+                # unknown types, but keep this guard so a future provider
+                # regression can never resurrect the silent-bypass bug.
+                raise TypeError(
+                    f"quality LLM returned non-dict payload (type={type(result).__name__})"
                 )
 
             raw_identity = result.get("identity_match")
@@ -269,7 +292,11 @@ class QualityGateRunner:
                 "details": str(result.get("details", "")),
             }
         except Exception:
+            # Mark the check as failed (sentinel) rather than silently
+            # swallowing the error — executor will surface a soft warning
+            # instead of delivering a potentially-mismatched photo as if the
+            # gate had passed.
             logger.exception("Quality gate LLM check failed")
-            self._quality_cache = {}
+            self._quality_cache = {_CHECK_FAILED_KEY: True}
 
         return self._quality_cache

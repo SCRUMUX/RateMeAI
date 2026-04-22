@@ -115,6 +115,7 @@ class ImageGenerationExecutor:
         result_dict: dict, user_id: str, task_id: str, trace: dict,
         gender: str = "male",
         input_quality: Any | None = None,
+        variant_id: str = "",
     ) -> None:
         if mode not in (AnalysisMode.CV, AnalysisMode.EMOJI, AnalysisMode.DATING, AnalysisMode.SOCIAL):
             return
@@ -127,7 +128,10 @@ class ImageGenerationExecutor:
             prompt = self._prompt_engine.build_image_prompt(
                 mode, style=style, base_description=desc, gender=gender,
                 input_hints=input_hints,
+                variant_id=variant_id,
             )
+            if variant_id:
+                result_dict["variant_id"] = variant_id
 
             # Face area ratio drives two decisions:
             #   - whether to upscale x2 (bad idea for tiny faces, amplifies artefacts)
@@ -206,9 +210,26 @@ class ImageGenerationExecutor:
                         IDENTITY_SCORE.observe(identity_match / 10.0)
 
                     # Soft, user-facing warnings when identity preservation
-                    # drops — mirrors the previous ArcFace-based UX messaging,
-                    # but with the new 0-10 identity_match scale.
-                    if identity_match == 0.0 and not sp_report.get("identity_match"):
+                    # drops. Three distinct states, each with its own UX:
+                    #   1) quality_check_failed — VLM call / JSON parsing
+                    #      actually errored. We must NOT treat this as a silent
+                    #      pass (that was the pre-1.14.2 bug that delivered
+                    #      mismatched photos to users). Surface an explicit
+                    #      "unverified" warning so results.py can offer the
+                    #      retry/accept keyboard.
+                    #   2) identity_match is null with no error — VLM simply
+                    #      had no reference to compare to; legitimate pass.
+                    #   3) numeric score below soft/hard threshold — the
+                    #      classical identity-drop UX messaging.
+                    check_failed = bool(sp_report.get("quality_check_failed"))
+                    if check_failed:
+                        result_dict["identity_unverified"] = True
+                        warnings.append(
+                            "Не удалось проверить сходство с оригиналом, "
+                            "результат может заметно отличаться. "
+                            "Попробуй загрузить другое фото или выбери другой стиль."
+                        )
+                    elif identity_match == 0.0 and not sp_report.get("identity_match"):
                         # VLM returned null (not a failure, just no comparison)
                         pass
                     elif identity_match < settings.identity_match_soft_threshold:

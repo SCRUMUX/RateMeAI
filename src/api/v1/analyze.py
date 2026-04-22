@@ -71,6 +71,7 @@ async def _handle_edge_analysis(
     profession: str,
     enhancement_level: int,
     pre_analysis_id: str,
+    variant_id: str,
     scenario_slug: str,
     scenario_type: str,
     entry_mode: str,
@@ -130,6 +131,7 @@ async def _handle_edge_analysis(
                 profession=profession,
                 enhancement_level=enhancement_level,
                 pre_analysis_id=pre_analysis_id,
+                variant_id=variant_id,
                 edge_task_id=str(task_id),
                 market_id=market_id,
                 scenario_slug=get_scenario_slug(task_context) or "",
@@ -293,6 +295,7 @@ async def create_analysis(
     profession: str = Form(""),
     enhancement_level: int = Form(0),
     pre_analysis_id: str = Form(""),
+    variant_id: str = Form(""),
     scenario_slug: str = Form(""),
     scenario_type: str = Form(""),
     entry_mode: str = Form(""),
@@ -340,6 +343,8 @@ async def create_analysis(
         ctx["enhancement_level"] = enhancement_level
     if pre_analysis_id.strip():
         ctx["pre_analysis_id"] = pre_analysis_id.strip()
+    if variant_id.strip():
+        ctx["variant_id"] = variant_id.strip()
     if getattr(user, "_credit_reserved", False):
         ctx["credit_pre_reserved"] = True
     if mode in (AnalysisMode.DATING, AnalysisMode.CV, AnalysisMode.SOCIAL):
@@ -403,6 +408,7 @@ async def create_analysis(
                 profession=profession.strip(),
                 enhancement_level=enhancement_level,
                 pre_analysis_id=pre_analysis_id.strip(),
+                variant_id=variant_id.strip(),
                 scenario_slug=scenario_slug.strip(),
                 scenario_type=scenario_type.strip(),
                 entry_mode=entry_mode.strip(),

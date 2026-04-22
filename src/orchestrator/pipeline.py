@@ -167,6 +167,7 @@ class AnalysisPipeline:
         result_dict["input_quality"] = input_quality.to_public_dict()
 
         style = (context or {}).get("style", "")
+        variant_id = (context or {}).get("variant_id", "")
         skip_gen = (context or {}).get("skip_image_gen", False)
         # TODO(gender-single-source): detected_gender is currently driven by the
         # LLM JSON output in four prompts (rating/dating/cv/social). A dedicated
@@ -190,6 +191,7 @@ class AnalysisPipeline:
                     mode, style, image_bytes, result_dict, user_id, task_id, trace,
                     gender=gender,
                     input_quality=input_quality,
+                    variant_id=variant_id,
                 )
 
             if (

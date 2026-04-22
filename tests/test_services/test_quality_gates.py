@@ -169,6 +169,53 @@ def test_llm_failure_uses_default_quality():
     assert results[0].value == 5.0
 
 
+def test_global_gates_surface_quality_check_failed_when_llm_errors():
+    """Regression for the v1.14.2 silent-bypass bug.
+
+    When compare_images raises (e.g. ``_parse_json`` rejected a JSON array
+    or the HTTP call blew up), the gate runner must mark the result with
+    ``quality_check_failed=True`` so the executor can emit a visible
+    warning — never silently "pass" the identity_match gate.
+    """
+    llm = MagicMock()
+    llm.compare_images = AsyncMock(side_effect=ValueError("LLM returned non-object JSON"))
+    llm.analyze_image = AsyncMock(side_effect=ValueError("LLM returned non-object JSON"))
+
+    runner = QualityGateRunner(llm=llm)
+    all_passed, results, report = _run(runner.run_global_gates(
+        {"identity_match": 7.0},
+        original_bytes=b"orig",
+        generated_bytes=b"gen",
+    ))
+
+    assert report["quality_check_failed"] is True
+    # identity_match is unknown when the VLM failed — surfaced as None
+    # (not 0.0, which would be a real "different person" score).
+    assert report["identity_match"] is None
+    identity_gate = next(r for r in results if r.gate_name == "identity_match")
+    # Gate "passes" technically so the pipeline does not hard-fail, but
+    # upstream treats quality_check_failed=True as a mandatory warning.
+    assert identity_gate.passed is True
+
+
+def test_global_gates_no_check_failed_on_success():
+    """Successful VLM path must not set the quality_check_failed flag."""
+    llm = _llm_returning({
+        "identity_match": 8.0,
+        "aesthetic_score": 7.0,
+        "artifact_ratio": 0.02,
+        "is_photorealistic": True,
+    })
+
+    runner = QualityGateRunner(llm=llm)
+    _, _, report = _run(runner.run_global_gates(
+        {"identity_match": 7.0},
+        original_bytes=b"orig",
+        generated_bytes=b"gen",
+    ))
+    assert report["quality_check_failed"] is False
+
+
 def test_photorealism_gate_passes():
     llm = _llm_returning({
         "aesthetic_score": 7.0,

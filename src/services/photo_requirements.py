@@ -27,6 +27,10 @@ class IssueCode:
     NOT_FRONTAL = "not_frontal"
     HAIR_BG_SIMILAR = "hair_bg_similar"
     FACE_DETECTOR_UNAVAILABLE = "face_detector_unavailable"
+    # Emitted only by the bot pre-generation check (style × reference
+    # mismatch), not by analyze_input_quality itself — the input metrics
+    # alone cannot know which style the user will pick.
+    FACE_TOO_TIGHT_FOR_BODY_SHOT = "face_too_tight_for_body_shot"
 
 
 # Russian-language texts for each code.
@@ -80,6 +84,10 @@ ISSUE_TEXTS: dict[str, dict[str, str]] = {
     IssueCode.FACE_DETECTOR_UNAVAILABLE: {
         "message": "Автопроверка лица временно недоступна.",
         "suggestion": "Обработка продолжится — проверка лица пройдёт на этапе сравнения.",
+    },
+    IssueCode.FACE_TOO_TIGHT_FOR_BODY_SHOT: {
+        "message": "Выбранный стиль предполагает видимое тело, а на фото только лицо крупным планом.",
+        "suggestion": "Для стабильного результата загрузите фото, где видны плечи и корпус, или выберите портретный стиль.",
     },
 }
 

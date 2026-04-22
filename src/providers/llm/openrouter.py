@@ -171,6 +171,17 @@ class OpenRouterLLM(LLMProvider):
 
     @staticmethod
     def _parse_json(text: str) -> dict:
+        """Parse LLM JSON output into a dict.
+
+        Gemini (via OpenRouter) occasionally wraps its ``json_object`` response
+        in a single-item array despite the explicit ``response_format`` hint —
+        e.g. ``[{"identity_match": 7.5, ...}]`` instead of ``{...}``. We
+        transparently unwrap that case. Any other non-object payload is a
+        real protocol violation and raises ``ValueError`` so that callers
+        (quality_gates._get_quality_metrics) can surface it as a check
+        failure instead of crashing with ``AttributeError: 'list' object
+        has no attribute 'get'``.
+        """
         text = text.strip()
         if text.startswith("```"):
             lines = text.split("\n")
@@ -178,7 +189,14 @@ class OpenRouterLLM(LLMProvider):
             if lines and lines[-1].strip() == "```":
                 lines = lines[:-1]
             text = "\n".join(lines)
-        return json.loads(text)
+        parsed = json.loads(text)
+        if isinstance(parsed, dict):
+            return parsed
+        if isinstance(parsed, list) and len(parsed) == 1 and isinstance(parsed[0], dict):
+            return parsed[0]
+        raise ValueError(
+            f"LLM returned non-object JSON (type={type(parsed).__name__}); expected a JSON object"
+        )
 
     async def close(self):
         await self._client.aclose()

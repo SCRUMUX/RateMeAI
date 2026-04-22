@@ -14,10 +14,50 @@ from src.prompts.style_spec import adapt_female_clothing
 
 
 def test_validate_all_returns_no_warnings():
+    """Hard-fails if any style still carries negative framing.
+
+    After the 1.14.3 positive-framing refresh the validator whitelist was
+    reduced to the empty set, so any ``no X`` / ``without X`` / ``avoid X``
+    / ``don't X`` fragment in a style's background / clothing / lighting
+    now surfaces here.
+
+    Since 1.15.0 the same hygiene discipline is extended to every
+    ``StyleVariant`` (scene / lighting / props / camera / clothing accent),
+    so a sloppy variant addition will also fail this test.
+    """
     warnings = ig.STYLE_REGISTRY.validate_all()
     assert warnings == [], (
         "Style registry emitted quality warnings:\n"
         + "\n".join(warnings)
+    )
+
+
+def test_validator_flags_negative_phrases_in_variants():
+    """Meta-check: the validator must surface banned negative framing
+    when it appears inside a variant field.
+    """
+    from src.prompts.style_spec import StyleSpec, StyleVariant, validate_style
+
+    bad_spec = StyleSpec(
+        key="test_bad_variant",
+        mode="dating",
+        background="sunlit garden",
+        clothing_male="smart casual shirt",
+        clothing_female="elegant summer dress",
+        lighting="soft daylight",
+        expression="calm, confident",
+        variants=(
+            StyleVariant(
+                id="bad",
+                scene="park bench",
+                lighting="no plastic smile, warm afternoon light",
+            ),
+        ),
+    )
+    warnings = validate_style(bad_spec)
+    assert any("variants[bad]" in w for w in warnings), (
+        "Validator must flag disallowed negative framing inside variants; "
+        f"got warnings: {warnings}"
     )
 
 

@@ -454,3 +454,43 @@ def analyze_input_quality(image_bytes: bytes) -> InputQualityReport:
     )
 
     return report
+
+
+# ---------------------------------------------------------------------------
+# Style × reference compatibility (pre-generation check)
+# ---------------------------------------------------------------------------
+
+# Empirical threshold: above this, the head dominates the frame so strongly
+# that FLUX Kontext Pro must hallucinate the full body for sport / outdoor
+# scenes. In production we observed consistent identity collapse at
+# face_area_ratio > 0.35 for the yoga / beach / running style cluster.
+FACE_TOO_TIGHT_FOR_BODY_THRESHOLD: float = 0.35
+
+
+def check_style_reference_compat(
+    face_area_ratio: float,
+    mode: str,
+    style_key: str,
+) -> InputQualityIssue | None:
+    """Return a soft warning issue if the (reference × style) combo is risky.
+
+    This is a **bot-side** check run after the user has picked both a photo
+    and a style — it cannot be done during the initial input_quality pass
+    because we do not know the style yet. Intentionally returns a single
+    optional ``warn``-severity issue rather than mutating a report: the
+    caller decides how to surface it (inline keyboard with accept/reupload
+    in the Telegram bot, banner on web, etc.).
+    """
+    # Local import to avoid circular import at module load:
+    # src.prompts.image_gen imports src.services.style_catalog which — indirectly
+    # through other modules — can re-enter input_quality during startup.
+    from src.prompts.image_gen import STYLE_REGISTRY
+
+    spec = STYLE_REGISTRY.get(mode, style_key)
+    if spec is None or not spec.needs_full_body:
+        return None
+
+    if face_area_ratio <= FACE_TOO_TIGHT_FOR_BODY_THRESHOLD:
+        return None
+
+    return _issue(IssueCode.FACE_TOO_TIGHT_FOR_BODY_SHOT, "warn")

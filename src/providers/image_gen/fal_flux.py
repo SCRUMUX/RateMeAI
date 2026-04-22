@@ -44,6 +44,7 @@ import asyncio
 import base64
 import io
 import logging
+import random
 import time
 from typing import Any
 
@@ -52,6 +53,9 @@ from PIL import Image
 
 from src.providers.base import ImageGenProvider
 from src.services.ai_transfer_guard import assert_external_transfer_allowed
+
+_SEED_MAX = 2**31 - 1
+_SEED_RNG = random.SystemRandom()
 
 logger = logging.getLogger(__name__)
 
@@ -205,6 +209,12 @@ class FalFluxImageGen(ImageGenProvider):
         seed = extras.get("seed")
         if isinstance(seed, int):
             body["seed"] = seed
+        else:
+            # Default to a fresh random seed on every call. FLUX Kontext is
+            # composition-conservative with the reference image — rotating
+            # the seed gives a small but consistent diversity boost without
+            # costing anything extra (one generation per request).
+            body["seed"] = _SEED_RNG.randrange(1, _SEED_MAX)
         aspect_ratio = extras.get("aspect_ratio")
         if isinstance(aspect_ratio, str) and aspect_ratio:
             body["aspect_ratio"] = aspect_ratio
