@@ -14,15 +14,23 @@ timeout / content-policy handling.
 
 Endpoint contract
 -----------------
-Queue submit:  ``POST  {host}/{model}``            body + Auth header
-Status poll :  ``GET   {host}/{model}/requests/{id}/status``
-Fetch result:  ``GET   {host}/{model}/requests/{id}``
+Queue submit:  ``POST  {host}/{model}`` body + Auth header
+
+The submit response contains two fully-qualified URLs::
+
+    {"request_id": "...", "status_url": "...", "response_url": "..."}
+
+which we **must** reuse verbatim for status polling and result fetch.
+Constructing ``{host}/{model}/requests/{id}/status`` manually breaks
+for apps whose model path has sub-paths (e.g. ``fal-ai/flux-pro/kontext``)
+— FAL returns HTTP 405 Method Not Allowed on such synthetic URLs while
+the ``status_url`` from the response resolves correctly.
 
 With ``sync_mode=True`` in the submit body the final image is returned
 as a data URI inside ``response.images[0].url``, so we never need a
 second HTTP fetch against ``fal.media``. This keeps every generation
-at exactly 2 HTTP calls in the happy path (submit → result) and avoids
-egress routing quirks on edge networks.
+at exactly 3 HTTP calls in the happy path (submit → status → result)
+and avoids egress routing quirks on edge networks.
 
 Pricing
 -------
@@ -150,11 +158,23 @@ class FalFluxImageGen(ImageGenProvider):
     def _submit_url(self) -> str:
         return f"{self._host}/{self._model}"
 
-    def _status_url(self, request_id: str) -> str:
-        return f"{self._host}/{self._model}/requests/{request_id}/status"
+    def _fallback_status_url(self, request_id: str) -> str:
+        """Only used when the submit response forgot to include ``status_url``.
 
-    def _result_url(self, request_id: str) -> str:
-        return f"{self._host}/{self._model}/requests/{request_id}"
+        FAL has been observed to omit it for very old app-ids. For the
+        Kontext family the real ``status_url`` is always returned by the
+        submit endpoint, so this fallback is a last-resort safety net.
+        """
+        # Strip the sub-path from the model: ``fal-ai/flux-pro/kontext``
+        # routes status to ``fal-ai/flux-pro`` on the queue host.
+        parts = self._model.split("/")
+        app_root = "/".join(parts[:2]) if len(parts) >= 2 else self._model
+        return f"{self._host}/{app_root}/requests/{request_id}/status"
+
+    def _fallback_result_url(self, request_id: str) -> str:
+        parts = self._model.split("/")
+        app_root = "/".join(parts[:2]) if len(parts) >= 2 else self._model
+        return f"{self._host}/{app_root}/requests/{request_id}"
 
     def _build_body(
         self,
@@ -265,7 +285,15 @@ class FalFluxImageGen(ImageGenProvider):
     # Sync HTTP flow (run inside asyncio.to_thread)
     # ------------------------------------------------------------------
 
-    def _submit(self, client: httpx.Client, body: dict[str, Any]) -> str:
+    def _submit(
+        self, client: httpx.Client, body: dict[str, Any],
+    ) -> tuple[str, str, str]:
+        """Return ``(request_id, status_url, response_url)``.
+
+        We always prefer the URLs returned by FAL itself — they are the
+        only shape guaranteed to resolve for every model, including
+        multi-segment apps like ``fal-ai/flux-pro/kontext``.
+        """
         resp = client.post(
             self._submit_url(), json=body, headers=self._headers(),
         )
@@ -278,8 +306,13 @@ class FalFluxImageGen(ImageGenProvider):
                 f"FAL submit: cannot parse response ({exc})",
                 status_code=resp.status_code,
             ) from exc
+        if not isinstance(data, dict):
+            raise FalAPIError(
+                "FAL submit: response is not a JSON object",
+                status_code=resp.status_code,
+            )
         request_id = (
-            (data.get("request_id") if isinstance(data, dict) else None)
+            data.get("request_id")
             or resp.headers.get("x-fal-request-id")
         )
         if not request_id:
@@ -287,12 +320,23 @@ class FalFluxImageGen(ImageGenProvider):
                 "FAL submit: response missing request_id",
                 status_code=resp.status_code,
             )
-        return str(request_id)
+        request_id = str(request_id)
+        status_url = str(
+            data.get("status_url") or self._fallback_status_url(request_id)
+        )
+        response_url = str(
+            data.get("response_url") or self._fallback_result_url(request_id)
+        )
+        return request_id, status_url, response_url
 
     def _poll_until_done(
-        self, client: httpx.Client, request_id: str, deadline: float,
+        self,
+        client: httpx.Client,
+        request_id: str,
+        status_url: str,
+        deadline: float,
     ) -> None:
-        url = self._status_url(request_id)
+        url = status_url
         while True:
             if time.monotonic() >= deadline:
                 raise FalAPIError(
@@ -324,11 +368,9 @@ class FalFluxImageGen(ImageGenProvider):
             time.sleep(self._poll_interval)
 
     def _fetch_result(
-        self, client: httpx.Client, request_id: str,
+        self, client: httpx.Client, request_id: str, response_url: str,
     ) -> dict[str, Any]:
-        resp = client.get(
-            self._result_url(request_id), headers=self._headers(),
-        )
+        resp = client.get(response_url, headers=self._headers())
         if resp.status_code >= 400:
             raise self._parse_error(
                 resp, phase="result", request_id=request_id,
@@ -419,9 +461,15 @@ class FalFluxImageGen(ImageGenProvider):
         for attempt in range(self._max_retries):
             try:
                 with httpx.Client(timeout=self._timeout) as client:
-                    request_id = self._submit(client, body)
-                    self._poll_until_done(client, request_id, deadline)
-                    data = self._fetch_result(client, request_id)
+                    request_id, status_url, response_url = self._submit(
+                        client, body,
+                    )
+                    self._poll_until_done(
+                        client, request_id, status_url, deadline,
+                    )
+                    data = self._fetch_result(
+                        client, request_id, response_url,
+                    )
                     return self._decode_image(client, data, request_id)
             except FalContentViolationError:
                 raise

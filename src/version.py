@@ -15,4 +15,11 @@
 #          privacy/consent guard + identity VLM-gate untouched. Auto mode
 #          prefers FAL_API_KEY over REVE_API_TOKEN, Reve retained as
 #          fallback; Replicate stays dormant and is not auto-selected.
-APP_VERSION = "1.14.0"
+# 1.14.1 — FLUX hotfix: use status_url/response_url from the FAL submit
+#          response instead of synthesising them from the model path.
+#          For multi-segment apps like ``fal-ai/flux-pro/kontext`` the
+#          synthesised ``/requests/{id}/status`` route returns HTTP 405,
+#          which broke the post-deploy image-gen-probe smoke test on
+#          1.14.0. Fallback URL builder kept as last-resort for legacy
+#          apps that omit the fields.
+APP_VERSION = "1.14.1"

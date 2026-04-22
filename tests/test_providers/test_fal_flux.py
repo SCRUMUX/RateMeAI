@@ -186,8 +186,15 @@ async def test_generate_happy_path_inline_data_uri():
     out_jpeg = _jpeg_bytes((10, 20, 30), size=32)
     data_uri = "data:image/jpeg;base64," + base64.b64encode(out_jpeg).decode()
 
+    status_url = "https://queue.fal.run/fal-ai/flux-pro/requests/req-abc/status"
+    response_url = "https://queue.fal.run/fal-ai/flux-pro/requests/req-abc"
     responses = [
-        _json_response({"request_id": "req-abc", "status": "IN_QUEUE"}),
+        _json_response({
+            "request_id": "req-abc",
+            "status": "IN_QUEUE",
+            "status_url": status_url,
+            "response_url": response_url,
+        }),
         _json_response({"status": "COMPLETED"}),
         _json_response({
             "images": [{"url": data_uri, "content_type": "image/jpeg"}],
@@ -215,9 +222,10 @@ async def test_generate_happy_path_inline_data_uri():
     assert submit["headers"]["Authorization"].startswith("Key ")
     assert submit["json"]["sync_mode"] is True
     assert status_poll["method"] == "GET"
-    assert "requests/req-abc/status" in status_poll["url"]
+    # Must use the URL returned by FAL, not a synthesised one.
+    assert status_poll["url"] == status_url
     assert fetch["method"] == "GET"
-    assert fetch["url"].endswith("/requests/req-abc")
+    assert fetch["url"] == response_url
 
 
 @pytest.mark.asyncio
@@ -226,7 +234,12 @@ async def test_generate_fetches_external_image_url_when_not_data_uri():
     image_url = "https://fal.media/files/abc/out.jpg"
 
     responses = [
-        _json_response({"request_id": "req-xyz", "status": "IN_QUEUE"}),
+        _json_response({
+            "request_id": "req-xyz",
+            "status": "IN_QUEUE",
+            "status_url": "https://queue.fal.run/fal-ai/flux-pro/requests/req-xyz/status",
+            "response_url": "https://queue.fal.run/fal-ai/flux-pro/requests/req-xyz",
+        }),
         _json_response({"status": "COMPLETED"}),
         _json_response({
             "images": [{"url": image_url, "content_type": "image/jpeg"}],
@@ -292,7 +305,12 @@ async def test_5xx_retries_then_succeeds():
 
     responses = [
         _error_response(502, message="upstream"),
-        _json_response({"request_id": "req-ok", "status": "IN_QUEUE"}),
+        _json_response({
+            "request_id": "req-ok",
+            "status": "IN_QUEUE",
+            "status_url": "https://queue.fal.run/fal-ai/flux-pro/requests/req-ok/status",
+            "response_url": "https://queue.fal.run/fal-ai/flux-pro/requests/req-ok",
+        }),
         _json_response({"status": "COMPLETED"}),
         _json_response({
             "images": [{"url": data_uri}],
@@ -315,7 +333,12 @@ async def test_5xx_retries_then_succeeds():
 @pytest.mark.asyncio
 async def test_queue_status_failed_raises_runtime_error():
     responses = [
-        _json_response({"request_id": "req-fail", "status": "IN_QUEUE"}),
+        _json_response({
+            "request_id": "req-fail",
+            "status": "IN_QUEUE",
+            "status_url": "https://queue.fal.run/fal-ai/flux-pro/requests/req-fail/status",
+            "response_url": "https://queue.fal.run/fal-ai/flux-pro/requests/req-fail",
+        }),
         _json_response({"status": "FAILED", "error": "model crashed"}),
     ]
     fake = _FakeFalClient(responses)
@@ -331,7 +354,12 @@ async def test_queue_status_failed_raises_runtime_error():
 @pytest.mark.asyncio
 async def test_nsfw_content_violation_is_no_retry():
     responses = [
-        _json_response({"request_id": "req-nsfw", "status": "IN_QUEUE"}),
+        _json_response({
+            "request_id": "req-nsfw",
+            "status": "IN_QUEUE",
+            "status_url": "https://queue.fal.run/fal-ai/flux-pro/requests/req-nsfw/status",
+            "response_url": "https://queue.fal.run/fal-ai/flux-pro/requests/req-nsfw",
+        }),
         _json_response({"status": "COMPLETED"}),
         _json_response({
             "images": [{"url": "data:image/jpeg;base64,AAAA"}],
@@ -355,7 +383,12 @@ async def test_nsfw_content_violation_is_no_retry():
 @pytest.mark.asyncio
 async def test_missing_images_array_raises():
     responses = [
-        _json_response({"request_id": "req-empty", "status": "IN_QUEUE"}),
+        _json_response({
+            "request_id": "req-empty",
+            "status": "IN_QUEUE",
+            "status_url": "https://queue.fal.run/fal-ai/flux-pro/requests/req-empty/status",
+            "response_url": "https://queue.fal.run/fal-ai/flux-pro/requests/req-empty",
+        }),
         _json_response({"status": "COMPLETED"}),
         _json_response({"images": [], "has_nsfw_concepts": []}),
     ]
