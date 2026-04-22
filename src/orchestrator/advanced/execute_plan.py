@@ -15,7 +15,7 @@ from __future__ import annotations
 import logging
 from typing import Any, Awaitable, Callable
 
-from src.metrics import IDENTITY_SCORE, REVE_CALLS
+from src.metrics import IDENTITY_SCORE, IMAGE_GEN_CALLS
 from src.models.enums import AnalysisMode
 from src.orchestrator.advanced.model_router import ModelRouter
 from src.orchestrator.advanced.planner import PipelinePlan, PipelineStep
@@ -245,17 +245,17 @@ class AdvancedPipelineExecutor:
                 "reason": f"tier={model_spec.quality_tier}, cost=${model_spec.cost_per_call:.3f}, budget_left=${budget:.3f}",
             })
 
-            # Reve REST rejects aspect_ratio / test_time_scaling /
-            # postprocessing / mask_* on /v1/image/edit; only use_edit is
-            # kept as an internal endpoint selector inside reve_provider
-            # (stripped from the wire body by the whitelist builder).
+            # v1.20: advanced plan executor is only used by the reserved
+            # multi-pass path (see ``docs/architecture/reserved.md``).
+            # ``use_edit`` is the internal FAL endpoint selector, kept
+            # for API parity with :class:`ImageGenerationExecutor`.
             params: dict = {"use_edit": True}
             params.update(extra_params)
 
             raw = await model_spec.provider.generate(
                 prompt, reference_image=current_image, params=dict(params),
             )
-            REVE_CALLS.labels(
+            IMAGE_GEN_CALLS.labels(
                 mode=mode.value,
                 step=step.step,
                 provider=type(model_spec.provider).__name__,

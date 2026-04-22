@@ -1,11 +1,12 @@
 """Centralized image-generation prompt builder for all modes.
 
-Compact photorealistic template (v1.13): a single natural paragraph in
-the 800–1200 character budget. The Reve REST API rejects oversized or
-overstuffed prompts, and tag-sectioned layouts ([CHANGE]/[PRESERVE]/
-[QUALITY]) waste characters without improving adherence. Two short
-anchors — PRESERVE_PHOTO and QUALITY_PHOTO — cover the semantics that
-previously required 10+ individual constants.
+Compact photorealistic template (v1.13, retained through v1.20): a
+single natural paragraph in the 800–1200 character budget. Empirically
+FAL's edit endpoints (Kontext, FLUX.2 Pro Edit, Seedream, PuLID) all
+degrade when handed tag-sectioned layouts ([CHANGE]/[PRESERVE]/
+[QUALITY]) or prompts above ~1200 characters. Two short anchors —
+PRESERVE_PHOTO and QUALITY_PHOTO — cover the semantics that previously
+required 10+ individual constants.
 """
 from __future__ import annotations
 
@@ -23,8 +24,8 @@ from src.prompts.style_variants import STYLE_VARIANTS
 logger = logging.getLogger(__name__)
 
 # Hard cap — worker logs a warning and truncates anything above this
-# before handing off to Reve. Matches the test budget in
-# tests/test_prompts/test_prompt_length_budget.py.
+# before handing off to the image-gen provider. Matches the test budget
+# in tests/test_prompts/test_prompt_length_budget.py.
 PROMPT_MAX_LEN = 1200
 
 

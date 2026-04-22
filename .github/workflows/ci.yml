@@ -164,8 +164,9 @@ jobs:
           #   StyleRouter when strategy=hybrid). The old v1.14 pin to
           #   fal_flux (Kontext) is gone — Kontext is only reachable
           #   via a manual ``IMAGE_GEN_STRATEGY=legacy`` rollback.
-          #   Reve is dead since v1.14; REVE_MAX_RETRIES is no longer
-          #   synced.
+          #   v1.20: Reve and Replicate providers were retired from
+          #   the factory; REVE_MAX_RETRIES / REVE_API_TOKEN /
+          #   REPLICATE_* are no longer synced.
           if [ -n "$FAL_API_KEY" ]; then
             echo "Syncing FAL_API_KEY to Railway services..."
             rl_set FAL_API_KEY="$FAL_API_KEY" -s app -e production --skip-deploys

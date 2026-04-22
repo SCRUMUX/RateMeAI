@@ -11,9 +11,9 @@ on:
 # branch is reachable and the FAL.ai token / quota are healthy,
 # without waiting for a real user.
 #
-# Reve was the v1.14-era provider; it has been retired. Today the
-# probe exercises the fal-ai/pulid (identity_scene) and
-# fal-ai/seedream/v4/edit (scene_preserve) code paths.
+# v1.20: Reve and Replicate fallbacks were retired. The probe now
+# exclusively exercises the FAL pipeline — fal-ai/pulid for
+# identity_scene and fal-ai/seedream/v4/edit for scene_preserve.
 
 jobs:
   probe:

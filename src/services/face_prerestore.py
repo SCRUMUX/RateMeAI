@@ -79,8 +79,16 @@ async def prerestore_if_needed(
     *,
     restorer: FalGfpganRestorer | Any | None = None,
     feature_enabled: bool | None = None,
+    face_bbox: tuple[int, int, int, int] | None = None,  # noqa: ARG001 — reserved
 ) -> tuple[bytes, dict]:
     """Run GFPGAN pre-clean if the input fits the activation rules.
+
+    The optional ``face_bbox`` parameter is reserved for forward
+    compatibility with v1.20's single-detect pipeline — the current
+    ``fal-ai/gfpgan`` endpoint operates on the full image and does not
+    accept a bbox, so we thread the value through without using it.
+    When a future GFPGAN mode supports bbox-scoped restoration the
+    parameter is already plumbed through the call chain.
 
     Returns ``(bytes, info)`` where:
     - ``bytes`` is the (possibly restored) image to hand off to the

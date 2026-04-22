@@ -108,7 +108,7 @@ class _FakeFalClient:
 
 def _patched_client(fake: _FakeFalClient):
     return patch(
-        "src.providers.image_gen.fal_flux.httpx.Client",
+        "src.providers.image_gen._fal_queue_base.httpx.Client",
         return_value=fake,
     )
 
@@ -207,7 +207,7 @@ async def test_generate_happy_path_inline_data_uri():
 
     gen = _make_gen()
     with _patched_client(fake), patch(
-        "src.providers.image_gen.fal_flux.time.sleep"
+        "src.providers.image_gen._fal_queue_base.time.sleep"
     ):
         result = await gen.generate(
             "headshot on studio backdrop",
@@ -253,7 +253,7 @@ async def test_generate_fetches_external_image_url_when_not_data_uri():
 
     gen = _make_gen()
     with _patched_client(fake), patch(
-        "src.providers.image_gen.fal_flux.time.sleep"
+        "src.providers.image_gen._fal_queue_base.time.sleep"
     ):
         result = await gen.generate("p", reference_image=_jpeg_bytes())
 
@@ -278,7 +278,7 @@ async def test_4xx_on_submit_no_retry():
     fake = _FakeFalClient([_error_response(400, message="bad prompt")])
     gen = _make_gen(max_retries=3)
     with _patched_client(fake), patch(
-        "src.providers.image_gen.fal_flux.time.sleep"
+        "src.providers.image_gen._fal_queue_base.time.sleep"
     ):
         with pytest.raises(RuntimeError, match="http=400") as exc_info:
             await gen.generate("p", reference_image=_jpeg_bytes())
@@ -291,7 +291,7 @@ async def test_401_surfaces_http_code_for_frontend_mapper():
     fake = _FakeFalClient([_error_response(401, message="invalid key")])
     gen = _make_gen(max_retries=3)
     with _patched_client(fake), patch(
-        "src.providers.image_gen.fal_flux.time.sleep"
+        "src.providers.image_gen._fal_queue_base.time.sleep"
     ):
         with pytest.raises(RuntimeError, match="http=401") as exc_info:
             await gen.generate("p", reference_image=_jpeg_bytes())
@@ -321,7 +321,7 @@ async def test_5xx_retries_then_succeeds():
     gen = _make_gen(max_retries=2)
 
     with _patched_client(fake), patch(
-        "src.providers.image_gen.fal_flux.time.sleep"
+        "src.providers.image_gen._fal_queue_base.time.sleep"
     ):
         result = await gen.generate("p", reference_image=_jpeg_bytes())
 
@@ -345,7 +345,7 @@ async def test_queue_status_failed_raises_runtime_error():
     gen = _make_gen(max_retries=1)
 
     with _patched_client(fake), patch(
-        "src.providers.image_gen.fal_flux.time.sleep"
+        "src.providers.image_gen._fal_queue_base.time.sleep"
     ):
         with pytest.raises(RuntimeError, match="FAILED"):
             await gen.generate("p", reference_image=_jpeg_bytes())
@@ -370,7 +370,7 @@ async def test_nsfw_content_violation_is_no_retry():
     gen = _make_gen(max_retries=3)
 
     with _patched_client(fake), patch(
-        "src.providers.image_gen.fal_flux.time.sleep"
+        "src.providers.image_gen._fal_queue_base.time.sleep"
     ):
         from src.providers.image_gen.fal_flux import FalContentViolationError
         with pytest.raises(FalContentViolationError):
@@ -396,7 +396,7 @@ async def test_missing_images_array_raises():
     gen = _make_gen(max_retries=1)
 
     with _patched_client(fake), patch(
-        "src.providers.image_gen.fal_flux.time.sleep"
+        "src.providers.image_gen._fal_queue_base.time.sleep"
     ):
         with pytest.raises(RuntimeError, match="no images"):
             await gen.generate("p", reference_image=_jpeg_bytes())

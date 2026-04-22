@@ -54,11 +54,8 @@ def test_get_image_gen_mock_explicit(monkeypatch):
     assert isinstance(g, MockImageGen)
 
 
-def test_get_image_gen_auto_prefers_fal_flux2_over_reve(monkeypatch):
-    """auto — FAL ключ приоритетнее Reve, и внутри FAL — flux_flux2
-    (FLUX.2 Pro Edit) приоритетнее Kontext. Нужно для безболезненного
-    переключения стека без изменения IMAGE_GEN_PROVIDER в каждом окружении.
-    """
+def test_get_image_gen_auto_prefers_fal_flux2(monkeypatch):
+    """auto mode with FAL_API_KEY picks FLUX.2 Pro Edit (v1.20: Reve retired)."""
     fake = _fake_settings(
         image_gen_provider="auto",
         fal_api_key="uuid:secret",
@@ -69,40 +66,18 @@ def test_get_image_gen_auto_prefers_fal_flux2_over_reve(monkeypatch):
     factory.get_image_gen.cache_clear()
     from src.providers.image_gen.fal_flux import FalFluxImageGen
     from src.providers.image_gen.fal_flux2 import FalFlux2ImageGen
-    from src.providers.image_gen.reve_provider import ReveImageGen
 
     g = factory.get_image_gen()
     assert isinstance(g, FalFlux2ImageGen)
     assert not isinstance(g, FalFluxImageGen)
-    assert not isinstance(g, ReveImageGen)
 
 
-def test_get_image_gen_auto_falls_back_to_reve(monkeypatch):
-    """auto — без FAL_API_KEY должен откатываться на Reve, если REVE_API_TOKEN есть."""
+def test_get_image_gen_auto_prod_without_fal_key_raises(monkeypatch):
+    """v1.20: prod auto-mode requires FAL_API_KEY (Reve/Replicate fallbacks retired)."""
     fake = _fake_settings(
         image_gen_provider="auto",
         fal_api_key="",
-        reve_api_token="papi.from-env-test",
-        replicate_api_token="should_not_matter",
-        replicate_model_version="also",
-    )
-    monkeypatch.setattr(factory, "settings", fake)
-    monkeypatch.setattr(factory, "get_storage", MagicMock(return_value=MagicMock()))
-    factory.get_image_gen.cache_clear()
-    from src.providers.image_gen.reve_provider import ReveImageGen
-    from src.providers.image_gen.chain import ChainImageGen
-
-    g = factory.get_image_gen()
-    assert isinstance(g, ReveImageGen)
-    assert not isinstance(g, ChainImageGen)
-
-
-def test_get_image_gen_auto_prod_without_keys_raises(monkeypatch):
-    """В prod при отсутствии FAL_API_KEY и REVE_API_TOKEN auto-режим должен падать."""
-    fake = _fake_settings(
-        image_gen_provider="auto",
-        fal_api_key="",
-        reve_api_token="",
+        reve_api_token="should_be_ignored_now",
         replicate_api_token="r8_token",
         replicate_model_version="ver123",
     )
@@ -114,13 +89,37 @@ def test_get_image_gen_auto_prod_without_keys_raises(monkeypatch):
         factory.get_image_gen()
 
 
-def test_get_image_gen_reve_prod_without_token_raises(monkeypatch):
-    fake = _fake_settings(image_gen_provider="reve", reve_api_token="")
+def test_get_image_gen_legacy_reve_value_remaps_to_auto(monkeypatch):
+    """v1.20: stale ``IMAGE_GEN_PROVIDER=reve`` silently remaps to auto (→ FAL)."""
+    fake = _fake_settings(
+        image_gen_provider="reve",
+        fal_api_key="uuid:secret",
+        reve_api_token="legacy-token",
+    )
     monkeypatch.setattr(factory, "settings", fake)
+    monkeypatch.setattr(factory, "get_storage", MagicMock(return_value=MagicMock()))
     factory.get_image_gen.cache_clear()
+    from src.providers.image_gen.fal_flux2 import FalFlux2ImageGen
 
-    with pytest.raises(RuntimeError, match="REVE_API_TOKEN"):
-        factory.get_image_gen()
+    g = factory.get_image_gen()
+    assert isinstance(g, FalFlux2ImageGen)
+
+
+def test_get_image_gen_legacy_replicate_value_remaps_to_auto(monkeypatch):
+    """v1.20: stale ``IMAGE_GEN_PROVIDER=replicate`` silently remaps to auto."""
+    fake = _fake_settings(
+        image_gen_provider="replicate",
+        fal_api_key="uuid:secret",
+        replicate_api_token="r8",
+        replicate_model_version="v123",
+    )
+    monkeypatch.setattr(factory, "settings", fake)
+    monkeypatch.setattr(factory, "get_storage", MagicMock(return_value=MagicMock()))
+    factory.get_image_gen.cache_clear()
+    from src.providers.image_gen.fal_flux2 import FalFlux2ImageGen
+
+    g = factory.get_image_gen()
+    assert isinstance(g, FalFlux2ImageGen)
 
 
 def test_get_image_gen_fal_flux_explicit(monkeypatch):

@@ -1,0 +1,76 @@
+v1.19.3: harden image-gen smoke (both modes) + sync hybrid env to Railway + fatal PuLID init
+
+Why
+---
+v1.19.2 unbroke the PuLID schema (steps <= 12, guidance <= 1.5) so
+prod stopped returning HTTP 422. The CI "Live provider smoke" still
+failed — this time because the probe sent a solid-colour synthetic
+JPEG to fal-ai/pulid, which has no face for facexlib to detect
+(HTTP 400 "no face detected"). That exposed a deeper gap: the
+identity_scene code path was never actually exercised by CI on any
+release, so every PuLID-related regression since v1.18 could only
+be caught by users in production.
+
+This release turns the post-deploy smoke into a proper two-branch
+check and makes Railway env-sync cover the v1.18 hybrid feature
+flags, so the next regression of this shape is blocked at the CI
+gate.
+
+Changes
+-------
+src/api/v1/_fixtures/probe_face.py (new)
+  * Inline 256x256 base64 JPEG of a StyleGAN face (CC0, not a real
+    person). ~12.6 KB decoded. facexlib detects the face reliably.
+
+src/api/v1/internal.py
+  * ``image_gen_probe`` now accepts ``mode=identity_scene``
+    or ``mode=scene_preserve`` (default). identity_scene loads the
+    fixture above; scene_preserve keeps the synthetic solid-colour
+    reference.
+  * Both modes pass ``params={"generation_mode": mode}`` to
+    ``image_gen.generate`` so StyleRouter deployments route to the
+    correct backend.
+  * Return payload now echoes ``mode`` for quick grep in logs.
+  * Docstring rewritten — no more Reve wording.
+
+.github/workflows/ci.yml
+  * Drops the v1.14-era ``IMAGE_GEN_PROVIDER=fal_flux`` pin and the
+    ``REVE_MAX_RETRIES`` sync. Both were silently defeating the
+    v1.18+ StyleRouter — Railway could be running the hybrid code
+    with a legacy provider pinned and nobody would know.
+  * Syncs ``IMAGE_GEN_STRATEGY=hybrid`` + PULID/SEEDREAM/CODEFORMER/
+    REAL_ESRGAN/GFPGAN_PRECLEAN feature flags to app + worker on
+    every deploy, so Railway env can never drift behind code.
+  * Missing ``FAL_API_KEY`` is now a deploy-failing error, not a
+    "fallback to Reve" warning.
+  * "Live provider smoke" fires TWO image-gen probes:
+      diagnostics/image-gen-probe?mode=scene_preserve
+      diagnostics/image-gen-probe?mode=identity_scene
+    Either failure blocks the deploy.
+
+.github/workflows/diag-image-gen-probe.yml
+  * Header comment updated for the two-mode probe; removed Reve
+    references.
+
+src/providers/factory.py
+  * ``_build_style_router()`` now re-raises ``_build_fal_pulid()``
+    failures when ``settings.is_production`` and
+    ``image_gen_strategy in {hybrid, pulid_only}``. Silent
+    degrade-to-Seedream was the reason identity_scene traffic could
+    be completely broken without the service reporting anything.
+
+src/version.py
+  * Bumped to 1.19.3 with a detailed release note.
+
+Tests
+-----
+tests/test_api/test_diagnostics.py (new)
+  * test_image_gen_probe_scene_preserve_passes_generation_mode
+  * test_image_gen_probe_identity_scene_uses_face_fixture
+    (verifies the fixture bytes really are a JPEG and are sent as
+     reference_image)
+  * test_image_gen_probe_surfaces_provider_errors
+  * test_probe_face_fixture_decodes_to_jpeg
+
+All 210 provider / orchestrator / diagnostics / config tests pass
+locally.

@@ -123,7 +123,7 @@ async def list_tasks(
     """List completed tasks that have a generated image (for the Storage gallery).
 
     Counter (``total_count``) и список ``items`` должны идти вровень: если задача
-    закрылась без картинки (Reve / moderation / ошибка), её нельзя учитывать —
+    закрылась без картинки (FAL provider / moderation / ошибка), её нельзя учитывать —
     иначе счётчик хранилища растёт, а галерея пуста (и пользователь пугается,
     думая что его фото пропало). Мы фильтруем COMPLETED-задачи по флагу
     ``result.has_generated_image`` (его выставляет worker на финальном шаге)

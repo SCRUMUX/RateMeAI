@@ -193,9 +193,14 @@ class AnalysisPipeline:
             # and further gated by Laplacian thresholds inside
             # ``prerestore_if_needed``. Failures fold back to the original
             # bytes — this stage must never take down the main pipeline.
+            # v1.20: reuse the MediaPipe bbox from ``analyze_input_quality``
+            # instead of re-detecting inside the prerestore / face-crop
+            # chain — ``input_quality.face_bbox`` is the same detection
+            # the input gate already accepted.
+            face_bbox = getattr(input_quality, "face_bbox", None)
             with _trace_step(trace, "face_prerestore") as pre_entry:
                 generation_bytes, prerestore_info = await prerestore_if_needed(
-                    image_bytes, input_quality,
+                    image_bytes, input_quality, face_bbox=face_bbox,
                 )
                 pre_entry["info"] = prerestore_info
             if prerestore_info.get("applied"):

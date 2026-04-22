@@ -580,4 +580,61 @@
 #          (``test_pulid_defaults_within_lightning_schema``) fail
 #          immediately if anyone ever tries to re-widen the defaults
 #          again.
-APP_VERSION = "1.19.3"
+# 1.20.0 — Pipeline refactor: honest backend metrics, single face detect,
+#          unified FAL queue client, Reve/Replicate outcode removed.
+#
+#          1) StyleRouter now publishes the real routed backend label
+#             via ``contextvars.ContextVar("ratemeai_routed_backend")``.
+#             ``_estimate_backend_cost`` and the executor metric
+#             sites read that label instead of guessing from
+#             ``generation_mode`` — so when the router degrades
+#             ``identity_scene → scene_preserve`` (face crop failure),
+#             ``ratemeai_generation_cost_usd{backend=...}`` and
+#             ``ratemeai_image_gen_backend_total`` reflect the Seedream
+#             call that actually ran, not the PuLID one we asked for.
+#             ``IMAGE_GEN_BACKEND`` is emitted exclusively by the
+#             router now; the executor only publishes it for legacy
+#             direct-provider deployments. ``FAL_CALLS`` (both
+#             single_pass and identity_retry steps) is keyed on the
+#             routed backend so PuLID retries finally show up in
+#             Grafana.
+#
+#          2) ``fal_flux``, ``fal_flux2``, ``fal_gfpgan`` and
+#             ``fal_esrgan`` now subclass ``FalQueueClient``; ~600
+#             lines of duplicated submit/poll/fetch/decode logic are
+#             gone. ``FalAPIError`` / ``FalRateLimitError`` /
+#             ``FalContentViolationError`` moved into the base module
+#             (re-exported from ``fal_flux`` for one release).
+#
+#          3) ``src.providers.factory.get_image_gen`` no longer wires
+#             Reve or Replicate. Stale ``IMAGE_GEN_PROVIDER=reve|
+#             replicate`` values silently remap to ``auto`` with a
+#             warning log — ``ReveImageGen`` / ``ReplicateImageGen``
+#             modules stay in repo for rollback tests. Metric
+#             ``ratemeai_reve_calls_total`` renamed to
+#             ``ratemeai_image_gen_calls_total``; ``REVE_CALLS``
+#             Python symbol kept as a one-release alias.
+#
+#          4) Single face-detection per request. ``InputQualityReport``
+#             now carries ``face_bbox`` from MediaPipe;
+#             ``crop_face_for_pulid`` accepts the bbox and skips the
+#             detector when supplied. The executor threads the bbox
+#             through ``params["face_bbox"]``; StyleRouter strips and
+#             forwards it to the crop step. Cold-path budget: 1 ×
+#             MediaPipe per request instead of up to 3.
+#
+#          5) Comment cleanup — executor, prompts, input_quality,
+#             smoke-live / diag-image-gen-probe / diag-recent-errors
+#             workflows no longer mention Reve as a live dependency.
+#
+#          Regressions: new tests
+#          ``test_routed_backend_contextvar_reflects_pulid_path``,
+#          ``test_routed_backend_contextvar_reflects_fallback_on_crop_failure``,
+#          ``test_routed_backend_contextvar_reflects_scene_preserve_path``,
+#          ``test_cost_estimation_follows_routed_backend`` in
+#          ``tests/test_providers/test_style_router.py``;
+#          ``test_face_bbox_arg_skips_mediapipe_call`` and
+#          ``test_face_bbox_arg_degenerate_returns_no_face`` in
+#          ``tests/test_services/test_face_crop.py``; factory tests
+#          updated to cover the legacy-value remap.
+APP_VERSION = "1.20.0"

@@ -1,0 +1,49 @@
+v1.19.2 HOTFIX: clamp PuLID params to Lightning schema (steps <= 12, guidance <= 1.5)
+
+Root cause
+----------
+fal-ai/pulid is strictly a Lightning model. Its public input schema caps
+``num_inference_steps`` at 12 and ``guidance_scale`` at 1.5. v1.19.0
+shipped defaults of 25 steps / CFG 3.5 "for quality" and v1.19.1
+inherited them untouched. FAL's Pydantic validator rejected every
+identity_scene request with HTTP 422:
+
+  loc=['body','guidance_scale']      msg='<= 1.5'  input=3.5
+  loc=['body','num_inference_steps'] msg='<= 12'   input=25
+
+so every CI post-deploy image-gen-probe failed, and production users
+saw silent generation failures for the entire v1.19.x window.
+
+Fix
+---
+* src/providers/image_gen/fal_pulid.py: re-tighten the clamps in the
+  constructor and in ``_build_body`` to steps in [1, 12] and
+  guidance_scale in [1.0, 1.5]. id_scale clamp unchanged.
+* src/config.py: lower defaults to inside the schema:
+    pulid_steps            25  -> 4
+    pulid_guidance_scale   3.5 -> 1.2
+    pulid_retry_steps      35  -> 8
+    pulid_retry_guidance   5.0 -> 1.4
+  Added block comment pointing at v1.19.2 so the next person does not
+  re-widen them.
+* src/orchestrator/executor.py: updated ``getattr`` fallback constants
+  for the retry path to match the new defaults.
+* .env.example: mirrored defaults and replaced the obsolete quality-
+  preset comment with a Lightning-schema warning.
+
+Regression guards
+-----------------
+* tests/test_providers/test_fal_pulid.py:
+    - test_body_clamps_steps_to_lightning_max
+    - test_body_clamps_guidance_to_lightning_max
+    - test_body_defaults_honour_pulid_lightning_schema
+    - existing ``test_defaults_are_clamped_in_constructor`` and
+      ``test_body_honours_retry_params_from_executor`` updated to the
+      new schema.
+* tests/test_config.py (new):
+    - test_pulid_defaults_within_lightning_schema
+    - test_pulid_retry_escalates_over_baseline
+  These fail loudly the moment anyone raises a PuLID knob above 12 /
+  1.5 again.
+
+All 204 provider + orchestrator tests pass locally.

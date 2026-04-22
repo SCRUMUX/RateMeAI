@@ -9,7 +9,7 @@ on:
         required: false
 
 # Pulls the last N errors recorded by the primary backend. Read-only:
-# does NOT call any external provider, so it never burns Reve rate-limit
+# does NOT call any external provider, so it never burns FAL rate-limit
 # or OpenRouter credit.
 
 jobs:

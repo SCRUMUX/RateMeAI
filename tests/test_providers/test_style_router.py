@@ -194,3 +194,75 @@ def test_backend_summary_lists_all_three_backends():
 def test_constructor_requires_fallback():
     with pytest.raises(ValueError, match="fallback"):
         StyleRouter(pulid=None, seedream=None, fallback=None)
+
+
+@pytest.mark.asyncio
+async def test_routed_backend_contextvar_reflects_pulid_path():
+    """v1.20: after an identity_scene → PuLID call the ContextVar = 'pulid'."""
+    from src.providers.image_gen.style_router import get_routed_backend
+
+    router, _pulid, _seedream, _fallback = _make_router()
+    crop_ok = FaceCropResult(
+        image_bytes=b"FACE", reason=FaceCropReason.OK,
+    )
+    with patch(
+        "src.providers.image_gen.style_router.crop_face_for_pulid",
+        return_value=crop_ok,
+    ):
+        await router.generate(
+            "prompt",
+            reference_image=b"photo",
+            params={"generation_mode": "identity_scene"},
+        )
+    assert get_routed_backend() == "pulid"
+
+
+@pytest.mark.asyncio
+async def test_routed_backend_contextvar_reflects_fallback_on_crop_failure():
+    """v1.20: identity_scene → scene_preserve fallback exposes 'seedream'."""
+    from src.providers.image_gen.style_router import get_routed_backend
+
+    router, _pulid, _seedream, _fallback = _make_router()
+    crop_fail = FaceCropResult(
+        image_bytes=None, reason=FaceCropReason.NO_FACE,
+    )
+    with patch(
+        "src.providers.image_gen.style_router.crop_face_for_pulid",
+        return_value=crop_fail,
+    ):
+        await router.generate(
+            "prompt",
+            reference_image=b"photo-no-face",
+            params={"generation_mode": "identity_scene"},
+        )
+    assert get_routed_backend() == "seedream"
+
+
+@pytest.mark.asyncio
+async def test_routed_backend_contextvar_reflects_scene_preserve_path():
+    from src.providers.image_gen.style_router import get_routed_backend
+
+    router, _pulid, _seedream, _fallback = _make_router()
+    await router.generate(
+        "prompt",
+        reference_image=b"photo",
+        params={"generation_mode": "scene_preserve"},
+    )
+    assert get_routed_backend() == "seedream"
+
+
+def test_cost_estimation_follows_routed_backend():
+    """v1.20: router deg identity_scene→seedream costs $0.03, not $0.015."""
+    from src.orchestrator.executor import _estimate_backend_cost
+
+    label, cost = _estimate_backend_cost(
+        "StyleRouter", "identity_scene", routed_backend="seedream",
+    )
+    assert label == "seedream"
+    assert cost == pytest.approx(0.03, abs=1e-6)
+
+    label2, cost2 = _estimate_backend_cost(
+        "StyleRouter", "identity_scene", routed_backend="pulid",
+    )
+    assert label2 == "pulid"
+    assert cost2 == pytest.approx(0.015, abs=1e-6)

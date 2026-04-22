@@ -24,6 +24,7 @@ raises as usual and the caller (executor) decides on retry.
 """
 from __future__ import annotations
 
+import contextvars
 import logging
 
 from src.providers.base import ImageGenProvider
@@ -33,6 +34,29 @@ from src.services.face_crop import (
 )
 
 logger = logging.getLogger(__name__)
+
+# v1.20: ContextVar carrying the real backend label that served the most
+# recent StyleRouter.generate() call. Allows upstream callers (executor,
+# cost accounting, metrics) to read the *actual* backend after any
+# intra-router fallback (identity_scene → scene_preserve on face-crop
+# failure) without changing the ImageGenProvider protocol.
+#
+# The value is one of: ``"pulid"``, ``"seedream"``, ``"fallback"``,
+# ``""`` (router has not run yet / outside a request).
+routed_backend_var: contextvars.ContextVar[str] = contextvars.ContextVar(
+    "ratemeai_routed_backend", default="",
+)
+
+
+def get_routed_backend() -> str:
+    """Return the most recent StyleRouter backend label for this context.
+
+    Safe to call outside a router run — returns ``""`` when unknown.
+    """
+    try:
+        return routed_backend_var.get() or ""
+    except LookupError:
+        return ""
 
 
 class StyleRouter(ImageGenProvider):
@@ -145,6 +169,8 @@ class StyleRouter(ImageGenProvider):
         requested_mode = str(
             params.pop("generation_mode", "") or ""
         ).strip() or "identity_scene"
+        # v1.20: reuse MediaPipe bbox from input_quality when present.
+        upstream_bbox = params.pop("face_bbox", None)
 
         # ``identity_scene`` needs a cropped face; do it once here so
         # every retry the executor fires reuses the crop.
@@ -159,7 +185,26 @@ class StyleRouter(ImageGenProvider):
             ):
                 face_bytes = bytes(pre_supplied)
             elif reference_image:
-                crop = crop_face_for_pulid(reference_image)
+                # v1.20: feed upstream_bbox in so crop_face_for_pulid
+                # skips a redundant MediaPipe pass when the caller
+                # (executor) already detected the face.
+                bbox_arg: tuple[int, int, int, int] | None = None
+                if (
+                    isinstance(upstream_bbox, (tuple, list))
+                    and len(upstream_bbox) == 4
+                ):
+                    try:
+                        bbox_arg = (
+                            int(upstream_bbox[0]),
+                            int(upstream_bbox[1]),
+                            int(upstream_bbox[2]),
+                            int(upstream_bbox[3]),
+                        )
+                    except Exception:
+                        bbox_arg = None
+                crop = crop_face_for_pulid(
+                    reference_image, face_bbox=bbox_arg,
+                )
                 if crop.image_bytes:
                     face_bytes = crop.image_bytes
                 else:
@@ -190,6 +235,13 @@ class StyleRouter(ImageGenProvider):
 
         backend, label = self._pick_backend(effective_mode)
         self._record_backend(label, effective_mode)
+        # v1.20: publish the routed backend so cost accounting /
+        # executor metrics can read the *actual* label (e.g. after a
+        # face-crop fallback pushed identity_scene → seedream).
+        try:
+            routed_backend_var.set(label)
+        except Exception:
+            logger.debug("routed_backend_var unavailable", exc_info=True)
 
         if label == "pulid":
             # PuLID takes the face crop as its reference, NOT the full
@@ -225,4 +277,4 @@ class StyleRouter(ImageGenProvider):
         }
 
 
-__all__ = ["StyleRouter"]
+__all__ = ["StyleRouter", "routed_backend_var", "get_routed_backend"]

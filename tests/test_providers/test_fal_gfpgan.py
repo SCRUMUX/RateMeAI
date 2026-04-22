@@ -94,7 +94,7 @@ class _FakeFalClient:
 
 def _patched_client(fake: _FakeFalClient):
     return patch(
-        "src.providers.image_gen.fal_gfpgan.httpx.Client",
+        "src.providers.image_gen._fal_queue_base.httpx.Client",
         return_value=fake,
     )
 
@@ -119,7 +119,7 @@ def test_requires_api_key():
 
 def test_body_shape_is_single_image_url():
     r = _make_restorer()
-    body = r._build_body(_jpeg_bytes())
+    body = r._build_body(reference_image=_jpeg_bytes())
     assert isinstance(body["image_url"], str)
     assert body["image_url"].startswith("data:image/jpeg;base64,")
     assert body.get("sync_mode") is True
@@ -151,7 +151,7 @@ async def test_restore_happy_path_inline_data_uri():
 
     restorer = _make_restorer()
     with _patched_client(fake), patch(
-        "src.providers.image_gen.fal_gfpgan.time.sleep"
+        "src.providers.image_gen._fal_queue_base.time.sleep"
     ):
         out = await restorer.restore(_jpeg_bytes())
 
@@ -178,7 +178,7 @@ async def test_restore_raises_on_nsfw():
     fake = _FakeFalClient(responses)
     restorer = _make_restorer()
     with _patched_client(fake), patch(
-        "src.providers.image_gen.fal_gfpgan.time.sleep"
+        "src.providers.image_gen._fal_queue_base.time.sleep"
     ):
         with pytest.raises(FalContentViolationError):
             await restorer.restore(_jpeg_bytes())
@@ -189,7 +189,7 @@ async def test_restore_4xx_on_submit_no_retry():
     fake = _FakeFalClient([_error_response(400, "bad")])
     restorer = _make_restorer(max_retries=3)
     with _patched_client(fake), patch(
-        "src.providers.image_gen.fal_gfpgan.time.sleep"
+        "src.providers.image_gen._fal_queue_base.time.sleep"
     ):
         with pytest.raises(RuntimeError, match="http=400"):
             await restorer.restore(_jpeg_bytes())

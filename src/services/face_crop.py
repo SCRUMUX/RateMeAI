@@ -82,12 +82,15 @@ def crop_face_for_pulid(
     padding_ratio: float = _DEFAULT_PADDING_RATIO,
     target_size: int = _DEFAULT_CROP_SIZE,
     min_face_side_px: int = _MIN_USEFUL_FACE_SIDE_PX,
+    face_bbox: tuple[int, int, int, int] | None = None,
 ) -> FaceCropResult:
     """Return a padded square face crop or a failure reason.
 
     - Decodes ``image_bytes`` with PIL (RGB).
-    - Runs MediaPipe face detection (via the existing input-quality
-      detector) and picks the highest-confidence face.
+    - If ``face_bbox`` is supplied (v1.20 single-detect path), reuses it
+      directly and skips MediaPipe. Otherwise runs MediaPipe face
+      detection (via the existing input-quality detector) and picks the
+      highest-confidence face.
     - Pads the bbox by ``padding_ratio`` and squares it up (symmetric
       padding on the narrow axis), clamping to image boundaries.
     - Resizes the crop to ``target_size × target_size`` with Lanczos.
@@ -110,19 +113,28 @@ def crop_face_for_pulid(
     if w < 64 or h < 64:
         return FaceCropResult(None, reason=FaceCropReason.INVALID_IMAGE)
 
-    arr = np.array(img)
-    faces = _detect_faces(arr)
-    if not faces:
-        return FaceCropResult(None, reason=FaceCropReason.NO_FACE)
+    if face_bbox is not None:
+        try:
+            x1, y1, x2, y2 = [int(v) for v in face_bbox]
+        except Exception:
+            logger.debug("face_crop: malformed face_bbox=%r", face_bbox)
+            return FaceCropResult(None, reason=FaceCropReason.NO_FACE)
+    else:
+        arr = np.array(img)
+        faces = _detect_faces(arr)
+        if not faces:
+            return FaceCropResult(None, reason=FaceCropReason.NO_FACE)
 
-    # Largest face by bbox area wins; det_score is a reasonable
-    # secondary key (already sorted this way in input_quality).
-    def _bbox_area(face) -> int:
-        x1, y1, x2, y2 = face.bbox
-        return max(0, x2 - x1) * max(0, y2 - y1)
+        # Largest face by bbox area wins; det_score is a reasonable
+        # secondary key (already sorted this way in input_quality).
+        def _bbox_area(face) -> int:
+            fx1, fy1, fx2, fy2 = face.bbox
+            return max(0, fx2 - fx1) * max(0, fy2 - fy1)
 
-    primary = max(faces, key=lambda f: (_bbox_area(f), float(f.det_score)))
-    x1, y1, x2, y2 = [int(v) for v in primary.bbox]
+        primary = max(
+            faces, key=lambda f: (_bbox_area(f), float(f.det_score)),
+        )
+        x1, y1, x2, y2 = [int(v) for v in primary.bbox]
     fw = max(0, x2 - x1)
     fh = max(0, y2 - y1)
     if fw == 0 or fh == 0:

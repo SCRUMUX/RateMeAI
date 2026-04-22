@@ -1,0 +1,65 @@
+v1.20.0: unified FalQueueClient + honest backend metrics + single face detect + retire Reve/Replicate
+
+Architectural refactor completing the v1.19 hardening work.
+
+1) FAL providers unified on FalQueueClient
+   - fal_flux, fal_flux2, fal_gfpgan and fal_esrgan are now thin
+     subclasses of src/providers/image_gen/_fal_queue_base.py. Removed
+     ~1700 lines of duplicated submit/poll/fetch/decode logic.
+   - FalAPIError / FalRateLimitError / FalContentViolationError moved
+     into the base module (re-exported from fal_flux for one release).
+
+2) Honest backend metrics via ContextVar
+   - StyleRouter now publishes the real routed backend label via
+     contextvars.ContextVar("ratemeai_routed_backend"), so downstream
+     metric / cost accounting can tell "identity_scene degraded to
+     seedream" apart from "identity_scene served by pulid".
+   - _estimate_backend_cost reads that ContextVar instead of guessing
+     from generation_mode. When the router falls back to Seedream due
+     to a face-crop failure, ratemeai_generation_cost_usd{backend=...}
+     reflects the $0.03 Seedream call that actually ran, not the
+     $0.015 PuLID call we asked for.
+   - IMAGE_GEN_BACKEND is now emitted exclusively by StyleRouter; the
+     executor only publishes it for legacy direct-provider setups.
+   - FAL_CALLS (both single_pass and identity_retry steps) is keyed
+     on the routed backend — PuLID retries finally land in Grafana.
+
+3) Drop Reve / Replicate from the factory
+   - factory.get_image_gen() no longer wires ReveImageGen or
+     ReplicateImageGen. Stale IMAGE_GEN_PROVIDER=reve|replicate values
+     silently remap to "auto" (FAL) with a warning. Provider modules
+     stay in repo for rollback tests / history.
+   - Metric ratemeai_reve_calls_total renamed to
+     ratemeai_image_gen_calls_total. REVE_CALLS python symbol is kept
+     as a one-release alias pointing at IMAGE_GEN_CALLS.
+
+4) Single face detection per request
+   - InputQualityReport now carries face_bbox from MediaPipe.
+   - crop_face_for_pulid accepts face_bbox and skips the detector when
+     supplied. prerestore_if_needed takes the same arg (reserved for
+     future bbox-scoped GFPGAN modes).
+   - Executor threads input_quality.face_bbox through
+     params["face_bbox"]. StyleRouter strips and forwards it to the
+     crop step. Cold-path budget: 1 x MediaPipe per request instead of
+     up to 3.
+
+5) Comment cleanup
+   - executor, prompts/image_gen, services/input_quality and the
+     smoke-live / diag-image-gen-probe / diag-recent-errors / ci
+     workflows no longer reference Reve as a live dependency.
+
+Tests
+   - New regression tests:
+     * test_routed_backend_contextvar_reflects_pulid_path
+     * test_routed_backend_contextvar_reflects_fallback_on_crop_failure
+     * test_routed_backend_contextvar_reflects_scene_preserve_path
+     * test_cost_estimation_follows_routed_backend
+       (tests/test_providers/test_style_router.py)
+     * test_face_bbox_arg_skips_mediapipe_call
+     * test_face_bbox_arg_degenerate_returns_no_face
+       (tests/test_services/test_face_crop.py)
+   - factory image-gen tests updated for the legacy-value remap and
+     Reve-fallback removal.
+   - Full suite: 2288 passed, 37 skipped; ruff E/F/W clean.
+
+Version bumped to 1.20.0.

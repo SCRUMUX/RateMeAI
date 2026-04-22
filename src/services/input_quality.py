@@ -1,16 +1,17 @@
 """Pre-flight input quality gate.
 
 Analyzes an uploaded photo locally (MediaPipe FaceDetection + Laplacian)
-to decide whether we should spend a Reve API call on it. The gate is
-designed to be cheap (no LLM, no image generation) and to surface
-precise, actionable reasons to the user BEFORE any paid API is invoked.
+to decide whether we should spend a paid FAL image-gen call on it. The
+gate is designed to be cheap (no LLM, no image generation) and to
+surface precise, actionable reasons to the user BEFORE any paid API is
+invoked.
 
 Privacy note: we use only MediaPipe FaceDetection here, which returns a
 bounding box plus a handful of keypoints (eyes, nose, ears, mouth). No
 face-recognition feature vector (embedding) is computed or stored.
 
 Two levels of findings:
-  - blocking issues → HTTP 400, no Reve call, user must re-upload
+  - blocking issues → HTTP 400, no FAL call, user must re-upload
   - soft warnings   → returned to UI/bot so the user can decide to proceed
 
 See also: src/services/photo_requirements.py for the human-readable texts and
@@ -70,6 +71,12 @@ class InputQualityReport:
     num_faces: int = 0
     width: int = 0
     height: int = 0
+    # v1.20: primary face bounding box (x1, y1, x2, y2) in pixel
+    # coordinates of the uploaded image. Threaded through to
+    # ``face_prerestore`` and ``crop_face_for_pulid`` so they can
+    # reuse the MediaPipe detection from this pass instead of
+    # re-running it (1 detect per request instead of up to 3).
+    face_bbox: tuple[int, int, int, int] | None = None
 
     @property
     def blocking(self) -> list[InputQualityIssue]:
@@ -378,6 +385,8 @@ def analyze_input_quality(image_bytes: bytes) -> InputQualityReport:
         report.can_generate = False
         report.issues.append(_issue(IssueCode.NO_FACE, "block"))
         return report
+
+    report.face_bbox = (int(x1), int(y1), int(x2), int(y2))
 
     fw = max(1, x2 - x1)
     fh = max(1, y2 - y1)

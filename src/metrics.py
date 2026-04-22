@@ -14,11 +14,16 @@ PIPELINE_DURATION = Histogram(
     buckets=(1, 2, 5, 10, 15, 20, 30, 45, 60, 90, 120),
 )
 
-REVE_CALLS = Counter(
-    "ratemeai_reve_calls_total",
-    "Number of Reve API calls",
+# v1.20: renamed from ``REVE_CALLS`` / ``ratemeai_reve_calls_total``.
+# The ``REVE_CALLS`` alias is preserved for one release to keep existing
+# call sites (executor, advanced.execute_plan) importing the same symbol
+# while Grafana / Prometheus configs migrate to the new metric name.
+IMAGE_GEN_CALLS = Counter(
+    "ratemeai_image_gen_calls_total",
+    "Number of image-gen provider API calls (any backend)",
     labelnames=["mode", "step", "provider"],
 )
+REVE_CALLS = IMAGE_GEN_CALLS  # v1.20 alias, remove in v1.21
 
 FAL_CALLS = Counter(
     "ratemeai_fal_calls_total",

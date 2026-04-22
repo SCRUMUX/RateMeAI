@@ -107,3 +107,41 @@ def test_degenerate_bbox_returns_no_face(monkeypatch):
     result = crop_face_for_pulid(_jpeg_bytes(size=512))
     assert result.image_bytes is None
     assert result.reason == FaceCropReason.NO_FACE
+
+
+def test_face_bbox_arg_skips_mediapipe_call(monkeypatch):
+    """v1.20: when ``face_bbox`` is supplied the detector is NOT called."""
+    call_counter = {"n": 0}
+
+    def _boom(_arr):
+        call_counter["n"] += 1
+        return []
+
+    monkeypatch.setattr(
+        "src.services.face_crop._detect_faces", _boom,
+    )
+
+    out = crop_face_for_pulid(
+        _jpeg_bytes(size=512),
+        target_size=128,
+        face_bbox=(100, 100, 300, 300),
+    )
+
+    assert out.image_bytes is not None
+    assert out.reason == FaceCropReason.OK
+    assert call_counter["n"] == 0
+
+
+def test_face_bbox_arg_degenerate_returns_no_face(monkeypatch):
+    monkeypatch.setattr(
+        "src.services.face_crop._detect_faces",
+        lambda arr: [],
+    )
+
+    out = crop_face_for_pulid(
+        _jpeg_bytes(size=512),
+        face_bbox=(50, 50, 50, 50),
+    )
+
+    assert out.image_bytes is None
+    assert out.reason == FaceCropReason.NO_FACE

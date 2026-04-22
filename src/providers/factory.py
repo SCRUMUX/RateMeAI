@@ -35,15 +35,20 @@ def get_storage() -> StorageProvider:
 
 def _image_gen_provider_mode() -> str:
     p = (settings.image_gen_provider or "auto").strip().lower()
-    if p in ("auto", "reve", "replicate", "mock", "fal_flux", "fal_flux2"):
+    # v1.20: "reve" and "replicate" values are accepted and silently
+    # remapped to "auto" below to preserve one-release compatibility
+    # with stale Railway env files. The fabricate-Reve / Replicate
+    # code path is gone — see v1.20 release notes.
+    if p in ("reve", "replicate"):
+        logger.warning(
+            "IMAGE_GEN_PROVIDER=%s is no longer supported; "
+            "falling back to auto (FAL-only pipeline).",
+            p,
+        )
+        return "auto"
+    if p in ("auto", "mock", "fal_flux", "fal_flux2"):
         return p
     return "auto"
-
-
-def _missing_replicate_config() -> bool:
-    return not (
-        settings.replicate_api_token and settings.replicate_model_version
-    )
 
 
 def _build_fal_flux():
@@ -233,9 +238,12 @@ def _image_gen_strategy() -> str:
 
 @lru_cache(maxsize=1)
 def get_image_gen() -> ImageGenProvider:
+    # v1.20: Reve and Replicate providers are no longer wired into the
+    # factory. The modules remain in ``src/providers/image_gen/`` for
+    # historical tests and manual rollback scripts, but the public
+    # factory path is FAL-only (hybrid StyleRouter + legacy fal_flux2 /
+    # fal_flux direct modes). See ``docs/architecture/reserved.md``.
     from src.providers._testing import MockImageGen
-    from src.providers.image_gen.replicate import ReplicateImageGen
-    from src.providers.image_gen.reve_provider import ReveImageGen
 
     strategy = _image_gen_strategy()
     prod = settings.is_production
@@ -304,69 +312,22 @@ def get_image_gen() -> ImageGenProvider:
         _log_image_gen_choice(p, reason="mode=fal_flux (legacy Kontext rollback)")
         return p
 
-    if mode == "reve":
-        if not settings.reve_api_token.strip():
-            if prod:
-                raise RuntimeError(
-                    "IMAGE_GEN_PROVIDER=reve requires REVE_API_TOKEN",
-                )
-            p = MockImageGen()
-            _log_image_gen_choice(p, reason="mode=reve but no REVE_API_TOKEN (dev)")
-            return p
-        p = ReveImageGen(
-            api_token=settings.reve_api_token,
-            api_host=settings.reve_api_host,
-            version=settings.reve_version,
-            max_retries=settings.reve_max_retries,
-        )
-        _log_image_gen_choice(p, reason="mode=reve")
-        return p
-
-    if mode == "replicate":
-        if _missing_replicate_config():
-            if prod:
-                raise RuntimeError(
-                    "IMAGE_GEN_PROVIDER=replicate requires "
-                    "REPLICATE_API_TOKEN and REPLICATE_MODEL_VERSION",
-                )
-            p = MockImageGen()
-            _log_image_gen_choice(p, reason="mode=replicate but missing config (dev)")
-            return p
-        p = ReplicateImageGen(
-            api_token=settings.replicate_api_token,
-            model_version=settings.replicate_model_version,
-            storage=get_storage(),
-        )
-        _log_image_gen_choice(p, reason="mode=replicate")
-        return p
-
-    # auto — FLUX.2 Pro Edit через FAL предпочитаем для сценариев с
-    # лицами (2 МП выход, native image_size support), Kontext Pro и
-    # Reve остаются как резерв. Порядок выбора:
-    # fal_flux2 → fal_flux → Reve → Mock (dev) / RuntimeError (prod).
-    # Replicate в auto-режиме не подключается по умолчанию —
-    # см. docs/architecture/reserved.md.
+    # v1.20: auto — FAL-only. FLUX.2 Pro Edit is the default because
+    # it matches the StyleRouter fallback and accepts the same 2 MP
+    # ``image_size`` knob the rest of the pipeline uses. Reve /
+    # Replicate fallbacks are retired — see module-level comment and
+    # ``docs/architecture/reserved.md``.
     if (settings.fal_api_key or "").strip():
         p = _build_fal_flux2()
         _log_image_gen_choice(p, reason="auto → FAL_API_KEY present")
         return p
-    if settings.reve_api_token.strip():
-        p = ReveImageGen(
-            api_token=settings.reve_api_token,
-            api_host=settings.reve_api_host,
-            version=settings.reve_version,
-            max_retries=settings.reve_max_retries,
-        )
-        _log_image_gen_choice(p, reason="auto → REVE_API_TOKEN only")
-        return p
     if prod:
         raise RuntimeError(
-            "IMAGE_GEN_PROVIDER=auto requires FAL_API_KEY (flux-2-pro/edit "
-            "or kontext) or REVE_API_TOKEN (Replicate is reserved and not "
-            "auto-selected)",
+            "IMAGE_GEN_PROVIDER=auto requires FAL_API_KEY — the Reve "
+            "and Replicate fallbacks were retired in v1.20.",
         )
     p = MockImageGen()
-    _log_image_gen_choice(p, reason="auto → no keys (dev)")
+    _log_image_gen_choice(p, reason="auto → no FAL_API_KEY (dev)")
     return p
 
 

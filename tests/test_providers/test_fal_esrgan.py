@@ -98,7 +98,7 @@ class _FakeFalClient:
 
 def _patched_client(fake: _FakeFalClient):
     return patch(
-        "src.providers.image_gen.fal_esrgan.httpx.Client",
+        "src.providers.image_gen._fal_queue_base.httpx.Client",
         return_value=fake,
     )
 
@@ -123,7 +123,7 @@ def test_requires_api_key():
 
 def test_body_shape_is_single_image_url_with_scale():
     u = _make_upscaler()
-    body = u._build_body(_jpeg_bytes(), 2)
+    body = u._build_body(reference_image=_jpeg_bytes(), params={"scale": 2})
     assert isinstance(body["image_url"], str)
     assert body["image_url"].startswith("data:image/jpeg;base64,")
     assert body["scale"] == 2
@@ -132,7 +132,7 @@ def test_body_shape_is_single_image_url_with_scale():
 
 def test_body_clamps_unsupported_scale_to_two():
     u = _make_upscaler()
-    body = u._build_body(_jpeg_bytes(), 7)
+    body = u._build_body(reference_image=_jpeg_bytes(), params={"scale": 7})
     assert body["scale"] == 2
 
 
@@ -159,7 +159,7 @@ async def test_upscale_happy_path_inline_data_uri():
 
     upscaler = _make_upscaler()
     with _patched_client(fake), patch(
-        "src.providers.image_gen.fal_esrgan.time.sleep"
+        "src.providers.image_gen._fal_queue_base.time.sleep"
     ):
         out = await upscaler.upscale(_jpeg_bytes(), factor=2)
 
@@ -189,7 +189,7 @@ async def test_upscale_follows_external_image_url():
 
     upscaler = _make_upscaler()
     with _patched_client(fake), patch(
-        "src.providers.image_gen.fal_esrgan.time.sleep"
+        "src.providers.image_gen._fal_queue_base.time.sleep"
     ):
         out = await upscaler.upscale(_jpeg_bytes())
 
@@ -202,7 +202,7 @@ async def test_upscale_4xx_on_submit_no_retry():
     fake = _FakeFalClient([_error_response(400, "bad")])
     upscaler = _make_upscaler(max_retries=3)
     with _patched_client(fake), patch(
-        "src.providers.image_gen.fal_esrgan.time.sleep"
+        "src.providers.image_gen._fal_queue_base.time.sleep"
     ):
         with pytest.raises(RuntimeError, match="http=400"):
             await upscaler.upscale(_jpeg_bytes())

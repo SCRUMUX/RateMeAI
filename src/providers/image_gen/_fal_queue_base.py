@@ -8,16 +8,14 @@ protocol::
     GET    {status_url}                    → poll until status == COMPLETED
     GET    {response_url}                  → {images: [{url}]} or {image: {url}}
 
-Historically each provider duplicated ~200 lines of this boilerplate. This
-module consolidates the wire-level flow into :class:`FalQueueClient` so new
-providers (PuLID / Seedream / CodeFormer — shipped in v1.18) only have to
-implement the model-specific ``_build_body`` and pick a log label.
-
-We intentionally leave the older providers (``fal_flux.py``, ``fal_flux2.py``,
-``fal_gfpgan.py``, ``fal_esrgan.py``) on their own copies of this protocol
-for now: they are the active production path, a cross-file refactor is high
-risk, and the duplication has already been paid for. They can be migrated in
-a follow-up once the v1.18 pipeline has proven stable.
+As of v1.20.0 every provider in ``src/providers/image_gen/fal_*.py`` is a
+:class:`FalQueueClient` subclass — the queue protocol lives here, and each
+provider only implements the model-specific ``_build_body`` + a short log
+label. Prior to v1.20.0 the older providers (``fal_flux.py``, ``fal_flux2.py``,
+``fal_gfpgan.py``, ``fal_esrgan.py``) each carried their own ~200-line copy
+of this file; we consolidated them once the v1.18 hybrid pipeline (PuLID /
+Seedream / CodeFormer, which already used this base) had proven stable in
+production.
 """
 from __future__ import annotations
 
@@ -28,13 +26,55 @@ from typing import Any
 
 import httpx
 
-from src.providers.image_gen.fal_flux import (
-    FalAPIError,
-    FalContentViolationError,
-    FalRateLimitError,
-)
-
 logger = logging.getLogger(__name__)
+
+
+# ----------------------------------------------------------------------
+# Error hierarchy (single source of truth — re-exported by fal_flux.py
+# for existing ``from src.providers.image_gen.fal_flux import FalAPIError``
+# call sites).
+# ----------------------------------------------------------------------
+
+
+class FalAPIError(Exception):
+    """FAL REST error (HTTP 4xx/5xx other than 429)."""
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        status_code: int | None = None,
+        error_code: str | None = None,
+        request_id: str | None = None,
+    ):
+        super().__init__(message)
+        self.message = message
+        self.status_code = status_code
+        self.error_code = error_code
+        self.request_id = request_id
+
+
+class FalRateLimitError(FalAPIError):
+    """HTTP 429 — safe to retry within max_retries."""
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        retry_after: float | None = None,
+        request_id: str | None = None,
+    ):
+        super().__init__(
+            message,
+            status_code=429,
+            error_code="RATE_LIMIT",
+            request_id=request_id,
+        )
+        self.retry_after = retry_after
+
+
+class FalContentViolationError(FalAPIError):
+    """Response flagged as NSFW / safety violation (no retry)."""
 
 
 class FalQueueClient:
@@ -327,7 +367,7 @@ class FalQueueClient:
                 break
         if image_entry is None:
             raise FalAPIError(
-                f"FAL {self._label} result: no image in response",
+                f"FAL {self._label} result: no images in response",
                 request_id=request_id,
             )
         url = str(image_entry.get("url") or "")
@@ -469,4 +509,9 @@ class FalQueueClient:
         ) from last_err
 
 
-__all__ = ["FalQueueClient"]
+__all__ = [
+    "FalQueueClient",
+    "FalAPIError",
+    "FalRateLimitError",
+    "FalContentViolationError",
+]

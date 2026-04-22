@@ -20,7 +20,7 @@ from src.metrics import (
     IDENTITY_RETRY_TRIGGERED,
     IDENTITY_SCORE,
     IMAGE_GEN_BACKEND,
-    REVE_CALLS,
+    IMAGE_GEN_CALLS,
     STYLE_MODE_OVERRIDE,
     estimate_image_gen_cost_usd,
 )
@@ -38,7 +38,9 @@ from src.services.postprocess import (
 
 # Target aspect ratio for CV document styles. Applied *locally* after
 # generation via PIL (see src.services.postprocess.crop_to_aspect) —
-# Reve's /v1/image/edit endpoint does not accept aspect_ratio.
+# none of the currently wired FAL edit models (FLUX.2, Seedream,
+# PuLID) accept an arbitrary aspect_ratio knob, so we enforce it
+# ourselves after the generation step.
 _CV_DOCUMENT_ASPECT: dict[str, str] = {
     "photo_3x4": "3:4",        # 30×40 мм
     "passport_rf": "3:4",      # 35×45 мм ≈ 3:4
@@ -66,9 +68,12 @@ def _apply_local_postprocess(
 ) -> bytes:
     """Apply local PIL post-processing (AR crop for documents, LANCZOS x2 for large faces).
 
-    This replaces the previous Reve ``postprocessing=[{upscale}]`` and
-    ``aspect_ratio`` fields that the Reve REST API does not accept.
-    Silent-safe: any PIL failure returns the original bytes.
+    v1.20: historical note — this function replaced the ``postprocessing=
+    [{upscale}]`` / ``aspect_ratio`` fields that the pre-v1.14 pipeline
+    used to ship to Reve. The Reve and Replicate providers were retired
+    together with the v1.20 refactor; local PIL post-processing has been
+    the single source of truth ever since. Silent-safe: any PIL failure
+    returns the original bytes.
 
     When ``settings.real_esrgan_enabled`` is True the LANCZOS upscale
     step is skipped — a proper diffusion-aware upscale runs later in
@@ -104,27 +109,56 @@ def _estimate_backend_cost(
     generation_mode: str,
     *,
     image_size: dict | None = None,
+    routed_backend: str | None = None,
 ) -> tuple[str, float]:
     """Estimate per-call cost *and* label the effective backend.
 
-    For StyleRouter deployments the provider class is ``StyleRouter``
-    and the real compute cost depends on the routed backend
-    (PuLID / Seedream / fallback). We use ``generation_mode`` — set
-    by the orchestrator from the StyleSpec — as the proxy. For legacy
-    direct-provider setups we fall back to ``estimate_image_gen_cost_usd``.
+    v1.20: for StyleRouter deployments we now read ``routed_backend``
+    — the real label set by ``StyleRouter.generate()`` via a
+    ContextVar — instead of guessing from ``generation_mode``. That
+    way, when the router degrades ``identity_scene → scene_preserve``
+    (face-crop failure), the Prometheus label and the cost math
+    reflect the Seedream call that actually ran, not the PuLID one
+    we asked for.
+
+    For legacy direct-provider setups (no StyleRouter, no ContextVar)
+    we fall back to ``estimate_image_gen_cost_usd`` keyed off the
+    provider class name.
     """
     cls = (provider_name or "").lower()
+    routed = (routed_backend or "").strip().lower()
     if cls == "stylerouter":
-        if (generation_mode or "").strip() == "scene_preserve":
-            backend = "seedream"
-            cost = float(
-                getattr(settings, "model_cost_fal_seedream", 0.03)
-            )
-        else:
+        if routed == "pulid":
             backend = "pulid"
             cost = float(
                 getattr(settings, "model_cost_fal_pulid", 0.006)
             )
+        elif routed == "seedream":
+            backend = "seedream"
+            cost = float(
+                getattr(settings, "model_cost_fal_seedream", 0.03)
+            )
+        elif routed == "fallback":
+            backend = "fallback"
+            cost = float(
+                estimate_image_gen_cost_usd(
+                    "FalFlux2ImageGen", image_size=image_size,
+                )
+            )
+        else:
+            # Router has not run yet (e.g. unit tests without a real
+            # request) — derive from the *requested* mode as before
+            # so legacy test expectations still hold.
+            if (generation_mode or "").strip() == "scene_preserve":
+                backend = "seedream"
+                cost = float(
+                    getattr(settings, "model_cost_fal_seedream", 0.03)
+                )
+            else:
+                backend = "pulid"
+                cost = float(
+                    getattr(settings, "model_cost_fal_pulid", 0.006)
+                )
         return backend, cost
 
     backend = cls or "fallback"
@@ -132,7 +166,7 @@ def _estimate_backend_cost(
         backend = "pulid"
     elif "seedream" in cls:
         backend = "seedream"
-    elif "flux" in cls or "reve" in cls or "replicate" in cls:
+    elif "flux" in cls:
         backend = "fallback"
     cost = float(
         estimate_image_gen_cost_usd(provider_name, image_size=image_size)
@@ -384,11 +418,12 @@ class ImageGenerationExecutor:
             )
 
             # Provider ``extra`` payload. Provider-specific whitelists
-            # apply (FalFlux2ImageGen accepts ``image_size`` + ``seed``,
-            # Reve ignores everything but its own fields). The legacy
-            # ``use_edit`` flag was a Reve-era no-op from the provider's
-            # perspective and has been removed — document AR crops and
-            # the x2 LANCZOS upscale still happen locally in
+            # apply: FalFlux2ImageGen accepts ``image_size`` + ``seed``,
+            # PuLID accepts ``num_inference_steps`` + ``guidance_scale``
+            # + ``id_scale``, Seedream accepts ``enhance_prompt_mode``.
+            # Anything the StyleRouter does not recognise is stripped
+            # before reaching the wire. Document AR crops and the x2
+            # LANCZOS upscale still happen locally in
             # ``_apply_local_postprocess``.
             extra: dict = {}
 
@@ -396,7 +431,7 @@ class ImageGenerationExecutor:
             # ``image_size`` with a concrete ``{width, height}`` dict —
             # we pin each style to its target aspect (2 MP portrait for
             # headshot/full-body, 1 MP square for documents). Legacy
-            # Reve / Kontext providers silently ignore the key.
+            # Kontext / Seedream providers silently ignore the key.
             spec = STYLE_REGISTRY.get(mode.value, style)
             # v1.18 hybrid pipeline: thread the StyleSpec generation mode
             # through ``params`` so :class:`StyleRouter` can route to
@@ -407,8 +442,18 @@ class ImageGenerationExecutor:
             ) if spec is not None else "identity_scene"
             extra["generation_mode"] = generation_mode
 
-            # v1.19: identity_scene (PuLID) runs at 1 MP to avoid
+            # v1.20: pass the face bbox discovered by the input-quality
+            # gate through to StyleRouter → face_crop so we don't
+            # re-run MediaPipe for the same image. Routers / providers
+            # that don't understand the key strip it; see
+            # :meth:`StyleRouter.generate`.
+            iq_bbox = getattr(input_quality, "face_bbox", None)
+            if iq_bbox is not None:
+                extra["face_bbox"] = iq_bbox
+
+            # v1.19+: identity_scene (PuLID) runs at 1 MP to avoid
             # duplicate-subject artefacts; scene_preserve stays at 2 MP.
+            # Legacy FAL providers silently ignore ``image_size``.
             output_size = resolve_output_size(
                 spec,
                 face_area_ratio=face_area_ratio or None,
@@ -439,12 +484,32 @@ class ImageGenerationExecutor:
                 "x2" if will_upscale else "no",
                 doc_ar or "none",
             )
+            # v1.20: reset the router backend ContextVar before each
+            # call so leftover state from a previous request in the
+            # same worker cannot poison the cost label.
+            try:
+                from src.providers.image_gen.style_router import (
+                    routed_backend_var,
+                )
+                routed_backend_var.set("")
+            except Exception:
+                pass
             with _trace_step(trace, "image_gen"):
                 raw = await self._image_gen.generate(
                     prompt, reference_image=image_bytes,
                     params=extra or None,
                 )
             generation_attempts = 1
+            # v1.20: snapshot the routed backend *immediately* after
+            # generate() so a retry call below cannot overwrite the
+            # first-pass label before we read it.
+            try:
+                from src.providers.image_gen.style_router import (
+                    get_routed_backend,
+                )
+                first_pass_backend = get_routed_backend()
+            except Exception:
+                first_pass_backend = ""
 
             codeformer_applied = False
             if raw and len(raw) > 100:
@@ -462,21 +527,35 @@ class ImageGenerationExecutor:
                 codeformer_applied = codeformer_applied or cf_applied
                 raw = await _maybe_real_esrgan_upscale(raw, face_area_ratio)
             provider_name = type(self._image_gen).__name__
-            # Generic provider-agnostic counter — preserved from the
-            # Reve-first era for dashboards that key off it.
-            REVE_CALLS.labels(
+            # v1.20: generic provider-agnostic counter. Name changed
+            # from the historical ``ratemeai_reve_calls_total`` to
+            # ``ratemeai_image_gen_calls_total``; see ``src/metrics.py``.
+            IMAGE_GEN_CALLS.labels(
                 mode=mode.value,
                 step="single_pass",
                 provider=provider_name,
             ).inc()
-            # Dedicated FAL counter: the ``model`` label (kontext vs
-            # flux-2-pro/edit) lets us watch the Kontext→Flux2 cutover
-            # and any rollback cleanly in Grafana.
-            if "falflux" in provider_name.lower():
+            # v1.20: dedicated FAL counter keyed on the *routed*
+            # backend (``pulid`` / ``seedream`` / ``fallback``) when a
+            # StyleRouter is in play, so PuLID retries are visible in
+            # Grafana. Legacy direct-provider setups fall back to the
+            # class-name heuristic used since v1.14.
+            fal_model: str | None = None
+            if provider_name.lower() == "stylerouter":
+                if first_pass_backend == "pulid":
+                    fal_model = getattr(settings, "pulid_model", "fal-ai/pulid")
+                elif first_pass_backend == "seedream":
+                    fal_model = getattr(
+                        settings, "seedream_model", "fal-ai/bytedance/seedream/v4/edit",
+                    )
+                elif first_pass_backend == "fallback":
+                    fal_model = settings.fal2_model
+            elif "falflux" in provider_name.lower():
                 fal_model = (
                     settings.fal2_model if "falflux2" in provider_name.lower()
                     else settings.fal_model
                 )
+            if fal_model:
                 FAL_CALLS.labels(
                     mode=mode.value, step="single_pass", model=fal_model,
                 ).inc()
@@ -648,20 +727,44 @@ class ImageGenerationExecutor:
                                 retry_raw = await _maybe_real_esrgan_upscale(
                                     retry_raw, face_area_ratio,
                                 )
-                                # Duplicate the FAL counter for the retry
-                                # call so cost dashboards reflect the
-                                # extra spend.
-                                if "falflux" in provider_name.lower():
-                                    fal_model = (
+                                # v1.20: retry counter keyed on the
+                                # *routed* backend so PuLID retries
+                                # also land in Grafana. Falls back to
+                                # the legacy class-name check for
+                                # non-router provider setups.
+                                try:
+                                    from src.providers.image_gen.style_router import (  # noqa: E501
+                                        get_routed_backend,
+                                    )
+                                    retry_backend = get_routed_backend()
+                                except Exception:
+                                    retry_backend = ""
+                                retry_fal_model: str | None = None
+                                if provider_name.lower() == "stylerouter":
+                                    if retry_backend == "pulid":
+                                        retry_fal_model = getattr(
+                                            settings, "pulid_model", "fal-ai/pulid",
+                                        )
+                                    elif retry_backend == "seedream":
+                                        retry_fal_model = getattr(
+                                            settings,
+                                            "seedream_model",
+                                            "fal-ai/bytedance/seedream/v4/edit",
+                                        )
+                                    elif retry_backend == "fallback":
+                                        retry_fal_model = settings.fal2_model
+                                elif "falflux" in provider_name.lower():
+                                    retry_fal_model = (
                                         settings.fal2_model
                                         if "falflux2" in provider_name.lower()
                                         else settings.fal_model
                                     )
+                                if retry_fal_model:
                                     try:
                                         FAL_CALLS.labels(
                                             mode=mode.value,
                                             step="identity_retry",
-                                            model=fal_model,
+                                            model=retry_fal_model,
                                         ).inc()
                                     except Exception:
                                         pass
@@ -823,26 +926,43 @@ class ImageGenerationExecutor:
                 result_dict["generated_image_url"] = gen_url
                 result_dict["image_url"] = gen_url
 
-                # v1.18: choose the per-call cost estimate based on the
-                # actual backend that served the request (via
-                # generation_mode), rather than always crediting the
-                # provider class name. This keeps the budget math honest
-                # under the StyleRouter — a PuLID call costs ~$0.006,
-                # not the FLUX.2 $0.045.
+                # v1.20: read the *real* routed backend label from
+                # the StyleRouter ContextVar (falling back to the
+                # requested generation_mode only when the router did
+                # not run, e.g. legacy direct-provider setups). This
+                # keeps the budget math honest even when the router
+                # degrades identity_scene → scene_preserve mid-call.
+                try:
+                    from src.providers.image_gen.style_router import (
+                        get_routed_backend,
+                    )
+                    routed_label = (
+                        first_pass_backend
+                        or get_routed_backend()
+                    )
+                except Exception:
+                    routed_label = first_pass_backend or ""
                 backend_label, per_call_cost = _estimate_backend_cost(
                     provider_name,
                     generation_mode,
                     image_size=extra.get("image_size"),
+                    routed_backend=routed_label,
                 )
                 estimated_cost = per_call_cost * max(1, generation_attempts)
 
-                try:
-                    IMAGE_GEN_BACKEND.labels(
-                        backend=backend_label,
-                        style_mode=generation_mode or "unknown",
-                    ).inc()
-                except Exception:
-                    pass
+                # v1.20: IMAGE_GEN_BACKEND is now emitted exclusively
+                # by :class:`StyleRouter` — see ``_record_backend``.
+                # For legacy direct-provider deployments (no router)
+                # we still publish the metric here so dashboards keep
+                # working during a gradual cutover.
+                if provider_name.lower() != "stylerouter":
+                    try:
+                        IMAGE_GEN_BACKEND.labels(
+                            backend=backend_label,
+                            style_mode=generation_mode or "unknown",
+                        ).inc()
+                    except Exception:
+                        pass
                 try:
                     GENERATION_COST_USD.labels(
                         backend=backend_label,
