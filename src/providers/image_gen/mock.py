@@ -1,20 +1,8 @@
-from __future__ import annotations
+"""Deprecated shim. Moved to :mod:`src.providers._testing.mock_image_gen`.
 
-from src.providers.base import ImageGenProvider
+Kept so existing imports (tests, third-party scripts) keep working while
+we migrate. New code must import from ``src.providers._testing``.
+"""
+from src.providers._testing.mock_image_gen import MockImageGen
 
-
-class MockImageGen(ImageGenProvider):
-    """Returns the reference image unchanged for testing."""
-
-    async def generate(
-        self,
-        prompt: str,
-        reference_image: bytes | None = None,
-        params: dict | None = None,
-    ) -> bytes:
-        if reference_image:
-            return reference_image
-        return b""
-
-    async def close(self):
-        pass
+__all__ = ["MockImageGen"]

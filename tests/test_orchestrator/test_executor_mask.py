@@ -83,8 +83,6 @@ def _build_executor(
     image_gen.generate = AsyncMock(return_value=image_gen_bytes)
     prompt_engine = MagicMock()
     prompt_engine.build_image_prompt.return_value = "TEST_PROMPT"
-    model_router = MagicMock()
-    model_router.cheapest_cost = 0.02
     storage = MagicMock()
     storage.upload = AsyncMock(return_value=None)
     storage.get_url = AsyncMock(return_value="https://example/result.jpg")
@@ -98,11 +96,9 @@ def _build_executor(
     executor = ImageGenerationExecutor(
         image_gen=image_gen,
         prompt_engine=prompt_engine,
-        model_router=model_router,
         storage=storage,
         identity_svc_getter=lambda: identity_svc,
         gate_runner_getter=lambda: gate_runner,
-        segmentation_getter=None,
     )
     return executor, image_gen
 

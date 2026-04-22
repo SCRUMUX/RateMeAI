@@ -1,3 +1,14 @@
+"""Reserved: fallback chain image generator.
+
+Not wired into the current runtime factory (the active provider is
+``ReveImageGen``). Kept as a scaffold for scenario-based fallback
+chains — for instance, a future ``scenario=document_passport_rf``
+might prefer FLUX first and degrade to Reve on failure. The chain
+will be reactivated from the Scenario Engine once it exposes
+``preferred_provider_hint``.
+
+See ``docs/architecture/reserved.md``.
+"""
 from __future__ import annotations
 
 import logging

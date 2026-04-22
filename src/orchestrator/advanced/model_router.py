@@ -1,7 +1,20 @@
-"""Smart model router: dynamic provider selection based on capability, cost, and budget.
+"""Reserved: capability- and budget-aware image-gen model router.
 
-Each registered model has a cost estimate, quality tier, and capability set.
-The router picks the best provider for each pipeline step while respecting budget.
+Each registered model advertises a cost estimate, quality tier, and
+capability set (``remix`` / ``edit`` / ``inpaint``). The router picks
+the best provider for each pipeline step while respecting the remaining
+per-task budget.
+
+Currently unused — the runtime always calls
+``ImageGenerationExecutor.single_pass`` with a single configured
+provider (Reve). This module is the base for:
+
+* FLUX (FAL.ai) integration in Phase 3, where we want FLUX for realism
+  scenarios and Reve for meme / marketplace / poster scenarios;
+* the ``ChainImageGen`` fallback provider which will be re-activated per
+  scenario rather than globally.
+
+See ``docs/architecture/reserved.md`` for the roadmap.
 """
 from __future__ import annotations
 
@@ -94,7 +107,7 @@ def build_model_registry(
     from src.providers.image_gen.chain import ChainImageGen
     from src.providers.image_gen.reve_provider import ReveImageGen
     from src.providers.image_gen.replicate import ReplicateImageGen
-    from src.providers.image_gen.mock import MockImageGen
+    from src.providers._testing import MockImageGen
 
     if isinstance(image_gen, ChainImageGen):
         providers = image_gen.providers
@@ -139,3 +152,6 @@ def build_model_registry(
             ))
 
     return router
+
+
+__all__ = ["ModelRouter", "ModelSpec", "build_model_registry"]

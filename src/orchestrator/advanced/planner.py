@@ -1,7 +1,17 @@
-"""Pipeline Planner: generates a JSON-compatible execution plan per task.
+"""Reserved: multi-pass Pipeline Planner.
 
-The planner selects steps based on analysis mode and style, assigning
-per-step quality gate thresholds and model preferences.
+The planner generates a JSON-compatible execution plan per task based on
+analysis mode, style and enhancement level. It is currently **not**
+invoked by the main runtime (``settings.multi_pass_enabled=False`` and
+``policy.single_provider_call=True``) but is preserved verbatim as the
+foundation for:
+
+* premium / HD retouch scenarios with multi-step gate retries;
+* compliance-loop for document scenarios (passport/ID) where a single
+  pass cannot satisfy anatomy + background constraints simultaneously;
+* N-variant generation with budget enforcement.
+
+See ``docs/architecture/reserved.md`` for how to activate this code.
 """
 from __future__ import annotations
 
@@ -10,7 +20,7 @@ from typing import Any
 
 from src.config import settings
 from src.models.enums import AnalysisMode
-from src.orchestrator.enhancement_matrix import level_for_depth
+from src.orchestrator.advanced.enhancement_levels import level_for_depth
 
 
 @dataclass
@@ -145,44 +155,8 @@ _SOCIAL_STEPS = [
 ]
 
 
-_STEP_STRENGTH_KEYWORDS: dict[str, list[str]] = {
-    "background_edit": ["фон", "background", "обстановка", "место"],
-    "lighting_adjust": ["свет", "освещение", "lighting", "яркость"],
-    "clothing_edit": ["одежда", "стиль одежды", "clothing", "outfit", "дресс"],
-    "skin_correction": ["кожа", "skin", "цвет лица", "текстура"],
-    "expression_hint": ["выражение", "улыбка", "expression", "взгляд", "эмоция"],
-    "style_overall": [],
-}
-
-# TODO: Move to shared constants when UI needs human-readable step labels.
-# STEP_PARAMETER_MAP: dict[str, list[str]] = {
-#     "background_edit": ["presence", "appeal"],
-#     "lighting_adjust": ["warmth", "appeal"],
-#     "clothing_edit": ["presence"],
-#     "expression_hint": ["warmth", "presence"],
-#     "skin_correction": ["appeal"],
-#     "style_overall": ["appeal", "presence"],
-# }
-#
-# PARAMETER_LABELS: dict[str, str] = {
-#     "warmth": "Теплота",
-#     "presence": "Уверенность",
-#     "appeal": "Привлекательность",
-#     "authenticity": "Аутентичность",
-# }
-#
-# STEP_LABELS: dict[str, str] = {
-#     "background_edit": "фон и контекст",
-#     "lighting_adjust": "освещение",
-#     "clothing_edit": "стиль одежды",
-#     "expression_hint": "выражение",
-#     "skin_correction": "качество кожи",
-#     "style_overall": "общий стиль",
-# }
-
-
 class PipelinePlanner:
-    """Generate a PipelinePlan based on mode, style and analysis results."""
+    """Generate a PipelinePlan based on mode, style and enhancement level."""
 
     def plan(
         self,
@@ -220,9 +194,6 @@ class PipelinePlanner:
             allowed = set(level_for_depth(enhancement_level).steps)
             steps = [s for s in steps if s.step in allowed]
 
-        if analysis_result:
-            steps = [s for s in steps if self._step_needed(s, analysis_result)]
-
         global_gates = dict(_DEFAULT_GLOBAL_GATES)
         global_gates["identity_match"] = settings.identity_match_threshold
         global_gates["aesthetic_score"] = settings.aesthetic_threshold
@@ -240,21 +211,5 @@ class PipelinePlanner:
             cost_budget=settings.pipeline_budget_max_usd,
         )
 
-    @staticmethod
-    def _step_needed(step: PipelineStep, analysis_result: dict) -> bool:
-        """Return False if the step's area is already a strength (no improvement needed)."""
-        keywords = _STEP_STRENGTH_KEYWORDS.get(step.step, [])
-        if not keywords:
-            return True
 
-        strengths_text = " ".join(
-            str(s).lower() for s in analysis_result.get("strengths", [])
-        )
-        if not strengths_text:
-            return True
-
-        for kw in keywords:
-            if kw.lower() in strengths_text:
-                return False
-
-        return True
+__all__ = ["PipelinePlan", "PipelinePlanner", "PipelineStep"]

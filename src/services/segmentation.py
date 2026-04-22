@@ -1,9 +1,21 @@
-"""Image segmentation service: face, body, background, and clothing masks.
+"""Reserved: image segmentation service (face / body / background / clothing masks).
 
 Uses mediapipe SelfieSegmentation for body-vs-background and MediaPipe
 FaceDetection (via ``IdentityService``) for the face bounding box. No
 ArcFace embeddings, no face-recognition features — just bounding boxes.
 Clothing mask is derived as body minus face region.
+
+Status
+------
+Not wired into the active single-pass runtime. ``AnalysisPipeline`` no
+longer instantiates this service after the Phase 1 cleanup. It is kept
+as the foundation for per-region steps in
+``src.orchestrator.advanced.execute_plan`` (multi-pass / compliance-loop
+scenarios such as document photos) and will be reactivated by the
+Scenario Engine together with ``SEGMENTATION_ENABLED=true`` and a
+scenario whose ``pipeline_profile = "advanced"``.
+
+See ``docs/architecture/reserved.md`` for the roadmap.
 """
 from __future__ import annotations
 

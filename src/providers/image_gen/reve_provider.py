@@ -59,31 +59,24 @@ class ReveImageGen(ImageGenProvider):
       * Content-policy violation → no retry (cost may or may not apply).
     """
 
-    # Endpoints match the canonical Pixeltable wrapper over api.reve.com
-    # (see pixeltable/functions/reve.py on GitHub). No trailing slash —
-    # the previously-observed INVALID_PARAMETER_VALUE with slash was
-    # actually caused by sending unsupported body keys, not by the URL.
-    API_CREATE = "/v1/image/create"
+    # Single active endpoint in current runtime. The single_pass flow
+    # always has a reference image and always routes to /v1/image/edit.
+    # Create/remix variants have been retired (see docs/architecture/reserved.md).
     API_EDIT = "/v1/image/edit"
-    API_REMIX = "/v1/image/remix"
     REQUEST_TIMEOUT = 120.0
 
     def __init__(
         self,
         api_token: str,
         api_host: str,
-        aspect_ratio: str = "1:1",
         version: str = "latest",
-        test_time_scaling: int = 3,
         max_retries: int | None = None,
     ):
         self._token = (api_token or "").strip()
         self._host = (api_host or "https://api.reve.com").rstrip("/")
         if not self._token:
             raise ValueError("REVE_API_TOKEN is required for ReveImageGen")
-        self._aspect_ratio = aspect_ratio
         self._version = version
-        self._test_time_scaling = test_time_scaling
         if max_retries is None:
             try:
                 from src.config import settings
@@ -95,23 +88,15 @@ class ReveImageGen(ImageGenProvider):
     async def close(self) -> None:
         pass
 
-    # Strict per-endpoint whitelists. The canonical Pixeltable wrapper
+    # Strict /v1/image/edit whitelist. The canonical Pixeltable wrapper
     # over api.reve.com (pixeltable/functions/reve.py) shows that Reve
-    # REST only accepts these keys; anything else yields
-    # INVALID_PARAMETER_VALUE. Post-processing (AR crop, upscale) is
-    # handled locally by src.services.postprocess, not by Reve.
+    # REST only accepts {edit_instruction, reference_image, version};
+    # anything else yields INVALID_PARAMETER_VALUE. Post-processing
+    # (AR crop, upscale) is handled locally by src.services.postprocess.
 
     def _params_version(self, params: dict | None) -> str | None:
         v = (params or {}).get("version") if params else None
         return v if v is not None else self._version
-
-    def _params_aspect_ratio(self, params: dict | None) -> str | None:
-        ar = (params or {}).get("aspect_ratio") if params else None
-        if ar is None:
-            ar = self._aspect_ratio
-        if ar in (None, "", "auto"):
-            return None
-        return ar
 
     @staticmethod
     def _b64(data: bytes) -> str:
@@ -250,57 +235,27 @@ class ReveImageGen(ImageGenProvider):
 
     def _build_body(
         self,
-        endpoint: str,
         prompt: str,
-        reference_image: bytes | None,
+        reference_image: bytes,
         params: dict | None,
     ) -> dict[str, Any]:
-        """Build a strict whitelist body per endpoint.
+        """Build a strict whitelist body for /v1/image/edit.
 
-        Reve REST API allowed keys (from canonical Pixeltable wrapper):
-          - /v1/image/create: {prompt, aspect_ratio?, version?}
-          - /v1/image/edit:   {edit_instruction, reference_image, version?}
-          - /v1/image/remix:  {prompt, reference_images, aspect_ratio?, version?}
-
-        Anything else (test_time_scaling, postprocessing, mask_*,
-        use_edit, etc.) must not appear in the wire body.
+        Allowed keys: {edit_instruction, reference_image, version?}.
+        Any other keys (test_time_scaling, postprocessing, aspect_ratio,
+        mask_*, use_edit, etc.) must not appear in the wire body — Reve
+        rejects them with INVALID_PARAMETER_VALUE.
         """
+        if not reference_image:
+            raise ValueError("edit requires reference_image")
+        body: dict[str, Any] = {
+            "edit_instruction": prompt,
+            "reference_image": self._b64(reference_image),
+        }
         version = self._params_version(params)
-        aspect_ratio = self._params_aspect_ratio(params)
-
-        if endpoint == self.API_CREATE:
-            body: dict[str, Any] = {"prompt": prompt}
-            if aspect_ratio:
-                body["aspect_ratio"] = aspect_ratio
-            if version:
-                body["version"] = version
-            return body
-
-        if endpoint == self.API_EDIT:
-            if not reference_image:
-                raise ValueError("edit requires reference_image")
-            body = {
-                "edit_instruction": prompt,
-                "reference_image": self._b64(reference_image),
-            }
-            if version:
-                body["version"] = version
-            return body
-
-        if endpoint == self.API_REMIX:
-            if not reference_image:
-                raise ValueError("remix requires reference_image")
-            body = {
-                "prompt": prompt,
-                "reference_images": [self._b64(reference_image)],
-            }
-            if aspect_ratio:
-                body["aspect_ratio"] = aspect_ratio
-            if version:
-                body["version"] = version
-            return body
-
-        raise ValueError(f"unknown endpoint {endpoint}")
+        if version:
+            body["version"] = version
+        return body
 
     @staticmethod
     def _log_keys(body: dict[str, Any]) -> list[str]:
@@ -313,16 +268,13 @@ class ReveImageGen(ImageGenProvider):
         reference_image: bytes | None,
         params: dict | None,
     ) -> bytes:
-        use_edit = bool((params or {}).get("use_edit", True))
-
-        if reference_image and use_edit:
-            endpoint = self.API_EDIT
-        elif reference_image:
-            endpoint = self.API_REMIX
-        else:
-            endpoint = self.API_CREATE
-
-        body = self._build_body(endpoint, prompt, reference_image, params)
+        if not reference_image:
+            raise ValueError(
+                "ReveImageGen requires reference_image "
+                "(/v1/image/edit is the only supported endpoint)"
+            )
+        endpoint = self.API_EDIT
+        body = self._build_body(prompt, reference_image, params)
         logger.info(
             "Reve request endpoint=%s prompt_len=%d keys=%s",
             endpoint, len(prompt or ""), self._log_keys(body),

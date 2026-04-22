@@ -4,7 +4,7 @@ from __future__ import annotations
 from unittest.mock import patch
 
 from src.models.enums import AnalysisMode
-from src.orchestrator.planner import PipelinePlanner
+from src.orchestrator.advanced.planner import PipelinePlanner
 
 
 def _apply_planner_settings(mock_settings):
@@ -16,7 +16,7 @@ def _apply_planner_settings(mock_settings):
     mock_settings.photorealism_threshold = 0.5
 
 
-@patch("src.orchestrator.planner.settings")
+@patch("src.orchestrator.advanced.planner.settings")
 def test_dating_plan_has_steps(mock_settings):
     _apply_planner_settings(mock_settings)
 
@@ -36,7 +36,7 @@ def test_dating_plan_has_steps(mock_settings):
     assert "expression_hint" in step_names
 
 
-@patch("src.orchestrator.planner.settings")
+@patch("src.orchestrator.advanced.planner.settings")
 def test_cv_plan_has_clothing_step(mock_settings):
     _apply_planner_settings(mock_settings)
 
@@ -47,7 +47,7 @@ def test_cv_plan_has_clothing_step(mock_settings):
     assert "clothing_edit" in step_names
 
 
-@patch("src.orchestrator.planner.settings")
+@patch("src.orchestrator.advanced.planner.settings")
 def test_social_plan_has_style_overall(mock_settings):
     _apply_planner_settings(mock_settings)
 
@@ -70,7 +70,7 @@ def test_emoji_returns_none():
     assert plan is None
 
 
-@patch("src.orchestrator.planner.settings")
+@patch("src.orchestrator.advanced.planner.settings")
 def test_plan_filters_steps_by_enhancement_level(mock_settings):
     _apply_planner_settings(mock_settings)
 
@@ -86,7 +86,7 @@ def test_plan_filters_steps_by_enhancement_level(mock_settings):
     assert "expression_hint" not in step_names
 
 
-@patch("src.orchestrator.planner.settings")
+@patch("src.orchestrator.advanced.planner.settings")
 def test_plan_to_dict(mock_settings):
     _apply_planner_settings(mock_settings)
 
@@ -99,7 +99,7 @@ def test_plan_to_dict(mock_settings):
     assert "step" in d["steps"][0]
 
 
-@patch("src.orchestrator.planner.settings")
+@patch("src.orchestrator.advanced.planner.settings")
 def test_global_gates_use_config_thresholds(mock_settings):
     mock_settings.identity_match_threshold = 8.5
     mock_settings.aesthetic_threshold = 7.0
@@ -117,7 +117,7 @@ def test_global_gates_use_config_thresholds(mock_settings):
     assert plan.cost_budget == 0.20
 
 
-@patch("src.orchestrator.planner.settings")
+@patch("src.orchestrator.advanced.planner.settings")
 def test_photorealism_gate_included_when_enabled(mock_settings):
     _apply_planner_settings(mock_settings)
     mock_settings.photorealism_enabled = True
@@ -129,7 +129,7 @@ def test_photorealism_gate_included_when_enabled(mock_settings):
     assert plan.global_gates["photorealism"] == 0.5
 
 
-@patch("src.orchestrator.planner.settings")
+@patch("src.orchestrator.advanced.planner.settings")
 def test_photorealism_gate_excluded_when_disabled(mock_settings):
     _apply_planner_settings(mock_settings)
     mock_settings.photorealism_enabled = False
@@ -139,8 +139,11 @@ def test_photorealism_gate_excluded_when_disabled(mock_settings):
     assert "photorealism" not in plan.global_gates
 
 
-@patch("src.orchestrator.planner.settings")
-def test_adaptive_planner_skips_background_step_on_strength(mock_settings):
+@patch("src.orchestrator.advanced.planner.settings")
+def test_planner_keeps_all_dating_steps_regardless_of_strengths(mock_settings):
+    """Strengths-based step filtering was retired in PR1.4 — the planner is
+    deterministic for a given (mode, enhancement_level) so that multi-pass
+    execution is reproducible when it comes back online."""
     _apply_planner_settings(mock_settings)
 
     planner = PipelinePlanner()
@@ -149,17 +152,5 @@ def test_adaptive_planner_skips_background_step_on_strength(mock_settings):
         analysis_result={"strengths": ["Отличный фон и освещение"]},
     )
     step_names = [s.step for s in plan.steps]
-    assert "background_edit" not in step_names
-
-
-@patch("src.orchestrator.planner.settings")
-def test_adaptive_planner_keeps_steps_without_strengths(mock_settings):
-    _apply_planner_settings(mock_settings)
-
-    planner = PipelinePlanner()
-    plan = planner.plan(
-        mode=AnalysisMode.DATING, style="", task_id="t12",
-        analysis_result={"strengths": []},
-    )
-    step_names = [s.step for s in plan.steps]
     assert "background_edit" in step_names
+    assert "lighting_adjust" in step_names

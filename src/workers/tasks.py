@@ -34,6 +34,11 @@ from src.metrics import (
     CREDITS_USED, TASKS_COMPLETED, TASKS_FAILED,
     PIPELINE_RETRIES, COMPLETED_WITHOUT_IMAGE,
 )
+from src.orchestrator.errors import (
+    format_task_error as _format_task_error,
+    http_status_of as _http_status_of,
+    unwrap_exception as _unwrap_exception,
+)
 from src.version import APP_VERSION
 from src.tracing import async_span
 
@@ -42,57 +47,6 @@ logger = logging.getLogger(__name__)
 _MAX_PIPELINE_RETRIES = 2
 _RETRY_BACKOFF_BASE = 3.0
 _TRANSIENT_MARKERS = ("rate limit", "timeout", "connect", "temporarily", "503", "429")
-
-
-def _unwrap_exception(exc: BaseException) -> BaseException:
-    """Peel tenacity.RetryError / PipelineStageError down to the real cause.
-
-    Without this, worker writes ``RetryError[<Future at 0x… raised
-    HTTPStatusError>]`` into ``Task.error_message`` — which tells us
-    **nothing** (no HTTP status, no body, no URL). That "opaque" string was
-    exactly the blocker that hid the root cause of the fast generation
-    failures: we need the real httpx.HTTPStatusError behind the retry
-    wrapper to know whether it's 401/402/429/5xx etc.
-    """
-    from src.orchestrator.pipeline import PipelineStageError
-    seen: set[int] = set()
-    cur: BaseException = exc
-    for _ in range(8):
-        if id(cur) in seen:
-            break
-        seen.add(id(cur))
-        if isinstance(cur, PipelineStageError):
-            cur = cur.original
-            continue
-        try:
-            from tenacity import RetryError as _RetryError
-            if isinstance(cur, _RetryError):
-                last = getattr(cur, "last_attempt", None)
-                if last is not None:
-                    nested = last.exception()
-                    if nested is not None:
-                        cur = nested
-                        continue
-        except Exception:
-            pass
-        cause = getattr(cur, "__cause__", None) or getattr(cur, "__context__", None)
-        if cause is not None and cause is not cur:
-            cur = cause
-            continue
-        break
-    return cur
-
-
-def _http_status_of(exc: BaseException) -> int | None:
-    """Extract HTTP status code from httpx.HTTPStatusError-like exceptions."""
-    response = getattr(exc, "response", None)
-    code = getattr(response, "status_code", None)
-    if isinstance(code, int):
-        return code
-    status = getattr(exc, "status_code", None)
-    if isinstance(status, int):
-        return status
-    return None
 
 
 def _is_transient(exc: Exception) -> bool:
@@ -126,70 +80,6 @@ def _is_transient(exc: Exception) -> bool:
             return True
         return False
     return any(marker in msg for marker in _TRANSIENT_MARKERS)
-
-
-def _format_task_error(exc: Exception) -> str:
-    """Build a structured `error_message` like ``[stage=analyze] ReadTimeout: ...``.
-
-    Truncated to 500 chars (DB column limit).  The stage helps ops pinpoint
-    *where* in the pipeline a task died without reading full tracebacks.
-    For HTTP-layer failures we also embed ``http=<code>`` and host — this
-    is the single most important bit when debugging LLM/provider outages.
-    """
-    from src.orchestrator.pipeline import PipelineStageError
-    if isinstance(exc, PipelineStageError):
-        stage = exc.stage
-    else:
-        stage = "worker"
-
-    original = _unwrap_exception(exc)
-    exc_type = type(original).__name__
-
-    extras: list[str] = []
-    status = _http_status_of(original)
-    if status is not None:
-        extras.append(f"http={status}")
-    response = getattr(original, "response", None)
-    if response is not None:
-        try:
-            body = getattr(response, "text", "") or ""
-            if body:
-                snippet = body.strip().replace("\n", " ")
-                if len(snippet) > 140:
-                    snippet = snippet[:137] + "..."
-                extras.append(f"body={snippet!r}")
-        except Exception:
-            pass
-    request = getattr(original, "request", None)
-    url = getattr(request, "url", None) if request is not None else None
-    if url is not None:
-        try:
-            host = getattr(url, "host", None) or str(url).split("/")[2]
-            if host:
-                extras.append(f"host={host}")
-        except Exception:
-            pass
-
-    # Reve provider errors are our own exception class (not httpx), so the
-    # generic ``response``/``request`` branches above miss them. Surface the
-    # Reve-specific ``error_code`` (e.g. INVALID_PARAMETER_VALUE) and
-    # ``request_id`` (rsid-...) directly — that is the single most useful
-    # piece of info for debugging image-gen failures. Without this, task
-    # error_message degrades to ``RuntimeError: Reve API error: http=400``
-    # and ops has to open Reve dashboard to match the rsid by hand.
-    try:
-        from src.providers.image_gen.reve_provider import ReveAPIError
-        if isinstance(original, ReveAPIError):
-            if original.error_code:
-                extras.append(f"code={original.error_code}")
-            if original.request_id:
-                extras.append(f"req={original.request_id}")
-    except Exception:
-        pass
-
-    extras_suffix = (" " + " ".join(extras)) if extras else ""
-    text = f"[stage={stage}] {exc_type}: {str(original)[:260]}{extras_suffix}"
-    return text[:500]
 
 
 def _mediapipe_selfcheck() -> None:

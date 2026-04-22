@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from unittest.mock import MagicMock
 
-from src.orchestrator.model_router import ModelRouter, ModelSpec
+from src.orchestrator.advanced.model_router import ModelRouter, ModelSpec
 
 
 def _mock_provider(name="mock"):

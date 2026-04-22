@@ -95,7 +95,7 @@ def _patch_client(responses):
 
 
 @pytest.mark.asyncio
-async def test_reve_image_gen_remix_returns_bytes():
+async def test_reve_image_gen_edit_returns_bytes():
     jpeg = _jpeg_bytes(color=(128, 64, 32), size=32)
     fake = _FakeClient([_response_image(jpeg)])
 
@@ -103,36 +103,26 @@ async def test_reve_image_gen_remix_returns_bytes():
     with patch("src.providers.image_gen.reve_provider.httpx.Client",
                return_value=fake):
         out = await gen.generate(
-            "The subject from 0 in a studio",
+            "Studio backdrop, soft lighting",
             reference_image=b"\xff\xd8 fake",
-            params={"use_edit": False},
         )
 
     assert out == jpeg
     assert len(fake.calls) == 1
     call = fake.calls[0]
-    assert call["url"].endswith("/v1/image/remix")
-    assert call["json"]["prompt"] == "The subject from 0 in a studio"
-    assert isinstance(call["json"]["reference_images"], list)
-    assert call["json"]["reference_images"][0] == base64.b64encode(
+    assert call["url"].endswith("/v1/image/edit")
+    assert call["json"]["edit_instruction"] == "Studio backdrop, soft lighting"
+    assert call["json"]["reference_image"] == base64.b64encode(
         b"\xff\xd8 fake"
     ).decode("ascii")
     assert call["headers"]["Authorization"].startswith("Bearer ")
 
 
 @pytest.mark.asyncio
-async def test_reve_image_gen_create_without_reference():
-    jpeg = _jpeg_bytes("red")
-    fake = _FakeClient([_response_image(jpeg)])
-
+async def test_reve_image_gen_requires_reference_image():
     gen = ReveImageGen(api_token="papi.x", api_host="https://api.reve.com")
-    with patch("src.providers.image_gen.reve_provider.httpx.Client",
-               return_value=fake):
-        out = await gen.generate("A red square", reference_image=None)
-
-    assert out == jpeg
-    assert fake.calls[0]["url"].endswith("/v1/image/create")
-    assert "reference_images" not in fake.calls[0]["json"]
+    with pytest.raises(ValueError, match="reference_image"):
+        await gen.generate("A red square", reference_image=None)
 
 
 @pytest.mark.asyncio
@@ -173,7 +163,7 @@ async def test_reve_image_gen_401_includes_http_code_for_frontend_mapper():
                return_value=fake), patch(
                    "src.providers.image_gen.reve_provider.time.sleep"):
         with pytest.raises(RuntimeError, match="http=401") as exc_info:
-            await gen.generate("prompt")
+            await gen.generate("prompt", reference_image=b"ref")
         assert "Invalid partner API bearer token" in str(exc_info.value)
     assert len(fake.calls) == 1
 

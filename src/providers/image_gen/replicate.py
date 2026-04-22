@@ -1,3 +1,17 @@
+"""Reserved: Replicate FLUX provider.
+
+Disabled in the current runtime (``IMAGE_GEN_PROVIDER=reve``). Kept as
+the baseline for:
+
+* Phase 3 FLUX integration via FAL.ai — its input/output contract
+  (prompt + aspect_ratio + reference image) maps directly onto the
+  forthcoming ``FluxFALProvider``;
+* manual override for debugging (``IMAGE_GEN_PROVIDER=replicate``);
+* capability-based routing inside
+  :mod:`src.orchestrator.advanced.model_router`.
+
+See ``docs/architecture/reserved.md`` for activation instructions.
+"""
 from __future__ import annotations
 
 import asyncio

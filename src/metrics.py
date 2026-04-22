@@ -16,6 +16,12 @@ REVE_CALLS = Counter(
     labelnames=["mode", "step", "provider"],
 )
 
+FAL_CALLS = Counter(
+    "ratemeai_fal_calls_total",
+    "Number of FAL.ai (FLUX) API calls",
+    labelnames=["mode", "step", "model"],
+)
+
 LLM_CALLS = Counter(
     "ratemeai_llm_calls_total",
     "Number of LLM API calls",

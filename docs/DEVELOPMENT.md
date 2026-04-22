@@ -88,10 +88,10 @@ RateMEAI/
 │   │   ├── llm/
 │   │   │   └── openrouter.py   # OpenRouterLLM — vision + text
 │   │   ├── image_gen/
-│   │   │   ├── reve_provider.py    # Reve edit/remix/create
-│   │   │   ├── replicate.py        # Replicate prediction API
-│   │   │   ├── chain.py            # ChainImageGen — fallback chain
-│   │   │   └── mock.py             # Mock (passthrough)
+│   │   │   ├── reve_provider.py    # Reve /v1/image/edit (edit-only)
+│   │   │   ├── replicate.py        # Reserved — см. docs/architecture/reserved.md
+│   │   │   ├── chain.py            # Reserved — ChainImageGen fallback
+│   │   │   └── mock.py             # Shim → src/providers/_testing/mock_image_gen.py
 │   │   ├── storage/
 │   │   │   ├── local.py            # Local filesystem storage
 │   │   │   └── s3.py               # S3-compatible storage
@@ -311,7 +311,7 @@ CI запускает ruff с `--select=E,F,W --ignore=E501`. Код не про
 5. **Engine:** Зарегистрировать в `src/prompts/engine.py` → `_PROMPT_MAP`
 6. **Router:** Добавить маппинг в `src/orchestrator/router.py` → `ModeRouter`
 7. **Image prompts (если нужны):** Добавить стили в `src/prompts/image_gen.py`, зарегистрировать в `_IMAGE_PROMPT_MAP`
-8. **Planner:** Добавить step templates в `src/orchestrator/planner.py` (если multi-pass)
+8. **Planner (только для advanced-сценариев):** step-templates живут в `src/orchestrator/advanced/planner.py`. По умолчанию новые режимы идут через single-pass; см. `docs/architecture/reserved.md` про переход в multi-pass.
 9. **Bot:** Добавить клавиатуры в `src/bot/keyboards.py`, обработчик результата в `results.py`
 10. **Web:** Добавить категорию в `web/src/data/styles.ts`, обновить `CategoryId` type
 11. **Catalog:** Обновить `src/services/style_catalog.py`

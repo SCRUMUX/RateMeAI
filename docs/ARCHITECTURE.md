@@ -262,16 +262,17 @@ AnalysisPipeline.execute()
     │
     ├── 3. Humanize scores + warnings
     │
-    ├── 4. Image Generation (если есть кредиты)
-    │   ├── Multi-pass (SEGMENTATION_ENABLED + dating/cv/social)
-    │   │   ├── PipelinePlanner.plan() → PipelinePlan (ordered steps)
-    │   │   └── ImageGenerationExecutor.execute_plan()
-    │   │       ├── Per-step: PromptEngine → ModelRouter → generate() → QualityGates
-    │   │       └── Global gates → upload final image
-    │   │
-    │   └── Single-pass (fallback / emoji / rating)
-    │       └── ImageGenerationExecutor.single_pass()
-    │           └── edit-mode generation → identity verify → global gates
+    ├── 4. Image Generation (если есть кредиты и mode ∈ {cv, emoji, dating, social})
+    │   └── ImageGenerationExecutor.single_pass()
+    │       ├── PromptEngine.build_image_prompt() → edit-mode prompt
+    │       ├── provider.generate() (Reve /v1/image/edit с reference_image)
+    │       ├── Local postprocess (crop_to_aspect, upscale_lanczos, inject_exif_only)
+    │       ├── Identity presence check (MediaPipe) + global QualityGates
+    │       └── Storage upload → generated_image_url
+    │
+    │   (Multi-pass / per-region planning зарезервированы в
+    │    src/orchestrator/advanced/ и в рантайм не подключены —
+    │    см. docs/architecture/reserved.md)
     │
     ├── 5. Delta Scoring (dating/cv/social с generated image)
     │   └── DeltaScorer.compute()
@@ -297,7 +298,7 @@ Worker persists: task.result, task.status=COMPLETED
 
 #### `src/orchestrator/pipeline.py` — `AnalysisPipeline`
 
-Главный оркестратор. Конструирует все зависимости (ModeRouter, PipelinePlanner, ImageGenerationExecutor, DeltaScorer, ResultMerger). Метод `execute()` реализует полную цепочку. Lazy-инициализация: IdentityService, SegmentationService, QualityGateRunner.
+Главный оркестратор single-pass рантайма. Конструирует `ModeRouter`, `ImageGenerationExecutor`, `DeltaScorer`, `ResultMerger`, `ShareCardGenerator`. Метод `execute()` реализует полную цепочку. Lazy-инициализация: `IdentityService` (MediaPipe face-presence), `QualityGateRunner`. Multi-pass планировщик, `ModelRouter` и `SegmentationService` намеренно не инициализируются — они зарезервированы в `src.orchestrator.advanced` (см. `docs/architecture/reserved.md`).
 
 #### `src/orchestrator/router.py` — `ModeRouter`
 
@@ -310,15 +311,16 @@ Worker persists: task.result, task.status=COMPLETED
 
 Каждый сервис принимает `LLMProvider` + `PromptEngine`.
 
-#### `src/orchestrator/planner.py` — `PipelinePlanner`
+#### `src/orchestrator/advanced/` — Reserved (multi-pass)
 
-Генерация плана для multi-pass генерации. Возвращает `PipelinePlan` с ordered `PipelineStep` — фон, одежда, освещение, выражение, кожа, общий стиль. Шаги фильтруются по `enhancement_level` и strengths из анализа (если аспект уже сильный — шаг пропускается).
+`PipelinePlanner`, `AdvancedPipelineExecutor`, `ModelRouter`, `EnhancementLevel` / `level_for_depth` живут в `src/orchestrator/advanced/` и **не** подключены к активному рантайму. Это задел под premium HD retouch, compliance-loop для документов, N-variant генерацию и capability-based провайдерский роутинг (FLUX vs Reve). Активация — через Scenario Engine (Phase 2). Полная карта — `docs/architecture/reserved.md`.
 
 #### `src/orchestrator/executor.py` — `ImageGenerationExecutor`
 
-Два режима:
-- **`execute_plan()`** — multi-pass: итерирует шаги, для каждого строит промпт через `PromptEngine.build_step_prompt`, выбирает провайдер через `ModelRouter`, опционально получает segmentation mask, вызывает `provider.generate()`, проверяет per-step face similarity через `QualityGateRunner`, загружает промежуточные результаты в storage. В конце — `run_global_gates`. Fallback на `single_pass` при ошибках.
-- **`single_pass()`** — один вызов edit-mode генерации, identity verification + optional face composite, global gates.
+Один активный режим:
+- **`single_pass()`** — единственный путь в рантайме: `PromptEngine.build_image_prompt()` → `provider.generate()` (edit-mode) → локальный postprocess (crop/upscale/EXIF) → identity presence check → global quality gates.
+
+Мульти-пасс (`AdvancedPipelineExecutor.execute_plan`) живёт в `src/orchestrator/advanced/execute_plan.py` и в класс `ImageGenerationExecutor` не проброшен.
 
 #### `src/orchestrator/executor.py` — `DeltaScorer`
 
@@ -350,15 +352,15 @@ Per-step и global gates: face_similarity (via IdentityService), NIQE score, bat
 
 ### Image Generation — `src/providers/image_gen/`
 
-| Провайдер | Класс | Режимы |
-|-----------|-------|--------|
-| **Reve** | `ReveImageGen` | `edit` (с instruction), `remix` (reference), `create` (from scratch). Поддержка масок, test_time_scaling, upscale postprocessing |
-| **Replicate** | `ReplicateImageGen` | Upload reference в storage → prediction API → poll → download result |
-| **Chain** | `ChainImageGen` | Цепочка провайдеров: первый успешный результат (>100 bytes) побеждает |
-| **Mock** | `MockImageGen` | Возвращает reference без изменений (для тестов) |
+| Провайдер | Класс | Статус | Режимы |
+|-----------|-------|--------|--------|
+| **Reve** | `ReveImageGen` | Активный | Только `/v1/image/edit` c `reference_image` + instruction. Кроп под aspect ratio и LANCZOS-апскейл делаются локально в `src/services/postprocess.py`. |
+| **Replicate** | `ReplicateImageGen` | Reserved | Upload → prediction API → poll → download. Выключен в рантайме (`IMAGE_GEN_PROVIDER=reve`). База под FLUX/FAL, см. `docs/architecture/reserved.md`. |
+| **Chain** | `ChainImageGen` | Reserved | Fallback-обёртка (первый успешный результат). Вернётся через Scenario Engine (`Scenario.preferred_provider_hint`). |
+| **Mock** | `MockImageGen` | Dev/test | Возвращает reference без изменений. Живёт в `src/providers/_testing/`. |
 
 **Factory** (`src/providers/factory.py` → `get_image_gen()`):
-- `IMAGE_GEN_PROVIDER=auto` → Chain(Replicate → Reve) если оба настроены
+- `IMAGE_GEN_PROVIDER=auto` → Reve напрямую (Replicate временно отключён), иначе fallback Mock в dev / ошибка в prod
 - `IMAGE_GEN_PROVIDER=reve|replicate|mock` → конкретный провайдер
 
 ### Storage — `src/providers/storage/`
@@ -542,7 +544,7 @@ Prompt = Identity anchors + Mode-specific change + Style-specific details:
 [REALISM]        → Must look like real photo, no AI artifacts
 ```
 
-Multi-pass использует `STEP_TEMPLATES` (background_edit, clothing_edit, lighting_adjust, expression_hint, skin_correction, style_overall) с `ENHANCEMENT_LEVEL_MODIFIERS` (уровни 1-4).
+Reserved multi-pass путь использует `STEP_TEMPLATES` (background_edit, clothing_edit, lighting_adjust, expression_hint, skin_correction, style_overall) и `ENHANCEMENT_LEVEL_MODIFIERS` (уровни 1-4) из `src/prompts/image_gen.py`. В активном single-pass рантайме эти шаблоны не вызываются — см. `docs/architecture/reserved.md`.
 
 ---
 

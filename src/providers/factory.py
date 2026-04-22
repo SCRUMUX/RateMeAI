@@ -32,7 +32,7 @@ def get_storage() -> StorageProvider:
 
 def _image_gen_provider_mode() -> str:
     p = (settings.image_gen_provider or "auto").strip().lower()
-    if p in ("auto", "reve", "replicate", "mock"):
+    if p in ("auto", "reve", "replicate", "mock", "fal_flux"):
         return p
     return "auto"
 
@@ -43,9 +43,30 @@ def _missing_replicate_config() -> bool:
     )
 
 
+def _build_fal_flux():
+    """Construct :class:`FalFluxImageGen` from settings.
+
+    Factored out so the ``fal_flux`` and ``auto`` branches share the
+    exact same construction (same defaults, same guidance, same safety).
+    """
+    from src.providers.image_gen.fal_flux import FalFluxImageGen
+
+    return FalFluxImageGen(
+        api_key=settings.fal_api_key,
+        model=settings.fal_model,
+        api_host=settings.fal_api_host,
+        guidance_scale=settings.fal_guidance_scale,
+        safety_tolerance=settings.fal_safety_tolerance,
+        output_format=settings.fal_output_format,
+        max_retries=settings.fal_max_retries,
+        request_timeout=settings.fal_request_timeout,
+        poll_interval=settings.fal_poll_interval,
+    )
+
+
 @lru_cache(maxsize=1)
 def get_image_gen() -> ImageGenProvider:
-    from src.providers.image_gen.mock import MockImageGen
+    from src.providers._testing import MockImageGen
     from src.providers.image_gen.replicate import ReplicateImageGen
     from src.providers.image_gen.reve_provider import ReveImageGen
 
@@ -54,6 +75,15 @@ def get_image_gen() -> ImageGenProvider:
 
     if mode == "mock":
         return MockImageGen()
+
+    if mode == "fal_flux":
+        if not (settings.fal_api_key or "").strip():
+            if prod:
+                raise RuntimeError(
+                    "IMAGE_GEN_PROVIDER=fal_flux requires FAL_API_KEY",
+                )
+            return MockImageGen()
+        return _build_fal_flux()
 
     if mode == "reve":
         if not settings.reve_api_token.strip():
@@ -65,9 +95,7 @@ def get_image_gen() -> ImageGenProvider:
         return ReveImageGen(
             api_token=settings.reve_api_token,
             api_host=settings.reve_api_host,
-            aspect_ratio=settings.reve_aspect_ratio,
             version=settings.reve_version,
-            test_time_scaling=settings.reve_test_time_scaling,
             max_retries=settings.reve_max_retries,
         )
 
@@ -85,20 +113,23 @@ def get_image_gen() -> ImageGenProvider:
             storage=get_storage(),
         )
 
-    # auto — Replicate временно отключён. Идём напрямую в Reve (если настроен),
-    # иначе fallback Mock в dev или ошибка в production.
+    # auto — FLUX Kontext Pro через FAL предпочитаем для сценариев с лицами,
+    # но остаёмся совместимыми с существующими Reve-деплоями. Порядок
+    # выбора: FAL → Reve → Mock (в dev) / RuntimeError (в prod). Replicate
+    # в auto-режиме не подключается по умолчанию — см. docs/architecture/reserved.md.
+    if (settings.fal_api_key or "").strip():
+        return _build_fal_flux()
     if settings.reve_api_token.strip():
         return ReveImageGen(
             api_token=settings.reve_api_token,
             api_host=settings.reve_api_host,
-            aspect_ratio=settings.reve_aspect_ratio,
             version=settings.reve_version,
-            test_time_scaling=settings.reve_test_time_scaling,
             max_retries=settings.reve_max_retries,
         )
     if prod:
         raise RuntimeError(
-            "IMAGE_GEN_PROVIDER=auto requires REVE_API_TOKEN (Replicate disabled)",
+            "IMAGE_GEN_PROVIDER=auto requires FAL_API_KEY or REVE_API_TOKEN "
+            "(Replicate is reserved and not auto-selected)",
         )
     return MockImageGen()
 

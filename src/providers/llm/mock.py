@@ -1,31 +1,8 @@
-from __future__ import annotations
+"""Deprecated shim. Moved to :mod:`src.providers._testing.mock_llm`.
 
-from src.providers.base import LLMProvider
+Kept so existing imports (tests, third-party scripts) keep working while
+we migrate. New code must import from ``src.providers._testing``.
+"""
+from src.providers._testing.mock_llm import MockLLM
 
-
-class MockLLM(LLMProvider):
-    """Deterministic mock for testing."""
-
-    async def analyze_image(self, image_bytes: bytes, prompt: str, *, temperature: float = 0.7) -> dict:
-        return {
-            "score": 7.5,
-            "perception": {
-                "trust": 8.0,
-                "attractiveness": 7.0,
-                "emotional_expression": "уверенность",
-            },
-            "insights": [
-                "Прямой взгляд в камеру создаёт ощущение уверенности",
-                "Естественная улыбка добавляет располагающий эффект",
-            ],
-            "recommendations": [
-                "Попробуй фронтальное освещение для более мягких теней",
-                "Лёгкий наклон головы добавит динамики",
-            ],
-        }
-
-    async def generate_text(self, prompt: str) -> str:
-        return "Mock text response"
-
-    async def close(self):
-        pass
+__all__ = ["MockLLM"]

@@ -191,16 +191,6 @@ def should_delete_after_process(
     return bool(flags["delete_after_process"])
 
 
-def should_force_single_provider_call(
-    context: dict[str, Any] | None,
-    default: bool = False,
-) -> bool:
-    flags = get_policy_flags(context)
-    if "single_provider_call" not in flags:
-        return default
-    return bool(flags["single_provider_call"])
-
-
 def get_trace_id(context: dict[str, Any] | None) -> str | None:
     if not isinstance(context, dict):
         return None

@@ -1,8 +1,13 @@
-"""Post-processing pipeline for photorealism.
+"""Local image post-processing utilities.
 
-Applies camera-authentic transformations to AI-generated images so they
-resemble real photographs: film grain, vignette, chromatic aberration,
-JPEG re-encode with realistic quality, and EXIF metadata injection.
+Active in current runtime:
+  * ``inject_exif_only`` — writes AI-transparency EXIF (Art. 50 compliance).
+  * ``crop_to_aspect`` — head-biased crop for document-style targets.
+  * ``upscale_lanczos`` — integer-factor PIL LANCZOS upscale for large-face portraits.
+
+Reve REST ``/v1/image/edit`` does not accept ``aspect_ratio`` and does not
+expose a post-processing pipeline, so cropping and upscaling are done
+locally via PIL.
 """
 from __future__ import annotations
 
@@ -11,115 +16,13 @@ import logging
 import struct
 from datetime import datetime, timezone
 
-import numpy as np
-from PIL import Image, ImageFilter
+from PIL import Image
 
 logger = logging.getLogger(__name__)
 
-# ---------------------------------------------------------------------------
-# Film grain  (luminance-dependent, mimics real sensor noise)
-# ---------------------------------------------------------------------------
-
-_GRAIN_ALPHA_RANGE = {
-    "portra400": (0.005, 0.012),
-    "default": (0.005, 0.012),
-}
-
-
-def _apply_film_grain(
-    img: Image.Image,
-    film_stock: str = "portra400",
-    seed: int | None = None,
-) -> Image.Image:
-    arr = np.array(img, dtype=np.float32)
-    rng = np.random.default_rng(seed)
-    lo, hi = _GRAIN_ALPHA_RANGE.get(film_stock, _GRAIN_ALPHA_RANGE["default"])
-
-    luminance = 0.299 * arr[..., 0] + 0.587 * arr[..., 1] + 0.114 * arr[..., 2]
-    norm_lum = luminance / 255.0
-    alpha_map = lo + (hi - lo) * (1.0 - norm_lum)
-
-    noise = rng.standard_normal(arr.shape[:2]).astype(np.float32)
-    for c in range(3):
-        arr[..., c] += noise * alpha_map * 255.0
-
-    arr = np.clip(arr, 0, 255).astype(np.uint8)
-    return Image.fromarray(arr)
-
 
 # ---------------------------------------------------------------------------
-# Vignette  (radial darkening, mimics real lens light fall-off)
-# ---------------------------------------------------------------------------
-
-def _apply_vignette(img: Image.Image, strength: float = 0.03) -> Image.Image:
-    w, h = img.size
-    arr = np.array(img, dtype=np.float32)
-
-    cx, cy = w / 2.0, h / 2.0
-    max_dist = np.sqrt(cx ** 2 + cy ** 2)
-
-    Y, X = np.ogrid[:h, :w]
-    dist = np.sqrt((X - cx) ** 2 + (Y - cy) ** 2) / max_dist
-
-    vignette = 1.0 - strength * (dist ** 2)
-    vignette = np.clip(vignette, 0.0, 1.0)
-
-    for c in range(3):
-        arr[..., c] *= vignette
-
-    arr = np.clip(arr, 0, 255).astype(np.uint8)
-    return Image.fromarray(arr)
-
-
-# ---------------------------------------------------------------------------
-# Chromatic aberration  (subtle R/B channel shift at edges, ~0.5-1.0 px)
-# ---------------------------------------------------------------------------
-
-def _apply_chromatic_aberration(img: Image.Image, shift_px: float = 0.0) -> Image.Image:
-    """Shift red channel outward and blue channel inward by `shift_px` at edges."""
-    w, h = img.size
-    if w < 200 or h < 200:
-        return img
-
-    arr = np.array(img)
-    r, g, b = arr[..., 0], arr[..., 1], arr[..., 2]
-
-    r_img = Image.fromarray(r)
-    b_img = Image.fromarray(b)
-
-    offset = max(1, round(shift_px))
-    r_shifted = Image.new("L", (w, h), 0)
-    r_shifted.paste(r_img, (-offset, -offset))
-    b_shifted = Image.new("L", (w, h), 0)
-    b_shifted.paste(b_img, (offset, offset))
-
-    cx, cy = w / 2.0, h / 2.0
-    max_dist = np.sqrt(cx ** 2 + cy ** 2)
-    Y, X = np.ogrid[:h, :w]
-    blend = np.sqrt((X - cx) ** 2 + (Y - cy) ** 2) / max_dist
-    blend = np.clip(blend * 1.5, 0.0, 1.0).astype(np.float32)
-
-    r_arr = np.array(r_shifted, dtype=np.float32)
-    b_arr = np.array(b_shifted, dtype=np.float32)
-    r_final = (r.astype(np.float32) * (1 - blend) + r_arr * blend).astype(np.uint8)
-    b_final = (b.astype(np.float32) * (1 - blend) + b_arr * blend).astype(np.uint8)
-
-    result = np.stack([r_final, g, b_final], axis=-1)
-    return Image.fromarray(result)
-
-
-# ---------------------------------------------------------------------------
-# JPEG re-encode  (matches real camera output pipelines)
-# ---------------------------------------------------------------------------
-
-def _jpeg_reencode(img: Image.Image, quality: int = 90) -> bytes:
-    buf = io.BytesIO()
-    img.save(buf, format="JPEG", quality=quality, subsampling=0)
-    return buf.getvalue()
-
-
-# ---------------------------------------------------------------------------
-# EXIF metadata injection  (lightweight, no piexif dependency)
+# EXIF metadata injection (AI transparency, EU AI Act Art. 50 / GDPR)
 # ---------------------------------------------------------------------------
 
 AI_TRANSPARENCY_MAKE = "AI Look Studio"
@@ -133,15 +36,6 @@ AI_TRANSPARENCY_COMMENT = (
 
 def _build_minimal_exif(dt: datetime | None = None) -> bytes:
     """Build an EXIF APP1 segment advertising AI-generated origin.
-
-    Privacy/AI Act note: the previous implementation tagged generated JPEGs
-    as "Canon EOS R5" to pass them off as real camera output. That
-    actively conflicts with EU AI Act Art. 50 (mandatory disclosure of
-    AI-generated content). This version now writes honest Make/Model
-    fields plus a ``UserComment`` explicitly labelling the asset as
-    AI-generated; the corresponding visible badge is rendered on the
-    preview by ``StepGenerate.tsx`` and on the share card by
-    ``ShareCardGenerator``.
 
     Uses ``piexif`` when available (produces a standards-compliant TIFF
     IFD), with a best-effort raw byte fallback so the pipeline never
@@ -249,90 +143,6 @@ def _inject_exif(jpeg_bytes: bytes) -> bytes:
     return jpeg_bytes[:2] + exif_segment + jpeg_bytes[2:]
 
 
-# ---------------------------------------------------------------------------
-# Face-region compositing REMOVED in the v1.10 privacy overhaul.
-# It was used to recover identity when the ArcFace gate failed. With the
-# VLM-based identity check we no longer have a local embedding to compare
-# against mid-pipeline, and compositing the original face back onto the
-# generated image conflicts with the "no biometric feature extraction"
-# policy. If identity drops, we now surface a soft warning and let the
-# user re-submit a better source photo.
-# ---------------------------------------------------------------------------
-
-
-# ---------------------------------------------------------------------------
-# Skin detail transfer  (high-frequency layer from original face region)
-# ---------------------------------------------------------------------------
-
-def _skin_detail_transfer(
-    original: Image.Image,
-    generated: Image.Image,
-    face_mask: Image.Image,
-    opacity: float = 0.35,
-) -> Image.Image:
-    """Transfer high-frequency skin details from original to generated image.
-
-    Extracts fine details (pores, moles, freckles) via Gaussian decomposition
-    and blends them onto the generated face region.
-    """
-    if original.size != generated.size:
-        original = original.resize(generated.size, Image.LANCZOS)
-    if face_mask.size != generated.size:
-        face_mask = face_mask.resize(generated.size, Image.BILINEAR)
-
-    blur_radius = max(generated.size) * 0.01
-    blur_radius = max(3, int(blur_radius))
-
-    orig_arr = np.array(original, dtype=np.float32)
-    orig_blur = np.array(original.filter(ImageFilter.GaussianBlur(radius=blur_radius)), dtype=np.float32)
-    high_freq = orig_arr - orig_blur
-
-    gen_arr = np.array(generated, dtype=np.float32)
-    mask_arr = np.array(face_mask, dtype=np.float32) / 255.0
-    mask_3d = np.stack([mask_arr] * 3, axis=-1)
-
-    blended = gen_arr + high_freq * mask_3d * opacity
-    blended = np.clip(blended, 0, 255).astype(np.uint8)
-    return Image.fromarray(blended)
-
-
-# ---------------------------------------------------------------------------
-# Film color science  (Portra 400 tone curve)
-# ---------------------------------------------------------------------------
-
-def _portra400_color_grade(img: Image.Image) -> Image.Image:
-    """Apply Kodak Portra 400-inspired color grading.
-
-    - Highlight compression (soft shoulder for skin tones)
-    - Warm shift in shadows
-    - Green desaturation in midtones
-    """
-    arr = np.array(img, dtype=np.float32) / 255.0
-
-    def _soft_shoulder(x: np.ndarray, knee: float = 0.75) -> np.ndarray:
-        mask = x > knee
-        linear = x.copy()
-        excess = x[mask] - knee
-        linear[mask] = knee + excess * 0.6
-        return np.clip(linear, 0.0, 1.0)
-
-    arr[..., 0] = _soft_shoulder(arr[..., 0], 0.72)
-    arr[..., 1] = _soft_shoulder(arr[..., 1], 0.75)
-    arr[..., 2] = _soft_shoulder(arr[..., 2], 0.78)
-
-    luminance = 0.299 * arr[..., 0] + 0.587 * arr[..., 1] + 0.114 * arr[..., 2]
-    shadow_mask = np.clip(1.0 - luminance * 2.0, 0.0, 1.0)
-    arr[..., 0] += shadow_mask * 0.012
-    arr[..., 1] += shadow_mask * 0.006
-
-    mid_mask = 1.0 - np.abs(luminance - 0.5) * 2.0
-    mid_mask = np.clip(mid_mask, 0.0, 1.0)
-    arr[..., 1] -= mid_mask * 0.008
-
-    arr = np.clip(arr, 0.0, 1.0)
-    return Image.fromarray((arr * 255).astype(np.uint8))
-
-
 def inject_exif_only(image_bytes: bytes) -> bytes:
     """Inject EXIF metadata into image bytes without any other processing."""
     try:
@@ -342,10 +152,7 @@ def inject_exif_only(image_bytes: bytes) -> bytes:
 
 
 # ---------------------------------------------------------------------------
-# Local aspect-ratio crop and upscale.
-# Reve REST does not accept aspect_ratio on /v1/image/edit and does not
-# expose a post-processing pipeline. Document AR (3:4, 7:9, 2:3, 1:1)
-# and large-face 2x upscale are therefore applied locally with PIL.
+# Local aspect-ratio crop and upscale
 # ---------------------------------------------------------------------------
 
 
@@ -438,70 +245,3 @@ def upscale_lanczos(image_bytes: bytes, factor: int = 2) -> bytes:
     buf = io.BytesIO()
     upscaled.save(buf, format="PNG", optimize=False)
     return buf.getvalue()
-
-
-# ---------------------------------------------------------------------------
-# Public API
-# ---------------------------------------------------------------------------
-
-# TODO: Enable realism postprocessing pipeline when quality requirements increase.
-# Currently not called from any code path; all individual transforms above
-# (film grain, vignette, chromatic aberration, EXIF injection) are available
-# as standalone functions and used directly where needed.
-#
-# async def postprocess_for_realism(
-#     image_bytes: bytes,
-#     original_bytes: bytes | None = None,
-#     film_stock: str = "portra400",
-#     enable_color_grade: bool = False,
-#     enable_skin_transfer: bool = False,
-#     jpeg_quality: int = 94,
-# ) -> bytes:
-#     """Full post-processing pipeline. Runs CPU-bound work in a thread."""
-#     return await asyncio.to_thread(
-#         _postprocess_sync,
-#         image_bytes, original_bytes, film_stock,
-#         enable_color_grade, enable_skin_transfer, jpeg_quality,
-#     )
-#
-#
-# def _postprocess_sync(
-#     image_bytes: bytes,
-#     original_bytes: bytes | None,
-#     film_stock: str,
-#     enable_color_grade: bool,
-#     enable_skin_transfer: bool,
-#     jpeg_quality: int,
-# ) -> bytes:
-#     t0 = time.monotonic()
-#     try:
-#         img = Image.open(io.BytesIO(image_bytes)).convert("RGB")
-#     except Exception:
-#         logger.debug("Post-processing: input is not a valid image, returning as-is")
-#         return image_bytes
-#
-#     seed = hash(image_bytes[:256]) & 0xFFFFFFFF
-#
-#     if enable_color_grade:
-#         img = _portra400_color_grade(img)
-#
-#     if enable_skin_transfer and original_bytes:
-#         try:
-#             from src.services.segmentation import _face_bbox_mask
-#             orig = Image.open(io.BytesIO(original_bytes)).convert("RGB")
-#             face_mask = _face_bbox_mask(original_bytes, img.size[0], img.size[1], padding=0.15)
-#             if face_mask is not None:
-#                 img = _skin_detail_transfer(orig, img, face_mask, opacity=0.35)
-#         except Exception:
-#             logger.debug("Skin detail transfer failed, skipping")
-#
-#     img = _apply_film_grain(img, film_stock=film_stock, seed=seed)
-#     img = _apply_vignette(img, strength=0.03)
-#     img = _apply_chromatic_aberration(img, shift_px=0.0)
-#
-#     jpeg = _jpeg_reencode(img, quality=jpeg_quality)
-#     jpeg = _inject_exif(jpeg)
-#
-#     elapsed = (time.monotonic() - t0) * 1000
-#     logger.info("Post-processing completed in %.1fms (%d bytes)", elapsed, len(jpeg))
-#     return jpeg

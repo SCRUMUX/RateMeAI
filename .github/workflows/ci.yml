@@ -110,6 +110,7 @@ jobs:
           INTERNAL_API_KEY: ${{ secrets.INTERNAL_API_KEY }}
           GC_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
           GC_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
+          FAL_API_KEY: ${{ secrets.FAL_API_KEY }}
         run: |
           set -e
           FAILED=0
@@ -130,10 +131,25 @@ jobs:
           rl_set MARKET_ID="global" -s worker -e production --skip-deploys
           rl_set SERVICE_ROLE="worker" -s worker -e production --skip-deploys
           rl_set COMPUTE_MODE="local" -s worker -e production --skip-deploys
-          # Image generation provider policy: Reve-only, one billable call per task.
-          # Replicate temporarily disabled — re-enable later by flipping to "auto".
-          rl_set IMAGE_GEN_PROVIDER="reve" -s app -e production --skip-deploys
-          rl_set IMAGE_GEN_PROVIDER="reve" -s worker -e production --skip-deploys
+          # Image generation provider policy (v1.14.0+): FLUX.1 Kontext [pro]
+          # through FAL.ai is the primary edit-mode provider for face scenarios
+          # (dating / cv / social / emoji). Reve remains as a manual fallback
+          # (flip IMAGE_GEN_PROVIDER to "reve" in Railway to switch back without
+          # a redeploy) and ``auto`` mode also prefers FAL → Reve. The FAL_API_KEY
+          # secret must be configured in GitHub Actions; if it's missing, we
+          # fall back to Reve to keep the deploy working instead of shipping
+          # a broken image-gen config.
+          if [ -n "$FAL_API_KEY" ]; then
+            echo "Syncing FAL_API_KEY to Railway services..."
+            rl_set FAL_API_KEY="$FAL_API_KEY" -s app -e production --skip-deploys
+            rl_set FAL_API_KEY="$FAL_API_KEY" -s worker -e production --skip-deploys
+            rl_set IMAGE_GEN_PROVIDER="fal_flux" -s app -e production --skip-deploys
+            rl_set IMAGE_GEN_PROVIDER="fal_flux" -s worker -e production --skip-deploys
+          else
+            echo "::warning::FAL_API_KEY secret not set — staying on IMAGE_GEN_PROVIDER=reve"
+            rl_set IMAGE_GEN_PROVIDER="reve" -s app -e production --skip-deploys
+            rl_set IMAGE_GEN_PROVIDER="reve" -s worker -e production --skip-deploys
+          fi
           rl_set REVE_MAX_RETRIES="2" -s app -e production --skip-deploys
           rl_set REVE_MAX_RETRIES="2" -s worker -e production --skip-deploys
           rl_set DEPLOY_GIT_SHA="$SHORT_SHA" -s bot -e production --skip-deploys

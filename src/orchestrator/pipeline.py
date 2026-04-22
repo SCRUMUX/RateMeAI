@@ -3,7 +3,6 @@ from __future__ import annotations
 import asyncio
 import logging
 import time
-from contextlib import contextmanager
 
 from src.config import settings
 from src.metrics import PIPELINE_DURATION, LLM_CALLS
@@ -11,9 +10,8 @@ from src.models.enums import AnalysisMode
 from src.models.schemas import RatingResult
 from src.orchestrator.executor import ImageGenerationExecutor, DeltaScorer
 from src.orchestrator.merger import ResultMerger
-from src.orchestrator.model_router import ModelRouter, build_model_registry
-from src.orchestrator.planner import PipelinePlanner
 from src.orchestrator.router import ModeRouter
+from src.orchestrator.trace import PipelineStageError, trace_step as _trace_step  # noqa: F401 — re-exported for back-compat with tests/workers
 from src.providers.base import ImageGenProvider, LLMProvider, StorageProvider
 from src.prompts.engine import PromptEngine
 from src.services.share import ShareCardGenerator
@@ -21,7 +19,6 @@ from src.services.ai_transfer_guard import task_context_scope
 from src.services.task_contract import (
     get_market_id,
     is_cache_allowed,
-    should_force_single_provider_call,
 )
 from src.utils.humanize import humanize_result_scores
 from src.utils.image import validate_and_normalize
@@ -31,54 +28,6 @@ from src.utils.security import extract_nsfw_from_analysis
 from src.tracing import async_span
 
 logger = logging.getLogger(__name__)
-
-
-class PipelineStageError(Exception):
-    """Wraps a pipeline step exception with stage name for observability.
-
-    The worker reads ``stage`` and ``original`` to build a structured
-    ``task.error_message`` so ops can see *where* in the pipeline a task
-    failed (``preprocess`` / ``analyze`` / ``generate_image`` / ``execute_plan``
-    / ``post_gen_rescore`` / ``finalize``) without reading full tracebacks.
-    Nested ``_trace_step`` blocks do not re-wrap — the innermost stage wins.
-    """
-
-    def __init__(self, stage: str, original: BaseException, duration_ms: float | None = None):
-        self.stage = stage
-        self.original = original
-        self.duration_ms = duration_ms
-        super().__init__(f"[stage={stage}] {type(original).__name__}: {original}")
-
-
-@contextmanager
-def _trace_step(trace: dict, step_name: str):
-    """Context manager that records start/end timestamps and duration for a pipeline step.
-
-    On exception, writes ``error`` to the trace entry and re-raises the
-    exception wrapped in :class:`PipelineStageError` (unless already wrapped
-    by an inner step — in that case we propagate as-is so the innermost
-    stage is preserved).
-    """
-    entry: dict = {"started_at": time.time()}
-    try:
-        yield entry
-    except PipelineStageError:
-        entry["ended_at"] = time.time()
-        entry["duration_ms"] = round((entry["ended_at"] - entry["started_at"]) * 1000, 1)
-        trace["steps"][step_name] = entry
-        raise
-    except BaseException as exc:
-        entry["ended_at"] = time.time()
-        entry["duration_ms"] = round((entry["ended_at"] - entry["started_at"]) * 1000, 1)
-        entry["error"] = f"{type(exc).__name__}: {str(exc)[:200]}"
-        trace["steps"][step_name] = entry
-        if isinstance(exc, Exception):
-            raise PipelineStageError(step_name, exc, entry["duration_ms"]) from exc
-        raise
-    else:
-        entry["ended_at"] = time.time()
-        entry["duration_ms"] = round((entry["ended_at"] - entry["started_at"]) * 1000, 1)
-        trace["steps"][step_name] = entry
 
 
 class AnalysisPipeline:
@@ -100,21 +49,15 @@ class AnalysisPipeline:
         self._redis = redis
         self._db_sessionmaker = db_sessionmaker
         self._identity = None
-        self._segmentation = None
-        self._planner = PipelinePlanner()
-        self._model_router: ModelRouter = build_model_registry(
-            image_gen,
-            cost_reve=settings.model_cost_reve,
-            cost_replicate=settings.model_cost_replicate,
-        )
+        # Multi-pass planning / model routing / segmentation live in
+        # ``src.orchestrator.advanced`` and are intentionally *not* wired
+        # into this single-pass pipeline. See ``docs/architecture/reserved.md``.
         self._executor = ImageGenerationExecutor(
             image_gen=image_gen,
             prompt_engine=self._prompt_engine,
-            model_router=self._model_router,
             storage=storage,
             identity_svc_getter=self._get_identity_service,
             gate_runner_getter=self._get_gate_runner,
-            segmentation_getter=self._get_segmentation_service,
         )
         self._delta_scorer = DeltaScorer(router=self._router, storage=storage, redis=redis)
 
@@ -137,15 +80,6 @@ class AnalysisPipeline:
     @property
     def identity_available(self) -> bool:
         return self._get_identity_service() is not None
-
-    def _get_segmentation_service(self):
-        if self._segmentation is None:
-            try:
-                from src.services.segmentation import SegmentationService
-                self._segmentation = SegmentationService()
-            except ImportError:
-                logger.warning("mediapipe not installed — segmentation disabled")
-        return self._segmentation
 
     def _get_gate_runner(self):
         from src.services.quality_gates import QualityGateRunner
@@ -234,7 +168,6 @@ class AnalysisPipeline:
 
         style = (context or {}).get("style", "")
         skip_gen = (context or {}).get("skip_image_gen", False)
-        enhancement_level = int((context or {}).get("enhancement_level", 0))
         # TODO(gender-single-source): detected_gender is currently driven by the
         # LLM JSON output in four prompts (rating/dating/cv/social). A dedicated
         # gender detector should own this value; the LLM value should only be used
@@ -247,53 +180,17 @@ class AnalysisPipeline:
         if skip_gen:
             result_dict["upgrade_prompt"] = True
         else:
-            force_single_provider_call = should_force_single_provider_call(context)
-            use_multipass = (
-                not force_single_provider_call
-                and settings.multi_pass_enabled
-                and mode in (AnalysisMode.DATING, AnalysisMode.CV, AnalysisMode.SOCIAL)
-            )
-
-            if use_multipass:
-                plan = self._planner.plan(
-                    mode=mode, style=style, task_id=task_id,
-                    analysis_result=result_dict,
-                    enhancement_level=enhancement_level,
+            trace["decisions"].append({
+                "phase": "planning",
+                "decision": "Single-pass",
+                "reason": "Multi-pass is reserved in orchestrator.advanced and not wired into the runtime",
+            })
+            with _trace_step(trace, "generate_image"):
+                await self._executor.single_pass(
+                    mode, style, image_bytes, result_dict, user_id, task_id, trace,
+                    gender=gender,
+                    input_quality=input_quality,
                 )
-            else:
-                plan = None
-
-            if plan and len(plan.steps) > 0:
-                trace["decisions"].append({
-                    "phase": "planning",
-                    "decision": f"Multi-pass plan with {len(plan.steps)} steps",
-                    "reason": f"mode={mode.value}, style={style or 'default'}, segmentation_enabled=True",
-                })
-                trace["plan"] = plan.to_dict()
-                with _trace_step(trace, "execute_plan"):
-                    await self._executor.execute_plan(
-                        plan, mode, style, image_bytes, result_dict,
-                        user_id, task_id, trace, enhancement_level, progress_callback,
-                        gender=gender,
-                        input_quality=input_quality,
-                    )
-            else:
-                single_pass_reason = (
-                    "single_provider_call=True"
-                    if force_single_provider_call
-                    else "Multi-pass disabled or mode does not support it"
-                )
-                trace["decisions"].append({
-                    "phase": "planning",
-                    "decision": "Single-pass fallback",
-                    "reason": single_pass_reason,
-                })
-                with _trace_step(trace, "generate_image"):
-                    await self._executor.single_pass(
-                        mode, style, image_bytes, result_dict, user_id, task_id, trace,
-                        gender=gender,
-                        input_quality=input_quality,
-                    )
 
             if (
                 result_dict.get("generated_image_url")
