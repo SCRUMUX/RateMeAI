@@ -171,6 +171,29 @@ QUALITY_PHOTO = (
     "genuine relaxed expression, authentic skin texture."
 )
 
+# ---------------------------------------------------------------------------
+# v1.18 identity_scene (PuLID) anchors
+# ---------------------------------------------------------------------------
+# PuLID locks the face at the model level via ID adapter + face reference,
+# so repeating PRESERVE_PHOTO's facial anchors actually harms the output:
+# the Lightning sampler overcommits pixels to "identical face" semantics
+# and the scene loses detail. For the identity_scene branch we therefore
+# describe the scene, lighting, pose and camera — and let PuLID hold
+# identity. A short ``SOLO_SUBJECT_ANCHOR`` guard still ships because
+# PuLID is known to occasionally spawn a second face from a crowded prompt
+# ("dating profile", "yacht party" etc.) and the VLM gate rejects those.
+SOLO_SUBJECT_ANCHOR = (
+    "Single subject in frame, one person only, full-face clearly visible, "
+    "hands with five clearly separated fingers."
+)
+
+IDENTITY_SCENE_QUALITY = (
+    "Photorealistic unedited photograph, entire scene sharp from subject "
+    "to background with textures and distant objects crisp and legible, "
+    "natural true-to-life colors, even realistic lighting, authentic skin "
+    "texture with natural pores, genuine relaxed expression."
+)
+
 DOC_PRESERVE = (
     "Preserve the exact same person from the reference photo: identical face "
     "(bone structure, eyes, nose, mouth, hairline, ear position), identical "
@@ -1239,7 +1262,26 @@ def _build_mode_prompt(
         if accent:
             clothing = f"{clothing}, {accent}" if clothing else accent
 
-    parts: list[str] = [change_instruction]
+    # v1.18: identity_scene (PuLID) gets a lean, scene-focused prompt
+    # without explicit identity anchors (the ID adapter covers that).
+    # scene_preserve (Seedream / legacy FLUX.2) keeps the full identity
+    # lock + quality prologue to defend against edit drift. Documents
+    # always use the strict DOC branch regardless of mode.
+    generation_mode = getattr(spec, "generation_mode", "identity_scene")
+    is_identity_scene = (
+        generation_mode == "identity_scene" and not is_doc
+    )
+
+    if is_identity_scene:
+        # For PuLID the "change the background and clothing of the
+        # reference photo" phrasing is misleading — the model doesn't
+        # edit an image, it generates a new scene conditioned on a face
+        # crop. Replace the change instruction with a direct "Render ..."
+        # that focuses the sampler on the new scene.
+        parts: list[str] = [_identity_scene_opener(mode, style)]
+    else:
+        parts = [change_instruction]
+
     if bg:
         parts.append(f"Background: {bg}.")
     if clothing:
@@ -1270,6 +1312,11 @@ def _build_mode_prompt(
         parts.append(f"Composition: {composition}")
         parts.append(DOC_PRESERVE)
         parts.append(DOC_QUALITY)
+    elif is_identity_scene:
+        # PuLID: scene-focused quality line + solo-subject anchor. No
+        # identity clauses — the ID adapter already locks the face.
+        parts.append(SOLO_SUBJECT_ANCHOR)
+        parts.append(IDENTITY_SCENE_QUALITY)
     else:
         # Full-body scenes (yoga, beach, running, hiking, ...) require a new
         # pose that differs from the reference; the default PRESERVE_PHOTO
@@ -1281,11 +1328,34 @@ def _build_mode_prompt(
         else:
             parts.append(PRESERVE_PHOTO)
         parts.append(QUALITY_PHOTO)
-
-    parts.append(IDENTITY_LOCK_SUFFIX)
+        parts.append(IDENTITY_LOCK_SUFFIX)
 
     prompt = " ".join(p.strip() for p in parts if p and p.strip())
     return _truncate(prompt)
+
+
+def _identity_scene_opener(mode: str, style: str) -> str:
+    """Return the first line of an identity_scene (PuLID) prompt.
+
+    PuLID is a text-to-image model with a face reference, not an edit
+    model — describing the reference photo as a starting point confuses
+    Lightning. We use a direct scene-generation verb so the sampler
+    commits the pixel budget to the new scene rather than trying to
+    "preserve" invisible pieces of the input.
+
+    Full-body styles get a pose hint so the model doesn't default to a
+    mid-chest crop for styles like yoga/running/hiking.
+    """
+    spec = STYLE_REGISTRY.get(mode, style)
+    if spec is not None and getattr(spec, "needs_full_body", False):
+        return (
+            "Render a photorealistic full-body portrait of the reference "
+            "person, adopting a natural pose that fits the scene below."
+        )
+    return (
+        "Render a photorealistic portrait of the reference person in the "
+        "scene described below, with a natural pose fitting the scene."
+    )
 
 
 def _dating_social_change_instruction(mode: str, style: str) -> str:

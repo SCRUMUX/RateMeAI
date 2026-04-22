@@ -150,6 +150,63 @@ class Settings(BaseSettings):
     model_cost_fal_gfpgan: float = 0.002
     model_cost_fal_real_esrgan: float = 0.002
 
+    # ------------------------------------------------------------------
+    # v1.18 hybrid image-gen pipeline — PuLID + Seedream v4 Edit + CodeFormer
+    # ------------------------------------------------------------------
+    # Image-gen strategy.
+    #   - ``legacy``    — use ``image_gen_provider`` alone (v1.17 behaviour).
+    #   - ``hybrid``    — StyleRouter → PuLID (identity_scene) / Seedream
+    #                     (scene_preserve) / fallback (FLUX.2) per style.
+    #   - ``pulid_only``— route every request through PuLID regardless of
+    #                     style mode (useful for A/B / canary experiments).
+    # Default stays ``legacy`` until the canary rollout completes.
+    image_gen_strategy: str = "legacy"
+
+    # PuLID — identity-conditioned text-to-image (FLUX Lightning + ID adapter)
+    # https://fal.ai/models/fal-ai/pulid
+    pulid_enabled: bool = True
+    pulid_model: str = "fal-ai/pulid"
+    # 0 = no identity lock, 1.0 = very strong (face can dominate scene).
+    # 0.8 is the sweet spot for photorealistic scenes; retry loop can
+    # push it to 1.0 when identity_match fails.
+    pulid_id_scale: float = 0.8
+    # FLUX Lightning default — 4 steps at 1.2 guidance is the canonical
+    # PuLID config. Retry loop can bump to 8 for sharper detail on
+    # identity_match failures.
+    pulid_steps: int = 4
+    pulid_guidance_scale: float = 1.2
+    # ``fidelity`` (default) keeps face closer to reference; ``extreme
+    # style`` lets the prompt dominate more, useful on retry when the
+    # identity lock made the scene look off.
+    pulid_mode: str = "fidelity"
+    # Flat cost estimate. PuLID on FAL bills per GPU-second; empirical
+    # mean at the default 4-step config on H100 is ~$0.005–$0.008.
+    model_cost_fal_pulid: float = 0.006
+
+    # Seedream v4 Edit — image-to-image edit, 4 MP capable.
+    # https://fal.ai/models/fal-ai/bytedance/seedream/v4/edit
+    seedream_enabled: bool = True
+    seedream_model: str = "fal-ai/bytedance/seedream/v4/edit"
+    # ``standard`` (default) keeps the prompt close; ``fast`` rewrites
+    # more aggressively but can drift on identity.
+    seedream_enhance_prompt_mode: str = "standard"
+    # Flat $0.03 per image up to 4 MP.
+    model_cost_fal_seedream: float = 0.03
+
+    # CodeFormer — post-generation face polish.
+    # https://fal.ai/models/fal-ai/codeformer
+    codeformer_enabled: bool = True
+    codeformer_model: str = "fal-ai/codeformer"
+    # 0 = strongest restoration (most "perfect" features, risk of
+    # identity drift), 1 = closest to the input. 0.5 is a safe default
+    # that fixes Lightning-caused face blur without reshaping features.
+    codeformer_fidelity: float = 0.5
+    codeformer_upscale_factor: float = 2.0
+    # Bills per megapixel. At 1 MP input + upscale_factor=2 we pay
+    # roughly $0.0021 × 4 MP = $0.0084. Use a conservative $0.003 in
+    # budget math.
+    model_cost_fal_codeformer_per_mp: float = 0.0021
+
     # Segmentation / multi-pass pipeline.
     # Segmentation is DISABLED because Reve SDK 0.1.2 does not accept a
     # `mask_image` kwarg in edit() — passing one raises TypeError and ends

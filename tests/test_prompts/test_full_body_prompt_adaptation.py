@@ -28,17 +28,31 @@ from src.prompts.image_gen import (
 
 
 def test_full_body_style_uses_face_only_preserve():
+    # v1.18: ``yoga_outdoor`` is an identity_scene style (PuLID). The
+    # legacy PRESERVE_PHOTO_FACE_ONLY anchor does not ship in that
+    # branch — identity is held by the ID adapter. We instead assert
+    # that the scene opener is the full-body opener (so PuLID gets a
+    # pose hint) and that there is no ``original pose`` clamp that
+    # would contradict a yoga scene.
     prompt = build_dating_prompt(style="yoga_outdoor", gender="male")
-    # The prompt must not pin the reference pose for a scene that changes it.
     assert "original pose" not in prompt.lower()
-    # But identity anchors from the face-only variant must still be there.
-    assert "bone structure" in prompt.lower()
+    assert "full-body portrait of the reference person" in prompt
+    assert "Single subject in frame" in prompt
 
 
 def test_close_up_style_keeps_full_preserve_anchor():
+    # v1.18: ``studio_elegant`` is also an identity_scene style, so the
+    # full PRESERVE_PHOTO "original pose and body proportions" anchor
+    # is intentionally absent. The non-full-body opener ships without
+    # the pose hint — assert that we picked the close-up opener rather
+    # than the full-body one, and that the Photorealistic + solo-subject
+    # anchors are present.
     prompt = build_dating_prompt(style="studio_elegant", gender="male")
-    marker = "original pose and body proportions"
-    assert marker in prompt, "expected full PRESERVE_PHOTO anchor for close-up style"
+    assert "original pose" not in prompt.lower()
+    assert "portrait of the reference person in the scene" in prompt
+    assert "full-body portrait" not in prompt
+    assert "Single subject in frame" in prompt
+    assert "Photorealistic" in prompt
 
 
 def test_no_framing_note_for_any_face_ratio_on_full_body_style():

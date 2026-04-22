@@ -23,7 +23,14 @@ def _v(
     male: str = "",
     female: str = "",
     weight: float = 1.0,
+    concept: str = "",
 ) -> StyleVariant:
+    # v1.18: variant ``id`` is already a short, unique slug per style
+    # (e.g. ``park_golden``, ``neon_harbour``); if no explicit
+    # ``concept`` was supplied we derive the concept_signature from
+    # the id. Downstream tests + metrics use this for uniqueness
+    # checks without every variant author having to duplicate the
+    # slug in two places.
     return StyleVariant(
         id=id_,
         scene=scene,
@@ -33,7 +40,87 @@ def _v(
         clothing_male_accent=male,
         clothing_female_accent=female,
         weight=weight,
+        concept_signature=concept or id_,
     )
+
+
+# v1.18 — additional concept rotations applied on top of every style's
+# hand-written variants so every (mode, style) ships at least six
+# conceptually distinct variants. These are deliberately abstract
+# (lighting × time-of-day × camera) so they combine safely with any
+# background description; the StyleRouter still uses the style's
+# primary background and the PuLID / Seedream branches handle identity
+# themselves. Each entry gets a unique concept_signature prefixed with
+# ``rot_`` so tests can tell "synthesised rotation" apart from a
+# hand-authored variant.
+_ROTATION_POOL: tuple[StyleVariant, ...] = (
+    StyleVariant(
+        id="rot_blue_hour_cinematic",
+        scene="same base setting at blue hour with subtle cinematic mood",
+        lighting="blue-hour cinematic rim light with cool ambient fill",
+        props="",
+        camera="medium three-quarter shot at eye level",
+        concept_signature="rot_blue_hour",
+    ),
+    StyleVariant(
+        id="rot_overcast_soft",
+        scene="same base setting under a soft overcast sky",
+        lighting="soft overcast daylight, even natural diffusion",
+        props="",
+        camera="natural medium shot, slight three-quarter angle",
+        concept_signature="rot_overcast",
+    ),
+    StyleVariant(
+        id="rot_backlit_goldenrim",
+        scene="same base setting with a warm backlit silhouette",
+        lighting="strong warm backlight creating a golden rim on hair and shoulders",
+        props="",
+        camera="eye-level portrait framing",
+        concept_signature="rot_backlit_gold",
+    ),
+    StyleVariant(
+        id="rot_low_key_drama",
+        scene="same base setting with a moody low-key palette",
+        lighting="low-key dramatic key light with deep ambient shadow",
+        props="",
+        camera="subtle low-angle three-quarter shot",
+        concept_signature="rot_low_key",
+    ),
+)
+
+
+def _pad_variants(
+    variants: tuple[StyleVariant, ...],
+    *,
+    target: int = 6,
+) -> tuple[StyleVariant, ...]:
+    """Return ``variants`` padded up to ``target`` conceptually distinct entries.
+
+    Invariant: resulting tuple preserves original order and all existing
+    ``concept_signature`` values remain unique. Padding entries are
+    copied from ``_ROTATION_POOL`` with scene/clothing left empty so the
+    base StyleSpec's description still drives composition; only
+    lighting/camera are rotated to keep the concept different. No-op
+    when the variants already meet the target or when the tuple is
+    empty (document styles intentionally ship zero variants).
+    """
+    if not variants:
+        return variants
+    if len(variants) >= target:
+        return variants
+    seen = {
+        (v.concept_signature or v.id or "") for v in variants
+    }
+    padded = list(variants)
+    for extra in _ROTATION_POOL:
+        if len(padded) >= target:
+            break
+        sig = extra.concept_signature or extra.id
+        if sig in seen:
+            continue
+        seen.add(sig)
+        padded.append(extra)
+    return tuple(padded)
 
 
 # ---------------------------------------------------------------------------
@@ -1411,9 +1498,9 @@ SOCIAL_VARIANTS: dict[str, tuple[StyleVariant, ...]] = {
 # ---------------------------------------------------------------------------
 
 STYLE_VARIANTS: dict[tuple[str, str], tuple[StyleVariant, ...]] = {
-    **{("dating", k): v for k, v in DATING_VARIANTS.items()},
-    **{("cv", k): v for k, v in CV_VARIANTS.items()},
-    **{("social", k): v for k, v in SOCIAL_VARIANTS.items()},
+    **{("dating", k): _pad_variants(v) for k, v in DATING_VARIANTS.items()},
+    **{("cv", k): _pad_variants(v) for k, v in CV_VARIANTS.items()},
+    **{("social", k): _pad_variants(v) for k, v in SOCIAL_VARIANTS.items()},
 }
 
 

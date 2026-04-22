@@ -19,7 +19,7 @@ import re
 import pytest
 
 from src.prompts import image_gen as ig
-from src.prompts.style_spec import validate_style
+from src.prompts.style_spec import detect_generation_mode, validate_style
 
 _NEGATIVE_TOKEN = re.compile(
     r"\b(?:no|without|avoid|don't)\s+[a-z-]+",
@@ -60,12 +60,30 @@ def test_prompt_has_no_negative_framing(mode: str, style: str, gender: str) -> N
 
 @pytest.mark.parametrize("mode,style,gender", list(_cases()))
 def test_prompt_contains_identity_anchors(mode: str, style: str, gender: str) -> None:
+    # v1.18: identity anchors are only asserted on the edit-based
+    # ``scene_preserve`` branch (Seedream / legacy FLUX). In the
+    # ``identity_scene`` branch (PuLID) the ID adapter enforces identity
+    # at the model level, and we deliberately drop the "skin tone" /
+    # "head-to-body" clauses from the prompt because Lightning
+    # over-commits to those tokens. The identity_scene opener carries
+    # its own anchor ("reference person"), which is asserted instead.
     builder = _BUILDERS[mode]
     prompt = builder(style=style, gender=gender)
-    assert "skin tone" in prompt, f"{mode}/{style}/{gender}: missing 'skin tone'"
-    assert "head-to-" in prompt, (
-        f"{mode}/{style}/{gender}: missing 'head-to-*' proportion anchor"
-    )
+    generation_mode = detect_generation_mode(style, mode)
+    if generation_mode == "scene_preserve":
+        assert "skin tone" in prompt, (
+            f"{mode}/{style}/{gender}: missing 'skin tone'"
+        )
+        assert "head-to-" in prompt, (
+            f"{mode}/{style}/{gender}: missing 'head-to-*' proportion anchor"
+        )
+    else:
+        assert "reference person" in prompt, (
+            f"{mode}/{style}/{gender}: identity_scene opener missing"
+        )
+        assert "Single subject in frame" in prompt, (
+            f"{mode}/{style}/{gender}: solo-subject anchor missing"
+        )
 
 
 def test_emoji_prompt_has_identity_power_words() -> None:

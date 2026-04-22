@@ -43,10 +43,21 @@ def test_document_style_detection():
 
 
 def test_cv_prompt_document_has_strict_instruction():
+    # Document CV styles still follow the strict scene_preserve branch
+    # with DOC_QUALITY / DOC_PRESERVE anchors. They MUST keep the
+    # ID-style language and MUST NOT leak the non-doc "professional
+    # attire" change instruction.
     doc_prompt = build_cv_prompt(style="photo_3x4", gender="male").lower()
     assert "id-style headshot" in doc_prompt
     assert "neutral" in doc_prompt
     assert "professional attire" not in doc_prompt
 
+    # v1.18: non-document CV styles run through the identity_scene
+    # branch (PuLID) when the key falls through to the default spec.
+    # The change instruction is replaced by the identity_scene opener,
+    # so "professional attire" is no longer part of the prompt body —
+    # the clothing line still carries the corporate outfit, and the
+    # "reference person" anchor guarantees we are on the correct branch.
     normal_prompt = build_cv_prompt(style="ceo", gender="male").lower()
-    assert "professional attire" in normal_prompt
+    assert "reference person" in normal_prompt
+    assert "id-style headshot" not in normal_prompt

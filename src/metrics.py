@@ -147,3 +147,49 @@ COMPLETED_WITHOUT_IMAGE = Counter(
     "Tasks completed without a generated image",
     labelnames=["reason"],
 )
+
+# ---------------------------------------------------------------------------
+# v1.18 — hybrid image-gen pipeline observability
+# ---------------------------------------------------------------------------
+
+# Which backend actually served the request after StyleRouter routing.
+# ``backend``: pulid | seedream | fallback.
+# ``style_mode``: identity_scene | scene_preserve | unknown.
+# Divergence between requested mode (derived from StyleSpec) and actual
+# ``backend`` (e.g. a face-crop failure on identity_scene → fallback to
+# seedream) is visible here.
+IMAGE_GEN_BACKEND = Counter(
+    "ratemeai_image_gen_backend_total",
+    "Image-gen requests by chosen backend and requested style mode",
+    labelnames=["backend", "style_mode"],
+)
+
+# Estimated per-image cost (USD) by backend. Primary budget signal for
+# the v1.18 hybrid pipeline — canary rollout gates on the p95/mean of
+# this histogram staying below $0.025.
+GENERATION_COST_USD = Histogram(
+    "ratemeai_generation_cost_usd",
+    "Estimated USD cost per image generation by backend",
+    labelnames=["backend"],
+    buckets=(0.005, 0.010, 0.015, 0.020, 0.025, 0.030, 0.040, 0.060, 0.100),
+)
+
+# Face-crop failures that forced the router to fall back from
+# identity_scene to scene_preserve. A climbing rate here indicates
+# either degraded detector availability or a traffic shift toward
+# photos without clear frontal faces.
+PULID_FACE_CROP_FAILED = Counter(
+    "ratemeai_pulid_face_crop_failed_total",
+    "Face-crop failures on identity_scene requests (by reason)",
+    labelnames=["reason"],
+)
+
+# Cases where the router swapped the requested generation_mode for
+# another one (crop failure, provider missing, retry escalation).
+# ``reason`` is a short code (face_crop_no_face, no_reference_image,
+# provider_missing, retry_escalate, ...).
+STYLE_MODE_OVERRIDE = Counter(
+    "ratemeai_style_mode_override_total",
+    "Router-initiated generation_mode overrides",
+    labelnames=["from_mode", "to_mode", "reason"],
+)

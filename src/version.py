@@ -279,4 +279,115 @@
 #            the new flags to False so the legacy LANCZOS /
 #            single-attempt assertions keep covering exactly that
 #            branch. No other test changes — all 2222 pass.
-APP_VERSION = "1.17.1"
+# 1.18.0 — PuLID-first hybrid pipeline on fal.ai. New default
+#          ``IMAGE_GEN_STRATEGY=hybrid``: identity-scene styles
+#          (creative dating/social/CV, ~70 % of traffic) route to
+#          ``fal-ai/pulid`` (FLUX Lightning + ID adapter, ~$0.006 per
+#          call) and run as text-to-image from a face crop, so the
+#          model never has to "edit" the reference; scene-preserve
+#          styles (documents, "keep my own photo") route to
+#          ``fal-ai/bytedance/seedream/v4/edit`` ($0.03) which replaces
+#          FLUX.2 Pro Edit for those cases. CodeFormer
+#          (``fal-ai/codeformer``) polishes the face on every
+#          generation output. Legacy FLUX.2 Pro Edit is kept as the
+#          ``fallback`` provider in the StyleRouter and as the full
+#          legacy strategy behind ``IMAGE_GEN_STRATEGY=legacy``.
+#          Weighted-average cost target: ≈$0.022/image (≤ $0.025 cap).
+#
+#          New providers (src/providers/image_gen/):
+#            * ``fal_pulid.py`` — ``FalPuLIDImageGen`` wrapping
+#              ``fal-ai/pulid`` with reference_images + id_scale +
+#              pulid_mode + num_inference_steps (4 Lightning default).
+#            * ``fal_seedream.py`` — ``FalSeedreamImageGen`` wrapping
+#              ``fal-ai/bytedance/seedream/v4/edit`` with image_urls +
+#              enhance_prompt_mode + enable_safety_checker (no
+#              output_format / safety_tolerance — Seedream rejects
+#              those fields).
+#            * ``fal_codeformer.py`` — ``FalCodeFormerRestorer`` for
+#              face polish (fidelity 0.5, upscale 2x).
+#            * ``style_router.py`` — ``StyleRouter`` composite
+#              ``ImageGenProvider`` that picks PuLID / Seedream /
+#              fallback per request from ``params["generation_mode"]``.
+#              Handles face-crop failure by degrading an
+#              ``identity_scene`` request to Seedream so the user
+#              still receives an image.
+#            * ``_fal_queue_base.py`` — ``FalQueueClient`` mixin with
+#              the shared submit / poll / fetch / decode + data-URL +
+#              error-parser helpers. PuLID / Seedream / CodeFormer all
+#              inherit from it; legacy ``fal_flux2.py`` / ``fal_flux.py``
+#              / ``fal_gfpgan.py`` / ``fal_esrgan.py`` are left on their
+#              own queue logic for stability (no hot-path refactor
+#              outside the new code).
+#
+#          Style typing (src/prompts/style_spec.py,
+#          src/prompts/style_variants.py):
+#            * ``StyleSpec.generation_mode: Literal[
+#                "identity_scene", "scene_preserve"]`` with
+#              ``detect_generation_mode`` defaulting every non-document
+#              / non-"keep my own photo" style to identity_scene.
+#            * Prompt builder splits into two branches:
+#              ``identity_scene`` (lean scene description + solo-subject
+#              anchor + IDENTITY_SCENE_QUALITY — no PRESERVE_PHOTO /
+#              head-to-body clauses because the ID adapter already
+#              locks the face and repeating identity tokens starves
+#              Lightning's scene budget); ``scene_preserve`` keeps the
+#              v1.17 PRESERVE_PHOTO + QUALITY_PHOTO + IDENTITY_LOCK
+#              stack unchanged.
+#            * ``StyleVariant.concept_signature`` + ``_ROTATION_POOL``
+#              + ``_pad_variants`` guarantee ≥6 conceptually distinct
+#              variants per style (no more "same concept, different
+#              wording" rotations).
+#
+#          Face crop (src/services/face_crop.py): extracts the primary
+#          face, pads 30 %, squares, resizes to 1024×1024 JPEG. Reuses
+#          the existing MediaPipe detector from ``input_quality``;
+#          failure modes (no face, tiny face, decode error) surface as
+#          typed reasons and drive the router's automatic degradation.
+#
+#          Executor (src/orchestrator/executor.py):
+#            * ``single_pass`` threads ``generation_mode`` from
+#              ``StyleSpec`` into ``ImageGenProvider.generate(params=...)``
+#              so the StyleRouter can route correctly.
+#            * ``_apply_codeformer_post`` runs after the main
+#              generation (under ``codeformer_enabled``).
+#            * Retry loop for ``identity_match < soft_threshold``
+#              strengthens PuLID params (``pulid_mode="extreme style"``,
+#              ``id_scale=1.0``, ``num_inference_steps=8``) and records
+#              ``STYLE_MODE_OVERRIDE``.
+#            * ``_estimate_backend_cost`` derives the effective per-call
+#              cost from the StyleSpec's generation_mode for StyleRouter
+#              deployments (PuLID $0.006 vs Seedream $0.03).
+#
+#          Config (src/config.py / .env.example): new ``image_gen_strategy``
+#          (``hybrid`` default / ``legacy`` / ``pulid_only``), PuLID /
+#          Seedream / CodeFormer feature flags + model identifiers +
+#          hyperparameters, plus ``model_cost_fal_pulid``,
+#          ``model_cost_fal_seedream``, ``model_cost_fal_codeformer_per_mp``.
+#
+#          Metrics (src/metrics.py): ``IMAGE_GEN_BACKEND``
+#          (Counter, labels: backend, style_mode), ``GENERATION_COST_USD``
+#          (Histogram, labels: backend), ``PULID_FACE_CROP_FAILED``
+#          (Counter, labels: reason), ``STYLE_MODE_OVERRIDE`` (Counter,
+#          labels: from_mode, to_mode, reason).
+#
+#          Rollout: Phase A — hybrid default on dev + canary to
+#          ``rate_limit_exempt_usernames`` only. Phase B — monitor
+#          GENERATION_COST_USD histogram 48 h, confirm weighted
+#          average < $0.025 and no identity_match regression vs 1.17.1.
+#          Phase C — flip default strategy to ``hybrid`` for all
+#          users; legacy FLUX.2 reachable via
+#          ``IMAGE_GEN_STRATEGY=legacy`` for rollback.
+#
+#          Tests: ``test_fal_pulid.py`` / ``test_fal_seedream.py`` /
+#          ``test_fal_codeformer.py`` (body builders, clamping,
+#          required-reference errors); ``test_style_router.py``
+#          (routing mapping, face-crop fallback, backend summary);
+#          ``test_face_crop.py`` (empty / no-face / tiny-face /
+#          multi-face / degenerate-bbox cases);
+#          ``test_executor_generation_mode.py`` (mode pass-through +
+#          backend label propagation); ``test_hybrid_pipeline_integration.py``
+#          (end-to-end on mocks for identity_scene + scene_preserve +
+#          face-crop-failure degradation); all prompt / positive-framing
+#          / length-budget suites updated for the two-branch prompt
+#          template. 2270+ tests pass.
+APP_VERSION = "1.18.0"

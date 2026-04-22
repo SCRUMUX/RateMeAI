@@ -16,9 +16,12 @@ from src.config import settings
 from src.metrics import (
     FAL_CALLS,
     GENERATION_ATTEMPTS,
+    GENERATION_COST_USD,
     IDENTITY_RETRY_TRIGGERED,
     IDENTITY_SCORE,
+    IMAGE_GEN_BACKEND,
     REVE_CALLS,
+    STYLE_MODE_OVERRIDE,
     estimate_image_gen_cost_usd,
 )
 from src.models.enums import AnalysisMode
@@ -94,6 +97,98 @@ def _apply_local_postprocess(
             logger.debug("upscale_lanczos failed, using original", exc_info=True)
 
     return raw
+
+
+def _estimate_backend_cost(
+    provider_name: str,
+    generation_mode: str,
+    *,
+    image_size: dict | None = None,
+) -> tuple[str, float]:
+    """Estimate per-call cost *and* label the effective backend.
+
+    For StyleRouter deployments the provider class is ``StyleRouter``
+    and the real compute cost depends on the routed backend
+    (PuLID / Seedream / fallback). We use ``generation_mode`` — set
+    by the orchestrator from the StyleSpec — as the proxy. For legacy
+    direct-provider setups we fall back to ``estimate_image_gen_cost_usd``.
+    """
+    cls = (provider_name or "").lower()
+    if cls == "stylerouter":
+        if (generation_mode or "").strip() == "scene_preserve":
+            backend = "seedream"
+            cost = float(
+                getattr(settings, "model_cost_fal_seedream", 0.03)
+            )
+        else:
+            backend = "pulid"
+            cost = float(
+                getattr(settings, "model_cost_fal_pulid", 0.006)
+            )
+        return backend, cost
+
+    backend = cls or "fallback"
+    if "pulid" in cls:
+        backend = "pulid"
+    elif "seedream" in cls:
+        backend = "seedream"
+    elif "flux" in cls or "reve" in cls or "replicate" in cls:
+        backend = "fallback"
+    cost = float(
+        estimate_image_gen_cost_usd(provider_name, image_size=image_size)
+    )
+    return backend, cost
+
+
+async def _apply_codeformer_post(raw: bytes) -> tuple[bytes, bool]:
+    """Run CodeFormer face polish after the main generator.
+
+    v1.18+ — FLUX Lightning (under PuLID) and Seedream-edit both
+    produce slightly soft faces. CodeFormer re-sharpens facial
+    features while ``fidelity`` (~0.5) keeps the identity from
+    drifting toward the "perfect face" restoration extreme.
+
+    Returns ``(bytes, applied)`` where ``applied`` indicates whether
+    CodeFormer actually ran (False = feature disabled, no API key, or
+    provider error — in which case the original bytes are returned).
+    """
+    if not raw or len(raw) <= 100:
+        return raw, False
+    if not bool(getattr(settings, "codeformer_enabled", False)):
+        return raw, False
+
+    try:
+        from src.providers.factory import get_codeformer
+    except Exception:
+        logger.debug("codeformer import failed", exc_info=True)
+        return raw, False
+
+    restorer = get_codeformer()
+    if restorer is None:
+        return raw, False
+    try:
+        out = await restorer.restore(raw)
+    except Exception:
+        logger.warning(
+            "CodeFormer post-process failed, keeping generator output",
+            exc_info=True,
+        )
+        return raw, False
+    if out and len(out) > 100:
+        try:
+            FAL_CALLS.labels(
+                mode="post", step="codeformer",
+                model=getattr(
+                    settings, "codeformer_model", "fal-ai/codeformer",
+                ),
+            ).inc()
+        except Exception:
+            pass
+        return out, True
+    logger.warning(
+        "CodeFormer returned empty payload, keeping generator output",
+    )
+    return raw, False
 
 
 async def _maybe_real_esrgan_upscale(
@@ -267,6 +362,15 @@ class ImageGenerationExecutor:
                     output_size["width"], output_size["height"], mp,
                 )
 
+            # v1.18 hybrid pipeline: thread the StyleSpec generation mode
+            # through ``params`` so :class:`StyleRouter` can route to
+            # PuLID (identity_scene) vs Seedream (scene_preserve). The
+            # field is ignored by legacy non-routing providers.
+            generation_mode = getattr(
+                spec, "generation_mode", "identity_scene",
+            ) if spec is not None else "identity_scene"
+            extra["generation_mode"] = generation_mode
+
             raw = None
             identity_match: float = 0.0
             generation_attempts = 0
@@ -289,8 +393,15 @@ class ImageGenerationExecutor:
                 )
             generation_attempts = 1
 
+            codeformer_applied = False
             if raw and len(raw) > 100:
                 raw = _apply_local_postprocess(raw, mode, style, face_area_ratio)
+                # v1.18: CodeFormer polish BEFORE the final upscale so
+                # the upscaler operates on a face-sharpened source and
+                # doesn't amplify Lightning-softness. Skipped silently
+                # when the flag is off or the provider errors.
+                raw, cf_applied = await _apply_codeformer_post(raw)
+                codeformer_applied = codeformer_applied or cf_applied
                 raw = await _maybe_real_esrgan_upscale(raw, face_area_ratio)
             provider_name = type(self._image_gen).__name__
             # Generic provider-agnostic counter — preserved from the
@@ -389,6 +500,44 @@ class ImageGenerationExecutor:
                         # zero case that some back-ends treat as "use
                         # default seed".
                         retry_params["seed"] = secrets.randbits(31) | 1
+                        # v1.18: if PuLID's identity lock failed hard
+                        # (<5.0), escalate to the strongest knob combo
+                        # the model exposes: ``mode=extreme style`` +
+                        # ``id_scale=1.0``. These are both clamped by
+                        # the provider, so overshooting is safe.
+                        soft_threshold = float(
+                            settings.identity_match_soft_threshold or 0.0
+                        )
+                        is_identity_scene = (
+                            generation_mode == "identity_scene"
+                        )
+                        if (
+                            is_identity_scene
+                            and identity_match > 0.0
+                            and identity_match < soft_threshold
+                        ):
+                            retry_params["pulid_mode"] = "extreme style"
+                            retry_params["id_scale"] = 1.0
+                            # Give the model more budget to recover on
+                            # the second pass — 4 → 8 steps still fits
+                            # comfortably under the per-image cost cap.
+                            retry_params["num_inference_steps"] = max(
+                                8, int(settings.pulid_steps or 4),
+                            )
+                            logger.info(
+                                "PuLID retry strengthened task=%s "
+                                "mode=extreme_style id_scale=1.0 steps=%d",
+                                task_id,
+                                retry_params["num_inference_steps"],
+                            )
+                            try:
+                                STYLE_MODE_OVERRIDE.labels(
+                                    from_mode="identity_scene",
+                                    to_mode="identity_scene",
+                                    reason="retry_escalate_pulid",
+                                ).inc()
+                            except Exception:
+                                pass
                         retry_identity = 0.0
                         retry_check_failed = False
                         try:
@@ -403,6 +552,12 @@ class ImageGenerationExecutor:
                             if retry_raw and len(retry_raw) > 100:
                                 retry_raw = _apply_local_postprocess(
                                     retry_raw, mode, style, face_area_ratio,
+                                )
+                                retry_raw, cf_applied_r = (
+                                    await _apply_codeformer_post(retry_raw)
+                                )
+                                codeformer_applied = (
+                                    codeformer_applied or cf_applied_r
                                 )
                                 retry_raw = await _maybe_real_esrgan_upscale(
                                     retry_raw, face_area_ratio,
@@ -582,28 +737,55 @@ class ImageGenerationExecutor:
                 result_dict["generated_image_url"] = gen_url
                 result_dict["image_url"] = gen_url
 
-                per_call_cost = estimate_image_gen_cost_usd(
-                    provider_name, image_size=extra.get("image_size"),
+                # v1.18: choose the per-call cost estimate based on the
+                # actual backend that served the request (via
+                # generation_mode), rather than always crediting the
+                # provider class name. This keeps the budget math honest
+                # under the StyleRouter — a PuLID call costs ~$0.006,
+                # not the FLUX.2 $0.045.
+                backend_label, per_call_cost = _estimate_backend_cost(
+                    provider_name,
+                    generation_mode,
+                    image_size=extra.get("image_size"),
                 )
                 estimated_cost = per_call_cost * max(1, generation_attempts)
+
+                try:
+                    IMAGE_GEN_BACKEND.labels(
+                        backend=backend_label,
+                        style_mode=generation_mode or "unknown",
+                    ).inc()
+                except Exception:
+                    pass
+                try:
+                    GENERATION_COST_USD.labels(
+                        backend=backend_label,
+                    ).observe(estimated_cost)
+                except Exception:
+                    pass
 
                 result_dict["enhancement"] = {
                     "style": style or "default",
                     "mode": mode.value,
                     "provider": provider_name,
+                    "backend": backend_label,
+                    "generation_mode": generation_mode,
                     "identity_match": round(identity_match, 2),
                     "generation_attempts": generation_attempts,
                     "pipeline_type": "single_pass_edit",
+                    "codeformer_applied": codeformer_applied,
                 }
                 cost_steps = [{
                     "step": "single_pass_edit",
                     "model": provider_name,
+                    "backend": backend_label,
                     "cost_usd": round(per_call_cost, 4),
                 }]
                 if generation_attempts > 1:
                     cost_steps.append({
                         "step": "identity_retry",
                         "model": provider_name,
+                        "backend": backend_label,
                         "cost_usd": round(
                             per_call_cost * (generation_attempts - 1), 4,
                         ),
@@ -634,12 +816,49 @@ class ImageGenerationExecutor:
                         ),
                         "cost_usd": round(esrgan_cost, 4),
                     })
+                # v1.18 — CodeFormer post-process spend.
+                codeformer_cost = 0.0
+                if codeformer_applied:
+                    # Rough per-image estimate: output ≈ 1 MP × 2× upscale
+                    # = 4 MP billable × $0.0021/MP ≈ $0.0084.
+                    per_mp = float(
+                        getattr(
+                            settings,
+                            "model_cost_fal_codeformer_per_mp",
+                            0.0021,
+                        )
+                    )
+                    upscale = float(
+                        getattr(
+                            settings, "codeformer_upscale_factor", 2.0,
+                        )
+                    )
+                    codeformer_cost = round(
+                        per_mp * max(1.0, upscale * upscale), 4,
+                    )
+                    cost_steps.append({
+                        "step": "codeformer",
+                        "model": getattr(
+                            settings,
+                            "codeformer_model",
+                            "fal-ai/codeformer",
+                        ),
+                        "cost_usd": codeformer_cost,
+                    })
                 result_dict["cost_breakdown"] = {
                     "steps": cost_steps,
-                    "total_usd": round(estimated_cost + esrgan_cost, 4),
+                    "total_usd": round(
+                        estimated_cost + esrgan_cost + codeformer_cost, 4,
+                    ),
                     "budget_usd": settings.pipeline_budget_max_usd,
                 }
-                logger.info("Image generated (edit mode): %s (identity_match=%.2f)", gkey, identity_match)
+                logger.info(
+                    "Image generated backend=%s gen_mode=%s key=%s "
+                    "identity_match=%.2f cost=$%.4f",
+                    backend_label, generation_mode, gkey,
+                    identity_match,
+                    estimated_cost + esrgan_cost + codeformer_cost,
+                )
             else:
                 logger.warning("Image gen returned no usable result for task=%s", task_id)
                 result_dict["image_gen_error"] = "empty_result"

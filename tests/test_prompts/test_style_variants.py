@@ -103,6 +103,14 @@ def test_build_dating_prompt_applies_gender_specific_clothing_accent():
 def test_variant_prompts_fit_budget_and_preserve_anchors(mode: str, style: str):
     spec = ig.STYLE_REGISTRY.get(mode, style)
     assert spec is not None
+    # v1.18: identity_scene styles (PuLID) omit the "Preserve the exact
+    # same person" anchor — the model locks identity via the face
+    # reference, and repeating the anchor hurts Lightning's sampling.
+    # scene_preserve styles still ship the anchor.
+    is_identity_scene = (
+        getattr(spec, "generation_mode", "identity_scene")
+        == "identity_scene"
+    )
     for variant in spec.variants:
         for gender in ("male", "female"):
             if mode == "dating":
@@ -115,7 +123,14 @@ def test_variant_prompts_fit_budget_and_preserve_anchors(mode: str, style: str):
                 f"{mode}/{style}/{variant.id}/{gender} "
                 f"prompt too long: {len(prompt)}"
             )
-            assert "Preserve the exact same person" in prompt
+            if is_identity_scene:
+                # Identity-scene prompts ship a scene-focused opener
+                # and a solo-subject anchor; the face reference is
+                # what locks identity at the model level.
+                assert "reference person" in prompt
+                assert "Single subject in frame" in prompt
+            else:
+                assert "Preserve the exact same person" in prompt
             assert "Photorealistic" in prompt
 
 

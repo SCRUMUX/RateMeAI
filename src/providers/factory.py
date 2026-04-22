@@ -89,6 +89,83 @@ def _build_fal_flux2():
     )
 
 
+def _build_fal_pulid():
+    """Construct :class:`FalPuLIDImageGen` from settings (v1.18 hybrid)."""
+    from src.providers.image_gen.fal_pulid import FalPuLIDImageGen
+
+    return FalPuLIDImageGen(
+        api_key=settings.fal_api_key,
+        model=settings.pulid_model,
+        api_host=settings.fal_api_host,
+        id_scale=settings.pulid_id_scale,
+        pulid_mode=settings.pulid_mode,
+        num_inference_steps=settings.pulid_steps,
+        guidance_scale=settings.pulid_guidance_scale,
+        max_retries=settings.fal_max_retries,
+        request_timeout=settings.fal_request_timeout,
+        poll_interval=settings.fal_poll_interval,
+    )
+
+
+def _build_fal_seedream():
+    """Construct :class:`FalSeedreamImageGen` from settings (v1.18 hybrid)."""
+    from src.providers.image_gen.fal_seedream import FalSeedreamImageGen
+
+    return FalSeedreamImageGen(
+        api_key=settings.fal_api_key,
+        model=settings.seedream_model,
+        api_host=settings.fal_api_host,
+        enhance_prompt_mode=settings.seedream_enhance_prompt_mode,
+        max_retries=settings.fal_max_retries,
+        request_timeout=settings.fal_request_timeout,
+        poll_interval=settings.fal_poll_interval,
+    )
+
+
+def _build_style_router():
+    """Assemble :class:`StyleRouter` for hybrid / pulid_only strategies.
+
+    PuLID handles identity_scene requests; Seedream handles
+    scene_preserve. The fallback is FLUX.2 Pro Edit — kept as the "safe
+    choice" when generation_mode is missing, the face crop fails, or a
+    feature flag is off.
+    """
+    from src.providers.image_gen.style_router import StyleRouter
+
+    strategy = (settings.image_gen_strategy or "legacy").strip().lower()
+    pulid = None
+    if settings.pulid_enabled:
+        try:
+            pulid = _build_fal_pulid()
+        except Exception as exc:
+            logger.warning("StyleRouter: PuLID init failed (%s)", exc)
+    seedream = None
+    if settings.seedream_enabled:
+        try:
+            seedream = _build_fal_seedream()
+        except Exception as exc:
+            logger.warning("StyleRouter: Seedream init failed (%s)", exc)
+
+    fallback = _build_fal_flux2()
+
+    # ``pulid_only``: wire Seedream to the same PuLID provider so every
+    # request lands on PuLID regardless of style mode. The face-crop
+    # fallback still routes through the real seedream / fallback path.
+    if strategy == "pulid_only" and pulid is not None:
+        router = StyleRouter(
+            pulid=pulid,
+            seedream=pulid,
+            fallback=fallback,
+        )
+    else:
+        router = StyleRouter(
+            pulid=pulid,
+            seedream=seedream,
+            fallback=fallback,
+        )
+    return router
+
+
 def _log_image_gen_choice(provider: ImageGenProvider, *, reason: str) -> None:
     """Emit a single, high-signal line identifying the chosen provider.
 
@@ -102,15 +179,38 @@ def _log_image_gen_choice(provider: ImageGenProvider, *, reason: str) -> None:
         or getattr(provider, "model", None)
         or "—"
     )
+    strategy = (
+        getattr(settings, "image_gen_strategy", "legacy") or "legacy"
+    )
+    router_summary = ""
+    if hasattr(provider, "backend_summary"):
+        try:
+            summary = provider.backend_summary()  # type: ignore[attr-defined]
+            router_summary = (
+                f" backends={summary}"
+            )
+        except Exception:
+            router_summary = ""
     logger.info(
-        "image-gen provider selected: class=%s model=%s reason=%s "
-        "(IMAGE_GEN_PROVIDER=%s, gfpgan=%s, esrgan=%s, identity_retry=%s)",
-        cls, model, reason,
+        "image-gen strategy=%s provider selected: class=%s model=%s "
+        "reason=%s%s (IMAGE_GEN_PROVIDER=%s, gfpgan=%s, esrgan=%s, "
+        "identity_retry=%s, codeformer=%s)",
+        strategy, cls, model, reason, router_summary,
         (settings.image_gen_provider or "auto"),
         bool(getattr(settings, "gfpgan_preclean_enabled", False)),
         bool(getattr(settings, "real_esrgan_enabled", False)),
         bool(getattr(settings, "identity_retry_enabled", False)),
+        bool(getattr(settings, "codeformer_enabled", False)),
     )
+
+
+def _image_gen_strategy() -> str:
+    s = (
+        getattr(settings, "image_gen_strategy", "legacy") or "legacy"
+    ).strip().lower()
+    if s in ("legacy", "hybrid", "pulid_only"):
+        return s
+    return "legacy"
 
 
 @lru_cache(maxsize=1)
@@ -119,8 +219,41 @@ def get_image_gen() -> ImageGenProvider:
     from src.providers.image_gen.replicate import ReplicateImageGen
     from src.providers.image_gen.reve_provider import ReveImageGen
 
-    mode = _image_gen_provider_mode()
+    strategy = _image_gen_strategy()
     prod = settings.is_production
+
+    # Hybrid / pulid_only: assemble StyleRouter (PuLID + Seedream +
+    # FLUX.2 fallback). Any init failure in the sub-providers degrades
+    # gracefully — StyleRouter already handles a missing PuLID/Seedream.
+    if strategy in ("hybrid", "pulid_only"):
+        if not (settings.fal_api_key or "").strip():
+            if prod:
+                raise RuntimeError(
+                    f"IMAGE_GEN_STRATEGY={strategy} requires FAL_API_KEY "
+                    "(PuLID + Seedream + FLUX.2 all live on FAL)",
+                )
+            p = MockImageGen()
+            _log_image_gen_choice(
+                p, reason=f"strategy={strategy} but no FAL_API_KEY (dev)",
+            )
+            return p
+        try:
+            p = _build_style_router()
+        except Exception as exc:
+            logger.exception(
+                "StyleRouter assembly failed, falling back to FLUX.2: %s",
+                exc,
+            )
+            p = _build_fal_flux2()
+            _log_image_gen_choice(
+                p, reason=f"strategy={strategy} → router failed, FLUX.2",
+            )
+            return p
+        _log_image_gen_choice(p, reason=f"strategy={strategy}")
+        return p
+
+    # Legacy strategy: honour IMAGE_GEN_PROVIDER as before.
+    mode = _image_gen_provider_mode()
 
     if mode == "mock":
         p = MockImageGen()
@@ -227,3 +360,33 @@ def get_llm() -> LLMProvider:
         base_url=settings.openrouter_base_url,
         model=settings.openrouter_model,
     )
+
+
+@lru_cache(maxsize=1)
+def get_codeformer():
+    """Return a CodeFormer post-processor or ``None`` when disabled.
+
+    v1.18+ — the executor runs CodeFormer after the main generator to
+    polish Lightning-soft faces. Any missing FAL_API_KEY or disabled
+    feature flag returns ``None`` and the executor skips the stage.
+    """
+    if not bool(getattr(settings, "codeformer_enabled", False)):
+        return None
+    if not (settings.fal_api_key or "").strip():
+        return None
+    from src.providers.image_gen.fal_codeformer import FalCodeFormerRestorer
+
+    try:
+        return FalCodeFormerRestorer(
+            api_key=settings.fal_api_key,
+            model=settings.codeformer_model,
+            api_host=settings.fal_api_host,
+            fidelity=settings.codeformer_fidelity,
+            upscale_factor=settings.codeformer_upscale_factor,
+            max_retries=settings.fal_max_retries,
+            request_timeout=settings.fal_request_timeout,
+            poll_interval=settings.fal_poll_interval,
+        )
+    except Exception as exc:
+        logger.warning("CodeFormer init failed: %s", exc)
+        return None
