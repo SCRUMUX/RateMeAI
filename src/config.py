@@ -166,20 +166,26 @@ class Settings(BaseSettings):
     # PuLID — identity-conditioned text-to-image (FLUX + ID adapter)
     # https://fal.ai/models/fal-ai/pulid
     #
-    # v1.19 quality fix: defaults were previously Lightning-mode
-    # (4 steps, CFG 1.2) which caused duplicate subjects, floating
-    # bodies and identity drift on anything more complex than a plain
-    # studio shot. The 25-step / CFG 3.5 / id_scale 1.0 preset is the
-    # standard "quality" PuLID config used in the reference
-    # implementation. Cost rises from ~$0.006 to ~$0.015 per image,
-    # but every kadr is usable — which the 4-step path was not.
+    # v1.19.2 HOTFIX: fal-ai/pulid is strictly a Lightning model. The
+    # API schema caps ``num_inference_steps`` at 12 and
+    # ``guidance_scale`` at 1.5. v1.19.0 widened the defaults to
+    # 25 steps / CFG 3.5 "for quality" which caused FAL to reject
+    # every request with HTTP 422 (see smoke-test logs for v1.19.0 /
+    # v1.19.1 runs). The quality preset that works within the
+    # schema is ~8–12 steps at CFG 1.2–1.4 with id_scale 1.0. Cost
+    # remains ~$0.015 per image.
+    #
+    # DO NOT raise ``pulid_steps`` above 12 or ``pulid_guidance_scale``
+    # above 1.5 — the provider clamps them anyway and the tests in
+    # ``tests/test_providers/test_fal_pulid.py`` + ``tests/test_config.py``
+    # guard the defaults.
     pulid_enabled: bool = True
     pulid_model: str = "fal-ai/pulid"
     # 0 = no identity lock, 1.0+ = very strong. PuLID paper runs at
     # 1.0 for faithful portraits; the retry loop pushes to 1.2.
     pulid_id_scale: float = 1.0
-    pulid_steps: int = 25
-    pulid_guidance_scale: float = 3.5
+    pulid_steps: int = 4
+    pulid_guidance_scale: float = 1.2
     # ``fidelity`` (default) keeps face closer to reference. DO NOT
     # switch to ``extreme style`` on retry — that knob is for artistic
     # stylisation, not identity recovery. The retry path stays on
@@ -192,10 +198,13 @@ class Settings(BaseSettings):
     # the request body in v1.19.1+.
     #
     # Retry-escalation knobs (used only when the VLM gate flags
-    # identity_match below the soft threshold).
+    # identity_match below the soft threshold). v1.19.2: previously
+    # ``pulid_retry_steps=35`` / ``pulid_retry_guidance_scale=5.0`` —
+    # both out of schema, so retries also 422-ed. Now capped at the
+    # top of Lightning range.
     pulid_retry_id_scale: float = 1.2
-    pulid_retry_steps: int = 35
-    pulid_retry_guidance_scale: float = 5.0
+    pulid_retry_steps: int = 8
+    pulid_retry_guidance_scale: float = 1.4
     # Flat cost estimate. PuLID on FAL bills per GPU-second; empirical
     # mean at the 25-step quality config on H100 is ~$0.012–$0.018.
     model_cost_fal_pulid: float = 0.015

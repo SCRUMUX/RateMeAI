@@ -590,14 +590,14 @@ class ImageGenerationExecutor:
                             ))
                             retry_params["num_inference_steps"] = int(
                                 getattr(
-                                    settings, "pulid_retry_steps", 35,
+                                    settings, "pulid_retry_steps", 8,
                                 )
                             )
                             retry_params["guidance_scale"] = float(
                                 getattr(
                                     settings,
                                     "pulid_retry_guidance_scale",
-                                    5.0,
+                                    1.4,
                                 )
                             )
                             logger.info(

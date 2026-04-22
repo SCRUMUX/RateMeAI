@@ -491,4 +491,34 @@
 #          they are orthogonal to the broken key and were not in
 #          effect because every call was failing at validation before
 #          ever reaching the sampler.
-APP_VERSION = "1.19.1"
+# 1.19.2 — HOTFIX: v1.19.0/.1 kept the "quality" PuLID preset
+#          (num_inference_steps=25, guidance_scale=3.5, retry 35/5.0)
+#          on the false premise that fal-ai/pulid accepts the full
+#          FLUX range. It does not — the public schema is strictly
+#          Lightning:
+#            loc=['body','num_inference_steps']  max=12
+#            loc=['body','guidance_scale']       max=1.5
+#          so every identity_scene call returned HTTP 422 ("phase=
+#          result") and the CI image-gen-probe failed on every deploy.
+#
+#          Fix: re-tightened the clamps in
+#          ``src/providers/image_gen/fal_pulid.py`` — constructor AND
+#          ``_build_body`` — to ``steps ≤ 12`` / ``1.0 ≤ guidance ≤
+#          1.5``; lowered defaults in ``src/config.py`` to
+#          ``pulid_steps=4``, ``pulid_guidance_scale=1.2``,
+#          ``pulid_retry_steps=8``, ``pulid_retry_guidance_scale=1.4``
+#          (inside the Lightning band yet still escalating on retry);
+#          mirrored in ``.env.example``. Cost stays at ~$0.015/image
+#          because PuLID bills per GPU-second and these are the same
+#          Lightning configs the original model card uses.
+#
+#          Regression guards: three new tests in
+#          ``tests/test_providers/test_fal_pulid.py``
+#          (``test_body_clamps_steps_to_lightning_max``,
+#          ``test_body_clamps_guidance_to_lightning_max``,
+#          ``test_body_defaults_honour_pulid_lightning_schema``) plus
+#          a new ``tests/test_config.py``
+#          (``test_pulid_defaults_within_lightning_schema``) fail
+#          immediately if anyone ever tries to re-widen the defaults
+#          again.
+APP_VERSION = "1.19.2"

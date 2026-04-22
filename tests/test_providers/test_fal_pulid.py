@@ -48,8 +48,10 @@ def test_requires_api_key():
 
 
 def test_defaults_are_clamped_in_constructor():
-    # v1.19 — widened clamps: steps [1, 50], guidance [1.0, 10.0],
-    # id_scale [0.01, 5.0].
+    # v1.19.2 — fal-ai/pulid is strictly a Lightning model: schema
+    # caps ``num_inference_steps`` at 12 and ``guidance_scale`` at 1.5.
+    # id_scale remains [0.01, 5.0]. v1.19.0 widened these to 50 / 10.0
+    # and bricked prod with HTTP 422.
     gen = _make_gen(
         id_scale=9.0,
         num_inference_steps=200,
@@ -57,8 +59,8 @@ def test_defaults_are_clamped_in_constructor():
         pulid_mode="not-a-real-mode",
     )
     assert gen._id_scale == 5.0
-    assert gen._steps == 50
-    assert gen._guidance_scale == 10.0
+    assert gen._steps == 12
+    assert gen._guidance_scale == 1.5
     assert gen._mode == "fidelity"
 
 
@@ -91,20 +93,21 @@ def test_body_rejects_missing_reference():
 
 
 def test_body_honours_retry_params_from_executor():
-    # v1.19 retry path: executor escalates id_scale / steps / guidance
+    # v1.19.2 retry path: executor escalates id_scale / steps / guidance
     # on identity_match failures, and stays on mode=fidelity (NOT
-    # extreme style, which actually weakens identity).
+    # extreme style, which actually weakens identity). Retry values
+    # must stay inside the Lightning schema (steps ≤ 12, CFG ≤ 1.5).
     gen = _make_gen(pulid_mode="fidelity", id_scale=0.5)
     body = gen._build_body(
         "retry prompt",
         _jpeg_bytes(),
         {"pulid_mode": "fidelity", "id_scale": 1.2,
-         "num_inference_steps": 35, "guidance_scale": 5.0},
+         "num_inference_steps": 8, "guidance_scale": 1.4},
     )
     assert body["mode"] == "fidelity"
     assert body["id_scale"] == 1.2
-    assert body["num_inference_steps"] == 35
-    assert body["guidance_scale"] == 5.0
+    assert body["num_inference_steps"] == 8
+    assert body["guidance_scale"] == 1.4
 
 
 def test_body_clamps_out_of_range_id_scale():
@@ -116,15 +119,52 @@ def test_body_clamps_out_of_range_id_scale():
     assert body["id_scale"] == 5.0
 
 
-def test_body_clamps_steps_and_guidance():
-    # v1.19 widened clamps: steps [1, 50], guidance [1.0, 10.0].
+def test_body_clamps_steps_to_lightning_max():
+    # v1.19.2 regression guard — fal-ai/pulid schema caps
+    # ``num_inference_steps`` at 12. Anything above must be clamped
+    # silently; passing the raw value through returns HTTP 422.
     gen = _make_gen()
-    body = gen._build_body(
+    for requested in (13, 25, 50, 200):
+        body = gen._build_body(
+            "x", _jpeg_bytes(),
+            {"num_inference_steps": requested},
+        )
+        assert body["num_inference_steps"] == 12, (
+            f"steps={requested} must clamp to 12, got "
+            f"{body['num_inference_steps']}"
+        )
+
+
+def test_body_clamps_guidance_to_lightning_max():
+    # v1.19.2 regression guard — fal-ai/pulid schema caps
+    # ``guidance_scale`` at 1.5. Anything above must be clamped.
+    gen = _make_gen()
+    for requested in (1.6, 3.5, 5.0, 25.0):
+        body = gen._build_body(
+            "x", _jpeg_bytes(),
+            {"guidance_scale": requested},
+        )
+        assert body["guidance_scale"] == 1.5, (
+            f"guidance={requested} must clamp to 1.5, got "
+            f"{body['guidance_scale']}"
+        )
+
+
+def test_body_defaults_honour_pulid_lightning_schema():
+    # v1.19.2 regression guard — every body emitted by the provider
+    # must fit the fal-ai/pulid Lightning schema regardless of what
+    # the caller asked for.
+    gen = _make_gen(num_inference_steps=50, guidance_scale=10.0)
+    body_default = gen._build_body("x", _jpeg_bytes(), None)
+    assert body_default["num_inference_steps"] <= 12
+    assert body_default["guidance_scale"] <= 1.5
+
+    body_extras = gen._build_body(
         "x", _jpeg_bytes(),
-        {"num_inference_steps": 200, "guidance_scale": 25.0},
+        {"num_inference_steps": 999, "guidance_scale": 42.0},
     )
-    assert body["num_inference_steps"] == 50
-    assert body["guidance_scale"] == 10.0
+    assert body_extras["num_inference_steps"] <= 12
+    assert body_extras["guidance_scale"] <= 1.5
 
 
 def test_body_ships_negative_prompt_by_default():

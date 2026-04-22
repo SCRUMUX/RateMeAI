@@ -134,15 +134,20 @@ class FalPuLIDImageGen(FalQueueClient, ImageGenProvider):
             poll_interval=poll_interval,
             label="PuLID",
         )
-        # v1.19 — widen id_scale / steps / guidance clamps to cover
-        # PuLID's full operational range. Earlier clamps were tuned for
-        # Lightning (4 steps, CFG ≤1.5) and were clipping the quality
-        # preset we now ship by default.
+        # v1.19.2 — re-tighten steps / guidance clamps to match the
+        # *actual* fal-ai/pulid schema, which is Lightning-only:
+        # num_inference_steps ∈ [1, 12], guidance_scale ∈ [1.0, 1.5].
+        # v1.19.0 widened these to [1, 50] / [1.0, 10.0] on the
+        # assumption that PuLID accepted the full FLUX range — FAL
+        # responded with HTTP 422 on every call, bricking prod
+        # identity_scene generation (see _diag/commit_msg_v1_19_0.txt
+        # and CI smoke logs for v1.19.1). id_scale remains wide —
+        # the schema there is [0, 5].
         self._id_scale = max(0.01, min(5.0, float(id_scale)))
         mode = (pulid_mode or "fidelity").strip()
         self._mode = mode if mode in _PULID_MODES else "fidelity"
-        self._steps = max(1, min(50, int(num_inference_steps)))
-        self._guidance_scale = max(1.0, min(10.0, float(guidance_scale)))
+        self._steps = max(1, min(12, int(num_inference_steps)))
+        self._guidance_scale = max(1.0, min(1.5, float(guidance_scale)))
         self._default_image_size = default_image_size
         self._negative_prompt = (
             negative_prompt.strip()
@@ -225,11 +230,14 @@ class FalPuLIDImageGen(FalQueueClient, ImageGenProvider):
         }
 
         body["id_scale"] = max(0.01, min(5.0, body["id_scale"]))
+        # v1.19.2 — Lightning schema: steps ≤ 12, guidance ≤ 1.5. Anything
+        # above these returns HTTP 422 from fal-ai/pulid. DO NOT widen
+        # without updating tests/test_providers/test_fal_pulid.py.
         body["num_inference_steps"] = max(
-            1, min(50, int(body["num_inference_steps"])),
+            1, min(12, int(body["num_inference_steps"])),
         )
         body["guidance_scale"] = max(
-            1.0, min(10.0, float(body["guidance_scale"])),
+            1.0, min(1.5, float(body["guidance_scale"])),
         )
         if body["mode"] not in _PULID_MODES:
             body["mode"] = "fidelity"
