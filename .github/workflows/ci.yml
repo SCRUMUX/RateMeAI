@@ -114,11 +114,35 @@ jobs:
         run: |
           set -e
           FAILED=0
+          # Railway GraphQL (backboard.railway.com) периодически ловит
+          # transient timeouts при burst-записи переменных. Один-два
+          # случайных 30-сек. таймаута в серии из ~35 вызовов — это
+          # норма для их API, но раньше они валили весь шаг и требовали
+          # ручного `gh run rerun --failed`. Обёртка делает 3 попытки
+          # с экспоненциальным backoff (2s → 5s → 10s) — успешно
+          # переживаем любой одиночный сетевой сбой, и только устойчивый
+          # отказ помечает шаг как failed.
           rl_set() {
-            if ! railway variables set "$@"; then
-              echo "::error::Failed to set Railway variable: $1"
-              FAILED=1
-            fi
+            local attempt=1
+            local max_attempts=3
+            local delay=2
+            while [ "$attempt" -le "$max_attempts" ]; do
+              if railway variables set "$@"; then
+                return 0
+              fi
+              if [ "$attempt" -lt "$max_attempts" ]; then
+                echo "::warning::railway variables set attempt $attempt failed for $1 — retrying in ${delay}s"
+                sleep "$delay"
+                delay=$((delay * 2 + 1))
+              fi
+              attempt=$((attempt + 1))
+            done
+            echo "::error::Failed to set Railway variable after ${max_attempts} attempts: $1"
+            FAILED=1
+            # Return 0 so `set -e` does not abort the whole step on the
+            # first terminal failure — we want every variable to get its
+            # shot and then fail the step at the end via FAILED != 0.
+            return 0
           }
           SHORT_SHA="${GITHUB_SHA:0:12}"
           rl_set DEPLOY_GIT_SHA="$SHORT_SHA" -s app -e production --skip-deploys
