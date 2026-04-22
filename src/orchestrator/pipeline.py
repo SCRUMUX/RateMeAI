@@ -25,6 +25,7 @@ from src.utils.image import validate_and_normalize
 from src.services.input_quality import analyze_input_quality, InputQualityReport
 from src.utils.redis_keys import preanalysis_cache_keys
 from src.utils.security import extract_nsfw_from_analysis
+from src.services.face_prerestore import prerestore_if_needed
 from src.tracing import async_span
 
 logger = logging.getLogger(__name__)
@@ -186,9 +187,34 @@ class AnalysisPipeline:
                 "decision": "Single-pass",
                 "reason": "Multi-pass is reserved in orchestrator.advanced and not wired into the runtime",
             })
+
+            # v1.17 — optional GFPGAN face pre-clean for clearly blurry
+            # inputs. Strictly opt-in via ``settings.gfpgan_preclean_enabled``
+            # and further gated by Laplacian thresholds inside
+            # ``prerestore_if_needed``. Failures fold back to the original
+            # bytes — this stage must never take down the main pipeline.
+            with _trace_step(trace, "face_prerestore") as pre_entry:
+                generation_bytes, prerestore_info = await prerestore_if_needed(
+                    image_bytes, input_quality,
+                )
+                pre_entry["info"] = prerestore_info
+            if prerestore_info.get("applied"):
+                trace["decisions"].append({
+                    "phase": "face_prerestore",
+                    "decision": "GFPGAN pre-clean applied",
+                    "reason": (
+                        f"blur_face={prerestore_info.get('blur_face')}, "
+                        f"blur_full={prerestore_info.get('blur_full')}"
+                    ),
+                })
+                result_dict.setdefault(
+                    "enhancement_prepipeline", {},
+                )["gfpgan_preclean"] = True
+
             with _trace_step(trace, "generate_image"):
                 await self._executor.single_pass(
-                    mode, style, image_bytes, result_dict, user_id, task_id, trace,
+                    mode, style, generation_bytes, result_dict, user_id,
+                    task_id, trace,
                     gender=gender,
                     input_quality=input_quality,
                     variant_id=variant_id,

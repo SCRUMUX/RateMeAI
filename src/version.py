@@ -146,4 +146,109 @@
 #          and explicit fal_flux2 provider branch;
 #          ``test_full_body_prompt_adaptation.py`` revised to reflect
 #          the framing-note removal.
-APP_VERSION = "1.16.0"
+# 1.17.0 — Identity-stable generation bundle (prompt hardening + VLM
+#          retry + conditional GFPGAN pre-clean + Real-ESRGAN final
+#          upscale + adaptive image size for full-body × small face).
+#          No biometric embeddings collected at any stage; identity
+#          preservation remains driven purely by the existing VLM
+#          quality gate.
+#
+#          Prompt hardening (src/prompts/image_gen.py):
+#            * PRESERVE_PHOTO / PRESERVE_PHOTO_FACE_ONLY rewritten with
+#              stronger identity anchors — "unmistakably recognizable",
+#              "identical face (bone structure, eye shape and color,
+#              nose, mouth, jawline, ears, hairline, hair color and
+#              parting)", "same natural pores and micro-asymmetry".
+#            * PRESERVE_PHOTO_FACE_ONLY dropped the "natural full-body
+#              pose fitting the scene" phrase that gave FLUX too much
+#              licence — now "body pose fitting the new scene", letting
+#              the scene description drive the pose without inviting a
+#              plastic rewrite of the body.
+#            * New IDENTITY_LOCK_SUFFIX appended to every non-document
+#              prompt (positive framing only, under 80 chars budget).
+#            * Dating/social change instructions now include "exact
+#              same facial features, bone structure" in both full-body
+#              and close-up branches.
+#
+#          VLM-driven identity retry (src/orchestrator/executor.py):
+#            * When the first FLUX pass returns identity_match below
+#              settings.identity_match_threshold (numeric score, not a
+#              VLM exception), single_pass re-runs generate() with a
+#              fresh random seed and keeps whichever candidate has the
+#              higher score.
+#            * Capped at settings.identity_retry_max_attempts (default
+#              1) additional calls.
+#            * quality_check_failed=True still short-circuits the retry
+#              — there's no numeric signal to optimise against.
+#            * New config knobs: IDENTITY_RETRY_ENABLED (default on) /
+#              IDENTITY_RETRY_MAX_ATTEMPTS=1.
+#            * New Prometheus metrics: IDENTITY_RETRY_TRIGGERED
+#              (Counter, labels: mode, result=[success|still_fail]);
+#              GENERATION_ATTEMPTS (Histogram, labels: mode, buckets
+#              1–4); FAL_CALLS gets an extra step label `identity_retry`
+#              for cost attribution.
+#            * cost_breakdown now itemises the retry as a separate
+#              step when it actually ran.
+#            * Budget impact: +$0.007 average at a 15 % trigger rate.
+#
+#          Adaptive output size (src/prompts/image_gen.py):
+#            * resolve_output_size(spec, face_area_ratio=None) now
+#              downgrades full-body styles with a tiny face
+#              (face_area_ratio < 0.10) from the default 2 MP portrait
+#              to 1 MP square_hd. FLUX.2 at 2 MP on full-body tends to
+#              spend its attention budget on scenery; at 1 MP the face
+#              gets a larger slice, Real-ESRGAN brings the resolution
+#              back. Existing callers (face_area_ratio=None) keep the
+#              previous 2 MP behaviour.
+#
+#          Conditional GFPGAN pre-clean (new providers/service):
+#            * New httpx client FalGfpganRestorer (fal-ai/gfpgan),
+#              mirroring the FAL queue wire-protocol used by FLUX.2.
+#            * New service ``prerestore_if_needed`` activates GFPGAN
+#              only when the input is clearly blurry
+#              (blur_face < 120 OR blur_full < 150) and
+#              input_quality.can_generate is true. Any provider
+#              failure folds back to the original bytes — the pre-
+#              clean is never load-bearing.
+#            * AnalysisPipeline._execute_inner runs the pre-clean
+#              between _preprocess and _executor.single_pass.
+#            * VLM identity comparison is intentionally performed
+#              against the (possibly pre-cleaned) bytes; GFPGAN does
+#              not relocate facial landmarks, so identity_match is
+#              still a meaningful signal.
+#            * Feature flag GFPGAN_PRECLEAN_ENABLED (default OFF on
+#              first deploy — flipped on via Railway env post-smoke).
+#            * Cost: ~$0.002 per applied case, ~20–30 % activity
+#              rate → ≈+$0.0005/image on average.
+#
+#          Real-ESRGAN final upscale (new provider / executor hook):
+#            * New httpx client FalRealEsrganUpscaler
+#              (fal-ai/real-esrgan, scale clamped to {2,3,4}).
+#            * _maybe_real_esrgan_upscale replaces the sync PIL LANCZOS
+#              x2 step when real_esrgan_enabled is on and face_area_ratio
+#              >= 0.15. Any provider failure falls back to upscale_lanczos
+#              (then to the raw bytes as a last resort).
+#            * Feature flag REAL_ESRGAN_ENABLED (default OFF on first
+#              deploy).
+#            * Cost: ~$0.002 per applied case, ~70 % activity rate →
+#              ≈+$0.0014/image on average.
+#
+#          Config surface (src/config.py, .env.example):
+#            * New fields: identity_retry_enabled,
+#              identity_retry_max_attempts, gfpgan_preclean_enabled,
+#              gfpgan_model, real_esrgan_enabled, real_esrgan_model,
+#              model_cost_fal_gfpgan, model_cost_fal_real_esrgan.
+#
+#          Tests: test_preserve_text (identity-anchor invariants +
+#          length budget + IDENTITY_LOCK_SUFFIX); test_identity_retry
+#          (five cases covering trigger, no-improvement keep-original,
+#          quality_check_failed short-circuit, feature flag off,
+#          already-passing score); test_fal_gfpgan / test_fal_esrgan
+#          (queue body shape + happy path + error semantics);
+#          test_face_prerestore (activation rules + provider-failure
+#          fallback).
+#
+#          Target budget (average): ~$0.053/image — still under the
+#          $0.06 soft cap. Worst case (retry + GFPGAN + ESRGAN):
+#          ~$0.099 — very rare.
+APP_VERSION = "1.17.0"

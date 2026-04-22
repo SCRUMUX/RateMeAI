@@ -9,11 +9,14 @@ from __future__ import annotations
 
 import hashlib
 import logging
+import secrets
 from typing import Any, Callable, Awaitable
 
 from src.config import settings
 from src.metrics import (
     FAL_CALLS,
+    GENERATION_ATTEMPTS,
+    IDENTITY_RETRY_TRIGGERED,
     IDENTITY_SCORE,
     REVE_CALLS,
     estimate_image_gen_cost_usd,
@@ -63,6 +66,10 @@ def _apply_local_postprocess(
     This replaces the previous Reve ``postprocessing=[{upscale}]`` and
     ``aspect_ratio`` fields that the Reve REST API does not accept.
     Silent-safe: any PIL failure returns the original bytes.
+
+    When ``settings.real_esrgan_enabled`` is True the LANCZOS upscale
+    step is skipped — a proper diffusion-aware upscale runs later in
+    :func:`_maybe_real_esrgan_upscale` (with LANCZOS as a fallback).
     """
     if not raw or len(raw) <= 100:
         return raw
@@ -75,13 +82,99 @@ def _apply_local_postprocess(
             except Exception:
                 logger.debug("crop_to_aspect failed, using original", exc_info=True)
 
-    if face_area_ratio and face_area_ratio >= _UPSCALE_FACE_THRESHOLD:
+    esrgan_enabled = bool(getattr(settings, "real_esrgan_enabled", False))
+    if (
+        face_area_ratio
+        and face_area_ratio >= _UPSCALE_FACE_THRESHOLD
+        and not esrgan_enabled
+    ):
         try:
             raw = upscale_lanczos(raw, factor=2)
         except Exception:
             logger.debug("upscale_lanczos failed, using original", exc_info=True)
 
     return raw
+
+
+async def _maybe_real_esrgan_upscale(
+    raw: bytes, face_area_ratio: float,
+) -> bytes:
+    """Final upscale via fal-ai/real-esrgan, with LANCZOS fallback.
+
+    v1.17 replacement for the sync LANCZOS path in
+    :func:`_apply_local_postprocess`. Runs only when:
+
+      * ``settings.real_esrgan_enabled`` is True (feature flag — default
+        off on a fresh deploy);
+      * ``face_area_ratio`` exceeds :data:`_UPSCALE_FACE_THRESHOLD` —
+        tiny faces do not benefit from upscaling and we skip the spend.
+
+    Any failure (transport, API error, empty result) folds back to a
+    local PIL LANCZOS x2 — upscaling is always optional, never
+    load-bearing.
+    """
+    if not raw or len(raw) <= 100:
+        return raw
+    if not bool(getattr(settings, "real_esrgan_enabled", False)):
+        return raw
+    if not face_area_ratio or face_area_ratio < _UPSCALE_FACE_THRESHOLD:
+        return raw
+
+    api_key = getattr(settings, "fal_api_key", None) or ""
+    if not api_key:
+        logger.debug("Real-ESRGAN skipped: FAL_API_KEY is empty")
+        try:
+            return upscale_lanczos(raw, factor=2)
+        except Exception:
+            return raw
+
+    try:
+        from src.providers.image_gen.fal_esrgan import FalRealEsrganUpscaler
+    except Exception:
+        logger.warning(
+            "Real-ESRGAN import failed, falling back to LANCZOS",
+            exc_info=True,
+        )
+        try:
+            return upscale_lanczos(raw, factor=2)
+        except Exception:
+            return raw
+
+    try:
+        upscaler = FalRealEsrganUpscaler(
+            api_key=api_key,
+            model=getattr(
+                settings, "real_esrgan_model", "fal-ai/real-esrgan",
+            ),
+        )
+        out = await upscaler.upscale(raw, factor=2)
+        if out and len(out) > 100:
+            try:
+                FAL_CALLS.labels(
+                    mode="post", step="real_esrgan",
+                    model=getattr(
+                        settings,
+                        "real_esrgan_model",
+                        "fal-ai/real-esrgan",
+                    ),
+                ).inc()
+            except Exception:
+                pass
+            return out
+        logger.warning(
+            "Real-ESRGAN returned empty payload, falling back to LANCZOS",
+        )
+    except Exception:
+        logger.warning(
+            "Real-ESRGAN failed, falling back to LANCZOS",
+            exc_info=True,
+        )
+
+    try:
+        return upscale_lanczos(raw, factor=2)
+    except Exception:
+        logger.debug("LANCZOS fallback also failed, keeping original", exc_info=True)
+        return raw
 
 logger = logging.getLogger(__name__)
 
@@ -162,7 +255,9 @@ class ImageGenerationExecutor:
             # headshot/full-body, 1 MP square for documents). Legacy
             # Reve / Kontext providers silently ignore the key.
             spec = STYLE_REGISTRY.get(mode.value, style)
-            output_size = resolve_output_size(spec)
+            output_size = resolve_output_size(
+                spec, face_area_ratio=face_area_ratio or None,
+            )
             if output_size:
                 extra["image_size"] = output_size
                 mp = (output_size["width"] * output_size["height"]) / 1_000_000
@@ -174,6 +269,7 @@ class ImageGenerationExecutor:
 
             raw = None
             identity_match: float = 0.0
+            generation_attempts = 0
 
             will_upscale = bool(
                 mode in (AnalysisMode.CV, AnalysisMode.DATING, AnalysisMode.SOCIAL)
@@ -191,9 +287,11 @@ class ImageGenerationExecutor:
                     prompt, reference_image=image_bytes,
                     params=extra or None,
                 )
+            generation_attempts = 1
 
             if raw and len(raw) > 100:
                 raw = _apply_local_postprocess(raw, mode, style, face_area_ratio)
+                raw = await _maybe_real_esrgan_upscale(raw, face_area_ratio)
             provider_name = type(self._image_gen).__name__
             # Generic provider-agnostic counter — preserved from the
             # Reve-first era for dashboards that key off it.
@@ -244,6 +342,167 @@ class ImageGenerationExecutor:
                     identity_match = float(sp_report.get("identity_match") or 0.0)
                     if identity_match:
                         IDENTITY_SCORE.observe(identity_match / 10.0)
+
+                    # v1.17: VLM-driven identity retry loop.
+                    # If the first generation came back with
+                    # identity_match < threshold (a numeric score, not a
+                    # VLM-check failure), re-run generate() with a fresh
+                    # random seed and keep whichever output has the higher
+                    # identity_match. We ignore quality_check_failed paths —
+                    # the VLM can't tell us anything useful about that run
+                    # and retrying doubles the cost without a decision
+                    # signal. Capped at settings.identity_retry_max_attempts
+                    # additional attempts (default 1).
+                    retry_enabled = bool(
+                        getattr(settings, "identity_retry_enabled", False)
+                    )
+                    try:
+                        _cfg_max = getattr(
+                            settings, "identity_retry_max_attempts", 0,
+                        )
+                        max_total_attempts = 1 + max(0, int(_cfg_max or 0))
+                    except (TypeError, ValueError):
+                        max_total_attempts = 1
+
+                    first_check_failed = bool(
+                        sp_report.get("quality_check_failed")
+                    )
+                    should_retry = (
+                        retry_enabled
+                        and not first_check_failed
+                        and identity_match > 0.0
+                        and identity_match < float(
+                            settings.identity_match_threshold or 0.0
+                        )
+                        and generation_attempts < max_total_attempts
+                    )
+
+                    if should_retry:
+                        logger.info(
+                            "Identity retry triggered task=%s identity=%.2f threshold=%.2f",
+                            task_id, identity_match,
+                            float(settings.identity_match_threshold or 0.0),
+                        )
+                        retry_params = dict(extra) if extra else {}
+                        # Fresh positive 31-bit seed — matches the FAL
+                        # provider default domain; | 1 avoids the rare
+                        # zero case that some back-ends treat as "use
+                        # default seed".
+                        retry_params["seed"] = secrets.randbits(31) | 1
+                        retry_identity = 0.0
+                        retry_check_failed = False
+                        try:
+                            with _trace_step(trace, "image_gen_retry"):
+                                retry_raw = await self._image_gen.generate(
+                                    prompt,
+                                    reference_image=image_bytes,
+                                    params=retry_params,
+                                )
+                            generation_attempts += 1
+
+                            if retry_raw and len(retry_raw) > 100:
+                                retry_raw = _apply_local_postprocess(
+                                    retry_raw, mode, style, face_area_ratio,
+                                )
+                                retry_raw = await _maybe_real_esrgan_upscale(
+                                    retry_raw, face_area_ratio,
+                                )
+                                # Duplicate the FAL counter for the retry
+                                # call so cost dashboards reflect the
+                                # extra spend.
+                                if "falflux" in provider_name.lower():
+                                    fal_model = (
+                                        settings.fal2_model
+                                        if "falflux2" in provider_name.lower()
+                                        else settings.fal_model
+                                    )
+                                    try:
+                                        FAL_CALLS.labels(
+                                            mode=mode.value,
+                                            step="identity_retry",
+                                            model=fal_model,
+                                        ).inc()
+                                    except Exception:
+                                        pass
+
+                                with _trace_step(
+                                    trace, "single_pass_gates_retry",
+                                ) as rp_entry:
+                                    (
+                                        retry_passed,
+                                        retry_results,
+                                        retry_report,
+                                    ) = await gate_runner.run_global_gates(
+                                        sp_gates, image_bytes, retry_raw,
+                                    )
+                                    rp_entry["gates"] = [
+                                        {
+                                            "gate": gr.gate_name,
+                                            "passed": gr.passed,
+                                            "value": gr.value,
+                                        }
+                                        for gr in retry_results
+                                    ]
+                                retry_identity = float(
+                                    retry_report.get("identity_match") or 0.0
+                                )
+                                retry_check_failed = bool(
+                                    retry_report.get("quality_check_failed")
+                                )
+
+                                # Keep the retry only if it delivers a
+                                # strictly higher identity_match and the
+                                # VLM check did not blow up on it. Ties
+                                # fall back to the original — no reason
+                                # to pay an extra FAL call and pick the
+                                # later output arbitrarily.
+                                if (
+                                    not retry_check_failed
+                                    and retry_identity > identity_match
+                                ):
+                                    raw = retry_raw
+                                    identity_match = retry_identity
+                                    sp_report = retry_report
+                                    sp_passed = retry_passed
+                                    sp_results = retry_results
+                                    result_dict["quality_report"] = sp_report
+                                    if identity_match:
+                                        IDENTITY_SCORE.observe(
+                                            identity_match / 10.0,
+                                        )
+                                    logger.info(
+                                        "Identity retry improved score task=%s %.2f->%.2f",
+                                        task_id, retry_identity, identity_match,
+                                    )
+                                else:
+                                    logger.info(
+                                        "Identity retry did NOT improve task=%s orig=%.2f retry=%.2f check_failed=%s",
+                                        task_id, identity_match, retry_identity,
+                                        retry_check_failed,
+                                    )
+                        except Exception:
+                            logger.warning(
+                                "Identity retry generation failed task=%s, keeping original",
+                                task_id, exc_info=True,
+                            )
+
+                        retry_success = retry_identity >= float(
+                            settings.identity_match_threshold or 0.0
+                        )
+                        try:
+                            IDENTITY_RETRY_TRIGGERED.labels(
+                                mode=mode.value,
+                                result="success" if retry_success else "still_fail",
+                            ).inc()
+                        except Exception:
+                            pass
+
+                    try:
+                        GENERATION_ATTEMPTS.labels(
+                            mode=mode.value,
+                        ).observe(generation_attempts)
+                    except Exception:
+                        pass
 
                     # Soft, user-facing warnings when identity preservation
                     # drops. Three distinct states, each with its own UX:
@@ -323,22 +582,61 @@ class ImageGenerationExecutor:
                 result_dict["generated_image_url"] = gen_url
                 result_dict["image_url"] = gen_url
 
-                estimated_cost = estimate_image_gen_cost_usd(
+                per_call_cost = estimate_image_gen_cost_usd(
                     provider_name, image_size=extra.get("image_size"),
                 )
+                estimated_cost = per_call_cost * max(1, generation_attempts)
 
                 result_dict["enhancement"] = {
                     "style": style or "default",
                     "mode": mode.value,
                     "provider": provider_name,
                     "identity_match": round(identity_match, 2),
-                    "generation_attempts": 1,
+                    "generation_attempts": generation_attempts,
                     "pipeline_type": "single_pass_edit",
                 }
+                cost_steps = [{
+                    "step": "single_pass_edit",
+                    "model": provider_name,
+                    "cost_usd": round(per_call_cost, 4),
+                }]
+                if generation_attempts > 1:
+                    cost_steps.append({
+                        "step": "identity_retry",
+                        "model": provider_name,
+                        "cost_usd": round(
+                            per_call_cost * (generation_attempts - 1), 4,
+                        ),
+                    })
+                # v1.17 — attribute Real-ESRGAN spend when it actually
+                # ran. We can't observe the provider call from here (it's
+                # fire-and-forget inside _maybe_real_esrgan_upscale), so
+                # we infer activation from the same flag+threshold gate
+                # and trust the fallback path to keep us safe.
+                esrgan_on = bool(
+                    getattr(settings, "real_esrgan_enabled", False)
+                    and face_area_ratio
+                    and face_area_ratio >= _UPSCALE_FACE_THRESHOLD
+                )
+                esrgan_cost = 0.0
+                if esrgan_on:
+                    esrgan_cost = float(
+                        getattr(
+                            settings, "model_cost_fal_real_esrgan", 0.002,
+                        )
+                    ) * float(max(1, generation_attempts))
+                    cost_steps.append({
+                        "step": "real_esrgan",
+                        "model": getattr(
+                            settings,
+                            "real_esrgan_model",
+                            "fal-ai/real-esrgan",
+                        ),
+                        "cost_usd": round(esrgan_cost, 4),
+                    })
                 result_dict["cost_breakdown"] = {
-                    "steps": [{"step": "single_pass_edit", "model": provider_name,
-                               "cost_usd": estimated_cost}],
-                    "total_usd": round(estimated_cost, 4),
+                    "steps": cost_steps,
+                    "total_usd": round(estimated_cost + esrgan_cost, 4),
                     "budget_usd": settings.pipeline_budget_max_usd,
                 }
                 logger.info("Image generated (edit mode): %s (identity_match=%.2f)", gkey, identity_match)

@@ -89,6 +89,27 @@ IDENTITY_SCORE = Histogram(
     buckets=(0.3, 0.5, 0.6, 0.7, 0.75, 0.8, 0.85, 0.9, 0.95, 1.0),
 )
 
+# Identity-match retry loop observability (v1.17). Fires once per task
+# that triggered a retry. ``result`` is either ``success`` (retry lifted
+# identity_match to or above the threshold) or ``still_fail`` (retry
+# also came back below threshold). ``mode`` lets us segment retry quality
+# per dating / cv / social / emoji.
+IDENTITY_RETRY_TRIGGERED = Counter(
+    "ratemeai_identity_retry_triggered_total",
+    "Identity-match VLM retries by final outcome",
+    labelnames=["mode", "result"],
+)
+
+# Number of image-gen attempts per task (1 = no retry, 2 = one retry, ...).
+# Bucketed as discrete integers — we care about the rate of tasks that
+# needed 2+ attempts, not any fine-grained distribution.
+GENERATION_ATTEMPTS = Histogram(
+    "ratemeai_generation_attempts",
+    "Image-gen attempts per task before a result is accepted",
+    labelnames=["mode"],
+    buckets=(1, 2, 3, 4),
+)
+
 CREDITS_USED = Counter(
     "ratemeai_credits_used_total",
     "Total image credits consumed",

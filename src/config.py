@@ -113,6 +113,36 @@ class Settings(BaseSettings):
     identity_match_threshold: float = 7.0
     identity_match_soft_threshold: float = 5.0
 
+    # v1.17: VLM-based identity retry loop. When the first generation
+    # comes back with identity_match < identity_match_threshold, we
+    # re-run ``ImageGenProvider.generate()`` once with a fresh random
+    # seed and keep whichever output has the higher identity_match score.
+    # No biometric embeddings involved — the decision is driven purely
+    # by the existing VLM quality gate. Budget impact: +$0.045 per
+    # triggered retry (empirical ~15 % rate) ≈ +$0.007 / image average.
+    identity_retry_enabled: bool = True
+    identity_retry_max_attempts: int = 1
+
+    # v1.17: conditional GFPGAN pre-clean before the main generation.
+    # Activated only when the input is clearly blurry (see
+    # ``src/services/face_prerestore.py`` for the activation rules).
+    # Default OFF on first deploy — flipped to True via Railway env
+    # after the smoke-test run.
+    gfpgan_preclean_enabled: bool = False
+    gfpgan_model: str = "fal-ai/gfpgan"
+
+    # v1.17: Real-ESRGAN final upscale instead of the PIL LANCZOS
+    # fallback used since 1.16. Default OFF on first deploy — flipped
+    # to True via Railway env after smoke-test. Fallback to LANCZOS
+    # on provider failure is automatic in the executor.
+    real_esrgan_enabled: bool = False
+    real_esrgan_model: str = "fal-ai/real-esrgan"
+
+    # Flat USD cost estimates for the new auxiliary providers (used by
+    # metrics/cost reporting; actual FAL invoice is what we pay).
+    model_cost_fal_gfpgan: float = 0.002
+    model_cost_fal_real_esrgan: float = 0.002
+
     # Segmentation / multi-pass pipeline.
     # Segmentation is DISABLED because Reve SDK 0.1.2 does not accept a
     # `mask_image` kwarg in edit() — passing one raises TypeError and ends

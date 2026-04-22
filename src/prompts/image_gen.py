@@ -47,15 +47,43 @@ _ASPECT_PIXEL_SIZE: dict[str, tuple[int, int]] = {
 }
 
 
-def resolve_output_size(spec: StyleSpec | None) -> dict[str, int] | None:
+def resolve_output_size(
+    spec: StyleSpec | None,
+    face_area_ratio: float | None = None,
+) -> dict[str, int] | None:
     """Translate a style's ``output_aspect`` into a FAL ``image_size`` dict.
 
     Returns ``None`` when the spec is missing — callers should fall back to
     the provider's configured default (``portrait_4_3`` in production).
+
+    v1.17 adaptive sizing: for ``needs_full_body`` styles with a tiny
+    reference face (``face_area_ratio < 0.10``) we force the output
+    down to 1 MP ``square_hd``. At 2 MP FLUX.2 Pro Edit distributes its
+    "attention budget" across the full-body scene and the face ends up
+    soft; at 1 MP the model has to prioritise facial detail, and
+    Real-ESRGAN (or the LANCZOS fallback) restores the output
+    resolution after the fact. The knob is strictly opt-in — passing
+    ``face_area_ratio=None`` (legacy callers and tests) keeps the
+    previous 2 MP portrait behaviour unchanged.
     """
     if spec is None:
         return None
     aspect: OutputAspect = getattr(spec, "output_aspect", "portrait_4_3")
+
+    needs_full_body = bool(getattr(spec, "needs_full_body", False))
+    if (
+        needs_full_body
+        and face_area_ratio is not None
+        and face_area_ratio > 0.0
+        and face_area_ratio < 0.10
+    ):
+        aspect = "square_hd"
+        logger.info(
+            "adaptive image_size: full-body style with small face "
+            "(%.3f) → square_hd 1 MP",
+            face_area_ratio,
+        )
+
     pixels = _ASPECT_PIXEL_SIZE.get(aspect)
     if pixels is None:
         pixels = _ASPECT_PIXEL_SIZE["portrait_4_3"]
@@ -68,12 +96,14 @@ def resolve_output_size(spec: StyleSpec | None) -> dict[str, int] | None:
 # ---------------------------------------------------------------------------
 
 PRESERVE_PHOTO = (
-    "Preserve the exact same person from the reference photo: identical face "
-    "(bone structure, eyes, nose, mouth, jawline, ears, hairline, hair color "
-    "and parting), identical skin tone and undertone with natural pores, "
-    "same head-to-shoulders proportion and neck length, original pose and "
-    "body proportions, hair silhouette crisp against the new background, "
-    "hands with exactly five clearly separated fingers."
+    "Preserve the exact same person from the reference photo — unmistakably "
+    "recognizable as the same individual: identical face (bone structure, "
+    "eye shape and color, nose, mouth, jawline, ears, hairline, hair color "
+    "and parting), identical skin tone and undertone with the same natural "
+    "pores and micro-asymmetry, same head-to-shoulders proportion and neck "
+    "length, original pose and body proportions, hair silhouette crisp "
+    "against the new background, hands with exactly five clearly separated "
+    "fingers."
 )
 
 # Body-change variant: the target scene (yoga mat, beach, running track,
@@ -81,14 +111,34 @@ PRESERVE_PHOTO = (
 # NOT ask FLUX to keep the original pose/framing — that contradictory signal
 # is exactly what produced the disfigured "yoga_outdoor" results in
 # production. Identity (face, hair, skin) is still pinned.
+#
+# v1.17: tightened identity anchors (eye shape and color, micro-asymmetry,
+# "unmistakably the same individual") and dropped the earlier "natural
+# full-body pose fitting the scene" phrasing, which gave FLUX too much
+# licence to reinterpret the body. A simple "body pose fitting the new
+# scene" lets the scene description drive the pose without inviting a
+# plastic rewrite.
 PRESERVE_PHOTO_FACE_ONLY = (
-    "Preserve the exact same person's identity from the reference photo: "
-    "identical face (bone structure, eyes, nose, mouth, jawline, ears, "
-    "hairline, hair color and parting), identical skin tone with natural "
-    "pores, same age and gender, same head-to-shoulders proportion, hair "
-    "silhouette crisp. Render a natural full-body pose fitting the new "
+    "Preserve the exact same person's identity from the reference photo — "
+    "unmistakably the same individual: identical face (bone structure, eye "
+    "shape and color, nose, mouth, jawline, ears, hairline, hair color and "
+    "parting), identical skin tone with the same natural pores and "
+    "micro-asymmetry, same age and gender, same head-to-shoulders "
+    "proportion, hair silhouette crisp. Render a body pose fitting the new "
     "scene with realistic body proportions, hands with five clearly "
     "separated fingers."
+)
+
+# Short identity-lock suffix appended at the very end of every non-emoji
+# prompt. Kept under 80 chars so it rarely trips the 1200 PROMPT_MAX_LEN
+# budget; positive-framing only so it passes the regression guard in
+# tests/test_prompts/test_positive_framing.py. Acts as a final anchor
+# for FLUX.2 Pro Edit — empirically repeating "same person as the
+# reference" once more at the tail improves prompt adherence on borderline
+# identity cases without extra cost.
+IDENTITY_LOCK_SUFFIX = (
+    "Final anchor: the output must remain the same individual as the "
+    "reference photo."
 )
 
 QUALITY_PHOTO = (
@@ -1209,6 +1259,8 @@ def _build_mode_prompt(
             parts.append(PRESERVE_PHOTO)
         parts.append(QUALITY_PHOTO)
 
+    parts.append(IDENTITY_LOCK_SUFFIX)
+
     prompt = " ".join(p.strip() for p in parts if p and p.strip())
     return _truncate(prompt)
 
@@ -1227,13 +1279,15 @@ def _dating_social_change_instruction(mode: str, style: str) -> str:
         return (
             "Place the person from the reference photo into the new scene "
             "described below, adopting a natural pose that fits the scene, "
-            "while maintaining the same facial features, skin tone and "
-            "head-to-body proportions."
+            "while maintaining the exact same facial features, bone "
+            "structure, skin tone and head-to-body proportions of the "
+            "reference subject."
         )
     return (
         "Change the background and clothing of the person in the reference "
-        "photo while maintaining the same facial features, skin tone and "
-        "head-to-body proportions, keeping the original pose."
+        "photo while maintaining the exact same facial features, bone "
+        "structure, skin tone and head-to-body proportions, keeping the "
+        "original pose."
     )
 
 
