@@ -138,6 +138,24 @@ def _build_style_router():
         try:
             pulid = _build_fal_pulid()
         except Exception as exc:
+            # v1.19.3: in production, failing to build PuLID under a
+            # strategy that actually needs it ("hybrid" or "pulid_only")
+            # means every identity_scene request will silently degrade
+            # to the fallback and the whole point of the hybrid pipeline
+            # is lost. We would rather fail startup loudly so Railway
+            # restarts the service and CI catches it, than ship a
+            # provider that returns generic Seedream output for
+            # identity-scene styles.
+            if (
+                getattr(settings, "is_production", False)
+                and strategy in ("hybrid", "pulid_only")
+            ):
+                logger.error(
+                    "StyleRouter: PuLID init failed in production "
+                    "under strategy=%s — aborting startup. Reason: %s",
+                    strategy, exc,
+                )
+                raise
             logger.warning("StyleRouter: PuLID init failed (%s)", exc)
     seedream = None
     if settings.seedream_enabled:

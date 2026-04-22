@@ -4,10 +4,16 @@ on:
   workflow_dispatch:
 
 # Calls POST /api/v1/internal/diagnostics/image-gen-probe on the primary
-# backend. The endpoint fires one image_gen.generate call with a neutral
-# prompt and a synthetic 512x512 reference image, so we can verify that
-# Reve (or the currently configured image-gen provider) is reachable and
-# the API token / quota are healthy — without waiting for a real user.
+# backend. The endpoint fires one image_gen.generate call — with either
+# a neutral synthetic JPEG (``mode=scene_preserve``, default) or an
+# embedded 256x256 test face (``mode=identity_scene``) — so we can
+# verify the currently configured image-gen provider / StyleRouter
+# branch is reachable and the FAL.ai token / quota are healthy,
+# without waiting for a real user.
+#
+# Reve was the v1.14-era provider; it has been retired. Today the
+# probe exercises the fal-ai/pulid (identity_scene) and
+# fal-ai/seedream/v4/edit (scene_preserve) code paths.
 
 jobs:
   probe:

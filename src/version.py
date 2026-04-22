@@ -491,6 +491,65 @@
 #          they are orthogonal to the broken key and were not in
 #          effect because every call was failing at validation before
 #          ever reaching the sampler.
+# 1.19.3 — Harden image-gen post-deploy smoke + sync hybrid env to
+#          Railway + make PuLID init fatal in production.
+#
+#          Background: v1.19.2 unbroke the schema-level HTTP 422 that
+#          was bricking prod identity_scene generation, but the CI
+#          smoke test still failed — this time because the probe was
+#          feeding fal-ai/pulid a solid-colour synthetic JPEG that has
+#          no detectable face, so facexlib replied with HTTP 400
+#          "no face detected". That is symptomatic of a deeper gap:
+#          the smoke test never actually exercised the identity-scene
+#          code path on any release.
+#
+#          src/api/v1/_fixtures/probe_face.py (new): bundles a 256×256
+#          JPEG of a StyleGAN face (no real person) as an inline
+#          base64 blob. facexlib detects the face reliably; the
+#          fixture is ~15 KB and adds no network / storage dependency
+#          to the probe.
+#
+#          src/api/v1/internal.py: ``image_gen_probe`` now accepts a
+#          ``mode`` query parameter (``identity_scene`` or
+#          ``scene_preserve``, default ``scene_preserve``). The
+#          identity_scene branch uses the new face fixture; both
+#          branches pass ``params={"generation_mode": mode}`` to
+#          ``image_gen.generate`` so StyleRouter deployments route to
+#          the correct backend. Docstring now documents the hybrid
+#          pipeline instead of the retired Reve provider.
+#
+#          .github/workflows/ci.yml:
+#            * Drops the v1.14-era ``IMAGE_GEN_PROVIDER=fal_flux``
+#              pin and the ``REVE_MAX_RETRIES`` sync. Reve has been
+#              dead since v1.14; pinning fal_flux silently defeated
+#              the v1.18+ hybrid StyleRouter.
+#            * Syncs ``IMAGE_GEN_STRATEGY=hybrid`` and the
+#              PULID_ENABLED / SEEDREAM_ENABLED / CODEFORMER_ENABLED /
+#              REAL_ESRGAN_ENABLED / GFPGAN_PRECLEAN_ENABLED feature
+#              flags to app + worker on every deploy so Railway env
+#              can never drift behind code expectations.
+#            * Missing ``FAL_API_KEY`` is now a hard error rather
+#              than a "fallback to Reve" warning.
+#            * ``Live provider smoke`` fires TWO image-gen probes
+#              (scene_preserve + identity_scene), not one. A PuLID
+#              schema regression like v1.19.0/.1 would have blocked
+#              the deploy on first push instead of shipping broken.
+#
+#          .github/workflows/diag-image-gen-probe.yml: header comment
+#          updated to reflect the two-mode probe and the hybrid
+#          pipeline; removed the stale Reve wording.
+#
+#          src/providers/factory.py: ``_build_style_router`` now
+#          re-raises ``_build_fal_pulid()`` failures when
+#          ``is_production`` AND strategy ∈ {hybrid, pulid_only}.
+#          Silent degrade-to-Seedream was the reason identity-scene
+#          traffic could be completely broken without the service
+#          ever noticing.
+#
+#          Net effect: any future change that breaks the PuLID
+#          schema, removes FAL_API_KEY, or drops the hybrid strategy
+#          on Railway is now blocked at the "Live provider smoke"
+#          step before the release finalises.
 # 1.19.2 — HOTFIX: v1.19.0/.1 kept the "quality" PuLID preset
 #          (num_inference_steps=25, guidance_scale=3.5, retry 35/5.0)
 #          on the false premise that fal-ai/pulid accepts the full
@@ -521,4 +580,4 @@
 #          (``test_pulid_defaults_within_lightning_schema``) fail
 #          immediately if anyone ever tries to re-widen the defaults
 #          again.
-APP_VERSION = "1.19.2"
+APP_VERSION = "1.19.3"

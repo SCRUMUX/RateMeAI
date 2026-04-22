@@ -760,16 +760,33 @@ async def synthetic_analyze(
 
 
 @router.post("/diagnostics/image-gen-probe")
-async def image_gen_probe(_key: str = Depends(_verify_internal_key)):
-    """Fire one ``image_gen.generate`` call to verify Reve (or the configured
-    provider) is reachable from the primary backend.
+async def image_gen_probe(
+    mode: str = Query(
+        "scene_preserve",
+        pattern="^(identity_scene|scene_preserve)$",
+    ),
+    _key: str = Depends(_verify_internal_key),
+):
+    """Fire one ``image_gen.generate`` call to verify the image-gen
+    provider (and, in hybrid strategy, the matching StyleRouter branch)
+    is reachable from the primary backend.
 
-    Rationale: the analyze stage is now covered by
-    ``provider-probe`` + ``synthetic-analyze``. The last remaining blind
-    spot in the generation pipeline is the image-gen provider (Reve token
-    validity, quota, SDK version mismatch). This endpoint uses a neutral
-    prompt and a 512×512 synthetic reference image so no user content is
-    involved.
+    Rationale: the analyze stage is covered by ``provider-probe`` +
+    ``synthetic-analyze``. The image-gen side has two independent code
+    paths in the v1.18+ hybrid pipeline — PuLID (identity_scene) and
+    Seedream v4 Edit (scene_preserve) — and a regression in either is
+    invisible unless both are probed on every deploy.
+
+    * ``mode=scene_preserve`` (default) — uses the synthetic solid-colour
+      JPEG. That's fine for Seedream / FLUX.2, neither of which runs a
+      face-embedding step.
+    * ``mode=identity_scene`` — uses a bundled 256×256 JPEG with a
+      clearly detectable face so fal-ai/pulid's facexlib preprocessor
+      doesn't trip ``no face detected`` and so the schema / auth /
+      wire-protocol side of PuLID is actually exercised.
+
+    The probe passes ``params={"generation_mode": mode}`` so a
+    StyleRouter provider selects the correct backend.
     """
     import time as _time
     from src.providers.factory import get_image_gen as _get_image_gen
@@ -782,11 +799,21 @@ async def image_gen_probe(_key: str = Depends(_verify_internal_key)):
 
     image_gen = _get_image_gen()
     provider_name = type(image_gen).__name__
-    reference = _synthetic_test_jpeg(512)
-    prompt = (
-        "A neutral portrait placeholder in soft daylight, centred composition, "
-        "calm and professional mood. Do not render text."
-    )
+
+    if mode == "identity_scene":
+        from src.api.v1._fixtures.probe_face import probe_face_jpeg
+        reference = probe_face_jpeg()
+        prompt = (
+            "The same person, now standing in a sunlit park with soft "
+            "golden-hour light, shallow depth of field. Do not render text."
+        )
+    else:
+        reference = _synthetic_test_jpeg(512)
+        prompt = (
+            "A neutral portrait placeholder in soft daylight, centred "
+            "composition, calm and professional mood. Do not render text."
+        )
+
     guard_ctx = {"policy_flags": build_policy_flags({
         "consent_data_processing": True,
         "consent_ai_transfer": True,
@@ -795,10 +822,15 @@ async def image_gen_probe(_key: str = Depends(_verify_internal_key)):
     t0 = _time.monotonic()
     try:
         with _task_context_scope(guard_ctx):
-            out = await image_gen.generate(prompt=prompt, reference_image=reference)
+            out = await image_gen.generate(
+                prompt=prompt,
+                reference_image=reference,
+                params={"generation_mode": mode},
+            )
         took_ms = int((_time.monotonic() - t0) * 1000)
         return {
             "ok": True,
+            "mode": mode,
             "provider": provider_name,
             "took_ms": took_ms,
             "bytes": len(out) if isinstance(out, (bytes, bytearray)) else 0,
@@ -815,6 +847,7 @@ async def image_gen_probe(_key: str = Depends(_verify_internal_key)):
                 body = ""
         return {
             "ok": False,
+            "mode": mode,
             "provider": provider_name,
             "took_ms": took_ms,
             "exc_type": type(original).__name__,
