@@ -66,6 +66,11 @@ def _base_settings(mock_settings) -> None:
     mock_settings.model_cost_reve = 0.02
     mock_settings.model_cost_replicate = 0.02
     mock_settings.pipeline_budget_max_usd = 0.10
+    # v1.17.1: production default flipped to True — keep legacy
+    # single-attempt / LANCZOS semantics for these tests.
+    mock_settings.identity_retry_enabled = False
+    mock_settings.identity_retry_max_attempts = 1
+    mock_settings.real_esrgan_enabled = False
 
 
 def _build_executor(gate_report: dict, *, all_passed: bool = True):

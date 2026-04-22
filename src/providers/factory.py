@@ -1,9 +1,12 @@
 from __future__ import annotations
 
+import logging
 from functools import lru_cache
 
 from src.config import settings
 from src.providers.base import LLMProvider, StorageProvider, ImageGenProvider
+
+logger = logging.getLogger(__name__)
 
 
 @lru_cache(maxsize=1)
@@ -86,6 +89,30 @@ def _build_fal_flux2():
     )
 
 
+def _log_image_gen_choice(provider: ImageGenProvider, *, reason: str) -> None:
+    """Emit a single, high-signal line identifying the chosen provider.
+
+    Shows up exactly once per process (``get_image_gen`` is ``lru_cache``-d)
+    near the top of the Railway deployment log, so `/health` correlations
+    and "why is it still Kontext?" debugging are a single grep away.
+    """
+    cls = type(provider).__name__
+    model = (
+        getattr(provider, "_model", None)
+        or getattr(provider, "model", None)
+        or "—"
+    )
+    logger.info(
+        "image-gen provider selected: class=%s model=%s reason=%s "
+        "(IMAGE_GEN_PROVIDER=%s, gfpgan=%s, esrgan=%s, identity_retry=%s)",
+        cls, model, reason,
+        (settings.image_gen_provider or "auto"),
+        bool(getattr(settings, "gfpgan_preclean_enabled", False)),
+        bool(getattr(settings, "real_esrgan_enabled", False)),
+        bool(getattr(settings, "identity_retry_enabled", False)),
+    )
+
+
 @lru_cache(maxsize=1)
 def get_image_gen() -> ImageGenProvider:
     from src.providers._testing import MockImageGen
@@ -96,7 +123,9 @@ def get_image_gen() -> ImageGenProvider:
     prod = settings.is_production
 
     if mode == "mock":
-        return MockImageGen()
+        p = MockImageGen()
+        _log_image_gen_choice(p, reason="mode=mock")
+        return p
 
     if mode == "fal_flux2":
         if not (settings.fal_api_key or "").strip():
@@ -104,8 +133,12 @@ def get_image_gen() -> ImageGenProvider:
                 raise RuntimeError(
                     "IMAGE_GEN_PROVIDER=fal_flux2 requires FAL_API_KEY",
                 )
-            return MockImageGen()
-        return _build_fal_flux2()
+            p = MockImageGen()
+            _log_image_gen_choice(p, reason="mode=fal_flux2 but no FAL_API_KEY (dev)")
+            return p
+        p = _build_fal_flux2()
+        _log_image_gen_choice(p, reason="mode=fal_flux2")
+        return p
 
     if mode == "fal_flux":
         if not (settings.fal_api_key or "").strip():
@@ -113,8 +146,12 @@ def get_image_gen() -> ImageGenProvider:
                 raise RuntimeError(
                     "IMAGE_GEN_PROVIDER=fal_flux requires FAL_API_KEY",
                 )
-            return MockImageGen()
-        return _build_fal_flux()
+            p = MockImageGen()
+            _log_image_gen_choice(p, reason="mode=fal_flux but no FAL_API_KEY (dev)")
+            return p
+        p = _build_fal_flux()
+        _log_image_gen_choice(p, reason="mode=fal_flux (legacy Kontext rollback)")
+        return p
 
     if mode == "reve":
         if not settings.reve_api_token.strip():
@@ -122,13 +159,17 @@ def get_image_gen() -> ImageGenProvider:
                 raise RuntimeError(
                     "IMAGE_GEN_PROVIDER=reve requires REVE_API_TOKEN",
                 )
-            return MockImageGen()
-        return ReveImageGen(
+            p = MockImageGen()
+            _log_image_gen_choice(p, reason="mode=reve but no REVE_API_TOKEN (dev)")
+            return p
+        p = ReveImageGen(
             api_token=settings.reve_api_token,
             api_host=settings.reve_api_host,
             version=settings.reve_version,
             max_retries=settings.reve_max_retries,
         )
+        _log_image_gen_choice(p, reason="mode=reve")
+        return p
 
     if mode == "replicate":
         if _missing_replicate_config():
@@ -137,12 +178,16 @@ def get_image_gen() -> ImageGenProvider:
                     "IMAGE_GEN_PROVIDER=replicate requires "
                     "REPLICATE_API_TOKEN and REPLICATE_MODEL_VERSION",
                 )
-            return MockImageGen()
-        return ReplicateImageGen(
+            p = MockImageGen()
+            _log_image_gen_choice(p, reason="mode=replicate but missing config (dev)")
+            return p
+        p = ReplicateImageGen(
             api_token=settings.replicate_api_token,
             model_version=settings.replicate_model_version,
             storage=get_storage(),
         )
+        _log_image_gen_choice(p, reason="mode=replicate")
+        return p
 
     # auto — FLUX.2 Pro Edit через FAL предпочитаем для сценариев с
     # лицами (2 МП выход, native image_size support), Kontext Pro и
@@ -151,21 +196,27 @@ def get_image_gen() -> ImageGenProvider:
     # Replicate в auto-режиме не подключается по умолчанию —
     # см. docs/architecture/reserved.md.
     if (settings.fal_api_key or "").strip():
-        return _build_fal_flux2()
+        p = _build_fal_flux2()
+        _log_image_gen_choice(p, reason="auto → FAL_API_KEY present")
+        return p
     if settings.reve_api_token.strip():
-        return ReveImageGen(
+        p = ReveImageGen(
             api_token=settings.reve_api_token,
             api_host=settings.reve_api_host,
             version=settings.reve_version,
             max_retries=settings.reve_max_retries,
         )
+        _log_image_gen_choice(p, reason="auto → REVE_API_TOKEN only")
+        return p
     if prod:
         raise RuntimeError(
             "IMAGE_GEN_PROVIDER=auto requires FAL_API_KEY (flux-2-pro/edit "
             "or kontext) or REVE_API_TOKEN (Replicate is reserved and not "
             "auto-selected)",
         )
-    return MockImageGen()
+    p = MockImageGen()
+    _log_image_gen_choice(p, reason="auto → no keys (dev)")
+    return p
 
 
 @lru_cache(maxsize=1)

@@ -61,10 +61,15 @@ def resolve_output_size(
     down to 1 MP ``square_hd``. At 2 MP FLUX.2 Pro Edit distributes its
     "attention budget" across the full-body scene and the face ends up
     soft; at 1 MP the model has to prioritise facial detail, and
-    Real-ESRGAN (or the LANCZOS fallback) restores the output
-    resolution after the fact. The knob is strictly opt-in — passing
-    ``face_area_ratio=None`` (legacy callers and tests) keeps the
-    previous 2 MP portrait behaviour unchanged.
+    Real-ESRGAN restores the output resolution after the fact.
+
+    v1.17.1: the 1 MP branch only runs when ``settings.real_esrgan_enabled``
+    is on — without a diffusion-aware upscaler downstream, shipping 1024×1024
+    regresses perceived face quality relative to the 2 MP portrait path.
+    When ESRGAN is off we therefore keep the 2 MP ``portrait_4_3`` even
+    for full-body × small-face cases. ``face_area_ratio=None`` (legacy
+    callers / unit tests) also keeps the 2 MP behaviour regardless of
+    the flag.
     """
     if spec is None:
         return None
@@ -77,12 +82,30 @@ def resolve_output_size(
         and face_area_ratio > 0.0
         and face_area_ratio < 0.10
     ):
-        aspect = "square_hd"
-        logger.info(
-            "adaptive image_size: full-body style with small face "
-            "(%.3f) → square_hd 1 MP",
-            face_area_ratio,
-        )
+        # Local import to avoid a circular settings→prompts dependency at
+        # module-load time (prompts are imported by config validators in
+        # several code paths during app startup).
+        try:
+            from src.config import settings as _runtime_settings
+            esrgan_on = bool(
+                getattr(_runtime_settings, "real_esrgan_enabled", False),
+            )
+        except Exception:
+            esrgan_on = False
+
+        if esrgan_on:
+            aspect = "square_hd"
+            logger.info(
+                "adaptive image_size: full-body style with small face "
+                "(%.3f) → square_hd 1 MP (Real-ESRGAN will restore)",
+                face_area_ratio,
+            )
+        else:
+            logger.info(
+                "adaptive image_size: full-body style with small face "
+                "(%.3f) — ESRGAN disabled, keeping 2 MP portrait",
+                face_area_ratio,
+            )
 
     pixels = _ASPECT_PIXEL_SIZE.get(aspect)
     if pixels is None:

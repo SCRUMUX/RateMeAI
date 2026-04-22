@@ -126,16 +126,23 @@ class Settings(BaseSettings):
     # v1.17: conditional GFPGAN pre-clean before the main generation.
     # Activated only when the input is clearly blurry (see
     # ``src/services/face_prerestore.py`` for the activation rules).
-    # Default OFF on first deploy — flipped to True via Railway env
-    # after the smoke-test run.
-    gfpgan_preclean_enabled: bool = False
+    # v1.17.1: default flipped to ON — v1.17.0 was shipped OFF for a
+    # smoke-test rollout, but the adaptive 1 MP full-body branch depends
+    # on a diffusion-aware upscaler downstream and was degrading face
+    # sharpness on "bad input" cases as long as these stayed disabled.
+    # Any provider failure still falls back to the original bytes, so
+    # pre-restoration remains strictly additive — never load-bearing.
+    gfpgan_preclean_enabled: bool = True
     gfpgan_model: str = "fal-ai/gfpgan"
 
     # v1.17: Real-ESRGAN final upscale instead of the PIL LANCZOS
-    # fallback used since 1.16. Default OFF on first deploy — flipped
-    # to True via Railway env after smoke-test. Fallback to LANCZOS
-    # on provider failure is automatic in the executor.
-    real_esrgan_enabled: bool = False
+    # fallback used since 1.16. v1.17.1: default flipped to ON for the
+    # same reason as ``gfpgan_preclean_enabled`` — the adaptive 1 MP
+    # full-body branch bets on Real-ESRGAN x2 to restore resolution
+    # afterwards. Fallback to LANCZOS on any provider failure is
+    # automatic in the executor, so turning this on cannot regress
+    # below the previous (LANCZOS-only) behaviour.
+    real_esrgan_enabled: bool = True
     real_esrgan_model: str = "fal-ai/real-esrgan"
 
     # Flat USD cost estimates for the new auxiliary providers (used by

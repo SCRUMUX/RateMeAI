@@ -251,4 +251,32 @@
 #          Target budget (average): ~$0.053/image — still under the
 #          $0.06 soft cap. Worst case (retry + GFPGAN + ESRGAN):
 #          ~$0.099 — very rare.
-APP_VERSION = "1.17.0"
+# 1.17.1 — Default-flag flip + adaptive-size safety gate + provider
+#          startup log, driven by the "faces still look bad, and why is
+#          it still Kontext?" post-1.17.0 field report.
+#          * config.py: gfpgan_preclean_enabled and real_esrgan_enabled
+#            default to True. The 1.17.0 ship-OFF was intended as a
+#            smoke-rollout, but without these the adaptive 1 MP
+#            full-body branch (introduced the same release) was
+#            producing visibly softer faces than the pre-1.17 2 MP
+#            LANCZOS path. Any provider failure still folds back to
+#            LANCZOS (or the original bytes), so the defaults remain
+#            strictly additive.
+#          * prompts/image_gen.resolve_output_size: the adaptive 1 MP
+#            square branch for full-body × tiny-face now reads
+#            settings.real_esrgan_enabled at call time. When ESRGAN
+#            is disabled we stay on 2 MP portrait — without a
+#            diffusion-aware upscaler downstream 1024×1024 regresses
+#            perceived face quality. Circular-import-safe via a local
+#            import guarded by a bare except.
+#          * providers/factory.get_image_gen: logs one high-signal
+#            INFO line with the selected provider class, model, auto
+#            vs explicit reason, and the state of the new feature
+#            flags. Answers "is Railway actually running fal_flux2 or
+#            fal_flux (Kontext)?" at a grep, rather than a redeploy.
+#          * Tests: test_executor_mask._base_settings and
+#            test_executor_identity_unverified._base_settings now pin
+#            the new flags to False so the legacy LANCZOS /
+#            single-attempt assertions keep covering exactly that
+#            branch. No other test changes — all 2222 pass.
+APP_VERSION = "1.17.1"
