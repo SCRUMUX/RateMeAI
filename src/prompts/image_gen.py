@@ -12,7 +12,9 @@ from __future__ import annotations
 import logging
 
 from src.prompts.style_spec import (
+    OutputAspect,
     StyleRegistry,
+    StyleSpec,
     StyleVariant,
     build_spec_from_legacy,
 )
@@ -24,6 +26,42 @@ logger = logging.getLogger(__name__)
 # before handing off to Reve. Matches the test budget in
 # tests/test_prompts/test_prompt_length_budget.py.
 PROMPT_MAX_LEN = 1200
+
+
+# ---------------------------------------------------------------------------
+# Output size resolver — aspect preset → concrete {width, height} for FAL.
+# ---------------------------------------------------------------------------
+
+# Pixel sizes per aspect. Every non-square bucket is ≈2 MP (dimensions are
+# multiples of 16 for stable FLUX.2 Pro Edit inference); ``square_hd`` is
+# the 1 MP document bucket. The FLUX.2 API accepts these verbatim as a
+# ``{"width": W, "height": H}`` object — passing the custom shape instead
+# of the preset enum gives us the exact pixel count we want rather than
+# whatever the model chooses for the preset name.
+_ASPECT_PIXEL_SIZE: dict[str, tuple[int, int]] = {
+    "square_hd":       (1024, 1024),
+    "portrait_4_3":    (1280, 1600),
+    "portrait_16_9":   (1088, 1920),
+    "landscape_4_3":   (1600, 1280),
+    "landscape_16_9":  (1920, 1088),
+}
+
+
+def resolve_output_size(spec: StyleSpec | None) -> dict[str, int] | None:
+    """Translate a style's ``output_aspect`` into a FAL ``image_size`` dict.
+
+    Returns ``None`` when the spec is missing — callers should fall back to
+    the provider's configured default (``portrait_4_3`` in production).
+    """
+    if spec is None:
+        return None
+    aspect: OutputAspect = getattr(spec, "output_aspect", "portrait_4_3")
+    pixels = _ASPECT_PIXEL_SIZE.get(aspect)
+    if pixels is None:
+        pixels = _ASPECT_PIXEL_SIZE["portrait_4_3"]
+    w, h = pixels
+    return {"width": w, "height": h}
+
 
 # ---------------------------------------------------------------------------
 # Compact anchors — one PRESERVE phrase + one QUALITY phrase.
@@ -1095,14 +1133,6 @@ def _truncate(prompt: str) -> str:
     return prompt[:PROMPT_MAX_LEN].rstrip()
 
 
-# face_area_ratio threshold above which the reference is essentially a
-# head-crop selfie; kept in sync with
-# src/services/input_quality.FACE_TOO_TIGHT_FOR_BODY_THRESHOLD so both the
-# pre-gen warning and the prompt-conditioning branch fire on the same
-# input characteristic.
-_HEAD_CROP_FACE_RATIO: float = 0.35
-
-
 def _build_mode_prompt(
     mode: str,
     style: str,
@@ -1151,25 +1181,13 @@ def _build_mode_prompt(
     if spec.expression:
         parts.append(spec.expression)
 
-    # Head-crop × full-body adaptation: when the reference shows mostly
-    # the face, instruct the model to keep the close-up framing instead
-    # of inventing legs / yoga mats / running tracks that it cannot
-    # anchor to any pixel in the input.
-    if (
-        not is_doc
-        and getattr(spec, "needs_full_body", False)
-        and input_hints is not None
-    ):
-        try:
-            face_ratio = float(input_hints.get("face_area_ratio", 0.0) or 0.0)
-        except (TypeError, ValueError):
-            face_ratio = 0.0
-        if face_ratio > _HEAD_CROP_FACE_RATIO:
-            parts.append(
-                "Framing note: the reference is a close-up portrait. Keep a "
-                "portrait / upper-body crop — do not extend the body below "
-                "the chest or invent limbs not visible in the reference."
-            )
+    # NOTE: the previous "Framing note: keep upper-body crop, do not
+    # extend the body" for head-crop inputs × ``needs_full_body`` styles
+    # has been removed. It contradicted the scene description (yoga,
+    # beach, running) and produced "headshot in yoga clothes" outputs
+    # at 1024 px. FLUX.2 Pro Edit at 2 MP invents the lower body
+    # consistently with the scene; identity is held by
+    # ``PRESERVE_PHOTO_FACE_ONLY`` instead.
 
     if is_doc:
         composition = _DOC_COMPOSITION_HINT.get(

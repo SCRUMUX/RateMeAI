@@ -1,7 +1,11 @@
 """Prometheus metrics for RateMeAI pipeline observability."""
 from __future__ import annotations
 
-from prometheus_client import Counter, Histogram, Gauge
+import math
+
+from prometheus_client import Counter, Gauge, Histogram
+
+from src.config import settings
 
 PIPELINE_DURATION = Histogram(
     "ratemeai_pipeline_duration_seconds",
@@ -21,6 +25,57 @@ FAL_CALLS = Counter(
     "Number of FAL.ai (FLUX) API calls",
     labelnames=["mode", "step", "model"],
 )
+
+
+def estimate_fal_flux2_cost_usd(width: int, height: int) -> float:
+    """Compute per-image USD cost for ``fal-ai/flux-2-pro/edit``.
+
+    FAL bills the first output megapixel at ``fal2_first_mp`` and every
+    additional megapixel (rounded **up** to the next whole MP) at
+    ``fal2_extra_mp``. The pricing page caps the model at 4 MP, but we
+    don't clamp here — the provider rejects oversize requests anyway
+    and we still want the metric to reflect what FAL will invoice.
+
+    Example at defaults (0.03 + 0.015): 2 MP portrait ≈ $0.045,
+    1 MP square (documents) = $0.030.
+    """
+    if width <= 0 or height <= 0:
+        return settings.model_cost_fal_flux2_first_mp
+    total_mp = (width * height) / 1_000_000.0
+    rounded = max(1, math.ceil(total_mp))
+    first = settings.model_cost_fal_flux2_first_mp
+    extra = settings.model_cost_fal_flux2_extra_mp
+    return round(first + max(0, rounded - 1) * extra, 4)
+
+
+def estimate_image_gen_cost_usd(
+    provider_name: str,
+    *,
+    image_size: dict | None = None,
+) -> float:
+    """Return the USD cost estimate for one image generation.
+
+    Centralises the per-provider cost maths so the executor and any
+    reporting surface produce consistent numbers. ``image_size`` is only
+    consulted for FLUX.2 Pro Edit (everything else has flat pricing).
+    """
+    name = (provider_name or "").lower()
+    if "falflux2" in name or "flux2" in name or "flux_2" in name:
+        if image_size:
+            return estimate_fal_flux2_cost_usd(
+                int(image_size.get("width", 0) or 0),
+                int(image_size.get("height", 0) or 0),
+            )
+        mp = max(1.0, float(settings.fal2_output_mp or 2.0))
+        rounded = max(1, math.ceil(mp))
+        first = settings.model_cost_fal_flux2_first_mp
+        extra = settings.model_cost_fal_flux2_extra_mp
+        return round(first + max(0, rounded - 1) * extra, 4)
+    if "falflux" in name or name == "flux_kontext":
+        return settings.model_cost_fal_flux
+    if "replicate" in name:
+        return settings.model_cost_replicate
+    return settings.model_cost_reve
 
 LLM_CALLS = Counter(
     "ratemeai_llm_calls_total",

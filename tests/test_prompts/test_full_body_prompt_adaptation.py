@@ -1,19 +1,22 @@
-"""Prompt-layer fixes for the head-crop × full-body failure mode (v1.14.2).
+"""Prompt-layer fixes for the head-crop × full-body failure mode (v1.14.2+).
 
-Two orthogonal mitigations:
+**v1.16** removed the "close-up framing note" branch from
+``_build_mode_prompt`` — it was a Kontext Pro-era workaround that
+forced a portrait crop for full-body styles when the reference was a
+head-crop selfie, effectively turning "yoga" into "headshot wearing
+yoga clothes". FLUX.2 Pro Edit at 2 MP consistently invents the lower
+body from ``PRESERVE_PHOTO_FACE_ONLY`` + scene description alone, so
+the contradiction is gone and the mitigation is no longer needed.
+
+What we still guard:
 
 1. **PRESERVE_PHOTO vs PRESERVE_PHOTO_FACE_ONLY** — for styles flagged
    ``needs_full_body`` the base PRESERVE anchor previously said
-   "keep original pose, framing and body proportions", which directly
-   contradicts a prompt asking for a yoga / beach / running scene.
-   Full-body styles now use ``PRESERVE_PHOTO_FACE_ONLY`` (no pose clamp)
-   while classic close-up styles keep the full anchor.
-
-2. **Close-up framing hint** — when the caller passes
-   ``input_hints={"face_area_ratio": 0.4+}`` together with a full-body
-   style, the prompt appends an explicit "keep portrait crop, do not
-   invent a body" sentence, which steers Kontext Pro toward the only
-   pose it can actually anchor to the pixels it was given.
+   "keep original pose", which directly contradicts a yoga / beach /
+   running scene. Full-body styles use ``PRESERVE_PHOTO_FACE_ONLY``
+   (no pose clamp), classic close-up styles keep the full anchor.
+2. ``input_hints`` is accepted without crashing and does **not**
+   introduce the old framing-note sentence for any face ratio.
 """
 from __future__ import annotations
 
@@ -34,41 +37,29 @@ def test_full_body_style_uses_face_only_preserve():
 
 def test_close_up_style_keeps_full_preserve_anchor():
     prompt = build_dating_prompt(style="studio_elegant", gender="male")
-    # studio_elegant is a close-up style, so we still want pose preservation.
-    # The full PRESERVE_PHOTO anchor must appear somewhere in the prompt.
-    # Use a distinctive fragment that only lives in PRESERVE_PHOTO.
     marker = "original pose and body proportions"
     assert marker in prompt, "expected full PRESERVE_PHOTO anchor for close-up style"
 
 
-def test_close_up_hint_appears_for_tight_head_crop_with_full_body_style():
-    """face_area_ratio=0.45 + yoga_outdoor → extra framing note."""
-    prompt = build_dating_prompt(
-        style="yoga_outdoor",
-        gender="male",
-        input_hints={"face_area_ratio": 0.45},
-    )
-    assert "close-up portrait" in prompt.lower()
-    assert "do not extend the body" in prompt.lower()
+def test_no_framing_note_for_any_face_ratio_on_full_body_style():
+    """v1.16 removed the contradictory framing note entirely."""
+    for ratio in (0.05, 0.25, 0.45, 0.7):
+        prompt = build_dating_prompt(
+            style="yoga_outdoor",
+            gender="male",
+            input_hints={"face_area_ratio": ratio},
+        )
+        assert "do not extend the body" not in prompt.lower()
+        assert "framing note" not in prompt.lower()
 
 
-def test_close_up_hint_absent_for_normal_face_ratio():
-    """face_area_ratio=0.15 → no extra framing note even for full-body style."""
-    prompt = build_dating_prompt(
-        style="yoga_outdoor",
-        gender="male",
-        input_hints={"face_area_ratio": 0.15},
-    )
-    assert "do not extend the body" not in prompt.lower()
-
-
-def test_close_up_hint_absent_for_portrait_style_even_with_tight_crop():
-    """Close-up styles do not need the hint regardless of face ratio."""
+def test_input_hints_accepted_for_close_up_style():
     prompt = build_dating_prompt(
         style="studio_elegant",
         gender="male",
         input_hints={"face_area_ratio": 0.6},
     )
+    assert prompt, "builder must produce a non-empty prompt with hints"
     assert "do not extend the body" not in prompt.lower()
 
 

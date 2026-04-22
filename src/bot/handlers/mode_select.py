@@ -29,6 +29,15 @@ FACE_AREA_RATIO_KEY = "ratemeai:face_area:{}"
 _FACE_AREA_TTL = 1800  # matches pre-analysis cache
 
 LAST_GEN_KEY = "ratemeai:last_gen:{}"
+
+# Per-user set of "{mode}:{style}" tuples for which the reference-mismatch
+# warning was already acknowledged. Keeps the "Другой вариант" loop clean
+# — once the user taps "Продолжить с риском", we never re-show the
+# warning for that specific style on the same photo.
+# TTL mirrors the photo / face-area cache so a new upload restarts the
+# consent surface naturally.
+RISK_ACCEPTED_KEY = "ratemeai:risk_accepted:{}"
+_RISK_ACCEPTED_TTL = 1800
 USED_STYLES_KEY = "ratemeai:used_styles:{}:{}"
 
 def _build_display_names() -> dict[str, dict[str, str]]:
@@ -203,29 +212,56 @@ async def _handle_variant_callback(
     if await _maybe_warn_style_reference_mismatch(callback, redis, mode, style):
         return
 
-    variant_id = ""
-    try:
-        from src.prompts.image_gen import STYLE_REGISTRY, is_document_style
-        if not is_document_style(style):
-            spec = STYLE_REGISTRY.get(mode, style)
-            if spec is not None and spec.variants:
-                from src.services.variation import resolve_next_variant
-                chosen = await resolve_next_variant(
-                    redis, spec, callback.from_user.id, mode, style,
-                )
-                if chosen is not None:
-                    variant_id = chosen.id
-    except Exception:
-        logger.exception("variant resolve failed for %s:%s", mode, style)
+    variant_id = await _resolve_next_variant_id(redis, callback.from_user.id, mode, style)
 
     await _submit_analysis(
         callback, api_base_url, redis, mode, style, variant_id=variant_id,
     )
 
 
+async def _resolve_next_variant_id(
+    redis: Redis, user_id: int, mode: str, style: str,
+) -> str:
+    """Pick the next un-seen variant for (mode, style); '' on miss/error.
+
+    Extracted so ``on_confirm_risk`` can reuse the same rotation logic
+    when the user flows through the risk-accept path into a variant
+    button — otherwise accepting the warning would pin the user to the
+    base style forever.
+    """
+    try:
+        from src.prompts.image_gen import STYLE_REGISTRY, is_document_style
+        if is_document_style(style):
+            return ""
+        spec = STYLE_REGISTRY.get(mode, style)
+        if spec is None or not spec.variants:
+            return ""
+        from src.services.variation import resolve_next_variant
+        chosen = await resolve_next_variant(
+            redis, spec, user_id, mode, style,
+        )
+        return chosen.id if chosen is not None else ""
+    except Exception:
+        logger.exception("variant resolve failed for %s:%s", mode, style)
+        return ""
+
+
 @router.callback_query(F.data.startswith("confirm_risk:"))
 async def on_confirm_risk(callback: CallbackQuery, api_base_url: str, redis: Redis):
-    """User explicitly accepted the style × reference mismatch risk."""
+    """User explicitly accepted the style × reference mismatch risk.
+
+    Two post-conditions are needed here for the "Другой вариант" UX to
+    work after the accept:
+
+    1. Remember the accept in Redis so subsequent ``variant:*`` /
+       ``style:*`` clicks for this ``(user, mode, style)`` do NOT
+       re-trigger the warning. Without this, every variant rotation
+       would repaint the warning keyboard and stall the flow (the
+       v1.15 "Повторно улучшение отказывается делать" bug).
+    2. Propagate the variant rotation on this first post-accept run
+       too, so the user does not get the identical base variant twice
+       after tapping through the warning.
+    """
     parts = callback.data.split(":")
     mode = parts[1] if len(parts) > 1 else ""
     style = parts[2] if len(parts) > 2 else ""
@@ -234,7 +270,25 @@ async def on_confirm_risk(callback: CallbackQuery, api_base_url: str, redis: Red
         await callback.message.edit_reply_markup(reply_markup=None)
     except Exception:
         pass
-    await _submit_analysis(callback, api_base_url, redis, mode, style)
+    if mode and style:
+        try:
+            await redis.sadd(
+                RISK_ACCEPTED_KEY.format(callback.from_user.id),
+                f"{mode}:{style}",
+            )
+            await redis.expire(
+                RISK_ACCEPTED_KEY.format(callback.from_user.id),
+                _RISK_ACCEPTED_TTL,
+            )
+        except Exception:
+            logger.exception("risk_accepted cache write failed for user %s",
+                             callback.from_user.id)
+    variant_id = await _resolve_next_variant_id(
+        redis, callback.from_user.id, mode, style,
+    )
+    await _submit_analysis(
+        callback, api_base_url, redis, mode, style, variant_id=variant_id,
+    )
 
 
 @router.callback_query(F.data == "reupload_photo")
@@ -245,6 +299,7 @@ async def on_reupload_photo(callback: CallbackQuery, redis: Redis):
         PHOTO_KEY.format(user_id),
         PRE_ANALYSIS_REF_KEY.format(user_id),
         FACE_AREA_RATIO_KEY.format(user_id),
+        RISK_ACCEPTED_KEY.format(user_id),
     )
     await callback.answer()
     try:
@@ -272,11 +327,26 @@ async def _maybe_warn_style_reference_mismatch(
     """Show a warning keyboard if the chosen style requires visible body but
     the reference is a tight head-crop. Returns True when the user was
     prompted (caller must stop; continuation happens via `confirm_risk:`).
+
+    Never re-shows the warning if the user already accepted the risk
+    for the same ``(mode, style)`` on the current photo — that path
+    lives behind the Redis set at ``RISK_ACCEPTED_KEY``. Uploading a
+    new photo drops the set (see :func:`on_reupload_photo`).
     """
     if not mode or not style:
         return False
 
     user_id = callback.from_user.id
+
+    try:
+        already_accepted = await redis.sismember(
+            RISK_ACCEPTED_KEY.format(user_id), f"{mode}:{style}",
+        )
+    except Exception:
+        already_accepted = False
+    if already_accepted:
+        return False
+
     raw = await redis.get(FACE_AREA_RATIO_KEY.format(user_id))
     if not raw:
         return False

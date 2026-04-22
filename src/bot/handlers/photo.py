@@ -57,9 +57,13 @@ async def _reset_depth(redis: Redis, user_id: int) -> None:
             if cursor == 0:
                 break
     # Drop any style × reference compat state from the previous photo.
+    # ``risk_accepted`` is cleared as well so the user isn't silently
+    # carried past the mismatch warning on a new (possibly different)
+    # face crop.
     await redis.delete(
         f"ratemeai:preanalysis_ref:{user_id}",
         f"ratemeai:face_area:{user_id}",
+        f"ratemeai:risk_accepted:{user_id}",
     )
 
 

@@ -26,6 +26,7 @@ def _fake_settings(**overrides):
         replicate_model_version="",
         fal_api_key="",
         fal_model="fal-ai/flux-pro/kontext",
+        fal2_model="fal-ai/flux-2-pro/edit",
         fal_api_host="https://queue.fal.run",
         fal_guidance_scale=3.5,
         fal_safety_tolerance="2",
@@ -53,10 +54,10 @@ def test_get_image_gen_mock_explicit(monkeypatch):
     assert isinstance(g, MockImageGen)
 
 
-def test_get_image_gen_auto_prefers_fal_over_reve(monkeypatch):
-    """auto — FAL ключ приоритетнее Reve. Нужно для безболезненного
-    переключения стека на FLUX для лицевых сценариев без изменения
-    IMAGE_GEN_PROVIDER в каждом окружении.
+def test_get_image_gen_auto_prefers_fal_flux2_over_reve(monkeypatch):
+    """auto — FAL ключ приоритетнее Reve, и внутри FAL — flux_flux2
+    (FLUX.2 Pro Edit) приоритетнее Kontext. Нужно для безболезненного
+    переключения стека без изменения IMAGE_GEN_PROVIDER в каждом окружении.
     """
     fake = _fake_settings(
         image_gen_provider="auto",
@@ -67,10 +68,12 @@ def test_get_image_gen_auto_prefers_fal_over_reve(monkeypatch):
     monkeypatch.setattr(factory, "get_storage", MagicMock(return_value=MagicMock()))
     factory.get_image_gen.cache_clear()
     from src.providers.image_gen.fal_flux import FalFluxImageGen
+    from src.providers.image_gen.fal_flux2 import FalFlux2ImageGen
     from src.providers.image_gen.reve_provider import ReveImageGen
 
     g = factory.get_image_gen()
-    assert isinstance(g, FalFluxImageGen)
+    assert isinstance(g, FalFlux2ImageGen)
+    assert not isinstance(g, FalFluxImageGen)
     assert not isinstance(g, ReveImageGen)
 
 
@@ -107,7 +110,7 @@ def test_get_image_gen_auto_prod_without_keys_raises(monkeypatch):
     monkeypatch.setattr(factory, "get_storage", MagicMock(return_value=MagicMock()))
     factory.get_image_gen.cache_clear()
 
-    with pytest.raises(RuntimeError, match="FAL_API_KEY or REVE_API_TOKEN"):
+    with pytest.raises(RuntimeError, match="FAL_API_KEY"):
         factory.get_image_gen()
 
 
@@ -152,3 +155,47 @@ def test_get_image_gen_fal_flux_dev_without_key_falls_back_to_mock(monkeypatch):
 
     g = factory.get_image_gen()
     assert isinstance(g, MockImageGen)
+
+
+def test_get_image_gen_fal_flux2_explicit(monkeypatch):
+    """IMAGE_GEN_PROVIDER=fal_flux2 → FLUX.2 Pro Edit, not Kontext."""
+    fake = _fake_settings(
+        image_gen_provider="fal_flux2",
+        fal_api_key="uuid:secret",
+    )
+    monkeypatch.setattr(factory, "settings", fake)
+    factory.get_image_gen.cache_clear()
+    from src.providers.image_gen.fal_flux import FalFluxImageGen
+    from src.providers.image_gen.fal_flux2 import FalFlux2ImageGen
+
+    g = factory.get_image_gen()
+    assert isinstance(g, FalFlux2ImageGen)
+    assert not isinstance(g, FalFluxImageGen)
+
+
+def test_get_image_gen_fal_flux2_prod_without_key_raises(monkeypatch):
+    fake = _fake_settings(image_gen_provider="fal_flux2", fal_api_key="")
+    monkeypatch.setattr(factory, "settings", fake)
+    factory.get_image_gen.cache_clear()
+
+    with pytest.raises(RuntimeError, match="FAL_API_KEY"):
+        factory.get_image_gen()
+
+
+def test_get_image_gen_fal_flux_explicit_still_picks_kontext(monkeypatch):
+    """Rollback path: setting IMAGE_GEN_PROVIDER=fal_flux must keep
+    selecting the legacy Kontext provider, not FLUX.2 Pro Edit.
+    This is the one-release safety valve for the v1.16 cutover.
+    """
+    fake = _fake_settings(
+        image_gen_provider="fal_flux",
+        fal_api_key="uuid:secret",
+    )
+    monkeypatch.setattr(factory, "settings", fake)
+    factory.get_image_gen.cache_clear()
+    from src.providers.image_gen.fal_flux import FalFluxImageGen
+    from src.providers.image_gen.fal_flux2 import FalFlux2ImageGen
+
+    g = factory.get_image_gen()
+    assert isinstance(g, FalFluxImageGen)
+    assert not isinstance(g, FalFlux2ImageGen)

@@ -40,13 +40,14 @@ class Settings(BaseSettings):
     # If local file missing, try GET {base}/storage/{key} (e.g. worker -> http://app:8000 in Docker)
     storage_http_fallback_base: str = ""
 
-    # Image generation: mock | reve | replicate | fal_flux | auto
-    # Default: fal_flux (FLUX.1 Kontext [pro] через FAL.ai — identity-preserving
-    # edit-mode, $0.04/изображение, рекомендован для всех сценариев с лицами).
-    # auto — Reve если REVE_API_TOKEN задан, иначе FAL при наличии FAL_API_KEY,
-    # иначе mock в dev / ошибка в prod. Замена default'а было согласовано при
-    # переходе на FLUX для сценариев dating/cv/social/emoji.
-    image_gen_provider: str = "fal_flux"
+    # Image generation: mock | reve | replicate | fal_flux | fal_flux2 | auto
+    # Default: fal_flux2 (FLUX.2 [pro] edit через FAL.ai — identity-preserving
+    # edit с поддержкой ``image_size`` до 4 МП, 2 МП портрет по умолчанию
+    # для headshot / dating / social / CV). ``fal_flux`` (Kontext Pro, 1 МП)
+    # остаётся на один релиз как rollback-target: переключается одной env
+    # переменной ``IMAGE_GEN_PROVIDER=fal_flux`` без передеплоя провайдера.
+    # auto — fal_flux2 при наличии FAL_API_KEY, иначе Reve, иначе mock/ошибка.
+    image_gen_provider: str = "fal_flux2"
 
     # FAL.ai (https://fal.ai — FLUX.1 Kontext [pro] / image-to-image edit)
     # Получить токен: https://fal.ai → Dashboard → Keys (формат: uuid:secret).
@@ -67,6 +68,15 @@ class Settings(BaseSettings):
     fal_request_timeout: float = 180.0
     # Интервал опроса статуса в очереди (секунды).
     fal_poll_interval: float = 1.5
+
+    # FAL.ai FLUX.2 [pro] edit (https://fal.ai/models/fal-ai/flux-2-pro/edit).
+    # Активный image-gen провайдер с v1.16 — поддерживает ``image_size``
+    # (preset или ``{width, height}``), multi-reference, до 4 МП на выход.
+    # Используется тот же FAL_API_KEY что и для Kontext Pro.
+    fal2_model: str = "fal-ai/flux-2-pro/edit"
+    # Целевой выход (для калькулятора стоимости; фактический размер
+    # резолвится per-style через StyleSpec.output_aspect).
+    fal2_output_mp: float = 2.0
 
     # Reve (https://api.reve.com — /v1/image/edit only)
     reve_api_token: str = ""
@@ -136,6 +146,11 @@ class Settings(BaseSettings):
     model_cost_replicate: float = 0.05
     # FLUX.1 Kontext [pro] through FAL.ai: $0.04 per image (fixed, не зависит от MP).
     model_cost_fal_flux: float = 0.04
+    # FLUX.2 [pro] edit: $0.03 за первый MP + $0.015 за каждый
+    # дополнительный (округление вверх, до 4 МП). Калькулятор стоимости
+    # использует ``fal2_output_mp`` для оценки: 2 МП ≈ $0.045/фото.
+    model_cost_fal_flux2_first_mp: float = 0.03
+    model_cost_fal_flux2_extra_mp: float = 0.015
 
     # Replicate inpainting model (FLUX-inpaint or similar)
     replicate_inpaint_model_version: str = ""

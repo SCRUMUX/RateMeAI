@@ -32,7 +32,7 @@ def get_storage() -> StorageProvider:
 
 def _image_gen_provider_mode() -> str:
     p = (settings.image_gen_provider or "auto").strip().lower()
-    if p in ("auto", "reve", "replicate", "mock", "fal_flux"):
+    if p in ("auto", "reve", "replicate", "mock", "fal_flux", "fal_flux2"):
         return p
     return "auto"
 
@@ -46,8 +46,9 @@ def _missing_replicate_config() -> bool:
 def _build_fal_flux():
     """Construct :class:`FalFluxImageGen` from settings.
 
-    Factored out so the ``fal_flux`` and ``auto`` branches share the
-    exact same construction (same defaults, same guidance, same safety).
+    Legacy Kontext Pro provider — kept on as a one-release rollback
+    target via ``IMAGE_GEN_PROVIDER=fal_flux``. New traffic goes to
+    ``fal_flux2`` (FLUX.2 Pro Edit) by default; see ``_build_fal_flux2``.
     """
     from src.providers.image_gen.fal_flux import FalFluxImageGen
 
@@ -56,6 +57,27 @@ def _build_fal_flux():
         model=settings.fal_model,
         api_host=settings.fal_api_host,
         guidance_scale=settings.fal_guidance_scale,
+        safety_tolerance=settings.fal_safety_tolerance,
+        output_format=settings.fal_output_format,
+        max_retries=settings.fal_max_retries,
+        request_timeout=settings.fal_request_timeout,
+        poll_interval=settings.fal_poll_interval,
+    )
+
+
+def _build_fal_flux2():
+    """Construct :class:`FalFlux2ImageGen` (FLUX.2 Pro Edit) from settings.
+
+    This is the default provider as of v1.16. Shares the FAL auth key
+    with the legacy Kontext provider (same FAL account), but targets a
+    different model and accepts ``image_size`` for 2 MP output.
+    """
+    from src.providers.image_gen.fal_flux2 import FalFlux2ImageGen
+
+    return FalFlux2ImageGen(
+        api_key=settings.fal_api_key,
+        model=settings.fal2_model,
+        api_host=settings.fal_api_host,
         safety_tolerance=settings.fal_safety_tolerance,
         output_format=settings.fal_output_format,
         max_retries=settings.fal_max_retries,
@@ -75,6 +97,15 @@ def get_image_gen() -> ImageGenProvider:
 
     if mode == "mock":
         return MockImageGen()
+
+    if mode == "fal_flux2":
+        if not (settings.fal_api_key or "").strip():
+            if prod:
+                raise RuntimeError(
+                    "IMAGE_GEN_PROVIDER=fal_flux2 requires FAL_API_KEY",
+                )
+            return MockImageGen()
+        return _build_fal_flux2()
 
     if mode == "fal_flux":
         if not (settings.fal_api_key or "").strip():
@@ -113,12 +144,14 @@ def get_image_gen() -> ImageGenProvider:
             storage=get_storage(),
         )
 
-    # auto — FLUX Kontext Pro через FAL предпочитаем для сценариев с лицами,
-    # но остаёмся совместимыми с существующими Reve-деплоями. Порядок
-    # выбора: FAL → Reve → Mock (в dev) / RuntimeError (в prod). Replicate
-    # в auto-режиме не подключается по умолчанию — см. docs/architecture/reserved.md.
+    # auto — FLUX.2 Pro Edit через FAL предпочитаем для сценариев с
+    # лицами (2 МП выход, native image_size support), Kontext Pro и
+    # Reve остаются как резерв. Порядок выбора:
+    # fal_flux2 → fal_flux → Reve → Mock (dev) / RuntimeError (prod).
+    # Replicate в auto-режиме не подключается по умолчанию —
+    # см. docs/architecture/reserved.md.
     if (settings.fal_api_key or "").strip():
-        return _build_fal_flux()
+        return _build_fal_flux2()
     if settings.reve_api_token.strip():
         return ReveImageGen(
             api_token=settings.reve_api_token,
@@ -128,8 +161,9 @@ def get_image_gen() -> ImageGenProvider:
         )
     if prod:
         raise RuntimeError(
-            "IMAGE_GEN_PROVIDER=auto requires FAL_API_KEY or REVE_API_TOKEN "
-            "(Replicate is reserved and not auto-selected)",
+            "IMAGE_GEN_PROVIDER=auto requires FAL_API_KEY (flux-2-pro/edit "
+            "or kontext) or REVE_API_TOKEN (Replicate is reserved and not "
+            "auto-selected)",
         )
     return MockImageGen()
 

@@ -12,11 +12,17 @@ import logging
 from typing import Any, Callable, Awaitable
 
 from src.config import settings
-from src.metrics import REVE_CALLS, IDENTITY_SCORE
+from src.metrics import (
+    FAL_CALLS,
+    IDENTITY_SCORE,
+    REVE_CALLS,
+    estimate_image_gen_cost_usd,
+)
 from src.models.enums import AnalysisMode
 from src.orchestrator.errors import format_image_gen_error
 from src.orchestrator.trace import trace_step as _trace_step
 from src.prompts.engine import PromptEngine
+from src.prompts.image_gen import STYLE_REGISTRY, resolve_output_size
 from src.providers.base import ImageGenProvider, StorageProvider
 from src.services.postprocess import (
     crop_to_aspect,
@@ -141,16 +147,30 @@ class ImageGenerationExecutor:
                 if input_quality is not None else 0.0
             )
 
-            # Reve REST /v1/image/edit accepts only
-            # {edit_instruction, reference_image, version}. All prior
-            # "richer" fields (aspect_ratio, test_time_scaling,
-            # postprocessing, mask_image, mask_region) triggered
-            # INVALID_PARAMETER_VALUE. AR for document photos and the
-            # x2 upscale are applied locally after generate() — see
-            # _apply_local_postprocess. `use_edit` is an internal flag
-            # only: the reve_provider uses it to pick the edit vs remix
-            # endpoint and never puts it on the wire.
-            extra: dict = {"use_edit": True}
+            # Provider ``extra`` payload. Provider-specific whitelists
+            # apply (FalFlux2ImageGen accepts ``image_size`` + ``seed``,
+            # Reve ignores everything but its own fields). The legacy
+            # ``use_edit`` flag was a Reve-era no-op from the provider's
+            # perspective and has been removed — document AR crops and
+            # the x2 LANCZOS upscale still happen locally in
+            # ``_apply_local_postprocess``.
+            extra: dict = {}
+
+            # Output resolution per style. FLUX.2 Pro Edit honours
+            # ``image_size`` with a concrete ``{width, height}`` dict —
+            # we pin each style to its target aspect (2 MP portrait for
+            # headshot/full-body, 1 MP square for documents). Legacy
+            # Reve / Kontext providers silently ignore the key.
+            spec = STYLE_REGISTRY.get(mode.value, style)
+            output_size = resolve_output_size(spec)
+            if output_size:
+                extra["image_size"] = output_size
+                mp = (output_size["width"] * output_size["height"]) / 1_000_000
+                logger.info(
+                    "image_size resolved mode=%s style=%s size=%dx%d (~%.2f MP)",
+                    mode.value, style or "default",
+                    output_size["width"], output_size["height"], mp,
+                )
 
             raw = None
             identity_match: float = 0.0
@@ -167,16 +187,32 @@ class ImageGenerationExecutor:
                 doc_ar or "none",
             )
             with _trace_step(trace, "image_gen"):
-                raw = await self._image_gen.generate(prompt, reference_image=image_bytes, params=extra or None)
+                raw = await self._image_gen.generate(
+                    prompt, reference_image=image_bytes,
+                    params=extra or None,
+                )
 
             if raw and len(raw) > 100:
                 raw = _apply_local_postprocess(raw, mode, style, face_area_ratio)
             provider_name = type(self._image_gen).__name__
+            # Generic provider-agnostic counter — preserved from the
+            # Reve-first era for dashboards that key off it.
             REVE_CALLS.labels(
                 mode=mode.value,
                 step="single_pass",
                 provider=provider_name,
             ).inc()
+            # Dedicated FAL counter: the ``model`` label (kontext vs
+            # flux-2-pro/edit) lets us watch the Kontext→Flux2 cutover
+            # and any rollback cleanly in Grafana.
+            if "falflux" in provider_name.lower():
+                fal_model = (
+                    settings.fal2_model if "falflux2" in provider_name.lower()
+                    else settings.fal_model
+                )
+                FAL_CALLS.labels(
+                    mode=mode.value, step="single_pass", model=fal_model,
+                ).inc()
 
             if not raw or len(raw) <= 100:
                 logger.warning("Image gen returned empty/tiny result (%s bytes)", len(raw) if raw else 0)
@@ -287,9 +323,9 @@ class ImageGenerationExecutor:
                 result_dict["generated_image_url"] = gen_url
                 result_dict["image_url"] = gen_url
 
-                estimated_cost = settings.model_cost_reve
-                if "replicate" in provider_name.lower():
-                    estimated_cost = settings.model_cost_replicate
+                estimated_cost = estimate_image_gen_cost_usd(
+                    provider_name, image_size=extra.get("image_size"),
+                )
 
                 result_dict["enhancement"] = {
                     "style": style or "default",

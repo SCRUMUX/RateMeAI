@@ -85,4 +85,65 @@
 #          in the worst case. Tests: ``test_style_variants.py``,
 #          ``test_variation.py``, ``test_variant_button.py`` and an
 #          extension to ``test_style_spec_hygiene.py``.
-APP_VERSION = "1.15.0"
+# 1.16.0 — FLUX.2 Pro Edit migration + 2 MP portrait output + UX fixes
+#          for "Другой вариант".
+#          Image-gen provider hard cutover: ``fal-ai/flux-2-pro/edit``
+#          replaces ``fal-ai/flux-pro/kontext`` as the default and as
+#          the ``auto`` winner whenever FAL_API_KEY is set. The Kontext
+#          provider class (``FalFluxImageGen``) stays in-tree for one
+#          release as a single-env-flag rollback target
+#          (``IMAGE_GEN_PROVIDER=fal_flux``). FLUX.2 was picked over
+#          Kontext after the v1.15.0 quality regression (blurred faces
+#          on head-crop × full-body styles): Kontext Pro is
+#          hard-capped at ~1 MP with no ``image_size`` control; FLUX.2
+#          accepts ``image_size`` (preset enum or custom
+#          ``{width, height}``) up to 4 MP.
+#          Output resolution is now per-style via a new
+#          ``StyleSpec.output_aspect`` field. Default mapping:
+#            * document styles (passport / visa / driver_license /
+#              photo_3x4 etc.) → ``square_hd`` @ 1024×1024 (1 MP,
+#              composition matters, detail secondary — cheaper).
+#            * headshot / dating / social / cv non-doc /
+#              ``needs_full_body`` → ``portrait_4_3`` @ 1280×1600
+#              (≈2 MP, face ≥400–500 px on long side).
+#          ``resolve_output_size(spec)`` in ``src/prompts/image_gen.py``
+#          emits the concrete ``{width, height}`` passed to the
+#          provider in ``extra["image_size"]``; the executor logs the
+#          resolved MP per call.
+#          Pricing: FLUX.2 Pro Edit bills $0.03 for the first MP +
+#          $0.015/MP (round-up) thereafter. New config knobs:
+#          ``fal2_model``, ``fal2_output_mp``,
+#          ``model_cost_fal_flux2_first_mp``,
+#          ``model_cost_fal_flux2_extra_mp``. Prometheus
+#          ``ratemeai_fal_calls_total`` now labels by ``model`` to
+#          split Kontext vs Flux2; cost observer uses
+#          ``estimate_image_gen_cost_usd(provider_name, image_size)``.
+#          Prompt hygiene: the contradictory "Framing note — keep
+#          close-up crop, do not extend the body" branch for
+#          ``needs_full_body`` × head-crop inputs is gone. It was a
+#          Kontext-1MP workaround that, with FLUX.2 at 2 MP,
+#          demonstrably produced "yoga in blazer" outputs by pinning
+#          the reference clothing/framing against the scene. Identity
+#          is now carried by ``PRESERVE_PHOTO_FACE_ONLY`` alone.
+#          Bot UX: fixed the "Другой вариант" loop that stalled after
+#          the first accept of the style × reference risk warning.
+#          ``on_confirm_risk`` now records the accept in a per-user
+#          Redis set (``ratemeai:risk_accepted:{user_id}``, TTL 30 min,
+#          cleared on photo reupload) and
+#          ``_maybe_warn_style_reference_mismatch`` short-circuits for
+#          any already-accepted (mode, style). ``on_confirm_risk``
+#          also propagates the next un-seen ``variant_id`` so the
+#          first post-accept run isn't identical to the pre-accept
+#          preview.
+#          Executor: removed the Reve-legacy ``use_edit`` flag from the
+#          ``extra`` payload; it was dead weight for the FAL providers
+#          anyway (multi-pass path keeps it unchanged).
+#          Tests: ``test_fal_flux2.py`` covers body shape / image_urls
+#          list / image_size enum+custom / random seed / 429-5xx-NSFW
+#          paths; ``test_style_output_size.py`` pins the per-style
+#          output-aspect contract (documents=1 MP, everything else=2 MP);
+#          ``test_factory_image_gen.py`` updated for new auto default
+#          and explicit fal_flux2 provider branch;
+#          ``test_full_body_prompt_adaptation.py`` revised to reflect
+#          the framing-note removal.
+APP_VERSION = "1.16.0"

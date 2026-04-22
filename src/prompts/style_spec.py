@@ -12,6 +12,20 @@ from typing import Literal
 
 DepthOfField = Literal["deep", "shallow"]
 
+# Output aspect presets used by the FLUX.2 Pro Edit provider.
+# ``square_hd`` is the only 1 MP preset we use (documents — fixed
+# composition, detail secondary). Everything else is a 2 MP portrait
+# or landscape, set via a custom ``{width, height}`` in the provider
+# so the model actually renders at the higher resolution instead of
+# falling back to a preset.
+OutputAspect = Literal[
+    "portrait_4_3",
+    "portrait_16_9",
+    "square_hd",
+    "landscape_4_3",
+    "landscape_16_9",
+]
+
 
 @dataclass(frozen=True)
 class StyleVariant:
@@ -66,6 +80,12 @@ class StyleSpec:
     # drifts and destroys identity. Bot uses this flag to surface a
     # pre-generation warning and give the user a choice to reupload.
     needs_full_body: bool = False
+    # Output aspect preset for the image-gen provider. FLUX.2 Pro Edit
+    # honours ``image_size`` with both a preset enum and a custom
+    # ``{width, height}`` dict — the provider resolves the preset into
+    # the correct pixel size (1 MP for documents, 2 MP for everything
+    # else). See ``src/prompts/image_gen.resolve_output_size``.
+    output_aspect: OutputAspect = "portrait_4_3"
     # Optional content variants that rotate via the "Другой вариант"
     # button in the bot. Document styles keep this empty — see
     # ``image_gen._DOCUMENT_STYLE_KEYS``.
@@ -359,6 +379,43 @@ def detect_needs_full_body(key: str, mode: str) -> bool:
     return key in _NEEDS_FULL_BODY_KEYS
 
 
+# Document styles have strict composition requirements (passport / visa /
+# license). Fixed to 1 MP square so we spend less on stylistic detail
+# the spec won't use anyway.
+_DOCUMENT_STYLE_KEYS: frozenset[str] = frozenset({
+    "photo_3x4",
+    "passport_rf",
+    "visa_eu",
+    "visa_schengen",
+    "visa_us",
+    "photo_4x6",
+    "driver_license",
+    "doc_passport_neutral",
+    "doc_visa_compliant",
+    "doc_resume_headshot",
+})
+
+
+def detect_output_aspect(key: str, mode: str) -> OutputAspect:
+    """Pick the output aspect for a style.
+
+    Three buckets map to our 2 MP-portrait-by-default strategy:
+
+    - document styles → ``square_hd`` (1 MP, fixed composition)
+    - full-body scenes (yoga / beach / running / ...) → ``portrait_4_3``
+      (2 MP at 1280x1600, gives the face 400–500 px on its long side)
+    - everything else (headshot, dating, social, cv non-doc) →
+      ``portrait_4_3`` as well
+
+    The rare landscape-composed scene (``near_car``, ``yacht``) can
+    override this at the spec level; the default keeps all styles on a
+    single portrait rail so thumbnails line up in the Telegram UI.
+    """
+    if mode == "cv" and key in _DOCUMENT_STYLE_KEYS:
+        return "square_hd"
+    return "portrait_4_3"
+
+
 def build_spec_from_legacy(
     key: str,
     mode: str,
@@ -372,12 +429,14 @@ def build_spec_from_legacy(
     props: str = "",
     depth_of_field: DepthOfField | None = None,
     variants: tuple[StyleVariant, ...] = (),
+    output_aspect: OutputAspect | None = None,
 ) -> StyleSpec:
     """Create a StyleSpec from a legacy dict entry plus optional overrides."""
     bg, clothing_male = parse_legacy_style(style_text)
     lighting = lighting_override or extract_lighting(bg)
     clothing_female = clothing_female_override or adapt_female_clothing(clothing_male)
     dof: DepthOfField = depth_of_field or detect_depth_of_field(bg)
+    aspect: OutputAspect = output_aspect or detect_output_aspect(key, mode)
 
     return StyleSpec(
         key=key,
@@ -392,5 +451,6 @@ def build_spec_from_legacy(
         complexity=complexity,
         depth_of_field=dof,
         needs_full_body=detect_needs_full_body(key, mode),
+        output_aspect=aspect,
         variants=variants,
     )
