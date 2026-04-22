@@ -1,13 +1,20 @@
 name: Smoke — Live Providers
 
-# Hourly smoke test of all external AI providers against the production
-# backend: hits the live OpenRouter vision endpoint, runs synthetic-analyze
-# (social mode uses the real production prompt) and image-gen-probe
-# (Reve partner API). Each probe retries up to 3 times with a 20s backoff
-# so that transient 429/504 from Google AI Studio / OpenRouter do NOT flip
-# the job red — we only fire an alert when a provider is *persistently*
-# broken (like the Reve 401 we caught on 2026-04-21 when the partner token
-# expired).
+# Hourly smoke test of the *non-billable* external AI providers against
+# the production backend: OpenRouter vision (provider-probe) and the
+# synthetic analyze payload. Each probe retries up to 3 times with a
+# 20s backoff so that transient 429/504 from Google AI Studio /
+# OpenRouter do NOT flip the job red — we only fire an alert when a
+# provider is *persistently* broken (like the Reve 401 we caught on
+# 2026-04-21 when the partner token expired).
+#
+# NB: image-gen-probe is intentionally NOT part of the hourly schedule
+# — every call costs 30 Reve credits (~720/day) and the analyze probes
+# already catch the common failure modes (token expiry, network, quota
+# on OpenRouter). Reve itself is exercised live on every git push via
+# the deploy-backend "Live provider smoke" step in .github/workflows/
+# ci.yml, and can be fired on demand through the "Diag — Image Gen
+# Probe" workflow (workflow_dispatch).
 
 on:
   schedule:
@@ -99,11 +106,6 @@ jobs:
           probe synthetic-analyze POST \
             "/api/v1/internal/diagnostics/synthetic-analyze?mode=social" \
             artifacts/synthetic-analyze.json 120 \
-            /tmp/validate_ok.py
-
-          probe image-gen-probe POST \
-            "/api/v1/internal/diagnostics/image-gen-probe" \
-            artifacts/image-gen-probe.json 180 \
             /tmp/validate_ok.py
 
           echo "All probes passed."
