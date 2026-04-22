@@ -61,11 +61,10 @@ def test_prompt_contains_preserve_and_photorealistic(mode: str, style: str, gend
             f"Preserve anchor missing in scene_preserve {mode}/{style}"
         )
     else:
-        assert "reference person" in prompt, (
+        # v1.19: opener says "reference subject" (not "reference
+        # person") and SOLO_SUBJECT_ANCHOR moved to the negative_prompt.
+        assert "reference subject" in prompt, (
             f"identity_scene opener missing in {mode}/{style}"
-        )
-        assert "Single subject in frame" in prompt, (
-            f"Solo-subject anchor missing in identity_scene {mode}/{style}"
         )
 
 
@@ -80,6 +79,5 @@ def test_empty_style_builds_with_anchors():
     for builder in _BUILDERS.values():
         p = builder(style="", gender="male")
         assert "Photorealistic" in p
-        assert "reference person" in p
-        assert "Single subject in frame" in p
+        assert "reference subject" in p
         assert len(p) <= ig.PROMPT_MAX_LEN

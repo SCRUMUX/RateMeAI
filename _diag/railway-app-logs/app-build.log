@@ -1,0 +1,45 @@
+[INFO] [internal] load build definition from Dockerfile
+[INFO] [internal] load build definition from Dockerfile
+[INFO] [internal] load build definition from Dockerfile
+[INFO] [internal] load build definition from Dockerfile
+[INFO] [internal] load metadata for docker.io/library/python:3.12-slim
+[INFO] [internal] load metadata for docker.io/library/python:3.12-slim
+[INFO] [internal] load .dockerignore
+[INFO] [internal] load .dockerignore
+[INFO] [internal] load .dockerignore
+[INFO] [internal] load .dockerignore
+[INFO] [10/10] RUN chmod +x /usr/local/bin/docker-entrypoint.sh
+[INFO] [ 9/10] COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
+[INFO] [ 8/10] RUN mkdir -p /app/storage &&     chown -R appuser:appuser /app
+[INFO] [ 7/10] COPY . .
+[INFO] [ 6/10] RUN groupadd -r appuser && useradd -r -g appuser -d /app -s /sbin/nologin appuser
+[INFO] [ 5/10] RUN pip install --no-cache-dir -r requirements.txt &&     pip install --no-cache-dir --force-reinstall --no-deps         opencv-python-headless opencv-contrib-python-headless
+[INFO] [ 4/10] COPY requirements.txt .
+[INFO] [internal] load build context
+[INFO] [ 3/10] RUN apt-get update &&     apt-get install -y --no-install-recommends         gcc g++ libpq-dev curl fonts-dejavu-core         libglib2.0-0 gosu         libgl1 libegl1 libsm6 libxext6 libxrender1 &&     rm -rf /var/lib/apt/lists/*
+[INFO] [builder 2/5] WORKDIR /app
+[INFO] [builder 1/5] FROM docker.io/library/python:3.12-slim@sha256:118c3679b093ad400d8257871742ad0cf430a76751493c7faa917ffb151393e6
+[INFO] [builder 1/5] FROM docker.io/library/python:3.12-slim@sha256:118c3679b093ad400d8257871742ad0cf430a76751493c7faa917ffb151393e6
+[INFO] [internal] load build context
+[INFO] [internal] load build context
+[INFO] [internal] load build context
+[INFO] [builder 2/5] WORKDIR /app
+[INFO] [ 3/10] RUN apt-get update &&     apt-get install -y --no-install-recommends         gcc g++ libpq-dev curl fonts-dejavu-core         libglib2.0-0 gosu         libgl1 libegl1 libsm6 libxext6 libxrender1 &&     rm -rf /var/lib/apt/lists/*
+[INFO] [ 4/10] COPY requirements.txt .
+[INFO] [ 5/10] RUN pip install --no-cache-dir -r requirements.txt &&     pip install --no-cache-dir --force-reinstall --no-deps         opencv-python-headless opencv-contrib-python-headless
+[INFO] [ 6/10] RUN groupadd -r appuser && useradd -r -g appuser -d /app -s /sbin/nologin appuser
+[INFO] [ 7/10] COPY . .
+[INFO] [ 7/10] COPY . .
+[INFO] [ 8/10] RUN mkdir -p /app/storage &&     chown -R appuser:appuser /app
+scheduling build on Metal builder "builder-cvjdox"
+[INFO] [ 8/10] RUN mkdir -p /app/storage &&     chown -R appuser:appuser /app
+[INFO] [ 9/10] COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
+[INFO] [ 9/10] COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
+[INFO] [10/10] RUN chmod +x /usr/local/bin/docker-entrypoint.sh
+[INFO] [10/10] RUN chmod +x /usr/local/bin/docker-entrypoint.sh
+[INFO] exporting to docker image format
+[INFO] exporting to docker image format
+containerimage.descriptor: eyJtZWRpYVR5cGUiOiJhcHBsaWNhdGlvbi92bmQub2NpLmltYWdlLm1hbmlmZXN0LnYxK2pzb24iLCJkaWdlc3QiOiJzaGEyNTY6N2QxMTU2YzBlNDIyNmU2NjQyNjU1OTI3MzQ1M2NjOTcyOTZhYjZjYWVkMzRlY2I0ZDE1MGE3NTg0NTFlNmRmNiIsInNpemUiOjI3NjcsImFubm90YXRpb25zIjp7Im9yZy5vcGVuY29udGFpbmVycy5pbWFnZS5jcmVhdGVkIjoiMjAyNi0wNC0yMlQwNjoxOToxN1oifSwicGxhdGZvcm0iOnsiYXJjaGl0ZWN0dXJlIjoiYW1kNjQiLCJvcyI6ImxpbnV4In19
+containerimage.config.digest: sha256:872d637f1c2ede0cd6ca107daf1892cb64a9983fe88d0a683cca48e234ef2e3d
+containerimage.digest: sha256:7d1156c0e4226e66426559273453cc97296ab6caed34ecb4d150a758451e6df6
+[INFO] image push

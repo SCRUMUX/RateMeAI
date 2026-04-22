@@ -1,0 +1,32 @@
+v1.19.0: PuLID quality fix — negative prompt, 25-step preset, 1 MP, CodeFormer gating
+
+* fal_pulid: bake default negative_prompt (two people / morphed face /
+  deformed fingers), add max_sequence_length=512, widen clamps
+  (steps 1..50, guidance 1.0..10.0), log seed + request context.
+* Defaults bumped: steps 4 -> 25, guidance 1.2 -> 3.5, id_scale 0.8 -> 1.0.
+  Cost rises ~$0.006 -> ~$0.015 per image but every frame is usable.
+* Prompt builder: drop SOLO_SUBJECT_ANCHOR from the positive prompt
+  (it was reinforcing duplicate-subject generation under low CFG) and
+  rephrase opener to single mention of "reference subject".
+* Face crop: padding 0.30 -> 0.12, crop 1024 -> 768 — PuLID ID
+  adapter needs a tight crop, 30 % padding was diluting identity.
+* Image size: identity_scene now runs at ~1 MP (896x1152 / 768x1344 /
+  1024x1024) instead of 2 MP — PuLID is trained on ~1 MP and 2 MP at
+  low step counts was producing composite artefacts. Real-ESRGAN x2
+  restores delivery resolution downstream. scene_preserve stays 2 MP.
+* Retry escalation rewritten: pulid_mode stays on "fidelity" (NOT
+  "extreme style", which weakens identity), raises id_scale to 1.2,
+  steps to 35, guidance to 5.0 via new PULID_RETRY_* settings.
+* CodeFormer gating:
+    - skipped for identity_scene (PuLID is already sharp at 25 steps)
+    - skipped on retries (retry is about identity, not sharpness)
+    - skipped for tiny faces (face_area_ratio < 0.05)
+    - fidelity 0.5 -> 0.85 (close-to-input, no feature reshaping)
+    - upscale_factor 2.0 -> 1.0 (Real-ESRGAN handles that)
+  Net effect on invoice: ~85 % fewer CodeFormer calls.
+* Config: IMAGE_GEN_STRATEGY default "legacy" -> "hybrid" — v1.18 was
+  shipping with the legacy default, which silently defeated the
+  hybrid pipeline until an env override was applied by hand.
+* .env.example refreshed.
+* Tests updated for opener rename + SOLO anchor removal + new
+  PuLID clamps. 2275 pass / 37 skip.

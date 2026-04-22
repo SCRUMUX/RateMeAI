@@ -75,6 +75,38 @@ _PRESET_IMAGE_SIZES = frozenset({
 
 _PULID_MODES = frozenset({"fidelity", "extreme style"})
 
+_MAX_SEQUENCE_LENGTHS = frozenset({128, 256, 512})
+
+# Default negative prompt baked into every PuLID request.
+#
+# v1.19 — the hybrid pipeline shipped without a negative_prompt, which
+# caused two recurrent failure modes on identity_scene outputs:
+#
+#   1. Duplicate subjects. A scene with "reflections on water" or
+#      "Marina Bay Sands" paired with prompts that mentioned the word
+#      "person" 2-3 times was reliably producing twins / a floating
+#      second body. Diffusion models don't understand negation, so the
+#      previous ``SOLO_SUBJECT_ANCHOR`` *positive* clause ("one person
+#      only, single subject in frame") was actively reinforcing the
+#      concept. Moving those tokens into the negative prompt flips
+#      the gradient.
+#   2. Identity drift. Without a negative on "morphed face, plastic
+#      skin, extra fingers", FLUX Lightning at 4 steps was happy to
+#      emit plastic-looking composites.
+#
+# The list is intentionally concise — PuLID's CLIP tokenizer truncates
+# at 128 tokens by default and a bloated negative eats budget that the
+# positive prompt needs.
+_DEFAULT_NEGATIVE_PROMPT = (
+    "two people, multiple people, multiple subjects, duplicate person, "
+    "twins, second person in background, crowd, group photo, "
+    "reflection rendered as a person, floating body, dismembered limbs, "
+    "extra limbs, extra arms, extra hands, deformed hands, distorted "
+    "fingers, morphed face, plastic skin, oil painting, illustration, "
+    "cartoon, render, cgi, low quality, blurry, out of focus, jpeg "
+    "artefacts, watermark, text, logo."
+)
+
 
 class FalPuLIDImageGen(FalQueueClient, ImageGenProvider):
     """FAL.ai PuLID client (identity-locked text-to-image)."""
@@ -85,11 +117,13 @@ class FalPuLIDImageGen(FalQueueClient, ImageGenProvider):
         *,
         model: str = "fal-ai/pulid",
         api_host: str = "https://queue.fal.run",
-        id_scale: float = 0.8,
+        id_scale: float = 1.0,
         pulid_mode: str = "fidelity",
-        num_inference_steps: int = 4,
-        guidance_scale: float = 1.2,
+        num_inference_steps: int = 25,
+        guidance_scale: float = 3.5,
         default_image_size: Any = "portrait_4_3",
+        max_sequence_length: int = 512,
+        negative_prompt: str | None = None,
         max_retries: int = 2,
         request_timeout: float = 180.0,
         poll_interval: float = 1.5,
@@ -103,12 +137,25 @@ class FalPuLIDImageGen(FalQueueClient, ImageGenProvider):
             poll_interval=poll_interval,
             label="PuLID",
         )
+        # v1.19 — widen id_scale / steps / guidance clamps to cover
+        # PuLID's full operational range. Earlier clamps were tuned for
+        # Lightning (4 steps, CFG ≤1.5) and were clipping the quality
+        # preset we now ship by default.
         self._id_scale = max(0.01, min(5.0, float(id_scale)))
         mode = (pulid_mode or "fidelity").strip()
         self._mode = mode if mode in _PULID_MODES else "fidelity"
-        self._steps = max(1, min(12, int(num_inference_steps)))
-        self._guidance_scale = max(1.0, min(1.5, float(guidance_scale)))
+        self._steps = max(1, min(50, int(num_inference_steps)))
+        self._guidance_scale = max(1.0, min(10.0, float(guidance_scale)))
         self._default_image_size = default_image_size
+        msl = int(max_sequence_length)
+        self._max_sequence_length = (
+            msl if msl in _MAX_SEQUENCE_LENGTHS else 512
+        )
+        self._negative_prompt = (
+            negative_prompt.strip()
+            if isinstance(negative_prompt, str) and negative_prompt.strip()
+            else _DEFAULT_NEGATIVE_PROMPT
+        )
 
     async def close(self) -> None:
         pass
@@ -162,6 +209,11 @@ class FalPuLIDImageGen(FalQueueClient, ImageGenProvider):
             if isinstance(extra, (bytes, bytearray)) and extra:
                 ref_list.append({"image_url": self._data_url(bytes(extra))})
 
+        negative_prompt = (
+            str(extras.get("negative_prompt") or "").strip()
+            or self._negative_prompt
+        )
+
         body: dict[str, Any] = {
             "prompt": prompt,
             "reference_images": ref_list,
@@ -176,21 +228,26 @@ class FalPuLIDImageGen(FalQueueClient, ImageGenProvider):
                 extras.get("id_scale") or self._id_scale,
             ),
             "mode": extras.get("pulid_mode") or self._mode,
+            "negative_prompt": negative_prompt,
         }
 
-        # Clamp ``id_scale`` to a safe range matching the API contract.
         body["id_scale"] = max(0.01, min(5.0, body["id_scale"]))
-        # Clamp ``num_inference_steps`` to [1, 12].
         body["num_inference_steps"] = max(
-            1, min(12, int(body["num_inference_steps"])),
+            1, min(50, int(body["num_inference_steps"])),
         )
-        # Clamp ``guidance_scale`` to [1.0, 1.5].
         body["guidance_scale"] = max(
-            1.0, min(1.5, float(body["guidance_scale"])),
+            1.0, min(10.0, float(body["guidance_scale"])),
         )
-        # Clamp ``mode`` to enum.
         if body["mode"] not in _PULID_MODES:
             body["mode"] = "fidelity"
+
+        msl_raw = extras.get("max_sequence_length")
+        msl = int(msl_raw) if isinstance(msl_raw, (int, float)) else (
+            self._max_sequence_length
+        )
+        body["max_sequence_length"] = (
+            msl if msl in _MAX_SEQUENCE_LENGTHS else 512
+        )
 
         seed = extras.get("seed")
         if isinstance(seed, int):
@@ -219,10 +276,13 @@ class FalPuLIDImageGen(FalQueueClient, ImageGenProvider):
         body = self._build_body(prompt, reference_image, params)
         logger.info(
             "FAL PuLID request model=%s prompt_len=%d mode=%s id_scale=%.2f "
-            "steps=%d size=%s",
+            "steps=%d guidance=%.2f msl=%d seed=%s size=%s neg_len=%d",
             self._model, len(prompt or ""), body.get("mode"),
             body.get("id_scale"), body.get("num_inference_steps"),
-            body.get("image_size", "default"),
+            body.get("guidance_scale", 0.0),
+            body.get("max_sequence_length", 0),
+            body.get("seed"), body.get("image_size", "default"),
+            len(body.get("negative_prompt") or ""),
         )
         return self._run_queue_sync(body)
 

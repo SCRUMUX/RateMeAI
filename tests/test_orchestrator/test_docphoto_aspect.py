@@ -54,10 +54,8 @@ def test_cv_prompt_document_has_strict_instruction():
 
     # v1.18: non-document CV styles run through the identity_scene
     # branch (PuLID) when the key falls through to the default spec.
-    # The change instruction is replaced by the identity_scene opener,
-    # so "professional attire" is no longer part of the prompt body —
-    # the clothing line still carries the corporate outfit, and the
-    # "reference person" anchor guarantees we are on the correct branch.
+    # v1.19: opener now says "reference subject" (not "reference
+    # person") — one mention avoids the duplicate-person failure mode.
     normal_prompt = build_cv_prompt(style="ceo", gender="male").lower()
-    assert "reference person" in normal_prompt
+    assert "reference subject" in normal_prompt
     assert "id-style headshot" not in normal_prompt

@@ -48,16 +48,17 @@ def test_requires_api_key():
 
 
 def test_defaults_are_clamped_in_constructor():
-    # id_scale=9 is above 5.0; steps=50 above 12; guidance=2.5 above 1.5
+    # v1.19 — widened clamps: steps [1, 50], guidance [1.0, 10.0],
+    # id_scale [0.01, 5.0].
     gen = _make_gen(
         id_scale=9.0,
-        num_inference_steps=50,
-        guidance_scale=2.5,
+        num_inference_steps=200,
+        guidance_scale=20.0,
         pulid_mode="not-a-real-mode",
     )
     assert gen._id_scale == 5.0
-    assert gen._steps == 12
-    assert gen._guidance_scale == 1.5
+    assert gen._steps == 50
+    assert gen._guidance_scale == 10.0
     assert gen._mode == "fidelity"
 
 
@@ -89,19 +90,21 @@ def test_body_rejects_missing_reference():
         gen._build_body("x", b"", None)
 
 
-def test_body_honours_extreme_style_mode_from_params():
-    # retry-strengthen path: executor passes pulid_mode=extreme style
-    # + id_scale=1.0 when identity_match falls below 5.0.
+def test_body_honours_retry_params_from_executor():
+    # v1.19 retry path: executor escalates id_scale / steps / guidance
+    # on identity_match failures, and stays on mode=fidelity (NOT
+    # extreme style, which actually weakens identity).
     gen = _make_gen(pulid_mode="fidelity", id_scale=0.5)
     body = gen._build_body(
         "retry prompt",
         _jpeg_bytes(),
-        {"pulid_mode": "extreme style", "id_scale": 1.0,
-         "num_inference_steps": 8},
+        {"pulid_mode": "fidelity", "id_scale": 1.2,
+         "num_inference_steps": 35, "guidance_scale": 5.0},
     )
-    assert body["mode"] == "extreme style"
-    assert body["id_scale"] == 1.0
-    assert body["num_inference_steps"] == 8
+    assert body["mode"] == "fidelity"
+    assert body["id_scale"] == 1.2
+    assert body["num_inference_steps"] == 35
+    assert body["guidance_scale"] == 5.0
 
 
 def test_body_clamps_out_of_range_id_scale():
@@ -114,13 +117,53 @@ def test_body_clamps_out_of_range_id_scale():
 
 
 def test_body_clamps_steps_and_guidance():
+    # v1.19 widened clamps: steps [1, 50], guidance [1.0, 10.0].
     gen = _make_gen()
     body = gen._build_body(
         "x", _jpeg_bytes(),
-        {"num_inference_steps": 50, "guidance_scale": 3.7},
+        {"num_inference_steps": 200, "guidance_scale": 25.0},
     )
-    assert body["num_inference_steps"] == 12
-    assert body["guidance_scale"] == 1.5
+    assert body["num_inference_steps"] == 50
+    assert body["guidance_scale"] == 10.0
+
+
+def test_body_ships_negative_prompt_by_default():
+    # v1.19: the body builder bakes a default negative_prompt covering
+    # the duplicate-subject / deformed-hands failure modes that were
+    # endemic to v1.18. The prompt must be non-empty and mention the
+    # two key concepts we want to suppress.
+    gen = _make_gen()
+    body = gen._build_body("x", _jpeg_bytes(), None)
+    neg = body["negative_prompt"]
+    assert isinstance(neg, str) and neg
+    assert "two people" in neg
+    assert "duplicate" in neg or "twins" in neg
+
+
+def test_body_honours_custom_negative_prompt():
+    gen = _make_gen()
+    body = gen._build_body(
+        "x", _jpeg_bytes(),
+        {"negative_prompt": "custom negative override"},
+    )
+    assert body["negative_prompt"] == "custom negative override"
+
+
+def test_body_ships_max_sequence_length_512_by_default():
+    # v1.19: default 512 so the full 1200-char builder reaches the
+    # sampler instead of being truncated at ~500 chars by the API
+    # default (128).
+    gen = _make_gen()
+    body = gen._build_body("x", _jpeg_bytes(), None)
+    assert body["max_sequence_length"] == 512
+
+
+def test_body_max_sequence_length_falls_back_to_512_on_invalid():
+    gen = _make_gen()
+    body = gen._build_body(
+        "x", _jpeg_bytes(), {"max_sequence_length": 1024},
+    )
+    assert body["max_sequence_length"] == 512
 
 
 def test_body_seed_default_is_random_int():

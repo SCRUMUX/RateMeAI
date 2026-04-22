@@ -390,4 +390,87 @@
 #          face-crop-failure degradation); all prompt / positive-framing
 #          / length-budget suites updated for the two-branch prompt
 #          template. 2270+ tests pass.
-APP_VERSION = "1.18.0"
+# 1.19.0 — PuLID quality fix. v1.18 shipped with Lightning defaults
+#          (4 inference steps, CFG 1.2, id_scale 0.8, 30 % crop padding,
+#          no negative_prompt, SOLO_SUBJECT anchor in POSITIVE prompt)
+#          which together produced duplicate subjects, floating bodies
+#          and "wrong face" outputs on anything more complex than a
+#          plain studio shot. Fixes:
+#
+#            * ``fal_pulid.FalPuLIDImageGen`` now ships a concise
+#              ``negative_prompt`` covering the v1.18 failure modes
+#              (two people / reflection-as-person / morphed face /
+#              deformed fingers); override via
+#              ``params['negative_prompt']`` or the constructor.
+#            * Default quality preset: steps 4→25, guidance 1.2→3.5,
+#              id_scale 0.8→1.0. Step-clamp widened 12→50, guidance
+#              clamp 1.5→10.0. Pricing moved from $0.006 to $0.015.
+#            * ``max_sequence_length: 512`` added to the body — the
+#              API default of 128 was truncating our ~1200-char
+#              scene+clothing prompts at ~500 chars.
+#            * Retry escalation rewritten: ``pulid_mode`` stays on
+#              ``fidelity`` (NOT ``extreme style`` — that mode weakens
+#              identity per the fal-ai/pulid schema), and the retry
+#              instead raises id_scale (1.2), steps (35) and guidance
+#              (5.0) via new ``pulid_retry_*`` settings.
+#
+#          Prompt builder (src/prompts/image_gen.py):
+#            * Removed ``SOLO_SUBJECT_ANCHOR`` from the positive
+#              identity_scene prompt. Its "one person / single subject
+#              / five fingers" tokens were actively reinforcing the
+#              duplicate-subject concept under low CFG. Those
+#              constraints now live in the PuLID negative_prompt where
+#              they actually help.
+#            * identity_scene opener rephrased to mention the subject
+#              once ("reference subject") instead of twice ("reference
+#              person ... the person"), trimming another trigger for
+#              duplicate-face generations.
+#
+#          Face crop (src/services/face_crop.py):
+#            * ``_DEFAULT_PADDING_RATIO`` 0.30 → 0.12. The previous
+#              padding pulled half the hair, shoulders and background
+#              into the crop and diluted PuLID's ID embedding — a
+#              direct contributor to the "generic face" drift.
+#            * ``_DEFAULT_CROP_SIZE`` 1024 → 768. PuLID resizes to
+#              336 px internally; smaller JPEG payload, same identity.
+#
+#          Output sizing (src/prompts/image_gen.py):
+#            * New ``_PULID_PIXEL_SIZE`` table at ~1 MP. identity_scene
+#              styles now generate at 896×1152 (portrait), 768×1344
+#              (16:9), 1024×1024 (square) instead of the 2 MP table.
+#              PuLID is trained on ~1 MP and 2 MP at low step counts
+#              was visibly producing composite artefacts. Real-ESRGAN
+#              x2 restores delivery resolution downstream.
+#            * ``resolve_output_size`` now accepts
+#              ``generation_mode=...`` and picks the right table.
+#
+#          CodeFormer (src/orchestrator/executor.py + config.py):
+#            * Skips identity_scene by default
+#              (``codeformer_for_identity_scene=false``) — PuLID
+#              25-step outputs are sharp enough that CodeFormer was
+#              net-damaging on identity.
+#            * Skips retries by default (``codeformer_on_retry=false``)
+#              — retry is about identity recovery, not sharpness.
+#            * Skips tiny faces (``codeformer_min_face_ratio=0.05``)
+#              — polish is imperceptible at that scale and costs ~$0.01.
+#            * ``codeformer_fidelity`` 0.5 → 0.85 (close-to-input).
+#            * ``codeformer_upscale_factor`` 2.0 → 1.0 — no more
+#              double-upscale with Real-ESRGAN.
+#          Net effect on CodeFormer invoice: ~85 % reduction (most
+#          requests now skip it entirely).
+#
+#          Config rollout:
+#            * ``image_gen_strategy`` default flipped to ``hybrid`` in
+#              code. The ``legacy`` canary branch stays only as a
+#              manual rollback escape hatch. v1.18 had shipped with a
+#              ``legacy`` default that defeated the entire hybrid
+#              pipeline until an env override was applied manually.
+#
+#          Expected per-image economics (average):
+#            identity_scene (PuLID)    : $0.015 PuLID + $0.002 ESRGAN
+#                                        = $0.017
+#            scene_preserve (Seedream) : $0.030 + $0.004 CodeFormer
+#                                        + $0.002 ESRGAN = $0.036
+#            weighted (70/30 split)    : ~$0.023 / image — still
+#                                        below the $0.025 ceiling.
+APP_VERSION = "1.19.0"

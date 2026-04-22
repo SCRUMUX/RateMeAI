@@ -124,11 +124,10 @@ def test_variant_prompts_fit_budget_and_preserve_anchors(mode: str, style: str):
                 f"prompt too long: {len(prompt)}"
             )
             if is_identity_scene:
-                # Identity-scene prompts ship a scene-focused opener
-                # and a solo-subject anchor; the face reference is
-                # what locks identity at the model level.
-                assert "reference person" in prompt
-                assert "Single subject in frame" in prompt
+                # v1.19: scene-focused opener mentions "reference
+                # subject" once. SOLO_SUBJECT_ANCHOR moved out of the
+                # positive prompt into PuLID's negative_prompt.
+                assert "reference subject" in prompt
             else:
                 assert "Preserve the exact same person" in prompt
             assert "Photorealistic" in prompt

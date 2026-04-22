@@ -46,10 +46,24 @@ _ASPECT_PIXEL_SIZE: dict[str, tuple[int, int]] = {
     "landscape_16_9":  (1920, 1088),
 }
 
+# 1 MP variants for PuLID (identity_scene) — forcing 2 MP on PuLID
+# at low step counts was producing duplicate subjects ("floating body"
+# failure mode). PuLID / FLUX are happiest at ~1 MP, and Real-ESRGAN
+# restores the delivery resolution downstream.
+_PULID_PIXEL_SIZE: dict[str, tuple[int, int]] = {
+    "square_hd":       (1024, 1024),
+    "portrait_4_3":    (896, 1152),
+    "portrait_16_9":   (768, 1344),
+    "landscape_4_3":   (1152, 896),
+    "landscape_16_9":  (1344, 768),
+}
+
 
 def resolve_output_size(
     spec: StyleSpec | None,
     face_area_ratio: float | None = None,
+    *,
+    generation_mode: str | None = None,
 ) -> dict[str, int] | None:
     """Translate a style's ``output_aspect`` into a FAL ``image_size`` dict.
 
@@ -107,9 +121,23 @@ def resolve_output_size(
                 face_area_ratio,
             )
 
-    pixels = _ASPECT_PIXEL_SIZE.get(aspect)
+    # v1.19 — identity_scene (PuLID) runs at ~1 MP. The 2 MP portrait
+    # path causes duplicate-subject artefacts; Real-ESRGAN x2 restores
+    # delivery resolution after generation.
+    effective_mode = (
+        generation_mode
+        or getattr(spec, "generation_mode", "identity_scene")
+    )
+    if effective_mode == "identity_scene":
+        size_table = _PULID_PIXEL_SIZE
+    else:
+        size_table = _ASPECT_PIXEL_SIZE
+
+    pixels = size_table.get(aspect)
     if pixels is None:
-        pixels = _ASPECT_PIXEL_SIZE["portrait_4_3"]
+        pixels = size_table.get("portrait_4_3") or _ASPECT_PIXEL_SIZE[
+            "portrait_4_3"
+        ]
     w, h = pixels
     return {"width": w, "height": h}
 
@@ -1313,9 +1341,12 @@ def _build_mode_prompt(
         parts.append(DOC_PRESERVE)
         parts.append(DOC_QUALITY)
     elif is_identity_scene:
-        # PuLID: scene-focused quality line + solo-subject anchor. No
-        # identity clauses — the ID adapter already locks the face.
-        parts.append(SOLO_SUBJECT_ANCHOR)
+        # PuLID: scene-focused quality line only. v1.19 removed the
+        # ``SOLO_SUBJECT_ANCHOR`` from the positive prompt — stacking
+        # "one person / single subject / five fingers" as POSITIVE
+        # tokens was reinforcing the "person" concept under low CFG
+        # and producing duplicate subjects. Those constraints now live
+        # in the PuLID ``negative_prompt`` where they actually help.
         parts.append(IDENTITY_SCENE_QUALITY)
     else:
         # Full-body scenes (yoga, beach, running, hiking, ...) require a new
@@ -1346,15 +1377,19 @@ def _identity_scene_opener(mode: str, style: str) -> str:
     Full-body styles get a pose hint so the model doesn't default to a
     mid-chest crop for styles like yoga/running/hiking.
     """
+    # v1.19 — phrasing trimmed. The previous "Render a portrait of the
+    # reference person in the scene" mentioned "person" twice and was
+    # part of the duplicate-subject regression. One mention of
+    # "subject" is enough; PuLID's ID adapter does the rest.
     spec = STYLE_REGISTRY.get(mode, style)
     if spec is not None and getattr(spec, "needs_full_body", False):
         return (
-            "Render a photorealistic full-body portrait of the reference "
-            "person, adopting a natural pose that fits the scene below."
+            "Photorealistic full-body portrait of the reference subject, "
+            "adopting a natural pose that fits the scene below."
         )
     return (
-        "Render a photorealistic portrait of the reference person in the "
-        "scene described below, with a natural pose fitting the scene."
+        "Photorealistic portrait of the reference subject in the scene "
+        "described below, with a natural pose fitting the scene."
     )
 
 

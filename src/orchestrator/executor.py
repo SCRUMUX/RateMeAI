@@ -140,8 +140,24 @@ def _estimate_backend_cost(
     return backend, cost
 
 
-async def _apply_codeformer_post(raw: bytes) -> tuple[bytes, bool]:
+async def _apply_codeformer_post(
+    raw: bytes,
+    *,
+    generation_mode: str | None = None,
+    face_area_ratio: float | None = None,
+    is_retry: bool = False,
+) -> tuple[bytes, bool]:
     """Run CodeFormer face polish after the main generator.
+
+    v1.19 gating:
+
+    - Skips identity_scene (PuLID) by default (``codeformer_for_identity_scene``
+      flag). The 25-step PuLID preset outputs sharp faces by itself and
+      CodeFormer was nudging identity off.
+    - Skips tiny faces (``face_area_ratio < codeformer_min_face_ratio``)
+      — polish is imperceptible at that scale.
+    - Skips retry calls by default (``codeformer_on_retry``) — the
+      retry is about identity recovery, not sharpness.
 
     v1.18+ — FLUX Lightning (under PuLID) and Seedream-edit both
     produce slightly soft faces. CodeFormer re-sharpens facial
@@ -155,6 +171,38 @@ async def _apply_codeformer_post(raw: bytes) -> tuple[bytes, bool]:
     if not raw or len(raw) <= 100:
         return raw, False
     if not bool(getattr(settings, "codeformer_enabled", False)):
+        return raw, False
+
+    if (
+        generation_mode == "identity_scene"
+        and not bool(getattr(
+            settings, "codeformer_for_identity_scene", False,
+        ))
+    ):
+        logger.debug(
+            "CodeFormer skipped: identity_scene (PuLID handles face)",
+        )
+        return raw, False
+
+    if is_retry and not bool(
+        getattr(settings, "codeformer_on_retry", False),
+    ):
+        logger.debug("CodeFormer skipped: retry attempt")
+        return raw, False
+
+    min_face_ratio = float(
+        getattr(settings, "codeformer_min_face_ratio", 0.0) or 0.0,
+    )
+    if (
+        min_face_ratio > 0.0
+        and face_area_ratio is not None
+        and face_area_ratio > 0.0
+        and face_area_ratio < min_face_ratio
+    ):
+        logger.debug(
+            "CodeFormer skipped: tiny face (%.3f < %.3f)",
+            face_area_ratio, min_face_ratio,
+        )
         return raw, False
 
     try:
@@ -350,18 +398,6 @@ class ImageGenerationExecutor:
             # headshot/full-body, 1 MP square for documents). Legacy
             # Reve / Kontext providers silently ignore the key.
             spec = STYLE_REGISTRY.get(mode.value, style)
-            output_size = resolve_output_size(
-                spec, face_area_ratio=face_area_ratio or None,
-            )
-            if output_size:
-                extra["image_size"] = output_size
-                mp = (output_size["width"] * output_size["height"]) / 1_000_000
-                logger.info(
-                    "image_size resolved mode=%s style=%s size=%dx%d (~%.2f MP)",
-                    mode.value, style or "default",
-                    output_size["width"], output_size["height"], mp,
-                )
-
             # v1.18 hybrid pipeline: thread the StyleSpec generation mode
             # through ``params`` so :class:`StyleRouter` can route to
             # PuLID (identity_scene) vs Seedream (scene_preserve). The
@@ -370,6 +406,23 @@ class ImageGenerationExecutor:
                 spec, "generation_mode", "identity_scene",
             ) if spec is not None else "identity_scene"
             extra["generation_mode"] = generation_mode
+
+            # v1.19: identity_scene (PuLID) runs at 1 MP to avoid
+            # duplicate-subject artefacts; scene_preserve stays at 2 MP.
+            output_size = resolve_output_size(
+                spec,
+                face_area_ratio=face_area_ratio or None,
+                generation_mode=generation_mode,
+            )
+            if output_size:
+                extra["image_size"] = output_size
+                mp = (output_size["width"] * output_size["height"]) / 1_000_000
+                logger.info(
+                    "image_size resolved mode=%s style=%s gen_mode=%s "
+                    "size=%dx%d (~%.2f MP)",
+                    mode.value, style or "default", generation_mode,
+                    output_size["width"], output_size["height"], mp,
+                )
 
             raw = None
             identity_match: float = 0.0
@@ -396,11 +449,16 @@ class ImageGenerationExecutor:
             codeformer_applied = False
             if raw and len(raw) > 100:
                 raw = _apply_local_postprocess(raw, mode, style, face_area_ratio)
-                # v1.18: CodeFormer polish BEFORE the final upscale so
-                # the upscaler operates on a face-sharpened source and
-                # doesn't amplify Lightning-softness. Skipped silently
-                # when the flag is off or the provider errors.
-                raw, cf_applied = await _apply_codeformer_post(raw)
+                # v1.19: CodeFormer only runs for scene_preserve paths
+                # (Seedream edits) and only when the face is large
+                # enough to show polish. identity_scene outputs from
+                # PuLID are already sharp at 25 steps.
+                raw, cf_applied = await _apply_codeformer_post(
+                    raw,
+                    generation_mode=generation_mode,
+                    face_area_ratio=face_area_ratio or None,
+                    is_retry=False,
+                )
                 codeformer_applied = codeformer_applied or cf_applied
                 raw = await _maybe_real_esrgan_upscale(raw, face_area_ratio)
             provider_name = type(self._image_gen).__name__
@@ -516,19 +574,40 @@ class ImageGenerationExecutor:
                             and identity_match > 0.0
                             and identity_match < soft_threshold
                         ):
-                            retry_params["pulid_mode"] = "extreme style"
-                            retry_params["id_scale"] = 1.0
-                            # Give the model more budget to recover on
-                            # the second pass — 4 → 8 steps still fits
-                            # comfortably under the per-image cost cap.
-                            retry_params["num_inference_steps"] = max(
-                                8, int(settings.pulid_steps or 4),
+                            # v1.19 retry escalation (FIXED).
+                            #
+                            # The v1.18 retry flipped PuLID into
+                            # ``mode="extreme style"`` — but per the
+                            # fal-ai/pulid schema that mode *weakens*
+                            # identity in favour of stylisation, which
+                            # is the opposite of what we want on an
+                            # identity_match failure. Stay on
+                            # ``fidelity`` and instead push id_scale,
+                            # steps and guidance higher.
+                            retry_params["pulid_mode"] = "fidelity"
+                            retry_params["id_scale"] = float(getattr(
+                                settings, "pulid_retry_id_scale", 1.2,
+                            ))
+                            retry_params["num_inference_steps"] = int(
+                                getattr(
+                                    settings, "pulid_retry_steps", 35,
+                                )
+                            )
+                            retry_params["guidance_scale"] = float(
+                                getattr(
+                                    settings,
+                                    "pulid_retry_guidance_scale",
+                                    5.0,
+                                )
                             )
                             logger.info(
                                 "PuLID retry strengthened task=%s "
-                                "mode=extreme_style id_scale=1.0 steps=%d",
+                                "mode=fidelity id_scale=%.2f steps=%d "
+                                "guidance=%.2f",
                                 task_id,
+                                retry_params["id_scale"],
                                 retry_params["num_inference_steps"],
+                                retry_params["guidance_scale"],
                             )
                             try:
                                 STYLE_MODE_OVERRIDE.labels(
@@ -554,7 +633,14 @@ class ImageGenerationExecutor:
                                     retry_raw, mode, style, face_area_ratio,
                                 )
                                 retry_raw, cf_applied_r = (
-                                    await _apply_codeformer_post(retry_raw)
+                                    await _apply_codeformer_post(
+                                        retry_raw,
+                                        generation_mode=generation_mode,
+                                        face_area_ratio=(
+                                            face_area_ratio or None
+                                        ),
+                                        is_retry=True,
+                                    )
                                 )
                                 codeformer_applied = (
                                     codeformer_applied or cf_applied_r

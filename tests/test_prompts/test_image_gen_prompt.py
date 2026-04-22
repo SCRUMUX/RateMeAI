@@ -20,25 +20,27 @@ def test_prompt_has_no_section_tags():
 
 
 def test_prompt_has_preserve_and_photorealistic_anchors():
-    # ``warm_outdoor`` is an identity_scene style (PuLID) so the
+    # v1.19: ``warm_outdoor`` is an identity_scene style (PuLID) so the
     # Preserve anchor is intentionally dropped. Photorealistic still
     # ships via IDENTITY_SCENE_QUALITY, and the scene opener supplies
-    # the "reference person" identity anchor in its place.
+    # the "reference subject" identity anchor in its place.
     p = ig.build_dating_prompt(style="warm_outdoor", gender="male")
     assert "Photorealistic" in p
-    assert "reference person" in p
+    assert "reference subject" in p
 
 
-def test_prompt_mentions_five_fingers_and_sharp_scene():
+def test_prompt_mentions_sharp_scene():
+    # v1.19: SOLO_SUBJECT_ANCHOR (which mentioned "five fingers")
+    # was moved out of the positive prompt and into PuLID's
+    # negative_prompt. We still assert the scene-quality anchor.
     p = ig.build_dating_prompt(style="rooftop_city", gender="male")
-    assert "five" in p.lower() and "finger" in p.lower()
     assert "sharp" in p.lower()
 
 
 def test_all_modes_build_without_error():
     # Empty-style fallback goes through the identity_scene branch, so
-    # we assert the identity_scene anchor "reference person" instead of
-    # the PRESERVE_PHOTO clause.
+    # we assert the identity_scene anchor ("reference subject" as of
+    # v1.19) instead of the PRESERVE_PHOTO clause.
     for builder in (
         ig.build_dating_prompt,
         ig.build_cv_prompt,
@@ -46,7 +48,7 @@ def test_all_modes_build_without_error():
     ):
         p = builder(style="", gender="male")
         assert p
-        assert "reference person" in p
+        assert "reference subject" in p
 
 
 def test_document_style_uses_doc_template():

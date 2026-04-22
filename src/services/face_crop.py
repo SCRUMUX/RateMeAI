@@ -31,16 +31,20 @@ logger = logging.getLogger(__name__)
 
 
 # Default padding around the detected face bbox, expressed as a fraction
-# of the larger bbox dimension. 30% is enough to include the forehead,
-# chin, and hair without pulling in shoulders/background clutter. PuLID
-# is sensitive to excessive background; the tighter the crop, the more
-# of the input identity weight goes into the face.
-_DEFAULT_PADDING_RATIO = 0.30
-# Target crop size fed to PuLID (square). 1024 is the sweet spot: big
-# enough for FLUX Lightning's ID adapter to extract clean features,
-# small enough to keep the data URI base64 payload below the FAL
-# request size cap.
-_DEFAULT_CROP_SIZE = 1024
+# of the larger bbox dimension.
+#
+# v1.19 — dropped from 0.30 → 0.12. PuLID's ID adapter was trained on
+# tight face crops (bbox + ~5–15% context) and dilutes the identity
+# embedding when the crop contains half the hair, shoulders, and
+# background clutter. 30% padding was a **direct** contributor to the
+# "generic face" drift we saw on v1.18. 12% keeps forehead + chin but
+# nothing else.
+_DEFAULT_PADDING_RATIO = 0.12
+# Target crop size fed to PuLID (square). 768 is large enough for the
+# ID adapter's feature extractor and keeps the data URI base64 payload
+# small (~280 KB at quality 92 vs ~500 KB at 1024). PuLID internally
+# resizes to 336 px anyway.
+_DEFAULT_CROP_SIZE = 768
 # Minimum face bbox side in px after padding. Below this the crop is
 # not useful to PuLID and we return ``None`` to let the router fall
 # back to the scene-preserve edit model.

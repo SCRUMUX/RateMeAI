@@ -36,8 +36,11 @@ def test_full_body_style_uses_face_only_preserve():
     # would contradict a yoga scene.
     prompt = build_dating_prompt(style="yoga_outdoor", gender="male")
     assert "original pose" not in prompt.lower()
-    assert "full-body portrait of the reference person" in prompt
-    assert "Single subject in frame" in prompt
+    # v1.19: opener says "reference subject" (not "reference person")
+    # to avoid duplicate-person tokens that were triggering two-subject
+    # outputs. SOLO_SUBJECT_ANCHOR moved to PuLID negative_prompt.
+    assert "full-body portrait of the reference subject" in prompt
+    assert "Photorealistic" in prompt
 
 
 def test_close_up_style_keeps_full_preserve_anchor():
@@ -49,9 +52,11 @@ def test_close_up_style_keeps_full_preserve_anchor():
     # anchors are present.
     prompt = build_dating_prompt(style="studio_elegant", gender="male")
     assert "original pose" not in prompt.lower()
-    assert "portrait of the reference person in the scene" in prompt
+    # v1.19: opener rephrased from "reference person" to "reference
+    # subject" — one mention of the subject avoids the two-person
+    # failure mode under low CFG.
+    assert "portrait of the reference subject in the scene" in prompt
     assert "full-body portrait" not in prompt
-    assert "Single subject in frame" in prompt
     assert "Photorealistic" in prompt
 
 

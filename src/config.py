@@ -158,30 +158,45 @@ class Settings(BaseSettings):
     #   - ``hybrid``    — StyleRouter → PuLID (identity_scene) / Seedream
     #                     (scene_preserve) / fallback (FLUX.2) per style.
     #   - ``pulid_only``— route every request through PuLID regardless of
-    #                     style mode (useful for A/B / canary experiments).
-    # Default stays ``legacy`` until the canary rollout completes.
-    image_gen_strategy: str = "legacy"
+    #                     style mode.
+    # v1.19: ``hybrid`` is the default. The ``legacy`` canary branch is
+    # kept only as a manual rollback escape hatch via env override.
+    image_gen_strategy: str = "hybrid"
 
-    # PuLID — identity-conditioned text-to-image (FLUX Lightning + ID adapter)
+    # PuLID — identity-conditioned text-to-image (FLUX + ID adapter)
     # https://fal.ai/models/fal-ai/pulid
+    #
+    # v1.19 quality fix: defaults were previously Lightning-mode
+    # (4 steps, CFG 1.2) which caused duplicate subjects, floating
+    # bodies and identity drift on anything more complex than a plain
+    # studio shot. The 25-step / CFG 3.5 / id_scale 1.0 preset is the
+    # standard "quality" PuLID config used in the reference
+    # implementation. Cost rises from ~$0.006 to ~$0.015 per image,
+    # but every kadr is usable — which the 4-step path was not.
     pulid_enabled: bool = True
     pulid_model: str = "fal-ai/pulid"
-    # 0 = no identity lock, 1.0 = very strong (face can dominate scene).
-    # 0.8 is the sweet spot for photorealistic scenes; retry loop can
-    # push it to 1.0 when identity_match fails.
-    pulid_id_scale: float = 0.8
-    # FLUX Lightning default — 4 steps at 1.2 guidance is the canonical
-    # PuLID config. Retry loop can bump to 8 for sharper detail on
-    # identity_match failures.
-    pulid_steps: int = 4
-    pulid_guidance_scale: float = 1.2
-    # ``fidelity`` (default) keeps face closer to reference; ``extreme
-    # style`` lets the prompt dominate more, useful on retry when the
-    # identity lock made the scene look off.
+    # 0 = no identity lock, 1.0+ = very strong. PuLID paper runs at
+    # 1.0 for faithful portraits; the retry loop pushes to 1.2.
+    pulid_id_scale: float = 1.0
+    pulid_steps: int = 25
+    pulid_guidance_scale: float = 3.5
+    # ``fidelity`` (default) keeps face closer to reference. DO NOT
+    # switch to ``extreme style`` on retry — that knob is for artistic
+    # stylisation, not identity recovery. The retry path stays on
+    # ``fidelity`` and instead raises id_scale / steps / guidance.
     pulid_mode: str = "fidelity"
+    # Maximum CLIP sequence length. 128 (API default) truncates long
+    # scene+clothing prompts at ~500 chars; 512 lets the full 1200-char
+    # builder reach the sampler.
+    pulid_max_sequence_length: int = 512
+    # Retry-escalation knobs (used only when the VLM gate flags
+    # identity_match below the soft threshold).
+    pulid_retry_id_scale: float = 1.2
+    pulid_retry_steps: int = 35
+    pulid_retry_guidance_scale: float = 5.0
     # Flat cost estimate. PuLID on FAL bills per GPU-second; empirical
-    # mean at the default 4-step config on H100 is ~$0.005–$0.008.
-    model_cost_fal_pulid: float = 0.006
+    # mean at the 25-step quality config on H100 is ~$0.012–$0.018.
+    model_cost_fal_pulid: float = 0.015
 
     # Seedream v4 Edit — image-to-image edit, 4 MP capable.
     # https://fal.ai/models/fal-ai/bytedance/seedream/v4/edit
@@ -195,16 +210,35 @@ class Settings(BaseSettings):
 
     # CodeFormer — post-generation face polish.
     # https://fal.ai/models/fal-ai/codeformer
+    #
+    # v1.19 policy: CodeFormer only runs for ``scene_preserve`` outputs
+    # (Seedream edits) — PuLID already outputs sharp 25-step faces and
+    # CodeFormer was **damaging** identity on those by rewriting
+    # features at fidelity=0.5. For Seedream edits a high fidelity
+    # (0.85) keeps the source face geometry while smoothing codec
+    # artefacts. ``codeformer_upscale_factor=1.0`` avoids double-paying
+    # for a resolution bump that Real-ESRGAN does later. Tiny faces
+    # (``face_area_ratio < codeformer_min_face_ratio``) skip the call
+    # entirely — polish is invisible at that scale and costs $0.01+.
     codeformer_enabled: bool = True
     codeformer_model: str = "fal-ai/codeformer"
-    # 0 = strongest restoration (most "perfect" features, risk of
-    # identity drift), 1 = closest to the input. 0.5 is a safe default
-    # that fixes Lightning-caused face blur without reshaping features.
-    codeformer_fidelity: float = 0.5
-    codeformer_upscale_factor: float = 2.0
-    # Bills per megapixel. At 1 MP input + upscale_factor=2 we pay
-    # roughly $0.0021 × 4 MP = $0.0084. Use a conservative $0.003 in
-    # budget math.
+    # v1.19: 0.85 — close to input, fixes artefacts without reshaping.
+    codeformer_fidelity: float = 0.85
+    # v1.19: no upscale inside CodeFormer — Real-ESRGAN handles that.
+    codeformer_upscale_factor: float = 1.0
+    # Skip CodeFormer when the detected face is tiny (face_area_ratio
+    # below this) — polish is imperceptible and bills ~$0.01/call.
+    codeformer_min_face_ratio: float = 0.05
+    # v1.19: disabled for identity_scene (PuLID). The 25-step quality
+    # config outputs sharp faces by itself and CodeFormer @ fidelity
+    # 0.85 was still nudging identity off on retries.
+    codeformer_for_identity_scene: bool = False
+    # Skip CodeFormer on retry attempts (we already polished attempt 1
+    # and don't want to pay twice when the retry is about identity,
+    # not sharpness).
+    codeformer_on_retry: bool = False
+    # Bills per megapixel (output). At 2 MP input with upscale_factor=1
+    # we pay roughly $0.0021 × 2 MP = $0.0042.
     model_cost_fal_codeformer_per_mp: float = 0.0021
 
     # Segmentation / multi-pass pipeline.

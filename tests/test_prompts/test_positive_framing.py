@@ -78,11 +78,14 @@ def test_prompt_contains_identity_anchors(mode: str, style: str, gender: str) ->
             f"{mode}/{style}/{gender}: missing 'head-to-*' proportion anchor"
         )
     else:
-        assert "reference person" in prompt, (
+        # v1.19: identity_scene opener now says "reference subject"
+        # (not "reference person") to avoid duplicate-"person" tokens
+        # that were triggering two-subject outputs under low CFG.
+        # The SOLO_SUBJECT_ANCHOR was moved out of the POSITIVE prompt
+        # and into PuLID's negative_prompt, so it no longer appears
+        # here — the PuLID API body carries it instead.
+        assert "reference subject" in prompt, (
             f"{mode}/{style}/{gender}: identity_scene opener missing"
-        )
-        assert "Single subject in frame" in prompt, (
-            f"{mode}/{style}/{gender}: solo-subject anchor missing"
         )
 
 

@@ -84,13 +84,28 @@ def test_full_body_styles_use_portrait_4_3():
 
 
 def test_resolve_output_size_returns_custom_dict_for_portrait_styles():
+    # v1.19: identity_scene (PuLID) styles run at ~1 MP to avoid
+    # duplicate-subject artefacts on the 2 MP portrait path. The
+    # default generation_mode for non-document dating styles is
+    # identity_scene, so beach_sunset now resolves to 896x1152.
     spec = STYLE_REGISTRY.get("dating", "beach_sunset")
     if spec is None or not getattr(spec, "needs_full_body", False):
         pytest.skip("beach_sunset not registered as full-body style")
     size = resolve_output_size(spec)
-    assert size == {"width": 1280, "height": 1600}
+    assert size == {"width": 896, "height": 1152}
     mp = (size["width"] * size["height"]) / 1_000_000
-    assert 1.9 <= mp <= 2.1, f"expected ~2 MP, got {mp:.2f}"
+    assert 0.95 <= mp <= 1.1, f"expected ~1 MP for PuLID, got {mp:.2f}"
+
+
+def test_resolve_output_size_scene_preserve_stays_at_2mp():
+    # scene_preserve (Seedream) can handle 2 MP without the PuLID
+    # duplicate-subject failure mode — keep the existing 1280x1600
+    # output there so we don't lose delivery resolution.
+    spec = STYLE_REGISTRY.get("dating", "beach_sunset")
+    if spec is None or not getattr(spec, "needs_full_body", False):
+        pytest.skip("beach_sunset not registered as full-body style")
+    size = resolve_output_size(spec, generation_mode="scene_preserve")
+    assert size == {"width": 1280, "height": 1600}
 
 
 def test_resolve_output_size_returns_1mp_for_documents():
