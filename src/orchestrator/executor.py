@@ -674,7 +674,7 @@ class ImageGenerationExecutor:
                 step="single_pass",
                 provider=provider_name,
             ).inc()
-            
+
             fal_model: str | None = None
             if provider_name.lower() == "unifiedimagegenprovider":
                 if first_pass_backend == "pulid":
@@ -686,14 +686,22 @@ class ImageGenerationExecutor:
                         "fal-ai/bytedance/seedream/v4/edit",
                     )
                 elif first_pass_backend == "nano_banana_2":
-                    fal_model = getattr(settings, "nano_banana_model", "fal-ai/nano-banana-2/edit")
+                    fal_model = getattr(
+                        settings, "nano_banana_model", "fal-ai/nano-banana-2/edit"
+                    )
                 elif first_pass_backend == "gpt_image_2":
-                    fal_model = getattr(settings, "gpt_image_2_model", "openai/gpt-image-2/edit")
+                    fal_model = getattr(
+                        settings, "gpt_image_2_model", "openai/gpt-image-2/edit"
+                    )
             elif "nanobanana" in provider_name.lower():
-                fal_model = getattr(settings, "nano_banana_model", "fal-ai/nano-banana-2/edit")
+                fal_model = getattr(
+                    settings, "nano_banana_model", "fal-ai/nano-banana-2/edit"
+                )
             elif "gptimage" in provider_name.lower():
-                fal_model = getattr(settings, "gpt_image_2_model", "openai/gpt-image-2/edit")
-            
+                fal_model = getattr(
+                    settings, "gpt_image_2_model", "openai/gpt-image-2/edit"
+                )
+
             if fal_model:
                 try:
                     FAL_CALLS.labels(
@@ -702,7 +710,9 @@ class ImageGenerationExecutor:
                         model=fal_model,
                     ).inc()
                 except Exception as e:
-                    logger.warning("Failed to record FAL_CALLS metric for single_pass: %s", e)
+                    logger.warning(
+                        "Failed to record FAL_CALLS metric for single_pass: %s", e
+                    )
 
             if not raw or len(raw) <= 100:
                 logger.warning(
@@ -937,10 +947,18 @@ class ImageGenerationExecutor:
                                             "openai/gpt-image-2/edit",
                                         )
                                 elif "nanobanana" in provider_name.lower():
-                                    retry_fal_model = getattr(settings, "nano_banana_model", "fal-ai/nano-banana-2/edit")
+                                    retry_fal_model = getattr(
+                                        settings,
+                                        "nano_banana_model",
+                                        "fal-ai/nano-banana-2/edit",
+                                    )
                                 elif "gptimage" in provider_name.lower():
-                                    retry_fal_model = getattr(settings, "gpt_image_2_model", "openai/gpt-image-2/edit")
-                                
+                                    retry_fal_model = getattr(
+                                        settings,
+                                        "gpt_image_2_model",
+                                        "openai/gpt-image-2/edit",
+                                    )
+
                                 if retry_fal_model:
                                     try:
                                         FAL_CALLS.labels(
