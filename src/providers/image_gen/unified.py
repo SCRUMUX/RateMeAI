@@ -8,10 +8,17 @@ Model B (Fast): Nano Banana
 from __future__ import annotations
 
 import logging
+from contextvars import ContextVar
 
 from src.providers.base import ImageGenProvider
 
 logger = logging.getLogger(__name__)
+
+routed_backend_var: ContextVar[str] = ContextVar("routed_backend_var", default="")
+
+def get_routed_backend() -> str:
+    """Return the backend label that actually ran the last generation."""
+    return routed_backend_var.get()
 
 
 class UnifiedImageGenProvider(ImageGenProvider):
@@ -77,6 +84,7 @@ class UnifiedImageGenProvider(ImageGenProvider):
         params = dict(params or {})
 
         provider, backend_label = self._pick_backend(params)
+        routed_backend_var.set(backend_label)
 
         try:
             from src.metrics import IMAGE_GEN_BACKEND
@@ -98,6 +106,7 @@ class UnifiedImageGenProvider(ImageGenProvider):
         except Exception as exc:
             if provider is self._model_a:
                 logger.warning("Model A failed (%s), falling back to Model B", exc)
+                routed_backend_var.set("nano_banana_2")
                 try:
                     from src.metrics import STYLE_MODE_OVERRIDE
 

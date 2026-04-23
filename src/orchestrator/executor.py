@@ -585,7 +585,7 @@ class ImageGenerationExecutor:
             # call so leftover state from a previous request in the
             # same worker cannot poison the cost label.
             try:
-                from src.providers.image_gen.style_router import (
+                from src.providers.image_gen.unified import (
                     routed_backend_var,
                 )
 
@@ -631,7 +631,7 @@ class ImageGenerationExecutor:
             # generate() so a retry call below cannot overwrite the
             # first-pass label before we read it.
             try:
-                from src.providers.image_gen.style_router import (
+                from src.providers.image_gen.unified import (
                     get_routed_backend,
                 )
 
@@ -674,13 +674,9 @@ class ImageGenerationExecutor:
                 step="single_pass",
                 provider=provider_name,
             ).inc()
-            # v1.20: dedicated FAL counter keyed on the *routed*
-            # backend (``pulid`` / ``seedream`` / ``fallback``) when a
-            # StyleRouter is in play, so PuLID retries are visible in
-            # Grafana. Legacy direct-provider setups fall back to the
-            # class-name heuristic used since v1.14.
+            
             fal_model: str | None = None
-            if provider_name.lower() == "stylerouter":
+            if provider_name.lower() == "unifiedimagegenprovider":
                 if first_pass_backend == "pulid":
                     fal_model = getattr(settings, "pulid_model", "fal-ai/pulid")
                 elif first_pass_backend == "seedream":
@@ -689,14 +685,15 @@ class ImageGenerationExecutor:
                         "seedream_model",
                         "fal-ai/bytedance/seedream/v4/edit",
                     )
-                elif first_pass_backend == "fallback":
-                    fal_model = settings.fal2_model
-            elif "falflux" in provider_name.lower():
-                fal_model = (
-                    settings.fal2_model
-                    if "falflux2" in provider_name.lower()
-                    else settings.fal_model
-                )
+                elif first_pass_backend == "nano_banana_2":
+                    fal_model = getattr(settings, "nano_banana_model", "fal-ai/nano-banana-2/edit")
+                elif first_pass_backend == "gpt_image_2":
+                    fal_model = getattr(settings, "gpt_image_2_model", "openai/gpt-image-2/edit")
+            elif "nanobanana" in provider_name.lower():
+                fal_model = getattr(settings, "nano_banana_model", "fal-ai/nano-banana-2/edit")
+            elif "gptimage" in provider_name.lower():
+                fal_model = getattr(settings, "gpt_image_2_model", "openai/gpt-image-2/edit")
+            
             if fal_model:
                 FAL_CALLS.labels(
                     mode=mode.value,
@@ -903,7 +900,7 @@ class ImageGenerationExecutor:
                                 # the legacy class-name check for
                                 # non-router provider setups.
                                 try:
-                                    from src.providers.image_gen.style_router import (  # noqa: E501
+                                    from src.providers.image_gen.unified import (
                                         get_routed_backend,
                                     )
 
@@ -911,7 +908,7 @@ class ImageGenerationExecutor:
                                 except Exception:
                                     retry_backend = ""
                                 retry_fal_model: str | None = None
-                                if provider_name.lower() == "stylerouter":
+                                if provider_name.lower() == "unifiedimagegenprovider":
                                     if retry_backend == "pulid":
                                         retry_fal_model = getattr(
                                             settings,
@@ -924,14 +921,23 @@ class ImageGenerationExecutor:
                                             "seedream_model",
                                             "fal-ai/bytedance/seedream/v4/edit",
                                         )
-                                    elif retry_backend == "fallback":
-                                        retry_fal_model = settings.fal2_model
-                                elif "falflux" in provider_name.lower():
-                                    retry_fal_model = (
-                                        settings.fal2_model
-                                        if "falflux2" in provider_name.lower()
-                                        else settings.fal_model
-                                    )
+                                    elif retry_backend == "nano_banana_2":
+                                        retry_fal_model = getattr(
+                                            settings,
+                                            "nano_banana_model",
+                                            "fal-ai/nano-banana-2/edit",
+                                        )
+                                    elif retry_backend == "gpt_image_2":
+                                        retry_fal_model = getattr(
+                                            settings,
+                                            "gpt_image_2_model",
+                                            "openai/gpt-image-2/edit",
+                                        )
+                                elif "nanobanana" in provider_name.lower():
+                                    retry_fal_model = getattr(settings, "nano_banana_model", "fal-ai/nano-banana-2/edit")
+                                elif "gptimage" in provider_name.lower():
+                                    retry_fal_model = getattr(settings, "gpt_image_2_model", "openai/gpt-image-2/edit")
+                                
                                 if retry_fal_model:
                                     try:
                                         FAL_CALLS.labels(
@@ -1119,7 +1125,7 @@ class ImageGenerationExecutor:
                 # keeps the budget math honest even when the router
                 # degrades identity_scene → scene_preserve mid-call.
                 try:
-                    from src.providers.image_gen.style_router import (
+                    from src.providers.image_gen.unified import (
                         get_routed_backend,
                     )
 
