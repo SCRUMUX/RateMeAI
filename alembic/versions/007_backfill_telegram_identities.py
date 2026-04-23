@@ -8,6 +8,7 @@ Revises: 006
 Create Date: 2026-04-10
 
 """
+
 from typing import Sequence, Union
 
 from alembic import op

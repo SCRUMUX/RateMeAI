@@ -1,4 +1,5 @@
 """Tests for consensus scoring utility."""
+
 from __future__ import annotations
 
 import asyncio
@@ -24,11 +25,13 @@ def test_single_sample_returns_direct_result():
 
 def test_consensus_takes_median_of_numeric():
     llm = MagicMock()
-    llm.analyze_image = AsyncMock(side_effect=[
-        {"score": 6.0, "label": "ok"},
-        {"score": 8.0, "label": "great"},
-        {"score": 7.0, "label": "fine"},
-    ])
+    llm.analyze_image = AsyncMock(
+        side_effect=[
+            {"score": 6.0, "label": "ok"},
+            {"score": 8.0, "label": "great"},
+            {"score": 7.0, "label": "fine"},
+        ]
+    )
 
     result = _run(consensus_analyze(llm, b"img", "prompt", temperature=0.0, n=3))
     assert result["score"] == 7.0
@@ -37,11 +40,13 @@ def test_consensus_takes_median_of_numeric():
 
 def test_consensus_handles_partial_failure():
     llm = MagicMock()
-    llm.analyze_image = AsyncMock(side_effect=[
-        {"score": 8.0},
-        Exception("LLM error"),
-        {"score": 6.0},
-    ])
+    llm.analyze_image = AsyncMock(
+        side_effect=[
+            {"score": 8.0},
+            Exception("LLM error"),
+            {"score": 6.0},
+        ]
+    )
 
     result = _run(consensus_analyze(llm, b"img", "prompt", n=3))
     assert result["score"] == 7.0
@@ -56,19 +61,23 @@ def test_consensus_all_fail_raises():
 
 
 def test_median_dict_lists_take_longest():
-    result = _median_dict([
-        {"items": ["a"]},
-        {"items": ["a", "b", "c"]},
-        {"items": ["a", "b"]},
-    ])
+    result = _median_dict(
+        [
+            {"items": ["a"]},
+            {"items": ["a", "b", "c"]},
+            {"items": ["a", "b"]},
+        ]
+    )
     assert result["items"] == ["a", "b", "c"]
 
 
 def test_median_dict_mixed_keys():
-    result = _median_dict([
-        {"score": 5.0, "label": "low"},
-        {"score": 9.0, "label": "high"},
-    ])
+    result = _median_dict(
+        [
+            {"score": 5.0, "label": "low"},
+            {"score": 9.0, "label": "high"},
+        ]
+    )
     assert result["score"] == 7.0
     assert result["label"] == "low"
 

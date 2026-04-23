@@ -1,4 +1,5 @@
 """RateMeAI SDK client — synchronous and async wrappers for the REST API."""
+
 from __future__ import annotations
 
 import time

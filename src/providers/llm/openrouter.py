@@ -21,12 +21,15 @@ _RETRYABLE_STATUSES = frozenset({408, 425, 429, 500, 502, 503, 504})
 
 def _is_retryable_openrouter(exc: BaseException) -> bool:
     # Network-level timeouts / connection issues → always retry.
-    if isinstance(exc, (
-        httpx.TimeoutException,       # covers ReadTimeout, WriteTimeout, ConnectTimeout, PoolTimeout
-        httpx.ConnectError,
-        httpx.RemoteProtocolError,
-        httpx.NetworkError,
-    )):
+    if isinstance(
+        exc,
+        (
+            httpx.TimeoutException,  # covers ReadTimeout, WriteTimeout, ConnectTimeout, PoolTimeout
+            httpx.ConnectError,
+            httpx.RemoteProtocolError,
+            httpx.NetworkError,
+        ),
+    ):
         return True
     if isinstance(exc, httpx.HTTPStatusError):
         try:
@@ -54,7 +57,11 @@ class OpenRouterLLM(LLMProvider):
         retry=retry_if_exception(_is_retryable_openrouter),
     )
     async def analyze_image(
-        self, image_bytes: bytes, prompt: str, *, temperature: float = 0.7,
+        self,
+        image_bytes: bytes,
+        prompt: str,
+        *,
+        temperature: float = 0.7,
     ) -> dict:
         assert_external_transfer_allowed("openrouter")
         b64 = base64.b64encode(image_bytes).decode()
@@ -121,8 +128,14 @@ class OpenRouterLLM(LLMProvider):
                     "role": "user",
                     "content": [
                         {"type": "text", "text": prompt},
-                        {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{b64_a}"}},
-                        {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{b64_b}"}},
+                        {
+                            "type": "image_url",
+                            "image_url": {"url": f"data:image/jpeg;base64,{b64_a}"},
+                        },
+                        {
+                            "type": "image_url",
+                            "image_url": {"url": f"data:image/jpeg;base64,{b64_b}"},
+                        },
                     ],
                 }
             ],
@@ -192,7 +205,11 @@ class OpenRouterLLM(LLMProvider):
         parsed = json.loads(text)
         if isinstance(parsed, dict):
             return parsed
-        if isinstance(parsed, list) and len(parsed) == 1 and isinstance(parsed[0], dict):
+        if (
+            isinstance(parsed, list)
+            and len(parsed) == 1
+            and isinstance(parsed[0], dict)
+        ):
             return parsed[0]
         raise ValueError(
             f"LLM returned non-object JSON (type={type(parsed).__name__}); expected a JSON object"

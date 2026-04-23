@@ -31,8 +31,11 @@ from src.utils.redis_keys import (
     task_input_cache_keys,
 )
 from src.metrics import (
-    CREDITS_USED, TASKS_COMPLETED, TASKS_FAILED,
-    PIPELINE_RETRIES, COMPLETED_WITHOUT_IMAGE,
+    CREDITS_USED,
+    TASKS_COMPLETED,
+    TASKS_FAILED,
+    PIPELINE_RETRIES,
+    COMPLETED_WITHOUT_IMAGE,
 )
 from src.orchestrator.errors import (
     format_task_error as _format_task_error,
@@ -65,6 +68,7 @@ def _is_transient(exc: Exception) -> bool:
     # layer is enough; worker accepts the provider's final verdict.
     try:
         from src.providers.image_gen.reve_provider import ReveAPIError
+
         if isinstance(real, ReveAPIError):
             return False
     except Exception:
@@ -96,11 +100,13 @@ def _mediapipe_selfcheck() -> None:
     try:
         import io as _io
         from PIL import Image as _Image
+
         _buf = _io.BytesIO()
         _Image.new("RGB", (64, 64), color=(128, 128, 128)).save(_buf, format="JPEG")
         probe = _buf.getvalue()
 
         from src.services.identity import IdentityService
+
         svc = IdentityService()
         svc.detect_face(probe)
     except Exception:
@@ -114,6 +120,7 @@ def _mediapipe_selfcheck() -> None:
 
     from src.services.identity import _mp_available as _id_available
     from src.services.input_quality import _get_mp_detector
+
     _get_mp_detector()
     from src.services.input_quality import _mp_available as _iq_available
 
@@ -123,7 +130,8 @@ def _mediapipe_selfcheck() -> None:
         logger.warning(
             "MediaPipe FaceDetection UNAVAILABLE at worker startup — "
             "NO_FACE gate will degrade (fail-soft). identity=%s input_quality=%s",
-            _id_available, _iq_available,
+            _id_available,
+            _iq_available,
         )
 
 
@@ -159,7 +167,10 @@ async def startup(ctx: dict):
     # warning, not a blocker for task processing.
     _mediapipe_selfcheck()
     import time
-    await ctx["redis"].set(WORKER_HEARTBEAT_KEY, str(time.time()), ex=WORKER_HEARTBEAT_TTL)
+
+    await ctx["redis"].set(
+        WORKER_HEARTBEAT_KEY, str(time.time()), ex=WORKER_HEARTBEAT_TTL
+    )
 
     sha = (settings.deploy_git_sha or "").strip()
     logger.info(
@@ -208,7 +219,9 @@ async def _cleanup_ephemeral_artifacts(
         try:
             await redis.delete(cache_key)
         except Exception:
-            logger.debug("Failed to delete input cache key %s", cache_key, exc_info=True)
+            logger.debug(
+                "Failed to delete input cache key %s", cache_key, exc_info=True
+            )
 
     # Privacy: original image must never remain in storage after processing.
     # For legacy tasks that still have a storage key attached, we purge it
@@ -224,7 +237,9 @@ async def _cleanup_ephemeral_artifacts(
             try:
                 await redis.delete(cache_key)
             except Exception:
-                logger.debug("Failed to delete generated cache key %s", cache_key, exc_info=True)
+                logger.debug(
+                    "Failed to delete generated cache key %s", cache_key, exc_info=True
+                )
         await _delete_storage_key(storage, f"generated/{task.user_id}/{task.id}.jpg")
 
 
@@ -260,7 +275,9 @@ async def _process_analysis_inner(ctx: dict, task_id: str):
                 if not b64:
                     continue
                 image_bytes = base64.b64decode(b64)
-                logger.info("Task %s input loaded from Redis cache (%s)", task_id, cache_key)
+                logger.info(
+                    "Task %s input loaded from Redis cache (%s)", task_id, cache_key
+                )
                 break
             if image_bytes is None:
                 if not task.input_image_path:
@@ -275,9 +292,7 @@ async def _process_analysis_inner(ctx: dict, task_id: str):
                     )
                 image_bytes = await storage.download(task.input_image_path)
 
-            u_row = await db.execute(
-                select(User).where(User.id == task.user_id)
-            )
+            u_row = await db.execute(select(User).where(User.id == task.user_id))
             task_user = u_row.scalar_one()
             has_credits = credit_pre_reserved or task_user.image_credits > 0
 
@@ -311,12 +326,20 @@ async def _process_analysis_inner(ctx: dict, task_id: str):
                     break
                 except Exception as exc:
                     last_exc = exc
-                    if attempt < _MAX_PIPELINE_RETRIES and allow_pipeline_retry and _is_transient(exc):
+                    if (
+                        attempt < _MAX_PIPELINE_RETRIES
+                        and allow_pipeline_retry
+                        and _is_transient(exc)
+                    ):
                         PIPELINE_RETRIES.inc()
-                        wait = _RETRY_BACKOFF_BASE * (2 ** attempt)
+                        wait = _RETRY_BACKOFF_BASE * (2**attempt)
                         logger.warning(
                             "Task %s transient error (attempt %d/%d), retrying in %.1fs: %s",
-                            task_id, attempt + 1, _MAX_PIPELINE_RETRIES + 1, wait, exc,
+                            task_id,
+                            attempt + 1,
+                            _MAX_PIPELINE_RETRIES + 1,
+                            wait,
+                            exc,
                         )
                         await asyncio.sleep(wait)
                     else:
@@ -337,11 +360,19 @@ async def _process_analysis_inner(ctx: dict, task_id: str):
                             b64_gen,
                             ex=settings.gen_image_redis_ttl_seconds,
                         )
-                        logger.info("Staged generated image in Redis for task %s (%d bytes)", task_id, len(gen_bytes))
+                        logger.info(
+                            "Staged generated image in Redis for task %s (%d bytes)",
+                            task_id,
+                            len(gen_bytes),
+                        )
                         staged = True
                         break
                     except Exception:
-                        logger.exception("Redis staging attempt %d failed for task %s", _attempt + 1, task_id)
+                        logger.exception(
+                            "Redis staging attempt %d failed for task %s",
+                            _attempt + 1,
+                            task_id,
+                        )
                 if not staged:
                     logger.error(
                         "All Redis staging attempts failed for task %s — saving b64 to DB as fallback",
@@ -349,40 +380,61 @@ async def _process_analysis_inner(ctx: dict, task_id: str):
                     )
                     try:
                         gen_bytes_fb = await storage.download(gkey)
-                        analysis_result["generated_image_b64"] = base64.b64encode(gen_bytes_fb).decode()
+                        analysis_result["generated_image_b64"] = base64.b64encode(
+                            gen_bytes_fb
+                        ).decode()
                     except Exception:
-                        logger.exception("DB b64 fallback also failed for task %s", task_id)
+                        logger.exception(
+                            "DB b64 fallback also failed for task %s", task_id
+                        )
 
                 skip_deduct = context.get("skip_credit_deduct", False)
                 if skip_deduct:
-                    logger.info("Skipping credit deduction for edge-proxied task %s", task_id)
+                    logger.info(
+                        "Skipping credit deduction for edge-proxied task %s", task_id
+                    )
                     analysis_result["credit_deducted"] = False
                 elif credit_pre_reserved:
                     CREDITS_USED.inc()
-                    logger.info("Credit was pre-reserved at request time for task %s", task_id)
+                    logger.info(
+                        "Credit was pre-reserved at request time for task %s", task_id
+                    )
                     analysis_result["credit_deducted"] = True
                 else:
                     try:
                         u = await db.execute(
-                            select(User).where(User.id == task.user_id).with_for_update()
+                            select(User)
+                            .where(User.id == task.user_id)
+                            .with_for_update()
                         )
                         user = u.scalar_one()
                         if user.image_credits > 0:
                             user.image_credits -= 1
-                            db.add(CreditTransaction(
-                                user_id=task.user_id,
-                                amount=-1,
-                                balance_after=user.image_credits,
-                                tx_type="generation",
-                            ))
+                            db.add(
+                                CreditTransaction(
+                                    user_id=task.user_id,
+                                    amount=-1,
+                                    balance_after=user.image_credits,
+                                    tx_type="generation",
+                                )
+                            )
                             CREDITS_USED.inc()
-                            logger.info("Deducted 1 image credit for user %s, remaining=%d", task.user_id, user.image_credits)
+                            logger.info(
+                                "Deducted 1 image credit for user %s, remaining=%d",
+                                task.user_id,
+                                user.image_credits,
+                            )
                             analysis_result["credit_deducted"] = True
                         else:
-                            logger.warning("No credits to deduct for user %s (balance=0), image was generated for free", task.user_id)
+                            logger.warning(
+                                "No credits to deduct for user %s (balance=0), image was generated for free",
+                                task.user_id,
+                            )
                             analysis_result["credit_deducted"] = False
                     except Exception:
-                        logger.exception("Failed to deduct image credit for task %s", task_id)
+                        logger.exception(
+                            "Failed to deduct image credit for task %s", task_id
+                        )
                         analysis_result["credit_deducted"] = False
 
             analysis_result["enhancement_level"] = context.get("enhancement_level", 0)
@@ -411,21 +463,26 @@ async def _process_analysis_inner(ctx: dict, task_id: str):
                 ):
                     try:
                         u_ref = await db.execute(
-                            select(User).where(User.id == task.user_id).with_for_update()
+                            select(User)
+                            .where(User.id == task.user_id)
+                            .with_for_update()
                         )
                         user_ref = u_ref.scalar_one()
                         user_ref.image_credits += 1
-                        db.add(CreditTransaction(
-                            user_id=task.user_id,
-                            amount=1,
-                            balance_after=user_ref.image_credits,
-                            tx_type="refund_no_image",
-                        ))
+                        db.add(
+                            CreditTransaction(
+                                user_id=task.user_id,
+                                amount=1,
+                                balance_after=user_ref.image_credits,
+                                tx_type="refund_no_image",
+                            )
+                        )
                         analysis_result["credit_refunded"] = True
                         analysis_result["credit_deducted"] = False
                         logger.info(
                             "Refunded 1 image credit for completed-without-image task %s (reason=%s)",
-                            task_id, analysis_result.get("no_image_reason", "unknown"),
+                            task_id,
+                            analysis_result.get("no_image_reason", "unknown"),
                         )
                     except Exception:
                         logger.exception(
@@ -439,11 +496,13 @@ async def _process_analysis_inner(ctx: dict, task_id: str):
             task.completed_at = datetime.now(timezone.utc)
 
             today = date.today()
-            stmt = pg_insert(UsageLog).values(
-                user_id=task.user_id, usage_date=today, count=1
-            ).on_conflict_do_update(
-                constraint="uq_usage_user_date",
-                set_={"count": UsageLog.count + 1},
+            stmt = (
+                pg_insert(UsageLog)
+                .values(user_id=task.user_id, usage_date=today, count=1)
+                .on_conflict_do_update(
+                    constraint="uq_usage_user_date",
+                    set_={"count": UsageLog.count + 1},
+                )
             )
             await db.execute(stmt)
 
@@ -460,7 +519,11 @@ async def _process_analysis_inner(ctx: dict, task_id: str):
                 try:
                     await arq.enqueue_job("compute_delta_scores", str(task.id))
                 except Exception:
-                    logger.warning("Failed to enqueue deferred delta scoring for %s", task_id, exc_info=True)
+                    logger.warning(
+                        "Failed to enqueue deferred delta scoring for %s",
+                        task_id,
+                        exc_info=True,
+                    )
 
             try:
                 await redis.publish(f"ratemeai:task_done:{task_id}", "completed")
@@ -500,7 +563,9 @@ async def _process_analysis_inner(ctx: dict, task_id: str):
                 except Exception:
                     pass
                 async with db_sessionmaker() as db_retry:
-                    retry_result = await db_retry.execute(select(Task).where(Task.id == task_id))
+                    retry_result = await db_retry.execute(
+                        select(Task).where(Task.id == task_id)
+                    )
                     retry_task = retry_result.scalar_one_or_none()
                     if retry_task is not None:
                         retry_task.status = TaskStatus.FAILED.value
@@ -527,21 +592,26 @@ async def _process_analysis_inner(ctx: dict, task_id: str):
                             )
                         else:
                             u = await refund_db.execute(
-                                select(User).where(User.id == task.user_id).with_for_update()
+                                select(User)
+                                .where(User.id == task.user_id)
+                                .with_for_update()
                             )
                             refund_user = u.scalar_one()
                             refund_user.image_credits += 1
-                            refund_db.add(CreditTransaction(
-                                user_id=task.user_id,
-                                amount=1,
-                                balance_after=refund_user.image_credits,
-                                tx_type="refund_failed_task",
-                                payment_id=refund_key,
-                            ))
+                            refund_db.add(
+                                CreditTransaction(
+                                    user_id=task.user_id,
+                                    amount=1,
+                                    balance_after=refund_user.image_credits,
+                                    tx_type="refund_failed_task",
+                                    payment_id=refund_key,
+                                )
+                            )
                             await refund_db.commit()
                             logger.info(
                                 "Refunded 1 credit to user %s for failed task %s",
-                                task.user_id, task_id,
+                                task.user_id,
+                                task_id,
                             )
                 except Exception:
                     logger.exception("Failed to refund credit for task %s", task_id)
@@ -578,19 +648,27 @@ async def compute_delta_scores(ctx: dict, task_id: str):
             return
         market_id = get_market_id(task.context, fallback=settings.resolved_market_id)
         if task.status != TaskStatus.COMPLETED.value:
-            logger.warning("Delta scoring: task %s not in completed state (%s)", task_id, task.status)
+            logger.warning(
+                "Delta scoring: task %s not in completed state (%s)",
+                task_id,
+                task.status,
+            )
             return
 
         task_result = task.result or {}
         if task_result.get("delta_status") != "pending":
-            logger.info("Delta scoring: task %s not marked for deferred scoring", task_id)
+            logger.info(
+                "Delta scoring: task %s not marked for deferred scoring", task_id
+            )
             return
 
         mode_str = task.mode
         try:
             mode = AnalysisMode(mode_str)
         except ValueError:
-            logger.warning("Delta scoring: unknown mode %s for task %s", mode_str, task_id)
+            logger.warning(
+                "Delta scoring: unknown mode %s for task %s", mode_str, task_id
+            )
             return
 
         try:
@@ -601,14 +679,19 @@ async def compute_delta_scores(ctx: dict, task_id: str):
             # report produced earlier by the stateless VLM check — no
             # biometric feature vectors are ever read/written here.
             from src.services.ai_transfer_guard import task_context_scope
+
             with task_context_scope(task.context):
-                await pipeline._delta_scorer.compute(mode, task_result, str(task.user_id), task_id)
+                await pipeline._delta_scorer.compute(
+                    mode, task_result, str(task.user_id), task_id
+                )
                 # Persist personal-best perception record now — the main
                 # pipeline skipped it because scores were still pre-gen at
                 # the time of `_finalize`. After DeltaScorer.compute the
                 # perception_scores map holds post-gen values, which is
                 # what gamification should track.
-                await pipeline._persist_perception_scores(mode, task_result, str(task.user_id))
+                await pipeline._persist_perception_scores(
+                    mode, task_result, str(task.user_id)
+                )
             task_result["delta_status"] = "completed"
             task.result = task_result
             await db.commit()
@@ -644,6 +727,7 @@ async def compute_delta_scores(ctx: dict, task_id: str):
 async def worker_heartbeat(ctx: dict):
     """Update Redis heartbeat key so health checks can verify the worker is alive."""
     import time
+
     redis = ctx["redis"]
     await redis.set(WORKER_HEARTBEAT_KEY, str(time.time()), ex=WORKER_HEARTBEAT_TTL)
 
@@ -651,6 +735,7 @@ async def worker_heartbeat(ctx: dict):
 async def reconcile_stuck_tasks_cron(ctx: dict):
     """Cron wrapper: delegates to shared reconciliation logic."""
     from src.services.reconciliation import reconcile_stuck_tasks
+
     await reconcile_stuck_tasks(
         ctx["db_sessionmaker"],
         ctx["redis"],
@@ -687,6 +772,7 @@ async def privacy_gc_cron(ctx: dict):
             # so a scalar ``SELECT 1 LIMIT 1`` cuts median DB load roughly
             # 20× without changing behaviour when work IS present.
             from sqlalchemy import literal_column
+
             probe = await db.execute(
                 sa_select(literal_column("1"))
                 .select_from(Task)
@@ -715,9 +801,13 @@ async def privacy_gc_cron(ctx: dict):
                 result = dict(task.result or {})
                 if result.get("_purged_at"):
                     continue
-                market_id = get_market_id(task.context, fallback=settings.resolved_market_id)
+                market_id = get_market_id(
+                    task.context, fallback=settings.resolved_market_id
+                )
 
-                await _delete_storage_key(storage, f"generated/{task.user_id}/{task.id}.jpg")
+                await _delete_storage_key(
+                    storage, f"generated/{task.user_id}/{task.id}.jpg"
+                )
                 if task.share_card_path:
                     await _delete_storage_key(storage, task.share_card_path)
 
@@ -747,7 +837,10 @@ async def privacy_gc_cron(ctx: dict):
 class WorkerSettings:
     functions = [process_analysis, compute_delta_scores]
     cron_jobs = [
-        cron(reconcile_stuck_tasks_cron, minute={0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55}),
+        cron(
+            reconcile_stuck_tasks_cron,
+            minute={0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55},
+        ),
         cron(worker_heartbeat, second={0, 30}),
         cron(privacy_gc_cron, minute={0, 30}),
     ]

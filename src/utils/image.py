@@ -29,7 +29,9 @@ def validate_and_normalize(image_bytes: bytes) -> tuple[bytes, dict]:
 
     width, height = img.size
     if width < MIN_DIMENSION or height < MIN_DIMENSION:
-        raise ValueError(f"Image too small: {width}x{height}. Minimum {MIN_DIMENSION}x{MIN_DIMENSION}.")
+        raise ValueError(
+            f"Image too small: {width}x{height}. Minimum {MIN_DIMENSION}x{MIN_DIMENSION}."
+        )
 
     img = img.convert("RGB")
 
@@ -43,8 +45,13 @@ def validate_and_normalize(image_bytes: bytes) -> tuple[bytes, dict]:
         new_w = round(img.size[0] * scale)
         new_h = round(img.size[1] * scale)
         img = img.resize((new_w, new_h), Image.LANCZOS)
-        logger.info("Upscaled small image from %dx%d to %dx%d for better generation quality",
-                     width, height, new_w, new_h)
+        logger.info(
+            "Upscaled small image from %dx%d to %dx%d for better generation quality",
+            width,
+            height,
+            new_w,
+            new_h,
+        )
 
     # Privacy: explicitly drop EXIF/ICC/XMP/GPS and any other ancillary metadata.
     # PIL's re-encode would implicitly lose most of them, but we assert it here
@@ -80,8 +87,10 @@ def estimate_blur_score(image_bytes: bytes) -> float:
         arr = np.array(img, dtype=np.float64)
         # 3x3 Laplacian kernel convolution via numpy
         laplacian = (
-            -arr[:-2, 1:-1] - arr[2:, 1:-1]
-            - arr[1:-1, :-2] - arr[1:-1, 2:]
+            -arr[:-2, 1:-1]
+            - arr[2:, 1:-1]
+            - arr[1:-1, :-2]
+            - arr[1:-1, 2:]
             + 4 * arr[1:-1, 1:-1]
         )
         variance = float(np.var(laplacian))

@@ -8,6 +8,7 @@ tests cover:
   * the document AR helper on the executor returns ``None`` for
     non-document styles so callers fall back to "no crop".
 """
+
 from __future__ import annotations
 
 from src.orchestrator.executor import _CV_DOCUMENT_ASPECT, _document_target_aspect

@@ -9,7 +9,10 @@ from src.providers.base import LLMProvider
 from src.prompts.engine import PromptEngine
 from src.models.enums import AnalysisMode
 from src.models.schemas import RatingResult
-from src.services.perception_utils import extract_perception_scores, extract_perception_insights
+from src.services.perception_utils import (
+    extract_perception_scores,
+    extract_perception_insights,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -24,7 +27,9 @@ class RatingService:
 
         prompt = self._prompt_engine.build(AnalysisMode.RATING)
         raw = await consensus_analyze(
-            self._llm, image_bytes, prompt,
+            self._llm,
+            image_bytes,
+            prompt,
             temperature=settings.scoring_temperature,
             n=settings.scoring_consensus_samples,
         )
@@ -50,7 +55,9 @@ class RatingService:
             perception = {
                 "trust": raw.get("trust", 5),
                 "attractiveness": raw.get("attractiveness", 5),
-                "emotional_expression": raw.get("emotional_expression", raw.get("emotion", "нейтральное")),
+                "emotional_expression": raw.get(
+                    "emotional_expression", raw.get("emotion", "нейтральное")
+                ),
             }
 
         return RatingResult(
@@ -58,10 +65,14 @@ class RatingService:
             perception={
                 "trust": float(perception.get("trust", 5)),
                 "attractiveness": float(perception.get("attractiveness", 5)),
-                "emotional_expression": str(perception.get("emotional_expression", "нейтральное")),
+                "emotional_expression": str(
+                    perception.get("emotional_expression", "нейтральное")
+                ),
             },
             perception_scores=extract_perception_scores(raw),
             perception_insights=extract_perception_insights(raw),
             insights=raw.get("insights", ["Анализ не удалось полностью распарсить"]),
-            recommendations=raw.get("recommendations", ["Попробуй загрузить фото с лучшим освещением"]),
+            recommendations=raw.get(
+                "recommendations", ["Попробуй загрузить фото с лучшим освещением"]
+            ),
         )

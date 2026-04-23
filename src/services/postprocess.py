@@ -9,6 +9,7 @@ Reve REST ``/v1/image/edit`` does not accept ``aspect_ratio`` and does not
 expose a post-processing pipeline, so cropping and upscaling are done
 locally via PIL.
 """
+
 from __future__ import annotations
 
 import io
@@ -50,7 +51,9 @@ def _build_minimal_exif(dt: datetime | None = None) -> bytes:
         import piexif  # type: ignore
         import piexif.helper  # type: ignore
 
-        user_comment = piexif.helper.UserComment.dump(AI_TRANSPARENCY_COMMENT, encoding="unicode")
+        user_comment = piexif.helper.UserComment.dump(
+            AI_TRANSPARENCY_COMMENT, encoding="unicode"
+        )
         exif_dict = {
             "0th": {
                 piexif.ImageIFD.Make: AI_TRANSPARENCY_MAKE.encode("ascii"),
@@ -66,7 +69,7 @@ def _build_minimal_exif(dt: datetime | None = None) -> bytes:
             },
         }
         exif_tiff = piexif.dump(exif_dict)
-        return b"\xFF\xE1" + struct.pack(">H", len(exif_tiff) + 2) + exif_tiff
+        return b"\xff\xe1" + struct.pack(">H", len(exif_tiff) + 2) + exif_tiff
     except Exception:
         logger.debug("piexif EXIF build failed, falling back to raw", exc_info=True)
 
@@ -109,7 +112,7 @@ def _build_minimal_exif(dt: datetime | None = None) -> bytes:
         ifd += struct.pack(">I", 0)
 
         tiff_body = header + ifd + extra_data
-        app1 = b"\xFF\xE1" + struct.pack(">H", len(tiff_body) + 2) + tiff_body
+        app1 = b"\xff\xe1" + struct.pack(">H", len(tiff_body) + 2) + tiff_body
         return app1
     except Exception:
         logger.debug("EXIF construction failed, skipping")
@@ -121,7 +124,7 @@ def _inject_exif(jpeg_bytes: bytes) -> bytes:
     exif_segment = _build_minimal_exif()
     if not exif_segment:
         return jpeg_bytes
-    if jpeg_bytes[:2] != b"\xFF\xD8":
+    if jpeg_bytes[:2] != b"\xff\xd8":
         return jpeg_bytes
 
     pos = 2

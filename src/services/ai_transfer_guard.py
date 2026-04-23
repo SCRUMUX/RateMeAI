@@ -13,6 +13,7 @@ Usage pattern:
 
 This makes the guard minimally invasive — no public signatures change.
 """
+
 from __future__ import annotations
 
 import logging
@@ -92,7 +93,5 @@ def assert_external_transfer_allowed(
             raise AITransferForbiddenError(provider, reason="no_pipeline_context")
         return
     if not is_external_transfer_allowed(ctx):
-        logger.warning(
-            "ai_transfer.blocked", extra={"provider": provider}
-        )
+        logger.warning("ai_transfer.blocked", extra={"provider": provider})
         raise AITransferForbiddenError(provider)

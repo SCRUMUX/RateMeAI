@@ -17,6 +17,7 @@ of this file; we consolidated them once the v1.18 hybrid pipeline (PuLID /
 Seedream / CodeFormer, which already used this base) had proven stable in
 production.
 """
+
 from __future__ import annotations
 
 import base64
@@ -208,13 +209,14 @@ class FalQueueClient:
             body_snippet = snippet
             logger.warning(
                 "FAL %s %s %d error (req=%s): %s",
-                self._label, phase, status, request_id, raw_text[:500],
+                self._label,
+                phase,
+                status,
+                request_id,
+                raw_text[:500],
             )
 
-        full_msg = (
-            f"http={status} phase={phase} "
-            f"{message or f'{self._label} error'}"
-        )
+        full_msg = f"http={status} phase={phase} {message or f'{self._label} error'}"
         if body_snippet and body_snippet not in full_msg:
             full_msg = f"{full_msg} body={body_snippet!r}"
 
@@ -227,7 +229,9 @@ class FalQueueClient:
                 except ValueError:
                     retry_after = None
             return FalRateLimitError(
-                full_msg, retry_after=retry_after, request_id=request_id,
+                full_msg,
+                retry_after=retry_after,
+                request_id=request_id,
             )
         return FalAPIError(
             full_msg,
@@ -241,10 +245,14 @@ class FalQueueClient:
     # ------------------------------------------------------------------
 
     def _submit(
-        self, client: httpx.Client, body: dict[str, Any],
+        self,
+        client: httpx.Client,
+        body: dict[str, Any],
     ) -> tuple[str, str, str]:
         resp = client.post(
-            self._submit_url(), json=body, headers=self._headers(),
+            self._submit_url(),
+            json=body,
+            headers=self._headers(),
         )
         if resp.status_code >= 400:
             raise self._parse_error(resp, phase="submit")
@@ -260,9 +268,7 @@ class FalQueueClient:
                 f"FAL {self._label} submit: response is not a JSON object",
                 status_code=resp.status_code,
             )
-        request_id = (
-            data.get("request_id") or resp.headers.get("x-fal-request-id")
-        )
+        request_id = data.get("request_id") or resp.headers.get("x-fal-request-id")
         if not request_id:
             raise FalAPIError(
                 f"FAL {self._label} submit: response missing request_id",
@@ -289,12 +295,15 @@ class FalQueueClient:
                 raise FalAPIError(
                     f"FAL {self._label} timeout after {self._timeout}s "
                     f"(req={request_id})",
-                    status_code=None, request_id=request_id,
+                    status_code=None,
+                    request_id=request_id,
                 )
             resp = client.get(status_url, headers=self._headers())
             if resp.status_code >= 400:
                 raise self._parse_error(
-                    resp, phase="status", request_id=request_id,
+                    resp,
+                    phase="status",
+                    request_id=request_id,
                 )
             try:
                 data = resp.json()
@@ -314,24 +323,31 @@ class FalQueueClient:
                 raise FalAPIError(
                     f"FAL {self._label} queue status={status} "
                     f"req={request_id} {reason}".strip(),
-                    status_code=None, request_id=request_id,
+                    status_code=None,
+                    request_id=request_id,
                 )
             time.sleep(self._poll_interval)
 
     def _fetch_result(
-        self, client: httpx.Client, request_id: str, response_url: str,
+        self,
+        client: httpx.Client,
+        request_id: str,
+        response_url: str,
     ) -> dict[str, Any]:
         resp = client.get(response_url, headers=self._headers())
         if resp.status_code >= 400:
             raise self._parse_error(
-                resp, phase="result", request_id=request_id,
+                resp,
+                phase="result",
+                request_id=request_id,
             )
         try:
             return resp.json()
         except Exception as exc:
             raise FalAPIError(
                 f"FAL {self._label} result: cannot parse response ({exc})",
-                status_code=resp.status_code, request_id=request_id,
+                status_code=resp.status_code,
+                request_id=request_id,
             ) from exc
 
     def _decode_image(
@@ -394,9 +410,9 @@ class FalQueueClient:
         img_resp = client.get(url)
         if img_resp.status_code >= 400:
             raise FalAPIError(
-                f"FAL {self._label} image download "
-                f"http={img_resp.status_code}",
-                status_code=img_resp.status_code, request_id=request_id,
+                f"FAL {self._label} image download http={img_resp.status_code}",
+                status_code=img_resp.status_code,
+                request_id=request_id,
             )
         return img_resp.content
 
@@ -421,13 +437,19 @@ class FalQueueClient:
             try:
                 with httpx.Client(timeout=self._timeout) as client:
                     request_id, status_url, response_url = self._submit(
-                        client, body,
+                        client,
+                        body,
                     )
                     self._poll_until_done(
-                        client, request_id, status_url, deadline,
+                        client,
+                        request_id,
+                        status_url,
+                        deadline,
                     )
                     data = self._fetch_result(
-                        client, request_id, response_url,
+                        client,
+                        request_id,
+                        response_url,
                     )
                     return self._decode_image(client, data, request_id)
             except FalContentViolationError:
@@ -436,35 +458,36 @@ class FalQueueClient:
                 last_err = e
                 if attempt + 1 >= self._max_retries:
                     logger.warning(
-                        "FAL %s rate-limited, no retries left "
-                        "(attempt %d/%d, req=%s)",
-                        self._label, attempt + 1, self._max_retries,
+                        "FAL %s rate-limited, no retries left (attempt %d/%d, req=%s)",
+                        self._label,
+                        attempt + 1,
+                        self._max_retries,
                         e.request_id,
                     )
                     break
                 wait = e.retry_after or (5 * (attempt + 1))
                 logger.warning(
-                    "FAL %s rate-limited, waiting %ss "
-                    "(attempt %d/%d, req=%s)",
-                    self._label, wait, attempt + 1, self._max_retries,
+                    "FAL %s rate-limited, waiting %ss (attempt %d/%d, req=%s)",
+                    self._label,
+                    wait,
+                    attempt + 1,
+                    self._max_retries,
                     e.request_id,
                 )
                 time.sleep(float(wait))
             except FalAPIError as e:
                 last_err = e
-                retryable = (
-                    e.status_code is None
-                    or (
-                        isinstance(e.status_code, int)
-                        and e.status_code >= 500
-                    )
+                retryable = e.status_code is None or (
+                    isinstance(e.status_code, int) and e.status_code >= 500
                 )
                 if not retryable:
                     logger.warning(
-                        "FAL %s API error (no retry, status=%s, "
-                        "code=%s, req=%s): %s",
-                        self._label, e.status_code, e.error_code,
-                        e.request_id, e.message,
+                        "FAL %s API error (no retry, status=%s, code=%s, req=%s): %s",
+                        self._label,
+                        e.status_code,
+                        e.error_code,
+                        e.request_id,
+                        e.message,
                     )
                     raise RuntimeError(
                         f"FAL {self._label} API error: {e.message}",
@@ -473,39 +496,50 @@ class FalQueueClient:
                     logger.warning(
                         "FAL %s transient error, no retries left "
                         "(attempt %d/%d, status=%s): %s",
-                        self._label, attempt + 1, self._max_retries,
-                        e.status_code, e.message,
+                        self._label,
+                        attempt + 1,
+                        self._max_retries,
+                        e.status_code,
+                        e.message,
                     )
                     break
                 wait = 2 * (attempt + 1)
                 logger.warning(
                     "FAL %s transient error (status=%s), retrying in %ss "
                     "(attempt %d/%d): %s",
-                    self._label, e.status_code, wait,
-                    attempt + 1, self._max_retries, e.message,
+                    self._label,
+                    e.status_code,
+                    wait,
+                    attempt + 1,
+                    self._max_retries,
+                    e.message,
                 )
                 time.sleep(float(wait))
             except (httpx.TimeoutException, httpx.TransportError) as e:
                 last_err = e
                 if attempt + 1 >= self._max_retries:
                     logger.warning(
-                        "FAL %s transport error, no retries left "
-                        "(attempt %d/%d): %s",
-                        self._label, attempt + 1, self._max_retries, e,
+                        "FAL %s transport error, no retries left (attempt %d/%d): %s",
+                        self._label,
+                        attempt + 1,
+                        self._max_retries,
+                        e,
                     )
                     break
                 wait = 2 * (attempt + 1)
                 logger.warning(
-                    "FAL %s transport error, retrying in %ss "
-                    "(attempt %d/%d): %s",
-                    self._label, wait, attempt + 1, self._max_retries, e,
+                    "FAL %s transport error, retrying in %ss (attempt %d/%d): %s",
+                    self._label,
+                    wait,
+                    attempt + 1,
+                    self._max_retries,
+                    e,
                 )
                 time.sleep(float(wait))
 
         msg = getattr(last_err, "message", None) or str(last_err)
         raise RuntimeError(
-            f"FAL {self._label} failed after {self._max_retries} "
-            f"attempt(s): {msg}"
+            f"FAL {self._label} failed after {self._max_retries} attempt(s): {msg}"
         ) from last_err
 
 

@@ -1,4 +1,5 @@
 """Tests for AnalysisPipeline (all external providers mocked)."""
+
 from __future__ import annotations
 
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -15,13 +16,17 @@ def _ok_report() -> InputQualityReport:
 
 def _no_face_report() -> InputQualityReport:
     from src.services.input_quality import InputQualityIssue
+
     return InputQualityReport(
         can_generate=False,
-        issues=[InputQualityIssue(
-            code="no_face", severity="block",
-            message="На фото не обнаружено лицо.",
-            suggestion="Загрузите портрет.",
-        )],
+        issues=[
+            InputQualityIssue(
+                code="no_face",
+                severity="block",
+                message="На фото не обнаружено лицо.",
+                suggestion="Загрузите портрет.",
+            )
+        ],
     )
 
 
@@ -53,8 +58,13 @@ def _build_pipeline(image_gen=None):
 
 
 @patch("src.orchestrator.pipeline.settings")
-@patch("src.orchestrator.pipeline.analyze_input_quality", side_effect=lambda b: _ok_report())
-@patch("src.orchestrator.pipeline.validate_and_normalize", side_effect=lambda b: (b, {}))
+@patch(
+    "src.orchestrator.pipeline.analyze_input_quality",
+    side_effect=lambda b: _ok_report(),
+)
+@patch(
+    "src.orchestrator.pipeline.validate_and_normalize", side_effect=lambda b: (b, {})
+)
 @patch("src.orchestrator.pipeline.extract_nsfw_from_analysis", return_value=(True, ""))
 def test_execute_rating_mode(mock_nsfw, mock_norm, mock_face, mock_settings):
     mock_settings.segmentation_enabled = False
@@ -69,7 +79,11 @@ def test_execute_rating_mode(mock_nsfw, mock_norm, mock_face, mock_settings):
     rating_result = MagicMock()
     rating_result.model_dump.return_value = {
         "score": 7.5,
-        "perception": {"trust": 8, "attractiveness": 7, "emotional_expression": "neutral"},
+        "perception": {
+            "trust": 8,
+            "attractiveness": 7,
+            "emotional_expression": "neutral",
+        },
         "insights": ["Looks confident"],
         "recommendations": ["Smile more"],
     }
@@ -83,6 +97,7 @@ def test_execute_rating_mode(mock_nsfw, mock_norm, mock_face, mock_settings):
     pipeline._merger.merge.return_value = {"score": 7.5, "mode": "rating"}
 
     import asyncio
+
     result = asyncio.run(
         pipeline.execute(
             mode=AnalysisMode.RATING,
@@ -96,8 +111,13 @@ def test_execute_rating_mode(mock_nsfw, mock_norm, mock_face, mock_settings):
 
 
 @patch("src.orchestrator.pipeline.settings")
-@patch("src.orchestrator.pipeline.analyze_input_quality", side_effect=lambda b: _ok_report())
-@patch("src.orchestrator.pipeline.validate_and_normalize", side_effect=lambda b: (b, {}))
+@patch(
+    "src.orchestrator.pipeline.analyze_input_quality",
+    side_effect=lambda b: _ok_report(),
+)
+@patch(
+    "src.orchestrator.pipeline.validate_and_normalize", side_effect=lambda b: (b, {})
+)
 @patch("src.orchestrator.pipeline.extract_nsfw_from_analysis", return_value=(True, ""))
 def test_execute_dating_with_image_gen(mock_nsfw, mock_norm, mock_face, mock_settings):
     mock_settings.segmentation_enabled = False
@@ -110,12 +130,14 @@ def test_execute_dating_with_image_gen(mock_nsfw, mock_norm, mock_face, mock_set
     pipeline, llm, storage = _build_pipeline()
 
     service_mock = MagicMock()
-    service_mock.analyze = AsyncMock(return_value={
-        "dating_score": 8,
-        "first_impression": "Approachable",
-        "strengths": ["Good smile"],
-        "base_description": "person smiling",
-    })
+    service_mock.analyze = AsyncMock(
+        return_value={
+            "dating_score": 8,
+            "first_impression": "Approachable",
+            "strengths": ["Good smile"],
+            "base_description": "person smiling",
+        }
+    )
     pipeline._router = MagicMock()
     pipeline._router.get_service.return_value = service_mock
     pipeline._prompt_engine = MagicMock()
@@ -127,6 +149,7 @@ def test_execute_dating_with_image_gen(mock_nsfw, mock_norm, mock_face, mock_set
     }
 
     import asyncio
+
     result = asyncio.run(
         pipeline.execute(
             mode=AnalysisMode.DATING,
@@ -141,8 +164,13 @@ def test_execute_dating_with_image_gen(mock_nsfw, mock_norm, mock_face, mock_set
 
 
 @patch("src.orchestrator.pipeline.settings")
-@patch("src.orchestrator.pipeline.analyze_input_quality", side_effect=lambda b: _ok_report())
-@patch("src.orchestrator.pipeline.validate_and_normalize", side_effect=lambda b: (b, {}))
+@patch(
+    "src.orchestrator.pipeline.analyze_input_quality",
+    side_effect=lambda b: _ok_report(),
+)
+@patch(
+    "src.orchestrator.pipeline.validate_and_normalize", side_effect=lambda b: (b, {})
+)
 @patch("src.orchestrator.pipeline.extract_nsfw_from_analysis", return_value=(True, ""))
 def test_skip_image_gen_without_credits(mock_nsfw, mock_norm, mock_face, mock_settings):
     mock_settings.segmentation_enabled = False
@@ -155,16 +183,19 @@ def test_skip_image_gen_without_credits(mock_nsfw, mock_norm, mock_face, mock_se
     pipeline, llm, storage = _build_pipeline()
 
     service_mock = MagicMock()
-    service_mock.analyze = AsyncMock(return_value={
-        "dating_score": 6,
-        "base_description": "person",
-    })
+    service_mock.analyze = AsyncMock(
+        return_value={
+            "dating_score": 6,
+            "base_description": "person",
+        }
+    )
     pipeline._router = MagicMock()
     pipeline._router.get_service.return_value = service_mock
     pipeline._merger = MagicMock()
     pipeline._merger.merge.return_value = {"dating_score": 6, "upgrade_prompt": True}
 
     import asyncio
+
     result = asyncio.run(
         pipeline.execute(
             mode=AnalysisMode.DATING,
@@ -179,8 +210,13 @@ def test_skip_image_gen_without_credits(mock_nsfw, mock_norm, mock_face, mock_se
 
 
 @patch("src.orchestrator.pipeline.settings")
-@patch("src.orchestrator.pipeline.analyze_input_quality", side_effect=lambda b: _ok_report())
-@patch("src.orchestrator.pipeline.validate_and_normalize", side_effect=lambda b: (b, {}))
+@patch(
+    "src.orchestrator.pipeline.analyze_input_quality",
+    side_effect=lambda b: _ok_report(),
+)
+@patch(
+    "src.orchestrator.pipeline.validate_and_normalize", side_effect=lambda b: (b, {})
+)
 @patch("src.orchestrator.pipeline.extract_nsfw_from_analysis", return_value=(True, ""))
 def test_execute_social_with_image_gen(mock_nsfw, mock_norm, mock_face, mock_settings):
     mock_settings.segmentation_enabled = False
@@ -193,12 +229,14 @@ def test_execute_social_with_image_gen(mock_nsfw, mock_norm, mock_face, mock_set
     pipeline, llm, storage = _build_pipeline()
 
     service_mock = MagicMock()
-    service_mock.analyze = AsyncMock(return_value={
-        "social_score": 7,
-        "first_impression": "Bright profile",
-        "strengths": ["Good lighting"],
-        "weaknesses": [],
-    })
+    service_mock.analyze = AsyncMock(
+        return_value={
+            "social_score": 7,
+            "first_impression": "Bright profile",
+            "strengths": ["Good lighting"],
+            "weaknesses": [],
+        }
+    )
     pipeline._router = MagicMock()
     pipeline._router.get_service.return_value = service_mock
     pipeline._prompt_engine = MagicMock()
@@ -210,6 +248,7 @@ def test_execute_social_with_image_gen(mock_nsfw, mock_norm, mock_face, mock_set
     }
 
     import asyncio
+
     result = asyncio.run(
         pipeline.execute(
             mode=AnalysisMode.SOCIAL,
@@ -224,8 +263,13 @@ def test_execute_social_with_image_gen(mock_nsfw, mock_norm, mock_face, mock_set
 
 
 @patch("src.orchestrator.pipeline.settings")
-@patch("src.orchestrator.pipeline.analyze_input_quality", side_effect=lambda b: _ok_report())
-@patch("src.orchestrator.pipeline.validate_and_normalize", side_effect=lambda b: (b, {}))
+@patch(
+    "src.orchestrator.pipeline.analyze_input_quality",
+    side_effect=lambda b: _ok_report(),
+)
+@patch(
+    "src.orchestrator.pipeline.validate_and_normalize", side_effect=lambda b: (b, {})
+)
 @patch("src.orchestrator.pipeline.extract_nsfw_from_analysis", return_value=(True, ""))
 def test_pipeline_trace_recorded(mock_nsfw, mock_norm, mock_face, mock_settings):
     mock_settings.segmentation_enabled = False
@@ -238,24 +282,29 @@ def test_pipeline_trace_recorded(mock_nsfw, mock_norm, mock_face, mock_settings)
     pipeline, llm, storage = _build_pipeline()
 
     service_mock = MagicMock()
-    service_mock.analyze = AsyncMock(return_value={
-        "dating_score": 8,
-        "first_impression": "Good",
-        "strengths": [],
-    })
+    service_mock.analyze = AsyncMock(
+        return_value={
+            "dating_score": 8,
+            "first_impression": "Good",
+            "strengths": [],
+        }
+    )
     pipeline._router = MagicMock()
     pipeline._router.get_service.return_value = service_mock
     pipeline._prompt_engine = MagicMock()
     pipeline._prompt_engine.build_image_prompt.return_value = "test"
 
     merged = {}
+
     def capture_merge(result, card, uid):
         merged.update(result)
         return result
+
     pipeline._merger = MagicMock()
     pipeline._merger.merge.side_effect = capture_merge
 
     import asyncio
+
     asyncio.run(
         pipeline.execute(
             mode=AnalysisMode.DATING,
@@ -273,8 +322,13 @@ def test_pipeline_trace_recorded(mock_nsfw, mock_norm, mock_face, mock_settings)
 
 
 @patch("src.orchestrator.pipeline.settings")
-@patch("src.orchestrator.pipeline.analyze_input_quality", side_effect=lambda b: _ok_report())
-@patch("src.orchestrator.pipeline.validate_and_normalize", side_effect=lambda b: (b, {}))
+@patch(
+    "src.orchestrator.pipeline.analyze_input_quality",
+    side_effect=lambda b: _ok_report(),
+)
+@patch(
+    "src.orchestrator.pipeline.validate_and_normalize", side_effect=lambda b: (b, {})
+)
 @patch("src.orchestrator.pipeline.extract_nsfw_from_analysis", return_value=(True, ""))
 def test_delta_error_flagged_on_failure(mock_nsfw, mock_norm, mock_face, mock_settings):
     mock_settings.segmentation_enabled = False
@@ -288,24 +342,29 @@ def test_delta_error_flagged_on_failure(mock_nsfw, mock_norm, mock_face, mock_se
     storage.download = AsyncMock(side_effect=Exception("storage down"))
 
     service_mock = MagicMock()
-    service_mock.analyze = AsyncMock(return_value={
-        "dating_score": 8,
-        "first_impression": "Good",
-        "strengths": [],
-    })
+    service_mock.analyze = AsyncMock(
+        return_value={
+            "dating_score": 8,
+            "first_impression": "Good",
+            "strengths": [],
+        }
+    )
     pipeline._router = MagicMock()
     pipeline._router.get_service.return_value = service_mock
     pipeline._prompt_engine = MagicMock()
     pipeline._prompt_engine.build_image_prompt.return_value = "test"
 
     merged = {}
+
     def capture_merge(result, card, uid):
         merged.update(result)
         return result
+
     pipeline._merger = MagicMock()
     pipeline._merger.merge.side_effect = capture_merge
 
     import asyncio
+
     asyncio.run(
         pipeline.execute(
             mode=AnalysisMode.DATING,
@@ -318,8 +377,13 @@ def test_delta_error_flagged_on_failure(mock_nsfw, mock_norm, mock_face, mock_se
     assert merged.get("delta_error") == "rescoring_failed"
 
 
-@patch("src.orchestrator.pipeline.analyze_input_quality", side_effect=lambda b: _no_face_report())
-@patch("src.orchestrator.pipeline.validate_and_normalize", side_effect=lambda b: (b, {}))
+@patch(
+    "src.orchestrator.pipeline.analyze_input_quality",
+    side_effect=lambda b: _no_face_report(),
+)
+@patch(
+    "src.orchestrator.pipeline.validate_and_normalize", side_effect=lambda b: (b, {})
+)
 def test_no_face_raises(mock_norm, mock_face):
     pipeline, _, _ = _build_pipeline()
 
@@ -355,8 +419,13 @@ def test_no_face_raises(mock_norm, mock_face):
 
 
 @patch("src.orchestrator.pipeline.settings")
-@patch("src.orchestrator.pipeline.analyze_input_quality", side_effect=lambda b: _ok_report())
-@patch("src.orchestrator.pipeline.validate_and_normalize", side_effect=lambda b: (b, {}))
+@patch(
+    "src.orchestrator.pipeline.analyze_input_quality",
+    side_effect=lambda b: _ok_report(),
+)
+@patch(
+    "src.orchestrator.pipeline.validate_and_normalize", side_effect=lambda b: (b, {})
+)
 @patch("src.orchestrator.pipeline.extract_nsfw_from_analysis", return_value=(True, ""))
 def test_decisions_logged_in_trace(mock_nsfw, mock_norm, mock_face, mock_settings):
     """Pipeline trace includes decision log entries."""
@@ -370,22 +439,28 @@ def test_decisions_logged_in_trace(mock_nsfw, mock_norm, mock_face, mock_setting
     pipeline, llm, storage = _build_pipeline()
 
     service_mock = MagicMock()
-    service_mock.analyze = AsyncMock(return_value={
-        "dating_score": 7, "strengths": [],
-    })
+    service_mock.analyze = AsyncMock(
+        return_value={
+            "dating_score": 7,
+            "strengths": [],
+        }
+    )
     pipeline._router = MagicMock()
     pipeline._router.get_service.return_value = service_mock
     pipeline._prompt_engine = MagicMock()
     pipeline._prompt_engine.build_image_prompt.return_value = "test"
 
     merged = {}
+
     def capture_merge(result, card, uid):
         merged.update(result)
         return result
+
     pipeline._merger = MagicMock()
     pipeline._merger.merge.side_effect = capture_merge
 
     import asyncio
+
     asyncio.run(
         pipeline.execute(
             mode=AnalysisMode.DATING,
@@ -419,11 +494,19 @@ def test_decisions_logged_in_trace(mock_nsfw, mock_norm, mock_face, mock_setting
 
 
 @patch("src.orchestrator.pipeline.settings")
-@patch("src.orchestrator.pipeline.analyze_input_quality", side_effect=lambda b: _ok_report())
-@patch("src.orchestrator.pipeline.validate_and_normalize", side_effect=lambda b: (b, {}))
+@patch(
+    "src.orchestrator.pipeline.analyze_input_quality",
+    side_effect=lambda b: _ok_report(),
+)
+@patch(
+    "src.orchestrator.pipeline.validate_and_normalize", side_effect=lambda b: (b, {})
+)
 @patch("src.orchestrator.pipeline.extract_nsfw_from_analysis", return_value=(True, ""))
 def test_ab_path_records_face_prerestore_without_crashing(
-    mock_nsfw, mock_norm, mock_face, mock_settings,
+    mock_nsfw,
+    mock_norm,
+    mock_face,
+    mock_settings,
 ):
     mock_settings.segmentation_enabled = False
     mock_settings.multi_pass_enabled = False
@@ -437,11 +520,13 @@ def test_ab_path_records_face_prerestore_without_crashing(
     pipeline, llm, storage = _build_pipeline()
 
     service_mock = MagicMock()
-    service_mock.analyze = AsyncMock(return_value={
-        "dating_score": 7,
-        "base_description": "person",
-        "strengths": [],
-    })
+    service_mock.analyze = AsyncMock(
+        return_value={
+            "dating_score": 7,
+            "base_description": "person",
+            "strengths": [],
+        }
+    )
     pipeline._router = MagicMock()
     pipeline._router.get_service.return_value = service_mock
     pipeline._prompt_engine = MagicMock()
@@ -465,13 +550,16 @@ def test_ab_path_records_face_prerestore_without_crashing(
     pipeline._executor.single_pass = AsyncMock(side_effect=fake_single_pass)
 
     merged: dict = {}
+
     def capture_merge(result, card, uid):
         merged.update(result)
         return result
+
     pipeline._merger = MagicMock()
     pipeline._merger.merge.side_effect = capture_merge
 
     import asyncio
+
     asyncio.run(
         pipeline.execute(
             mode=AnalysisMode.DATING,
@@ -496,5 +584,3 @@ def test_ab_path_records_face_prerestore_without_crashing(
     assert "face_prerestore" in steps
     assert steps["face_prerestore"].get("info", {}).get("applied") is False
     assert steps["face_prerestore"].get("info", {}).get("reason") == "ab_path_skip"
-
-

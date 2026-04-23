@@ -13,6 +13,7 @@ logger = logging.getLogger(__name__)
 def get_storage() -> StorageProvider:
     if settings.storage_provider == "s3":
         from src.providers.storage.s3 import S3StorageProvider
+
         pub = settings.s3_public_base_url.strip() or None
         return S3StorageProvider(
             endpoint_url=settings.s3_endpoint,
@@ -24,6 +25,7 @@ def get_storage() -> StorageProvider:
             presign_ttl_seconds=settings.s3_presign_ttl_seconds,
         )
     from src.providers.storage.local import LocalStorageProvider
+
     base = settings.api_base_url.rstrip("/")
     fb = settings.storage_http_fallback_base.strip() or None
     return LocalStorageProvider(
@@ -184,8 +186,7 @@ def get_ab_image_gen(model_key: str) -> ImageGenProvider:
     key = (model_key or "").strip().lower()
     if key not in AB_IMAGE_MODELS:
         raise RuntimeError(
-            f"unknown AB image_model={key!r}; "
-            f"allowed={sorted(AB_IMAGE_MODELS)}",
+            f"unknown AB image_model={key!r}; allowed={sorted(AB_IMAGE_MODELS)}",
         )
     if not (settings.fal_api_key or "").strip():
         raise RuntimeError(
@@ -201,7 +202,7 @@ def get_ab_image_gen(model_key: str) -> ImageGenProvider:
 
 def _build_unified_provider():
     """Assemble :class:`UnifiedImageGenProvider` for the new pipeline.
-    
+
     Model A: GPT-2
     Model B: Nano Banana
     """
@@ -209,14 +210,14 @@ def _build_unified_provider():
 
     model_a = _build_gpt_image_2()
     model_b = _build_nano_banana_2()
-    
+
     pulid = None
     if settings.pulid_enabled:
         try:
             pulid = _build_fal_pulid()
         except Exception as exc:
             logger.warning("UnifiedProvider: PuLID init failed (%s)", exc)
-            
+
     seedream = None
     if settings.seedream_enabled:
         try:
@@ -232,7 +233,6 @@ def _build_unified_provider():
     )
 
 
-
 def _log_image_gen_choice(provider: ImageGenProvider, *, reason: str) -> None:
     """Emit a single, high-signal line identifying the chosen provider.
 
@@ -241,28 +241,24 @@ def _log_image_gen_choice(provider: ImageGenProvider, *, reason: str) -> None:
     and "why is it still Kontext?" debugging are a single grep away.
     """
     cls = type(provider).__name__
-    model = (
-        getattr(provider, "_model", None)
-        or getattr(provider, "model", None)
-        or "—"
-    )
-    strategy = (
-        getattr(settings, "image_gen_strategy", "legacy") or "legacy"
-    )
+    model = getattr(provider, "_model", None) or getattr(provider, "model", None) or "—"
+    strategy = getattr(settings, "image_gen_strategy", "legacy") or "legacy"
     router_summary = ""
     if hasattr(provider, "backend_summary"):
         try:
             summary = provider.backend_summary()  # type: ignore[attr-defined]
-            router_summary = (
-                f" backends={summary}"
-            )
+            router_summary = f" backends={summary}"
         except Exception:
             router_summary = ""
     logger.info(
         "image-gen strategy=%s provider selected: class=%s model=%s "
         "reason=%s%s (IMAGE_GEN_PROVIDER=%s, gfpgan=%s, esrgan=%s, "
         "identity_retry=%s, codeformer=%s)",
-        strategy, cls, model, reason, router_summary,
+        strategy,
+        cls,
+        model,
+        reason,
+        router_summary,
         (settings.image_gen_provider or "auto"),
         bool(getattr(settings, "gfpgan_preclean_enabled", False)),
         bool(getattr(settings, "real_esrgan_enabled", False)),
@@ -272,9 +268,7 @@ def _log_image_gen_choice(provider: ImageGenProvider, *, reason: str) -> None:
 
 
 def _image_gen_strategy() -> str:
-    s = (
-        getattr(settings, "image_gen_strategy", "legacy") or "legacy"
-    ).strip().lower()
+    s = (getattr(settings, "image_gen_strategy", "legacy") or "legacy").strip().lower()
     if s in ("legacy", "hybrid", "pulid_only"):
         return s
     return "legacy"
@@ -304,7 +298,8 @@ def get_image_gen() -> ImageGenProvider:
                 )
             p = MockImageGen()
             _log_image_gen_choice(
-                p, reason=f"strategy={strategy} but no FAL_API_KEY (dev)",
+                p,
+                reason=f"strategy={strategy} but no FAL_API_KEY (dev)",
             )
             return p
         try:
@@ -316,7 +311,8 @@ def get_image_gen() -> ImageGenProvider:
             )
             p = _build_fal_flux2()
             _log_image_gen_choice(
-                p, reason=f"strategy={strategy} → router failed, FLUX.2",
+                p,
+                reason=f"strategy={strategy} → router failed, FLUX.2",
             )
             return p
         _log_image_gen_choice(p, reason=f"strategy={strategy}")
@@ -378,6 +374,7 @@ def get_image_gen() -> ImageGenProvider:
 @lru_cache(maxsize=1)
 def get_llm() -> LLMProvider:
     from src.providers.llm.openrouter import OpenRouterLLM
+
     return OpenRouterLLM(
         api_key=settings.openrouter_api_key,
         base_url=settings.openrouter_base_url,

@@ -1,6 +1,7 @@
 """Phase 4 hygiene tests — registry validator, female-clothing edge cases,
 document style compactness, and NSFW brace escaping.
 """
+
 from __future__ import annotations
 
 from src.prompts import image_gen as ig
@@ -26,9 +27,8 @@ def test_validate_all_returns_no_warnings():
     so a sloppy variant addition will also fail this test.
     """
     warnings = ig.STYLE_REGISTRY.validate_all()
-    assert warnings == [], (
-        "Style registry emitted quality warnings:\n"
-        + "\n".join(warnings)
+    assert warnings == [], "Style registry emitted quality warnings:\n" + "\n".join(
+        warnings
     )
 
 

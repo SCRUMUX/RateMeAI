@@ -11,6 +11,7 @@ The engagement layer below (``SCENARIO_STYLES``, ``build_full_matrix``,
 ``matrix_stats``, ``EngagementSnapshot``) stays in the runtime surface:
 it feeds ``/api/v1/engagement/*`` and the bot's progress display.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -24,63 +25,165 @@ from src.orchestrator.advanced.enhancement_levels import (
 
 SCENARIO_STYLES: dict[str, list[str]] = {
     "dating": [
-        "warm_outdoor", "studio_elegant", "near_car", "in_car", "motorcycle",
-        "yacht", "rooftop_city", "gym_fitness", "running", "tennis",
-        "swimming_pool", "hiking", "cafe", "coffee_date", "restaurant",
-        "bar_lounge", "cooking", "dog_lover", "travel", "beach_sunset",
-        "art_gallery", "street_urban", "concert",
+        "warm_outdoor",
+        "studio_elegant",
+        "near_car",
+        "in_car",
+        "motorcycle",
+        "yacht",
+        "rooftop_city",
+        "gym_fitness",
+        "running",
+        "tennis",
+        "swimming_pool",
+        "hiking",
+        "cafe",
+        "coffee_date",
+        "restaurant",
+        "bar_lounge",
+        "cooking",
+        "dog_lover",
+        "travel",
+        "beach_sunset",
+        "art_gallery",
+        "street_urban",
+        "concert",
         # landmarks
-        "paris_eiffel", "nyc_brooklyn_bridge", "rome_colosseum", "dubai_burj_khalifa",
-        "nyc_times_square", "barcelona_sagrada", "london_eye", "sydney_opera",
-        "tokyo_tower", "sf_golden_gate", "athens_acropolis", "singapore_marina_bay",
-        "venice_san_marco", "nyc_central_park", "london_big_ben",
+        "paris_eiffel",
+        "nyc_brooklyn_bridge",
+        "rome_colosseum",
+        "dubai_burj_khalifa",
+        "nyc_times_square",
+        "barcelona_sagrada",
+        "london_eye",
+        "sydney_opera",
+        "tokyo_tower",
+        "sf_golden_gate",
+        "athens_acropolis",
+        "singapore_marina_bay",
+        "venice_san_marco",
+        "nyc_central_park",
+        "london_big_ben",
         # travel expanded
-        "airplane_window", "train_journey", "hotel_checkin", "hotel_breakfast",
-        "sea_balcony", "old_town_walk", "street_market",
+        "airplane_window",
+        "train_journey",
+        "hotel_checkin",
+        "hotel_breakfast",
+        "sea_balcony",
+        "old_town_walk",
+        "street_market",
         # atmosphere
-        "rainy_day", "night_coffee", "evening_home",
+        "rainy_day",
+        "night_coffee",
+        "evening_home",
         # status & sport
-        "car_exit", "travel_luxury", "yoga_outdoor", "cycling",
-        "tinder_pack_rooftop_golden", "tinder_pack_minimal_studio", "tinder_pack_cafe_window",
+        "car_exit",
+        "travel_luxury",
+        "yoga_outdoor",
+        "cycling",
+        "tinder_pack_rooftop_golden",
+        "tinder_pack_minimal_studio",
+        "tinder_pack_cafe_window",
     ],
     "cv": [
-        "corporate", "boardroom", "formal_portrait", "creative", "startup_casual",
-        "coworking", "standing_desk", "neutral", "tech_developer", "creative_director",
-        "medical", "legal_finance", "architect", "speaker_stage", "podcast",
-        "mentor", "outdoor_business",
+        "corporate",
+        "boardroom",
+        "formal_portrait",
+        "creative",
+        "startup_casual",
+        "coworking",
+        "standing_desk",
+        "neutral",
+        "tech_developer",
+        "creative_director",
+        "medical",
+        "legal_finance",
+        "architect",
+        "speaker_stage",
+        "podcast",
+        "mentor",
+        "outdoor_business",
         # career expanded
-        "video_call", "glass_wall_pose", "analytics_review", "tablet_stylus",
-        "notebook_ideas", "coffee_break_work", "late_hustle",
+        "video_call",
+        "glass_wall_pose",
+        "analytics_review",
+        "tablet_stylus",
+        "notebook_ideas",
+        "coffee_break_work",
+        "late_hustle",
         # archetypes
-        "quiet_expert", "digital_nomad", "entrepreneur_on_move", "intellectual",
+        "quiet_expert",
+        "digital_nomad",
+        "entrepreneur_on_move",
+        "intellectual",
         "man_with_mission",
         # moments
-        "before_meeting", "between_meetings", "business_lounge", "decision_moment",
+        "before_meeting",
+        "between_meetings",
+        "business_lounge",
+        "decision_moment",
         # Document photos (web scenario)
-        "doc_passport_neutral", "doc_visa_compliant", "doc_resume_headshot",
+        "doc_passport_neutral",
+        "doc_visa_compliant",
+        "doc_resume_headshot",
         # Document format photos (document-photo scenario)
-        "photo_3x4", "passport_rf", "visa_eu", "visa_us", "photo_4x6",
+        "photo_3x4",
+        "passport_rf",
+        "visa_eu",
+        "visa_us",
+        "photo_4x6",
     ],
     "social": [
-        "influencer", "influencer_urban", "influencer_minimal", "influencer_luxury",
-        "luxury", "casual", "morning_routine", "fitness_lifestyle", "food_blogger",
-        "travel_blogger", "artistic", "golden_hour", "neon_night", "vintage_film",
-        "dark_moody", "pastel_soft", "youtube_creator", "linkedin_premium",
-        "tinder_top", "instagram_aesthetic", "podcast_host", "creative_portrait",
+        "influencer",
+        "influencer_urban",
+        "influencer_minimal",
+        "influencer_luxury",
+        "luxury",
+        "casual",
+        "morning_routine",
+        "fitness_lifestyle",
+        "food_blogger",
+        "travel_blogger",
+        "artistic",
+        "golden_hour",
+        "neon_night",
+        "vintage_film",
+        "dark_moody",
+        "pastel_soft",
+        "youtube_creator",
+        "linkedin_premium",
+        "tinder_top",
+        "instagram_aesthetic",
+        "podcast_host",
+        "creative_portrait",
         # aesthetic
-        "mirror_aesthetic", "elevator_clean", "book_and_coffee", "shopfront",
+        "mirror_aesthetic",
+        "elevator_clean",
+        "book_and_coffee",
+        "shopfront",
         "candid_street",
         # hobbies
-        "reading_home", "reading_cafe", "sketching", "photographer",
-        "meditation", "online_learning",
+        "reading_home",
+        "reading_cafe",
+        "sketching",
+        "photographer",
+        "meditation",
+        "online_learning",
         # sport social
-        "yoga_social", "cycling_social",
+        "yoga_social",
+        "cycling_social",
         # cinematic
-        "panoramic_window", "in_motion", "creative_insight", "architecture_shadow",
+        "panoramic_window",
+        "in_motion",
+        "creative_insight",
+        "architecture_shadow",
         "achievement_moment",
         # evening & mood
-        "skyscraper_view", "after_work", "evening_planning",
-        "focused_mood", "light_irony",
+        "skyscraper_view",
+        "after_work",
+        "evening_planning",
+        "focused_mood",
+        "light_irony",
     ],
 }
 
@@ -104,13 +207,15 @@ def build_full_matrix() -> list[MatrixCell]:
     for scenario, styles in SCENARIO_STYLES.items():
         for style in styles:
             for lvl in LEVELS:
-                cells.append(MatrixCell(
-                    scenario=scenario,
-                    style=style,
-                    level=lvl.level,
-                    strength=lvl.strength,
-                    steps=list(lvl.steps),
-                ))
+                cells.append(
+                    MatrixCell(
+                        scenario=scenario,
+                        style=style,
+                        level=lvl.level,
+                        strength=lvl.strength,
+                        steps=list(lvl.steps),
+                    )
+                )
     return cells
 
 
@@ -147,7 +252,9 @@ class EngagementSnapshot:
         return min(100.0, round(self.depth / max_depth * 100, 1))
 
 
-def engagement_snapshot(user_id: int, mode: str, depth: int, current_style: str = "") -> EngagementSnapshot:
+def engagement_snapshot(
+    user_id: int, mode: str, depth: int, current_style: str = ""
+) -> EngagementSnapshot:
     """Build an engagement snapshot for analytics."""
     lvl = level_for_depth(depth)
     all_styles = styles_for_scenario(mode)

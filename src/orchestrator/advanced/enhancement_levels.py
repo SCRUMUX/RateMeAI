@@ -9,6 +9,7 @@ from the engagement statistics (``SCENARIO_STYLES``, ``build_full_matrix``,
 ``matrix_stats``, ``EngagementSnapshot``) that continue to serve the
 runtime bot + ``/api/v1/engagement/*`` endpoints.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -34,21 +35,39 @@ LEVELS: list[EnhancementLevel] = [
     EnhancementLevel(
         level=2,
         name="medium",
-        steps=["lighting_adjust", "skin_correction", "background_edit", "clothing_edit"],
+        steps=[
+            "lighting_adjust",
+            "skin_correction",
+            "background_edit",
+            "clothing_edit",
+        ],
         strength=0.50,
         description="+ \u0444\u043e\u043d \u0438 \u043e\u0434\u0435\u0436\u0434\u0430",
     ),
     EnhancementLevel(
         level=3,
         name="deep",
-        steps=["lighting_adjust", "skin_correction", "background_edit", "clothing_edit", "expression_hint"],
+        steps=[
+            "lighting_adjust",
+            "skin_correction",
+            "background_edit",
+            "clothing_edit",
+            "expression_hint",
+        ],
         strength=0.60,
         description="+ \u0432\u044b\u0440\u0430\u0436\u0435\u043d\u0438\u0435",
     ),
     EnhancementLevel(
         level=4,
         name="complete",
-        steps=["lighting_adjust", "skin_correction", "background_edit", "clothing_edit", "expression_hint", "style_overall"],
+        steps=[
+            "lighting_adjust",
+            "skin_correction",
+            "background_edit",
+            "clothing_edit",
+            "expression_hint",
+            "style_overall",
+        ],
         strength=0.70,
         description="\u041f\u043e\u043b\u043d\u044b\u0439 \u0441\u0442\u0438\u043b\u044c",
     ),

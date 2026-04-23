@@ -1,4 +1,5 @@
 """VK ID OAuth 2.1 Authorization Code flow with PKCE."""
+
 from __future__ import annotations
 
 import logging

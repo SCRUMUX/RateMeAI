@@ -7,6 +7,7 @@ Covers:
  * document styles skip variant resolution (seed-only reroll)
  * legacy ``enhance:*`` callback is accepted for one release
 """
+
 from __future__ import annotations
 
 from unittest.mock import AsyncMock, MagicMock
@@ -66,7 +67,9 @@ async def test_variant_handler_resolves_and_forwards_variant_id(monkeypatch):
         return False
 
     monkeypatch.setattr(
-        ms, "_maybe_warn_style_reference_mismatch", fake_maybe_warn,
+        ms,
+        "_maybe_warn_style_reference_mismatch",
+        fake_maybe_warn,
     )
 
     chosen = StyleVariant(id="chosen_variant", scene="x", lighting="y")
@@ -74,11 +77,16 @@ async def test_variant_handler_resolves_and_forwards_variant_id(monkeypatch):
     # Mock STYLE_REGISTRY to return a spec with variants so it passes the check
     from src.prompts.image_gen import STYLE_REGISTRY
     from src.prompts.style_spec import StyleSpec
+
     fake_spec = StyleSpec(
-        key="yoga_outdoor", mode="dating", background="x",
-        clothing_male="y", clothing_female="z", lighting="a",
+        key="yoga_outdoor",
+        mode="dating",
+        background="x",
+        clothing_male="y",
+        clothing_female="z",
+        lighting="a",
         expression="b",
-        variants=(chosen,)
+        variants=(chosen,),
     )
     monkeypatch.setattr(STYLE_REGISTRY, "get", lambda m, s: fake_spec)
 
@@ -86,6 +94,7 @@ async def test_variant_handler_resolves_and_forwards_variant_id(monkeypatch):
         return chosen
 
     import src.services.variation as variation_mod
+
     monkeypatch.setattr(variation_mod, "resolve_next_variant", fake_resolve)
 
     callback = MagicMock()
@@ -97,7 +106,9 @@ async def test_variant_handler_resolves_and_forwards_variant_id(monkeypatch):
     redis = MagicMock()
     redis.get = AsyncMock(return_value=None)
 
-    await ms._handle_variant_callback(callback, "http://api", redis, "dating", "yoga_outdoor")
+    await ms._handle_variant_callback(
+        callback, "http://api", redis, "dating", "yoga_outdoor"
+    )
 
     assert captured["mode"] == "dating"
     assert captured["style"] == "yoga_outdoor"
@@ -119,7 +130,9 @@ async def test_variant_handler_skips_resolver_for_document_styles(monkeypatch):
         return False
 
     monkeypatch.setattr(
-        ms, "_maybe_warn_style_reference_mismatch", fake_maybe_warn,
+        ms,
+        "_maybe_warn_style_reference_mismatch",
+        fake_maybe_warn,
     )
 
     import src.services.variation as variation_mod
@@ -138,7 +151,9 @@ async def test_variant_handler_skips_resolver_for_document_styles(monkeypatch):
     redis = MagicMock()
     redis.get = AsyncMock(return_value=None)
 
-    await ms._handle_variant_callback(callback, "http://api", redis, "cv", "passport_rf")
+    await ms._handle_variant_callback(
+        callback, "http://api", redis, "cv", "passport_rf"
+    )
 
     assert captured["variant_id"] == ""
 

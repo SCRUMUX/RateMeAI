@@ -5,6 +5,7 @@ pre-generation baseline instead of the actual post-gen score: the
 selector must prefer `score_after`, then `delta.<mode_key>.post`, and
 only fall back to the flat top-level fields for legacy rows.
 """
+
 from __future__ import annotations
 
 import pytest

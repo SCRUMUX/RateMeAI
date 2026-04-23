@@ -5,6 +5,7 @@ Revises: 004
 Create Date: 2026-04-07
 
 """
+
 from typing import Sequence, Union
 
 from alembic import op
@@ -21,12 +22,25 @@ def upgrade() -> None:
     op.create_table(
         "user_identities",
         sa.Column("id", sa.Integer(), primary_key=True, autoincrement=True),
-        sa.Column("user_id", UUID(as_uuid=True), sa.ForeignKey("users.id"), nullable=False, index=True),
+        sa.Column(
+            "user_id",
+            UUID(as_uuid=True),
+            sa.ForeignKey("users.id"),
+            nullable=False,
+            index=True,
+        ),
         sa.Column("provider", sa.String(20), nullable=False),
         sa.Column("external_id", sa.String(255), nullable=False),
         sa.Column("profile_data", sa.JSON(), nullable=True),
-        sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False),
-        sa.UniqueConstraint("provider", "external_id", name="uq_identity_provider_external"),
+        sa.Column(
+            "created_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.func.now(),
+            nullable=False,
+        ),
+        sa.UniqueConstraint(
+            "provider", "external_id", name="uq_identity_provider_external"
+        ),
     )
 
     # Migrate existing telegram users into the new identity table

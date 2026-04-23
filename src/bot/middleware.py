@@ -16,6 +16,7 @@ _BOT_SESSION_KEY = "bot_session:{}"
 
 def _bot_session_ttl() -> int:
     from src.config import settings
+
     return max(settings.session_ttl_seconds - 3600, 3600)
 
 
@@ -82,7 +83,9 @@ class UserRegistrationMiddleware(BaseMiddleware):
                         token = resp_data.get("session_token")
                         if token:
                             await self._redis.set(
-                                key, token, ex=_bot_session_ttl(),
+                                key,
+                                token,
+                                ex=_bot_session_ttl(),
                             )
                 except Exception:
                     logger.exception("Failed to register/refresh user %s", user.id)

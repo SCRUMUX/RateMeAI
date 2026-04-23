@@ -40,6 +40,7 @@ RISK_ACCEPTED_KEY = "ratemeai:risk_accepted:{}"
 _RISK_ACCEPTED_TTL = 1800
 USED_STYLES_KEY = "ratemeai:used_styles:{}:{}"
 
+
 def _build_display_names() -> dict[str, dict[str, str]]:
     """Build display name mapping from STYLE_CATALOG, stripping emoji prefixes."""
     result: dict[str, dict[str, str]] = {}
@@ -68,9 +69,7 @@ _POLL_SLEEP_NOTIFIED = 1.0
 _POLL_SLEEP_FALLBACK = 3.0
 
 
-_GENERIC_FAILED_MESSAGE = (
-    "\u274c Не удалось обработать фото. Попробуй ещё раз."
-)
+_GENERIC_FAILED_MESSAGE = "\u274c Не удалось обработать фото. Попробуй ещё раз."
 
 
 def _user_message_for_failed(error_message: str | None) -> str:
@@ -104,7 +103,9 @@ async def on_pick_style(callback: CallbackQuery, api_base_url: str, redis: Redis
     await callback.answer()
 
     if kind not in ("dating", "cv", "social"):
-        await callback.message.answer("Выбери направление:", reply_markup=scenario_keyboard())
+        await callback.message.answer(
+            "Выбери направление:", reply_markup=scenario_keyboard()
+        )
         return
 
     mode_headers = {
@@ -114,13 +115,19 @@ async def on_pick_style(callback: CallbackQuery, api_base_url: str, redis: Redis
     }
     header = mode_headers.get(kind, "\u2728 *Твой образ*")
 
-    status_msg = await callback.message.answer(f"{header}\n\n\U0001f50d Анализирую твоё фото...")
+    status_msg = await callback.message.answer(
+        f"{header}\n\n\U0001f50d Анализирую твоё фото..."
+    )
 
-    pre_analysis = await _call_pre_analyze(callback.bot, api_base_url, user_id, file_id, kind, redis)
+    pre_analysis = await _call_pre_analyze(
+        callback.bot, api_base_url, user_id, file_id, kind, redis
+    )
 
     if pre_analysis is None:
         catalog = STYLE_CATALOG.get(kind, [])
-        hooks = [f"\u2022 {label} \u2014 {hook}" for _key, label, hook, *_rest in catalog[:3]]
+        hooks = [
+            f"\u2022 {label} \u2014 {hook}" for _key, label, hook, *_rest in catalog[:3]
+        ]
         text = (
             f"{header}\n\n"
             "\U0001f680 *Что можно усилить:*\n"
@@ -128,9 +135,13 @@ async def on_pick_style(callback: CallbackQuery, api_base_url: str, redis: Redis
             + "\n\n*Выбери стиль:*"
         )
         try:
-            await status_msg.edit_text(text, parse_mode="Markdown", reply_markup=style_keyboard(kind))
+            await status_msg.edit_text(
+                text, parse_mode="Markdown", reply_markup=style_keyboard(kind)
+            )
         except Exception:
-            await callback.message.answer(text, parse_mode="Markdown", reply_markup=style_keyboard(kind))
+            await callback.message.answer(
+                text, parse_mode="Markdown", reply_markup=style_keyboard(kind)
+            )
         return
 
     pre_id = pre_analysis.get("pre_analysis_id", "")
@@ -143,14 +154,20 @@ async def on_pick_style(callback: CallbackQuery, api_base_url: str, redis: Redis
     except (TypeError, ValueError):
         ratio = 0.0
     if ratio > 0.0:
-        await redis.set(FACE_AREA_RATIO_KEY.format(user_id), f"{ratio:.4f}", ex=_FACE_AREA_TTL)
+        await redis.set(
+            FACE_AREA_RATIO_KEY.format(user_id), f"{ratio:.4f}", ex=_FACE_AREA_TTL
+        )
 
     text = _format_pre_analysis_message(header, kind, user_id, pre_analysis)
 
     try:
-        await status_msg.edit_text(text, parse_mode="Markdown", reply_markup=style_keyboard(kind))
+        await status_msg.edit_text(
+            text, parse_mode="Markdown", reply_markup=style_keyboard(kind)
+        )
     except Exception:
-        await callback.message.answer(text, parse_mode="Markdown", reply_markup=style_keyboard(kind))
+        await callback.message.answer(
+            text, parse_mode="Markdown", reply_markup=style_keyboard(kind)
+        )
 
 
 @router.callback_query(F.data.startswith("style:"))
@@ -165,7 +182,9 @@ async def on_style_selected(callback: CallbackQuery, api_base_url: str, redis: R
 
 
 @router.callback_query(F.data.startswith("enhance:"))
-async def on_enhancement_choice(callback: CallbackQuery, api_base_url: str, redis: Redis):
+async def on_enhancement_choice(
+    callback: CallbackQuery, api_base_url: str, redis: Redis
+):
     """Legacy alias for :func:`on_variant_request` — kept for one release
     so in-flight messages with old callback data still work. New
     keyboards always emit ``variant:*``.
@@ -191,8 +210,11 @@ async def on_variant_request(callback: CallbackQuery, api_base_url: str, redis: 
 
 
 async def _handle_variant_callback(
-    callback: CallbackQuery, api_base_url: str, redis: Redis,
-    mode: str, style: str,
+    callback: CallbackQuery,
+    api_base_url: str,
+    redis: Redis,
+    mode: str,
+    style: str,
 ) -> None:
     if not mode:
         last = await redis.get(LAST_GEN_KEY.format(callback.from_user.id))
@@ -205,22 +227,33 @@ async def _handle_variant_callback(
     if not mode or not style:
         await callback.answer()
         await callback.message.answer(
-            "Выбери направление:", reply_markup=scenario_keyboard(),
+            "Выбери направление:",
+            reply_markup=scenario_keyboard(),
         )
         return
 
     if await _maybe_warn_style_reference_mismatch(callback, redis, mode, style):
         return
 
-    variant_id = await _resolve_next_variant_id(redis, callback.from_user.id, mode, style)
+    variant_id = await _resolve_next_variant_id(
+        redis, callback.from_user.id, mode, style
+    )
 
     await _submit_analysis(
-        callback, api_base_url, redis, mode, style, variant_id=variant_id,
+        callback,
+        api_base_url,
+        redis,
+        mode,
+        style,
+        variant_id=variant_id,
     )
 
 
 async def _resolve_next_variant_id(
-    redis: Redis, user_id: int, mode: str, style: str,
+    redis: Redis,
+    user_id: int,
+    mode: str,
+    style: str,
 ) -> str:
     """Pick the next un-seen variant for (mode, style); '' on miss/error.
 
@@ -231,14 +264,20 @@ async def _resolve_next_variant_id(
     """
     try:
         from src.prompts.image_gen import STYLE_REGISTRY, is_document_style
+
         if is_document_style(style):
             return ""
         spec = STYLE_REGISTRY.get(mode, style)
         if spec is None or not spec.variants:
             return ""
         from src.services.variation import resolve_next_variant
+
         chosen = await resolve_next_variant(
-            redis, spec, user_id, mode, style,
+            redis,
+            spec,
+            user_id,
+            mode,
+            style,
         )
         return chosen.id if chosen is not None else ""
     except Exception:
@@ -281,13 +320,22 @@ async def on_confirm_risk(callback: CallbackQuery, api_base_url: str, redis: Red
                 _RISK_ACCEPTED_TTL,
             )
         except Exception:
-            logger.exception("risk_accepted cache write failed for user %s",
-                             callback.from_user.id)
+            logger.exception(
+                "risk_accepted cache write failed for user %s", callback.from_user.id
+            )
     variant_id = await _resolve_next_variant_id(
-        redis, callback.from_user.id, mode, style,
+        redis,
+        callback.from_user.id,
+        mode,
+        style,
     )
     await _submit_analysis(
-        callback, api_base_url, redis, mode, style, variant_id=variant_id,
+        callback,
+        api_base_url,
+        redis,
+        mode,
+        style,
+        variant_id=variant_id,
     )
 
 
@@ -322,7 +370,10 @@ async def on_accept_risky_result(callback: CallbackQuery):
 
 
 async def _maybe_warn_style_reference_mismatch(
-    callback: CallbackQuery, redis: Redis, mode: str, style: str,
+    callback: CallbackQuery,
+    redis: Redis,
+    mode: str,
+    style: str,
 ) -> bool:
     """Show a warning keyboard if the chosen style requires visible body but
     the reference is a tight head-crop. Returns True when the user was
@@ -340,7 +391,8 @@ async def _maybe_warn_style_reference_mismatch(
 
     try:
         already_accepted = await redis.sismember(
-            RISK_ACCEPTED_KEY.format(user_id), f"{mode}:{style}",
+            RISK_ACCEPTED_KEY.format(user_id),
+            f"{mode}:{style}",
         )
     except Exception:
         already_accepted = False
@@ -360,16 +412,22 @@ async def _maybe_warn_style_reference_mismatch(
         return False
 
     await callback.answer()
-    keyboard = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(
-            text="\U0001f4f7 Загрузить другое фото",
-            callback_data="reupload_photo",
-        )],
-        [InlineKeyboardButton(
-            text="\u26a0\ufe0f Продолжить с риском",
-            callback_data=f"confirm_risk:{mode}:{style}",
-        )],
-    ])
+    keyboard = InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text="\U0001f4f7 Загрузить другое фото",
+                    callback_data="reupload_photo",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text="\u26a0\ufe0f Продолжить с риском",
+                    callback_data=f"confirm_risk:{mode}:{style}",
+                )
+            ],
+        ]
+    )
     text = (
         f"\u26a0\ufe0f *{issue.message}*\n\n"
         f"{issue.suggestion}\n\n"
@@ -393,7 +451,9 @@ async def on_restyle(callback: CallbackQuery, redis: Redis):
     mode = callback.data.split(":", 1)[1]
     file_id = await redis.get(PHOTO_KEY.format(callback.from_user.id))
     if not file_id:
-        await callback.answer("Фото больше не доступно. Отправь новое!", show_alert=True)
+        await callback.answer(
+            "Фото больше не доступно. Отправь новое!", show_alert=True
+        )
         return
     await callback.answer()
     mode_headers = {
@@ -405,7 +465,9 @@ async def on_restyle(callback: CallbackQuery, redis: Redis):
     if header:
         await callback.message.answer(header, reply_markup=style_keyboard(mode))
     else:
-        await callback.message.answer("Выбери направление:", reply_markup=scenario_keyboard())
+        await callback.message.answer(
+            "Выбери направление:", reply_markup=scenario_keyboard()
+        )
 
 
 @router.callback_query(F.data.startswith("styles_page:"))
@@ -416,9 +478,13 @@ async def on_styles_page(callback: CallbackQuery):
     page = int(parts[2]) if len(parts) > 2 else 0
     await callback.answer()
     try:
-        await callback.message.edit_reply_markup(reply_markup=style_keyboard(mode, page))
+        await callback.message.edit_reply_markup(
+            reply_markup=style_keyboard(mode, page)
+        )
     except Exception:
-        await callback.message.answer("Выбери стиль:", reply_markup=style_keyboard(mode, page))
+        await callback.message.answer(
+            "Выбери стиль:", reply_markup=style_keyboard(mode, page)
+        )
 
 
 @router.callback_query(F.data == "retry")
@@ -427,45 +493,66 @@ async def on_retry(callback: CallbackQuery, api_base_url: str, redis: Redis):
     user_id = callback.from_user.id
     file_id = await redis.get(PHOTO_KEY.format(user_id))
     if not file_id:
-        await callback.answer("Фото больше не доступно. Отправь новое!", show_alert=True)
+        await callback.answer(
+            "Фото больше не доступно. Отправь новое!", show_alert=True
+        )
         return
     last = await redis.get(LAST_GEN_KEY.format(user_id))
     if last and ":" in last:
         mode, style = last.split(":", 1)
     else:
         await callback.answer()
-        await callback.message.answer("Выбери направление:", reply_markup=scenario_keyboard())
+        await callback.message.answer(
+            "Выбери направление:", reply_markup=scenario_keyboard()
+        )
         return
     await _submit_analysis(callback, api_base_url, redis, mode, style)
 
 
-async def _get_api_headers(redis: Redis, user_id: int, api_url: str, user=None) -> dict[str, str]:
+async def _get_api_headers(
+    redis: Redis, user_id: int, api_url: str, user=None
+) -> dict[str, str]:
     """Get auth headers appropriate for the target API (edge or primary)."""
     from src.config import settings
-    if settings.edge_api_url and api_url.rstrip("/") == settings.edge_api_url.rstrip("/"):
+
+    if settings.edge_api_url and api_url.rstrip("/") == settings.edge_api_url.rstrip(
+        "/"
+    ):
         username = getattr(user, "username", None) if user else None
         first_name = getattr(user, "first_name", None) if user else None
-        token = await _ensure_edge_session(redis, user_id, username, first_name, api_url.rstrip("/"))
+        token = await _ensure_edge_session(
+            redis, user_id, username, first_name, api_url.rstrip("/")
+        )
         if token:
             return {"Authorization": f"Bearer {token}"}
     return await get_bot_auth_headers(redis, user_id)
 
 
-async def _refresh_api_headers(redis: Redis, user_id: int, api_url: str, user=None) -> dict[str, str]:
+async def _refresh_api_headers(
+    redis: Redis, user_id: int, api_url: str, user=None
+) -> dict[str, str]:
     """Force-refresh auth headers (delete cached session, obtain new one)."""
     from src.config import settings
-    if settings.edge_api_url and api_url.rstrip("/") == settings.edge_api_url.rstrip("/"):
+
+    if settings.edge_api_url and api_url.rstrip("/") == settings.edge_api_url.rstrip(
+        "/"
+    ):
         username = getattr(user, "username", None) if user else None
         first_name = getattr(user, "first_name", None) if user else None
-        token = await _force_refresh_edge_session(redis, user_id, username, first_name, api_url.rstrip("/"))
+        token = await _force_refresh_edge_session(
+            redis, user_id, username, first_name, api_url.rstrip("/")
+        )
         if token:
             return {"Authorization": f"Bearer {token}"}
     from src.bot.middleware import _BOT_SESSION_KEY
+
     await redis.delete(_BOT_SESSION_KEY.format(user_id))
     return await get_bot_auth_headers(redis, user_id)
 
 
-async def _call_pre_analyze(bot, api_base_url: str, user_id: int, file_id: str, mode: str, redis: Redis) -> dict | None:
+async def _call_pre_analyze(
+    bot, api_base_url: str, user_id: int, file_id: str, mode: str, redis: Redis
+) -> dict | None:
     """Download the user's photo and call POST /api/v1/pre-analyze. Returns response dict or None on failure."""
     try:
         if isinstance(file_id, bytes):
@@ -503,7 +590,9 @@ async def _call_pre_analyze(bot, api_base_url: str, user_id: int, file_id: str, 
     return None
 
 
-def _format_pre_analysis_message(header: str, kind: str, user_id: int, data: dict) -> str:
+def _format_pre_analysis_message(
+    header: str, kind: str, user_id: int, data: dict
+) -> str:
     """Format the pre-analysis scores + suggestions into a Telegram message."""
     first_impression = sanitize_llm_text(data.get("first_impression", ""), max_len=600)
     score = data.get("score", 0)
@@ -550,8 +639,13 @@ def _format_pre_analysis_message(header: str, kind: str, user_id: int, data: dic
 
 
 async def _submit_analysis(
-    callback: CallbackQuery, api_base_url: str, redis: Redis,
-    mode: str, style: str, *, variant_id: str = "",
+    callback: CallbackQuery,
+    api_base_url: str,
+    redis: Redis,
+    mode: str,
+    style: str,
+    *,
+    variant_id: str = "",
 ):
     user_id = callback.from_user.id
     bot = callback.bot
@@ -565,14 +659,18 @@ async def _submit_analysis(
     lock_key = _PROCESSING_LOCK.format(user_id)
     acquired = await redis.set(lock_key, "1", ex=_LOCK_TTL, nx=True)
     if not acquired:
-        await callback.answer("\u23f3 Предыдущий запрос ещё обрабатывается...", show_alert=True)
+        await callback.answer(
+            "\u23f3 Предыдущий запрос ещё обрабатывается...", show_alert=True
+        )
         return
 
     await callback.answer()
 
     depth = await _get_depth(redis, user_id, mode)
     if depth > 1:
-        status_text = f"\u23f3 Усиливаю образ (уровень {depth})\u2026 Это может занять до минуты."
+        status_text = (
+            f"\u23f3 Усиливаю образ (уровень {depth})\u2026 Это может занять до минуты."
+        )
     else:
         status_text = "\u23f3 Улучшаю твой образ\u2026 Это может занять до минуты."
     status_msg = await callback.message.answer(status_text)
@@ -592,6 +690,7 @@ async def _submit_analysis(
         image_data = file_bytes.read()
 
         from src.orchestrator.enhancement_matrix import level_for_depth
+
         enh_level = level_for_depth(depth).level
 
         form_data = {"mode": mode, "enhancement_level": str(enh_level)}
@@ -606,7 +705,9 @@ async def _submit_analysis(
                 pre_id = pre_id.decode()
             form_data["pre_analysis_id"] = pre_id
 
-        auth_headers = await _get_api_headers(redis, user_id, analyze_api, callback.from_user)
+        auth_headers = await _get_api_headers(
+            redis, user_id, analyze_api, callback.from_user
+        )
         async with httpx.AsyncClient(timeout=30.0) as client:
             resp = await client.post(
                 f"{analyze_api}/api/v1/analyze",
@@ -616,12 +717,16 @@ async def _submit_analysis(
             )
 
         if resp.status_code == 401:
-            auth_headers = await _refresh_api_headers(redis, user_id, analyze_api, callback.from_user)
+            auth_headers = await _refresh_api_headers(
+                redis, user_id, analyze_api, callback.from_user
+            )
             file_bytes_retry = io.BytesIO(image_data)
             async with httpx.AsyncClient(timeout=30.0) as client:
                 resp = await client.post(
                     f"{analyze_api}/api/v1/analyze",
-                    files={"image": ("photo.jpg", file_bytes_retry.read(), "image/jpeg")},
+                    files={
+                        "image": ("photo.jpg", file_bytes_retry.read(), "image/jpeg")
+                    },
                     data=form_data,
                     headers=auth_headers,
                 )
@@ -635,7 +740,9 @@ async def _submit_analysis(
                 logger.warning(
                     "Non-JSON response from %s: status=%s content-type=%s body[:500]=%r",
                     r.request.url if r.request else "?",
-                    r.status_code, ct, r.text[:500],
+                    r.status_code,
+                    ct,
+                    r.text[:500],
                 )
                 return {}
             try:
@@ -644,7 +751,8 @@ async def _submit_analysis(
                 logger.warning(
                     "Failed to parse JSON from %s: status=%s body[:500]=%r",
                     r.request.url if r.request else "?",
-                    r.status_code, r.text[:500],
+                    r.status_code,
+                    r.text[:500],
                 )
                 return {}
 
@@ -682,7 +790,18 @@ async def _submit_analysis(
             }
 
             import asyncio
-            asyncio.create_task(_poll_task(bot, analyze_api, user_id, task_id, callback.message.chat.id, status_msg.message_id, redis))
+
+            asyncio.create_task(
+                _poll_task(
+                    bot,
+                    analyze_api,
+                    user_id,
+                    task_id,
+                    callback.message.chat.id,
+                    status_msg.message_id,
+                    redis,
+                )
+            )
 
         elif resp.status_code == 429:
             await redis.delete(lock_key)
@@ -704,7 +823,9 @@ async def _submit_analysis(
             detail = _safe_json(resp).get("detail") or f"HTTP {resp.status_code}"
             logger.warning(
                 "Analyze failed for user %s: status=%s detail=%s",
-                user_id, resp.status_code, detail,
+                user_id,
+                resp.status_code,
+                detail,
             )
             await status_msg.edit_text(
                 f"\u274c Ошибка: {detail}",
@@ -722,7 +843,9 @@ async def _submit_analysis(
         )
     except httpx.HTTPError as e:
         await redis.delete(lock_key)
-        logger.warning("Analyze network error for user %s: %s", user_id, e, exc_info=True)
+        logger.warning(
+            "Analyze network error for user %s: %s", user_id, e, exc_info=True
+        )
         await status_msg.edit_text(
             "\u274c Проблема с подключением к сервису. Попробуй ещё раз.",
             reply_markup=error_keyboard(),
@@ -753,8 +876,11 @@ async def on_buy(callback: CallbackQuery, api_base_url: str, redis: Redis):
 
     try:
         session_token = await _ensure_edge_session(
-            redis, tg_id, callback.from_user.username,
-            callback.from_user.first_name, payment_api,
+            redis,
+            tg_id,
+            callback.from_user.username,
+            callback.from_user.first_name,
+            payment_api,
         )
         if not session_token:
             await wait_msg.edit_text(
@@ -772,8 +898,11 @@ async def on_buy(callback: CallbackQuery, api_base_url: str, redis: Redis):
 
         if resp.status_code == 401:
             session_token = await _force_refresh_edge_session(
-                redis, tg_id, callback.from_user.username,
-                callback.from_user.first_name, payment_api,
+                redis,
+                tg_id,
+                callback.from_user.username,
+                callback.from_user.first_name,
+                payment_api,
             )
             if session_token:
                 async with httpx.AsyncClient(timeout=15.0) as client:
@@ -784,8 +913,17 @@ async def on_buy(callback: CallbackQuery, api_base_url: str, redis: Redis):
                     )
 
         if resp.status_code != 200:
-            detail = resp.json().get("detail", "unknown error") if resp.headers.get("content-type", "").startswith("application/json") else resp.text[:200]
-            logger.error("Payment create failed on %s: %s %s", payment_api, resp.status_code, detail)
+            detail = (
+                resp.json().get("detail", "unknown error")
+                if resp.headers.get("content-type", "").startswith("application/json")
+                else resp.text[:200]
+            )
+            logger.error(
+                "Payment create failed on %s: %s %s",
+                payment_api,
+                resp.status_code,
+                detail,
+            )
             await wait_msg.edit_text(
                 "\u274c Не удалось создать платёж. Попробуй позже.",
                 reply_markup=error_keyboard(),
@@ -796,14 +934,29 @@ async def on_buy(callback: CallbackQuery, api_base_url: str, redis: Redis):
         confirmation_url = data["confirmation_url"]
 
         from src.services.payments import _pack_by_quantity
+
         pack = _pack_by_quantity(pack_qty)
         price_label = f"{pack.price_rub} \u20bd" if pack else f"{pack_qty} образов"
 
-        kb = InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text=f"\U0001f4b3 Оплатить {price_label}", url=confirmation_url)],
-            [InlineKeyboardButton(text="\U0001f4b0 Проверить баланс", callback_data="balance")],
-            [InlineKeyboardButton(text="\U0001f4f8 Новое фото", callback_data="new_photo")],
-        ])
+        kb = InlineKeyboardMarkup(
+            inline_keyboard=[
+                [
+                    InlineKeyboardButton(
+                        text=f"\U0001f4b3 Оплатить {price_label}", url=confirmation_url
+                    )
+                ],
+                [
+                    InlineKeyboardButton(
+                        text="\U0001f4b0 Проверить баланс", callback_data="balance"
+                    )
+                ],
+                [
+                    InlineKeyboardButton(
+                        text="\U0001f4f8 Новое фото", callback_data="new_photo"
+                    )
+                ],
+            ]
+        )
         qty_label = pack.quantity if pack else pack_qty
         await wait_msg.edit_text(
             f"\U0001f6d2 *Пакет: {qty_label} образов за {price_label}*\n\n"
@@ -828,7 +981,9 @@ async def on_balance(callback: CallbackQuery, api_base_url: str, redis: Redis):
     payment_api = api_base_url
 
     try:
-        headers = await _get_api_headers(redis, user_id, payment_api, callback.from_user)
+        headers = await _get_api_headers(
+            redis, user_id, payment_api, callback.from_user
+        )
 
         async with httpx.AsyncClient(timeout=10.0) as client:
             resp = await client.get(
@@ -837,7 +992,9 @@ async def on_balance(callback: CallbackQuery, api_base_url: str, redis: Redis):
             )
 
         if resp.status_code == 401:
-            headers = await _refresh_api_headers(redis, user_id, payment_api, callback.from_user)
+            headers = await _refresh_api_headers(
+                redis, user_id, payment_api, callback.from_user
+            )
             async with httpx.AsyncClient(timeout=10.0) as client:
                 resp = await client.get(
                     f"{payment_api}/api/v1/payments/balance",
@@ -847,22 +1004,28 @@ async def on_balance(callback: CallbackQuery, api_base_url: str, redis: Redis):
         if resp.status_code == 200:
             data = resp.json()
             credits = data.get("image_credits", 0)
-            text = (
-                f"\U0001f4b0 *Твой баланс*\n\n"
-                f"Доступно образов: *{credits}*\n\n"
-            )
+            text = f"\U0001f4b0 *Твой баланс*\n\nДоступно образов: *{credits}*\n\n"
             if credits == 0:
                 text += "Открой новые образы и стили!"
                 from src.bot.keyboards import upgrade_keyboard
-                await callback.message.answer(text, parse_mode="Markdown", reply_markup=upgrade_keyboard())
+
+                await callback.message.answer(
+                    text, parse_mode="Markdown", reply_markup=upgrade_keyboard()
+                )
             else:
                 text += "Отправь фото для улучшения образа!"
-                await callback.message.answer(text, parse_mode="Markdown", reply_markup=back_keyboard())
+                await callback.message.answer(
+                    text, parse_mode="Markdown", reply_markup=back_keyboard()
+                )
         else:
-            await callback.message.answer("\u274c Не удалось получить баланс.", reply_markup=error_keyboard())
+            await callback.message.answer(
+                "\u274c Не удалось получить баланс.", reply_markup=error_keyboard()
+            )
     except Exception:
         logger.exception("Failed to fetch balance for user %s", user_id)
-        await callback.message.answer("\u274c Ошибка. Попробуй позже.", reply_markup=error_keyboard())
+        await callback.message.answer(
+            "\u274c Ошибка. Попробуй позже.", reply_markup=error_keyboard()
+        )
 
 
 @router.callback_query(F.data == "topup")
@@ -870,9 +1033,9 @@ async def on_topup(callback: CallbackQuery):
     """Show available credit packs for purchase."""
     await callback.answer()
     from src.bot.keyboards import upgrade_keyboard
+
     await callback.message.answer(
-        "\U0001f6d2 *Пополнить баланс*\n\n"
-        "Выбери подходящий пакет образов:",
+        "\U0001f6d2 *Пополнить баланс*\n\nВыбери подходящий пакет образов:",
         parse_mode="Markdown",
         reply_markup=upgrade_keyboard(),
     )
@@ -881,12 +1044,15 @@ async def on_topup(callback: CallbackQuery):
 @router.callback_query(F.data == "new_photo")
 async def on_new_photo(callback: CallbackQuery):
     await callback.answer()
-    await callback.message.answer("\U0001f4f8 Отправь мне новое фото!", reply_markup=back_keyboard())
+    await callback.message.answer(
+        "\U0001f4f8 Отправь мне новое фото!", reply_markup=back_keyboard()
+    )
 
 
 # ------------------------------------------------------------------
 # Helpers
 # ------------------------------------------------------------------
+
 
 async def _resolve_user_id(api_base_url: str, telegram_id: int) -> str | None:
     """Get internal UUID user_id for a Telegram user."""
@@ -909,12 +1075,16 @@ _EDGE_MIN_REMAINING_TTL = 3600
 
 def _edge_session_ttl() -> int:
     from src.config import settings
+
     return max(settings.session_ttl_seconds - 3600, 3600)
 
 
 async def _ensure_edge_session(
-    redis: Redis, telegram_id: int, username: str | None,
-    first_name: str | None, edge_url: str,
+    redis: Redis,
+    telegram_id: int,
+    username: str | None,
+    first_name: str | None,
+    edge_url: str,
 ) -> str | None:
     """Get or create a session token on the edge server for this Telegram user."""
     key = _EDGE_SESSION_KEY.format(telegram_id)
@@ -941,22 +1111,30 @@ async def _ensure_edge_session(
                 await redis.set(key, token, ex=_edge_session_ttl())
                 return token
     except Exception:
-        logger.exception("Failed to get edge session for tg=%s on %s", telegram_id, edge_url)
+        logger.exception(
+            "Failed to get edge session for tg=%s on %s", telegram_id, edge_url
+        )
     return None
 
 
 async def _force_refresh_edge_session(
-    redis: Redis, telegram_id: int, username: str | None,
-    first_name: str | None, edge_url: str,
+    redis: Redis,
+    telegram_id: int,
+    username: str | None,
+    first_name: str | None,
+    edge_url: str,
 ) -> str | None:
     """Delete cached edge session and create a new one."""
     await redis.delete(_EDGE_SESSION_KEY.format(telegram_id))
-    return await _ensure_edge_session(redis, telegram_id, username, first_name, edge_url)
+    return await _ensure_edge_session(
+        redis, telegram_id, username, first_name, edge_url
+    )
 
 
 # ------------------------------------------------------------------
 # Depth tracking
 # ------------------------------------------------------------------
+
 
 async def _get_depth(redis: Redis, user_id: int, mode: str) -> int:
     key = DEPTH_KEY.format(user_id, mode)
@@ -975,6 +1153,7 @@ async def _increment_depth(redis: Redis, user_id: int, mode: str) -> int:
 # Progress streaming
 # ------------------------------------------------------------------
 
+
 async def _update_progress(bot, chat_id: int, status_msg_id: int, data_str: str):
     """Update the status message with step progress."""
     try:
@@ -983,7 +1162,9 @@ async def _update_progress(bot, chat_id: int, status_msg_id: int, data_str: str)
         current = int(parts[1]) if len(parts) > 1 else 0
         total = int(parts[2]) if len(parts) > 2 else 0
 
-        step_name = step_raw.split("_", 2)[-1] if step_raw.startswith("step_") else step_raw
+        step_name = (
+            step_raw.split("_", 2)[-1] if step_raw.startswith("step_") else step_raw
+        )
         label = _STEP_LABELS.get(step_name, f"Шаг {current}...")
         bar = "\u2593" * current + "\u2591" * (total - current)
         text = f"\u23f3 {label}\n[{bar}] {current}/{total}"
@@ -1010,7 +1191,16 @@ _STEP_LABELS: dict[str, str] = {
 # Task polling
 # ------------------------------------------------------------------
 
-async def _poll_task(bot, api_base_url: str, user_id: int, task_id: str, chat_id: int, status_msg_id: int, redis: Redis):
+
+async def _poll_task(
+    bot,
+    api_base_url: str,
+    user_id: int,
+    task_id: str,
+    chat_id: int,
+    status_msg_id: int,
+    redis: Redis,
+):
     """Wait for task via Redis Pub/Sub, with HTTP polling fallback."""
     import asyncio
     from src.bot.handlers.results import deliver_result
@@ -1026,7 +1216,9 @@ async def _poll_task(bot, api_base_url: str, user_id: int, task_id: str, chat_id
         await pubsub.subscribe(done_channel, progress_channel)
         try:
             for _ in range(_PUBSUB_ITERATIONS):
-                msg = await pubsub.get_message(ignore_subscribe_messages=True, timeout=1.0)
+                msg = await pubsub.get_message(
+                    ignore_subscribe_messages=True, timeout=1.0
+                )
                 if msg and msg.get("type") == "message":
                     ch = msg.get("channel", "")
                     if isinstance(ch, bytes):
@@ -1086,14 +1278,24 @@ async def _poll_task(bot, api_base_url: str, user_id: int, task_id: str, chat_id
 
             if status == "completed":
                 await redis.delete(lock_key)
-                await deliver_result(bot, chat_id, status_msg_id, data, user_id, redis, api_base_url=api_base_url)
+                await deliver_result(
+                    bot,
+                    chat_id,
+                    status_msg_id,
+                    data,
+                    user_id,
+                    redis,
+                    api_base_url=api_base_url,
+                )
                 return
             if status == "failed":
                 await redis.delete(lock_key)
                 err_msg = data.get("error_message") or ""
                 logger.warning(
                     "Task %s failed (user=%s) error_message=%s",
-                    task_id, user_id, err_msg,
+                    task_id,
+                    user_id,
+                    err_msg,
                 )
                 await bot.edit_message_text(
                     _user_message_for_failed(err_msg),
@@ -1118,14 +1320,24 @@ async def _poll_task(bot, api_base_url: str, user_id: int, task_id: str, chat_id
                 last_status = data.get("status")
             if data and data.get("status") == "completed":
                 await redis.delete(lock_key)
-                await deliver_result(bot, chat_id, status_msg_id, data, user_id, redis, api_base_url=api_base_url)
+                await deliver_result(
+                    bot,
+                    chat_id,
+                    status_msg_id,
+                    data,
+                    user_id,
+                    redis,
+                    api_base_url=api_base_url,
+                )
                 return
             if data and data.get("status") == "failed":
                 await redis.delete(lock_key)
                 err_msg = data.get("error_message") or ""
                 logger.warning(
                     "Task %s failed during grace window (user=%s) error_message=%s",
-                    task_id, user_id, err_msg,
+                    task_id,
+                    user_id,
+                    err_msg,
                 )
                 await bot.edit_message_text(
                     _user_message_for_failed(err_msg),

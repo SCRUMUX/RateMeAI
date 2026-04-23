@@ -1,4 +1,5 @@
 """Tests for worker helper functions and result enrichment logic."""
+
 from __future__ import annotations
 
 from src.workers.tasks import _format_task_error, _is_transient, _unwrap_exception
@@ -63,7 +64,9 @@ class TestIsTransient:
         assert _is_transient(exc) is False
 
     def test_http_402_is_not_transient(self):
-        exc = _FakeHTTPStatusError(402, "openrouter.ai", '{"error":"insufficient_credits"}')
+        exc = _FakeHTTPStatusError(
+            402, "openrouter.ai", '{"error":"insufficient_credits"}'
+        )
         assert _is_transient(exc) is False
 
     def test_http_429_is_transient(self):

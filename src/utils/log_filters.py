@@ -4,6 +4,7 @@ Attaches to the root logger so any call site that accidentally tries to
 log image bytes / base64 blobs / large PII-looking strings gets redacted
 before the record is emitted to stdout.
 """
+
 from __future__ import annotations
 
 import logging
@@ -15,13 +16,15 @@ _DATA_URL_RE = re.compile(
     re.IGNORECASE,
 )
 
-_FORBIDDEN_KEYS = frozenset({
-    "image_bytes",
-    "image_b64",
-    "image",
-    "file_bytes",
-    "raw_bytes",
-})
+_FORBIDDEN_KEYS = frozenset(
+    {
+        "image_bytes",
+        "image_b64",
+        "image",
+        "file_bytes",
+        "raw_bytes",
+    }
+)
 
 _REDACTED = "[REDACTED_IMG]"
 

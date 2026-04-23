@@ -6,6 +6,7 @@ Verifies:
   - production + consent missing → raises.
   - dev/test + missing context   → no-op (backwards compatible).
 """
+
 from __future__ import annotations
 
 from unittest.mock import patch

@@ -1,4 +1,5 @@
 """PrivacyLayer.sanitize_and_normalize must unconditionally strip metadata."""
+
 from __future__ import annotations
 
 import io
@@ -15,9 +16,9 @@ def _jpeg_with_exif(size: tuple[int, int] = (1200, 1600)) -> bytes:
 
     # Build an EXIF container with PIL's native API.
     exif = img.getexif()
-    exif[0x010F] = "TestCam"        # Make
-    exif[0x0110] = "UnitTest"       # Model
-    exif[0x8825] = {                # GPSInfo IFD
+    exif[0x010F] = "TestCam"  # Make
+    exif[0x0110] = "UnitTest"  # Model
+    exif[0x8825] = {  # GPSInfo IFD
         1: "N",
         2: (55.0, 45.0, 0.0),
         3: "E",

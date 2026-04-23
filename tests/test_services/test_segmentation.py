@@ -1,4 +1,5 @@
 """Tests for SegmentationService (mediapipe and InsightFace mocked)."""
+
 from __future__ import annotations
 
 import io

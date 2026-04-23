@@ -3,6 +3,7 @@
 Covers the consent gate, the "no inputs/* storage" rule, and that the
 sanitized bytes flow through Redis rather than durable storage.
 """
+
 from __future__ import annotations
 
 import io
@@ -20,7 +21,9 @@ _CONSENT_HEADERS = {
 
 def _valid_jpeg() -> bytes:
     buf = io.BytesIO()
-    Image.new("RGB", (1024, 1024), color=(140, 120, 100)).save(buf, format="JPEG", quality=92)
+    Image.new("RGB", (1024, 1024), color=(140, 120, 100)).save(
+        buf, format="JPEG", quality=92
+    )
     return buf.getvalue()
 
 
@@ -70,9 +73,7 @@ def test_analyze_does_not_write_inputs_to_storage(
 
 @patch("src.api.v1.analyze._get_arq", new_callable=AsyncMock)
 @patch("src.api.v1.analyze.get_storage")
-def test_task_response_hides_input_urls(
-    mock_get_storage, mock_get_arq, client
-):
+def test_task_response_hides_input_urls(mock_get_storage, mock_get_arq, client):
     storage = MagicMock()
     storage.upload = AsyncMock(return_value=None)
     mock_get_storage.return_value = storage

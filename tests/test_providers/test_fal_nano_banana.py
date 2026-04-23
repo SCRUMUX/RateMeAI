@@ -15,6 +15,7 @@ actually differ for Nano Banana 2 Edit:
 - missing / unknown ``quality`` collapses to ``default_quality``
 - reference-image is mandatory (image-to-image only)
 """
+
 from __future__ import annotations
 
 import base64
@@ -60,7 +61,9 @@ def _json_response(payload: dict, status: int = 200) -> MagicMock:
 
 
 def _error_response(
-    status: int, message: str = "bad", retry_after: str | None = None,
+    status: int,
+    message: str = "bad",
+    retry_after: str | None = None,
 ) -> MagicMock:
     r = MagicMock(spec=httpx.Response)
     r.status_code = status
@@ -99,9 +102,14 @@ class _FakeFalClient:
         return resp
 
     def post(self, url, json=None, headers=None):
-        self.calls.append({
-            "method": "POST", "url": url, "json": json, "headers": headers,
-        })
+        self.calls.append(
+            {
+                "method": "POST",
+                "url": url,
+                "json": json,
+                "headers": headers,
+            }
+        )
         return self._pop()
 
     def get(self, url, headers=None):
@@ -175,8 +183,7 @@ def test_body_has_expected_nano_banana_shape():
     # v1.23: low keeps fast non-reasoning mode.
     assert "thinking_level" not in body
     assert "image_size" not in body, (
-        "Nano Banana 2 Edit schema has no image_size field; "
-        "sending it would 422"
+        "Nano Banana 2 Edit schema has no image_size field; sending it would 422"
     )
     assert body["seed"] == 7
 
@@ -202,7 +209,8 @@ def test_body_quality_high_enables_thinking_high():
 def test_body_explicit_thinking_level_override_honoured():
     gen = _make_gen()
     body = gen._build_body(
-        "x", _jpeg_bytes(),
+        "x",
+        _jpeg_bytes(),
         {"quality": "high", "thinking_level": "minimal"},
     )
     assert body["thinking_level"] == "minimal"
@@ -211,7 +219,8 @@ def test_body_explicit_thinking_level_override_honoured():
 def test_body_invalid_thinking_level_falls_back_to_quality_default():
     gen = _make_gen()
     body = gen._build_body(
-        "x", _jpeg_bytes(),
+        "x",
+        _jpeg_bytes(),
         {"quality": "high", "thinking_level": "garbage"},
     )
     assert body["thinking_level"] == "high"
@@ -220,7 +229,8 @@ def test_body_invalid_thinking_level_falls_back_to_quality_default():
 def test_body_invalid_safety_tolerance_falls_back_to_4():
     gen = _make_gen()
     body = gen._build_body(
-        "x", _jpeg_bytes(),
+        "x",
+        _jpeg_bytes(),
         {"quality": "low", "safety_tolerance": "99"},
     )
     assert body["safety_tolerance"] == "4"
@@ -302,24 +312,29 @@ async def test_generate_happy_path_inline_data_uri():
     data_uri = "data:image/jpeg;base64," + base64.b64encode(out_jpeg).decode()
 
     responses = [
-        _json_response({
-            "request_id": "r",
-            "status": "IN_QUEUE",
-            "status_url": "https://queue.fal.run/fal-ai/nano-banana-2/requests/r/status",
-            "response_url": "https://queue.fal.run/fal-ai/nano-banana-2/requests/r",
-        }),
+        _json_response(
+            {
+                "request_id": "r",
+                "status": "IN_QUEUE",
+                "status_url": "https://queue.fal.run/fal-ai/nano-banana-2/requests/r/status",
+                "response_url": "https://queue.fal.run/fal-ai/nano-banana-2/requests/r",
+            }
+        ),
         _json_response({"status": "COMPLETED"}),
-        _json_response({
-            "images": [{"url": data_uri, "content_type": "image/jpeg"}],
-            "has_nsfw_concepts": [False],
-            "seed": 1234,
-        }),
+        _json_response(
+            {
+                "images": [{"url": data_uri, "content_type": "image/jpeg"}],
+                "has_nsfw_concepts": [False],
+                "seed": 1234,
+            }
+        ),
     ]
     fake = _FakeFalClient(responses)
 
     gen = _make_gen()
-    with _patched_client(fake), patch(
-        "src.providers.image_gen._fal_queue_base.time.sleep"
+    with (
+        _patched_client(fake),
+        patch("src.providers.image_gen._fal_queue_base.time.sleep"),
     ):
         result = await gen.generate(
             "portrait",
@@ -353,8 +368,9 @@ async def test_generate_requires_reference_image():
 async def test_4xx_on_submit_no_retry():
     fake = _FakeFalClient([_error_response(400, message="bad prompt")])
     gen = _make_gen(max_retries=3)
-    with _patched_client(fake), patch(
-        "src.providers.image_gen._fal_queue_base.time.sleep"
+    with (
+        _patched_client(fake),
+        patch("src.providers.image_gen._fal_queue_base.time.sleep"),
     ):
         with pytest.raises(RuntimeError, match="http=400"):
             await gen.generate("p", reference_image=_jpeg_bytes())
@@ -367,22 +383,27 @@ async def test_429_is_retried():
     data_uri = "data:image/jpeg;base64," + base64.b64encode(out_jpeg).decode()
     responses = [
         _error_response(429, message="slow down", retry_after="0"),
-        _json_response({
-            "request_id": "ok",
-            "status": "IN_QUEUE",
-            "status_url": "https://queue.fal.run/fal-ai/nano-banana-2/requests/ok/status",
-            "response_url": "https://queue.fal.run/fal-ai/nano-banana-2/requests/ok",
-        }),
+        _json_response(
+            {
+                "request_id": "ok",
+                "status": "IN_QUEUE",
+                "status_url": "https://queue.fal.run/fal-ai/nano-banana-2/requests/ok/status",
+                "response_url": "https://queue.fal.run/fal-ai/nano-banana-2/requests/ok",
+            }
+        ),
         _json_response({"status": "COMPLETED"}),
-        _json_response({
-            "images": [{"url": data_uri}],
-            "has_nsfw_concepts": [False],
-        }),
+        _json_response(
+            {
+                "images": [{"url": data_uri}],
+                "has_nsfw_concepts": [False],
+            }
+        ),
     ]
     fake = _FakeFalClient(responses)
     gen = _make_gen(max_retries=3)
-    with _patched_client(fake), patch(
-        "src.providers.image_gen._fal_queue_base.time.sleep"
+    with (
+        _patched_client(fake),
+        patch("src.providers.image_gen._fal_queue_base.time.sleep"),
     ):
         result = await gen.generate("p", reference_image=_jpeg_bytes())
     assert result == out_jpeg
@@ -391,22 +412,27 @@ async def test_429_is_retried():
 @pytest.mark.asyncio
 async def test_nsfw_no_retry():
     responses = [
-        _json_response({
-            "request_id": "nsfw",
-            "status": "IN_QUEUE",
-            "status_url": "https://queue.fal.run/fal-ai/nano-banana-2/requests/nsfw/status",
-            "response_url": "https://queue.fal.run/fal-ai/nano-banana-2/requests/nsfw",
-        }),
+        _json_response(
+            {
+                "request_id": "nsfw",
+                "status": "IN_QUEUE",
+                "status_url": "https://queue.fal.run/fal-ai/nano-banana-2/requests/nsfw/status",
+                "response_url": "https://queue.fal.run/fal-ai/nano-banana-2/requests/nsfw",
+            }
+        ),
         _json_response({"status": "COMPLETED"}),
-        _json_response({
-            "images": [{"url": "data:image/jpeg;base64,AAAA"}],
-            "has_nsfw_concepts": [True],
-        }),
+        _json_response(
+            {
+                "images": [{"url": "data:image/jpeg;base64,AAAA"}],
+                "has_nsfw_concepts": [True],
+            }
+        ),
     ]
     fake = _FakeFalClient(responses)
     gen = _make_gen(max_retries=3)
-    with _patched_client(fake), patch(
-        "src.providers.image_gen._fal_queue_base.time.sleep"
+    with (
+        _patched_client(fake),
+        patch("src.providers.image_gen._fal_queue_base.time.sleep"),
     ):
         with pytest.raises(FalContentViolationError):
             await gen.generate("p", reference_image=_jpeg_bytes())

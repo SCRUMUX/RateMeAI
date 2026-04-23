@@ -1,4 +1,5 @@
 """Platform-aware deep link and share URL generation."""
+
 from __future__ import annotations
 
 from src.config import settings

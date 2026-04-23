@@ -9,6 +9,7 @@ will be reactivated from the Scenario Engine once it exposes
 
 See ``docs/architecture/reserved.md``.
 """
+
 from __future__ import annotations
 
 import logging
@@ -44,11 +45,17 @@ class ChainImageGen(ImageGenProvider):
             try:
                 result = await provider.generate(prompt, reference_image, params)
                 if result and len(result) > 100:
-                    logger.info("ChainImageGen: %s succeeded (%d bytes)", name, len(result))
+                    logger.info(
+                        "ChainImageGen: %s succeeded (%d bytes)", name, len(result)
+                    )
                     return result
-                logger.warning("ChainImageGen: %s returned empty/tiny result, trying next", name)
+                logger.warning(
+                    "ChainImageGen: %s returned empty/tiny result, trying next", name
+                )
             except Exception as e:
-                logger.warning("ChainImageGen: %s failed (%s), trying next provider", name, e)
+                logger.warning(
+                    "ChainImageGen: %s failed (%s), trying next provider", name, e
+                )
                 last_err = e
         if last_err:
             raise last_err

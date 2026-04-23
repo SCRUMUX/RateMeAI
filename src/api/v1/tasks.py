@@ -64,12 +64,17 @@ def _extract_history_score_after(result: dict, mode: str) -> float | None:
             cv_post_vals = [
                 float(delta_map[k]["post"])
                 for k in ("trust", "competence", "hireability")
-                if isinstance(delta_map.get(k), dict) and delta_map[k].get("post") is not None
+                if isinstance(delta_map.get(k), dict)
+                and delta_map[k].get("post") is not None
             ]
             if cv_post_vals:
                 score_after = round(sum(cv_post_vals) / len(cv_post_vals), 2)
     if score_after is None:
-        score_after = result.get("dating_score") or result.get("social_score") or result.get("score")
+        score_after = (
+            result.get("dating_score")
+            or result.get("social_score")
+            or result.get("score")
+        )
     if score_after is None and mode == "cv":
         cv_vals = [
             float(result[k])
@@ -139,13 +144,10 @@ async def list_tasks(
         | cast(Task.result["image_url"], String).isnot(None)
         | cast(Task.result["generated_image_path"], String).isnot(None)
     )
-    count_q = (
-        select(func.count(Task.id))
-        .where(
-            Task.user_id == user.id,
-            Task.status == TaskStatus.COMPLETED.value,
-            gen_url_filter,
-        )
+    count_q = select(func.count(Task.id)).where(
+        Task.user_id == user.id,
+        Task.status == TaskStatus.COMPLETED.value,
+        gen_url_filter,
     )
     total_count = (await db.execute(count_q)).scalar() or 0
 
@@ -179,19 +181,21 @@ async def list_tasks(
         score_before = r.get("score_before")
         ps = r.get("perception_scores")
 
-        items.append(TaskHistoryItem(
-            task_id=t.id,
-            mode=t.mode,
-            style=ctx.get("style", ""),
-            completed_at=t.completed_at,
-            # Privacy: original photo is never exposed to clients — deleted after preprocessing.
-            input_image_url="",
-            generated_image_url=gen_url,
-            score_before=float(score_before) if score_before is not None else None,
-            score_after=float(score_after) if score_after is not None else None,
-            perception_scores=ps if isinstance(ps, dict) else None,
-            purged=bool(r.get("_purged_at")),
-        ))
+        items.append(
+            TaskHistoryItem(
+                task_id=t.id,
+                mode=t.mode,
+                style=ctx.get("style", ""),
+                completed_at=t.completed_at,
+                # Privacy: original photo is never exposed to clients — deleted after preprocessing.
+                input_image_url="",
+                generated_image_url=gen_url,
+                score_before=float(score_before) if score_before is not None else None,
+                score_after=float(score_after) if score_after is not None else None,
+                perception_scores=ps if isinstance(ps, dict) else None,
+                purged=bool(r.get("_purged_at")),
+            )
+        )
 
         if len(items) >= limit:
             break
@@ -219,7 +223,12 @@ async def get_task(
             if k in result_view:
                 result_view[k] = None
         if result_view.get("_purged_at"):
-            for k in ("generated_image_url", "image_url", "generated_image_path", "generated_image_b64"):
+            for k in (
+                "generated_image_url",
+                "image_url",
+                "generated_image_path",
+                "generated_image_b64",
+            ):
                 if k in result_view:
                     result_view[k] = None
             result_view["purged"] = True
@@ -255,9 +264,7 @@ async def refund_unreachable_image(
     - credit must not have been already refunded for this task
     - generated image must be genuinely unreachable (disk / Redis / DB b64)
     """
-    result = await db.execute(
-        select(Task).where(Task.id == task_id).with_for_update()
-    )
+    result = await db.execute(select(Task).where(Task.id == task_id).with_for_update())
     task = result.scalar_one_or_none()
 
     if task is None:
@@ -271,28 +278,34 @@ async def refund_unreachable_image(
     r = task.result or {}
 
     if not ctx.get("credit_pre_reserved"):
-        raise HTTPException(status_code=409, detail="No credit was reserved for this task")
+        raise HTTPException(
+            status_code=409, detail="No credit was reserved for this task"
+        )
     if r.get("credit_refunded"):
-        raise HTTPException(status_code=409, detail="Credit already refunded for this task")
+        raise HTTPException(
+            status_code=409, detail="Credit already refunded for this task"
+        )
 
     if await _image_available(task, redis):
-        raise HTTPException(status_code=409, detail="Image is still available — no refund needed")
+        raise HTTPException(
+            status_code=409, detail="Image is still available — no refund needed"
+        )
 
-    fresh = await db.execute(
-        select(User).where(User.id == user.id).with_for_update()
-    )
+    fresh = await db.execute(select(User).where(User.id == user.id).with_for_update())
     fresh_user = fresh.scalar_one()
 
     fresh_user.image_credits += 1
     r["credit_refunded"] = True
     r["credit_deducted"] = False
     task.result = r
-    db.add(CreditTransaction(
-        user_id=user.id,
-        amount=1,
-        balance_after=fresh_user.image_credits,
-        tx_type="refund_image_unreachable",
-    ))
+    db.add(
+        CreditTransaction(
+            user_id=user.id,
+            amount=1,
+            balance_after=fresh_user.image_credits,
+            tx_type="refund_image_unreachable",
+        )
+    )
 
     await db.commit()
 

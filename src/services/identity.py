@@ -13,6 +13,7 @@ Contract intentionally narrow:
 - Output: bool (is there at least one face?).
 - No feature vector is computed, stored, compared or returned.
 """
+
 from __future__ import annotations
 
 import io

@@ -1,4 +1,5 @@
 """Tests for OK auth signature verification."""
+
 from __future__ import annotations
 
 import hashlib

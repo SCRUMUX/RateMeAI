@@ -13,6 +13,7 @@ path. Its invariants:
    src/services/quality_gates.py), which operates on two in-memory
    images in a single LLM call and retains no per-user state.
 """
+
 from __future__ import annotations
 
 import base64

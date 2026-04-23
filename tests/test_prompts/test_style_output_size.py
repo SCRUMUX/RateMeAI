@@ -7,6 +7,7 @@ matters, detail secondary); everything else lands in ``portrait_4_3``
 (2 MP portrait, target ~1280x1600 for face sharpness on full-body
 scenes).
 """
+
 from __future__ import annotations
 
 import pytest
@@ -54,8 +55,7 @@ def test_document_styles_use_square_hd():
         if spec is None:
             continue
         assert spec.output_aspect == "square_hd", (
-            f"document style {style_key!r} must be square_hd, "
-            f"got {spec.output_aspect}"
+            f"document style {style_key!r} must be square_hd, got {spec.output_aspect}"
         )
         checked += 1
     assert checked >= 4, (

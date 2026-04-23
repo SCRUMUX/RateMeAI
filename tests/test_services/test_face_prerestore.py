@@ -9,6 +9,7 @@ GFPGAN pre-clean is an optional, conservative stage. These tests pin:
 * provider exception ⇒ returns original bytes with ``error`` populated
   (never propagates — pre-restoration is never load-bearing).
 """
+
 from __future__ import annotations
 
 from unittest.mock import AsyncMock, MagicMock
@@ -81,7 +82,9 @@ def test_should_prerestore_triggers_on_blurry_full():
 async def test_disabled_flag_returns_original_bytes():
     original = b"\xff\xd8\xff" + b"x" * 500
     out, info = await prerestore_if_needed(
-        original, _report(blur_face=50.0), feature_enabled=False,
+        original,
+        _report(blur_face=50.0),
+        feature_enabled=False,
     )
     assert out is original
     assert info["applied"] is False
@@ -96,8 +99,10 @@ async def test_blurry_input_runs_gfpgan_and_returns_restored_bytes():
     fake.restore = AsyncMock(return_value=restored)
 
     out, info = await prerestore_if_needed(
-        original, _report(blur_face=50.0),
-        restorer=fake, feature_enabled=True,
+        original,
+        _report(blur_face=50.0),
+        restorer=fake,
+        feature_enabled=True,
     )
 
     fake.restore.assert_awaited_once_with(original)
@@ -113,8 +118,10 @@ async def test_clean_input_does_not_call_provider():
     fake.restore = AsyncMock(return_value=b"should-not-be-used")
 
     out, info = await prerestore_if_needed(
-        original, _report(blur_face=300.0, blur_full=300.0),
-        restorer=fake, feature_enabled=True,
+        original,
+        _report(blur_face=300.0, blur_full=300.0),
+        restorer=fake,
+        feature_enabled=True,
     )
 
     fake.restore.assert_not_awaited()
@@ -130,8 +137,10 @@ async def test_provider_failure_falls_back_to_original():
     fake.restore = AsyncMock(side_effect=RuntimeError("FAL down"))
 
     out, info = await prerestore_if_needed(
-        original, _report(blur_face=50.0),
-        restorer=fake, feature_enabled=True,
+        original,
+        _report(blur_face=50.0),
+        restorer=fake,
+        feature_enabled=True,
     )
 
     assert out is original
@@ -146,8 +155,10 @@ async def test_empty_restorer_output_falls_back_to_original():
     fake.restore = AsyncMock(return_value=b"")
 
     out, info = await prerestore_if_needed(
-        original, _report(blur_face=50.0),
-        restorer=fake, feature_enabled=True,
+        original,
+        _report(blur_face=50.0),
+        restorer=fake,
+        feature_enabled=True,
     )
 
     assert out is original

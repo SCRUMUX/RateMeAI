@@ -14,6 +14,7 @@ report, and the executor turns that into:
 
 so results.py can follow up with the reupload / accept keyboard.
 """
+
 from __future__ import annotations
 
 import io
@@ -83,9 +84,7 @@ def _build_executor(gate_report: dict, *, all_passed: bool = True):
     storage.get_url = AsyncMock(return_value="https://example/result.jpg")
     identity_svc = MagicMock()
     gate_runner = MagicMock()
-    gate_runner.run_global_gates = AsyncMock(
-        return_value=(all_passed, [], gate_report)
-    )
+    gate_runner.run_global_gates = AsyncMock(return_value=(all_passed, [], gate_report))
     return ImageGenerationExecutor(
         image_gen=image_gen,
         prompt_engine=prompt_engine,

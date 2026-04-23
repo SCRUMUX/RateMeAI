@@ -3,6 +3,7 @@
 These endpoints are called by the RU edge server to delegate AI processing
 to the primary Railway backend. Protected by INTERNAL_API_KEY.
 """
+
 from __future__ import annotations
 
 import base64
@@ -12,7 +13,14 @@ from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from arq.connections import ArqRedis, create_pool, RedisSettings
-from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request as FastAPIRequest
+from fastapi import (
+    APIRouter,
+    Depends,
+    Header,
+    HTTPException,
+    Query,
+    Request as FastAPIRequest,
+)
 from pydantic import BaseModel, Field
 from redis.asyncio import Redis
 from sqlalchemy import select
@@ -38,6 +46,7 @@ def _assert_consent_flags(policy_flags: dict[str, Any]) -> None:
             status_code=451,
             detail={"code": "consent_required", "missing": missing},
         )
+
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -75,6 +84,7 @@ async def internal_ping(_key: str = Depends(_verify_internal_key)):
 
 # ── Schemas ──
 
+
 class RemotePreAnalyzeRequest(BaseModel):
     image_b64: str
     mode: AnalysisMode = AnalysisMode.DATING
@@ -93,7 +103,9 @@ class RemoteAnalysisRequest(BaseModel):
     enhancement_level: int = 0
     pre_analysis_id: str = ""
     variant_id: str = ""
-    edge_task_id: str = Field("", description="Task ID from the edge server for tracing")
+    edge_task_id: str = Field(
+        "", description="Task ID from the edge server for tracing"
+    )
     market_id: str = "global"
     scenario_slug: str = ""
     scenario_type: str = ""
@@ -123,7 +135,10 @@ class RemoteTaskStatusResponse(BaseModel):
 
 # ── Endpoints ──
 
-@router.post("/process-analysis", response_model=RemoteAnalysisResponse, status_code=202)
+
+@router.post(
+    "/process-analysis", response_model=RemoteAnalysisResponse, status_code=202
+)
 async def process_analysis_remote(
     request: RemoteAnalysisRequest,
     http_request: FastAPIRequest,
@@ -346,13 +361,17 @@ async def pre_analyze_remote(
             result = await service.analyze(image_bytes)
     LLM_CALLS.labels(purpose=f"preanalyze_{request.mode.value}").inc()
 
-    raw_dict = result if isinstance(result, dict) else (
-        result.model_dump() if hasattr(result, "model_dump") else result
+    raw_dict = (
+        result
+        if isinstance(result, dict)
+        else (result.model_dump() if hasattr(result, "model_dump") else result)
     )
 
     is_safe, reason = extract_nsfw_from_analysis(raw_dict)
     if not is_safe:
-        raise HTTPException(status_code=400, detail=f"Фото не прошло модерацию: {reason}")
+        raise HTTPException(
+            status_code=400, detail=f"Фото не прошло модерацию: {reason}"
+        )
 
     if isinstance(result, RatingResult):
         result_dict = result.model_dump()
@@ -392,7 +411,9 @@ async def pre_analyze_remote(
     return {
         "pre_analysis_id": pre_id,
         "mode": request.mode.value,
-        "first_impression": result_dict.get("first_impression", result_dict.get("analysis", "")),
+        "first_impression": result_dict.get(
+            "first_impression", result_dict.get("analysis", "")
+        ),
         "score": score,
         "perception_scores": perception,
         "perception_insights": insights,
@@ -484,11 +505,19 @@ async def recent_errors(
                 "has_input_path": bool(t.input_image_path),
                 "has_result": bool(t.result),
                 "market_id": (ctx.get("market_id") if isinstance(ctx, dict) else None),
-                "scenario_type": (ctx.get("scenario_type") if isinstance(ctx, dict) else None),
-                "scenario_slug": (ctx.get("scenario_slug") if isinstance(ctx, dict) else None),
+                "scenario_type": (
+                    ctx.get("scenario_type") if isinstance(ctx, dict) else None
+                ),
+                "scenario_slug": (
+                    ctx.get("scenario_slug") if isinstance(ctx, dict) else None
+                ),
                 "style": (ctx.get("style") if isinstance(ctx, dict) else None),
-                "skip_image_gen": (ctx.get("skip_image_gen") if isinstance(ctx, dict) else None),
-                "credit_pre_reserved": (ctx.get("credit_pre_reserved") if isinstance(ctx, dict) else None),
+                "skip_image_gen": (
+                    ctx.get("skip_image_gen") if isinstance(ctx, dict) else None
+                ),
+                "credit_pre_reserved": (
+                    ctx.get("credit_pre_reserved") if isinstance(ctx, dict) else None
+                ),
             }
         )
 
@@ -521,7 +550,9 @@ def _minimal_jpeg_bytes() -> bytes:
     from PIL import Image as _Image
 
     buf = _io.BytesIO()
-    _Image.new("RGB", (16, 16), color=(128, 128, 128)).save(buf, format="JPEG", quality=80)
+    _Image.new("RGB", (16, 16), color=(128, 128, 128)).save(
+        buf, format="JPEG", quality=80
+    )
     return buf.getvalue()
 
 
@@ -540,15 +571,21 @@ async def _vision_probe_once(
     failure is reported as ``error``.
     """
     import time as _time
+
     payload: dict[str, Any] = {
         "model": model,
-        "messages": [{
-            "role": "user",
-            "content": [
-                {"type": "text", "text": 'Return strictly {"ok":true} as JSON.'},
-                {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{image_b64}"}},
-            ],
-        }],
+        "messages": [
+            {
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": 'Return strictly {"ok":true} as JSON.'},
+                    {
+                        "type": "image_url",
+                        "image_url": {"url": f"data:image/jpeg;base64,{image_b64}"},
+                    },
+                ],
+            }
+        ],
         "max_tokens": 100,
         "temperature": 0.0,
     }
@@ -558,7 +595,9 @@ async def _vision_probe_once(
     t0 = _time.monotonic()
     try:
         r = await client.post(
-            f"{base_url}/chat/completions", headers=headers, json=payload,
+            f"{base_url}/chat/completions",
+            headers=headers,
+            json=payload,
         )
         took_ms = int((_time.monotonic() - t0) * 1000)
         body = (r.text or "").strip().replace("\n", " ")
@@ -684,8 +723,12 @@ def _synthetic_test_jpeg(size: int = 512) -> bytes:
     draw = _ImageDraw.Draw(img)
     cx, cy, r = size // 2, size // 2, size // 4
     draw.ellipse((cx - r, cy - r, cx + r, cy + r), fill=(230, 200, 180))
-    draw.ellipse((cx - r // 2, cy - r // 3, cx - r // 4, cy - r // 5), fill=(50, 40, 30))
-    draw.ellipse((cx + r // 4, cy - r // 3, cx + r // 2, cy - r // 5), fill=(50, 40, 30))
+    draw.ellipse(
+        (cx - r // 2, cy - r // 3, cx - r // 4, cy - r // 5), fill=(50, 40, 30)
+    )
+    draw.ellipse(
+        (cx + r // 4, cy - r // 3, cx + r // 2, cy - r // 5), fill=(50, 40, 30)
+    )
     buf = _io.BytesIO()
     img.save(buf, format="JPEG", quality=85)
     return buf.getvalue()
@@ -693,7 +736,9 @@ def _synthetic_test_jpeg(size: int = 512) -> bytes:
 
 @router.post("/diagnostics/synthetic-analyze")
 async def synthetic_analyze(
-    mode: str = Query("social", description="Analysis mode: rating|dating|cv|social|emoji"),
+    mode: str = Query(
+        "social", description="Analysis mode: rating|dating|cv|social|emoji"
+    ),
     _key: str = Depends(_verify_internal_key),
 ):
     """Reproduce ``OpenRouterLLM.analyze_image`` with the production prompt.
@@ -735,10 +780,14 @@ async def synthetic_analyze(
     # Diagnostics run outside the normal AnalysisPipeline, so we have to
     # open an explicit task_context_scope — otherwise the AI-transfer guard
     # trips on ``no_pipeline_context`` before the LLM call even goes out.
-    guard_ctx = {"policy_flags": build_policy_flags({
-        "consent_data_processing": True,
-        "consent_ai_transfer": True,
-    })}
+    guard_ctx = {
+        "policy_flags": build_policy_flags(
+            {
+                "consent_data_processing": True,
+                "consent_ai_transfer": True,
+            }
+        )
+    }
 
     t0 = _time.monotonic()
     try:
@@ -748,8 +797,10 @@ async def synthetic_analyze(
             else:
                 res = await service.analyze(image)
         took_ms = int((_time.monotonic() - t0) * 1000)
-        public = res.model_dump() if hasattr(res, "model_dump") else (
-            res.dict() if hasattr(res, "dict") else {"repr": repr(res)[:300]}
+        public = (
+            res.model_dump()
+            if hasattr(res, "model_dump")
+            else (res.dict() if hasattr(res, "dict") else {"repr": repr(res)[:300]})
         )
         return {
             "ok": True,
@@ -859,6 +910,7 @@ async def image_gen_probe(
 
     if mode == "identity_scene":
         from src.api.v1._fixtures.probe_face import probe_face_jpeg
+
         reference = probe_face_jpeg()
         prompt = (
             "The same person, now standing in a sunlit park with soft "
@@ -871,10 +923,14 @@ async def image_gen_probe(
             "composition, calm and professional mood. Do not render text."
         )
 
-    guard_ctx = {"policy_flags": build_policy_flags({
-        "consent_data_processing": True,
-        "consent_ai_transfer": True,
-    })}
+    guard_ctx = {
+        "policy_flags": build_policy_flags(
+            {
+                "consent_data_processing": True,
+                "consent_ai_transfer": True,
+            }
+        )
+    }
 
     params: dict = {"generation_mode": mode}
     if provider != "styled_router":

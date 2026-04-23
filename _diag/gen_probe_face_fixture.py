@@ -3,6 +3,7 @@
 Input:  _diag/_probe_face_b64.txt (one big chunked base64 JPEG)
 Output: src/api/v1/_fixtures/__init__.py, src/api/v1/_fixtures/probe_face.py
 """
+
 from __future__ import annotations
 
 import os

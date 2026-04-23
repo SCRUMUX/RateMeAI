@@ -3,6 +3,7 @@
 Keep these small and strict — every assertion here exists because a
 wrong default shipped to production and bricked the image pipeline.
 """
+
 from __future__ import annotations
 
 from src.config import Settings

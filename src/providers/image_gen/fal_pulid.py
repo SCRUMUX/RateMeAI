@@ -43,6 +43,7 @@ default 4-step Lightning config on an H100 the empirical average is
 tracked via the ``ratemeai_generation_cost_usd`` histogram labelled
 ``backend="pulid"``.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -64,14 +65,16 @@ logger = logging.getLogger(__name__)
 
 # PuLID accepts either a preset enum or a ``{"width", "height"}`` dict
 # for ``image_size``. Mirrors the FLUX.2 Pro Edit whitelist.
-_PRESET_IMAGE_SIZES = frozenset({
-    "square_hd",
-    "square",
-    "portrait_4_3",
-    "portrait_16_9",
-    "landscape_4_3",
-    "landscape_16_9",
-})
+_PRESET_IMAGE_SIZES = frozenset(
+    {
+        "square_hd",
+        "square",
+        "portrait_4_3",
+        "portrait_16_9",
+        "landscape_4_3",
+        "landscape_16_9",
+    }
+)
 
 _PULID_MODES = frozenset({"fidelity", "extreme style"})
 
@@ -194,9 +197,7 @@ class FalPuLIDImageGen(FalQueueClient, ImageGenProvider):
         ``params['extra_reference_faces']`` for future use.
         """
         if not reference_image:
-            raise ValueError(
-                "FalPuLIDImageGen requires reference_image (face crop)"
-            )
+            raise ValueError("FalPuLIDImageGen requires reference_image (face crop)")
 
         extras = params or {}
 
@@ -208,8 +209,7 @@ class FalPuLIDImageGen(FalQueueClient, ImageGenProvider):
                 ref_list.append({"image_url": self._data_url(bytes(extra))})
 
         negative_prompt = (
-            str(extras.get("negative_prompt") or "").strip()
-            or self._negative_prompt
+            str(extras.get("negative_prompt") or "").strip() or self._negative_prompt
         )
 
         body: dict[str, Any] = {
@@ -234,10 +234,12 @@ class FalPuLIDImageGen(FalQueueClient, ImageGenProvider):
         # above these returns HTTP 422 from fal-ai/pulid. DO NOT widen
         # without updating tests/test_providers/test_fal_pulid.py.
         body["num_inference_steps"] = max(
-            1, min(12, int(body["num_inference_steps"])),
+            1,
+            min(12, int(body["num_inference_steps"])),
         )
         body["guidance_scale"] = max(
-            1.0, min(1.5, float(body["guidance_scale"])),
+            1.0,
+            min(1.5, float(body["guidance_scale"])),
         )
         if body["mode"] not in _PULID_MODES:
             body["mode"] = "fidelity"
@@ -275,10 +277,14 @@ class FalPuLIDImageGen(FalQueueClient, ImageGenProvider):
         logger.info(
             "FAL PuLID request model=%s prompt_len=%d mode=%s id_scale=%.2f "
             "steps=%d guidance=%.2f seed=%s size=%s neg_len=%d",
-            self._model, len(prompt or ""), body.get("mode"),
-            body.get("id_scale"), body.get("num_inference_steps"),
+            self._model,
+            len(prompt or ""),
+            body.get("mode"),
+            body.get("id_scale"),
+            body.get("num_inference_steps"),
             body.get("guidance_scale", 0.0),
-            body.get("seed"), body.get("image_size", "default"),
+            body.get("seed"),
+            body.get("image_size", "default"),
             len(body.get("negative_prompt") or ""),
         )
         return self._run_queue_sync(body)
@@ -291,7 +297,10 @@ class FalPuLIDImageGen(FalQueueClient, ImageGenProvider):
     ) -> bytes:
         assert_external_transfer_allowed("fal_pulid")
         raw = await asyncio.to_thread(
-            self._generate_sync, prompt, reference_image, params,
+            self._generate_sync,
+            prompt,
+            reference_image,
+            params,
         )
         if raw and len(raw) > 100:
             return raw

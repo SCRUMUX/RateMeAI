@@ -5,6 +5,7 @@ computes or stores face embeddings. It only exposes ``detect_face`` and
 ``face_bbox`` using MediaPipe FaceDetection. Identity preservation is
 verified by the quality-gate VLM (see test_quality_gates.py).
 """
+
 from __future__ import annotations
 
 from unittest.mock import MagicMock, patch

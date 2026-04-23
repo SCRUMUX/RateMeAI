@@ -10,6 +10,7 @@ face in this image.
 Size: ~12.6 KB decoded / ~19 KB base64. Regenerate with
 ``_diag/gen_probe_face_fixture.py`` if a better fixture is ever needed.
 """
+
 from __future__ import annotations
 
 import base64
@@ -289,7 +290,8 @@ _PROBE_FACE_B64 = (
     "spP2Vyo6FCfvfMda+xpLp5rKK5sOWdZOVlKjIZTvkb/nRJgNUSWOKTnNV/2vUTyhbBWOeV"
     "jzYAOOvy7fjXhcamcYtFI9W8pO/pnbb86kgn71751B+0X/gZFuvil8BXXlGMDrufff2pBu"
     "9RxJiw+793LYL7enbeuOJ5Uk5zXQD3qA11qPgBl08CQuRyl9gOXPN+O1LNxeeLMPshEaLl"
-    "H6852/DvXHH/2Q==")
+    "H6852/DvXHH/2Q=="
+)
 
 
 def probe_face_jpeg() -> bytes:

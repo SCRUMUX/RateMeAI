@@ -90,8 +90,9 @@ class _FakeClient:
 
 def _patch_client(responses):
     fake = _FakeClient(responses)
-    return patch("src.providers.image_gen.reve_provider.httpx.Client",
-                 return_value=fake), fake
+    return patch(
+        "src.providers.image_gen.reve_provider.httpx.Client", return_value=fake
+    ), fake
 
 
 @pytest.mark.asyncio
@@ -100,8 +101,7 @@ async def test_reve_image_gen_edit_returns_bytes():
     fake = _FakeClient([_response_image(jpeg)])
 
     gen = ReveImageGen(api_token="papi.test-token", api_host="https://api.reve.com")
-    with patch("src.providers.image_gen.reve_provider.httpx.Client",
-               return_value=fake):
+    with patch("src.providers.image_gen.reve_provider.httpx.Client", return_value=fake):
         out = await gen.generate(
             "Studio backdrop, soft lighting",
             reference_image=b"\xff\xd8 fake",
@@ -112,9 +112,9 @@ async def test_reve_image_gen_edit_returns_bytes():
     call = fake.calls[0]
     assert call["url"].endswith("/v1/image/edit")
     assert call["json"]["edit_instruction"] == "Studio backdrop, soft lighting"
-    assert call["json"]["reference_image"] == base64.b64encode(
-        b"\xff\xd8 fake"
-    ).decode("ascii")
+    assert call["json"]["reference_image"] == base64.b64encode(b"\xff\xd8 fake").decode(
+        "ascii"
+    )
     assert call["headers"]["Authorization"].startswith("Bearer ")
 
 
@@ -128,17 +128,20 @@ async def test_reve_image_gen_requires_reference_image():
 @pytest.mark.asyncio
 async def test_reve_image_gen_no_retry_on_4xx_api_error():
     """4xx (not 429) must surface as RuntimeError without retry."""
-    fake = _FakeClient([
-        _response_error(400, message="bad request", error_code="BAD_REQUEST"),
-    ])
+    fake = _FakeClient(
+        [
+            _response_error(400, message="bad request", error_code="BAD_REQUEST"),
+        ]
+    )
     gen = ReveImageGen(
         api_token="papi.x",
         api_host="https://api.reve.com",
         max_retries=3,
     )
-    with patch("src.providers.image_gen.reve_provider.httpx.Client",
-               return_value=fake), patch(
-                   "src.providers.image_gen.reve_provider.time.sleep"):
+    with (
+        patch("src.providers.image_gen.reve_provider.httpx.Client", return_value=fake),
+        patch("src.providers.image_gen.reve_provider.time.sleep"),
+    ):
         with pytest.raises(RuntimeError, match="http=400") as exc_info:
             await gen.generate("x", reference_image=b"ref")
         assert "Reve API error" in str(exc_info.value)
@@ -150,18 +153,24 @@ async def test_reve_image_gen_no_retry_on_4xx_api_error():
 async def test_reve_image_gen_401_includes_http_code_for_frontend_mapper():
     """401 (expired partner token) must contain 'http=401' — the frontend
     mapper relies on that substring to route into PROVIDER_AUTH_MESSAGE."""
-    fake = _FakeClient([
-        _response_error(401, message="Invalid partner API bearer token.",
-                        error_code="PARTNER_API_TOKEN_INVALID"),
-    ])
+    fake = _FakeClient(
+        [
+            _response_error(
+                401,
+                message="Invalid partner API bearer token.",
+                error_code="PARTNER_API_TOKEN_INVALID",
+            ),
+        ]
+    )
     gen = ReveImageGen(
         api_token="papi.expired",
         api_host="https://api.reve.com",
         max_retries=3,
     )
-    with patch("src.providers.image_gen.reve_provider.httpx.Client",
-               return_value=fake), patch(
-                   "src.providers.image_gen.reve_provider.time.sleep"):
+    with (
+        patch("src.providers.image_gen.reve_provider.httpx.Client", return_value=fake),
+        patch("src.providers.image_gen.reve_provider.time.sleep"),
+    ):
         with pytest.raises(RuntimeError, match="http=401") as exc_info:
             await gen.generate("prompt", reference_image=b"ref")
         assert "Invalid partner API bearer token" in str(exc_info.value)
@@ -172,18 +181,21 @@ async def test_reve_image_gen_401_includes_http_code_for_frontend_mapper():
 async def test_reve_image_gen_retries_on_5xx_then_succeeds():
     """5xx / transport errors are retried within max_retries."""
     jpeg = _jpeg_bytes("yellow")
-    fake = _FakeClient([
-        _response_error(500, message="upstream 500"),
-        _response_image(jpeg),
-    ])
+    fake = _FakeClient(
+        [
+            _response_error(500, message="upstream 500"),
+            _response_image(jpeg),
+        ]
+    )
     gen = ReveImageGen(
         api_token="papi.x",
         api_host="https://api.reve.com",
         max_retries=2,
     )
-    with patch("src.providers.image_gen.reve_provider.httpx.Client",
-               return_value=fake), patch(
-                   "src.providers.image_gen.reve_provider.time.sleep"):
+    with (
+        patch("src.providers.image_gen.reve_provider.httpx.Client", return_value=fake),
+        patch("src.providers.image_gen.reve_provider.time.sleep"),
+    ):
         out = await gen.generate("x", reference_image=b"ref")
     assert out == jpeg
     assert len(fake.calls) == 2
@@ -191,18 +203,21 @@ async def test_reve_image_gen_retries_on_5xx_then_succeeds():
 
 @pytest.mark.asyncio
 async def test_reve_image_gen_5xx_exhausts_retries():
-    fake = _FakeClient([
-        _response_error(502, message="upstream 502"),
-        _response_error(502, message="upstream 502"),
-    ])
+    fake = _FakeClient(
+        [
+            _response_error(502, message="upstream 502"),
+            _response_error(502, message="upstream 502"),
+        ]
+    )
     gen = ReveImageGen(
         api_token="papi.x",
         api_host="https://api.reve.com",
         max_retries=2,
     )
-    with patch("src.providers.image_gen.reve_provider.httpx.Client",
-               return_value=fake), patch(
-                   "src.providers.image_gen.reve_provider.time.sleep"):
+    with (
+        patch("src.providers.image_gen.reve_provider.httpx.Client", return_value=fake),
+        patch("src.providers.image_gen.reve_provider.time.sleep"),
+    ):
         with pytest.raises(RuntimeError, match="failed after"):
             await gen.generate("x", reference_image=b"ref")
     assert len(fake.calls) == 2
@@ -212,20 +227,26 @@ async def test_reve_image_gen_5xx_exhausts_retries():
 async def test_reve_image_gen_retries_only_on_rate_limit():
     """429 is retried within max_retries."""
     jpeg = _jpeg_bytes("green")
-    fake = _FakeClient([
-        _response_error(429, message="slow down",
-                        error_code="PARTNER_API_TOKEN_RATE_LIMIT_EXCEEDED",
-                        retry_after="0"),
-        _response_image(jpeg),
-    ])
+    fake = _FakeClient(
+        [
+            _response_error(
+                429,
+                message="slow down",
+                error_code="PARTNER_API_TOKEN_RATE_LIMIT_EXCEEDED",
+                retry_after="0",
+            ),
+            _response_image(jpeg),
+        ]
+    )
     gen = ReveImageGen(
         api_token="papi.x",
         api_host="https://api.reve.com",
         max_retries=2,
     )
-    with patch("src.providers.image_gen.reve_provider.httpx.Client",
-               return_value=fake), patch(
-                   "src.providers.image_gen.reve_provider.time.sleep"):
+    with (
+        patch("src.providers.image_gen.reve_provider.httpx.Client", return_value=fake),
+        patch("src.providers.image_gen.reve_provider.time.sleep"),
+    ):
         out = await gen.generate("x", reference_image=b"ref")
     assert out == jpeg
     assert len(fake.calls) == 2
@@ -234,19 +255,25 @@ async def test_reve_image_gen_retries_only_on_rate_limit():
 @pytest.mark.asyncio
 async def test_reve_image_gen_single_call_by_default():
     """max_retries=1 ⇒ 429 terminates after a single call."""
-    fake = _FakeClient([
-        _response_error(429, message="slow down",
-                        error_code="PARTNER_API_TOKEN_RATE_LIMIT_EXCEEDED",
-                        retry_after="0"),
-    ])
+    fake = _FakeClient(
+        [
+            _response_error(
+                429,
+                message="slow down",
+                error_code="PARTNER_API_TOKEN_RATE_LIMIT_EXCEEDED",
+                retry_after="0",
+            ),
+        ]
+    )
     gen = ReveImageGen(
         api_token="papi.x",
         api_host="https://api.reve.com",
         max_retries=1,
     )
-    with patch("src.providers.image_gen.reve_provider.httpx.Client",
-               return_value=fake), patch(
-                   "src.providers.image_gen.reve_provider.time.sleep"):
+    with (
+        patch("src.providers.image_gen.reve_provider.httpx.Client", return_value=fake),
+        patch("src.providers.image_gen.reve_provider.time.sleep"),
+    ):
         with pytest.raises(RuntimeError, match="failed after"):
             await gen.generate("x", reference_image=b"ref")
     assert len(fake.calls) == 1
@@ -266,8 +293,7 @@ async def test_reve_image_gen_handles_empty_image_field():
     fake = _FakeClient([r])
 
     gen = ReveImageGen(api_token="papi.x", api_host="https://api.reve.com")
-    with patch("src.providers.image_gen.reve_provider.httpx.Client",
-               return_value=fake):
+    with patch("src.providers.image_gen.reve_provider.httpx.Client", return_value=fake):
         with pytest.raises(RuntimeError):
             await gen.generate("x", reference_image=b"ref")
 
@@ -281,8 +307,7 @@ async def test_reve_image_gen_edit_uses_plain_edit_instruction():
     fake = _FakeClient([_response_image(jpeg)])
 
     gen = ReveImageGen(api_token="papi.x", api_host="https://api.reve.com")
-    with patch("src.providers.image_gen.reve_provider.httpx.Client",
-               return_value=fake):
+    with patch("src.providers.image_gen.reve_provider.httpx.Client", return_value=fake):
         await gen.generate(
             "studio backdrop, soft lighting",
             reference_image=b"\xff\xd8 fake",
@@ -304,8 +329,7 @@ async def test_reve_image_gen_strips_unsupported_mask_image_kwarg():
     fake = _FakeClient([_response_image(jpeg)])
 
     gen = ReveImageGen(api_token="papi.x", api_host="https://api.reve.com")
-    with patch("src.providers.image_gen.reve_provider.httpx.Client",
-               return_value=fake):
+    with patch("src.providers.image_gen.reve_provider.httpx.Client", return_value=fake):
         out = await gen.generate(
             "studio backdrop",
             reference_image=b"\xff\xd8 fake",
@@ -342,8 +366,7 @@ async def test_reve_image_gen_content_violation_surfaces_error():
     fake = _FakeClient([r])
 
     gen = ReveImageGen(api_token="papi.x", api_host="https://api.reve.com")
-    with patch("src.providers.image_gen.reve_provider.httpx.Client",
-               return_value=fake):
+    with patch("src.providers.image_gen.reve_provider.httpx.Client", return_value=fake):
         with pytest.raises(Exception) as exc_info:
             await gen.generate("x", reference_image=b"ref")
         assert "content policy" in str(exc_info.value).lower()

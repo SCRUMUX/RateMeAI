@@ -1,4 +1,5 @@
 """Integration tests for the process_analysis worker job (all external providers mocked)."""
+
 from __future__ import annotations
 
 import base64
@@ -100,10 +101,13 @@ def _build_ctx(task, user, *, pipeline_result=None):
     sessionmaker.return_value.__aexit__ = AsyncMock(return_value=False)
 
     pipeline = AsyncMock()
-    pipeline.execute = AsyncMock(return_value=pipeline_result or {
-        "score": 7.5,
-        "generated_image_url": f"http://test/storage/generated/{user_id}/{task_id}.jpg",
-    })
+    pipeline.execute = AsyncMock(
+        return_value=pipeline_result
+        or {
+            "score": 7.5,
+            "generated_image_url": f"http://test/storage/generated/{user_id}/{task_id}.jpg",
+        }
+    )
 
     storage = MagicMock()
     storage.download = AsyncMock(return_value=_jpeg_stub())
@@ -256,7 +260,11 @@ async def test_worker_heartbeat():
 async def test_process_analysis_enqueues_deferred_delta_scoring():
     task_id = uuid.uuid4()
     user_id = uuid.uuid4()
-    task = _FakeTask(task_id, user_id, context={"credit_pre_reserved": True, "defer_delta_scoring": True})
+    task = _FakeTask(
+        task_id,
+        user_id,
+        context={"credit_pre_reserved": True, "defer_delta_scoring": True},
+    )
     user = _FakeUser(user_id)
 
     result = {
@@ -267,7 +275,9 @@ async def test_process_analysis_enqueues_deferred_delta_scoring():
     ctx, _db = _build_ctx(task, user, pipeline_result=result)
     await process_analysis(ctx, str(task_id))
 
-    ctx["arq"].enqueue_job.assert_awaited_once_with("compute_delta_scores", str(task_id))
+    ctx["arq"].enqueue_job.assert_awaited_once_with(
+        "compute_delta_scores", str(task_id)
+    )
 
 
 @pytest.mark.asyncio

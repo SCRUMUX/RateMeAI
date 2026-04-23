@@ -19,8 +19,14 @@ logger = logging.getLogger(__name__)
 class ReveAPIError(Exception):
     """Reve REST error (HTTP 4xx/5xx other than 429)."""
 
-    def __init__(self, message: str, *, status_code: int | None = None,
-                 error_code: str | None = None, request_id: str | None = None):
+    def __init__(
+        self,
+        message: str,
+        *,
+        status_code: int | None = None,
+        error_code: str | None = None,
+        request_id: str | None = None,
+    ):
         super().__init__(message)
         self.message = message
         self.status_code = status_code
@@ -31,10 +37,16 @@ class ReveAPIError(Exception):
 class ReveRateLimitError(ReveAPIError):
     """HTTP 429 — not billed, safe to retry within max_retries."""
 
-    def __init__(self, message: str, *, retry_after: float | None = None,
-                 request_id: str | None = None):
-        super().__init__(message, status_code=429,
-                         error_code="RATE_LIMIT", request_id=request_id)
+    def __init__(
+        self,
+        message: str,
+        *,
+        retry_after: float | None = None,
+        request_id: str | None = None,
+    ):
+        super().__init__(
+            message, status_code=429, error_code="RATE_LIMIT", request_id=request_id
+        )
         self.retry_after = retry_after
 
 
@@ -80,6 +92,7 @@ class ReveImageGen(ImageGenProvider):
         if max_retries is None:
             try:
                 from src.config import settings
+
                 max_retries = int(getattr(settings, "reve_max_retries", 1))
             except Exception:
                 max_retries = 1
@@ -148,7 +161,10 @@ class ReveImageGen(ImageGenProvider):
             body_snippet = snippet
             logger.warning(
                 "Reve %d error (code=%s req=%s): %s",
-                status, error_code, request_id, raw_text[:500],
+                status,
+                error_code,
+                request_id,
+                raw_text[:500],
             )
 
         full_msg = f"http={status} {message or error_code or 'Reve error'}"
@@ -277,7 +293,9 @@ class ReveImageGen(ImageGenProvider):
         body = self._build_body(prompt, reference_image, params)
         logger.info(
             "Reve request endpoint=%s prompt_len=%d keys=%s",
-            endpoint, len(prompt or ""), self._log_keys(body),
+            endpoint,
+            len(prompt or ""),
+            self._log_keys(body),
         )
 
         last_err: Exception | None = None
@@ -291,37 +309,51 @@ class ReveImageGen(ImageGenProvider):
                 if attempt + 1 >= self._max_retries:
                     logger.warning(
                         "Reve rate-limited, no retries left (attempt %d/%d, req=%s)",
-                        attempt + 1, self._max_retries, e.request_id,
+                        attempt + 1,
+                        self._max_retries,
+                        e.request_id,
                     )
                     break
                 wait = e.retry_after or (10 * (attempt + 1))
                 logger.warning(
                     "Reve rate-limited, waiting %ss (attempt %d/%d, req=%s)",
-                    wait, attempt + 1, self._max_retries, e.request_id,
+                    wait,
+                    attempt + 1,
+                    self._max_retries,
+                    e.request_id,
                 )
                 time.sleep(float(wait))
             except ReveAPIError as e:
                 last_err = e
-                retryable = (
-                    e.status_code is None
-                    or (isinstance(e.status_code, int) and e.status_code >= 500)
+                retryable = e.status_code is None or (
+                    isinstance(e.status_code, int) and e.status_code >= 500
                 )
                 if not retryable:
                     logger.exception(
                         "Reve API error (no retry, status=%s, code=%s, req=%s): %s",
-                        e.status_code, e.error_code, e.request_id, e.message,
+                        e.status_code,
+                        e.error_code,
+                        e.request_id,
+                        e.message,
                     )
                     raise RuntimeError(f"Reve API error: {e.message}") from e
                 if attempt + 1 >= self._max_retries:
                     logger.warning(
                         "Reve transient error, no retries left (attempt %d/%d, status=%s): %s",
-                        attempt + 1, self._max_retries, e.status_code, e.message,
+                        attempt + 1,
+                        self._max_retries,
+                        e.status_code,
+                        e.message,
                     )
                     break
                 wait = 2 * (attempt + 1)
                 logger.warning(
                     "Reve transient error (status=%s), retrying in %ss (attempt %d/%d): %s",
-                    e.status_code, wait, attempt + 1, self._max_retries, e.message,
+                    e.status_code,
+                    wait,
+                    attempt + 1,
+                    self._max_retries,
+                    e.message,
                 )
                 time.sleep(float(wait))
             except (httpx.TimeoutException, httpx.TransportError) as e:
@@ -329,13 +361,18 @@ class ReveImageGen(ImageGenProvider):
                 if attempt + 1 >= self._max_retries:
                     logger.warning(
                         "Reve transport error, no retries left (attempt %d/%d): %s",
-                        attempt + 1, self._max_retries, e,
+                        attempt + 1,
+                        self._max_retries,
+                        e,
                     )
                     break
                 wait = 2 * (attempt + 1)
                 logger.warning(
                     "Reve transport error, retrying in %ss (attempt %d/%d): %s",
-                    wait, attempt + 1, self._max_retries, e,
+                    wait,
+                    attempt + 1,
+                    self._max_retries,
+                    e,
                 )
                 time.sleep(float(wait))
 
@@ -352,7 +389,10 @@ class ReveImageGen(ImageGenProvider):
     ) -> bytes:
         assert_external_transfer_allowed("reve")
         raw = await asyncio.to_thread(
-            self._generate_sync, prompt, reference_image, params,
+            self._generate_sync,
+            prompt,
+            reference_image,
+            params,
         )
         if raw and len(raw) > 100:
             return raw

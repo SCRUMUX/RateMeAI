@@ -10,6 +10,7 @@ the current single-pass runtime.
 See ``docs/architecture/reserved.md`` for activation conditions and the
 roadmap towards Phase 2 (Scenario Engine) and Phase 3 (FLUX via FAL).
 """
+
 from __future__ import annotations
 
 import logging
@@ -75,16 +76,27 @@ class AdvancedPipelineExecutor:
         try:
             for i, step in enumerate(plan.steps):
                 raw, cost = await self._run_single_step(
-                    step, i, plan, mode, style, current_image, image_bytes,
-                    gate_runner, remaining_budget, trace,
-                    enhancement_level, gender=gender,
+                    step,
+                    i,
+                    plan,
+                    mode,
+                    style,
+                    current_image,
+                    image_bytes,
+                    gate_runner,
+                    remaining_budget,
+                    trace,
+                    enhancement_level,
+                    gender=gender,
                 )
                 remaining_budget -= cost
                 trace["total_cost_usd"] = round(plan.cost_budget - remaining_budget, 4)
 
                 if progress_callback:
                     try:
-                        await progress_callback(f"step_{i}_{step.step}", i + 1, len(plan.steps))
+                        await progress_callback(
+                            f"step_{i}_{step.step}", i + 1, len(plan.steps)
+                        )
                     except Exception:
                         pass
 
@@ -94,15 +106,29 @@ class AdvancedPipelineExecutor:
                     intermediates.append(ikey)
                     current_image = raw
                 elif intermediates:
-                    logger.warning("Step %s produced no output, keeping previous intermediate", step.step)
+                    logger.warning(
+                        "Step %s produced no output, keeping previous intermediate",
+                        step.step,
+                    )
 
             if current_image is not image_bytes and len(current_image) > 100:
-                global_passed, global_results, quality_report = await gate_runner.run_global_gates(
-                    plan.global_gates, image_bytes, current_image,
+                (
+                    global_passed,
+                    global_results,
+                    quality_report,
+                ) = await gate_runner.run_global_gates(
+                    plan.global_gates,
+                    image_bytes,
+                    current_image,
                 )
                 result_dict["quality_report"] = quality_report
                 trace["global_gates"] = [
-                    {"gate": gr.gate_name, "passed": gr.passed, "value": gr.value, "threshold": gr.threshold}
+                    {
+                        "gate": gr.gate_name,
+                        "passed": gr.passed,
+                        "value": gr.value,
+                        "threshold": gr.threshold,
+                    }
                     for gr in global_results
                 ]
 
@@ -130,19 +156,24 @@ class AdvancedPipelineExecutor:
                 if not global_passed:
                     logger.warning(
                         "Global quality gates failed for task=%s: %s — delivering with warning",
-                        task_id, quality_report.get("gates_failed"),
+                        task_id,
+                        quality_report.get("gates_failed"),
                     )
                     result_dict["quality_warning"] = True
 
                 try:
                     mp_face_area_ratio = (
                         float(getattr(input_quality, "face_area_ratio", 0.0) or 0.0)
-                        if input_quality is not None else 0.0
+                        if input_quality is not None
+                        else 0.0
                     )
                 except (TypeError, ValueError):
                     mp_face_area_ratio = 0.0
                 current_image = self._apply_local_postprocess(
-                    current_image, mode, style or "", mp_face_area_ratio,
+                    current_image,
+                    mode,
+                    style or "",
+                    mp_face_area_ratio,
                 )
                 current_image = inject_exif_only(current_image)
 
@@ -159,7 +190,9 @@ class AdvancedPipelineExecutor:
                     "style": style or "default",
                     "mode": mode.value,
                     "provider": "multi_pass",
-                    "identity_match": round(float(identity_match), 2) if identity_match else 0.0,
+                    "identity_match": round(float(identity_match), 2)
+                    if identity_match
+                    else 0.0,
                     "steps_executed": len(intermediates),
                     "pipeline_type": "multi_pass",
                 }
@@ -168,24 +201,30 @@ class AdvancedPipelineExecutor:
                     "Multi-pass produced no output for task=%s; not retrying image generation",
                     task_id,
                 )
-                trace["decisions"].append({
-                    "phase": "execute_plan",
-                    "decision": "No output after multi-pass",
-                    "reason": "all steps failed or produced no output; no second provider pass allowed",
-                })
+                trace["decisions"].append(
+                    {
+                        "phase": "execute_plan",
+                        "decision": "No output after multi-pass",
+                        "reason": "all steps failed or produced no output; no second provider pass allowed",
+                    }
+                )
                 result_dict["image_gen_error"] = "empty_result"
                 result_dict.setdefault("generation_warnings", []).append(
                     "Не удалось сгенерировать улучшенное фото. Попробуй загрузить другое фото или выбрать другой стиль."
                 )
 
         except Exception as exc:
-            logger.exception("Multi-pass pipeline failed for task=%s without fallback", task_id)
+            logger.exception(
+                "Multi-pass pipeline failed for task=%s without fallback", task_id
+            )
             err_text = format_image_gen_error(exc)
-            trace["decisions"].append({
-                "phase": "execute_plan",
-                "decision": "Multi-pass failed",
-                "reason": f"exception during multi-pass execution: {err_text}",
-            })
+            trace["decisions"].append(
+                {
+                    "phase": "execute_plan",
+                    "decision": "Multi-pass failed",
+                    "reason": f"exception during multi-pass execution: {err_text}",
+                }
+            )
             result_dict["image_gen_error"] = "generation_failed"
             result_dict["image_gen_error_message"] = err_text
             result_dict.setdefault("generation_warnings", []).append(
@@ -210,29 +249,35 @@ class AdvancedPipelineExecutor:
         """Execute one pipeline step. Returns (output_bytes, cost_spent)."""
         with _trace_step(trace, f"step_{i}_{step.step}") as step_entry:
             prompt = self._prompt_engine.build_step_prompt(
-                step.prompt_template, style, mode,
+                step.prompt_template,
+                style,
+                mode,
                 enhancement_level=enhancement_level,
                 gender=gender,
             )
 
-            selection = None # self._model_router.select(step.model_preference, budget)
+            selection = None  # self._model_router.select(step.model_preference, budget)
             if selection is None:
-                trace["decisions"].append({
-                    "phase": f"step_{i}_{step.step}",
-                    "decision": "Skipped — no model available within budget",
-                    "reason": f"preference={step.model_preference}, budget=${budget:.3f}",
-                })
+                trace["decisions"].append(
+                    {
+                        "phase": f"step_{i}_{step.step}",
+                        "decision": "Skipped — no model available within budget",
+                        "reason": f"preference={step.model_preference}, budget=${budget:.3f}",
+                    }
+                )
                 return None, 0.0
 
             model_spec, extra_params = selection
             step_entry["model"] = model_spec.name
             step_entry["estimated_cost_usd"] = model_spec.cost_per_call
 
-            trace["decisions"].append({
-                "phase": f"step_{i}_{step.step}",
-                "decision": f"Selected {model_spec.name}",
-                "reason": f"tier={model_spec.quality_tier}, cost=${model_spec.cost_per_call:.3f}, budget_left=${budget:.3f}",
-            })
+            trace["decisions"].append(
+                {
+                    "phase": f"step_{i}_{step.step}",
+                    "decision": f"Selected {model_spec.name}",
+                    "reason": f"tier={model_spec.quality_tier}, cost=${model_spec.cost_per_call:.3f}, budget_left=${budget:.3f}",
+                }
+            )
 
             # v1.20: advanced plan executor is only used by the reserved
             # multi-pass path (see ``docs/architecture/reserved.md``).
@@ -242,7 +287,9 @@ class AdvancedPipelineExecutor:
             params.update(extra_params)
 
             raw = await model_spec.provider.generate(
-                prompt, reference_image=current_image, params=dict(params),
+                prompt,
+                reference_image=current_image,
+                params=dict(params),
             )
             IMAGE_GEN_CALLS.labels(
                 mode=mode.value,

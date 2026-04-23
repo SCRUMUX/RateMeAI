@@ -5,7 +5,10 @@ from src.providers.base import LLMProvider
 from src.prompts.engine import PromptEngine
 from src.models.enums import AnalysisMode
 from src.models.schemas import CVResult
-from src.services.perception_utils import extract_perception_scores, extract_perception_insights
+from src.services.perception_utils import (
+    extract_perception_scores,
+    extract_perception_insights,
+)
 
 
 class CVService:
@@ -13,12 +16,16 @@ class CVService:
         self._llm = llm
         self._prompt_engine = prompt_engine
 
-    async def analyze(self, image_bytes: bytes, profession: str = "не указана") -> CVResult:
+    async def analyze(
+        self, image_bytes: bytes, profession: str = "не указана"
+    ) -> CVResult:
         from src.utils.consensus import consensus_analyze
 
         prompt = self._prompt_engine.build(AnalysisMode.CV, {"profession": profession})
         raw = await consensus_analyze(
-            self._llm, image_bytes, prompt,
+            self._llm,
+            image_bytes,
+            prompt,
             temperature=settings.scoring_temperature,
             n=settings.scoring_consensus_samples,
         )

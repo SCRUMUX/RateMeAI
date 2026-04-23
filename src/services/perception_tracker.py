@@ -3,6 +3,7 @@
 Only updates a record when the new scores exceed the stored best,
 enabling "personal best" gamification and progress comparison.
 """
+
 from __future__ import annotations
 
 import logging
@@ -59,7 +60,9 @@ async def update_best_scores(
         )
         session.add(record)
         await session.flush()
-        logger.info("Created perception record user=%s mode=%s style=%s", user_id, mode, style)
+        logger.info(
+            "Created perception record user=%s mode=%s style=%s", user_id, mode, style
+        )
         return True
 
     updated = False
@@ -78,7 +81,9 @@ async def update_best_scores(
 
     if updated:
         await session.flush()
-        logger.info("Updated perception best for user=%s mode=%s style=%s", user_id, mode, style)
+        logger.info(
+            "Updated perception best for user=%s mode=%s style=%s", user_id, mode, style
+        )
 
     return updated
 

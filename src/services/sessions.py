@@ -1,4 +1,5 @@
 """Platform-agnostic session management backed by Redis."""
+
 from __future__ import annotations
 
 import secrets

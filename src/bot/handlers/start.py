@@ -102,7 +102,9 @@ async def cmd_balance(message: Message, api_base_url: str, redis: Redis):
             )
 
         if resp.status_code == 401:
-            headers = await _refresh_api_headers(redis, user_id, balance_api, message.from_user)
+            headers = await _refresh_api_headers(
+                redis, user_id, balance_api, message.from_user
+            )
             async with httpx.AsyncClient(timeout=10.0) as client:
                 resp = await client.get(
                     f"{balance_api}/api/v1/payments/balance",
@@ -114,16 +116,29 @@ async def cmd_balance(message: Message, api_base_url: str, redis: Redis):
             text = f"\U0001f4b0 *Твой баланс: {credits} образов*\n\n"
             if credits == 0:
                 text += "Открой новые образы и стили!"
-                await message.answer(text, parse_mode="Markdown", reply_markup=upgrade_keyboard())
+                await message.answer(
+                    text, parse_mode="Markdown", reply_markup=upgrade_keyboard()
+                )
             else:
                 text += "Отправь фото для улучшения образа!"
-                await message.answer(text, parse_mode="Markdown", reply_markup=back_keyboard())
+                await message.answer(
+                    text, parse_mode="Markdown", reply_markup=back_keyboard()
+                )
         else:
-            logger.warning("Balance request failed for user %s: status=%s body=%s", user_id, resp.status_code, resp.text[:300])
-            await message.answer("\u274c Не удалось получить баланс.", reply_markup=back_keyboard())
+            logger.warning(
+                "Balance request failed for user %s: status=%s body=%s",
+                user_id,
+                resp.status_code,
+                resp.text[:300],
+            )
+            await message.answer(
+                "\u274c Не удалось получить баланс.", reply_markup=back_keyboard()
+            )
     except Exception:
         logger.exception("Failed to fetch balance for user %s", user_id)
-        await message.answer("\u274c Ошибка. Попробуй позже.", reply_markup=back_keyboard())
+        await message.answer(
+            "\u274c Ошибка. Попробуй позже.", reply_markup=back_keyboard()
+        )
 
 
 async def _get_balance_line(api_base_url: str, user, redis: Redis) -> str:
@@ -142,5 +157,8 @@ async def _get_balance_line(api_base_url: str, user, redis: Redis) -> str:
             credits = resp.json().get("image_credits", 0)
             return f"\U0001f4b0 Баланс: *{credits} образов*"
     except Exception:
-        logger.debug("Could not fetch balance for start message, user=%s", getattr(user, "id", user))
+        logger.debug(
+            "Could not fetch balance for start message, user=%s",
+            getattr(user, "id", user),
+        )
     return ""

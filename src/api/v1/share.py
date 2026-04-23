@@ -11,7 +11,11 @@ from src.models.enums import TaskStatus
 from src.models.schemas import ShareResponse
 from src.api.deps import get_db, get_auth_user
 from src.providers.factory import get_storage
-from src.channels.deep_links import build_deep_link, build_share_caption, PROVIDER_TELEGRAM
+from src.channels.deep_links import (
+    build_deep_link,
+    build_share_caption,
+    PROVIDER_TELEGRAM,
+)
 
 router = APIRouter()
 
@@ -19,7 +23,9 @@ router = APIRouter()
 @router.post("/{task_id}", response_model=ShareResponse)
 async def create_share(
     task_id: uuid.UUID,
-    channel: str = Query(PROVIDER_TELEGRAM, description="Source channel: telegram, ok, vk, web"),
+    channel: str = Query(
+        PROVIDER_TELEGRAM, description="Source channel: telegram, ok, vk, web"
+    ),
     user: User = Depends(get_auth_user),
     db: AsyncSession = Depends(get_db),
 ):
@@ -47,7 +53,11 @@ async def create_share(
             image_url = await storage.get_url(raw_card)
 
     gen_url = res.get("generated_image_url") or res.get("image_url")
-    if not image_url and gen_url and (gen_url.startswith("http://") or gen_url.startswith("https://")):
+    if (
+        not image_url
+        and gen_url
+        and (gen_url.startswith("http://") or gen_url.startswith("https://"))
+    ):
         image_url = gen_url
 
     return ShareResponse(

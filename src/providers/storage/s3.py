@@ -32,8 +32,14 @@ class S3StorageProvider(StorageProvider):
         self._public_base = public_base_url.rstrip("/") if public_base_url else None
         self._presign_ttl = presign_ttl_seconds
         self._session = aioboto3.Session()
-        addressing = "path" if "localhost" in endpoint_url or "127.0.0.1" in endpoint_url else "auto"
-        self._config = BotoConfig(signature_version="s3v4", s3={"addressing_style": addressing})
+        addressing = (
+            "path"
+            if "localhost" in endpoint_url or "127.0.0.1" in endpoint_url
+            else "auto"
+        )
+        self._config = BotoConfig(
+            signature_version="s3v4", s3={"addressing_style": addressing}
+        )
 
     def _client_ctx(self):
         return self._session.client(

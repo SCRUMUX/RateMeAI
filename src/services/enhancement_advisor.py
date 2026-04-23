@@ -3,6 +3,7 @@
 Picks styles from STYLE_CATALOG and uses their hook_text for suggestion copy,
 ensuring text and buttons always reference the same styles.
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -80,7 +81,9 @@ def _pick_random_styles(
 
     filtered = [(k, lbl, hook, meta) for k, lbl, hook, meta in catalog if k not in skip]
     if len(filtered) < count:
-        filtered = [(k, lbl, hook, meta) for k, lbl, hook, meta in catalog if k != current_style]
+        filtered = [
+            (k, lbl, hook, meta) for k, lbl, hook, meta in catalog if k != current_style
+        ]
     if len(filtered) < count:
         filtered = list(catalog)
 
@@ -114,18 +117,22 @@ def build_enhancement_preview(
 ) -> EnhancementPreview:
     """Build a unified preview where suggestions and buttons reference the same styles."""
     seed_base = f"{user_id}:{mode}:{depth}"
-    pair = _pick_random_styles(mode, current_style, seed_base, count=count, exclude=exclude)
+    pair = _pick_random_styles(
+        mode, current_style, seed_base, count=count, exclude=exclude
+    )
 
     suggestions = []
     for p in pair:
         param, delta = predict_style_delta(p.get("meta", {}), user_id, mode)
-        suggestions.append(EnhancementSuggestion(
-            action=p["label"],
-            effect=p["hook"],
-            style_key=p["key"],
-            predicted_param=param,
-            predicted_delta=delta,
-        ))
+        suggestions.append(
+            EnhancementSuggestion(
+                action=p["label"],
+                effect=p["hook"],
+                style_key=p["key"],
+                predicted_param=param,
+                predicted_delta=delta,
+            )
+        )
 
     option_a = None
     option_b = None

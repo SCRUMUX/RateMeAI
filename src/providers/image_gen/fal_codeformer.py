@@ -32,6 +32,7 @@ Pricing
 $0.0021 per megapixel (see fal.ai/models/fal-ai/codeformer). On a
 1 MP input with ``upscale_factor=2`` we pay ~$0.0084 worst-case.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -139,12 +140,16 @@ class FalCodeFormerRestorer(FalQueueClient):
         params: dict | None = None,
     ) -> bytes:
         body = self._build_body(
-            prompt=None, reference_image=image_bytes, params=params,
+            prompt=None,
+            reference_image=image_bytes,
+            params=params,
         )
         logger.info(
             "FAL CodeFormer request model=%s fidelity=%.2f upscale=%.1f "
             "face_upscale=%s",
-            self._model, body.get("fidelity"), body.get("upscale_factor"),
+            self._model,
+            body.get("fidelity"),
+            body.get("upscale_factor"),
             body.get("face_upscale"),
         )
         return self._run_queue_sync(body)
@@ -170,7 +175,9 @@ class FalCodeFormerRestorer(FalQueueClient):
         if upscale_factor is not None:
             params["upscale_factor"] = upscale_factor
         raw = await asyncio.to_thread(
-            self._restore_sync, image_bytes, params,
+            self._restore_sync,
+            image_bytes,
+            params,
         )
         if raw and len(raw) > 100:
             return raw

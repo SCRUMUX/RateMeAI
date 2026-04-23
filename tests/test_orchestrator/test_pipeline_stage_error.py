@@ -2,6 +2,7 @@
 in :class:`PipelineStageError` so the worker can render a structured
 ``task.error_message`` like ``[stage=analyze] ReadTimeout: ...`` (A1 fix).
 """
+
 from __future__ import annotations
 
 import pytest

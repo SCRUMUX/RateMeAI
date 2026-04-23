@@ -16,6 +16,7 @@ and does not compute or store any face embedding. The crop is the same
 identifiable data the user already uploaded — no new biometric
 material is derived.
 """
+
 from __future__ import annotations
 
 import io
@@ -60,6 +61,7 @@ class FaceCropResult:
     string on success; otherwise it's a short machine-readable code
     for logs and metrics (see :data:`FaceCropReason`).
     """
+
     image_bytes: bytes | None
     reason: str = ""
     width: int = 0
@@ -69,6 +71,7 @@ class FaceCropResult:
 
 class FaceCropReason:
     """Failure reason codes consumed by metrics/router."""
+
     OK = ""
     INVALID_IMAGE = "invalid_image"
     NO_FACE = "no_face"
@@ -132,7 +135,8 @@ def crop_face_for_pulid(
             return max(0, fx2 - fx1) * max(0, fy2 - fy1)
 
         primary = max(
-            faces, key=lambda f: (_bbox_area(f), float(f.det_score)),
+            faces,
+            key=lambda f: (_bbox_area(f), float(f.det_score)),
         )
         x1, y1, x2, y2 = [int(v) for v in primary.bbox]
     fw = max(0, x2 - x1)
@@ -181,9 +185,7 @@ def crop_face_for_pulid(
         )
 
     try:
-        crop = img.crop(
-            (max(0, cx1), max(0, cy1), min(w, cx2), min(h, cy2))
-        )
+        crop = img.crop((max(0, cx1), max(0, cy1), min(w, cx2), min(h, cy2)))
         # Re-square in case the clamp shrank an axis.
         cw, ch = crop.size
         if cw != ch:
@@ -204,9 +206,13 @@ def crop_face_for_pulid(
 
     face_area_ratio = (fw * fh) / float(max(1, w * h))
     logger.info(
-        "face_crop OK: face_bbox=%dx%d face_area_ratio=%.3f out=%dx%d "
-        "out_bytes=%d",
-        fw, fh, face_area_ratio, target_size, target_size, len(out),
+        "face_crop OK: face_bbox=%dx%d face_area_ratio=%.3f out=%dx%d out_bytes=%d",
+        fw,
+        fh,
+        face_area_ratio,
+        target_size,
+        target_size,
+        len(out),
     )
     return FaceCropResult(
         image_bytes=out,

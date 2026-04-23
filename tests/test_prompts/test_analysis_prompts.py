@@ -6,6 +6,7 @@ analysis modes, that the emoji prompt no longer ships with literal
 ellipsis placeholders, and that the emoji image prompt preserves
 identity and accepts gender.
 """
+
 from __future__ import annotations
 
 from src.prompts import rating, cv, social, dating, emoji
@@ -81,8 +82,18 @@ def test_emoji_prompt_has_no_triple_dots():
 def test_emoji_prompt_has_all_12_emotions():
     p = emoji.build_prompt({})
     for emotion in (
-        "happy", "sad", "angry", "surprised", "love", "cool",
-        "thinking", "laughing", "sleepy", "wink", "scared", "party",
+        "happy",
+        "sad",
+        "angry",
+        "surprised",
+        "love",
+        "cool",
+        "thinking",
+        "laughing",
+        "sleepy",
+        "wink",
+        "scared",
+        "party",
     ):
         assert f'"{emotion}"' in p
 

@@ -5,6 +5,7 @@ as standalone collaborators. Multi-pass plan execution lives in
 :mod:`src.orchestrator.advanced.execute_plan` and is reserved for future
 premium / advanced scenarios (see ``docs/architecture/reserved.md``).
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -42,12 +43,12 @@ from src.services.postprocess import (
 # PuLID) accept an arbitrary aspect_ratio knob, so we enforce it
 # ourselves after the generation step.
 _CV_DOCUMENT_ASPECT: dict[str, str] = {
-    "photo_3x4": "3:4",        # 30×40 мм
-    "passport_rf": "3:4",      # 35×45 мм ≈ 3:4
-    "visa_eu": "3:4",          # 35×45 мм ≈ 3:4
-    "visa_schengen": "3:4",    # 35×45 мм
-    "visa_us": "1:1",          # 50×50 мм
-    "photo_4x6": "2:3",        # 40×60 мм
+    "photo_3x4": "3:4",  # 30×40 мм
+    "passport_rf": "3:4",  # 35×45 мм ≈ 3:4
+    "visa_eu": "3:4",  # 35×45 мм ≈ 3:4
+    "visa_schengen": "3:4",  # 35×45 мм
+    "visa_us": "1:1",  # 50×50 мм
+    "photo_4x6": "2:3",  # 40×60 мм
     "driver_license": "3:4",
 }
 
@@ -106,7 +107,10 @@ def _aspect_ratio_enum_for_size(width: int, height: int) -> str:
 
 
 def _apply_local_postprocess(
-    raw: bytes, mode: AnalysisMode, style: str, face_area_ratio: float,
+    raw: bytes,
+    mode: AnalysisMode,
+    style: str,
+    face_area_ratio: float,
 ) -> bytes:
     """Apply local PIL post-processing (AR crop for documents, LANCZOS x2 for large faces).
 
@@ -172,19 +176,16 @@ def _estimate_backend_cost(
     if cls == "stylerouter":
         if routed == "pulid":
             backend = "pulid"
-            cost = float(
-                getattr(settings, "model_cost_fal_pulid", 0.006)
-            )
+            cost = float(getattr(settings, "model_cost_fal_pulid", 0.006))
         elif routed == "seedream":
             backend = "seedream"
-            cost = float(
-                getattr(settings, "model_cost_fal_seedream", 0.03)
-            )
+            cost = float(getattr(settings, "model_cost_fal_seedream", 0.03))
         elif routed == "fallback":
             backend = "fallback"
             cost = float(
                 estimate_image_gen_cost_usd(
-                    "FalFlux2ImageGen", image_size=image_size,
+                    "FalFlux2ImageGen",
+                    image_size=image_size,
                 )
             )
         else:
@@ -193,14 +194,10 @@ def _estimate_backend_cost(
             # so legacy test expectations still hold.
             if (generation_mode or "").strip() == "scene_preserve":
                 backend = "seedream"
-                cost = float(
-                    getattr(settings, "model_cost_fal_seedream", 0.03)
-                )
+                cost = float(getattr(settings, "model_cost_fal_seedream", 0.03))
             else:
                 backend = "pulid"
-                cost = float(
-                    getattr(settings, "model_cost_fal_pulid", 0.006)
-                )
+                cost = float(getattr(settings, "model_cost_fal_pulid", 0.006))
         return backend, cost
 
     backend = cls or "fallback"
@@ -210,9 +207,7 @@ def _estimate_backend_cost(
         backend = "seedream"
     elif "flux" in cls:
         backend = "fallback"
-    cost = float(
-        estimate_image_gen_cost_usd(provider_name, image_size=image_size)
-    )
+    cost = float(estimate_image_gen_cost_usd(provider_name, image_size=image_size))
     return backend, cost
 
 
@@ -249,11 +244,12 @@ async def _apply_codeformer_post(
     if not bool(getattr(settings, "codeformer_enabled", False)):
         return raw, False
 
-    if (
-        generation_mode == "identity_scene"
-        and not bool(getattr(
-            settings, "codeformer_for_identity_scene", False,
-        ))
+    if generation_mode == "identity_scene" and not bool(
+        getattr(
+            settings,
+            "codeformer_for_identity_scene",
+            False,
+        )
     ):
         logger.debug(
             "CodeFormer skipped: identity_scene (PuLID handles face)",
@@ -277,7 +273,8 @@ async def _apply_codeformer_post(
     ):
         logger.debug(
             "CodeFormer skipped: tiny face (%.3f < %.3f)",
-            face_area_ratio, min_face_ratio,
+            face_area_ratio,
+            min_face_ratio,
         )
         return raw, False
 
@@ -301,9 +298,12 @@ async def _apply_codeformer_post(
     if out and len(out) > 100:
         try:
             FAL_CALLS.labels(
-                mode="post", step="codeformer",
+                mode="post",
+                step="codeformer",
                 model=getattr(
-                    settings, "codeformer_model", "fal-ai/codeformer",
+                    settings,
+                    "codeformer_model",
+                    "fal-ai/codeformer",
                 ),
             ).inc()
         except Exception:
@@ -316,7 +316,8 @@ async def _apply_codeformer_post(
 
 
 async def _maybe_real_esrgan_upscale(
-    raw: bytes, face_area_ratio: float,
+    raw: bytes,
+    face_area_ratio: float,
 ) -> bytes:
     """Final upscale via fal-ai/real-esrgan, with LANCZOS fallback.
 
@@ -363,14 +364,17 @@ async def _maybe_real_esrgan_upscale(
         upscaler = FalRealEsrganUpscaler(
             api_key=api_key,
             model=getattr(
-                settings, "real_esrgan_model", "fal-ai/real-esrgan",
+                settings,
+                "real_esrgan_model",
+                "fal-ai/real-esrgan",
             ),
         )
         out = await upscaler.upscale(raw, factor=2)
         if out and len(out) > 100:
             try:
                 FAL_CALLS.labels(
-                    mode="post", step="real_esrgan",
+                    mode="post",
+                    step="real_esrgan",
                     model=getattr(
                         settings,
                         "real_esrgan_model",
@@ -394,6 +398,7 @@ async def _maybe_real_esrgan_upscale(
     except Exception:
         logger.debug("LANCZOS fallback also failed, keeping original", exc_info=True)
         return raw
+
 
 logger = logging.getLogger(__name__)
 
@@ -429,15 +434,26 @@ class ImageGenerationExecutor:
         self._get_gate_runner = gate_runner_getter
 
     async def single_pass(
-        self, mode: AnalysisMode, style: str, image_bytes: bytes,
-        result_dict: dict, user_id: str, task_id: str, trace: dict,
+        self,
+        mode: AnalysisMode,
+        style: str,
+        image_bytes: bytes,
+        result_dict: dict,
+        user_id: str,
+        task_id: str,
+        trace: dict,
         gender: str = "male",
         input_quality: Any | None = None,
         variant_id: str = "",
         ab_image_model: str = "",
         ab_image_quality: str = "",
     ) -> None:
-        if mode not in (AnalysisMode.CV, AnalysisMode.EMOJI, AnalysisMode.DATING, AnalysisMode.SOCIAL):
+        if mode not in (
+            AnalysisMode.CV,
+            AnalysisMode.EMOJI,
+            AnalysisMode.DATING,
+            AnalysisMode.SOCIAL,
+        ):
             return
         if self._image_gen is None:
             return
@@ -447,30 +463,32 @@ class ImageGenerationExecutor:
         # feature flag is off or the requested model isn't whitelisted,
         # we silently fall through to the default path: the default
         # hybrid pipeline is bit-for-bit untouched.
-        ab_active = bool(
-            getattr(settings, "ab_test_enabled", False)
-            and ab_image_model
-        )
+        ab_active = bool(getattr(settings, "ab_test_enabled", False) and ab_image_model)
         image_gen: ImageGenProvider = self._image_gen
-        
+
         # Extract framing parameter if present
         framing = str(result_dict.get("framing", "")).strip().lower()
         if framing not in ("portrait", "half_body", "full_body"):
             framing = None
 
         image_gen: ImageGenProvider = self._image_gen
-        
+
         try:
             desc = str(result_dict.get("base_description", ""))
-            input_hints = input_quality.to_prompt_hints() if input_quality is not None else None
-            
+            input_hints = (
+                input_quality.to_prompt_hints() if input_quality is not None else None
+            )
+
             prompt = self._prompt_engine.build_image_prompt(
-                mode, style=style, base_description=desc, gender=gender,
+                mode,
+                style=style,
+                base_description=desc,
+                gender=gender,
                 input_hints=input_hints,
                 variant_id=variant_id,
                 target_model=ab_image_model,
             )
-            
+
             if variant_id:
                 result_dict["variant_id"] = variant_id
 
@@ -479,7 +497,8 @@ class ImageGenerationExecutor:
             #   - how strict HAIR protection should be
             face_area_ratio = (
                 float(getattr(input_quality, "face_area_ratio", 0.0) or 0.0)
-                if input_quality is not None else 0.0
+                if input_quality is not None
+                else 0.0
             )
 
             # Provider ``extra`` payload. Provider-specific whitelists
@@ -502,9 +521,15 @@ class ImageGenerationExecutor:
             # through ``params`` so :class:`StyleRouter` can route to
             # PuLID (identity_scene) vs Seedream (scene_preserve). The
             # field is ignored by legacy non-routing providers.
-            generation_mode = getattr(
-                spec, "generation_mode", "identity_scene",
-            ) if spec is not None else "identity_scene"
+            generation_mode = (
+                getattr(
+                    spec,
+                    "generation_mode",
+                    "identity_scene",
+                )
+                if spec is not None
+                else "identity_scene"
+            )
             extra["generation_mode"] = generation_mode
 
             # v1.20: pass the face bbox discovered by the input-quality
@@ -531,8 +556,12 @@ class ImageGenerationExecutor:
                 logger.info(
                     "image_size resolved mode=%s style=%s gen_mode=%s "
                     "size=%dx%d (~%.2f MP)",
-                    mode.value, style or "default", generation_mode,
-                    output_size["width"], output_size["height"], mp,
+                    mode.value,
+                    style or "default",
+                    generation_mode,
+                    output_size["width"],
+                    output_size["height"],
+                    mp,
                 )
 
             raw = None
@@ -546,7 +575,9 @@ class ImageGenerationExecutor:
             doc_ar = _document_target_aspect(style) if mode == AnalysisMode.CV else None
             logger.info(
                 "Image generation (edit mode) mode=%s style=%s task=%s local_upscale=%s local_crop_ar=%s",
-                mode.value, style or "default", task_id,
+                mode.value,
+                style or "default",
+                task_id,
                 "x2" if will_upscale else "no",
                 doc_ar or "none",
             )
@@ -557,6 +588,7 @@ class ImageGenerationExecutor:
                 from src.providers.image_gen.style_router import (
                     routed_backend_var,
                 )
+
                 routed_backend_var.set("")
             except Exception:
                 pass
@@ -564,9 +596,8 @@ class ImageGenerationExecutor:
             # FalNanoBanana2Edit / FalGptImage2Edit pick the right tier.
             # Hybrid StyleRouter silently ignores the key.
             if ab_active:
-                extra["quality"] = (
-                    ab_image_quality
-                    or getattr(settings, "ab_default_quality", "medium")
+                extra["quality"] = ab_image_quality or getattr(
+                    settings, "ab_default_quality", "medium"
                 )
                 # v1.23: derive a Nano Banana 2 aspect_ratio enum from
                 # the resolved StyleSpec output_size. NB2 does NOT
@@ -579,7 +610,8 @@ class ImageGenerationExecutor:
                 # here for that provider.
                 if output_size and not extra.get("aspect_ratio"):
                     extra["aspect_ratio"] = _aspect_ratio_enum_for_size(
-                        output_size["width"], output_size["height"],
+                        output_size["width"],
+                        output_size["height"],
                     )
                 # v1.23: strip the legacy ``generation_mode`` key for
                 # the A/B path — NB2 / GPT-2 don't understand PuLID vs
@@ -590,7 +622,8 @@ class ImageGenerationExecutor:
 
             with _trace_step(trace, "image_gen"):
                 raw = await image_gen.generate(
-                    prompt, reference_image=image_bytes,
+                    prompt,
+                    reference_image=image_bytes,
                     params=extra or None,
                 )
             generation_attempts = 1
@@ -601,6 +634,7 @@ class ImageGenerationExecutor:
                 from src.providers.image_gen.style_router import (
                     get_routed_backend,
                 )
+
                 first_pass_backend = get_routed_backend()
             except Exception:
                 first_pass_backend = ""
@@ -651,22 +685,30 @@ class ImageGenerationExecutor:
                     fal_model = getattr(settings, "pulid_model", "fal-ai/pulid")
                 elif first_pass_backend == "seedream":
                     fal_model = getattr(
-                        settings, "seedream_model", "fal-ai/bytedance/seedream/v4/edit",
+                        settings,
+                        "seedream_model",
+                        "fal-ai/bytedance/seedream/v4/edit",
                     )
                 elif first_pass_backend == "fallback":
                     fal_model = settings.fal2_model
             elif "falflux" in provider_name.lower():
                 fal_model = (
-                    settings.fal2_model if "falflux2" in provider_name.lower()
+                    settings.fal2_model
+                    if "falflux2" in provider_name.lower()
                     else settings.fal_model
                 )
             if fal_model:
                 FAL_CALLS.labels(
-                    mode=mode.value, step="single_pass", model=fal_model,
+                    mode=mode.value,
+                    step="single_pass",
+                    model=fal_model,
                 ).inc()
 
             if not raw or len(raw) <= 100:
-                logger.warning("Image gen returned empty/tiny result (%s bytes)", len(raw) if raw else 0)
+                logger.warning(
+                    "Image gen returned empty/tiny result (%s bytes)",
+                    len(raw) if raw else 0,
+                )
                 raw = None
 
             warnings: list[str] = result_dict.setdefault("generation_warnings", [])
@@ -683,11 +725,21 @@ class ImageGenerationExecutor:
                     sp_gates["niqe"] = 5.0
 
                     with _trace_step(trace, "single_pass_gates") as sp_entry:
-                        sp_passed, sp_results, sp_report = await gate_runner.run_global_gates(
-                            sp_gates, image_bytes, raw,
+                        (
+                            sp_passed,
+                            sp_results,
+                            sp_report,
+                        ) = await gate_runner.run_global_gates(
+                            sp_gates,
+                            image_bytes,
+                            raw,
                         )
                         sp_entry["gates"] = [
-                            {"gate": gr.gate_name, "passed": gr.passed, "value": gr.value}
+                            {
+                                "gate": gr.gate_name,
+                                "passed": gr.passed,
+                                "value": gr.value,
+                            }
                             for gr in sp_results
                         ]
                     result_dict["quality_report"] = sp_report
@@ -722,29 +774,29 @@ class ImageGenerationExecutor:
                         )
                     try:
                         _cfg_max = getattr(
-                            settings, "identity_retry_max_attempts", 0,
+                            settings,
+                            "identity_retry_max_attempts",
+                            0,
                         )
                         max_total_attempts = 1 + max(0, int(_cfg_max or 0))
                     except (TypeError, ValueError):
                         max_total_attempts = 1
 
-                    first_check_failed = bool(
-                        sp_report.get("quality_check_failed")
-                    )
+                    first_check_failed = bool(sp_report.get("quality_check_failed"))
                     should_retry = (
                         retry_enabled
                         and not first_check_failed
                         and identity_match > 0.0
-                        and identity_match < float(
-                            settings.identity_match_threshold or 0.0
-                        )
+                        and identity_match
+                        < float(settings.identity_match_threshold or 0.0)
                         and generation_attempts < max_total_attempts
                     )
 
                     if should_retry:
                         logger.info(
                             "Identity retry triggered task=%s identity=%.2f threshold=%.2f",
-                            task_id, identity_match,
+                            task_id,
+                            identity_match,
                             float(settings.identity_match_threshold or 0.0),
                         )
                         retry_params = dict(extra) if extra else {}
@@ -761,9 +813,7 @@ class ImageGenerationExecutor:
                         soft_threshold = float(
                             settings.identity_match_soft_threshold or 0.0
                         )
-                        is_identity_scene = (
-                            generation_mode == "identity_scene"
-                        )
+                        is_identity_scene = generation_mode == "identity_scene"
                         if (
                             is_identity_scene
                             and identity_match > 0.0
@@ -780,12 +830,18 @@ class ImageGenerationExecutor:
                             # ``fidelity`` and instead push id_scale,
                             # steps and guidance higher.
                             retry_params["pulid_mode"] = "fidelity"
-                            retry_params["id_scale"] = float(getattr(
-                                settings, "pulid_retry_id_scale", 1.2,
-                            ))
+                            retry_params["id_scale"] = float(
+                                getattr(
+                                    settings,
+                                    "pulid_retry_id_scale",
+                                    1.2,
+                                )
+                            )
                             retry_params["num_inference_steps"] = int(
                                 getattr(
-                                    settings, "pulid_retry_steps", 8,
+                                    settings,
+                                    "pulid_retry_steps",
+                                    8,
                                 )
                             )
                             retry_params["guidance_scale"] = float(
@@ -825,23 +881,21 @@ class ImageGenerationExecutor:
 
                             if retry_raw and len(retry_raw) > 100:
                                 retry_raw = _apply_local_postprocess(
-                                    retry_raw, mode, style, face_area_ratio,
+                                    retry_raw,
+                                    mode,
+                                    style,
+                                    face_area_ratio,
                                 )
-                                retry_raw, cf_applied_r = (
-                                    await _apply_codeformer_post(
-                                        retry_raw,
-                                        generation_mode=generation_mode,
-                                        face_area_ratio=(
-                                            face_area_ratio or None
-                                        ),
-                                        is_retry=True,
-                                    )
+                                retry_raw, cf_applied_r = await _apply_codeformer_post(
+                                    retry_raw,
+                                    generation_mode=generation_mode,
+                                    face_area_ratio=(face_area_ratio or None),
+                                    is_retry=True,
                                 )
-                                codeformer_applied = (
-                                    codeformer_applied or cf_applied_r
-                                )
+                                codeformer_applied = codeformer_applied or cf_applied_r
                                 retry_raw = await _maybe_real_esrgan_upscale(
-                                    retry_raw, face_area_ratio,
+                                    retry_raw,
+                                    face_area_ratio,
                                 )
                                 # v1.20: retry counter keyed on the
                                 # *routed* backend so PuLID retries
@@ -852,6 +906,7 @@ class ImageGenerationExecutor:
                                     from src.providers.image_gen.style_router import (  # noqa: E501
                                         get_routed_backend,
                                     )
+
                                     retry_backend = get_routed_backend()
                                 except Exception:
                                     retry_backend = ""
@@ -859,7 +914,9 @@ class ImageGenerationExecutor:
                                 if provider_name.lower() == "stylerouter":
                                     if retry_backend == "pulid":
                                         retry_fal_model = getattr(
-                                            settings, "pulid_model", "fal-ai/pulid",
+                                            settings,
+                                            "pulid_model",
+                                            "fal-ai/pulid",
                                         )
                                     elif retry_backend == "seedream":
                                         retry_fal_model = getattr(
@@ -886,14 +943,17 @@ class ImageGenerationExecutor:
                                         pass
 
                                 with _trace_step(
-                                    trace, "single_pass_gates_retry",
+                                    trace,
+                                    "single_pass_gates_retry",
                                 ) as rp_entry:
                                     (
                                         retry_passed,
                                         retry_results,
                                         retry_report,
                                     ) = await gate_runner.run_global_gates(
-                                        sp_gates, image_bytes, retry_raw,
+                                        sp_gates,
+                                        image_bytes,
+                                        retry_raw,
                                     )
                                     rp_entry["gates"] = [
                                         {
@@ -932,18 +992,23 @@ class ImageGenerationExecutor:
                                         )
                                     logger.info(
                                         "Identity retry improved score task=%s %.2f->%.2f",
-                                        task_id, retry_identity, identity_match,
+                                        task_id,
+                                        retry_identity,
+                                        identity_match,
                                     )
                                 else:
                                     logger.info(
                                         "Identity retry did NOT improve task=%s orig=%.2f retry=%.2f check_failed=%s",
-                                        task_id, identity_match, retry_identity,
+                                        task_id,
+                                        identity_match,
+                                        retry_identity,
                                         retry_check_failed,
                                     )
                         except Exception:
                             logger.warning(
                                 "Identity retry generation failed task=%s, keeping original",
-                                task_id, exc_info=True,
+                                task_id,
+                                exc_info=True,
                             )
 
                         retry_success = retry_identity >= float(
@@ -1002,7 +1067,8 @@ class ImageGenerationExecutor:
                     if not sp_passed:
                         logger.warning(
                             "Single-pass quality gates failed for task=%s: %s",
-                            task_id, sp_report.get("gates_failed"),
+                            task_id,
+                            sp_report.get("gates_failed"),
                         )
                         result_dict["quality_warning"] = True
 
@@ -1031,7 +1097,11 @@ class ImageGenerationExecutor:
 
                     # await self._record_ab_metrics(task_id, sp_report)
                 except Exception:
-                    logger.warning("Single-pass quality gates error for task=%s, skipping", task_id, exc_info=True)
+                    logger.warning(
+                        "Single-pass quality gates error for task=%s, skipping",
+                        task_id,
+                        exc_info=True,
+                    )
 
             if raw and len(raw) > 100:
                 raw = inject_exif_only(raw)
@@ -1052,10 +1122,8 @@ class ImageGenerationExecutor:
                     from src.providers.image_gen.style_router import (
                         get_routed_backend,
                     )
-                    routed_label = (
-                        first_pass_backend
-                        or get_routed_backend()
-                    )
+
+                    routed_label = first_pass_backend or get_routed_backend()
                 except Exception:
                     routed_label = first_pass_backend or ""
                 if ab_active:
@@ -1063,6 +1131,7 @@ class ImageGenerationExecutor:
                         ab_backend_label,
                         estimate_ab_image_gen_cost_usd,
                     )
+
                     _ab_q = (
                         extra.get("quality")
                         or ab_image_quality
@@ -1070,7 +1139,8 @@ class ImageGenerationExecutor:
                     )
                     backend_label = ab_backend_label(ab_image_model, _ab_q)
                     per_call_cost = estimate_ab_image_gen_cost_usd(
-                        ab_image_model, _ab_q,
+                        ab_image_model,
+                        _ab_q,
                     )
                 else:
                     backend_label, per_call_cost = _estimate_backend_cost(
@@ -1112,21 +1182,26 @@ class ImageGenerationExecutor:
                     "pipeline_type": "single_pass_edit",
                     "codeformer_applied": codeformer_applied,
                 }
-                cost_steps = [{
-                    "step": "single_pass_edit",
-                    "model": provider_name,
-                    "backend": backend_label,
-                    "cost_usd": round(per_call_cost, 4),
-                }]
-                if generation_attempts > 1:
-                    cost_steps.append({
-                        "step": "identity_retry",
+                cost_steps = [
+                    {
+                        "step": "single_pass_edit",
                         "model": provider_name,
                         "backend": backend_label,
-                        "cost_usd": round(
-                            per_call_cost * (generation_attempts - 1), 4,
-                        ),
-                    })
+                        "cost_usd": round(per_call_cost, 4),
+                    }
+                ]
+                if generation_attempts > 1:
+                    cost_steps.append(
+                        {
+                            "step": "identity_retry",
+                            "model": provider_name,
+                            "backend": backend_label,
+                            "cost_usd": round(
+                                per_call_cost * (generation_attempts - 1),
+                                4,
+                            ),
+                        }
+                    )
                 # v1.17 — attribute Real-ESRGAN spend when it actually
                 # ran. We can't observe the provider call from here (it's
                 # fire-and-forget inside _maybe_real_esrgan_upscale), so
@@ -1141,18 +1216,22 @@ class ImageGenerationExecutor:
                 if esrgan_on:
                     esrgan_cost = float(
                         getattr(
-                            settings, "model_cost_fal_real_esrgan", 0.002,
+                            settings,
+                            "model_cost_fal_real_esrgan",
+                            0.002,
                         )
                     ) * float(max(1, generation_attempts))
-                    cost_steps.append({
-                        "step": "real_esrgan",
-                        "model": getattr(
-                            settings,
-                            "real_esrgan_model",
-                            "fal-ai/real-esrgan",
-                        ),
-                        "cost_usd": round(esrgan_cost, 4),
-                    })
+                    cost_steps.append(
+                        {
+                            "step": "real_esrgan",
+                            "model": getattr(
+                                settings,
+                                "real_esrgan_model",
+                                "fal-ai/real-esrgan",
+                            ),
+                            "cost_usd": round(esrgan_cost, 4),
+                        }
+                    )
                 # v1.18 — CodeFormer post-process spend.
                 codeformer_cost = 0.0
                 if codeformer_applied:
@@ -1167,37 +1246,47 @@ class ImageGenerationExecutor:
                     )
                     upscale = float(
                         getattr(
-                            settings, "codeformer_upscale_factor", 2.0,
+                            settings,
+                            "codeformer_upscale_factor",
+                            2.0,
                         )
                     )
                     codeformer_cost = round(
-                        per_mp * max(1.0, upscale * upscale), 4,
+                        per_mp * max(1.0, upscale * upscale),
+                        4,
                     )
-                    cost_steps.append({
-                        "step": "codeformer",
-                        "model": getattr(
-                            settings,
-                            "codeformer_model",
-                            "fal-ai/codeformer",
-                        ),
-                        "cost_usd": codeformer_cost,
-                    })
+                    cost_steps.append(
+                        {
+                            "step": "codeformer",
+                            "model": getattr(
+                                settings,
+                                "codeformer_model",
+                                "fal-ai/codeformer",
+                            ),
+                            "cost_usd": codeformer_cost,
+                        }
+                    )
                 result_dict["cost_breakdown"] = {
                     "steps": cost_steps,
                     "total_usd": round(
-                        estimated_cost + esrgan_cost + codeformer_cost, 4,
+                        estimated_cost + esrgan_cost + codeformer_cost,
+                        4,
                     ),
                     "budget_usd": settings.pipeline_budget_max_usd,
                 }
                 logger.info(
                     "Image generated backend=%s gen_mode=%s key=%s "
                     "identity_match=%.2f cost=$%.4f",
-                    backend_label, generation_mode, gkey,
+                    backend_label,
+                    generation_mode,
+                    gkey,
                     identity_match,
                     estimated_cost + esrgan_cost + codeformer_cost,
                 )
             else:
-                logger.warning("Image gen returned no usable result for task=%s", task_id)
+                logger.warning(
+                    "Image gen returned no usable result for task=%s", task_id
+                )
                 result_dict["image_gen_error"] = "empty_result"
                 warnings.append(
                     "Не удалось сгенерировать улучшенное фото. "
@@ -1225,7 +1314,9 @@ def _golden_delta(raw_delta: float, seed: str = "") -> float:
     h = int(hashlib.md5(seed.encode()).hexdigest()[:4], 16) if seed else 0
     variation = ((h % 25) - 12) / 100.0
     if raw_delta <= 0:
-        return round(max(_MIN_POSITIVE_DELTA + abs(variation) * 0.5, _MIN_POSITIVE_DELTA), 2)
+        return round(
+            max(_MIN_POSITIVE_DELTA + abs(variation) * 0.5, _MIN_POSITIVE_DELTA), 2
+        )
     cap = _MAX_DELTA + variation
     clamped = min(raw_delta, cap)
     return round(max(clamped, _MIN_POSITIVE_DELTA), 2)
@@ -1289,33 +1380,54 @@ class DeltaScorer:
         self._redis = redis
 
     async def _load_previous_scores(
-        self, user_id: str, mode: AnalysisMode, style: str = "default",
+        self,
+        user_id: str,
+        mode: AnalysisMode,
+        style: str = "default",
     ) -> dict | None:
         if not self._redis:
             return None
         try:
             import json as _json
-            raw = await self._redis.get(_SCORE_REDIS_KEY.format(user_id, mode.value, style))
+
+            raw = await self._redis.get(
+                _SCORE_REDIS_KEY.format(user_id, mode.value, style)
+            )
             if raw:
                 return _json.loads(raw)
         except Exception:
-            logger.debug("Failed to load previous scores for user=%s mode=%s style=%s", user_id, mode.value, style)
+            logger.debug(
+                "Failed to load previous scores for user=%s mode=%s style=%s",
+                user_id,
+                mode.value,
+                style,
+            )
         return None
 
     async def _save_scores(
-        self, user_id: str, mode: AnalysisMode, scores: dict, style: str = "default",
+        self,
+        user_id: str,
+        mode: AnalysisMode,
+        scores: dict,
+        style: str = "default",
     ) -> None:
         if not self._redis:
             return
         try:
             import json as _json
+
             await self._redis.set(
                 _SCORE_REDIS_KEY.format(user_id, mode.value, style),
                 _json.dumps(scores),
                 ex=_SCORE_TTL,
             )
         except Exception:
-            logger.debug("Failed to save scores for user=%s mode=%s style=%s", user_id, mode.value, style)
+            logger.debug(
+                "Failed to save scores for user=%s mode=%s style=%s",
+                user_id,
+                mode.value,
+                style,
+            )
 
     async def compute(
         self,
@@ -1342,13 +1454,22 @@ class DeltaScorer:
 
             service = self._router.get_service(mode)
             if mode == AnalysisMode.CV:
-                post_result = await service.analyze(gen_bytes, profession=result_dict.get("profession", "не указана"))
+                post_result = await service.analyze(
+                    gen_bytes, profession=result_dict.get("profession", "не указана")
+                )
             else:
                 post_result = await service.analyze(gen_bytes)
 
-            post_dict = post_result.model_dump() if hasattr(post_result, "model_dump") else post_result
+            post_dict = (
+                post_result.model_dump()
+                if hasattr(post_result, "model_dump")
+                else post_result
+            )
 
-            from src.utils.humanize import SCORE_FLOOR as _SCORE_FLOOR, PERCEPTION_FLOOR as _PERCEPTION_FLOOR
+            from src.utils.humanize import (
+                SCORE_FLOOR as _SCORE_FLOOR,
+                PERCEPTION_FLOOR as _PERCEPTION_FLOOR,
+            )
 
             def _floor_post(raw: float, floor: float = _SCORE_FLOOR) -> float:
                 return max(float(raw), floor)
@@ -1362,20 +1483,30 @@ class DeltaScorer:
             new_scores: dict[str, float] = {}
 
             if mode == AnalysisMode.DATING:
-                pre = float(prev_scores.get("dating_score", 0)) or float(result_dict.get("dating_score", 0)) or float(result_dict.get("score", 0))
+                pre = (
+                    float(prev_scores.get("dating_score", 0))
+                    or float(result_dict.get("dating_score", 0))
+                    or float(result_dict.get("score", 0))
+                )
                 raw_post = _floor_post(post_dict.get("dating_score", 0))
                 entry = _build_delta_entry(pre, raw_post, f"{task_id}:dating_score")
                 delta = {"dating_score": entry}
                 new_scores["dating_score"] = entry["post"]
             elif mode == AnalysisMode.CV:
                 for key in ("trust", "competence", "hireability"):
-                    pre = float(prev_scores.get(key, 0)) or float(result_dict.get(key, 0))
+                    pre = float(prev_scores.get(key, 0)) or float(
+                        result_dict.get(key, 0)
+                    )
                     raw_post = _floor_post(post_dict.get(key, 0))
                     entry = _build_delta_entry(pre, raw_post, f"{task_id}:{key}")
                     delta[key] = entry
                     new_scores[key] = entry["post"]
             elif mode == AnalysisMode.SOCIAL:
-                pre = float(prev_scores.get("social_score", 0)) or float(result_dict.get("social_score", 0)) or float(result_dict.get("score", 0))
+                pre = (
+                    float(prev_scores.get("social_score", 0))
+                    or float(result_dict.get("social_score", 0))
+                    or float(result_dict.get("score", 0))
+                )
                 raw_post = _floor_post(post_dict.get("social_score", 0))
                 entry = _build_delta_entry(pre, raw_post, f"{task_id}:social_score")
                 delta = {"social_score": entry}
@@ -1384,14 +1515,30 @@ class DeltaScorer:
             result_dict["delta"] = delta
 
             if mode == AnalysisMode.CV:
-                pre_vals = [delta[k]["pre"] for k in ("trust", "competence", "hireability") if k in delta]
-                result_dict["score_before"] = round(sum(pre_vals) / len(pre_vals), 2) if pre_vals else None
-                post_vals = [delta[k]["post"] for k in ("trust", "competence", "hireability") if k in delta]
-                result_dict["score_after"] = round(sum(post_vals) / len(post_vals), 2) if post_vals else None
+                pre_vals = [
+                    delta[k]["pre"]
+                    for k in ("trust", "competence", "hireability")
+                    if k in delta
+                ]
+                result_dict["score_before"] = (
+                    round(sum(pre_vals) / len(pre_vals), 2) if pre_vals else None
+                )
+                post_vals = [
+                    delta[k]["post"]
+                    for k in ("trust", "competence", "hireability")
+                    if k in delta
+                ]
+                result_dict["score_after"] = (
+                    round(sum(post_vals) / len(post_vals), 2) if post_vals else None
+                )
             else:
                 first_key = next(iter(delta), None)
-                result_dict["score_before"] = delta[first_key]["pre"] if first_key else None
-                result_dict["score_after"] = delta[first_key]["post"] if first_key else None
+                result_dict["score_before"] = (
+                    delta[first_key]["pre"] if first_key else None
+                )
+                result_dict["score_after"] = (
+                    delta[first_key]["post"] if first_key else None
+                )
 
             # IMPORTANT: overwrite top-level scalar score fields with post-gen
             # values so that any downstream consumer that reads the flat
@@ -1419,18 +1566,27 @@ class DeltaScorer:
             perception_delta: dict[str, Any] = {}
             new_perception: dict[str, float] = {}
             for key in ("warmth", "presence", "appeal"):
-                pre_val = float(prev_perception.get(key, 0)) or float(pre_perception.get(key, 5.0))
-                raw_post_val = _floor_post(float(post_perception.get(key, 5.0)), floor=_PERCEPTION_FLOOR)
+                pre_val = float(prev_perception.get(key, 0)) or float(
+                    pre_perception.get(key, 5.0)
+                )
+                raw_post_val = _floor_post(
+                    float(post_perception.get(key, 5.0)), floor=_PERCEPTION_FLOOR
+                )
                 entry = _build_delta_entry(pre_val, raw_post_val, f"{task_id}:p:{key}")
                 perception_delta[key] = entry
                 new_perception[key] = entry["post"]
 
             result_dict["perception_delta"] = perception_delta
 
-            await self._save_scores(user_id, mode, {
-                "scores": new_scores,
-                "perception": new_perception,
-            }, style)
+            await self._save_scores(
+                user_id,
+                mode,
+                {
+                    "scores": new_scores,
+                    "perception": new_perception,
+                },
+                style,
+            )
 
             quality_report = result_dict.get("quality_report", {})
             if quality_report:
@@ -1454,7 +1610,12 @@ class DeltaScorer:
             result_dict["perception_scores"] = ps
 
             result_dict["post_score"] = post_dict
-            logger.info("Delta computed for task=%s: %s perception: %s", task_id, delta, perception_delta)
+            logger.info(
+                "Delta computed for task=%s: %s perception: %s",
+                task_id,
+                delta,
+                perception_delta,
+            )
         except Exception:
             logger.exception("Post-gen re-scoring failed for task=%s", task_id)
             result_dict["delta_error"] = "rescoring_failed"

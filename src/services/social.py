@@ -5,7 +5,10 @@ from src.providers.base import LLMProvider
 from src.prompts.engine import PromptEngine
 from src.models.enums import AnalysisMode
 from src.models.schemas import SocialResult
-from src.services.perception_utils import extract_perception_scores, extract_perception_insights
+from src.services.perception_utils import (
+    extract_perception_scores,
+    extract_perception_insights,
+)
 
 
 class SocialService:
@@ -18,7 +21,9 @@ class SocialService:
 
         prompt = self._prompt_engine.build(AnalysisMode.SOCIAL)
         raw = await consensus_analyze(
-            self._llm, image_bytes, prompt,
+            self._llm,
+            image_bytes,
+            prompt,
             temperature=settings.scoring_temperature,
             n=settings.scoring_consensus_samples,
         )
@@ -28,7 +33,9 @@ class SocialService:
             social_score=float(raw.get("social_score", 5)),
             strengths=raw.get("strengths", []),
             weaknesses=raw.get("weaknesses", raw.get("enhancement_opportunities", [])),
-            enhancement_opportunities=raw.get("enhancement_opportunities", raw.get("weaknesses", [])),
+            enhancement_opportunities=raw.get(
+                "enhancement_opportunities", raw.get("weaknesses", [])
+            ),
             variants=raw.get("variants", []),
             perception_scores=extract_perception_scores(raw),
             perception_insights=extract_perception_insights(raw),

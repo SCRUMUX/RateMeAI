@@ -1,11 +1,17 @@
 """Bot account-linking wizard — button-driven flow with /link shortcut."""
+
 from __future__ import annotations
 
 import logging
 
 from aiogram import F, Router
 from aiogram.filters import BaseFilter, Command
-from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup, Message
+from aiogram.types import (
+    CallbackQuery,
+    InlineKeyboardButton,
+    InlineKeyboardMarkup,
+    Message,
+)
 import httpx
 from redis.asyncio import Redis
 
@@ -23,10 +29,13 @@ _LINK_WAITING_TTL = 600  # 10 min — same as link-token TTL
 # Custom filter: intercept plain text when user is in "waiting for code" state
 # ---------------------------------------------------------------------------
 
+
 class LinkCodeFilter(BaseFilter):
     """Match non-command text messages when the user has an active link_waiting flag."""
 
-    async def __call__(self, message: Message, redis: Redis | None = None, **kwargs) -> bool:
+    async def __call__(
+        self, message: Message, redis: Redis | None = None, **kwargs
+    ) -> bool:
         if not message.text or message.text.startswith("/"):
             return False
         if redis is None:
@@ -41,6 +50,7 @@ class LinkCodeFilter(BaseFilter):
 # ---------------------------------------------------------------------------
 # Callback: entry point — "Привязать аккаунт" button
 # ---------------------------------------------------------------------------
+
 
 @router.callback_query(F.data == "link_account")
 async def on_link_account(callback: CallbackQuery):
@@ -58,6 +68,7 @@ async def on_link_account(callback: CallbackQuery):
 # ---------------------------------------------------------------------------
 # Path A: "У меня есть аккаунт на сайте" — user enters code from website
 # ---------------------------------------------------------------------------
+
 
 @router.callback_query(F.data == "link_have_web")
 async def on_link_have_web(callback: CallbackQuery, redis: Redis):
@@ -79,6 +90,7 @@ async def on_link_have_web(callback: CallbackQuery, redis: Redis):
 # ---------------------------------------------------------------------------
 # Path B: "Хочу войти на сайт через бот" — bot generates code
 # ---------------------------------------------------------------------------
+
 
 @router.callback_query(F.data == "link_to_web")
 async def on_link_to_web(callback: CallbackQuery, api_base_url: str, redis: Redis):
@@ -111,11 +123,17 @@ async def on_link_to_web(callback: CallbackQuery, api_base_url: str, redis: Redi
 
         rows = []
         if link_url:
-            rows.append([InlineKeyboardButton(
-                text="\U0001f310 Открыть сайт",
-                url=link_url,
-            )])
-        rows.append([InlineKeyboardButton(text="\u2b05 Назад", callback_data="link_cancel")])
+            rows.append(
+                [
+                    InlineKeyboardButton(
+                        text="\U0001f310 Открыть сайт",
+                        url=link_url,
+                    )
+                ]
+            )
+        rows.append(
+            [InlineKeyboardButton(text="\u2b05 Назад", callback_data="link_cancel")]
+        )
         kb = InlineKeyboardMarkup(inline_keyboard=rows)
 
         await callback.message.answer(
@@ -141,6 +159,7 @@ async def on_link_to_web(callback: CallbackQuery, api_base_url: str, redis: Redi
 # Cancel — clear waiting flag, return to main menu
 # ---------------------------------------------------------------------------
 
+
 @router.callback_query(F.data == "link_cancel")
 async def on_link_cancel(callback: CallbackQuery, redis: Redis):
     await callback.answer()
@@ -154,6 +173,7 @@ async def on_link_cancel(callback: CallbackQuery, redis: Redis):
 # ---------------------------------------------------------------------------
 # Text handler: receive link code while in waiting state
 # ---------------------------------------------------------------------------
+
 
 @router.message(LinkCodeFilter())
 async def on_link_code_text(message: Message, api_base_url: str, redis: Redis):
@@ -176,6 +196,7 @@ async def on_link_code_text(message: Message, api_base_url: str, redis: Redis):
 # ---------------------------------------------------------------------------
 # /link command — power-user shortcut (kept for backward compatibility)
 # ---------------------------------------------------------------------------
+
 
 @router.message(Command("link"))
 async def cmd_link(message: Message, api_base_url: str, redis: Redis):
@@ -209,6 +230,7 @@ async def cmd_link(message: Message, api_base_url: str, redis: Redis):
 # Shared helper: claim a link code via API
 # ---------------------------------------------------------------------------
 
+
 async def _claim_link_code(
     message: Message,
     api_base_url: str,
@@ -237,6 +259,7 @@ async def _claim_link_code(
             new_token = data.get("session_token")
             if new_token:
                 from src.bot.middleware import _BOT_SESSION_KEY, _bot_session_ttl
+
                 await redis.set(
                     _BOT_SESSION_KEY.format(user_id),
                     new_token,

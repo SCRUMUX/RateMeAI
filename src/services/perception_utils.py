@@ -1,11 +1,12 @@
 """Shared utilities for extracting perception scores from LLM output."""
+
 from __future__ import annotations
 
 from src.models.schemas import PerceptionScores, PerceptionInsight
 
 CATEGORY_WEIGHTS: dict[str, dict[str, float]] = {
     "dating": {"warmth": 0.35, "appeal": 0.35, "presence": 0.20, "authenticity": 0.10},
-    "cv":     {"warmth": 0.25, "presence": 0.40, "appeal": 0.15, "authenticity": 0.20},
+    "cv": {"warmth": 0.25, "presence": 0.40, "appeal": 0.15, "authenticity": 0.20},
     "social": {"warmth": 0.20, "appeal": 0.40, "presence": 0.30, "authenticity": 0.10},
     "rating": {"warmth": 0.33, "appeal": 0.34, "presence": 0.33, "authenticity": 0.00},
 }
@@ -33,12 +34,14 @@ def extract_perception_insights(raw: dict) -> list[PerceptionInsight]:
         if not isinstance(item, dict):
             continue
         try:
-            results.append(PerceptionInsight(
-                parameter=str(item.get("parameter", "appeal")),
-                current_level=str(item.get("current_level", "solid_base")),
-                suggestion=str(item.get("suggestion", "")),
-                controllable_by=str(item.get("controllable_by", "lighting")),
-            ))
+            results.append(
+                PerceptionInsight(
+                    parameter=str(item.get("parameter", "appeal")),
+                    current_level=str(item.get("current_level", "solid_base")),
+                    suggestion=str(item.get("suggestion", "")),
+                    controllable_by=str(item.get("controllable_by", "lighting")),
+                )
+            )
         except Exception:
             continue
 

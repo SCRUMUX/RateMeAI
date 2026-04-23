@@ -38,6 +38,7 @@ Pricing
 $0.03 per image (flat, up to 4 MP). Tracked as
 ``settings.model_cost_fal_seedream``.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -57,14 +58,16 @@ _SEED_RNG = random.SystemRandom()
 
 logger = logging.getLogger(__name__)
 
-_PRESET_IMAGE_SIZES = frozenset({
-    "square_hd",
-    "square",
-    "portrait_4_3",
-    "portrait_16_9",
-    "landscape_4_3",
-    "landscape_16_9",
-})
+_PRESET_IMAGE_SIZES = frozenset(
+    {
+        "square_hd",
+        "square",
+        "portrait_4_3",
+        "portrait_16_9",
+        "landscape_4_3",
+        "landscape_16_9",
+    }
+)
 
 _ENHANCE_MODES = frozenset({"standard", "fast"})
 
@@ -183,9 +186,9 @@ class FalSeedreamImageGen(FalQueueClient, ImageGenProvider):
     ) -> bytes:
         body = self._build_body(prompt, reference_image, params)
         logger.info(
-            "FAL Seedream request model=%s prompt_len=%d size=%s "
-            "enhance=%s refs=%d",
-            self._model, len(prompt or ""),
+            "FAL Seedream request model=%s prompt_len=%d size=%s enhance=%s refs=%d",
+            self._model,
+            len(prompt or ""),
             body.get("image_size", "default"),
             body.get("enhance_prompt_mode"),
             len(body.get("image_urls") or []),
@@ -200,7 +203,10 @@ class FalSeedreamImageGen(FalQueueClient, ImageGenProvider):
     ) -> bytes:
         assert_external_transfer_allowed("fal_seedream")
         raw = await asyncio.to_thread(
-            self._generate_sync, prompt, reference_image, params,
+            self._generate_sync,
+            prompt,
+            reference_image,
+            params,
         )
         if raw and len(raw) > 100:
             return raw

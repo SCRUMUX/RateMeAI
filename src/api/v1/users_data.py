@@ -10,6 +10,7 @@
 Both endpoints intentionally sit in their own router and require a regular
 auth session — no header-based B2B bypass.
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -111,7 +112,9 @@ async def delete_my_account(
         task_id_str = str(t.id)
         market_id = get_market_id(t.context, fallback=settings.resolved_market_id)
 
-        if await _safe_storage_delete(storage, f"generated/{user_id_str}/{task_id_str}.jpg"):
+        if await _safe_storage_delete(
+            storage, f"generated/{user_id_str}/{task_id_str}.jpg"
+        ):
             generated_deleted += 1
         if t.share_card_path and await _safe_storage_delete(storage, t.share_card_path):
             share_cards_deleted += 1
@@ -126,14 +129,26 @@ async def delete_my_account(
     await _safe_redis_delete(redis, redis_keys_to_purge)
 
     consents_count = (
-        await db.execute(select(UserConsent).where(UserConsent.user_id == user_id))
-    ).scalars().all()
+        (await db.execute(select(UserConsent).where(UserConsent.user_id == user_id)))
+        .scalars()
+        .all()
+    )
     identities_count = (
-        await db.execute(select(UserIdentity).where(UserIdentity.user_id == user_id))
-    ).scalars().all()
+        (await db.execute(select(UserIdentity).where(UserIdentity.user_id == user_id)))
+        .scalars()
+        .all()
+    )
     perception_count = (
-        await db.execute(select(UserPerceptionRecord).where(UserPerceptionRecord.user_id == user_id))
-    ).scalars().all()
+        (
+            await db.execute(
+                select(UserPerceptionRecord).where(
+                    UserPerceptionRecord.user_id == user_id
+                )
+            )
+        )
+        .scalars()
+        .all()
+    )
 
     tasks_deleted = len(tasks)
     consents_deleted = len(consents_count)
@@ -205,28 +220,52 @@ async def export_my_data(
     user_id = user.id
 
     tasks_rows = (
-        await db.execute(select(Task).where(Task.user_id == user_id).order_by(Task.created_at))
-    ).scalars().all()
+        (
+            await db.execute(
+                select(Task).where(Task.user_id == user_id).order_by(Task.created_at)
+            )
+        )
+        .scalars()
+        .all()
+    )
     consents_rows = (
-        await db.execute(
-            select(UserConsent).where(UserConsent.user_id == user_id).order_by(UserConsent.granted_at)
+        (
+            await db.execute(
+                select(UserConsent)
+                .where(UserConsent.user_id == user_id)
+                .order_by(UserConsent.granted_at)
+            )
         )
-    ).scalars().all()
+        .scalars()
+        .all()
+    )
     identities_rows = (
-        await db.execute(select(UserIdentity).where(UserIdentity.user_id == user_id))
-    ).scalars().all()
+        (await db.execute(select(UserIdentity).where(UserIdentity.user_id == user_id)))
+        .scalars()
+        .all()
+    )
     perception_rows = (
-        await db.execute(
-            select(UserPerceptionRecord).where(UserPerceptionRecord.user_id == user_id)
+        (
+            await db.execute(
+                select(UserPerceptionRecord).where(
+                    UserPerceptionRecord.user_id == user_id
+                )
+            )
         )
-    ).scalars().all()
+        .scalars()
+        .all()
+    )
     credits_rows = (
-        await db.execute(
-            select(CreditTransaction)
-            .where(CreditTransaction.user_id == user_id)
-            .order_by(CreditTransaction.created_at)
+        (
+            await db.execute(
+                select(CreditTransaction)
+                .where(CreditTransaction.user_id == user_id)
+                .order_by(CreditTransaction.created_at)
+            )
         )
-    ).scalars().all()
+        .scalars()
+        .all()
+    )
 
     payload = {
         "exported_at": datetime.now(timezone.utc).isoformat(),

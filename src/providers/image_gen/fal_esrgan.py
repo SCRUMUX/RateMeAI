@@ -16,6 +16,7 @@ Pricing
 Real-ESRGAN on FAL bills ~$0.001–$0.002 per image. We estimate
 $0.002 for budget math (see ``settings.model_cost_fal_real_esrgan``).
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -106,7 +107,9 @@ class FalRealEsrganUpscaler(FalQueueClient):
         )
         logger.info(
             "FAL Real-ESRGAN request model=%s scale=x%d input_bytes=%d",
-            self._model, body.get("scale"), len(image_bytes or b""),
+            self._model,
+            body.get("scale"),
+            len(image_bytes or b""),
         )
         return self._run_queue_sync(body)
 
@@ -119,7 +122,9 @@ class FalRealEsrganUpscaler(FalQueueClient):
         """
         assert_external_transfer_allowed("fal_real_esrgan")
         raw = await asyncio.to_thread(
-            self._upscale_sync, image_bytes, int(factor),
+            self._upscale_sync,
+            image_bytes,
+            int(factor),
         )
         if raw and len(raw) > 100:
             return raw

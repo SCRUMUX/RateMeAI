@@ -14,6 +14,7 @@ Focus areas that differ from the other FAL providers:
 - optional ``mask_url`` passes through when a caller provides it
 - reference-image is mandatory (image-to-image only)
 """
+
 from __future__ import annotations
 
 import io
@@ -55,7 +56,9 @@ def _json_response(payload: dict, status: int = 200) -> MagicMock:
 
 
 def _error_response(
-    status: int, message: str = "bad", retry_after: str | None = None,
+    status: int,
+    message: str = "bad",
+    retry_after: str | None = None,
 ) -> MagicMock:
     r = MagicMock(spec=httpx.Response)
     r.status_code = status
@@ -94,9 +97,14 @@ class _FakeFalClient:
         return resp
 
     def post(self, url, json=None, headers=None):
-        self.calls.append({
-            "method": "POST", "url": url, "json": json, "headers": headers,
-        })
+        self.calls.append(
+            {
+                "method": "POST",
+                "url": url,
+                "json": json,
+                "headers": headers,
+            }
+        )
         return self._pop()
 
     def get(self, url, headers=None):
@@ -132,25 +140,31 @@ def _make_gen(**overrides) -> FalGptImage2Edit:
 def test_default_size_portrait_per_tier():
     # v1.23: defaults are the OpenAI-recommended HD portrait sizes.
     assert _default_size_for_quality("low", portrait=True) == {
-        "width": 1024, "height": 1024,
+        "width": 1024,
+        "height": 1024,
     }
     assert _default_size_for_quality("medium", portrait=True) == {
-        "width": 1024, "height": 1536,
+        "width": 1024,
+        "height": 1536,
     }
     assert _default_size_for_quality("high", portrait=True) == {
-        "width": 1440, "height": 2560,
+        "width": 1440,
+        "height": 2560,
     }
 
 
 def test_default_size_landscape_per_tier():
     assert _default_size_for_quality("low", portrait=False) == {
-        "width": 1024, "height": 1024,
+        "width": 1024,
+        "height": 1024,
     }
     assert _default_size_for_quality("medium", portrait=False) == {
-        "width": 1536, "height": 1024,
+        "width": 1536,
+        "height": 1024,
     }
     assert _default_size_for_quality("high", portrait=False) == {
-        "width": 2560, "height": 1440,
+        "width": 2560,
+        "height": 1440,
     }
 
 
@@ -173,7 +187,8 @@ def test_sanitize_image_size_snaps_portrait_to_nearest_whitelist():
     # A 1080x1920 portrait has ~2.07 MP → closest portrait entry by
     # total pixel count is 1024x1536 (~1.57 MP), not the 2K/3.69 MP one.
     out = _sanitize_image_size(
-        {"width": 1080, "height": 1920}, quality="medium",
+        {"width": 1080, "height": 1920},
+        quality="medium",
     )
     assert out == {"width": 1024, "height": 1536}
 
@@ -182,14 +197,16 @@ def test_sanitize_image_size_large_portrait_snaps_to_2k():
     # A 2000x3000 portrait has ~6 MP → closest portrait entry is
     # 1440x2560 (~3.69 MP).
     out = _sanitize_image_size(
-        {"width": 2000, "height": 3000}, quality="high",
+        {"width": 2000, "height": 3000},
+        quality="high",
     )
     assert out == {"width": 1440, "height": 2560}
 
 
 def test_sanitize_image_size_snaps_landscape_to_nearest_whitelist():
     out = _sanitize_image_size(
-        {"width": 1600, "height": 900}, quality="medium",
+        {"width": 1600, "height": 900},
+        quality="medium",
     )
     # 1600x900 is landscape; closest medium entry is 1536x1024.
     assert out == {"width": 1536, "height": 1024}
@@ -197,10 +214,12 @@ def test_sanitize_image_size_snaps_landscape_to_nearest_whitelist():
 
 def test_sanitize_image_size_falls_back_to_portrait_default_on_bad_input():
     assert _sanitize_image_size(None, quality="medium") == {
-        "width": 1024, "height": 1536,
+        "width": 1024,
+        "height": 1536,
     }
     assert _sanitize_image_size(
-        {"width": 0, "height": 0}, quality="medium",
+        {"width": 0, "height": 0},
+        quality="medium",
     ) == {"width": 1024, "height": 1536}
 
 
@@ -247,7 +266,8 @@ def test_body_honours_explicit_image_size_from_params():
     # provider must forward it (after snapping to the whitelist).
     gen = _make_gen()
     body = gen._build_body(
-        "x", _jpeg_bytes(),
+        "x",
+        _jpeg_bytes(),
         {"quality": "medium", "image_size": {"width": 1536, "height": 1024}},
     )
     assert body["image_size"] == {"width": 1536, "height": 1024}
@@ -256,7 +276,8 @@ def test_body_honours_explicit_image_size_from_params():
 def test_body_snaps_offlist_image_size_to_whitelist():
     gen = _make_gen()
     body = gen._build_body(
-        "x", _jpeg_bytes(),
+        "x",
+        _jpeg_bytes(),
         {"quality": "medium", "image_size": {"width": 1800, "height": 1200}},
     )
     # 1800x1200 landscape snaps to medium-tier landscape 1536x1024.
@@ -280,7 +301,8 @@ def test_body_missing_quality_uses_default():
 def test_body_forwards_mask_url_when_present():
     gen = _make_gen()
     body = gen._build_body(
-        "x", _jpeg_bytes(),
+        "x",
+        _jpeg_bytes(),
         {"quality": "medium", "mask_url": "https://example.com/mask.png"},
     )
     assert body["mask_url"] == "https://example.com/mask.png"
@@ -289,7 +311,9 @@ def test_body_forwards_mask_url_when_present():
 def test_body_ignores_non_string_mask_url():
     gen = _make_gen()
     body = gen._build_body(
-        "x", _jpeg_bytes(), {"quality": "medium", "mask_url": 12345},
+        "x",
+        _jpeg_bytes(),
+        {"quality": "medium", "mask_url": 12345},
     )
     assert "mask_url" not in body
 
@@ -323,27 +347,33 @@ def test_constructor_accepts_webp_output_format():
 @pytest.mark.asyncio
 async def test_generate_happy_path_inline_data_uri():
     import base64
+
     out_jpeg = _jpeg_bytes((10, 20, 30), size=32)
     data_uri = "data:image/jpeg;base64," + base64.b64encode(out_jpeg).decode()
 
     responses = [
-        _json_response({
-            "request_id": "r",
-            "status": "IN_QUEUE",
-            "status_url": "https://queue.fal.run/openai/gpt-image-2/requests/r/status",
-            "response_url": "https://queue.fal.run/openai/gpt-image-2/requests/r",
-        }),
+        _json_response(
+            {
+                "request_id": "r",
+                "status": "IN_QUEUE",
+                "status_url": "https://queue.fal.run/openai/gpt-image-2/requests/r/status",
+                "response_url": "https://queue.fal.run/openai/gpt-image-2/requests/r",
+            }
+        ),
         _json_response({"status": "COMPLETED"}),
-        _json_response({
-            "images": [{"url": data_uri, "content_type": "image/jpeg"}],
-            "has_nsfw_concepts": [False],
-        }),
+        _json_response(
+            {
+                "images": [{"url": data_uri, "content_type": "image/jpeg"}],
+                "has_nsfw_concepts": [False],
+            }
+        ),
     ]
     fake = _FakeFalClient(responses)
 
     gen = _make_gen()
-    with _patched_client(fake), patch(
-        "src.providers.image_gen._fal_queue_base.time.sleep"
+    with (
+        _patched_client(fake),
+        patch("src.providers.image_gen._fal_queue_base.time.sleep"),
     ):
         result = await gen.generate(
             "portrait",
@@ -370,8 +400,9 @@ async def test_generate_requires_reference_image():
 async def test_4xx_on_submit_no_retry():
     fake = _FakeFalClient([_error_response(422, message="bad image_size")])
     gen = _make_gen(max_retries=3)
-    with _patched_client(fake), patch(
-        "src.providers.image_gen._fal_queue_base.time.sleep"
+    with (
+        _patched_client(fake),
+        patch("src.providers.image_gen._fal_queue_base.time.sleep"),
     ):
         with pytest.raises(RuntimeError, match="http=422"):
             await gen.generate("p", reference_image=_jpeg_bytes())
@@ -381,22 +412,27 @@ async def test_4xx_on_submit_no_retry():
 @pytest.mark.asyncio
 async def test_nsfw_no_retry():
     responses = [
-        _json_response({
-            "request_id": "nsfw",
-            "status": "IN_QUEUE",
-            "status_url": "https://queue.fal.run/openai/gpt-image-2/requests/nsfw/status",
-            "response_url": "https://queue.fal.run/openai/gpt-image-2/requests/nsfw",
-        }),
+        _json_response(
+            {
+                "request_id": "nsfw",
+                "status": "IN_QUEUE",
+                "status_url": "https://queue.fal.run/openai/gpt-image-2/requests/nsfw/status",
+                "response_url": "https://queue.fal.run/openai/gpt-image-2/requests/nsfw",
+            }
+        ),
         _json_response({"status": "COMPLETED"}),
-        _json_response({
-            "images": [{"url": "data:image/jpeg;base64,AAAA"}],
-            "has_nsfw_concepts": [True],
-        }),
+        _json_response(
+            {
+                "images": [{"url": "data:image/jpeg;base64,AAAA"}],
+                "has_nsfw_concepts": [True],
+            }
+        ),
     ]
     fake = _FakeFalClient(responses)
     gen = _make_gen(max_retries=3)
-    with _patched_client(fake), patch(
-        "src.providers.image_gen._fal_queue_base.time.sleep"
+    with (
+        _patched_client(fake),
+        patch("src.providers.image_gen._fal_queue_base.time.sleep"),
     ):
         with pytest.raises(FalContentViolationError):
             await gen.generate("p", reference_image=_jpeg_bytes())

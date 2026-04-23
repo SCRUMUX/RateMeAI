@@ -1,4 +1,5 @@
 """Shared stuck-task reconciliation logic used by both worker cron and edge reconciler."""
+
 from __future__ import annotations
 
 import logging
@@ -56,7 +57,9 @@ async def reconcile_stuck_tasks(
             TASKS_FAILED.labels(reason="stuck_timeout").inc()
             logger.warning(
                 "%s reconciler: task %s stuck since %s, marking failed",
-                source.capitalize(), task.id, task.updated_at,
+                source.capitalize(),
+                task.id,
+                task.updated_at,
             )
 
             if (task.context or {}).get("credit_pre_reserved"):
@@ -67,26 +70,36 @@ async def reconcile_stuck_tasks(
                     user = u.scalar_one_or_none()
                     if user:
                         user.image_credits += 1
-                        tx_type = "refund_stuck_edge_task" if source == "edge" else "refund_stuck_task"
-                        db.add(CreditTransaction(
-                            user_id=task.user_id,
-                            amount=1,
-                            balance_after=user.image_credits,
-                            tx_type=tx_type,
-                        ))
+                        tx_type = (
+                            "refund_stuck_edge_task"
+                            if source == "edge"
+                            else "refund_stuck_task"
+                        )
+                        db.add(
+                            CreditTransaction(
+                                user_id=task.user_id,
+                                amount=1,
+                                balance_after=user.image_credits,
+                                tx_type=tx_type,
+                            )
+                        )
                         logger.info(
                             "%s reconciler: refunded credit for task %s",
-                            source.capitalize(), task.id,
+                            source.capitalize(),
+                            task.id,
                         )
                     else:
                         logger.error(
                             "%s reconciler: user %s not found for task %s",
-                            source.capitalize(), task.user_id, task.id,
+                            source.capitalize(),
+                            task.user_id,
+                            task.id,
                         )
                 except Exception:
                     logger.exception(
                         "%s reconciler: failed to refund credit for task %s",
-                        source.capitalize(), task.id,
+                        source.capitalize(),
+                        task.id,
                     )
 
             try:
@@ -98,7 +111,8 @@ async def reconcile_stuck_tasks(
             await db.commit()
             logger.info(
                 "%s reconciler: marked %d stuck tasks as failed",
-                source.capitalize(), len(stuck_tasks),
+                source.capitalize(),
+                len(stuck_tasks),
             )
 
     return len(stuck_tasks)

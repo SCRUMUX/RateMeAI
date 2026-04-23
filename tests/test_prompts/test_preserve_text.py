@@ -11,6 +11,7 @@ Positive framing is enforced elsewhere (``test_positive_framing.py``).
 Here we only care about presence of the identity-lock vocabulary and
 the length budget.
 """
+
 from __future__ import annotations
 
 import pytest
@@ -54,7 +55,6 @@ def test_preserve_prompts_stay_under_length_budget(prompt: str) -> None:
 def test_identity_lock_suffix_is_short_and_echo_free() -> None:
     assert 20 <= len(IDENTITY_LOCK_SUFFIX) <= 120
     lowered = IDENTITY_LOCK_SUFFIX.lower()
-    assert (
-        "same individual" in lowered
-        or "same person" in lowered
-    ), IDENTITY_LOCK_SUFFIX
+    assert "same individual" in lowered or "same person" in lowered, (
+        IDENTITY_LOCK_SUFFIX
+    )

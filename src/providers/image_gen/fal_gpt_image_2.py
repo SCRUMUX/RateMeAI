@@ -31,6 +31,7 @@ Empirical pricing (token-based — see fal model page):
 * ``medium`` ≈ $0.05-0.08 / image (default)
 * ``high``   ≈ $0.15-0.20 / image
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -82,7 +83,9 @@ def _long_edge_for_quality(quality: str | None) -> int:
 
 
 def _default_size_for_quality(
-    quality: str, *, portrait: bool = True,
+    quality: str,
+    *,
+    portrait: bool = True,
 ) -> dict[str, int]:
     """Pick the OpenAI-recommended (width, height) for this tier."""
     table = _GPT2_PORTRAIT_SIZES if portrait else _GPT2_LANDSCAPE_SIZES
@@ -92,7 +95,9 @@ def _default_size_for_quality(
 
 
 def _sanitize_image_size(
-    raw: Any, *, quality: str,
+    raw: Any,
+    *,
+    quality: str,
 ) -> dict[str, int]:
     """Snap an arbitrary ``{width, height}`` request onto a valid size.
 
@@ -118,7 +123,8 @@ def _sanitize_image_size(
     candidates = _GPT2_PORTRAIT_SIZES if portrait else _GPT2_LANDSCAPE_SIZES
     requested_pixels = width * height
     best = min(
-        candidates, key=lambda wh: abs(wh[0] * wh[1] - requested_pixels),
+        candidates,
+        key=lambda wh: abs(wh[0] * wh[1] - requested_pixels),
     )
     return {"width": best[0], "height": best[1]}
 
@@ -253,7 +259,10 @@ class FalGptImage2Edit(FalQueueClient, ImageGenProvider):
     ) -> bytes:
         assert_external_transfer_allowed("fal_gpt_image_2")
         raw = await asyncio.to_thread(
-            self._generate_sync, prompt, reference_image, params,
+            self._generate_sync,
+            prompt,
+            reference_image,
+            params,
         )
         if raw and len(raw) > 100:
             return raw

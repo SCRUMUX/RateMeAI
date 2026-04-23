@@ -94,7 +94,9 @@ async def _handle_edge_analysis(
         remote_ai = get_remote_ai()
     except Exception as exc:
         logger.exception("Edge handler: cannot init RemoteAI for task %s", task_id)
-        await _fail_edge_task(db_sessionmaker, redis, task_id, user_id, f"Edge config error: {exc}")
+        await _fail_edge_task(
+            db_sessionmaker, redis, task_id, user_id, f"Edge config error: {exc}"
+        )
         return
 
     image_b64 = base64.b64encode(image_bytes).decode("ascii")
@@ -111,7 +113,9 @@ async def _handle_edge_analysis(
 
             task.status = TaskStatus.PROCESSING.value
             task_context = task.context
-            market_id = get_market_id(task_context, fallback=settings.resolved_market_id)
+            market_id = get_market_id(
+                task_context, fallback=settings.resolved_market_id
+            )
             await db.commit()
 
         async def _edge_progress(status: str, poll_count: int) -> None:
@@ -146,7 +150,8 @@ async def _handle_edge_analysis(
                 # executor engages Nano Banana 2 / GPT Image 2 instead
                 # of silently falling through to the legacy StyleRouter.
                 image_model=(task_context or {}).get("image_model", "") or image_model,
-                image_quality=(task_context or {}).get("image_quality", "") or image_quality,
+                image_quality=(task_context or {}).get("image_quality", "")
+                or image_quality,
                 on_poll=_edge_progress,
             )
 
@@ -189,6 +194,7 @@ async def _handle_edge_analysis(
             async with db_sessionmaker() as db:
                 from src.models.db import UsageLog
                 from datetime import date as _date
+
                 today = _date.today()
                 usage_row = await db.execute(
                     select(UsageLog).where(
@@ -224,11 +230,18 @@ async def _handle_edge_analysis(
             async with db_sessionmaker() as db:
                 result_row = await db.execute(select(Task).where(Task.id == task_id))
                 task_obj = result_row.scalar_one_or_none()
-                if task_obj and task_obj.status not in (TaskStatus.COMPLETED.value, TaskStatus.FAILED.value):
+                if task_obj and task_obj.status not in (
+                    TaskStatus.COMPLETED.value,
+                    TaskStatus.FAILED.value,
+                ):
                     task_obj.status = TaskStatus.FAILED.value
-                    task_obj.error_message = (str(exc) if is_remote else f"Edge proxy error: {exc}")[:500]
+                    task_obj.error_message = (
+                        str(exc) if is_remote else f"Edge proxy error: {exc}"
+                    )[:500]
 
-                    credit_pre_reserved = (task_context or {}).get("credit_pre_reserved", False)
+                    credit_pre_reserved = (task_context or {}).get(
+                        "credit_pre_reserved", False
+                    )
                     if credit_pre_reserved:
                         u = await db.execute(
                             select(User).where(User.id == user_id).with_for_update()
@@ -236,13 +249,19 @@ async def _handle_edge_analysis(
                         fresh_user = u.scalar_one_or_none()
                         if fresh_user:
                             fresh_user.image_credits += 1
-                            db.add(CreditTransaction(
-                                user_id=user_id,
-                                amount=1,
-                                balance_after=fresh_user.image_credits,
-                                tx_type="refund_failed_task",
-                            ))
-                            logger.info("Refunded 1 credit to user %s for failed edge task %s", user_id, task_id)
+                            db.add(
+                                CreditTransaction(
+                                    user_id=user_id,
+                                    amount=1,
+                                    balance_after=fresh_user.image_credits,
+                                    tx_type="refund_failed_task",
+                                )
+                            )
+                            logger.info(
+                                "Refunded 1 credit to user %s for failed edge task %s",
+                                user_id,
+                                task_id,
+                            )
 
                     await db.commit()
             try:
@@ -252,22 +271,32 @@ async def _handle_edge_analysis(
 
     except Exception as exc:
         logger.exception("FATAL: unhandled error in edge handler for task %s", task_id)
-        await _fail_edge_task(db_sessionmaker, redis, task_id, user_id, f"Internal edge error: {exc}")
+        await _fail_edge_task(
+            db_sessionmaker, redis, task_id, user_id, f"Internal edge error: {exc}"
+        )
 
 
-async def _fail_edge_task(db_sessionmaker, redis, task_id, user_id, error_msg: str) -> None:
+async def _fail_edge_task(
+    db_sessionmaker, redis, task_id, user_id, error_msg: str
+) -> None:
     """Mark a task as failed from outside the main DB session (crash recovery)."""
     from sqlalchemy import select
+
     try:
         async with db_sessionmaker() as db:
             result = await db.execute(select(Task).where(Task.id == task_id))
             task = result.scalar_one_or_none()
             updated = False
-            if task and task.status not in (TaskStatus.COMPLETED.value, TaskStatus.FAILED.value):
+            if task and task.status not in (
+                TaskStatus.COMPLETED.value,
+                TaskStatus.FAILED.value,
+            ):
                 task.status = TaskStatus.FAILED.value
                 task.error_message = error_msg[:500]
 
-                credit_pre_reserved = (task.context or {}).get("credit_pre_reserved", False)
+                credit_pre_reserved = (task.context or {}).get(
+                    "credit_pre_reserved", False
+                )
                 if credit_pre_reserved:
                     u = await db.execute(
                         select(User).where(User.id == user_id).with_for_update()
@@ -275,12 +304,14 @@ async def _fail_edge_task(db_sessionmaker, redis, task_id, user_id, error_msg: s
                     fresh_user = u.scalar_one_or_none()
                     if fresh_user:
                         fresh_user.image_credits += 1
-                        db.add(CreditTransaction(
-                            user_id=user_id,
-                            amount=1,
-                            balance_after=fresh_user.image_credits,
-                            tx_type="refund_failed_task",
-                        ))
+                        db.add(
+                            CreditTransaction(
+                                user_id=user_id,
+                                amount=1,
+                                balance_after=fresh_user.image_credits,
+                                tx_type="refund_failed_task",
+                            )
+                        )
 
                 await db.commit()
                 updated = True
@@ -290,7 +321,9 @@ async def _fail_edge_task(db_sessionmaker, redis, task_id, user_id, error_msg: s
                 except Exception:
                     pass
     except Exception:
-        logger.exception("FATAL: failed to mark task %s as failed in crash recovery", task_id)
+        logger.exception(
+            "FATAL: failed to mark task %s as failed in crash recovery", task_id
+        )
 
 
 AB_MODELS_ALLOWED = frozenset({"nano_banana_2", "gpt_image_2"})
@@ -360,6 +393,7 @@ async def create_analysis(
         ctx["framing"] = framing.strip()
     if input_hints.strip():
         import json
+
         try:
             ctx["input_hints"] = json.loads(input_hints.strip())
         except json.JSONDecodeError:
@@ -484,7 +518,9 @@ async def create_analysis(
                 )
 
         edge_task.add_done_callback(_log_edge_failure)
-        body = TaskCreated(task_id=task.id, status=TaskStatus.PENDING, estimated_seconds=30)
+        body = TaskCreated(
+            task_id=task.id, status=TaskStatus.PENDING, estimated_seconds=30
+        )
         return JSONResponse(
             content=body.model_dump(mode="json"),
             status_code=202,
@@ -499,7 +535,9 @@ async def create_analysis(
         )
     except Exception:
         logger.exception("Privacy stash failed for task %s", task.id)
-        raise HTTPException(status_code=500, detail="Failed to stage task input") from None
+        raise HTTPException(
+            status_code=500, detail="Failed to stage task input"
+        ) from None
     if not stash_key:
         raise HTTPException(status_code=500, detail="Failed to stage task input")
 

@@ -10,6 +10,7 @@ from src.models.enums import AnalysisMode, TaskStatus
 
 # ── Requests ──
 
+
 class TelegramAuthRequest(BaseModel):
     telegram_id: int
     username: str | None = None
@@ -29,6 +30,7 @@ class ApiClientCreatedResponse(BaseModel):
 
 
 # ── Task ──
+
 
 class TaskResponse(BaseModel):
     task_id: uuid.UUID
@@ -67,6 +69,7 @@ class TaskHistoryResponse(BaseModel):
 
 # ── Perception Scores (unified across all modes) ──
 
+
 class PerceptionScores(BaseModel):
     warmth: float = Field(ge=0, le=10)
     presence: float = Field(ge=0, le=10)
@@ -82,6 +85,7 @@ class PerceptionInsight(BaseModel):
 
 
 # ── Rating Result ──
+
 
 class PerceptionData(BaseModel):
     trust: float = Field(ge=0, le=10)
@@ -100,6 +104,7 @@ class RatingResult(BaseModel):
 
 # ── Shared ──
 
+
 class Variant(BaseModel):
     type: str
     image_url: str | None = None
@@ -107,6 +112,7 @@ class Variant(BaseModel):
 
 
 # ── Dating Result ──
+
 
 class DatingResult(BaseModel):
     first_impression: str
@@ -121,6 +127,7 @@ class DatingResult(BaseModel):
 
 # ── CV Result ──
 
+
 class CVResult(BaseModel):
     profession: str
     trust: float = Field(ge=0, le=10)
@@ -133,6 +140,7 @@ class CVResult(BaseModel):
 
 
 # ── Social Result ──
+
 
 class SocialResult(BaseModel):
     first_impression: str
@@ -147,6 +155,7 @@ class SocialResult(BaseModel):
 
 # ── Share ──
 
+
 class ShareResponse(BaseModel):
     image_url: str
     caption: str
@@ -154,6 +163,7 @@ class ShareResponse(BaseModel):
 
 
 # ── User ──
+
 
 class UserUsage(BaseModel):
     daily_limit: int
@@ -171,8 +181,10 @@ class UserResponse(BaseModel):
 
 # ── Multi-channel Auth ──
 
+
 class ChannelAuthResponse(BaseModel):
     """Returned by all /auth/* endpoints for non-Telegram channels."""
+
     session_token: str
     user_id: uuid.UUID
     usage: UserUsage
@@ -204,11 +216,13 @@ class OAuthInitResponse(BaseModel):
 
 # ── Identity Linking ──
 
+
 class LinkedIdentity(BaseModel):
     provider: str
     external_id: str
     profile_data: dict | None = None
     created_at: datetime | None = None
+
 
 class UserIdentitiesResponse(BaseModel):
     user_id: uuid.UUID
@@ -217,16 +231,19 @@ class UserIdentitiesResponse(BaseModel):
 
 # ── Universal Link Token ──
 
+
 class LinkTokenResponse(BaseModel):
     code: str
     ttl: int
     link_url: str
+
 
 class ClaimLinkRequest(BaseModel):
     code: str
     provider: str
     external_id: str
     profile_data: dict | None = None
+
 
 class ClaimLinkResponse(BaseModel):
     session_token: str
@@ -237,8 +254,10 @@ class ClaimLinkResponse(BaseModel):
 
 # ── Phone Auth (OTP) ──
 
+
 class PhoneOTPRequestBody(BaseModel):
     phone: str = Field(..., min_length=10, max_length=15)
+
 
 class PhoneOTPVerifyBody(BaseModel):
     phone: str = Field(..., min_length=10, max_length=15)
@@ -247,6 +266,7 @@ class PhoneOTPVerifyBody(BaseModel):
 
 
 # ── Pre-Analysis ──
+
 
 class InputQualityIssuePublic(BaseModel):
     code: str

@@ -1,4 +1,5 @@
 """Tests for enhancement_level pass-through and task result contract."""
+
 from __future__ import annotations
 
 import io
@@ -15,7 +16,9 @@ _CONSENT_HEADERS = {
 
 def _valid_jpeg() -> bytes:
     buf = io.BytesIO()
-    Image.new("RGB", (1024, 1024), color=(128, 128, 128)).save(buf, format="JPEG", quality=90)
+    Image.new("RGB", (1024, 1024), color=(128, 128, 128)).save(
+        buf, format="JPEG", quality=90
+    )
     return buf.getvalue()
 
 
@@ -38,7 +41,9 @@ def _auth(token: str) -> dict[str, str]:
 
 @patch("src.api.v1.analyze._get_arq", new_callable=AsyncMock)
 @patch("src.api.v1.analyze.get_storage")
-def test_analyze_stores_enhancement_level_in_context(mock_get_storage, mock_get_arq, client):
+def test_analyze_stores_enhancement_level_in_context(
+    mock_get_storage, mock_get_arq, client
+):
     storage = MagicMock()
     storage.upload = AsyncMock(return_value="inputs/u/k.jpg")
     mock_get_storage.return_value = storage
@@ -58,7 +63,9 @@ def test_analyze_stores_enhancement_level_in_context(mock_get_storage, mock_get_
     assert r.status_code == 202, r.text
     task_id = r.json()["task_id"]
 
-    r2 = client.get(f"/api/v1/tasks/{task_id}", headers={"Authorization": f"Bearer {token}"})
+    r2 = client.get(
+        f"/api/v1/tasks/{task_id}", headers={"Authorization": f"Bearer {token}"}
+    )
     assert r2.status_code == 200
     data = r2.json()
     assert data["status"] == "pending"
@@ -66,7 +73,9 @@ def test_analyze_stores_enhancement_level_in_context(mock_get_storage, mock_get_
 
 @patch("src.api.v1.analyze._get_arq", new_callable=AsyncMock)
 @patch("src.api.v1.analyze.get_storage")
-def test_analyze_default_enhancement_level_not_in_context(mock_get_storage, mock_get_arq, client):
+def test_analyze_default_enhancement_level_not_in_context(
+    mock_get_storage, mock_get_arq, client
+):
     """When enhancement_level=0 (default), it should not appear in context."""
     storage = MagicMock()
     storage.upload = AsyncMock(return_value="inputs/u/k.jpg")

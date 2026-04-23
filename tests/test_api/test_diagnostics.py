@@ -10,6 +10,7 @@ Focus is on the two image-gen-probe modes introduced in v1.19.3:
 These tests short-circuit the auth dep and the real provider so they
 run fully offline.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -37,7 +38,10 @@ def _call_probe(mode: str, fake_provider):
     try:
         result = asyncio.run(
             internal_mod.image_gen_probe(
-                mode=mode, provider="styled_router", quality="low", _key="ok",
+                mode=mode,
+                provider="styled_router",
+                quality="low",
+                _key="ok",
             ),
         )
     finally:

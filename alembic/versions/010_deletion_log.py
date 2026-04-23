@@ -19,6 +19,7 @@ storing only *non-PII* evidence:
 Used by privacy ops to prove to a regulator that an erasure request
 was actually honoured, without re-introducing PII.
 """
+
 from typing import Sequence, Union
 
 from alembic import op
@@ -39,11 +40,22 @@ def upgrade() -> None:
         sa.Column("ip_hash", sa.String(64), nullable=True),
         sa.Column("user_agent_hash", sa.String(64), nullable=True),
         sa.Column("tasks_deleted", sa.Integer(), nullable=False, server_default="0"),
-        sa.Column("generated_files_deleted", sa.Integer(), nullable=False, server_default="0"),
-        sa.Column("share_cards_deleted", sa.Integer(), nullable=False, server_default="0"),
+        sa.Column(
+            "generated_files_deleted", sa.Integer(), nullable=False, server_default="0"
+        ),
+        sa.Column(
+            "share_cards_deleted", sa.Integer(), nullable=False, server_default="0"
+        ),
         sa.Column("consents_deleted", sa.Integer(), nullable=False, server_default="0"),
-        sa.Column("perception_records_deleted", sa.Integer(), nullable=False, server_default="0"),
-        sa.Column("identities_deleted", sa.Integer(), nullable=False, server_default="0"),
+        sa.Column(
+            "perception_records_deleted",
+            sa.Integer(),
+            nullable=False,
+            server_default="0",
+        ),
+        sa.Column(
+            "identities_deleted", sa.Integer(), nullable=False, server_default="0"
+        ),
         sa.Column(
             "deleted_at",
             sa.DateTime(timezone=True),

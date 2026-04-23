@@ -13,6 +13,7 @@ foundation for:
 
 See ``docs/architecture/reserved.md`` for how to activate this code.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -47,7 +48,9 @@ class PipelinePlan:
     intent: str
     steps: list[PipelineStep]
     global_gates: dict[str, float] = field(default_factory=dict)
-    retry_policy: dict[str, Any] = field(default_factory=lambda: {"max_retries": 0, "on_fail": "accept"})
+    retry_policy: dict[str, Any] = field(
+        default_factory=lambda: {"max_retries": 0, "on_fail": "accept"}
+    )
     cost_budget: float = 0.15
 
     def to_dict(self) -> dict[str, Any]:

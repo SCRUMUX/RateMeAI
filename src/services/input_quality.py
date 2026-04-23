@@ -17,6 +17,7 @@ Two levels of findings:
 See also: src/services/photo_requirements.py for the human-readable texts and
 machine codes shared with the web frontend.
 """
+
 from __future__ import annotations
 
 import io
@@ -40,10 +41,10 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class InputQualityIssue:
-    code: str          # machine code, see IssueCode
-    severity: str      # "block" | "warn"
-    message: str       # short human-readable ru
-    suggestion: str    # actionable hint ru
+    code: str  # machine code, see IssueCode
+    severity: str  # "block" | "warn"
+    message: str  # short human-readable ru
+    suggestion: str  # actionable hint ru
 
     def to_dict(self) -> dict[str, str]:
         return {
@@ -136,11 +137,7 @@ def _laplacian_variance(arr: np.ndarray) -> float:
     if arr.ndim != 2 or arr.shape[0] < 3 or arr.shape[1] < 3:
         return -1.0
     a = arr.astype(np.float64)
-    lap = (
-        -a[:-2, 1:-1] - a[2:, 1:-1]
-        - a[1:-1, :-2] - a[1:-1, 2:]
-        + 4 * a[1:-1, 1:-1]
-    )
+    lap = -a[:-2, 1:-1] - a[2:, 1:-1] - a[1:-1, :-2] - a[1:-1, 2:] + 4 * a[1:-1, 1:-1]
     return float(np.var(lap))
 
 
@@ -157,14 +154,18 @@ def _get_mp_detector():
         return _mp_detector
     try:
         import mediapipe as mp
+
         _mp_detector = mp.solutions.face_detection.FaceDetection(
-            model_selection=1, min_detection_confidence=0.4,
+            model_selection=1,
+            min_detection_confidence=0.4,
         )
         _mp_available = True
         return _mp_detector
     except Exception:
         _mp_available = False
-        logger.info("MediaPipe FaceDetection unavailable — input-quality face gate degraded")
+        logger.info(
+            "MediaPipe FaceDetection unavailable — input-quality face gate degraded"
+        )
         return None
 
 
@@ -176,6 +177,7 @@ class _MPFace:
     ``bbox`` (x1,y1,x2,y2), ``det_score``, and a ``pose`` array we derive
     from MediaPipe keypoints (MediaPipe does not expose head pose natively).
     """
+
     bbox: tuple[int, int, int, int]
     det_score: float
     keypoints: dict[str, tuple[float, float]]
@@ -245,18 +247,26 @@ def _detect_faces(arr_rgb: np.ndarray) -> list[_MPFace]:
             # MediaPipe keypoint order (face_detection): 0=RIGHT_EYE, 1=LEFT_EYE,
             # 2=NOSE_TIP, 3=MOUTH_CENTER, 4=RIGHT_EAR_TRAGION, 5=LEFT_EAR_TRAGION.
             kps_raw = list(det.location_data.relative_keypoints)
-            names = ("right_eye", "left_eye", "nose_tip", "mouth_center",
-                     "right_ear", "left_ear")
+            names = (
+                "right_eye",
+                "left_eye",
+                "nose_tip",
+                "mouth_center",
+                "right_ear",
+                "left_ear",
+            )
             keypoints: dict[str, tuple[float, float]] = {}
             for name, kp in zip(names, kps_raw):
                 keypoints[name] = (kp.x * w, kp.y * h)
 
             score = float(det.score[0]) if det.score else 0.0
-            out.append(_MPFace(
-                bbox=(x1, y1, x2, y2),
-                det_score=score,
-                keypoints=keypoints,
-            ))
+            out.append(
+                _MPFace(
+                    bbox=(x1, y1, x2, y2),
+                    det_score=score,
+                    keypoints=keypoints,
+                )
+            )
         except Exception:
             continue
     return out
@@ -294,7 +304,11 @@ def _hair_bg_contrast(arr_rgb: np.ndarray, bbox: tuple[int, int, int, int]) -> f
 
     def _lum(block: np.ndarray) -> float:
         b = block.astype(np.float32)
-        return float(0.299 * b[..., 0].mean() + 0.587 * b[..., 1].mean() + 0.114 * b[..., 2].mean())
+        return float(
+            0.299 * b[..., 0].mean()
+            + 0.587 * b[..., 1].mean()
+            + 0.114 * b[..., 2].mean()
+        )
 
     inner_l = _lum(inner)
     outer_l = _lum(outer)
@@ -397,18 +411,24 @@ def analyze_input_quality(image_bytes: bytes) -> InputQualityReport:
 
     cx, cy = (x1 + x2) / 2.0, (y1 + y2) / 2.0
     report.face_center_offset = round(
-        max(abs(cx / w - 0.5), abs(cy / h - 0.5)) * 2.0, 3,
+        max(abs(cx / w - 0.5), abs(cy / h - 0.5)) * 2.0,
+        3,
     )
 
     yaw, pitch, roll = _pose_angles(primary)
-    report.yaw, report.pitch, report.roll = round(yaw, 1), round(pitch, 1), round(roll, 1)
+    report.yaw, report.pitch, report.roll = (
+        round(yaw, 1),
+        round(pitch, 1),
+        round(roll, 1),
+    )
 
-    face_crop_gray = gray[max(0, y1):min(h, y2), max(0, x1):min(w, x2)]
+    face_crop_gray = gray[max(0, y1) : min(h, y2), max(0, x1) : min(w, x2)]
     blur_face = _laplacian_variance(face_crop_gray)
     report.blur_face = blur_face
 
     report.hair_bg_contrast = round(
-        _hair_bg_contrast(arr_rgb, (x1, y1, x2, y2)), 3,
+        _hair_bg_contrast(arr_rgb, (x1, y1, x2, y2)),
+        3,
     )
 
     min_face_ratio = float(getattr(settings, "input_min_face_area_ratio", 0.04))
@@ -455,9 +475,14 @@ def analyze_input_quality(image_bytes: bytes) -> InputQualityReport:
     logger.info(
         "InputQuality: face_area=%.3f center_off=%.2f yaw=%.1f blur_f=%.0f blur_full=%.0f "
         "hair_bg=%.2f n_faces=%d can_gen=%s blocks=%s warns=%s",
-        report.face_area_ratio, report.face_center_offset, report.yaw,
-        report.blur_face, report.blur_full, report.hair_bg_contrast,
-        report.num_faces, report.can_generate,
+        report.face_area_ratio,
+        report.face_center_offset,
+        report.yaw,
+        report.blur_face,
+        report.blur_full,
+        report.hair_bg_contrast,
+        report.num_faces,
+        report.can_generate,
         [i.code for i in report.blocking],
         [i.code for i in report.soft_warnings],
     )

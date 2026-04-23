@@ -1,4 +1,5 @@
 """Proxy AI analysis tasks to the primary Railway backend (used in edge mode)."""
+
 from __future__ import annotations
 
 import asyncio
@@ -109,8 +110,14 @@ class RemoteAIService:
             )
             resp.raise_for_status()
         except httpx.HTTPStatusError as exc:
-            logger.error("Remote AI submit failed: %s %s", exc.response.status_code, exc.response.text)
-            raise RemoteAIError(f"Primary backend returned {exc.response.status_code}") from exc
+            logger.error(
+                "Remote AI submit failed: %s %s",
+                exc.response.status_code,
+                exc.response.text,
+            )
+            raise RemoteAIError(
+                f"Primary backend returned {exc.response.status_code}"
+            ) from exc
         except httpx.HTTPError as exc:
             logger.error("Remote AI submit connection error: %s", exc)
             raise RemoteAIError(f"Cannot reach primary backend: {exc}") from exc
@@ -119,8 +126,12 @@ class RemoteAIService:
             data = resp.json()
             remote_task_id = data["remote_task_id"]
         except (KeyError, ValueError) as exc:
-            logger.error("Unexpected response from primary on submit: %s", resp.text[:300])
-            raise RemoteAIError(f"Invalid response from primary backend: {exc}") from exc
+            logger.error(
+                "Unexpected response from primary on submit: %s", resp.text[:300]
+            )
+            raise RemoteAIError(
+                f"Invalid response from primary backend: {exc}"
+            ) from exc
         logger.info(
             "Submitted remote task %s (edge=%s, market=%s, scenario=%s)",
             remote_task_id,
@@ -177,7 +188,10 @@ class RemoteAIService:
                 no_reason = (data.get("result") or {}).get("no_image_reason", "")
                 logger.info(
                     "Remote task %s completed (has_b64=%s, has_img_url=%s, no_image_reason=%s)",
-                    remote_task_id, has_b64, has_img, no_reason or "none",
+                    remote_task_id,
+                    has_b64,
+                    has_img,
+                    no_reason or "none",
                 )
                 return data
             if status == "failed":
@@ -185,14 +199,18 @@ class RemoteAIService:
                 result_snippet = str(data.get("result", {}))[:200]
                 logger.error(
                     "Remote task %s failed: %s (result snippet: %s)",
-                    remote_task_id, err, result_snippet,
+                    remote_task_id,
+                    err,
+                    result_snippet,
                 )
                 raise RemoteAIError(f"Remote AI processing failed: {err}")
 
             await asyncio.sleep(_POLL_INTERVAL_SECONDS)
             elapsed += _POLL_INTERVAL_SECONDS
 
-        raise RemoteAIError(f"Remote task {remote_task_id} timed out after {_POLL_MAX_SECONDS}s")
+        raise RemoteAIError(
+            f"Remote task {remote_task_id} timed out after {_POLL_MAX_SECONDS}s"
+        )
 
     async def pre_analyze(
         self,
@@ -223,8 +241,12 @@ class RemoteAIService:
             resp.raise_for_status()
         except httpx.HTTPStatusError as exc:
             body = exc.response.text[:300]
-            logger.error("Remote pre-analyze failed: %s %s", exc.response.status_code, body)
-            raise RemoteAIError(f"Primary pre-analyze returned {exc.response.status_code}: {body}") from exc
+            logger.error(
+                "Remote pre-analyze failed: %s %s", exc.response.status_code, body
+            )
+            raise RemoteAIError(
+                f"Primary pre-analyze returned {exc.response.status_code}: {body}"
+            ) from exc
         except httpx.HTTPError as exc:
             logger.error("Remote pre-analyze connection error: %s", exc)
             raise RemoteAIError(f"Cannot reach primary for pre-analyze: {exc}") from exc

@@ -10,6 +10,7 @@
 Этот тест имитирует поведение writer'а (ключ со scope) и проверяет, что бот
 действительно читает те же самые байты через `_fetch_gen_image_from_redis`.
 """
+
 from __future__ import annotations
 
 import base64
@@ -50,7 +51,8 @@ def market_settings(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_bot_reader_picks_up_scoped_key_written_by_worker(
-    fake_redis, market_settings,
+    fake_redis,
+    market_settings,
 ):
     """Worker пишет ключ со scope — бот обязан его прочитать и расшифровать."""
     from src.bot.handlers.results import _fetch_gen_image_from_redis
@@ -65,7 +67,9 @@ async def test_bot_reader_picks_up_scoped_key_written_by_worker(
 
     got = await _fetch_gen_image_from_redis(fake_redis, task_id)
     assert got == payload
-    assert scoped_key not in fake_redis._store, "reader должен удалить ключ после чтения"
+    assert scoped_key not in fake_redis._store, (
+        "reader должен удалить ключ после чтения"
+    )
 
 
 @pytest.mark.asyncio

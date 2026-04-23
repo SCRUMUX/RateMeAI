@@ -1,4 +1,5 @@
 """Tests for channel-aware deep link generation."""
+
 from __future__ import annotations
 
 from unittest.mock import patch

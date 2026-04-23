@@ -5,6 +5,7 @@ REST API does not accept) and the ``aspect_ratio`` field on the edit
 endpoint. Keeping them purely local means zero extra bytes in the
 Reve request body.
 """
+
 from __future__ import annotations
 
 import io

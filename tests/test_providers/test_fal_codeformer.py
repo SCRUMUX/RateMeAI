@@ -1,4 +1,5 @@
 """Unit tests for :class:`FalCodeFormerRestorer` (fal-ai/codeformer)."""
+
 from __future__ import annotations
 
 import io
@@ -76,6 +77,8 @@ def test_body_preserves_zero_fidelity():
 def test_body_no_prompt_field():
     r = _make_restorer()
     body = r._build_body(
-        prompt=None, reference_image=_jpeg_bytes(), params=None,
+        prompt=None,
+        reference_image=_jpeg_bytes(),
+        params=None,
     )
     assert "prompt" not in body

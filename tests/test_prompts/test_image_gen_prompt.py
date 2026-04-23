@@ -5,6 +5,7 @@ because it exceeded Reve's effective prompt budget and added no
 adherence benefit. These tests lock in the new compact single-paragraph
 template without tying to exact wording.
 """
+
 from __future__ import annotations
 
 from src.prompts import image_gen as ig
@@ -17,7 +18,6 @@ def test_prompt_has_no_section_tags():
     assert "[CHANGE]" not in p
     assert "[PRESERVE]" not in p
     assert "[QUALITY]" not in p
-
 
     def test_prompt_has_preserve_and_photorealistic_anchors():
         # v1.19: ``warm_outdoor`` is an identity_scene style (PuLID) so the
@@ -45,9 +45,9 @@ def test_all_modes_build_without_error():
         ig.build_cv_prompt,
         ig.build_social_prompt,
     ):
-            p = builder(style="", gender="male")
-            assert p
-            assert "person in the reference photo" in p
+        p = builder(style="", gender="male")
+        assert p
+        assert "person in the reference photo" in p
 
 
 def test_document_style_uses_doc_template():
@@ -99,9 +99,16 @@ def test_detect_depth_of_field_keywords():
 def test_depth_of_field_prompt_variants_on_spec():
     """The helper on StyleSpec itself is still used by other call sites."""
     deep = StyleSpec(
-        key="x", mode="dating",
-        background="bg", clothing_male="c", clothing_female="c",
-        lighting="l", expression="e",
+        key="x",
+        mode="dating",
+        background="bg",
+        clothing_male="c",
+        clothing_female="c",
+        lighting="l",
+        expression="e",
         depth_of_field="deep",
     )
-    assert "deep" in deep.depth_of_field_prompt().lower() or "sharp" in deep.depth_of_field_prompt().lower()
+    assert (
+        "deep" in deep.depth_of_field_prompt().lower()
+        or "sharp" in deep.depth_of_field_prompt().lower()
+    )

@@ -8,6 +8,7 @@ style's ``generation_mode`` so the router can route correctly.
 These tests pin that contract using a mocked image-gen provider that
 records the params it receives.
 """
+
 from __future__ import annotations
 
 import io
@@ -24,7 +25,8 @@ from src.services.input_quality import InputQualityReport
 def _make_jpeg_stub() -> bytes:
     buf = io.BytesIO()
     Image.new("RGB", (512, 512), color=(128, 128, 128)).save(
-        buf, format="JPEG",
+        buf,
+        format="JPEG",
     )
     return buf.getvalue()
 
@@ -32,7 +34,8 @@ def _make_jpeg_stub() -> bytes:
 def _make_png_stub() -> bytes:
     buf = io.BytesIO()
     Image.new("RGB", (1024, 1024), color=(200, 200, 200)).save(
-        buf, format="PNG",
+        buf,
+        format="PNG",
     )
     return buf.getvalue()
 
@@ -81,13 +84,17 @@ def _build_executor(image_gen):
     identity_svc = MagicMock()
     gate_runner = MagicMock()
     gate_runner.run_global_gates = AsyncMock(
-        return_value=(True, [], {
-            "identity_match": 8.5,
-            "quality_check_failed": False,
-            "aesthetic_score": 7.5,
-            "gates_passed": ["identity_match", "aesthetic_score"],
-            "gates_failed": [],
-        }),
+        return_value=(
+            True,
+            [],
+            {
+                "identity_match": 8.5,
+                "quality_check_failed": False,
+                "aesthetic_score": 7.5,
+                "gates_passed": ["identity_match", "aesthetic_score"],
+                "gates_failed": [],
+            },
+        ),
     )
     return ImageGenerationExecutor(
         image_gen=image_gen,
@@ -123,7 +130,8 @@ async def test_generation_mode_forwarded_from_style_spec(mock_settings):
     params = kwargs.get("params") or {}
     assert "generation_mode" in params
     assert params["generation_mode"] in (
-        "identity_scene", "scene_preserve",
+        "identity_scene",
+        "scene_preserve",
     )
 
 
@@ -179,5 +187,6 @@ async def test_backend_label_propagates_into_enhancement_metadata(
     assert "backend" in enhancement
     assert "generation_mode" in enhancement
     assert enhancement["generation_mode"] in (
-        "identity_scene", "scene_preserve",
+        "identity_scene",
+        "scene_preserve",
     )

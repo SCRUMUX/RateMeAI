@@ -1,4 +1,5 @@
 """Tests for QualityGateRunner (VLM-based identity, no embeddings)."""
+
 from __future__ import annotations
 
 import asyncio
@@ -20,19 +21,23 @@ def _llm_returning(payload: dict) -> MagicMock:
 
 
 def test_identity_match_gate_passes():
-    llm = _llm_returning({
-        "identity_match": 8.5,
-        "aesthetic_score": 7.0,
-        "artifact_ratio": 0.01,
-        "is_photorealistic": True,
-    })
+    llm = _llm_returning(
+        {
+            "identity_match": 8.5,
+            "aesthetic_score": 7.0,
+            "artifact_ratio": 0.01,
+            "is_photorealistic": True,
+        }
+    )
 
     runner = QualityGateRunner(llm=llm)
-    results = _run(runner.run_gates(
-        {"identity_match": 7.0},
-        original_bytes=b"orig",
-        generated_bytes=b"gen",
-    ))
+    results = _run(
+        runner.run_gates(
+            {"identity_match": 7.0},
+            original_bytes=b"orig",
+            generated_bytes=b"gen",
+        )
+    )
     assert len(results) == 1
     assert results[0].gate_name == "identity_match"
     assert results[0].passed is True
@@ -42,19 +47,23 @@ def test_identity_match_gate_passes():
 
 
 def test_identity_match_gate_fails():
-    llm = _llm_returning({
-        "identity_match": 4.0,
-        "aesthetic_score": 6.0,
-        "artifact_ratio": 0.05,
-        "is_photorealistic": True,
-    })
+    llm = _llm_returning(
+        {
+            "identity_match": 4.0,
+            "aesthetic_score": 6.0,
+            "artifact_ratio": 0.05,
+            "is_photorealistic": True,
+        }
+    )
 
     runner = QualityGateRunner(llm=llm)
-    results = _run(runner.run_gates(
-        {"identity_match": 7.0},
-        original_bytes=b"orig",
-        generated_bytes=b"gen",
-    ))
+    results = _run(
+        runner.run_gates(
+            {"identity_match": 7.0},
+            original_bytes=b"orig",
+            generated_bytes=b"gen",
+        )
+    )
     assert results[0].passed is False
     assert results[0].value == 4.0
 
@@ -64,31 +73,37 @@ def test_identity_match_without_reference_is_pass_through():
     llm = _llm_returning({"identity_match": None, "aesthetic_score": 7.0})
 
     runner = QualityGateRunner(llm=llm)
-    results = _run(runner.run_gates(
-        {"identity_match": 7.0},
-        original_bytes=None,
-        generated_bytes=b"gen",
-    ))
+    results = _run(
+        runner.run_gates(
+            {"identity_match": 7.0},
+            original_bytes=None,
+            generated_bytes=b"gen",
+        )
+    )
     assert len(results) == 1
     assert results[0].passed is True
     assert results[0].value == 0.0
 
 
 def test_aesthetic_gate_via_llm():
-    llm = _llm_returning({
-        "aesthetic_score": 8.0,
-        "artifact_ratio": 0.01,
-        "is_photorealistic": True,
-        "photorealism_confidence": 0.95,
-        "details": "clean photo",
-    })
+    llm = _llm_returning(
+        {
+            "aesthetic_score": 8.0,
+            "artifact_ratio": 0.01,
+            "is_photorealistic": True,
+            "photorealism_confidence": 0.95,
+            "details": "clean photo",
+        }
+    )
 
     runner = QualityGateRunner(llm=llm)
-    results = _run(runner.run_gates(
-        {"aesthetic_score": 6.0, "artifact_ratio": 0.05},
-        original_bytes=None,
-        generated_bytes=b"gen",
-    ))
+    results = _run(
+        runner.run_gates(
+            {"aesthetic_score": 6.0, "artifact_ratio": 0.05},
+            original_bytes=None,
+            generated_bytes=b"gen",
+        )
+    )
     assert len(results) == 2
     aesthetic = next(r for r in results if r.gate_name == "aesthetic_score")
     artifact = next(r for r in results if r.gate_name == "artifact_ratio")
@@ -99,18 +114,22 @@ def test_aesthetic_gate_via_llm():
 
 
 def test_aesthetic_gate_fails_below_threshold():
-    llm = _llm_returning({
-        "aesthetic_score": 4.0,
-        "artifact_ratio": 0.1,
-        "is_photorealistic": False,
-    })
+    llm = _llm_returning(
+        {
+            "aesthetic_score": 4.0,
+            "artifact_ratio": 0.1,
+            "is_photorealistic": False,
+        }
+    )
 
     runner = QualityGateRunner(llm=llm)
-    results = _run(runner.run_gates(
-        {"aesthetic_score": 6.0, "artifact_ratio": 0.05},
-        original_bytes=None,
-        generated_bytes=b"gen",
-    ))
+    results = _run(
+        runner.run_gates(
+            {"aesthetic_score": 6.0, "artifact_ratio": 0.05},
+            original_bytes=None,
+            generated_bytes=b"gen",
+        )
+    )
     aesthetic = next(r for r in results if r.gate_name == "aesthetic_score")
     artifact = next(r for r in results if r.gate_name == "artifact_ratio")
     assert aesthetic.passed is False
@@ -118,21 +137,25 @@ def test_aesthetic_gate_fails_below_threshold():
 
 
 def test_global_gates_return_report_with_identity_match():
-    llm = _llm_returning({
-        "identity_match": 9.2,
-        "aesthetic_score": 7.5,
-        "artifact_ratio": 0.02,
-        "is_photorealistic": True,
-        "photorealism_confidence": 0.9,
-        "details": "good quality",
-    })
+    llm = _llm_returning(
+        {
+            "identity_match": 9.2,
+            "aesthetic_score": 7.5,
+            "artifact_ratio": 0.02,
+            "is_photorealistic": True,
+            "photorealism_confidence": 0.9,
+            "details": "good quality",
+        }
+    )
 
     runner = QualityGateRunner(llm=llm)
-    all_passed, results, report = _run(runner.run_global_gates(
-        {"identity_match": 7.0, "aesthetic_score": 6.0, "artifact_ratio": 0.05},
-        original_bytes=b"orig",
-        generated_bytes=b"gen",
-    ))
+    all_passed, results, report = _run(
+        runner.run_global_gates(
+            {"identity_match": 7.0, "aesthetic_score": 6.0, "artifact_ratio": 0.05},
+            original_bytes=b"orig",
+            generated_bytes=b"gen",
+        )
+    )
     assert all_passed is True
     assert report["identity_match"] == 9.2
     assert report["aesthetic_score"] == 7.5
@@ -143,11 +166,13 @@ def test_global_gates_return_report_with_identity_match():
 def test_no_llm_skips_identity_gate():
     """Without an LLM, identity_match gate can't run but does not crash."""
     runner = QualityGateRunner(llm=None)
-    results = _run(runner.run_gates(
-        {"identity_match": 7.0},
-        original_bytes=b"orig",
-        generated_bytes=b"gen",
-    ))
+    results = _run(
+        runner.run_gates(
+            {"identity_match": 7.0},
+            original_bytes=b"orig",
+            generated_bytes=b"gen",
+        )
+    )
     # No reference quality payload -> identity_match value is None -> pass-through.
     assert len(results) == 1
     assert results[0].passed is True
@@ -159,11 +184,13 @@ def test_llm_failure_uses_default_quality():
     llm.analyze_image = AsyncMock(side_effect=Exception("LLM down"))
 
     runner = QualityGateRunner(llm=llm)
-    results = _run(runner.run_gates(
-        {"aesthetic_score": 6.0},
-        original_bytes=None,
-        generated_bytes=b"gen",
-    ))
+    results = _run(
+        runner.run_gates(
+            {"aesthetic_score": 6.0},
+            original_bytes=None,
+            generated_bytes=b"gen",
+        )
+    )
     assert len(results) == 1
     assert results[0].gate_name == "aesthetic_score"
     assert results[0].value == 5.0
@@ -178,15 +205,21 @@ def test_global_gates_surface_quality_check_failed_when_llm_errors():
     warning — never silently "pass" the identity_match gate.
     """
     llm = MagicMock()
-    llm.compare_images = AsyncMock(side_effect=ValueError("LLM returned non-object JSON"))
-    llm.analyze_image = AsyncMock(side_effect=ValueError("LLM returned non-object JSON"))
+    llm.compare_images = AsyncMock(
+        side_effect=ValueError("LLM returned non-object JSON")
+    )
+    llm.analyze_image = AsyncMock(
+        side_effect=ValueError("LLM returned non-object JSON")
+    )
 
     runner = QualityGateRunner(llm=llm)
-    all_passed, results, report = _run(runner.run_global_gates(
-        {"identity_match": 7.0},
-        original_bytes=b"orig",
-        generated_bytes=b"gen",
-    ))
+    all_passed, results, report = _run(
+        runner.run_global_gates(
+            {"identity_match": 7.0},
+            original_bytes=b"orig",
+            generated_bytes=b"gen",
+        )
+    )
 
     assert report["quality_check_failed"] is True
     # identity_match is unknown when the VLM failed — surfaced as None
@@ -200,37 +233,45 @@ def test_global_gates_surface_quality_check_failed_when_llm_errors():
 
 def test_global_gates_no_check_failed_on_success():
     """Successful VLM path must not set the quality_check_failed flag."""
-    llm = _llm_returning({
-        "identity_match": 8.0,
-        "aesthetic_score": 7.0,
-        "artifact_ratio": 0.02,
-        "is_photorealistic": True,
-    })
+    llm = _llm_returning(
+        {
+            "identity_match": 8.0,
+            "aesthetic_score": 7.0,
+            "artifact_ratio": 0.02,
+            "is_photorealistic": True,
+        }
+    )
 
     runner = QualityGateRunner(llm=llm)
-    _, _, report = _run(runner.run_global_gates(
-        {"identity_match": 7.0},
-        original_bytes=b"orig",
-        generated_bytes=b"gen",
-    ))
+    _, _, report = _run(
+        runner.run_global_gates(
+            {"identity_match": 7.0},
+            original_bytes=b"orig",
+            generated_bytes=b"gen",
+        )
+    )
     assert report["quality_check_failed"] is False
 
 
 def test_photorealism_gate_passes():
-    llm = _llm_returning({
-        "aesthetic_score": 7.0,
-        "artifact_ratio": 0.01,
-        "is_photorealistic": True,
-        "photorealism_confidence": 0.9,
-        "details": "clean photo",
-    })
+    llm = _llm_returning(
+        {
+            "aesthetic_score": 7.0,
+            "artifact_ratio": 0.01,
+            "is_photorealistic": True,
+            "photorealism_confidence": 0.9,
+            "details": "clean photo",
+        }
+    )
 
     runner = QualityGateRunner(llm=llm)
-    results = _run(runner.run_gates(
-        {"photorealism": 0.5},
-        original_bytes=None,
-        generated_bytes=b"gen",
-    ))
+    results = _run(
+        runner.run_gates(
+            {"photorealism": 0.5},
+            original_bytes=None,
+            generated_bytes=b"gen",
+        )
+    )
     assert len(results) == 1
     assert results[0].gate_name == "photorealism"
     assert results[0].passed is True
@@ -238,20 +279,24 @@ def test_photorealism_gate_passes():
 
 
 def test_photorealism_gate_fails():
-    llm = _llm_returning({
-        "aesthetic_score": 6.0,
-        "artifact_ratio": 0.05,
-        "is_photorealistic": False,
-        "photorealism_confidence": 0.3,
-        "details": "looks artificial",
-    })
+    llm = _llm_returning(
+        {
+            "aesthetic_score": 6.0,
+            "artifact_ratio": 0.05,
+            "is_photorealistic": False,
+            "photorealism_confidence": 0.3,
+            "details": "looks artificial",
+        }
+    )
 
     runner = QualityGateRunner(llm=llm)
-    results = _run(runner.run_gates(
-        {"photorealism": 0.5},
-        original_bytes=None,
-        generated_bytes=b"gen",
-    ))
+    results = _run(
+        runner.run_gates(
+            {"photorealism": 0.5},
+            original_bytes=None,
+            generated_bytes=b"gen",
+        )
+    )
     assert len(results) == 1
     assert results[0].gate_name == "photorealism"
     assert results[0].passed is False

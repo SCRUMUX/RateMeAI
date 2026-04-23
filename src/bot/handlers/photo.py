@@ -27,17 +27,29 @@ async def _check_mode_flags(redis: Redis, user_id: int) -> dict | None:
     rating_flag = await redis.get(f"ratemeai:rating_mode:{user_id}")
     if rating_flag:
         await redis.delete(f"ratemeai:rating_mode:{user_id}")
-        kb = InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text="\u2b50 Получить рейтинг", callback_data="mode:rating")],
-        ])
+        kb = InlineKeyboardMarkup(
+            inline_keyboard=[
+                [
+                    InlineKeyboardButton(
+                        text="\u2b50 Получить рейтинг", callback_data="mode:rating"
+                    )
+                ],
+            ]
+        )
         return {"text": "\u2b50 Анализирую фото для рейтинга:", "kb": kb}
 
     emoji_flag = await redis.get(f"ratemeai:emoji_mode:{user_id}")
     if emoji_flag:
         await redis.delete(f"ratemeai:emoji_mode:{user_id}")
-        kb = InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text="\U0001f600 Создать эмодзи", callback_data="mode:emoji")],
-        ])
+        kb = InlineKeyboardMarkup(
+            inline_keyboard=[
+                [
+                    InlineKeyboardButton(
+                        text="\U0001f600 Создать эмодзи", callback_data="mode:emoji"
+                    )
+                ],
+            ]
+        )
         return {"text": "\U0001f600 Создаю эмодзи-стикер:", "kb": kb}
 
     return None
@@ -89,7 +101,9 @@ async def _run_preflight(message: Message, file_id: str) -> InputQualityReport |
             lines.append(f"• {issue.message} {issue.suggestion}".rstrip())
         lines.append("")
         lines.append("Пришли другое фото или набери /photo\\_help для подробностей.")
-        await message.answer("\n".join(lines), parse_mode="Markdown", reply_markup=back_keyboard())
+        await message.answer(
+            "\n".join(lines), parse_mode="Markdown", reply_markup=back_keyboard()
+        )
         return None
     return report
 
@@ -111,7 +125,9 @@ async def handle_photo(message: Message, redis: Redis, api_base_url: str):
     try:
         photo = message.photo[-1]
         user_id = message.from_user.id
-        logger.info("Photo received from user %s, file_id=%s", user_id, photo.file_id[:20])
+        logger.info(
+            "Photo received from user %s, file_id=%s", user_id, photo.file_id[:20]
+        )
 
         if not await ensure_consents(message, redis, api_base_url):
             return
@@ -125,18 +141,27 @@ async def handle_photo(message: Message, redis: Redis, api_base_url: str):
 
         mode_redirect = await _check_mode_flags(redis, user_id)
         if mode_redirect:
-            await message.answer(mode_redirect["text"], reply_markup=mode_redirect["kb"])
+            await message.answer(
+                mode_redirect["text"], reply_markup=mode_redirect["kb"]
+            )
             return
 
-        text = "Выбери направление, и я подберу лучший образ:" + _format_soft_warnings(report)
+        text = "Выбери направление, и я подберу лучший образ:" + _format_soft_warnings(
+            report
+        )
         await message.answer(
             text,
             reply_markup=scenario_keyboard(),
             parse_mode="Markdown",
         )
     except Exception:
-        logger.exception("handle_photo failed for user %s", message.from_user.id if message.from_user else "?")
-        await message.answer("Произошла ошибка при обработке фото. Попробуй /start", parse_mode=None)
+        logger.exception(
+            "handle_photo failed for user %s",
+            message.from_user.id if message.from_user else "?",
+        )
+        await message.answer(
+            "Произошла ошибка при обработке фото. Попробуй /start", parse_mode=None
+        )
 
 
 @router.message(F.document)
@@ -151,15 +176,22 @@ async def handle_document(message: Message, redis: Redis, api_base_url: str):
             if report is None:
                 return
 
-            await redis.set(PHOTO_KEY.format(user_id), message.document.file_id, ex=86400)
+            await redis.set(
+                PHOTO_KEY.format(user_id), message.document.file_id, ex=86400
+            )
             await _reset_depth(redis, user_id)
 
             mode_redirect = await _check_mode_flags(redis, user_id)
             if mode_redirect:
-                await message.answer(mode_redirect["text"], reply_markup=mode_redirect["kb"])
+                await message.answer(
+                    mode_redirect["text"], reply_markup=mode_redirect["kb"]
+                )
                 return
 
-            text = "Выбери направление, и я подберу лучший образ:" + _format_soft_warnings(report)
+            text = (
+                "Выбери направление, и я подберу лучший образ:"
+                + _format_soft_warnings(report)
+            )
             await message.answer(
                 text,
                 reply_markup=scenario_keyboard(),
@@ -171,5 +203,10 @@ async def handle_document(message: Message, redis: Redis, api_base_url: str):
                 reply_markup=back_keyboard(),
             )
     except Exception:
-        logger.exception("handle_document failed for user %s", message.from_user.id if message.from_user else "?")
-        await message.answer("Произошла ошибка при обработке файла. Попробуй /start", parse_mode=None)
+        logger.exception(
+            "handle_document failed for user %s",
+            message.from_user.id if message.from_user else "?",
+        )
+        await message.answer(
+            "Произошла ошибка при обработке файла. Попробуй /start", parse_mode=None
+        )

@@ -9,6 +9,7 @@ broke every edit call after the 2026-04-21 regression. These tests
 lock the fix in. /create and /remix branches have been retired; see
 docs/architecture/reserved.md.
 """
+
 from __future__ import annotations
 
 from src.providers.image_gen.reve_provider import ReveImageGen

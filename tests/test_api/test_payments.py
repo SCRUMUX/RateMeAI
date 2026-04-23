@@ -5,6 +5,7 @@
 ``edge_client`` (monkeypatch ``deployment_mode=edge``). Отдельные тесты ниже
 подтверждают, что на primary те же эндпоинты отдают 410.
 """
+
 from __future__ import annotations
 
 from unittest.mock import AsyncMock, patch
@@ -14,7 +15,11 @@ def _register_user(client, telegram_id: int = 888001) -> tuple[str, str]:
     """Register user and return (user_id, session_token)."""
     r = client.post(
         "/api/v1/auth/telegram",
-        json={"telegram_id": telegram_id, "username": "pay_tester", "first_name": "Pay"},
+        json={
+            "telegram_id": telegram_id,
+            "username": "pay_tester",
+            "first_name": "Pay",
+        },
     )
     assert r.status_code == 200, r.text
     data = r.json()
@@ -84,7 +89,11 @@ def test_webhook_ignored_non_succeeded(edge_client):
     assert r.json()["status"] == "ignored"
 
 
-@patch("src.api.v1.payments._verify_payment_server_side", new_callable=AsyncMock, return_value=None)
+@patch(
+    "src.api.v1.payments._verify_payment_server_side",
+    new_callable=AsyncMock,
+    return_value=None,
+)
 @patch("src.api.v1.payments._is_trusted_ip", return_value=False)
 def test_webhook_untrusted_ip_rejected(mock_ip, mock_verify, edge_client):
     body = _webhook_body("pay_untrust_001", "00000000-0000-0000-0000-000000000099", 5)
@@ -115,7 +124,9 @@ def test_webhook_returns_410_on_primary(client):
     любой может засыпать бэкенд фейковыми событиями, а в самых неудачных
     раскладах (тестовые креды) это приведёт к зачислению кредитов.
     """
-    body = _webhook_body("pay_primary_blocked", "00000000-0000-0000-0000-000000000000", 5)
+    body = _webhook_body(
+        "pay_primary_blocked", "00000000-0000-0000-0000-000000000000", 5
+    )
     r = client.post("/api/v1/payments/yookassa/webhook", json=body)
     assert r.status_code == 410, r.text
     assert r.json()["detail"] == "payments_disabled_on_primary"

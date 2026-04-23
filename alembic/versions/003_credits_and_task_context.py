@@ -5,6 +5,7 @@ Revises: 002
 Create Date: 2026-04-04
 
 """
+
 from typing import Sequence, Union
 
 from alembic import op
@@ -18,18 +19,32 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    op.add_column("users", sa.Column("image_credits", sa.Integer(), nullable=False, server_default="1"))
+    op.add_column(
+        "users",
+        sa.Column("image_credits", sa.Integer(), nullable=False, server_default="1"),
+    )
     op.add_column("tasks", sa.Column("context", sa.JSON(), nullable=True))
 
     op.create_table(
         "credit_transactions",
         sa.Column("id", sa.Integer(), primary_key=True, autoincrement=True),
-        sa.Column("user_id", UUID(as_uuid=True), sa.ForeignKey("users.id"), nullable=False, index=True),
+        sa.Column(
+            "user_id",
+            UUID(as_uuid=True),
+            sa.ForeignKey("users.id"),
+            nullable=False,
+            index=True,
+        ),
         sa.Column("amount", sa.Integer(), nullable=False),
         sa.Column("balance_after", sa.Integer(), nullable=False),
         sa.Column("tx_type", sa.String(30), nullable=False),
         sa.Column("payment_id", sa.String(255), nullable=True),
-        sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False),
+        sa.Column(
+            "created_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.func.now(),
+            nullable=False,
+        ),
     )
 
 

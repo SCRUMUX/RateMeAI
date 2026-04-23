@@ -1,9 +1,14 @@
 """Style catalog API — serves catalog data to web / mini-app clients."""
+
 from __future__ import annotations
 
 from fastapi import APIRouter, HTTPException, Query
 
-from src.services.style_catalog import get_catalog_json, get_available_modes, get_style_options
+from src.services.style_catalog import (
+    get_catalog_json,
+    get_available_modes,
+    get_style_options,
+)
 
 router = APIRouter()
 
@@ -15,7 +20,9 @@ async def list_modes():
 
 
 @router.get("/styles")
-async def list_styles(mode: str = Query(..., description="Analysis mode: dating, cv, social")):
+async def list_styles(
+    mode: str = Query(..., description="Analysis mode: dating, cv, social"),
+):
     """Return all styles for the given mode."""
     items = get_catalog_json(mode)
     if not items:

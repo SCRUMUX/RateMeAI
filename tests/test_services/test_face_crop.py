@@ -1,4 +1,5 @@
 """Unit tests for :func:`crop_face_for_pulid` and fallback reasons."""
+
 from __future__ import annotations
 
 import io
@@ -118,7 +119,8 @@ def test_face_bbox_arg_skips_mediapipe_call(monkeypatch):
         return []
 
     monkeypatch.setattr(
-        "src.services.face_crop._detect_faces", _boom,
+        "src.services.face_crop._detect_faces",
+        _boom,
     )
 
     out = crop_face_for_pulid(

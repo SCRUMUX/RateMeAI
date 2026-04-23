@@ -1,4 +1,5 @@
 """Consensus scoring: average multiple LLM calls for reproducible results."""
+
 from __future__ import annotations
 
 import asyncio
@@ -57,7 +58,10 @@ async def consensus_analyze(
     try:
         results = await asyncio.wait_for(
             asyncio.gather(
-                *[llm.analyze_image(image_bytes, prompt, temperature=temperature) for _ in range(n)],
+                *[
+                    llm.analyze_image(image_bytes, prompt, temperature=temperature)
+                    for _ in range(n)
+                ],
                 return_exceptions=True,
             ),
             timeout=_CONSENSUS_WALL_TIMEOUT_S,
@@ -65,7 +69,8 @@ async def consensus_analyze(
     except asyncio.TimeoutError:
         logger.warning(
             "consensus_analyze: wall-clock timeout after %.0fs (n=%d)",
-            _CONSENSUS_WALL_TIMEOUT_S, n,
+            _CONSENSUS_WALL_TIMEOUT_S,
+            n,
         )
         raise TimeoutError(
             f"consensus gather exceeded {_CONSENSUS_WALL_TIMEOUT_S:.0f}s wall clock"

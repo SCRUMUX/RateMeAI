@@ -8,6 +8,7 @@ left at pre-generation values, the `/tasks/history` endpoint and the
 personal-best gamification tracker silently keep the original baseline,
 making the "improvement dynamics" invisible to the user in storage.
 """
+
 from __future__ import annotations
 
 from unittest.mock import AsyncMock, MagicMock
@@ -113,7 +114,9 @@ async def test_cv_writes_all_three_post_scores_to_top_level():
 
     for key in ("trust", "competence", "hireability"):
         delta = result_dict["delta"][key]
-        assert result_dict[key] == delta["post"], f"{key} must be post, got {result_dict[key]}"
+        assert result_dict[key] == delta["post"], (
+            f"{key} must be post, got {result_dict[key]}"
+        )
 
     post_vals = [result_dict[k] for k in ("trust", "competence", "hireability")]
     expected_score_after = round(sum(post_vals) / len(post_vals), 2)

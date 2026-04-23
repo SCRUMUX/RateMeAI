@@ -1,4 +1,5 @@
 """Google OAuth 2.0 Authorization Code flow."""
+
 from __future__ import annotations
 
 import logging

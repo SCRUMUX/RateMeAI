@@ -56,6 +56,7 @@ async def _resolve_link_code(redis: Redis, link_code: str) -> str | None:
 # Universal identity helper
 # ------------------------------------------------------------------
 
+
 async def _find_or_create_by_identity(
     db: AsyncSession,
     provider: str,
@@ -96,12 +97,14 @@ async def _find_or_create_by_identity(
         return owner
 
     if link_to_user is not None:
-        db.add(UserIdentity(
-            user_id=link_to_user.id,
-            provider=provider,
-            external_id=external_id,
-            profile_data=profile_data,
-        ))
+        db.add(
+            UserIdentity(
+                user_id=link_to_user.id,
+                provider=provider,
+                external_id=external_id,
+                profile_data=profile_data,
+            )
+        )
         if display_name and not link_to_user.username:
             link_to_user.username = display_name
         if display_name and not link_to_user.first_name:
@@ -114,12 +117,14 @@ async def _find_or_create_by_identity(
     db.add(user)
     await db.flush()
 
-    db.add(UserIdentity(
-        user_id=user.id,
-        provider=provider,
-        external_id=external_id,
-        profile_data=profile_data,
-    ))
+    db.add(
+        UserIdentity(
+            user_id=user.id,
+            provider=provider,
+            external_id=external_id,
+            profile_data=profile_data,
+        )
+    )
     await db.commit()
     await db.refresh(user)
     return user
@@ -135,7 +140,9 @@ async def _usage_for(user: User, db: AsyncSession) -> UserUsage:
     """
     today = date.today()
     r = await db.execute(
-        select(UsageLog).where(UsageLog.user_id == user.id, UsageLog.usage_date == today)
+        select(UsageLog).where(
+            UsageLog.user_id == user.id, UsageLog.usage_date == today
+        )
     )
     log = r.scalar_one_or_none()
     used = log.count if log else 0
@@ -147,7 +154,9 @@ async def _usage_for(user: User, db: AsyncSession) -> UserUsage:
     )
 
 
-async def _auth_response(user: User, db: AsyncSession, redis: Redis) -> ChannelAuthResponse:
+async def _auth_response(
+    user: User, db: AsyncSession, redis: Redis
+) -> ChannelAuthResponse:
     token = await create_session(redis, user.id)
     usage = await _usage_for(user, db)
     return ChannelAuthResponse(session_token=token, user_id=user.id, usage=usage)
@@ -172,6 +181,7 @@ async def _identities_list(db: AsyncSession, user_id) -> list[LinkedIdentity]:
 # Telegram auth (identity-first, no legacy fallback)
 # ------------------------------------------------------------------
 
+
 def _verify_telegram_init_data(init_data: str, bot_token: str) -> int | None:
     """Validate Telegram WebApp init_data hash. Returns telegram user id or None."""
     import hashlib
@@ -184,13 +194,13 @@ def _verify_telegram_init_data(init_data: str, bot_token: str) -> int | None:
     if not received_hash:
         return None
 
-    items = sorted(
-        (k, v[0]) for k, v in parsed.items()
-    )
+    items = sorted((k, v[0]) for k, v in parsed.items())
     data_check_string = "\n".join(f"{k}={v}" for k, v in items)
 
     secret_key = hmac.new(b"WebAppData", bot_token.encode(), hashlib.sha256).digest()
-    calculated_hash = hmac.new(secret_key, data_check_string.encode(), hashlib.sha256).hexdigest()
+    calculated_hash = hmac.new(
+        secret_key, data_check_string.encode(), hashlib.sha256
+    ).hexdigest()
 
     if not hmac.compare_digest(calculated_hash, received_hash):
         return None
@@ -217,13 +227,17 @@ async def auth_telegram(
             raise HTTPException(status_code=500, detail="Bot token not configured")
         verified_id = _verify_telegram_init_data(body.init_data, bot_token)
         if verified_id is None:
-            raise HTTPException(status_code=401, detail="Invalid Telegram init_data signature")
+            raise HTTPException(
+                status_code=401, detail="Invalid Telegram init_data signature"
+            )
         if verified_id != body.telegram_id:
             raise HTTPException(status_code=401, detail="Telegram ID mismatch")
 
     tg_id_str = str(body.telegram_id)
     user = await _find_or_create_by_identity(
-        db, "telegram", tg_id_str,
+        db,
+        "telegram",
+        tg_id_str,
         display_name=body.username or body.first_name,
         profile_data={"username": body.username, "first_name": body.first_name},
     )
@@ -241,6 +255,7 @@ async def auth_telegram(
 # ------------------------------------------------------------------
 # API client (admin)
 # ------------------------------------------------------------------
+
 
 @router.post("/auth/api-client", response_model=ApiClientCreatedResponse)
 async def create_api_client(
@@ -280,6 +295,7 @@ async def create_api_client(
 # Usage
 # ------------------------------------------------------------------
 
+
 @router.get("/users/me/usage", response_model=UserUsage)
 async def get_my_usage(
     user: User = Depends(get_auth_user),
@@ -287,7 +303,9 @@ async def get_my_usage(
 ):
     today = date.today()
     result = await db.execute(
-        select(UsageLog).where(UsageLog.user_id == user.id, UsageLog.usage_date == today)
+        select(UsageLog).where(
+            UsageLog.user_id == user.id, UsageLog.usage_date == today
+        )
     )
     log = result.scalar_one_or_none()
     used = log.count if log else 0
@@ -304,6 +322,7 @@ async def get_my_usage(
 # OK auth
 # ------------------------------------------------------------------
 
+
 @router.post("/auth/ok", response_model=ChannelAuthResponse)
 async def auth_ok(
     body: OKAuthRequest,
@@ -311,7 +330,9 @@ async def auth_ok(
     redis: Redis = Depends(get_redis),
 ):
     if settings.uses_remote_ai and not settings.ok_app_secret_key.strip():
-        raise HTTPException(status_code=503, detail="OK Mini App auth not configured on this server")
+        raise HTTPException(
+            status_code=503, detail="OK Mini App auth not configured on this server"
+        )
 
     from src.channels.ok_auth import verify_ok_auth_sig
 
@@ -326,6 +347,7 @@ async def auth_ok(
 # VK auth (mini app)
 # ------------------------------------------------------------------
 
+
 @router.post("/auth/vk", response_model=ChannelAuthResponse)
 async def auth_vk(
     body: VKAuthRequest,
@@ -333,13 +355,17 @@ async def auth_vk(
     redis: Redis = Depends(get_redis),
 ):
     if settings.uses_remote_ai and not settings.vk_app_secret.strip():
-        raise HTTPException(status_code=503, detail="VK Mini App auth not configured on this server")
+        raise HTTPException(
+            status_code=503, detail="VK Mini App auth not configured on this server"
+        )
 
     from src.channels.vk_auth import verify_vk_launch_params
 
     vk_user_id = verify_vk_launch_params(body.launch_params)
     if vk_user_id is None:
-        raise HTTPException(status_code=401, detail="Invalid VK launch params signature")
+        raise HTTPException(
+            status_code=401, detail="Invalid VK launch params signature"
+        )
 
     user = await _find_or_create_by_identity(db, "vk", vk_user_id)
     return await _auth_response(user, db, redis)
@@ -348,6 +374,7 @@ async def auth_vk(
 # ------------------------------------------------------------------
 # Web (anonymous / device-based) auth
 # ------------------------------------------------------------------
+
 
 @router.post("/auth/web", response_model=ChannelAuthResponse)
 async def auth_web(
@@ -363,6 +390,7 @@ async def auth_web(
 # Yandex ID OAuth
 # ------------------------------------------------------------------
 
+
 @router.post("/auth/yandex/init", response_model=OAuthInitResponse)
 async def yandex_oauth_init(
     body: OAuthInitRequest,
@@ -377,7 +405,8 @@ async def yandex_oauth_init(
     link_user_id = await _resolve_link_code(redis, body.link_code)
 
     await save_oauth_state(
-        redis, state,
+        redis,
+        state,
         provider="yandex",
         device_id=body.device_id,
         link_user_id=link_user_id,
@@ -415,10 +444,13 @@ async def yandex_oauth_callback(
     link_to = None
     if link_user_id:
         import uuid as _uuid
+
         link_to = await db.get(User, _uuid.UUID(link_user_id))
 
     user = await _find_or_create_by_identity(
-        db, "yandex", yandex_user.id,
+        db,
+        "yandex",
+        yandex_user.id,
         display_name=yandex_user.display_name,
         profile_data={
             "login": yandex_user.login,
@@ -439,13 +471,16 @@ async def yandex_oauth_callback(
 # Google OAuth
 # ------------------------------------------------------------------
 
+
 @router.post("/auth/google/init", response_model=OAuthInitResponse)
 async def google_oauth_init(
     body: OAuthInitRequest,
     redis: Redis = Depends(get_redis),
 ):
     if not settings.google_client_id or not settings.google_client_secret:
-        raise HTTPException(status_code=503, detail="Google OAuth not configured on this server")
+        raise HTTPException(
+            status_code=503, detail="Google OAuth not configured on this server"
+        )
 
     from src.channels.google_auth import build_authorize_url
     from src.services.oauth_state import save_oauth_state
@@ -456,7 +491,8 @@ async def google_oauth_init(
     link_user_id = await _resolve_link_code(redis, body.link_code)
 
     await save_oauth_state(
-        redis, state,
+        redis,
+        state,
         provider="google",
         device_id=body.device_id,
         link_user_id=link_user_id,
@@ -508,10 +544,13 @@ async def google_oauth_callback(
     link_to = None
     if link_user_id:
         import uuid as _uuid
+
         link_to = await db.get(User, _uuid.UUID(link_user_id))
 
     user = await _find_or_create_by_identity(
-        db, "google", google_user.id,
+        db,
+        "google",
+        google_user.id,
         display_name=google_user.name,
         profile_data={
             "email": google_user.email,
@@ -532,6 +571,7 @@ async def google_oauth_callback(
 # VK ID OAuth
 # ------------------------------------------------------------------
 
+
 @router.post("/auth/vk-id/init", response_model=OAuthInitResponse)
 async def vk_id_oauth_init(
     body: OAuthInitRequest,
@@ -540,7 +580,9 @@ async def vk_id_oauth_init(
     if settings.uses_remote_ai and (
         not settings.vk_id_app_id.strip() or not settings.vk_id_app_secret.strip()
     ):
-        raise HTTPException(status_code=503, detail="VK ID OAuth not configured on this server")
+        raise HTTPException(
+            status_code=503, detail="VK ID OAuth not configured on this server"
+        )
 
     from src.channels.vk_id_auth import build_authorize_url
     from src.services.oauth_state import generate_pkce, save_oauth_state
@@ -553,7 +595,8 @@ async def vk_id_oauth_init(
     link_user_id = await _resolve_link_code(redis, body.link_code)
 
     await save_oauth_state(
-        redis, state,
+        redis,
+        state,
         provider="vk_id",
         code_verifier=code_verifier,
         device_id=device_id,
@@ -599,10 +642,16 @@ async def vk_id_oauth_callback(
     redirect_uri = f"{settings.api_base_url}/api/v1/auth/vk-id/callback"
 
     if not device_id:
-        logger.warning("VK ID callback: device_id not returned by VK, using stored fallback")
+        logger.warning(
+            "VK ID callback: device_id not returned by VK, using stored fallback"
+        )
 
     access_token = await exchange_code(
-        code, redirect_uri, code_verifier, vk_device_id, state,
+        code,
+        redirect_uri,
+        code_verifier,
+        vk_device_id,
+        state,
     )
     if not access_token:
         raise HTTPException(status_code=401, detail="VK ID token exchange failed")
@@ -611,18 +660,19 @@ async def vk_id_oauth_callback(
     if vk_user is None or not vk_user.user_id:
         raise HTTPException(status_code=401, detail="Failed to fetch VK ID user info")
 
-    display = " ".join(
-        n for n in (vk_user.first_name, vk_user.last_name) if n
-    ) or None
+    display = " ".join(n for n in (vk_user.first_name, vk_user.last_name) if n) or None
 
     link_user_id = stored.get("link_user_id")
     link_to = None
     if link_user_id:
         import uuid as _uuid
+
         link_to = await db.get(User, _uuid.UUID(link_user_id))
 
     user = await _find_or_create_by_identity(
-        db, "vk_id", vk_user.user_id,
+        db,
+        "vk_id",
+        vk_user.user_id,
         display_name=display,
         profile_data={
             "first_name": vk_user.first_name,
@@ -677,7 +727,9 @@ async def phone_verify(
 
     if stored_code is None:
         raise HTTPException(status_code=400, detail="Code expired or not requested")
-    if (stored_code.decode() if isinstance(stored_code, bytes) else stored_code) != body.code:
+    if (
+        stored_code.decode() if isinstance(stored_code, bytes) else stored_code
+    ) != body.code:
         raise HTTPException(status_code=401, detail="Invalid code")
 
     await redis.delete(key)
@@ -686,10 +738,13 @@ async def phone_verify(
     link_user_id = await _resolve_link_code(redis, body.link_code)
     if link_user_id:
         import uuid as _uuid
+
         link_to = await db.get(User, _uuid.UUID(link_user_id))
 
     user = await _find_or_create_by_identity(
-        db, "phone", phone,
+        db,
+        "phone",
+        phone,
         profile_data={"phone": f"+{phone}"},
         link_to_user=link_to,
     )
@@ -699,6 +754,7 @@ async def phone_verify(
 # ------------------------------------------------------------------
 # Identity listing
 # ------------------------------------------------------------------
+
 
 @router.get("/users/me/identities", response_model=UserIdentitiesResponse)
 async def get_my_identities(
@@ -714,6 +770,7 @@ async def get_my_identities(
 # ------------------------------------------------------------------
 # Universal Link Token (cross-platform account linking)
 # ------------------------------------------------------------------
+
 
 def _generate_link_code() -> str:
     alphabet = string.ascii_uppercase + string.digits
@@ -752,13 +809,16 @@ async def claim_link(
     await redis.delete(key)
 
     import uuid as _uuid
+
     target_user_id = _uuid.UUID(raw)
     target_user = await db.get(User, target_user_id)
     if target_user is None:
         raise HTTPException(status_code=404, detail="Link code owner not found")
 
     user = await _find_or_create_by_identity(
-        db, body.provider, body.external_id,
+        db,
+        body.provider,
+        body.external_id,
         profile_data=body.profile_data,
         link_to_user=target_user,
     )
@@ -766,7 +826,9 @@ async def claim_link(
     return await _claim_link_response(user, db, redis)
 
 
-async def _claim_link_response(user: User, db: AsyncSession, redis: Redis) -> ClaimLinkResponse:
+async def _claim_link_response(
+    user: User, db: AsyncSession, redis: Redis
+) -> ClaimLinkResponse:
     token = await create_session(redis, user.id)
     usage = await _usage_for(user, db)
     identities = await _identities_list(db, user.id)

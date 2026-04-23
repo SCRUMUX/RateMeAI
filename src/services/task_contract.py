@@ -56,9 +56,9 @@ def build_policy_flags(
     flags["delete_after_process"] = bool(
         flags.get("delete_after_process", delete_after_process)
     )
-    flags["retention_policy"] = str(
-        flags.get("retention_policy", retention_policy)
-    ).strip() or retention_policy
+    flags["retention_policy"] = (
+        str(flags.get("retention_policy", retention_policy)).strip() or retention_policy
+    )
     flags["data_class"] = str(flags.get("data_class", data_class)).strip() or data_class
     flags["single_provider_call"] = bool(
         flags.get("single_provider_call", single_provider_call)
@@ -117,11 +117,7 @@ def build_task_context(
     merged_artifacts = dict(ctx.get("artifact_refs") or {})
     if artifact_refs:
         merged_artifacts.update(
-            {
-                str(key): str(value)
-                for key, value in artifact_refs.items()
-                if value
-            }
+            {str(key): str(value) for key, value in artifact_refs.items() if value}
         )
     if merged_artifacts:
         ctx["artifact_refs"] = merged_artifacts

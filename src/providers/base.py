@@ -4,7 +4,11 @@ from abc import ABC, abstractmethod
 class LLMProvider(ABC):
     @abstractmethod
     async def analyze_image(
-        self, image_bytes: bytes, prompt: str, *, temperature: float = 0.7,
+        self,
+        image_bytes: bytes,
+        prompt: str,
+        *,
+        temperature: float = 0.7,
     ) -> dict:
         """Send image + prompt to vision model, return parsed JSON."""
 

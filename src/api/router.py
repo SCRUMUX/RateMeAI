@@ -16,7 +16,9 @@ from src.api.v1.users_data import router as users_data_router
 
 api_router = APIRouter()
 api_router.include_router(analyze_router, prefix="/analyze", tags=["analyze"])
-api_router.include_router(pre_analyze_router, prefix="/pre-analyze", tags=["pre-analyze"])
+api_router.include_router(
+    pre_analyze_router, prefix="/pre-analyze", tags=["pre-analyze"]
+)
 api_router.include_router(tasks_router, prefix="/tasks", tags=["tasks"])
 api_router.include_router(share_router, prefix="/share", tags=["share"])
 api_router.include_router(users_router, tags=["users"])

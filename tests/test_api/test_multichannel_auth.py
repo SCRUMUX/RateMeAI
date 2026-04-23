@@ -1,4 +1,5 @@
 """Tests for multi-channel authentication endpoints."""
+
 from __future__ import annotations
 
 from unittest.mock import patch
@@ -20,21 +21,27 @@ def test_auth_web_idempotent(client):
 
 
 def test_auth_ok_rejects_bad_sig(client):
-    r = client.post("/api/v1/auth/ok", json={
-        "logged_user_id": "12345",
-        "session_key": "sess_key",
-        "auth_sig": "bad_sig",
-    })
+    r = client.post(
+        "/api/v1/auth/ok",
+        json={
+            "logged_user_id": "12345",
+            "session_key": "sess_key",
+            "auth_sig": "bad_sig",
+        },
+    )
     assert r.status_code == 401
 
 
 @patch("src.channels.ok_auth.verify_ok_auth_sig", return_value=True)
 def test_auth_ok_success(mock_verify, client):
-    r = client.post("/api/v1/auth/ok", json={
-        "logged_user_id": "ok_user_001",
-        "session_key": "sess",
-        "auth_sig": "valid",
-    })
+    r = client.post(
+        "/api/v1/auth/ok",
+        json={
+            "logged_user_id": "ok_user_001",
+            "session_key": "sess",
+            "auth_sig": "valid",
+        },
+    )
     assert r.status_code == 200
     data = r.json()
     assert "session_token" in data

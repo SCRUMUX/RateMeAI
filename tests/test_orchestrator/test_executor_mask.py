@@ -11,6 +11,7 @@ now handled locally via ``src.services.postprocess``:
 3. ``crop_to_aspect`` is invoked for CV document styles only.
 4. Exactly ONE Reve call per single_pass (cost invariant).
 """
+
 from __future__ import annotations
 
 import io

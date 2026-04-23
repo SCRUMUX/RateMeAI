@@ -20,7 +20,9 @@ class EmojiService:
 
         prompt = self._prompt_engine.build(AnalysisMode.EMOJI)
         raw = await consensus_analyze(
-            self._llm, image_bytes, prompt,
+            self._llm,
+            image_bytes,
+            prompt,
             temperature=settings.scoring_temperature,
             n=settings.scoring_consensus_samples,
         )

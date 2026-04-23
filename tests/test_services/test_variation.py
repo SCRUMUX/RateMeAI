@@ -1,4 +1,5 @@
 """Tests for StyleVariant rotation with Redis-backed anti-repeat memory."""
+
 from __future__ import annotations
 
 import pytest
@@ -39,16 +40,22 @@ class _FakeRedis:
         return key in self._sets
 
 
-def _make_spec(variant_ids: list[str], mode: str = "dating", key: str = "yoga_outdoor") -> StyleSpec:
+def _make_spec(
+    variant_ids: list[str], mode: str = "dating", key: str = "yoga_outdoor"
+) -> StyleSpec:
     variants = tuple(
         StyleVariant(id=vid, scene=f"scene-{vid}", lighting="warm light")
         for vid in variant_ids
     )
     return StyleSpec(
-        key=key, mode=mode,
-        background="placeholder", clothing_male="placeholder",
-        clothing_female="placeholder", lighting="warm",
-        expression="gentle", variants=variants,
+        key=key,
+        mode=mode,
+        background="placeholder",
+        clothing_male="placeholder",
+        clothing_female="placeholder",
+        lighting="warm",
+        expression="gentle",
+        variants=variants,
     )
 
 

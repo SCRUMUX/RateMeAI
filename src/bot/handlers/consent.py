@@ -5,6 +5,7 @@ consents) the bot shows an inline keyboard with two grant buttons and a
 link to the privacy policy. Both consents are required before any photo
 is forwarded to the analysis pipeline.
 """
+
 from __future__ import annotations
 
 import logging
@@ -45,29 +46,39 @@ def _consent_keyboard(
 ) -> InlineKeyboardMarkup:
     buttons: list[list[InlineKeyboardButton]] = []
     if "data_processing" in missing:
-        buttons.append([
-            InlineKeyboardButton(
-                text="\u2705 Согласен на обработку ПДн",
-                callback_data="consent:grant:data_processing",
-            )
-        ])
+        buttons.append(
+            [
+                InlineKeyboardButton(
+                    text="\u2705 Согласен на обработку ПДн",
+                    callback_data="consent:grant:data_processing",
+                )
+            ]
+        )
     if "ai_transfer" in missing:
-        buttons.append([
-            InlineKeyboardButton(
-                text="\u2705 Согласен на передачу во внешние AI",
-                callback_data="consent:grant:ai_transfer",
-            )
-        ])
+        buttons.append(
+            [
+                InlineKeyboardButton(
+                    text="\u2705 Согласен на передачу во внешние AI",
+                    callback_data="consent:grant:ai_transfer",
+                )
+            ]
+        )
     if "age_confirmed_16" in missing:
-        buttons.append([
+        buttons.append(
+            [
+                InlineKeyboardButton(
+                    text="\u2705 Мне 16 лет или больше",
+                    callback_data="consent:grant:age_confirmed_16",
+                )
+            ]
+        )
+    buttons.append(
+        [
             InlineKeyboardButton(
-                text="\u2705 Мне 16 лет или больше",
-                callback_data="consent:grant:age_confirmed_16",
+                text="\U0001f4dc Политика конфиденциальности", url=privacy_url
             )
-        ])
-    buttons.append([
-        InlineKeyboardButton(text="\U0001f4dc Политика конфиденциальности", url=privacy_url)
-    ])
+        ]
+    )
     return InlineKeyboardMarkup(inline_keyboard=buttons)
 
 
@@ -174,7 +185,8 @@ async def on_consent_grant(
     headers = await get_bot_auth_headers(redis, user.id)
     if not headers:
         await callback.answer(
-            "Нужна авторизация. Нажми /start.", show_alert=True,
+            "Нужна авторизация. Нажми /start.",
+            show_alert=True,
         )
         return
 

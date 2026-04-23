@@ -6,6 +6,7 @@ numerics, and the "no reference → error" invariant. The wire protocol
 (queue submit / poll / fetch) is already covered by the shared FAL
 queue tests via :class:`FalQueueClient`.
 """
+
 from __future__ import annotations
 
 import base64
@@ -101,8 +102,12 @@ def test_body_honours_retry_params_from_executor():
     body = gen._build_body(
         "retry prompt",
         _jpeg_bytes(),
-        {"pulid_mode": "fidelity", "id_scale": 1.2,
-         "num_inference_steps": 8, "guidance_scale": 1.4},
+        {
+            "pulid_mode": "fidelity",
+            "id_scale": 1.2,
+            "num_inference_steps": 8,
+            "guidance_scale": 1.4,
+        },
     )
     assert body["mode"] == "fidelity"
     assert body["id_scale"] == 1.2
@@ -113,7 +118,8 @@ def test_body_honours_retry_params_from_executor():
 def test_body_clamps_out_of_range_id_scale():
     gen = _make_gen()
     body = gen._build_body(
-        "x", _jpeg_bytes(),
+        "x",
+        _jpeg_bytes(),
         {"id_scale": 99.0},
     )
     assert body["id_scale"] == 5.0
@@ -126,12 +132,12 @@ def test_body_clamps_steps_to_lightning_max():
     gen = _make_gen()
     for requested in (13, 25, 50, 200):
         body = gen._build_body(
-            "x", _jpeg_bytes(),
+            "x",
+            _jpeg_bytes(),
             {"num_inference_steps": requested},
         )
         assert body["num_inference_steps"] == 12, (
-            f"steps={requested} must clamp to 12, got "
-            f"{body['num_inference_steps']}"
+            f"steps={requested} must clamp to 12, got {body['num_inference_steps']}"
         )
 
 
@@ -141,12 +147,12 @@ def test_body_clamps_guidance_to_lightning_max():
     gen = _make_gen()
     for requested in (1.6, 3.5, 5.0, 25.0):
         body = gen._build_body(
-            "x", _jpeg_bytes(),
+            "x",
+            _jpeg_bytes(),
             {"guidance_scale": requested},
         )
         assert body["guidance_scale"] == 1.5, (
-            f"guidance={requested} must clamp to 1.5, got "
-            f"{body['guidance_scale']}"
+            f"guidance={requested} must clamp to 1.5, got {body['guidance_scale']}"
         )
 
 
@@ -160,7 +166,8 @@ def test_body_defaults_honour_pulid_lightning_schema():
     assert body_default["guidance_scale"] <= 1.5
 
     body_extras = gen._build_body(
-        "x", _jpeg_bytes(),
+        "x",
+        _jpeg_bytes(),
         {"num_inference_steps": 999, "guidance_scale": 42.0},
     )
     assert body_extras["num_inference_steps"] <= 12
@@ -183,7 +190,8 @@ def test_body_ships_negative_prompt_by_default():
 def test_body_honours_custom_negative_prompt():
     gen = _make_gen()
     body = gen._build_body(
-        "x", _jpeg_bytes(),
+        "x",
+        _jpeg_bytes(),
         {"negative_prompt": "custom negative override"},
     )
     assert body["negative_prompt"] == "custom negative override"
@@ -198,16 +206,16 @@ def test_body_does_not_ship_max_sequence_length():
     body = gen._build_body("x", _jpeg_bytes(), None)
     assert "max_sequence_length" not in body
     body_with_extras = gen._build_body(
-        "x", _jpeg_bytes(), {"max_sequence_length": 512},
+        "x",
+        _jpeg_bytes(),
+        {"max_sequence_length": 512},
     )
     assert "max_sequence_length" not in body_with_extras
 
 
 def test_body_seed_default_is_random_int():
     gen = _make_gen()
-    bodies = [
-        gen._build_body("x", _jpeg_bytes(), None) for _ in range(3)
-    ]
+    bodies = [gen._build_body("x", _jpeg_bytes(), None) for _ in range(3)]
     seeds = {b["seed"] for b in bodies}
     assert all(isinstance(s, int) and 1 <= s < 2**31 for s in seeds)
     assert len(seeds) > 1
@@ -216,7 +224,8 @@ def test_body_seed_default_is_random_int():
 def test_body_accepts_custom_image_size_dict():
     gen = _make_gen()
     body = gen._build_body(
-        "x", _jpeg_bytes(),
+        "x",
+        _jpeg_bytes(),
         {"image_size": {"width": 1024, "height": 1536}},
     )
     assert body["image_size"] == {"width": 1024, "height": 1536}
@@ -225,7 +234,9 @@ def test_body_accepts_custom_image_size_dict():
 def test_body_rejects_unknown_preset_falls_back_to_default():
     gen = _make_gen(default_image_size="portrait_4_3")
     body = gen._build_body(
-        "x", _jpeg_bytes(), {"image_size": "vertical_banana"},
+        "x",
+        _jpeg_bytes(),
+        {"image_size": "vertical_banana"},
     )
     assert body["image_size"] == "portrait_4_3"
 
@@ -234,7 +245,8 @@ def test_body_accepts_extra_reference_faces():
     gen = _make_gen()
     extra_face = _jpeg_bytes(color=(50, 60, 70))
     body = gen._build_body(
-        "x", _jpeg_bytes(),
+        "x",
+        _jpeg_bytes(),
         {"extra_reference_faces": [extra_face]},
     )
     assert len(body["reference_images"]) == 2

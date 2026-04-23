@@ -1,4 +1,5 @@
 """Tests for session token management."""
+
 from __future__ import annotations
 
 import uuid
@@ -11,6 +12,7 @@ from src.services.sessions import create_session, resolve_session, revoke_sessio
 @pytest.fixture
 def fake_redis(tmp_path):
     """In-memory dict-based fake Redis for unit tests."""
+
     class FakeRedis:
         def __init__(self):
             self._store = {}

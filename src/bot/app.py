@@ -123,14 +123,19 @@ async def main():
     logger.info(
         "Bot traffic pinned to %s (edge_api_url=%s, api_base_url=%s) — "
         "auth/payments/tasks live on RU-edge, AI is proxied to primary.",
-        bot_api_url, settings.edge_api_url or "<empty>", settings.api_base_url,
+        bot_api_url,
+        settings.edge_api_url or "<empty>",
+        settings.api_base_url,
     )
     bot = create_bot()
     redis = Redis.from_url(settings.redis_url, decode_responses=True)
     dp = create_dispatcher(redis)
 
     if settings.bot_webhook_url:
-        from aiogram.webhook.aiohttp_server import SimpleRequestHandler, setup_application
+        from aiogram.webhook.aiohttp_server import (
+            SimpleRequestHandler,
+            setup_application,
+        )
 
         parsed = urlparse(settings.bot_webhook_url)
         wh_path = parsed.path or "/webhook"
@@ -150,20 +155,31 @@ async def main():
         setup_application(app, dp, bot=bot)
 
         await _start_health_server(app)
-        logger.info("Bot webhook listening on 0.0.0.0:%s%s", int(os.environ.get("PORT", "8080")), wh_path)
+        logger.info(
+            "Bot webhook listening on 0.0.0.0:%s%s",
+            int(os.environ.get("PORT", "8080")),
+            wh_path,
+        )
         await asyncio.Event().wait()
     else:
         await _start_health_server()
-        logger.info("Bot health server started on 0.0.0.0:%s", os.environ.get("PORT", "8080"))
+        logger.info(
+            "Bot health server started on 0.0.0.0:%s", os.environ.get("PORT", "8080")
+        )
         await bot.delete_webhook(drop_pending_updates=False)
-        logger.info("Webhook deleted, waiting for old instances to release polling lock...")
+        logger.info(
+            "Webhook deleted, waiting for old instances to release polling lock..."
+        )
         await asyncio.sleep(3)
         logger.info("Starting bot in polling mode (single replica recommended).")
         await dp.start_polling(
             bot,
             allowed_updates=[
-                "message", "callback_query", "edited_message",
-                "channel_post", "inline_query",
+                "message",
+                "callback_query",
+                "edited_message",
+                "channel_post",
+                "inline_query",
             ],
         )
 

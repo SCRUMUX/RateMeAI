@@ -55,6 +55,7 @@ prompting guide):
 * ``aspect_ratio`` is caller-controlled (executor derives it from the
   StyleSpec), with ``auto`` as the backstop.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -87,10 +88,25 @@ _QUALITY_TO_RESOLUTION: dict[str, str] = {
     "high": "2K",
 }
 
-_VALID_ASPECT_RATIOS = frozenset({
-    "auto", "21:9", "16:9", "3:2", "4:3", "5:4", "1:1",
-    "4:5", "3:4", "2:3", "9:16", "4:1", "1:4", "8:1", "1:8",
-})
+_VALID_ASPECT_RATIOS = frozenset(
+    {
+        "auto",
+        "21:9",
+        "16:9",
+        "3:2",
+        "4:3",
+        "5:4",
+        "1:1",
+        "4:5",
+        "3:4",
+        "2:3",
+        "9:16",
+        "4:1",
+        "1:4",
+        "8:1",
+        "1:8",
+    }
+)
 
 _VALID_THINKING_LEVELS = frozenset({"minimal", "high"})
 _VALID_SAFETY_TOLERANCES = frozenset({"1", "2", "3", "4", "5", "6"})
@@ -142,9 +158,7 @@ class FalNanoBanana2Edit(FalQueueClient, ImageGenProvider):
         fmt = (output_format or "jpeg").lower()
         self._output_format = fmt if fmt in ("jpeg", "png") else "jpeg"
         self._default_quality = (
-            default_quality
-            if default_quality in _QUALITY_TO_RESOLUTION
-            else "medium"
+            default_quality if default_quality in _QUALITY_TO_RESOLUTION else "medium"
         )
 
     async def close(self) -> None:
@@ -263,7 +277,10 @@ class FalNanoBanana2Edit(FalQueueClient, ImageGenProvider):
     ) -> bytes:
         assert_external_transfer_allowed("fal_nano_banana_2")
         raw = await asyncio.to_thread(
-            self._generate_sync, prompt, reference_image, params,
+            self._generate_sync,
+            prompt,
+            reference_image,
+            params,
         )
         if raw and len(raw) > 100:
             return raw

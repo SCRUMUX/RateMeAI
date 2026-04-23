@@ -1,4 +1,5 @@
 """Bot utilities for working with Telegram-uploaded photos."""
+
 from __future__ import annotations
 
 import io

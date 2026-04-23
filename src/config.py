@@ -2,7 +2,9 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
+    model_config = SettingsConfigDict(
+        env_file=".env", env_file_encoding="utf-8", extra="ignore"
+    )
 
     # Telegram
     telegram_bot_token: str = ""
@@ -271,18 +273,18 @@ class Settings(BaseSettings):
     #   edit); 4K tier retired — added latency/cost without a perceptible
     #   realism gain. Price per image matches medium (same pixel budget).
     nano_banana_model: str = "fal-ai/nano-banana-2/edit"
-    model_cost_fal_nano_banana_low: float = 0.08     # 1K  (1024px long edge)
+    model_cost_fal_nano_banana_low: float = 0.08  # 1K  (1024px long edge)
     model_cost_fal_nano_banana_medium: float = 0.12  # 2K  (2048px long edge)
-    model_cost_fal_nano_banana_high: float = 0.12    # 2K + thinking=high
+    model_cost_fal_nano_banana_high: float = 0.12  # 2K + thinking=high
 
     # GPT Image 2 Edit (OpenAI ChatGPT Images 2.0 via fal).
     # https://fal.ai/models/openai/gpt-image-2/edit
     # Token-based pricing. Per-tier averages below assume a 1-reference
     # portrait edit with our standard prompt length.
     gpt_image_2_model: str = "openai/gpt-image-2/edit"
-    model_cost_gpt_image_2_low: float = 0.02     # 1024² output
+    model_cost_gpt_image_2_low: float = 0.02  # 1024² output
     model_cost_gpt_image_2_medium: float = 0.06  # 1536² output
-    model_cost_gpt_image_2_high: float = 0.25    # 2048² output
+    model_cost_gpt_image_2_high: float = 0.25  # 2048² output
 
     # Segmentation / multi-pass pipeline.
     # Segmentation is DISABLED because Reve SDK 0.1.2 does not accept a

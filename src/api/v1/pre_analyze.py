@@ -67,7 +67,9 @@ async def pre_analyze(
     redis: Redis = Depends(get_redis),
 ):
     if mode not in (AnalysisMode.DATING, AnalysisMode.CV, AnalysisMode.SOCIAL):
-        raise HTTPException(status_code=400, detail="Pre-analyze supports dating, cv, social modes only")
+        raise HTTPException(
+            status_code=400, detail="Pre-analyze supports dating, cv, social modes only"
+        )
 
     content_type = image.content_type or ""
     if not content_type.startswith("image/"):
@@ -121,6 +123,7 @@ async def pre_analyze(
     if settings.uses_remote_ai:
         import base64 as _b64
         from src.services.remote_ai import get_remote_ai, RemoteAIError
+
         try:
             remote = get_remote_ai()
             result_data = await remote.pre_analyze(
@@ -137,7 +140,10 @@ async def pre_analyze(
             return resp
         except RemoteAIError as exc:
             logger.error("Edge pre-analyze proxy failed: %s", exc)
-            raise HTTPException(status_code=502, detail=f"Не удалось выполнить анализ через основной сервер: {exc}") from exc
+            raise HTTPException(
+                status_code=502,
+                detail=f"Не удалось выполнить анализ через основной сервер: {exc}",
+            ) from exc
 
     mode_router = _get_router()
     service = mode_router.get_service(mode)
@@ -150,11 +156,17 @@ async def pre_analyze(
             result = await service.analyze(image_bytes)
     LLM_CALLS.labels(purpose=f"preanalyze_{mode.value}").inc()
 
-    raw_dict = result if isinstance(result, dict) else (result.model_dump() if hasattr(result, "model_dump") else result)
+    raw_dict = (
+        result
+        if isinstance(result, dict)
+        else (result.model_dump() if hasattr(result, "model_dump") else result)
+    )
 
     is_safe, reason = extract_nsfw_from_analysis(raw_dict)
     if not is_safe:
-        raise HTTPException(status_code=400, detail=f"Фото не прошло модерацию: {reason}")
+        raise HTTPException(
+            status_code=400, detail=f"Фото не прошло модерацию: {reason}"
+        )
 
     if isinstance(result, RatingResult):
         result_dict = result.model_dump()
@@ -215,6 +227,10 @@ def _extract_composite_score(mode: AnalysisMode, d: dict) -> float:
     if mode == AnalysisMode.SOCIAL:
         return _safe_float(d.get("social_score"))
     if mode == AnalysisMode.CV:
-        vals = [_safe_float(d.get(k)) for k in ("trust", "competence", "hireability") if d.get(k) is not None]
+        vals = [
+            _safe_float(d.get(k))
+            for k in ("trust", "competence", "hireability")
+            if d.get(k) is not None
+        ]
         return round(sum(vals) / len(vals), 2) if vals else 0.0
     return 0.0

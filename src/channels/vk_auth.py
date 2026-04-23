@@ -1,4 +1,5 @@
 """VK Mini Apps launch-parameter verification."""
+
 from __future__ import annotations
 
 import base64
@@ -29,9 +30,13 @@ def verify_vk_launch_params(query_string: str) -> str | None:
     vk_params = {k: v[0] for k, v in sorted(params.items()) if k.startswith("vk_")}
     param_string = urlencode(vk_params)
 
-    expected = base64.urlsafe_b64encode(
-        hmac.new(secret.encode(), param_string.encode(), hashlib.sha256).digest()
-    ).decode().rstrip("=")
+    expected = (
+        base64.urlsafe_b64encode(
+            hmac.new(secret.encode(), param_string.encode(), hashlib.sha256).digest()
+        )
+        .decode()
+        .rstrip("=")
+    )
 
     if not hmac.compare_digest(expected, sign_value):
         return None

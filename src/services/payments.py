@@ -1,4 +1,5 @@
 """YooKassa payment integration service."""
+
 from __future__ import annotations
 
 import asyncio
@@ -86,12 +87,17 @@ async def create_payment(
 
     try:
         payment = await asyncio.to_thread(
-            Payment.create, params, uuid.uuid4(),
+            Payment.create,
+            params,
+            uuid.uuid4(),
         )
         url = payment.confirmation.confirmation_url
         logger.info(
             "Payment created: id=%s user=%s pack=%s url=%s",
-            payment.id, user_id, pack_qty, url,
+            payment.id,
+            user_id,
+            pack_qty,
+            url,
         )
         return payment.id, url
     except Exception:

@@ -4,6 +4,7 @@ LLM answers sometimes leak HTML tags, markdown fences, JSON keys or
 control characters. The sanitizer must always produce plain Russian
 prose safe to show in the web UI and in Telegram messages.
 """
+
 from __future__ import annotations
 
 import pytest
@@ -46,7 +47,9 @@ from src.utils.text_sanitize import sanitize_llm_text
         ),
     ],
 )
-def test_sanitize_strips_markup(raw: str, must_contain: str, must_not_contain: str) -> None:
+def test_sanitize_strips_markup(
+    raw: str, must_contain: str, must_not_contain: str
+) -> None:
     cleaned = sanitize_llm_text(raw)
     assert must_contain in cleaned
     assert must_not_contain not in cleaned

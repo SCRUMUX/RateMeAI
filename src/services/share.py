@@ -61,7 +61,9 @@ def _draw_ai_watermark(draw: ImageDraw.ImageDraw) -> None:
         (x, y),
         (x + text_w + 2 * pad_x, y + text_h + 2 * pad_y),
     ]
-    draw.rounded_rectangle(box, radius=20, fill=(0, 0, 0, 160), outline=(255, 255, 255), width=1)
+    draw.rounded_rectangle(
+        box, radius=20, fill=(0, 0, 0, 160), outline=(255, 255, 255), width=1
+    )
     draw.text(
         (x + pad_x, y + pad_y - 2),
         label,
@@ -104,7 +106,13 @@ class ShareCardGenerator:
 
         # Score
         score_text = f"{result.score:.1f}/10"
-        draw.text((CARD_WIDTH // 2, y), score_text, fill=ACCENT_COLOR, font=font_large, anchor="mt")
+        draw.text(
+            (CARD_WIDTH // 2, y),
+            score_text,
+            fill=ACCENT_COLOR,
+            font=font_large,
+            anchor="mt",
+        )
         y += 80
 
         # Perception metrics bar
@@ -130,7 +138,12 @@ class ShareCardGenerator:
                     radius=10,
                     fill=ACCENT_COLOR,
                 )
-            draw.text((bar_x + bar_w + 15, y), f"{value:.1f}", fill=TEXT_COLOR, font=font_small)
+            draw.text(
+                (bar_x + bar_w + 15, y),
+                f"{value:.1f}",
+                fill=TEXT_COLOR,
+                font=font_small,
+            )
             y += 40
 
         y += 10
@@ -149,7 +162,13 @@ class ShareCardGenerator:
             insight = result.insights[0]
             if len(insight) > 70:
                 insight = insight[:67] + "..."
-            draw.text((CARD_WIDTH // 2, y), f"«{insight}»", fill=SUBTEXT_COLOR, font=font_small, anchor="mt")
+            draw.text(
+                (CARD_WIDTH // 2, y),
+                f"«{insight}»",
+                fill=SUBTEXT_COLOR,
+                font=font_small,
+                anchor="mt",
+            )
             y += 40
 
         # Deep link / branding

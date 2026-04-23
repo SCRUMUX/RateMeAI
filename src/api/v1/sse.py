@@ -4,6 +4,7 @@ Web / mini-app clients can subscribe to SSE instead of polling.
 Supports short-lived SSE tickets to avoid exposing long-lived session
 tokens in query strings (which appear in logs and proxy caches).
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -42,7 +43,9 @@ async def create_sse_ticket(
 async def _resolve_sse_user(
     request: Request,
     token: str | None = Query(None, description="Bearer token (legacy, prefer ticket)"),
-    ticket: str | None = Query(None, description="Short-lived SSE ticket from POST /sse/ticket"),
+    ticket: str | None = Query(
+        None, description="Short-lived SSE ticket from POST /sse/ticket"
+    ),
     db: AsyncSession = Depends(get_db),
 ) -> User:
     """Resolve user from Authorization header, SSE ticket, or legacy query ?token=."""
@@ -95,7 +98,7 @@ async def task_progress_stream(
     task = result.scalar_one_or_none()
     if task is None or task.user_id != user.id:
         return StreamingResponse(
-            iter(["data: {\"error\": \"task_not_found\"}\n\n"]),
+            iter(['data: {"error": "task_not_found"}\n\n']),
             media_type="text/event-stream",
             status_code=404,
         )
@@ -134,7 +137,9 @@ async def task_progress_stream(
                 if await request.is_disconnected():
                     break
 
-                msg = await pubsub.get_message(ignore_subscribe_messages=True, timeout=1.0)
+                msg = await pubsub.get_message(
+                    ignore_subscribe_messages=True, timeout=1.0
+                )
                 if msg and msg["type"] == "message":
                     data = msg["data"]
                     if isinstance(data, bytes):

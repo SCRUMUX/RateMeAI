@@ -9,6 +9,7 @@ We capture the task context by wrapping :class:`src.models.task.Task`'s
 constructor so we can inspect the ``context`` kwarg the endpoint
 assembles without touching the ORM session.
 """
+
 from __future__ import annotations
 
 import io
@@ -28,7 +29,9 @@ _CONSENT_HEADERS = {
 def _valid_jpeg(size: tuple[int, int] = (1024, 1024)) -> bytes:
     buf = io.BytesIO()
     Image.new("RGB", size, color=(128, 128, 128)).save(
-        buf, format="JPEG", quality=90,
+        buf,
+        format="JPEG",
+        quality=90,
     )
     return buf.getvalue()
 
@@ -65,6 +68,7 @@ class _TaskCtxCapture:
 
     def __enter__(self):
         from src.models.db import Task
+
         self._orig_init = Task.__init__
         capture = self
 
@@ -84,7 +88,10 @@ class _TaskCtxCapture:
 @patch("src.api.v1.analyze._get_arq", new_callable=AsyncMock)
 @patch("src.api.v1.analyze.get_storage")
 def test_analyze_accepts_known_ab_model(
-    mock_get_storage, mock_get_arq, client, monkeypatch,
+    mock_get_storage,
+    mock_get_arq,
+    client,
+    monkeypatch,
 ):
     monkeypatch.setattr(settings, "ab_test_enabled", True)
     storage = MagicMock()
@@ -116,7 +123,10 @@ def test_analyze_accepts_known_ab_model(
 @patch("src.api.v1.analyze._get_arq", new_callable=AsyncMock)
 @patch("src.api.v1.analyze.get_storage")
 def test_analyze_unknown_model_falls_back_to_default(
-    mock_get_storage, mock_get_arq, client, monkeypatch,
+    mock_get_storage,
+    mock_get_arq,
+    client,
+    monkeypatch,
 ):
     """v1.22: A/B became the default; unknown model → ab_default_model."""
     monkeypatch.setattr(settings, "ab_test_enabled", True)
@@ -151,7 +161,10 @@ def test_analyze_unknown_model_falls_back_to_default(
 @patch("src.api.v1.analyze._get_arq", new_callable=AsyncMock)
 @patch("src.api.v1.analyze.get_storage")
 def test_analyze_unknown_quality_falls_back_to_default(
-    mock_get_storage, mock_get_arq, client, monkeypatch,
+    mock_get_storage,
+    mock_get_arq,
+    client,
+    monkeypatch,
 ):
     monkeypatch.setattr(settings, "ab_test_enabled", True)
     monkeypatch.setattr(settings, "ab_default_quality", "medium")
@@ -183,7 +196,10 @@ def test_analyze_unknown_quality_falls_back_to_default(
 @patch("src.api.v1.analyze._get_arq", new_callable=AsyncMock)
 @patch("src.api.v1.analyze.get_storage")
 def test_analyze_ignores_ab_fields_when_feature_flag_off(
-    mock_get_storage, mock_get_arq, client, monkeypatch,
+    mock_get_storage,
+    mock_get_arq,
+    client,
+    monkeypatch,
 ):
     monkeypatch.setattr(settings, "ab_test_enabled", False)
     storage = MagicMock()
@@ -214,7 +230,10 @@ def test_analyze_ignores_ab_fields_when_feature_flag_off(
 @patch("src.api.v1.analyze._get_arq", new_callable=AsyncMock)
 @patch("src.api.v1.analyze.get_storage")
 def test_analyze_without_ab_fields_defaults_to_gpt_image_2_low(
-    mock_get_storage, mock_get_arq, client, monkeypatch,
+    mock_get_storage,
+    mock_get_arq,
+    client,
+    monkeypatch,
 ):
     """v1.22: when the client omits both fields (old bot / curl),
     the endpoint still routes through A/B using the configured

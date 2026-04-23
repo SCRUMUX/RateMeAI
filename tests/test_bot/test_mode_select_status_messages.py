@@ -15,12 +15,15 @@ Markdown-италик, и Telegram вернёт:
 `parse_mode=None`. Этот статический тест проверяет, что данное правило
 не откатят случайной правкой.
 """
+
 from __future__ import annotations
 
 import ast
 from pathlib import Path
 
-MODE_SELECT = Path(__file__).resolve().parents[2] / "src" / "bot" / "handlers" / "mode_select.py"
+MODE_SELECT = (
+    Path(__file__).resolve().parents[2] / "src" / "bot" / "handlers" / "mode_select.py"
+)
 
 
 def _collect_edit_text_calls_in(func_name: str) -> list[ast.Call]:
@@ -57,7 +60,9 @@ def test_submit_analysis_edit_text_never_uses_markdown() -> None:
         # Допускаем только parse_mode=None.
         value = parse_mode_kw.value
         if not (isinstance(value, ast.Constant) and value.value is None):
-            offenders.append(f"line {call.lineno}: parse_mode={ast.unparse(value)} (expected None)")
+            offenders.append(
+                f"line {call.lineno}: parse_mode={ast.unparse(value)} (expected None)"
+            )
 
     assert not offenders, (
         "edit_text in error branches must disable Markdown to avoid "

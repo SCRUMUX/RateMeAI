@@ -18,6 +18,7 @@ What we still guard:
 2. ``input_hints`` is accepted without crashing and does **not**
    introduce the old framing-note sentence for any face ratio.
 """
+
 from __future__ import annotations
 
 from src.prompts.image_gen import (

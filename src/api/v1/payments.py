@@ -1,4 +1,5 @@
 """YooKassa payment webhook and API endpoints."""
+
 from __future__ import annotations
 
 import logging
@@ -37,8 +38,11 @@ def _ensure_edge_only() -> None:
 
 
 _YOOKASSA_IP_RANGES = (
-    "185.71.76.", "185.71.77.",
-    "77.75.153.", "77.75.154.", "77.75.156.",
+    "185.71.76.",
+    "185.71.77.",
+    "77.75.153.",
+    "77.75.154.",
+    "77.75.156.",
     "2a02:5180:0:",
 )
 
@@ -55,6 +59,7 @@ async def _verify_payment_server_side(payment_id: str) -> dict | None:
         return None
     try:
         from src.services.payments import fetch_payment
+
         payment = await fetch_payment(payment_id)
         if payment and payment.status == "succeeded":
             meta = payment.metadata or {}
@@ -63,7 +68,11 @@ async def _verify_payment_server_side(payment_id: str) -> dict | None:
                 "pack_qty": meta.get("pack_qty"),
                 "status": payment.status,
             }
-        logger.warning("Server-side verify: payment %s status=%s", payment_id, getattr(payment, "status", "?"))
+        logger.warning(
+            "Server-side verify: payment %s status=%s",
+            payment_id,
+            getattr(payment, "status", "?"),
+        )
     except Exception:
         logger.exception("Failed to verify payment %s server-side", payment_id)
     return None
@@ -76,23 +85,38 @@ async def yookassa_webhook(
     redis=Depends(get_redis),
 ):
     _ensure_edge_only()
-    client_ip = request.headers.get("x-forwarded-for", "").split(",")[0].strip() or request.client.host
+    client_ip = (
+        request.headers.get("x-forwarded-for", "").split(",")[0].strip()
+        or request.client.host
+    )
     body = await request.json()
     event = body.get("event", "")
     payment_obj = body.get("object", {})
     payment_id = payment_obj.get("id", "unknown")
     status = payment_obj.get("status", "")
 
-    logger.info("YooKassa webhook: event=%s payment=%s status=%s ip=%s", event, payment_id, status, client_ip)
+    logger.info(
+        "YooKassa webhook: event=%s payment=%s status=%s ip=%s",
+        event,
+        payment_id,
+        status,
+        client_ip,
+    )
 
     if event != "payment.succeeded" or status != "succeeded":
         return {"status": "ignored", "event": event}
 
     if not _is_trusted_ip(client_ip):
-        logger.warning("Untrusted webhook IP %s for payment %s — verifying server-side", client_ip, payment_id)
+        logger.warning(
+            "Untrusted webhook IP %s for payment %s — verifying server-side",
+            client_ip,
+            payment_id,
+        )
         verified = await _verify_payment_server_side(payment_id)
         if not verified:
-            logger.error("Payment %s verification failed from IP %s", payment_id, client_ip)
+            logger.error(
+                "Payment %s verification failed from IP %s", payment_id, client_ip
+            )
             raise HTTPException(status_code=403, detail="Untrusted source")
         user_id_str = verified["user_id"]
         pack_qty_str = verified["pack_qty"]
@@ -108,7 +132,9 @@ async def yookassa_webhook(
     try:
         pack_qty = int(pack_qty_str)
     except (ValueError, TypeError):
-        logger.error("Invalid pack_qty=%r in payment %s metadata", pack_qty_str, payment_id)
+        logger.error(
+            "Invalid pack_qty=%r in payment %s metadata", pack_qty_str, payment_id
+        )
         return {"status": "error", "detail": "invalid pack_qty in metadata"}
 
     existing = await db.execute(
@@ -121,25 +147,34 @@ async def yookassa_webhook(
     try:
         user = await db.get(User, _uuid.UUID(user_id_str))
     except (ValueError, TypeError):
-        logger.error("Invalid user_id=%r in payment %s metadata", user_id_str, payment_id)
+        logger.error(
+            "Invalid user_id=%r in payment %s metadata", user_id_str, payment_id
+        )
         return {"status": "error", "detail": "invalid user_id in metadata"}
     if user is None:
-        logger.error("User not found for user_id=%s payment=%s", user_id_str, payment_id)
+        logger.error(
+            "User not found for user_id=%s payment=%s", user_id_str, payment_id
+        )
         raise HTTPException(status_code=404, detail="User not found")
 
     user.image_credits += pack_qty
-    db.add(CreditTransaction(
-        user_id=user.id,
-        amount=pack_qty,
-        balance_after=user.image_credits,
-        tx_type="purchase",
-        payment_id=payment_id,
-    ))
+    db.add(
+        CreditTransaction(
+            user_id=user.id,
+            amount=pack_qty,
+            balance_after=user.image_credits,
+            tx_type="purchase",
+            payment_id=payment_id,
+        )
+    )
     await db.commit()
 
     logger.info(
         "Credits added: user=%s +%d credits, new_balance=%d, payment=%s",
-        user.id, pack_qty, user.image_credits, payment_id,
+        user.id,
+        pack_qty,
+        user.image_credits,
+        payment_id,
     )
 
     try:
@@ -181,6 +216,7 @@ async def create_payment_link(
         raise HTTPException(status_code=400, detail="pack_qty is required (integer)")
 
     from src.services.payments import create_payment as _create
+
     result = await _create(str(user.id), pack_qty, return_channel="web")
     if not result:
         raise HTTPException(status_code=500, detail="Payment creation failed")
@@ -197,7 +233,10 @@ async def get_balance(
 
 
 async def _notify_user_channels(
-    user: User, pack_qty: int, new_balance: int, db: AsyncSession,
+    user: User,
+    pack_qty: int,
+    new_balance: int,
+    db: AsyncSession,
 ) -> None:
     """Send payment confirmation to all linked channels that support push."""
     result = await db.execute(
@@ -231,12 +270,19 @@ async def _notify_telegram(telegram_id: int, pack_qty: int, new_balance: int) ->
     url = f"https://api.telegram.org/bot{token}/sendMessage"
     try:
         async with httpx.AsyncClient(timeout=10.0) as client:
-            resp = await client.post(url, json={
-                "chat_id": telegram_id,
-                "text": text,
-                "parse_mode": "Markdown",
-            })
+            resp = await client.post(
+                url,
+                json={
+                    "chat_id": telegram_id,
+                    "text": text,
+                    "parse_mode": "Markdown",
+                },
+            )
             if resp.status_code != 200:
-                logger.warning("Telegram notify failed: %s %s", resp.status_code, resp.text[:200])
+                logger.warning(
+                    "Telegram notify failed: %s %s", resp.status_code, resp.text[:200]
+                )
     except Exception:
-        logger.exception("Failed to send Telegram payment notification to %s", telegram_id)
+        logger.exception(
+            "Failed to send Telegram payment notification to %s", telegram_id
+        )

@@ -3,6 +3,7 @@
 Every generation style is represented as a StyleSpec — a typed, validated dataclass
 that enforces consistent prompt structure across all modes and styles.
 """
+
 from __future__ import annotations
 
 import re
@@ -70,7 +71,8 @@ class StyleVariant:
 
     def clothing_accent_for(self, gender: str = "male") -> str:
         return (
-            self.clothing_female_accent if gender == "female"
+            self.clothing_female_accent
+            if gender == "female"
             else self.clothing_male_accent
         )
 
@@ -80,9 +82,11 @@ class StyleType(str, Enum):
     SEMI_LOCKED = "semi_locked"
     FLEXIBLE = "flexible"
 
+
 @dataclass
 class StructuredStyleSpec:
     """New structured style specification."""
+
     name: str
     type: StyleType
     base_scene: str
@@ -97,7 +101,7 @@ class StructuredStyleSpec:
     energy: str
     photo_style: str
     expression: str = ""
-    
+
     # Legacy fields mapping
     key: str = ""
     mode: str = ""
@@ -116,6 +120,7 @@ class StructuredStyleSpec:
 
     def clothing_for(self, gender: str = "male") -> str:
         return self.clothing
+
 
 @dataclass
 class StyleSpec:
@@ -188,8 +193,12 @@ class StyleSpec:
 # ---------------------------------------------------------------------------
 
 _BANNED_PHRASES = [
-    "abstract", "eclectic mix", "unconventional style",
-    "bold patterns", "unique layering", "flowing fabrics",
+    "abstract",
+    "eclectic mix",
+    "unconventional style",
+    "bold patterns",
+    "unique layering",
+    "flowing fabrics",
 ]
 
 # After the 1.14.3 positive-framing refresh, no "no X" / "without X" /
@@ -215,11 +224,16 @@ def validate_style(spec: StyleSpec) -> list[str]:
     warnings: list[str] = []
 
     is_structured = hasattr(spec, "base_scene")
-    
+
     if is_structured:
         fields_to_check = ("base_scene", "clothing", "emotion")
     else:
-        fields_to_check = ("background", "clothing_male", "clothing_female", "expression")
+        fields_to_check = (
+            "background",
+            "clothing_male",
+            "clothing_female",
+            "expression",
+        )
 
     for fname in fields_to_check:
         if not getattr(spec, fname, "").strip():
@@ -253,8 +267,12 @@ def validate_style(spec: StyleSpec) -> list[str]:
             warnings.append(f"{spec.key}.variants[{variant.id or idx}]: empty lighting")
 
         for vf in (
-            "scene", "lighting", "props", "camera",
-            "clothing_male_accent", "clothing_female_accent",
+            "scene",
+            "lighting",
+            "props",
+            "camera",
+            "clothing_male_accent",
+            "clothing_female_accent",
         ):
             text = getattr(variant, vf, "").lower()
             if not text:
@@ -277,6 +295,7 @@ def validate_style(spec: StyleSpec) -> list[str]:
 # ---------------------------------------------------------------------------
 # Registry
 # ---------------------------------------------------------------------------
+
 
 class StyleRegistry:
     """Central store of all StyleSpec instances with lookup and backward-compat helpers."""
@@ -332,6 +351,7 @@ class StyleRegistry:
 # Legacy migration helpers
 # ---------------------------------------------------------------------------
 
+
 def parse_legacy_style(text: str) -> tuple[str, str]:
     """Split legacy 'Background: ... Clothing: ...' string into (background, clothing)."""
     if "Background:" in text and "Clothing:" in text:
@@ -345,11 +365,30 @@ def parse_legacy_style(text: str) -> tuple[str, str]:
 def extract_lighting(background: str) -> str:
     """Extract lighting-related phrases from a background description."""
     keywords = [
-        "golden-hour", "golden hour", "backlight", "rim light", "soft light",
-        "warm light", "natural light", "daylight", "tungsten", "ambient light",
-        "directional light", "overhead lighting", "even lighting", "soft diffused",
-        "window light", "morning light", "candlelight", "neon", "ring light",
-        "blue hour", "warm ambient", "spotlight", "track lighting", "lamp light",
+        "golden-hour",
+        "golden hour",
+        "backlight",
+        "rim light",
+        "soft light",
+        "warm light",
+        "natural light",
+        "daylight",
+        "tungsten",
+        "ambient light",
+        "directional light",
+        "overhead lighting",
+        "even lighting",
+        "soft diffused",
+        "window light",
+        "morning light",
+        "candlelight",
+        "neon",
+        "ring light",
+        "blue hour",
+        "warm ambient",
+        "spotlight",
+        "track lighting",
+        "lamp light",
     ]
     found = [kw for kw in keywords if kw.lower() in background.lower()]
     return ", ".join(found[:3]) if found else "warm natural light"
@@ -360,8 +399,10 @@ def adapt_female_clothing(male: str) -> str:
     r = male
 
     _full = [
-        ("fitted swim trunks, athletic build, optional sunglasses in hand",
-         "elegant one-piece swimsuit, optional sunglasses, light sarong"),
+        (
+            "fitted swim trunks, athletic build, optional sunglasses in hand",
+            "elegant one-piece swimsuit, optional sunglasses, light sarong",
+        ),
         ("swim trunks", "elegant swimsuit"),
         ("compression shirt", "fitted athletic top"),
         ("athletic tank top", "fitted athletic top"),
@@ -412,8 +453,14 @@ def adapt_female_clothing(male: str) -> str:
 
 
 _SHALLOW_DOF_KEYWORDS = (
-    "bokeh", "blurred background", "blurred city lights", "softly blurred",
-    "soft bokeh", "out of focus", "soft out-of-focus", "defocused",
+    "bokeh",
+    "blurred background",
+    "blurred city lights",
+    "softly blurred",
+    "soft bokeh",
+    "out of focus",
+    "soft out-of-focus",
+    "defocused",
 )
 
 
@@ -435,23 +482,25 @@ def detect_depth_of_field(background: str) -> DepthOfField:
 # read "sport" in the keywords but work fine with half-body crops
 # (studio_gym, locker_room), and we'd rather miss a warning than emit
 # a false-positive that confuses the user.
-_NEEDS_FULL_BODY_KEYS: frozenset[str] = frozenset({
-    # dating — sport / outdoor / water
-    "gym_fitness",
-    "running",
-    "tennis",
-    "swimming_pool",
-    "hiking",
-    "yoga_outdoor",
-    "cycling",
-    "beach_sunset",
-    "yacht",
-    "motorcycle",
-    # social — mirrors of the above
-    "yoga_social",
-    "cycling_social",
-    "in_motion",
-})
+_NEEDS_FULL_BODY_KEYS: frozenset[str] = frozenset(
+    {
+        # dating — sport / outdoor / water
+        "gym_fitness",
+        "running",
+        "tennis",
+        "swimming_pool",
+        "hiking",
+        "yoga_outdoor",
+        "cycling",
+        "beach_sunset",
+        "yacht",
+        "motorcycle",
+        # social — mirrors of the above
+        "yoga_social",
+        "cycling_social",
+        "in_motion",
+    }
+)
 
 
 def detect_needs_full_body(key: str, mode: str) -> bool:
@@ -462,18 +511,20 @@ def detect_needs_full_body(key: str, mode: str) -> bool:
 # Document styles have strict composition requirements (passport / visa /
 # license). Fixed to 1 MP square so we spend less on stylistic detail
 # the spec won't use anyway.
-_DOCUMENT_STYLE_KEYS: frozenset[str] = frozenset({
-    "photo_3x4",
-    "passport_rf",
-    "visa_eu",
-    "visa_schengen",
-    "visa_us",
-    "photo_4x6",
-    "driver_license",
-    "doc_passport_neutral",
-    "doc_visa_compliant",
-    "doc_resume_headshot",
-})
+_DOCUMENT_STYLE_KEYS: frozenset[str] = frozenset(
+    {
+        "photo_3x4",
+        "passport_rf",
+        "visa_eu",
+        "visa_schengen",
+        "visa_us",
+        "photo_4x6",
+        "driver_license",
+        "doc_passport_neutral",
+        "doc_visa_compliant",
+        "doc_resume_headshot",
+    }
+)
 
 
 # Styles that MUST preserve the original photo's scene/background/
@@ -491,25 +542,27 @@ _DOCUMENT_STYLE_KEYS: frozenset[str] = frozenset({
 # Any style not in this set is eligible for PuLID when the face crop
 # succeeds; the router still falls back to Seedream on a ``no_face``
 # crop failure (see ``src/providers/image_gen/style_router.py``).
-_SCENE_PRESERVE_STYLE_KEYS: frozenset[str] = frozenset({
-    # --- cv: all document styles ---
-    "photo_3x4",
-    "passport_rf",
-    "visa_eu",
-    "visa_schengen",
-    "visa_us",
-    "photo_4x6",
-    "driver_license",
-    "doc_passport_neutral",
-    "doc_visa_compliant",
-    "doc_resume_headshot",
-    # --- social: "keep my own photo" styles ---
-    "social_clean",
-    "feed_clean",
-    # --- emoji / cutout / sticker styles ---
-    "emoji_cutout",
-    "sticker_cutout",
-})
+_SCENE_PRESERVE_STYLE_KEYS: frozenset[str] = frozenset(
+    {
+        # --- cv: all document styles ---
+        "photo_3x4",
+        "passport_rf",
+        "visa_eu",
+        "visa_schengen",
+        "visa_us",
+        "photo_4x6",
+        "driver_license",
+        "doc_passport_neutral",
+        "doc_visa_compliant",
+        "doc_resume_headshot",
+        # --- social: "keep my own photo" styles ---
+        "social_clean",
+        "feed_clean",
+        # --- emoji / cutout / sticker styles ---
+        "emoji_cutout",
+        "sticker_cutout",
+    }
+)
 
 
 def detect_generation_mode(key: str, mode: str) -> GenerationMode:
@@ -571,17 +624,21 @@ def build_spec_from_legacy(
     _clothing_female = clothing_female_override or adapt_female_clothing(clothing_male)
     _dof: DepthOfField = depth_of_field or detect_depth_of_field(bg)
     aspect: OutputAspect = output_aspect or detect_output_aspect(key, mode)
-    gen_mode: GenerationMode = (
-        generation_mode or detect_generation_mode(key, mode)
-    )
+    gen_mode: GenerationMode = generation_mode or detect_generation_mode(key, mode)
 
     # Determine type based on content
     type_ = StyleType.FLEXIBLE
-    if key in _DOCUMENT_STYLE_KEYS or "landmark" in bg.lower() or "tower" in bg.lower() or "bridge" in bg.lower() or "colosseum" in bg.lower():
+    if (
+        key in _DOCUMENT_STYLE_KEYS
+        or "landmark" in bg.lower()
+        or "tower" in bg.lower()
+        or "bridge" in bg.lower()
+        or "colosseum" in bg.lower()
+    ):
         type_ = StyleType.SCENE_LOCKED
     elif "cafe" in bg.lower() or "restaurant" in bg.lower() or "studio" in bg.lower():
         type_ = StyleType.SEMI_LOCKED
-        
+
     # Extract allowed variations from variants
     allowed_variations = []
     for v in variants:

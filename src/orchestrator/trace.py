@@ -6,6 +6,7 @@ surface the exact stage (``preprocess`` / ``analyze`` / ``generate_image``
 / ``execute_plan`` / ``post_gen_rescore`` / ``finalize``) in
 ``task.error_message`` without requiring full tracebacks.
 """
+
 from __future__ import annotations
 
 import time
@@ -45,12 +46,16 @@ def trace_step(trace: dict, step_name: str):
         yield entry
     except PipelineStageError:
         entry["ended_at"] = time.time()
-        entry["duration_ms"] = round((entry["ended_at"] - entry["started_at"]) * 1000, 1)
+        entry["duration_ms"] = round(
+            (entry["ended_at"] - entry["started_at"]) * 1000, 1
+        )
         trace["steps"][step_name] = entry
         raise
     except BaseException as exc:
         entry["ended_at"] = time.time()
-        entry["duration_ms"] = round((entry["ended_at"] - entry["started_at"]) * 1000, 1)
+        entry["duration_ms"] = round(
+            (entry["ended_at"] - entry["started_at"]) * 1000, 1
+        )
         entry["error"] = f"{type(exc).__name__}: {str(exc)[:200]}"
         trace["steps"][step_name] = entry
         if isinstance(exc, Exception):
@@ -58,7 +63,9 @@ def trace_step(trace: dict, step_name: str):
         raise
     else:
         entry["ended_at"] = time.time()
-        entry["duration_ms"] = round((entry["ended_at"] - entry["started_at"]) * 1000, 1)
+        entry["duration_ms"] = round(
+            (entry["ended_at"] - entry["started_at"]) * 1000, 1
+        )
         trace["steps"][step_name] = entry
 
 

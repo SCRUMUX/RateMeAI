@@ -17,6 +17,7 @@ scenario whose ``pipeline_profile = "advanced"``.
 
 See ``docs/architecture/reserved.md`` for the roadmap.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -35,7 +36,10 @@ def _get_selfie_segmentor():
     global _selfie_seg
     if _selfie_seg is None:
         import mediapipe as mp
-        _selfie_seg = mp.solutions.selfie_segmentation.SelfieSegmentation(model_selection=1)
+
+        _selfie_seg = mp.solutions.selfie_segmentation.SelfieSegmentation(
+            model_selection=1
+        )
         logger.info("MediaPipe SelfieSegmentation model loaded")
     return _selfie_seg
 
@@ -45,10 +49,13 @@ def _image_to_array(image_bytes: bytes) -> tuple[np.ndarray, Image.Image]:
     return np.array(img), img
 
 
-def _face_bbox_mask(image_bytes: bytes, width: int, height: int, padding: float = 0.15) -> Image.Image | None:
+def _face_bbox_mask(
+    image_bytes: bytes, width: int, height: int, padding: float = 0.15
+) -> Image.Image | None:
     """Build a soft rectangular mask around the dominant face (MediaPipe)."""
     try:
         from src.services.identity import IdentityService
+
         bbox = IdentityService().face_bbox(image_bytes)
         if bbox is None:
             return None
@@ -62,6 +69,7 @@ def _face_bbox_mask(image_bytes: bytes, width: int, height: int, padding: float 
 
         mask = Image.new("L", (width, height), 0)
         from PIL import ImageDraw
+
         draw = ImageDraw.Draw(mask)
         draw.rectangle([x1, y1, x2, y2], fill=255)
         mask = mask.filter(ImageFilter.GaussianBlur(radius=max(bw, bh) * 0.08))

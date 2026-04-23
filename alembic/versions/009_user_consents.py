@@ -12,6 +12,7 @@ Adds the privacy/compliance layer:
 - `tasks.input_image_path` becomes nullable so new tasks can record that the
   original image was never persisted (embedding-only flow).
 """
+
 from typing import Sequence, Union
 
 from alembic import op

@@ -11,6 +11,7 @@ Document-style generations (passport / visa / etc.) are intentionally
 opted out: their scene must stay rigorously uniform and any
 diversification would break compliance.
 """
+
 from __future__ import annotations
 
 import logging
@@ -35,7 +36,9 @@ def _key(user_id: int | str, mode: str, style: str) -> str:
     )
 
 
-async def _load_seen(redis: Redis, user_id: int | str, mode: str, style: str) -> set[str]:
+async def _load_seen(
+    redis: Redis, user_id: int | str, mode: str, style: str
+) -> set[str]:
     raw: Iterable = await redis.smembers(_key(user_id, mode, style))
     seen: set[str] = set()
     for item in raw or ():
@@ -96,7 +99,10 @@ async def resolve_next_variant(
 
 
 async def clear_history(
-    redis: Redis, user_id: int | str, mode: str, style: str,
+    redis: Redis,
+    user_id: int | str,
+    mode: str,
+    style: str,
 ) -> None:
     """Drop the seen-variants history for a single (user, mode, style)."""
     try:

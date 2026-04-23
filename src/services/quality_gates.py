@@ -8,6 +8,7 @@ no face geometry is extracted on our side and nothing is persisted.
 NIQE (Natural Image Quality Evaluator) is a pixel-level naturalness
 metric computed locally (no external transfer).
 """
+
 from __future__ import annotations
 
 import io
@@ -34,6 +35,7 @@ def _get_niqe():
         return _niqe_metric
     try:
         import pyiqa
+
         _niqe_metric = pyiqa.create_metric("niqe", device="cpu")
         _niqe_available = True
         logger.info("pyiqa NIQE metric loaded successfully")
@@ -51,6 +53,7 @@ def compute_niqe_score(image_bytes: bytes) -> float | None:
         return None
     try:
         import torch
+
         img = Image.open(io.BytesIO(image_bytes)).convert("RGB")
         arr = np.array(img).astype(np.float32) / 255.0
         tensor = torch.from_numpy(arr).permute(2, 0, 1).unsqueeze(0)
@@ -74,10 +77,10 @@ QUALITY_CHECK_PROMPT = (
     "for identity preservation. Return ONLY a JSON object with the exact keys below:\n"
     "{\n"
     '  "identity_match": <float 0-10, ONLY when two photos are provided. 10 = clearly the same person '
-    '(same bone structure, facial proportions, age, gender, eye and lip shape); 7-9 = same person with '
-    'minor differences; 4-6 = possibly the same person but significant changes; 0-3 = different person. '
-    'Do NOT perform face recognition or identification — compare based on visible portrait features only. '
-    'Use null if only one photo is provided.>,\n'
+    "(same bone structure, facial proportions, age, gender, eye and lip shape); 7-9 = same person with "
+    "minor differences; 4-6 = possibly the same person but significant changes; 0-3 = different person. "
+    "Do NOT perform face recognition or identification — compare based on visible portrait features only. "
+    "Use null if only one photo is provided.>,\n"
     '  "aesthetic_score": <float 1-10, consider lighting, composition, skin naturalness>,\n'
     '  "artifact_ratio": <float 0.0-1.0, proportion of visible AI artifacts or distortions>,\n'
     '  "is_photorealistic": <bool, true if it looks like a genuine photograph>,\n'
@@ -138,17 +141,25 @@ class QualityGateRunner:
                 # VLM call or JSON parsing failed — report as pass so we do not
                 # block the pipeline, but upstream will see quality_check_failed
                 # in the report and surface a soft warning to the user.
-                results.append(GateResult("identity_match", True, 0.0, gate_spec["identity_match"]))
+                results.append(
+                    GateResult("identity_match", True, 0.0, gate_spec["identity_match"])
+                )
             else:
                 val = quality.get("identity_match")
                 if val is None:
                     # No reference provided or VLM explicitly returned null — treat as
                     # pass to avoid blocking, surface as telemetry only.
-                    results.append(GateResult("identity_match", True, 0.0, gate_spec["identity_match"]))
+                    results.append(
+                        GateResult(
+                            "identity_match", True, 0.0, gate_spec["identity_match"]
+                        )
+                    )
                 else:
                     val = float(val)
                     thr = gate_spec["identity_match"]
-                    results.append(GateResult("identity_match", val >= thr, round(val, 2), thr))
+                    results.append(
+                        GateResult("identity_match", val >= thr, round(val, 2), thr)
+                    )
 
         if "niqe" in gate_spec:
             niqe_score = compute_niqe_score(generated_bytes)
@@ -156,7 +167,13 @@ class QualityGateRunner:
                 thr = gate_spec["niqe"]
                 results.append(GateResult("niqe", niqe_score <= thr, niqe_score, thr))
 
-        _LLM_GATE_KEYS = ("aesthetic_score", "artifact_ratio", "photorealism", "naturalness", "anatomy")
+        _LLM_GATE_KEYS = (
+            "aesthetic_score",
+            "artifact_ratio",
+            "photorealism",
+            "naturalness",
+            "anatomy",
+        )
         llm_gates = {k: v for k, v in gate_spec.items() if k in _LLM_GATE_KEYS}
         if llm_gates and self._llm is not None:
             quality = await self._get_quality_metrics(generated_bytes, original_bytes)
@@ -206,7 +223,9 @@ class QualityGateRunner:
 
         report = {
             "identity_match": quality.get("identity_match"),
-            "niqe_score": next((r.value for r in results if r.gate_name == "niqe"), None),
+            "niqe_score": next(
+                (r.value for r in results if r.gate_name == "niqe"), None
+            ),
             "aesthetic_score": quality.get("aesthetic_score"),
             "artifact_ratio": quality.get("artifact_ratio"),
             "is_photorealistic": quality.get("is_photorealistic"),
@@ -250,11 +269,16 @@ class QualityGateRunner:
         try:
             if reference_bytes is not None and hasattr(self._llm, "compare_images"):
                 result = await self._llm.compare_images(
-                    reference_bytes, image_bytes, QUALITY_CHECK_PROMPT, temperature=0.0,
+                    reference_bytes,
+                    image_bytes,
+                    QUALITY_CHECK_PROMPT,
+                    temperature=0.0,
                 )
             else:
                 result = await self._llm.analyze_image(
-                    image_bytes, QUALITY_CHECK_PROMPT, temperature=0.0,
+                    image_bytes,
+                    QUALITY_CHECK_PROMPT,
+                    temperature=0.0,
                 )
 
             if not isinstance(result, dict):
@@ -280,14 +304,20 @@ class QualityGateRunner:
                 "aesthetic_score": float(result.get("aesthetic_score", 5.0)),
                 "artifact_ratio": float(result.get("artifact_ratio", 0.0)),
                 "is_photorealistic": bool(result.get("is_photorealistic", True)),
-                "photorealism_confidence": float(result.get("photorealism_confidence", 0.5)),
+                "photorealism_confidence": float(
+                    result.get("photorealism_confidence", 0.5)
+                ),
                 "teeth_natural": bool(result.get("teeth_natural", True)),
                 "expression_altered": bool(result.get("expression_altered", False)),
                 "proportions_natural": bool(result.get("proportions_natural", True)),
                 "pose_natural": bool(result.get("pose_natural", True)),
                 "hands_correct": bool(result.get("hands_correct", True)),
-                "hair_outline_preserved": bool(result.get("hair_outline_preserved", True)),
-                "background_consistent": bool(result.get("background_consistent", True)),
+                "hair_outline_preserved": bool(
+                    result.get("hair_outline_preserved", True)
+                ),
+                "background_consistent": bool(
+                    result.get("background_consistent", True)
+                ),
                 "identity_plausible": bool(result.get("identity_plausible", True)),
                 "details": str(result.get("details", "")),
             }

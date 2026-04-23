@@ -14,6 +14,7 @@ These tests pin the contract:
 so the failure surfaces as ``quality_check_failed`` instead of a silent
 bypass.
 """
+
 from __future__ import annotations
 
 import json
@@ -32,7 +33,7 @@ def test_parse_json_returns_dict_as_is():
 
 
 def test_parse_json_strips_markdown_code_fence():
-    text = "```json\n{\"ok\": true}\n```"
+    text = '```json\n{"ok": true}\n```'
     assert OpenRouterLLM._parse_json(text) == {"ok": True}
 
 

@@ -35,6 +35,7 @@ wrappers**:
   ``Keep facial features exactly the same as the reference image.``
   identity anchor (Google / fal reference-edit best practice).
 """
+
 from __future__ import annotations
 
 from typing import Literal
@@ -50,9 +51,7 @@ ModelKey = Literal["nano_banana_2", "gpt_image_2"]
 # tests can assert substring equality).
 # ----------------------------------------------------------------------
 
-CAMERA_BLOCK = (
-    "photorealistic, DSLR, natural depth of field, realistic proportions"
-)
+CAMERA_BLOCK = "photorealistic, DSLR, natural depth of field, realistic proportions"
 
 IDENTITY_BLOCK = (
     "Maintain identity consistency with natural facial structure and "
@@ -65,9 +64,7 @@ ENHANCEMENT_BLOCK = (
     "skin clarity, and balanced features, without altering identity."
 )
 
-OUTPUT_BLOCK = (
-    "high detail, clean composition, realistic background, coherent scene"
-)
+OUTPUT_BLOCK = "high detail, clean composition, realistic background, coherent scene"
 
 # Prepended to the Identity block for Nano Banana so the reference-edit
 # sampler holds the face geometry at full fidelity.
@@ -303,11 +300,7 @@ def _wrap_nano_banana(blocks: dict[str, str]) -> str:
         "proportions, and framing exactly."
     )
 
-    return (
-        f"{identity_paragraph}\n\n"
-        f"{change_paragraph}\n\n"
-        f"{preserve_paragraph}"
-    )
+    return f"{identity_paragraph}\n\n{change_paragraph}\n\n{preserve_paragraph}"
 
 
 def _wrap_gpt_image_2(blocks: dict[str, str]) -> str:
@@ -323,11 +316,13 @@ def _wrap_gpt_image_2(blocks: dict[str, str]) -> str:
     """
     body = _render_blocks(blocks)
     change_line = ", ".join(
-        p for p in (
+        p
+        for p in (
             blocks.get("Scene", ""),
             blocks.get("Style", ""),
             blocks.get("Lighting", ""),
-        ) if p
+        )
+        if p
     )
     preserve_line = (
         f"{blocks.get('Identity & Realism', IDENTITY_BLOCK)} "

@@ -7,6 +7,7 @@ Shared between:
 
 Machine codes here match the ones used in the frontend TS file.
 """
+
 from __future__ import annotations
 
 

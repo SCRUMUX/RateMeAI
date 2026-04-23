@@ -5,6 +5,7 @@ to carry the PRESERVE + QUALITY anchors, short enough not to trip the
 ``INVALID_PARAMETER_VALUE`` edge cases or waste identity tokens on
 boilerplate. Iterates every style in every mode and both genders.
 """
+
 from __future__ import annotations
 
 import pytest
@@ -43,7 +44,9 @@ def test_prompt_under_1200_chars(mode: str, style: str, gender: str) -> None:
 
 
 @pytest.mark.parametrize("mode,style,gender", list(_cases()))
-def test_prompt_contains_preserve_and_photorealistic(mode: str, style: str, gender: str) -> None:
+def test_prompt_contains_preserve_and_photorealistic(
+    mode: str, style: str, gender: str
+) -> None:
     # v1.18: the prompt template now branches on ``generation_mode``.
     # ``scene_preserve`` styles (documents, "keep my own photo") still
     # carry the full PRESERVE_PHOTO + QUALITY_PHOTO anchors. The
@@ -54,7 +57,9 @@ def test_prompt_contains_preserve_and_photorealistic(mode: str, style: str, gend
     # the solo-subject anchor ("reference person" / "Single subject").
     builder = _BUILDERS[mode]
     prompt = builder(style=style, gender=gender)
-    assert "Photorealistic" in prompt, f"Photorealistic anchor missing in {mode}/{style}"
+    assert "Photorealistic" in prompt, (
+        f"Photorealistic anchor missing in {mode}/{style}"
+    )
     generation_mode = detect_generation_mode(style, mode)
     if generation_mode == "scene_preserve":
         assert "Preserve" in prompt, (
@@ -63,9 +68,9 @@ def test_prompt_contains_preserve_and_photorealistic(mode: str, style: str, gend
     else:
         # v1.19: opener says "reference subject" (not "reference
         # person") and SOLO_SUBJECT_ANCHOR moved to the negative_prompt.
-            assert "reference photo" in prompt, (
-                f"identity_scene opener missing in {mode}/{style}"
-            )
+        assert "reference photo" in prompt, (
+            f"identity_scene opener missing in {mode}/{style}"
+        )
 
 
 def test_prompt_max_len_sanity():

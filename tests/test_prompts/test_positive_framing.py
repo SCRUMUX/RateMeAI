@@ -12,6 +12,7 @@ After the Kontext-aligned prompt refresh we guarantee three invariants:
    generation across scenes: ``skin tone`` and ``head-to-`` (matches
    ``head-to-shoulders`` or ``head-to-body``).
 """
+
 from __future__ import annotations
 
 import re
@@ -40,9 +41,14 @@ def _cases():
                 yield mode, style, gender
 
 
-@pytest.mark.parametrize("spec", list(ig.STYLE_REGISTRY.all_for_mode("dating")
-                                      + ig.STYLE_REGISTRY.all_for_mode("cv")
-                                      + ig.STYLE_REGISTRY.all_for_mode("social")))
+@pytest.mark.parametrize(
+    "spec",
+    list(
+        ig.STYLE_REGISTRY.all_for_mode("dating")
+        + ig.STYLE_REGISTRY.all_for_mode("cv")
+        + ig.STYLE_REGISTRY.all_for_mode("social")
+    ),
+)
 def test_validate_style_clean(spec) -> None:
     warnings = validate_style(spec)
     assert warnings == [], f"{spec.mode}/{spec.key}: {warnings}"
@@ -53,9 +59,7 @@ def test_prompt_has_no_negative_framing(mode: str, style: str, gender: str) -> N
     builder = _BUILDERS[mode]
     prompt = builder(style=style, gender=gender)
     hits = _NEGATIVE_TOKEN.findall(prompt)
-    assert hits == [], (
-        f"{mode}/{style}/{gender}: negative framing token(s) {hits}"
-    )
+    assert hits == [], f"{mode}/{style}/{gender}: negative framing token(s) {hits}"
 
 
 @pytest.mark.parametrize("mode,style,gender", list(_cases()))
@@ -71,9 +75,7 @@ def test_prompt_contains_identity_anchors(mode: str, style: str, gender: str) ->
     prompt = builder(style=style, gender=gender)
     generation_mode = detect_generation_mode(style, mode)
     if generation_mode == "scene_preserve":
-        assert "skin tone" in prompt, (
-            f"{mode}/{style}/{gender}: missing 'skin tone'"
-        )
+        assert "skin tone" in prompt, f"{mode}/{style}/{gender}: missing 'skin tone'"
         assert "head-to-" in prompt, (
             f"{mode}/{style}/{gender}: missing 'head-to-*' proportion anchor"
         )
@@ -84,9 +86,9 @@ def test_prompt_contains_identity_anchors(mode: str, style: str, gender: str) ->
         # The SOLO_SUBJECT_ANCHOR was moved out of the POSITIVE prompt
         # and into PuLID's negative_prompt, so it no longer appears
         # here — the PuLID API body carries it instead.
-            assert "reference photo" in prompt, (
-                f"{mode}/{style}/{gender}: identity_scene opener missing"
-            )
+        assert "reference photo" in prompt, (
+            f"{mode}/{style}/{gender}: identity_scene opener missing"
+        )
 
 
 def test_emoji_prompt_has_identity_power_words() -> None:

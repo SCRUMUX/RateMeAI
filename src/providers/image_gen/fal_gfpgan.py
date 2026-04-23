@@ -19,6 +19,7 @@ Pricing
 fal-ai/gfpgan bills ~$0.001–$0.002 per image (flat). We treat it as
 $0.002 for budget math (``settings.model_cost_fal_gfpgan``).
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -96,11 +97,14 @@ class FalGfpganRestorer(FalQueueClient):
 
     def _restore_sync(self, image_bytes: bytes) -> bytes:
         body = self._build_body(
-            prompt=None, reference_image=image_bytes, params=None,
+            prompt=None,
+            reference_image=image_bytes,
+            params=None,
         )
         logger.info(
             "FAL GFPGAN request model=%s input_bytes=%d",
-            self._model, len(image_bytes or b""),
+            self._model,
+            len(image_bytes or b""),
         )
         return self._run_queue_sync(body)
 

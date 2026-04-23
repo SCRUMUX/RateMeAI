@@ -14,6 +14,7 @@ Usage:
 
 Safe to run multiple times; idempotent.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -38,7 +39,9 @@ async def _cleanup(redis_url: str, dry_run: bool) -> int:
         for pattern in patterns:
             cursor = 0
             while True:
-                cursor, batch = await client.scan(cursor=cursor, match=pattern, count=500)
+                cursor, batch = await client.scan(
+                    cursor=cursor, match=pattern, count=500
+                )
                 if batch:
                     if dry_run:
                         for k in batch:

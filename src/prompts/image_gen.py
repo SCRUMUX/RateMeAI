@@ -8,6 +8,7 @@ degrade when handed tag-sectioned layouts ([CHANGE]/[PRESERVE]/
 PRESERVE_PHOTO and QUALITY_PHOTO — cover the semantics that previously
 required 10+ individual constants.
 """
+
 from __future__ import annotations
 
 import logging
@@ -41,11 +42,11 @@ PROMPT_MAX_LEN = 2500
 # of the preset enum gives us the exact pixel count we want rather than
 # whatever the model chooses for the preset name.
 _ASPECT_PIXEL_SIZE: dict[str, tuple[int, int]] = {
-    "square_hd":       (1024, 1024),
-    "portrait_4_3":    (1280, 1600),
-    "portrait_16_9":   (1088, 1920),
-    "landscape_4_3":   (1600, 1280),
-    "landscape_16_9":  (1920, 1088),
+    "square_hd": (1024, 1024),
+    "portrait_4_3": (1280, 1600),
+    "portrait_16_9": (1088, 1920),
+    "landscape_4_3": (1600, 1280),
+    "landscape_16_9": (1920, 1088),
 }
 
 # 1 MP variants for PuLID (identity_scene) — forcing 2 MP on PuLID
@@ -53,11 +54,11 @@ _ASPECT_PIXEL_SIZE: dict[str, tuple[int, int]] = {
 # failure mode). PuLID / FLUX are happiest at ~1 MP, and Real-ESRGAN
 # restores the delivery resolution downstream.
 _PULID_PIXEL_SIZE: dict[str, tuple[int, int]] = {
-    "square_hd":       (1024, 1024),
-    "portrait_4_3":    (896, 1152),
-    "portrait_16_9":   (768, 1344),
-    "landscape_4_3":   (1152, 896),
-    "landscape_16_9":  (1344, 768),
+    "square_hd": (1024, 1024),
+    "portrait_4_3": (896, 1152),
+    "portrait_16_9": (768, 1344),
+    "landscape_4_3": (1152, 896),
+    "landscape_16_9": (1344, 768),
 }
 
 
@@ -90,9 +91,9 @@ def resolve_output_size(
     """
     if spec is None:
         return None
-        
+
     aspect: OutputAspect = getattr(spec, "output_aspect", "portrait_4_3")
-    
+
     # User-requested framing overrides the style's default aspect
     if framing == "full_body":
         aspect = "portrait_16_9"
@@ -113,6 +114,7 @@ def resolve_output_size(
         # several code paths during app startup).
         try:
             from src.config import settings as _runtime_settings
+
             esrgan_on = bool(
                 getattr(_runtime_settings, "real_esrgan_enabled", False),
             )
@@ -136,9 +138,8 @@ def resolve_output_size(
     # v1.19 — identity_scene (PuLID) runs at ~1 MP. The 2 MP portrait
     # path causes duplicate-subject artefacts; Real-ESRGAN x2 restores
     # delivery resolution after generation.
-    effective_mode = (
-        generation_mode
-        or getattr(spec, "generation_mode", "identity_scene")
+    effective_mode = generation_mode or getattr(
+        spec, "generation_mode", "identity_scene"
     )
     if effective_mode == "identity_scene":
         size_table = _PULID_PIXEL_SIZE
@@ -147,9 +148,7 @@ def resolve_output_size(
 
     pixels = size_table.get(aspect)
     if pixels is None:
-        pixels = size_table.get("portrait_4_3") or _ASPECT_PIXEL_SIZE[
-            "portrait_4_3"
-        ]
+        pixels = size_table.get("portrait_4_3") or _ASPECT_PIXEL_SIZE["portrait_4_3"]
     w, h = pixels
     return {"width": w, "height": h}
 
@@ -191,9 +190,7 @@ PRESERVE_PHOTO_FACE_ONLY = (
 # for FLUX.2 Pro Edit — empirically repeating "same person as the
 # reference" once more at the tail improves prompt adherence on borderline
 # identity cases without extra cost.
-IDENTITY_LOCK_SUFFIX = (
-    "Final anchor: output must be the exact same person."
-)
+IDENTITY_LOCK_SUFFIX = "Final anchor: output must be the exact same person."
 
 QUALITY_PHOTO = (
     "Photorealistic unedited photograph, sharp from subject to background, "
@@ -1156,14 +1153,12 @@ _STYLE_OVERRIDES: dict[tuple[str, str], dict] = {
     },
     ("dating", "swimming_pool"): {
         "clothing_female_override": (
-            "elegant one-piece swimsuit, optional sunglasses, "
-            "light sarong or cover-up"
+            "elegant one-piece swimsuit, optional sunglasses, light sarong or cover-up"
         ),
     },
     ("dating", "gym_fitness"): {
         "clothing_female_override": (
-            "fitted athletic top, athletic leggings, training shoes, "
-            "sport watch"
+            "fitted athletic top, athletic leggings, training shoes, sport watch"
         ),
     },
     ("social", "fitness_lifestyle"): {
@@ -1176,6 +1171,7 @@ _STYLE_OVERRIDES: dict[tuple[str, str], dict] = {
 
 try:
     from src.services.style_loader import get_structured_specs
+
     for spec in get_structured_specs():
         STYLE_REGISTRY.register(spec)
 except Exception as e:
@@ -1184,53 +1180,70 @@ except Exception as e:
     for _key, _text in DATING_STYLES.items():
         _pers = DATING_PERSONALITIES.get(_key, "")
         _ovr = _STYLE_OVERRIDES.get(("dating", _key), {})
-        STYLE_REGISTRY.register(build_spec_from_legacy(
-            _key, "dating", _text, _pers,
-            clothing_female_override=_ovr.get("clothing_female_override", ""),
-            edit_compatible=_ovr.get("edit_compatible", True),
-            complexity=_ovr.get("complexity", "simple"),
-            variants=STYLE_VARIANTS.get(("dating", _key), ()),
-        ))
+        STYLE_REGISTRY.register(
+            build_spec_from_legacy(
+                _key,
+                "dating",
+                _text,
+                _pers,
+                clothing_female_override=_ovr.get("clothing_female_override", ""),
+                edit_compatible=_ovr.get("edit_compatible", True),
+                complexity=_ovr.get("complexity", "simple"),
+                variants=STYLE_VARIANTS.get(("dating", _key), ()),
+            )
+        )
 
     for _key, _text in CV_STYLES.items():
         _pers = CV_PERSONALITIES.get(_key, "")
         _ovr = _STYLE_OVERRIDES.get(("cv", _key), {})
-        STYLE_REGISTRY.register(build_spec_from_legacy(
-            _key, "cv", _text, _pers,
-            clothing_female_override=_ovr.get("clothing_female_override", ""),
-            edit_compatible=_ovr.get("edit_compatible", True),
-            complexity=_ovr.get("complexity", "simple"),
-            variants=STYLE_VARIANTS.get(("cv", _key), ()),
-        ))
+        STYLE_REGISTRY.register(
+            build_spec_from_legacy(
+                _key,
+                "cv",
+                _text,
+                _pers,
+                clothing_female_override=_ovr.get("clothing_female_override", ""),
+                edit_compatible=_ovr.get("edit_compatible", True),
+                complexity=_ovr.get("complexity", "simple"),
+                variants=STYLE_VARIANTS.get(("cv", _key), ()),
+            )
+        )
 
     for _key, _text in SOCIAL_STYLES.items():
         _pers = SOCIAL_PERSONALITIES.get(_key, "")
         _ovr = _STYLE_OVERRIDES.get(("social", _key), {})
-        STYLE_REGISTRY.register(build_spec_from_legacy(
-            _key, "social", _text, _pers,
-            clothing_female_override=_ovr.get("clothing_female_override", ""),
-            edit_compatible=_ovr.get("edit_compatible", True),
-            complexity=_ovr.get("complexity", "simple"),
-            variants=STYLE_VARIANTS.get(("social", _key), ()),
-        ))
+        STYLE_REGISTRY.register(
+            build_spec_from_legacy(
+                _key,
+                "social",
+                _text,
+                _pers,
+                clothing_female_override=_ovr.get("clothing_female_override", ""),
+                edit_compatible=_ovr.get("edit_compatible", True),
+                complexity=_ovr.get("complexity", "simple"),
+                variants=STYLE_VARIANTS.get(("social", _key), ()),
+            )
+        )
 
 
 # ---------------------------------------------------------------------------
 # Prompt builders — compact 800–1200 char photorealistic template
 # ---------------------------------------------------------------------------
 
-_DOCUMENT_STYLE_KEYS = frozenset({
-    "photo_3x4",
-    "passport_rf",
-    "visa_eu",
-    "visa_schengen",
-    "visa_us",
-    "photo_4x6",
-    "driver_license",
-    "doc_passport_neutral",
-    "doc_visa_compliant",
-    "doc_resume_headshot",
-})
+_DOCUMENT_STYLE_KEYS = frozenset(
+    {
+        "photo_3x4",
+        "passport_rf",
+        "visa_eu",
+        "visa_schengen",
+        "visa_us",
+        "photo_4x6",
+        "driver_license",
+        "doc_passport_neutral",
+        "doc_visa_compliant",
+        "doc_resume_headshot",
+    }
+)
 
 
 def is_document_style(style: str) -> bool:
@@ -1258,7 +1271,8 @@ def _truncate(prompt: str) -> str:
         return prompt
     logger.warning(
         "prompt exceeded budget (%d > %d), truncating",
-        len(prompt), PROMPT_MAX_LEN,
+        len(prompt),
+        PROMPT_MAX_LEN,
     )
     return prompt[:PROMPT_MAX_LEN].rstrip()
 
@@ -1283,17 +1297,19 @@ def _build_mode_prompt(
     is_doc = mode == "cv" and style_key_norm in _DOCUMENT_STYLE_KEYS
 
     spec = STYLE_REGISTRY.get_or_default(mode, style)
-    
+
     # Try to use VariationEngine if it's a StructuredStyleSpec
     from src.prompts.style_spec import StructuredStyleSpec
+
     if isinstance(spec, StructuredStyleSpec):
         from src.prompts.variation_engine import VariationEngine
+
         user_input = input_hints or {}
         if variant:
             user_input["scene_override"] = variant.scene
             user_input["lighting"] = variant.lighting
             user_input["clothing_override"] = variant.clothing_accent_for(gender)
-        
+
         base_text = VariationEngine.apply_variation(spec, user_input)
         parts = [change_instruction, base_text]
         if spec.expression:
@@ -1349,14 +1365,15 @@ def _build_mode_prompt(
             parts.append("High quality photorealistic image.")
 
     prompt = " ".join(p.strip() for p in parts if p and p.strip())
-    
+
     # Apply compression
     try:
         from src.prompts.compression import compress_prompt
+
         prompt = compress_prompt(prompt)
     except ImportError:
         pass
-        
+
     return _truncate(prompt)
 
 
@@ -1415,11 +1432,17 @@ def _dating_social_change_instruction(mode: str, style: str) -> str:
 
 
 def build_dating_prompt(
-    style: str = "", base_description: str = "", gender: str = "male", input_hints: dict | None = None,
-    variant: StyleVariant | None = None, target_model: str = "gpt_image_2",
+    style: str = "",
+    base_description: str = "",
+    gender: str = "male",
+    input_hints: dict | None = None,
+    variant: StyleVariant | None = None,
+    target_model: str = "gpt_image_2",
 ) -> str:
     return _build_mode_prompt(
-        "dating", style, gender,
+        "dating",
+        style,
+        gender,
         _dating_social_change_instruction("dating", style),
         input_hints=input_hints,
         variant=variant,
@@ -1428,8 +1451,12 @@ def build_dating_prompt(
 
 
 def build_cv_prompt(
-    style: str = "", base_description: str = "", gender: str = "male", input_hints: dict | None = None,
-    variant: StyleVariant | None = None, target_model: str = "gpt_image_2",
+    style: str = "",
+    base_description: str = "",
+    gender: str = "male",
+    input_hints: dict | None = None,
+    variant: StyleVariant | None = None,
+    target_model: str = "gpt_image_2",
 ) -> str:
     style_key = (style or "").strip()
     if style_key in _DOCUMENT_STYLE_KEYS:
@@ -1446,17 +1473,28 @@ def build_cv_prompt(
             "original pose."
         )
     return _build_mode_prompt(
-        "cv", style_key, gender, change_instruction,
-        input_hints=input_hints, variant=variant, target_model=target_model,
+        "cv",
+        style_key,
+        gender,
+        change_instruction,
+        input_hints=input_hints,
+        variant=variant,
+        target_model=target_model,
     )
 
 
 def build_social_prompt(
-    style: str = "", base_description: str = "", gender: str = "male", input_hints: dict | None = None,
-    variant: StyleVariant | None = None, target_model: str = "gpt_image_2",
+    style: str = "",
+    base_description: str = "",
+    gender: str = "male",
+    input_hints: dict | None = None,
+    variant: StyleVariant | None = None,
+    target_model: str = "gpt_image_2",
 ) -> str:
     return _build_mode_prompt(
-        "social", style, gender,
+        "social",
+        style,
+        gender,
         _dating_social_change_instruction("social", style),
         input_hints=input_hints,
         variant=variant,
@@ -1464,7 +1502,9 @@ def build_social_prompt(
     )
 
 
-def resolve_style_variant(mode: str, style: str, variant_id: str) -> StyleVariant | None:
+def resolve_style_variant(
+    mode: str, style: str, variant_id: str
+) -> StyleVariant | None:
     """Return the registered StyleVariant for (mode, style, variant_id).
 
     Returns ``None`` for unknown combinations or for document styles —
@@ -1515,7 +1555,9 @@ def build_step_prompt(
     enhancement_level: int = 0,
 ) -> str:
     """Build a prompt for a single pipeline step using the StyleSpec registry."""
-    template = STEP_TEMPLATES.get(step_template, STEP_TEMPLATES.get("style_overall", ""))
+    template = STEP_TEMPLATES.get(
+        step_template, STEP_TEMPLATES.get("style_overall", "")
+    )
     spec = STYLE_REGISTRY.get_or_default(mode, style)
     if step_template == "expression_hint":
         description = spec.expression

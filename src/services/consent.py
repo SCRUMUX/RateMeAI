@@ -9,6 +9,7 @@ Both are mandatory for any task creation; missing consents produce
 HTTP 451 ``Unavailable For Legal Reasons``. The audit trail lives in the
 ``user_consents`` DB table; "current" state is cached in Redis for 1h.
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -169,9 +170,13 @@ async def purge_user_pipeline_caches(
     if redis is None:
         return 0
 
-    from src.config import settings as _settings  # local import to avoid cycle at module load
+    from src.config import (
+        settings as _settings,
+    )  # local import to avoid cycle at module load
 
-    result = await db.execute(select(Task.id, Task.context).where(Task.user_id == user_id))
+    result = await db.execute(
+        select(Task.id, Task.context).where(Task.user_id == user_id)
+    )
     keys: list[str] = []
     for task_id, context in result.all():
         market_id = get_market_id(context, fallback=_settings.resolved_market_id)

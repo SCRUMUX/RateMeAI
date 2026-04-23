@@ -1,4 +1,5 @@
 """Tests for the pre-analyze feature: endpoint, pipeline cache, style metadata, bot formatting."""
+
 from __future__ import annotations
 
 import json
@@ -14,8 +15,10 @@ def _ok_report() -> InputQualityReport:
 
 # ── Style catalog metadata ──
 
+
 def test_style_catalog_all_entries_are_4_tuples():
     from src.services.style_catalog import STYLE_CATALOG
+
     for mode, items in STYLE_CATALOG.items():
         for i, entry in enumerate(items):
             assert len(entry) == 4, f"{mode}[{i}] has {len(entry)} elements, expected 4"
@@ -24,15 +27,23 @@ def test_style_catalog_all_entries_are_4_tuples():
             assert isinstance(label, str), f"{mode}[{i}] label must be str"
             assert isinstance(hook, str), f"{mode}[{i}] hook must be str"
             assert isinstance(meta, dict), f"{mode}[{i}] meta must be dict"
-            assert meta["param"] in ("warmth", "presence", "appeal", "trust", "competence", "hireability"), (
-                f"{mode}[{i}] invalid param: {meta['param']}"
-            )
+            assert meta["param"] in (
+                "warmth",
+                "presence",
+                "appeal",
+                "trust",
+                "competence",
+                "hireability",
+            ), f"{mode}[{i}] invalid param: {meta['param']}"
             lo, hi = meta["delta_range"]
-            assert 0 < lo < hi <= 1.0, f"{mode}[{i}] invalid delta_range: {meta['delta_range']}"
+            assert 0 < lo < hi <= 1.0, (
+                f"{mode}[{i}] invalid delta_range: {meta['delta_range']}"
+            )
 
 
 def test_get_catalog_json_includes_meta():
     from src.services.style_catalog import get_catalog_json
+
     items = get_catalog_json("dating")
     assert len(items) > 0
     for item in items:
@@ -43,8 +54,10 @@ def test_get_catalog_json_includes_meta():
 
 # ── Enhancement advisor: predict_style_delta ──
 
+
 def test_predict_style_delta_returns_positive():
     from src.services.enhancement_advisor import predict_style_delta
+
     meta = {"param": "appeal", "delta_range": (0.25, 0.45)}
     param, delta = predict_style_delta(meta, user_id=12345, mode="dating")
     assert param == "appeal"
@@ -53,6 +66,7 @@ def test_predict_style_delta_returns_positive():
 
 def test_predict_style_delta_deterministic():
     from src.services.enhancement_advisor import predict_style_delta
+
     meta = {"param": "warmth", "delta_range": (0.15, 0.30)}
     _, d1 = predict_style_delta(meta, user_id=42, mode="cv")
     _, d2 = predict_style_delta(meta, user_id=42, mode="cv")
@@ -61,6 +75,7 @@ def test_predict_style_delta_deterministic():
 
 def test_enhancement_preview_includes_deltas():
     from src.services.enhancement_advisor import build_enhancement_preview
+
     preview = build_enhancement_preview("dating", user_id=777, depth=1, count=2)
     assert len(preview.suggestions) == 2
     for s in preview.suggestions:
@@ -70,6 +85,7 @@ def test_enhancement_preview_includes_deltas():
 
 def test_suggestion_line_includes_delta_text():
     from src.services.enhancement_advisor import EnhancementSuggestion
+
     s = EnhancementSuggestion(
         action="⛵ На яхте",
         effect="Морской кадр",
@@ -83,8 +99,10 @@ def test_suggestion_line_includes_delta_text():
 
 # ── Redis key ──
 
+
 def test_preanalysis_cache_key_format():
     from src.utils.redis_keys import preanalysis_cache_key
+
     key = preanalysis_cache_key("abc-123")
     assert key == "ratemeai:preanalysis:abc-123"
 
@@ -122,15 +140,24 @@ def _build_pipeline_with_redis(cached_pre: dict | None = None):
     else:
         redis_mock.get = AsyncMock(return_value=None)
 
-    pipeline = AnalysisPipeline(llm=llm, storage=storage, image_gen=ig, redis=redis_mock)
+    pipeline = AnalysisPipeline(
+        llm=llm, storage=storage, image_gen=ig, redis=redis_mock
+    )
     return pipeline, redis_mock
 
 
 @patch("src.orchestrator.pipeline.settings")
-@patch("src.orchestrator.pipeline.analyze_input_quality", side_effect=lambda b: _ok_report())
-@patch("src.orchestrator.pipeline.validate_and_normalize", side_effect=lambda b: (b, {}))
+@patch(
+    "src.orchestrator.pipeline.analyze_input_quality",
+    side_effect=lambda b: _ok_report(),
+)
+@patch(
+    "src.orchestrator.pipeline.validate_and_normalize", side_effect=lambda b: (b, {})
+)
 @patch("src.orchestrator.pipeline.extract_nsfw_from_analysis", return_value=(True, ""))
-def test_pipeline_uses_cached_pre_analysis(mock_nsfw, mock_norm, mock_face, mock_settings):
+def test_pipeline_uses_cached_pre_analysis(
+    mock_nsfw, mock_norm, mock_face, mock_settings
+):
     """When pre_analysis_id is provided and cache exists, pipeline skips LLM analysis."""
     mock_settings.segmentation_enabled = False
     mock_settings.multi_pass_enabled = False
@@ -157,6 +184,7 @@ def test_pipeline_uses_cached_pre_analysis(mock_nsfw, mock_norm, mock_face, mock
     pipeline._merger.merge.return_value = {"dating_score": 7.5, "cached": True}
 
     import asyncio
+
     asyncio.run(
         pipeline.execute(
             mode=AnalysisMode.DATING,
@@ -172,8 +200,13 @@ def test_pipeline_uses_cached_pre_analysis(mock_nsfw, mock_norm, mock_face, mock
 
 
 @patch("src.orchestrator.pipeline.settings")
-@patch("src.orchestrator.pipeline.analyze_input_quality", side_effect=lambda b: _ok_report())
-@patch("src.orchestrator.pipeline.validate_and_normalize", side_effect=lambda b: (b, {}))
+@patch(
+    "src.orchestrator.pipeline.analyze_input_quality",
+    side_effect=lambda b: _ok_report(),
+)
+@patch(
+    "src.orchestrator.pipeline.validate_and_normalize", side_effect=lambda b: (b, {})
+)
 @patch("src.orchestrator.pipeline.extract_nsfw_from_analysis", return_value=(True, ""))
 def test_pipeline_cache_miss_runs_llm(mock_nsfw, mock_norm, mock_face, mock_settings):
     """When pre_analysis_id is provided but cache is empty, pipeline runs normal LLM analysis."""
@@ -187,11 +220,13 @@ def test_pipeline_cache_miss_runs_llm(mock_nsfw, mock_norm, mock_face, mock_sett
     pipeline, redis_mock = _build_pipeline_with_redis(cached_pre=None)
 
     service_mock = MagicMock()
-    service_mock.analyze = AsyncMock(return_value={
-        "dating_score": 6,
-        "first_impression": "Fresh analysis",
-        "strengths": [],
-    })
+    service_mock.analyze = AsyncMock(
+        return_value={
+            "dating_score": 6,
+            "first_impression": "Fresh analysis",
+            "strengths": [],
+        }
+    )
     pipeline._router = MagicMock()
     pipeline._router.get_service.return_value = service_mock
     pipeline._prompt_engine = MagicMock()
@@ -200,6 +235,7 @@ def test_pipeline_cache_miss_runs_llm(mock_nsfw, mock_norm, mock_face, mock_sett
     pipeline._merger.merge.return_value = {"dating_score": 6}
 
     import asyncio
+
     asyncio.run(
         pipeline.execute(
             mode=AnalysisMode.DATING,
@@ -215,8 +251,10 @@ def test_pipeline_cache_miss_runs_llm(mock_nsfw, mock_norm, mock_face, mock_sett
 
 # ── Bot message formatting ──
 
+
 def test_format_pre_analysis_message_contains_score():
     from src.bot.handlers.mode_select import _format_pre_analysis_message
+
     data = {
         "pre_analysis_id": "abc",
         "score": 7.40,
@@ -236,6 +274,7 @@ def test_format_pre_analysis_message_contains_score():
 
 def test_format_pre_analysis_message_no_opportunities():
     from src.bot.handlers.mode_select import _format_pre_analysis_message
+
     data = {
         "pre_analysis_id": "xyz",
         "score": 8.00,
@@ -251,8 +290,10 @@ def test_format_pre_analysis_message_no_opportunities():
 
 # ── PreAnalysisResponse schema ──
 
+
 def test_pre_analysis_response_schema():
     from src.models.schemas import PreAnalysisResponse
+
     resp = PreAnalysisResponse(
         pre_analysis_id="test-id",
         mode=AnalysisMode.DATING,

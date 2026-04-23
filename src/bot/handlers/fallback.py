@@ -1,4 +1,5 @@
 """Catch-all handlers for unrecognized messages and callbacks."""
+
 from __future__ import annotations
 
 from aiogram import Router

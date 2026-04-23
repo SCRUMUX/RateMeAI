@@ -7,6 +7,7 @@ providers into :class:`ImageGenerationExecutor`, then runs a full
 - ``framing`` propagates from ``params`` through the executor into ``resolve_output_size()``.
 - The unified provider picks GPT-2 or Nano Banana based on ``image_model``.
 """
+
 from __future__ import annotations
 
 import io
@@ -25,10 +26,12 @@ from src.services.input_quality import InputQualityReport
 # Fixtures / helpers
 # ---------------------------------------------------------------------------
 
+
 def _make_jpeg_with_face() -> bytes:
     buf = io.BytesIO()
     Image.new("RGB", (1024, 1024), color=(180, 170, 160)).save(
-        buf, format="JPEG",
+        buf,
+        format="JPEG",
     )
     return buf.getvalue()
 
@@ -36,7 +39,8 @@ def _make_jpeg_with_face() -> bytes:
 def _make_png_stub() -> bytes:
     buf = io.BytesIO()
     Image.new("RGB", (1024, 1024), color=(200, 200, 200)).save(
-        buf, format="PNG",
+        buf,
+        format="PNG",
     )
     return buf.getvalue()
 
@@ -71,11 +75,13 @@ class _RecordingProvider:
         reference_image: bytes | None = None,
         params: dict | None = None,
     ) -> bytes:
-        self.calls.append({
-            "prompt": prompt,
-            "reference_image": reference_image,
-            "params": dict(params or {}),
-        })
+        self.calls.append(
+            {
+                "prompt": prompt,
+                "reference_image": reference_image,
+                "params": dict(params or {}),
+            }
+        )
         return _make_png_stub()
 
     async def close(self) -> None:  # pragma: no cover - not exercised
@@ -91,13 +97,17 @@ def _build_executor(image_gen) -> ImageGenerationExecutor:
     identity_svc = MagicMock()
     gate_runner = MagicMock()
     gate_runner.run_global_gates = AsyncMock(
-        return_value=(True, [], {
-            "identity_match": 8.5,
-            "quality_check_failed": False,
-            "aesthetic_score": 7.5,
-            "gates_passed": ["identity_match", "aesthetic_score"],
-            "gates_failed": [],
-        }),
+        return_value=(
+            True,
+            [],
+            {
+                "identity_match": 8.5,
+                "quality_check_failed": False,
+                "aesthetic_score": 7.5,
+                "gates_passed": ["identity_match", "aesthetic_score"],
+                "gates_failed": [],
+            },
+        ),
     )
     return ImageGenerationExecutor(
         image_gen=image_gen,
@@ -112,13 +122,14 @@ def _build_executor(image_gen) -> ImageGenerationExecutor:
 # Tests
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.asyncio
 @patch("src.orchestrator.executor.settings")
 async def test_unified_pipeline_routes_to_gpt2(
     mock_settings,
 ):
     mock_settings.ab_test_enabled = False
-    
+
     gpt2 = _RecordingProvider("gpt_image_2")
     nano = _RecordingProvider("nano_banana_2")
     unified = UnifiedImageGenProvider(model_a=gpt2, model_b=nano)
@@ -141,6 +152,6 @@ async def test_unified_pipeline_routes_to_gpt2(
 
     assert len(gpt2.calls) == 1
     assert len(nano.calls) == 0
-    
+
     call_params = gpt2.calls[0]["params"]
     assert "image_size" in call_params

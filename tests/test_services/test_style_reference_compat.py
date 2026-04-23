@@ -7,6 +7,7 @@ invented body to and consistently drifts off identity. The bot runs
 ``check_style_reference_compat`` right after style selection and
 surfaces an explicit warning with a reupload / continue choice.
 """
+
 from __future__ import annotations
 
 import pytest

@@ -6,6 +6,7 @@ Prior to this, the retry decorator only matched ``httpx.HTTPStatusError`` and
 killed the task on the first attempt, and a 4xx that is terminal (401/403/404)
 pointlessly retried three times, eating the ARQ ``job_timeout`` budget.
 """
+
 from __future__ import annotations
 
 import httpx
@@ -109,7 +110,10 @@ async def test_analyze_image_retries_read_timeout_then_succeeds(monkeypatch):
         return _FakeResponse(200, success_body)
 
     # Short-circuit tenacity's wait so the test runs instantly.
-    monkeypatch.setattr("src.providers.llm.openrouter.wait_exponential", lambda **_: lambda *_a, **_kw: 0)
+    monkeypatch.setattr(
+        "src.providers.llm.openrouter.wait_exponential",
+        lambda **_: lambda *_a, **_kw: 0,
+    )
     monkeypatch.setattr(llm._client, "post", fake_post)
 
     # Bypass the AI-transfer guard for this unit test.
@@ -120,6 +124,7 @@ async def test_analyze_image_retries_read_timeout_then_succeeds(monkeypatch):
 
     # Use retry's sleep hook to avoid real wait between attempts.
     import tenacity
+
     monkeypatch.setattr(tenacity.nap, "sleep", lambda *_a, **_k: None)
 
     res = await llm.analyze_image(b"x", "prompt")
@@ -146,6 +151,7 @@ async def test_analyze_image_does_not_retry_on_401(monkeypatch):
     )
 
     import tenacity
+
     monkeypatch.setattr(tenacity.nap, "sleep", lambda *_a, **_k: None)
 
     with pytest.raises((httpx.HTTPStatusError, RetryError)):

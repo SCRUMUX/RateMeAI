@@ -1,4 +1,5 @@
 """Telegram push notifications (extracted from payments for reuse)."""
+
 from __future__ import annotations
 
 import logging
@@ -17,13 +18,18 @@ async def send_telegram_message(telegram_id: int, text: str) -> bool:
     url = f"https://api.telegram.org/bot{token}/sendMessage"
     try:
         async with httpx.AsyncClient(timeout=10.0) as client:
-            resp = await client.post(url, json={
-                "chat_id": telegram_id,
-                "text": text,
-                "parse_mode": "Markdown",
-            })
+            resp = await client.post(
+                url,
+                json={
+                    "chat_id": telegram_id,
+                    "text": text,
+                    "parse_mode": "Markdown",
+                },
+            )
             if resp.status_code != 200:
-                logger.warning("Telegram notify failed: %s %s", resp.status_code, resp.text[:200])
+                logger.warning(
+                    "Telegram notify failed: %s %s", resp.status_code, resp.text[:200]
+                )
                 return False
             return True
     except Exception:

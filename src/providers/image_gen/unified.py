@@ -4,6 +4,7 @@ Delegates to the appropriate backend based on the requested model and parameters
 Model A (High Quality): GPT-2
 Model B (Fast): Nano Banana
 """
+
 from __future__ import annotations
 
 import logging
@@ -32,7 +33,13 @@ class UnifiedImageGenProvider(ImageGenProvider):
         self._rave = rave
 
     async def close(self) -> None:
-        for p in (self._model_a, self._model_b, self._pulid, self._seedream, self._rave):
+        for p in (
+            self._model_a,
+            self._model_b,
+            self._pulid,
+            self._seedream,
+            self._rave,
+        ):
             if p is not None:
                 try:
                     await p.close()
@@ -43,12 +50,12 @@ class UnifiedImageGenProvider(ImageGenProvider):
         """Pick the backend based on params."""
         # Check if a specific model is requested (e.g. via A/B test or explicit choice)
         requested_model = str(params.get("image_model", "")).strip().lower()
-        
+
         if requested_model == "nano_banana_2":
             return self._model_b, "nano_banana_2"
         if requested_model == "gpt_image_2":
             return self._model_a, "gpt_image_2"
-            
+
         # Check generation mode for specific handlers
         generation_mode = str(params.get("generation_mode", "")).strip().lower()
         if generation_mode == "identity_scene" and self._pulid is not None:
@@ -68,11 +75,12 @@ class UnifiedImageGenProvider(ImageGenProvider):
         params: dict | None = None,
     ) -> bytes:
         params = dict(params or {})
-        
+
         provider, backend_label = self._pick_backend(params)
-        
+
         try:
             from src.metrics import IMAGE_GEN_BACKEND
+
             IMAGE_GEN_BACKEND.labels(
                 backend=backend_label,
                 style_mode=str(params.get("generation_mode", "unknown")),
@@ -92,6 +100,7 @@ class UnifiedImageGenProvider(ImageGenProvider):
                 logger.warning("Model A failed (%s), falling back to Model B", exc)
                 try:
                     from src.metrics import STYLE_MODE_OVERRIDE
+
                     STYLE_MODE_OVERRIDE.labels(
                         from_mode="gpt_image_2",
                         to_mode="nano_banana_2",

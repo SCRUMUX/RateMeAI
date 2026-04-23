@@ -1,4 +1,5 @@
 """Unit tests for :class:`FalSeedreamImageGen` (fal-ai/bytedance/seedream/v4/edit)."""
+
 from __future__ import annotations
 
 import base64
@@ -52,8 +53,11 @@ def test_body_uses_image_urls_list_no_flux_specific_fields():
     assert body["enhance_prompt_mode"] == "standard"
 
     for forbidden in (
-        "safety_tolerance", "output_format", "guidance_scale",
-        "reference_images", "image_url",
+        "safety_tolerance",
+        "output_format",
+        "guidance_scale",
+        "reference_images",
+        "image_url",
     ):
         assert forbidden not in body
 
@@ -67,7 +71,9 @@ def test_body_rejects_missing_reference():
 def test_body_rejects_unknown_enhance_mode_falls_back_to_standard():
     gen = _make_gen()
     body = gen._build_body(
-        "x", _jpeg_bytes(), {"enhance_prompt_mode": "turbo"},
+        "x",
+        _jpeg_bytes(),
+        {"enhance_prompt_mode": "turbo"},
     )
     assert body["enhance_prompt_mode"] == "standard"
 
@@ -75,7 +81,9 @@ def test_body_rejects_unknown_enhance_mode_falls_back_to_standard():
 def test_body_accepts_fast_enhance_mode():
     gen = _make_gen()
     body = gen._build_body(
-        "x", _jpeg_bytes(), {"enhance_prompt_mode": "fast"},
+        "x",
+        _jpeg_bytes(),
+        {"enhance_prompt_mode": "fast"},
     )
     assert body["enhance_prompt_mode"] == "fast"
 
@@ -89,7 +97,8 @@ def test_body_default_image_size_is_portrait_4_3():
 def test_body_accepts_custom_image_size_dict():
     gen = _make_gen()
     body = gen._build_body(
-        "x", _jpeg_bytes(),
+        "x",
+        _jpeg_bytes(),
         {"image_size": {"width": 2048, "height": 2048}},
     )
     assert body["image_size"] == {"width": 2048, "height": 2048}
@@ -98,7 +107,8 @@ def test_body_accepts_custom_image_size_dict():
 def test_body_accepts_extra_reference_images():
     gen = _make_gen()
     body = gen._build_body(
-        "x", _jpeg_bytes(),
+        "x",
+        _jpeg_bytes(),
         {"extra_reference_images": [_jpeg_bytes(color=(1, 2, 3))]},
     )
     assert len(body["image_urls"]) == 2
@@ -108,7 +118,8 @@ def test_body_caps_reference_images_to_ten():
     gen = _make_gen()
     extras = [_jpeg_bytes(color=(i, i, i)) for i in range(20)]
     body = gen._build_body(
-        "x", _jpeg_bytes(),
+        "x",
+        _jpeg_bytes(),
         {"extra_reference_images": extras},
     )
     assert len(body["image_urls"]) == 10

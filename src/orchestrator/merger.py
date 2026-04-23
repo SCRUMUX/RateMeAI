@@ -1,6 +1,10 @@
 from __future__ import annotations
 
-from src.channels.deep_links import build_deep_link, build_share_caption, PROVIDER_TELEGRAM
+from src.channels.deep_links import (
+    build_deep_link,
+    build_share_caption,
+    PROVIDER_TELEGRAM,
+)
 
 
 class ResultMerger:

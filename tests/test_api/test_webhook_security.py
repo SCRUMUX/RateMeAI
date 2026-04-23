@@ -1,4 +1,5 @@
 """Unit tests for webhook IP validation."""
+
 from src.api.v1.payments import _is_trusted_ip
 
 

@@ -24,11 +24,7 @@ def _rate_limit_exempt_usernames() -> set[str]:
     raw = (settings.rate_limit_exempt_usernames or "").strip()
     if not raw:
         return set()
-    return {
-        p.strip().lstrip("@").lower()
-        for p in raw.split(",")
-        if p.strip()
-    }
+    return {p.strip().lstrip("@").lower() for p in raw.split(",") if p.strip()}
 
 
 def _user_exempt_from_rate_limit(user: User) -> bool:
@@ -58,20 +54,27 @@ async def get_auth_user(
         token = authorization.split(" ", 1)[1].strip()
         if token:
             from src.services.sessions import resolve_session
+
             redis = request.app.state.redis
             user_id = await resolve_session(redis, token)
             if user_id is None:
-                raise HTTPException(status_code=401, detail="Invalid or expired session token")
+                raise HTTPException(
+                    status_code=401, detail="Invalid or expired session token"
+                )
             user = await db.get(User, user_id)
             if user is None:
-                raise HTTPException(status_code=401, detail="User not found for session")
+                raise HTTPException(
+                    status_code=401, detail="User not found for session"
+                )
             return user
 
     # 2) API key (B2B)
     if x_api_key:
         h = hash_api_key(x_api_key.strip(), _pepper())
         r = await db.execute(
-            select(ApiClient).where(ApiClient.key_hash == h, ApiClient.is_active.is_(True))
+            select(ApiClient).where(
+                ApiClient.key_hash == h, ApiClient.is_active.is_(True)
+            )
         )
         client = r.scalar_one_or_none()
         if client is None:
@@ -104,12 +107,8 @@ async def require_consents(
     x_consent_data_processing: str | None = Header(
         None, alias="X-Consent-Data-Processing"
     ),
-    x_consent_ai_transfer: str | None = Header(
-        None, alias="X-Consent-AI-Transfer"
-    ),
-    x_consent_age_16: str | None = Header(
-        None, alias="X-Consent-Age-16"
-    ),
+    x_consent_ai_transfer: str | None = Header(None, alias="X-Consent-AI-Transfer"),
+    x_consent_age_16: str | None = Header(None, alias="X-Consent-Age-16"),
 ) -> User:
     """Enforce both mandatory consents.
 
@@ -136,20 +135,13 @@ async def require_consents(
 
     if missing:
         header_grants: list[str] = []
-        if (
-            CONSENT_DATA_PROCESSING in missing
-            and _parse_bool_header(x_consent_data_processing)
+        if CONSENT_DATA_PROCESSING in missing and _parse_bool_header(
+            x_consent_data_processing
         ):
             header_grants.append(CONSENT_DATA_PROCESSING)
-        if (
-            CONSENT_AI_TRANSFER in missing
-            and _parse_bool_header(x_consent_ai_transfer)
-        ):
+        if CONSENT_AI_TRANSFER in missing and _parse_bool_header(x_consent_ai_transfer):
             header_grants.append(CONSENT_AI_TRANSFER)
-        if (
-            CONSENT_AGE_CONFIRMED_16 in missing
-            and _parse_bool_header(x_consent_age_16)
-        ):
+        if CONSENT_AGE_CONFIRMED_16 in missing and _parse_bool_header(x_consent_age_16):
             header_grants.append(CONSENT_AGE_CONFIRMED_16)
         if header_grants:
             client_ip = request.client.host if request.client else None
@@ -192,12 +184,14 @@ async def _reserve_credit_for(user: User, db: AsyncSession) -> User:
             headers={"X-Credits-Remaining": "0"},
         )
     fresh_user.image_credits -= 1
-    db.add(CreditTransaction(
-        user_id=fresh_user.id,
-        amount=-1,
-        balance_after=fresh_user.image_credits,
-        tx_type="reservation",
-    ))
+    db.add(
+        CreditTransaction(
+            user_id=fresh_user.id,
+            amount=-1,
+            balance_after=fresh_user.image_credits,
+            tx_type="reservation",
+        )
+    )
     fresh_user._credits_remaining = fresh_user.image_credits
     fresh_user._credit_reserved = True
     fresh_user._consents_snapshot = getattr(user, "_consents_snapshot", None)
@@ -254,7 +248,9 @@ async def check_rate_limit(
 
     today = date.today()
     result = await db.execute(
-        select(UsageLog).where(UsageLog.user_id == user.id, UsageLog.usage_date == today)
+        select(UsageLog).where(
+            UsageLog.user_id == user.id, UsageLog.usage_date == today
+        )
     )
     log = result.scalar_one_or_none()
     used = log.count if log else 0

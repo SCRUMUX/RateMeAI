@@ -28,14 +28,19 @@ def _configure_logging() -> None:
 
     if settings.is_production:
         from pythonjsonlogger import jsonlogger
-        handler.setFormatter(jsonlogger.JsonFormatter(
-            "%(asctime)s %(levelname)s %(name)s %(message)s",
-            rename_fields={"asctime": "timestamp", "levelname": "level"},
-        ))
+
+        handler.setFormatter(
+            jsonlogger.JsonFormatter(
+                "%(asctime)s %(levelname)s %(name)s %(message)s",
+                rename_fields={"asctime": "timestamp", "levelname": "level"},
+            )
+        )
     else:
-        handler.setFormatter(logging.Formatter(
-            "%(asctime)s [%(levelname)s] %(name)s: %(message)s",
-        ))
+        handler.setFormatter(
+            logging.Formatter(
+                "%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+            )
+        )
 
     pii_filter = PIIFilter()
     handler.addFilter(pii_filter)
@@ -78,13 +83,15 @@ async def lifespan(app: FastAPI):
     if settings.is_production:
         await asyncio.to_thread(_run_alembic_upgrade)
         logging.getLogger(__name__).info(
-            "Alembic migrations applied (mode=%s)", settings.deployment_mode,
+            "Alembic migrations applied (mode=%s)",
+            settings.deployment_mode,
         )
 
     engine = create_async_engine(settings.database_url, pool_size=10, max_overflow=20)
 
     if not settings.is_production:
         from src.models.db import Base
+
         async with engine.begin() as conn:
             await conn.run_sync(Base.metadata.create_all)
         logging.getLogger(__name__).info("DB tables ensured (dev create_all)")
@@ -100,7 +107,11 @@ async def lifespan(app: FastAPI):
     # refreshed; if Redis briefly dropped the connection, all enqueue_job
     # calls started failing until the process restarted. A single pool
     # managed by lifespan is easier to reason about and to close cleanly.
-    from arq.connections import create_pool as _create_arq_pool, RedisSettings as _ArqRedisSettings
+    from arq.connections import (
+        create_pool as _create_arq_pool,
+        RedisSettings as _ArqRedisSettings,
+    )
+
     app.state.arq_pool = await _create_arq_pool(
         _ArqRedisSettings.from_dsn(settings.redis_url),
     )
@@ -108,20 +119,29 @@ async def lifespan(app: FastAPI):
     if settings.internal_api_key and not settings.uses_remote_ai:
         from src.models.db import User
         import uuid as _uuid
+
         internal_user_id = _uuid.uuid5(_uuid.NAMESPACE_DNS, "edge-proxy.internal")
         async with app.state.db_sessionmaker() as _db:
             existing = await _db.get(User, internal_user_id)
             if not existing:
-                _db.add(User(
-                    id=internal_user_id,
-                    username="__edge_proxy__",
-                    image_credits=999_999,
-                ))
+                _db.add(
+                    User(
+                        id=internal_user_id,
+                        username="__edge_proxy__",
+                        image_credits=999_999,
+                    )
+                )
                 await _db.commit()
-                logging.getLogger(__name__).info("Created internal edge-proxy user %s", internal_user_id)
+                logging.getLogger(__name__).info(
+                    "Created internal edge-proxy user %s", internal_user_id
+                )
 
     log = logging.getLogger(__name__)
-    if settings.is_production and not settings.openrouter_api_key.strip() and not settings.uses_remote_ai:
+    if (
+        settings.is_production
+        and not settings.openrouter_api_key.strip()
+        and not settings.uses_remote_ai
+    ):
         log.error(
             "OPENROUTER_API_KEY is empty — configure env before accepting traffic",
         )
@@ -146,7 +166,8 @@ async def lifespan(app: FastAPI):
                 "(shop_id_present=%s, secret_present=%s) — nullifying in memory "
                 "and refusing to create any payments here. YooKassa must run "
                 "only on DEPLOYMENT_MODE=edge.",
-                bool(leftover_shop), bool(leftover_key),
+                bool(leftover_shop),
+                bool(leftover_key),
             )
             settings.yookassa_shop_id = ""
             settings.yookassa_secret_key = ""
@@ -155,13 +176,21 @@ async def lifespan(app: FastAPI):
         if not settings.vk_id_app_id.strip():
             log.warning("VK_ID_APP_ID is empty — VK ID OAuth will not work on edge")
         if not settings.vk_app_secret.strip():
-            log.warning("VK_APP_SECRET is empty — VK Mini App auth will not work on edge")
+            log.warning(
+                "VK_APP_SECRET is empty — VK Mini App auth will not work on edge"
+            )
         if not settings.ok_app_secret_key.strip():
-            log.warning("OK_APP_SECRET_KEY is empty — OK Mini App auth will not work on edge")
+            log.warning(
+                "OK_APP_SECRET_KEY is empty — OK Mini App auth will not work on edge"
+            )
         if not settings.remote_ai_backend_url.strip():
-            log.error("REMOTE_AI_BACKEND_URL is empty — edge cannot proxy AI requests to primary")
+            log.error(
+                "REMOTE_AI_BACKEND_URL is empty — edge cannot proxy AI requests to primary"
+            )
         if not settings.internal_api_key.strip():
-            log.error("INTERNAL_API_KEY is empty — edge-primary communication will fail")
+            log.error(
+                "INTERNAL_API_KEY is empty — edge-primary communication will fail"
+            )
     sha = (settings.deploy_git_sha or "").strip()
     log.info(
         "RateMeAI API starting version=%s market=%s role=%s compute=%s mode=%s%s",
@@ -173,7 +202,10 @@ async def lifespan(app: FastAPI):
         f" git={sha[:12]}" if sha else "",
     )
     if settings.uses_remote_ai:
-        log.info("Edge mode: AI requests will be proxied to %s", settings.remote_ai_backend_url)
+        log.info(
+            "Edge mode: AI requests will be proxied to %s",
+            settings.remote_ai_backend_url,
+        )
 
     reconciler_task = None
     if settings.uses_remote_ai:
@@ -208,6 +240,7 @@ async def lifespan(app: FastAPI):
 
     if settings.uses_remote_ai:
         from src.services import remote_ai as _rai_mod
+
         if _rai_mod._instance is not None:
             await _rai_mod._instance.close()
 
@@ -262,6 +295,7 @@ else:
 
 class _IframeHeadersMiddleware(_BaseHTTP):
     """Allow embedding in OK / VK mini app iframes."""
+
     async def dispatch(self, request: _Req, call_next) -> _Resp:
         response = await call_next(request)
         response.headers["X-Frame-Options"] = "ALLOWALL"
@@ -288,6 +322,7 @@ if settings.is_production:
         if metrics_token and not auth.endswith(metrics_token):
             raise _HTTPExc(status_code=403, detail="Forbidden")
         from prometheus_client import generate_latest, CONTENT_TYPE_LATEST
+
         return _Resp(content=generate_latest(), media_type=CONTENT_TYPE_LATEST)
 else:
     _instrumentator.expose(app, endpoint="/metrics")
@@ -318,9 +353,13 @@ async def serve_storage(file_path: str, download: int = 0):
     local_path = (storage_dir / file_path).resolve()
     if not str(local_path).startswith(str(storage_dir)):
         from fastapi.responses import JSONResponse
-        return JSONResponse({"detail": "Invalid path"}, status_code=400, headers=_CORS_HEADERS)
+
+        return JSONResponse(
+            {"detail": "Invalid path"}, status_code=400, headers=_CORS_HEADERS
+        )
     if local_path.exists() and local_path.is_file():
         import mimetypes
+
         ct = mimetypes.guess_type(str(local_path))[0] or "application/octet-stream"
         return Response(
             content=local_path.read_bytes(),
@@ -349,10 +388,9 @@ async def serve_storage(file_path: str, download: int = 0):
         try:
             from sqlalchemy import select as sa_select
             from src.models.db import Task
+
             async with app.state.db_sessionmaker() as db:
-                row = await db.execute(
-                    sa_select(Task).where(Task.id == task_id)
-                )
+                row = await db.execute(sa_select(Task).where(Task.id == task_id))
                 task_obj = row.scalar_one_or_none()
                 if task_obj and task_obj.result:
                     b64_fb = task_obj.result.get("generated_image_b64")
@@ -367,6 +405,7 @@ async def serve_storage(file_path: str, download: int = 0):
             logging.getLogger(__name__).exception("DB fallback failed for %s", task_id)
 
     from fastapi.responses import JSONResponse
+
     return JSONResponse(
         {"detail": "Not found"},
         status_code=404,
@@ -415,9 +454,12 @@ async def readiness():
 
     if settings.uses_remote_ai:
         checks["mode"] = "edge"
-        checks["remote_ai"] = "configured" if settings.remote_ai_backend_url else "missing"
+        checks["remote_ai"] = (
+            "configured" if settings.remote_ai_backend_url else "missing"
+        )
         try:
             from src.services.remote_ai import get_remote_ai
+
             remote = get_remote_ai()
             resp = await remote._client.get(
                 f"{remote._base.rsplit('/api/', 1)[0]}/health",
@@ -430,6 +472,7 @@ async def readiness():
             checks["primary_health"] = f"unreachable: {exc}"
         try:
             from src.services.remote_ai import get_remote_ai
+
             remote = get_remote_ai()
             ping_resp = await remote._client.get(
                 f"{remote._base}/ping",
@@ -442,9 +485,12 @@ async def readiness():
             checks["primary_reachable"] = False
             checks["primary_auth_error"] = str(exc)
     else:
-        checks["openrouter_key"] = "ok" if settings.openrouter_api_key.strip() else "missing"
+        checks["openrouter_key"] = (
+            "ok" if settings.openrouter_api_key.strip() else "missing"
+        )
         try:
             from src.providers.factory import get_image_gen
+
             ig = get_image_gen()
             provider_name = type(ig).__name__
             checks["image_gen"] = provider_name

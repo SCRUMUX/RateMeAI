@@ -1,4 +1,5 @@
 """Consent management endpoints (POST/GET/REVOKE)."""
+
 from __future__ import annotations
 
 import logging
@@ -104,7 +105,11 @@ async def grant_my_consents(
     )
     logger.info(
         "consent.granted",
-        extra={"user_id": str(user.id), "kinds": payload.kinds, "source": payload.source},
+        extra={
+            "user_id": str(user.id),
+            "kinds": payload.kinds,
+            "source": payload.source,
+        },
     )
     return _serialize(active)
 

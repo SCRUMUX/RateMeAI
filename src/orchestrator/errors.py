@@ -5,6 +5,7 @@ human-readable diagnostics that the worker writes into
 ``task.error_message`` and the frontend uses to route into specific UI
 messages (e.g. PROVIDER_AUTH_MESSAGE for ``http=401``).
 """
+
 from __future__ import annotations
 
 from src.orchestrator.trace import PipelineStageError
@@ -28,6 +29,7 @@ def unwrap_exception(exc: BaseException) -> BaseException:
             continue
         try:
             from tenacity import RetryError as _RetryError
+
             if isinstance(cur, _RetryError):
                 last = getattr(cur, "last_attempt", None)
                 if last is not None:
@@ -106,6 +108,7 @@ def format_task_error(exc: Exception) -> str:
     # piece of info for debugging image-gen failures.
     try:
         from src.providers.image_gen.reve_provider import ReveAPIError
+
         if isinstance(original, ReveAPIError):
             if original.error_code:
                 extras.append(f"code={original.error_code}")
@@ -135,11 +138,14 @@ def format_image_gen_error(exc: BaseException) -> str:
     parts: list[str] = []
     try:
         from src.providers.image_gen.reve_provider import ReveAPIError
+
         real: BaseException = exc
         for _ in range(5):
             if isinstance(real, ReveAPIError):
                 break
-            cause = getattr(real, "__cause__", None) or getattr(real, "__context__", None)
+            cause = getattr(real, "__cause__", None) or getattr(
+                real, "__context__", None
+            )
             if cause is None or cause is real:
                 break
             real = cause

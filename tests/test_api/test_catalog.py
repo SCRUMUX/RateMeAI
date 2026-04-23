@@ -1,4 +1,5 @@
 """Tests for catalog API endpoints."""
+
 from __future__ import annotations
 
 

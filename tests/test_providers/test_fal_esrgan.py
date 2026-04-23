@@ -8,6 +8,7 @@ error semantics, different payload shape. We cover:
 * external image URL fetch path (result payload ⇒ follow-up GET);
 * 4xx on submit → ``RuntimeError`` with the HTTP status surfaced.
 """
+
 from __future__ import annotations
 
 import base64
@@ -86,9 +87,14 @@ class _FakeFalClient:
         return resp
 
     def post(self, url, json=None, headers=None):
-        self.calls.append({
-            "method": "POST", "url": url, "json": json, "headers": headers,
-        })
+        self.calls.append(
+            {
+                "method": "POST",
+                "url": url,
+                "json": json,
+                "headers": headers,
+            }
+        )
         return self._pop()
 
     def get(self, url, headers=None):
@@ -143,23 +149,28 @@ async def test_upscale_happy_path_inline_data_uri():
     status_url = "https://queue.fal.run/fal-ai/real-esrgan/requests/r/status"
     response_url = "https://queue.fal.run/fal-ai/real-esrgan/requests/r"
     responses = [
-        _json_response({
-            "request_id": "r",
-            "status": "IN_QUEUE",
-            "status_url": status_url,
-            "response_url": response_url,
-        }),
+        _json_response(
+            {
+                "request_id": "r",
+                "status": "IN_QUEUE",
+                "status_url": status_url,
+                "response_url": response_url,
+            }
+        ),
         _json_response({"status": "COMPLETED"}),
-        _json_response({
-            "image": {"url": data_uri},
-            "has_nsfw_concepts": [False],
-        }),
+        _json_response(
+            {
+                "image": {"url": data_uri},
+                "has_nsfw_concepts": [False],
+            }
+        ),
     ]
     fake = _FakeFalClient(responses)
 
     upscaler = _make_upscaler()
-    with _patched_client(fake), patch(
-        "src.providers.image_gen._fal_queue_base.time.sleep"
+    with (
+        _patched_client(fake),
+        patch("src.providers.image_gen._fal_queue_base.time.sleep"),
     ):
         out = await upscaler.upscale(_jpeg_bytes(), factor=2)
 
@@ -172,24 +183,29 @@ async def test_upscale_follows_external_image_url():
     out_jpeg = _jpeg_bytes((10, 120, 10), size=24)
     external = "https://fal.media/files/abc/upscaled.jpg"
     responses = [
-        _json_response({
-            "request_id": "x",
-            "status": "IN_QUEUE",
-            "status_url": "https://queue.fal.run/fal-ai/real-esrgan/requests/x/status",
-            "response_url": "https://queue.fal.run/fal-ai/real-esrgan/requests/x",
-        }),
+        _json_response(
+            {
+                "request_id": "x",
+                "status": "IN_QUEUE",
+                "status_url": "https://queue.fal.run/fal-ai/real-esrgan/requests/x/status",
+                "response_url": "https://queue.fal.run/fal-ai/real-esrgan/requests/x",
+            }
+        ),
         _json_response({"status": "COMPLETED"}),
-        _json_response({
-            "image": {"url": external},
-            "has_nsfw_concepts": [False],
-        }),
+        _json_response(
+            {
+                "image": {"url": external},
+                "has_nsfw_concepts": [False],
+            }
+        ),
         _binary_response(out_jpeg),
     ]
     fake = _FakeFalClient(responses)
 
     upscaler = _make_upscaler()
-    with _patched_client(fake), patch(
-        "src.providers.image_gen._fal_queue_base.time.sleep"
+    with (
+        _patched_client(fake),
+        patch("src.providers.image_gen._fal_queue_base.time.sleep"),
     ):
         out = await upscaler.upscale(_jpeg_bytes())
 
@@ -201,8 +217,9 @@ async def test_upscale_follows_external_image_url():
 async def test_upscale_4xx_on_submit_no_retry():
     fake = _FakeFalClient([_error_response(400, "bad")])
     upscaler = _make_upscaler(max_retries=3)
-    with _patched_client(fake), patch(
-        "src.providers.image_gen._fal_queue_base.time.sleep"
+    with (
+        _patched_client(fake),
+        patch("src.providers.image_gen._fal_queue_base.time.sleep"),
     ):
         with pytest.raises(RuntimeError, match="http=400"):
             await upscaler.upscale(_jpeg_bytes())

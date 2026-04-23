@@ -24,6 +24,7 @@ good) the caller receives the ORIGINAL bytes unchanged, plus a
 structured log entry. Pre-restoration is optional by design — it
 must never take down the main generation path.
 """
+
 from __future__ import annotations
 
 import logging
@@ -145,10 +146,14 @@ async def prerestore_if_needed(
             restorer = FalGfpganRestorer(
                 api_key=api_key,
                 model=getattr(
-                    settings, "gfpgan_model", "fal-ai/gfpgan",
+                    settings,
+                    "gfpgan_model",
+                    "fal-ai/gfpgan",
                 ),
                 api_host=getattr(
-                    settings, "fal_api_host", "https://queue.fal.run",
+                    settings,
+                    "fal_api_host",
+                    "https://queue.fal.run",
                 ),
             )
         except Exception as exc:
@@ -159,7 +164,8 @@ async def prerestore_if_needed(
         restored = await restorer.restore(image_bytes)
     except Exception as exc:
         logger.warning(
-            "GFPGAN pre-clean failed, keeping original input (%s)", exc,
+            "GFPGAN pre-clean failed, keeping original input (%s)",
+            exc,
         )
         info["error"] = str(exc)
         return image_bytes, info

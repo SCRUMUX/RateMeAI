@@ -1,4 +1,5 @@
 """Tests for Yandex ID and VK ID OAuth endpoints."""
+
 from __future__ import annotations
 
 from unittest.mock import AsyncMock, patch
@@ -22,14 +23,18 @@ def test_yandex_init_returns_authorize_url(client):
 
 
 def test_yandex_callback_invalid_state(client):
-    r = client.get("/api/v1/auth/yandex/callback", params={"code": "abc", "state": "bad"})
+    r = client.get(
+        "/api/v1/auth/yandex/callback", params={"code": "abc", "state": "bad"}
+    )
     assert r.status_code == 400
 
 
 @patch(
     "src.channels.yandex_auth.get_user_info",
     new_callable=AsyncMock,
-    return_value=YandexUser(id="ya_123", login="testuser", display_name="Test", default_email="test@ya.ru"),
+    return_value=YandexUser(
+        id="ya_123", login="testuser", display_name="Test", default_email="test@ya.ru"
+    ),
 )
 @patch(
     "src.channels.yandex_auth.exchange_code",
@@ -82,18 +87,24 @@ def test_vk_id_init_returns_authorize_url(client):
     assert "id.vk.ru/authorize" in url
     assert "code_challenge=" in url
     assert "code_challenge_method=S256" in url
-    assert "device_id" not in url, "device_id must not be in authorize URL per VK ID docs"
+    assert "device_id" not in url, (
+        "device_id must not be in authorize URL per VK ID docs"
+    )
 
 
 def test_vk_id_callback_invalid_state(client):
-    r = client.get("/api/v1/auth/vk-id/callback", params={"code": "abc", "state": "bad"})
+    r = client.get(
+        "/api/v1/auth/vk-id/callback", params={"code": "abc", "state": "bad"}
+    )
     assert r.status_code == 400
 
 
 @patch(
     "src.channels.vk_id_auth.get_user_info",
     new_callable=AsyncMock,
-    return_value=VKIDUser(user_id="vk_456", first_name="Ivan", last_name="Petrov", email="ivan@vk.com"),
+    return_value=VKIDUser(
+        user_id="vk_456", first_name="Ivan", last_name="Petrov", email="ivan@vk.com"
+    ),
 )
 @patch(
     "src.channels.vk_id_auth.exchange_code",
@@ -140,7 +151,9 @@ def test_vk_id_callback_token_exchange_fails(mock_exchange, client):
 @patch(
     "src.channels.yandex_auth.get_user_info",
     new_callable=AsyncMock,
-    return_value=YandexUser(id="ya_repeat", login="repeat", display_name="Repeat", default_email=None),
+    return_value=YandexUser(
+        id="ya_repeat", login="repeat", display_name="Repeat", default_email=None
+    ),
 )
 @patch(
     "src.channels.yandex_auth.exchange_code",
@@ -165,7 +178,9 @@ def test_yandex_callback_idempotent_user(mock_exchange, mock_userinfo, client):
 
 # ── helpers ──
 
+
 def _extract_param(url: str, key: str) -> str:
     from urllib.parse import urlparse, parse_qs
+
     parsed = urlparse(url)
     return parse_qs(parsed.query).get(key, [""])[0]

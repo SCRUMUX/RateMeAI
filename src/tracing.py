@@ -6,6 +6,7 @@ To enable, set OTEL_EXPORTER_OTLP_ENDPOINT in the environment (e.g. to a Jaeger
 or Grafana Tempo collector). When the endpoint is not set, tracing is disabled and
 all span operations are no-ops.
 """
+
 from __future__ import annotations
 
 import logging
@@ -34,7 +35,9 @@ def _try_init() -> None:
         from opentelemetry import trace
         from opentelemetry.sdk.trace import TracerProvider
         from opentelemetry.sdk.trace.export import BatchSpanProcessor
-        from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
+        from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import (
+            OTLPSpanExporter,
+        )
         from opentelemetry.sdk.resources import Resource
 
         resource = Resource.create({"service.name": "ratemeai"})
@@ -86,6 +89,7 @@ def add_span_attribute(key: str, value) -> None:
     """Add an attribute to the current span, if tracing is active."""
     try:
         from opentelemetry import trace
+
         current = trace.get_current_span()
         if current and current.is_recording():
             current.set_attribute(key, value)

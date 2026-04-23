@@ -5,6 +5,7 @@ Revises: 001
 Create Date: 2026-04-03
 
 """
+
 from typing import Sequence, Union
 
 from alembic import op
@@ -29,10 +30,23 @@ def upgrade() -> None:
         sa.Column("id", UUID(as_uuid=True), primary_key=True),
         sa.Column("name", sa.String(255), nullable=False),
         sa.Column("key_hash", sa.String(64), nullable=False, unique=True, index=True),
-        sa.Column("user_id", UUID(as_uuid=True), sa.ForeignKey("users.id"), nullable=False, index=True),
-        sa.Column("rate_limit_daily", sa.Integer(), nullable=False, server_default="1000"),
+        sa.Column(
+            "user_id",
+            UUID(as_uuid=True),
+            sa.ForeignKey("users.id"),
+            nullable=False,
+            index=True,
+        ),
+        sa.Column(
+            "rate_limit_daily", sa.Integer(), nullable=False, server_default="1000"
+        ),
         sa.Column("is_active", sa.Boolean(), nullable=False, server_default=sa.true()),
-        sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False),
+        sa.Column(
+            "created_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.func.now(),
+            nullable=False,
+        ),
     )
 
 

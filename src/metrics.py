@@ -1,4 +1,5 @@
 """Prometheus metrics for RateMeAI pipeline observability."""
+
 from __future__ import annotations
 
 import math
@@ -131,6 +132,7 @@ def ab_backend_label(
     ``"nano_banana_2:medium"``.
     """
     return f"{(model_key or 'unknown').strip().lower()}:{(quality or 'medium').strip().lower()}"
+
 
 LLM_CALLS = Counter(
     "ratemeai_llm_calls_total",

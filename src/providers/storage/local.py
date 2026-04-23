@@ -49,14 +49,18 @@ class LocalStorageProvider(StorageProvider):
             url = f"{self._http_fallback_base}/storage/{enc}"
             try:
                 if self._http_client is None:
-                    self._http_client = httpx.AsyncClient(timeout=120.0, follow_redirects=True)
+                    self._http_client = httpx.AsyncClient(
+                        timeout=120.0, follow_redirects=True
+                    )
                 resp = await self._http_client.get(url)
                 resp.raise_for_status()
                 data = resp.content
                 logger.info("Storage download via HTTP fallback: %s", key)
                 return data
             except Exception:
-                logger.exception("Storage HTTP fallback failed for key=%s url=%s", key, url)
+                logger.exception(
+                    "Storage HTTP fallback failed for key=%s url=%s", key, url
+                )
 
         raise FileNotFoundError(f"File not found: {key}")
 

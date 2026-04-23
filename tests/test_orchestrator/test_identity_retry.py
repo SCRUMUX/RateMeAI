@@ -15,6 +15,7 @@ numeric score. These tests pin the contract in both directions:
 * The feature flag ``settings.identity_retry_enabled=False`` disables
   the whole branch even when the score is low.
 """
+
 from __future__ import annotations
 
 import io
@@ -173,10 +174,12 @@ async def test_retry_skipped_when_vlm_check_failed(mock_settings):
     _base_settings(mock_settings)
     executor, image_gen, _ = _build_executor(
         provider_outputs=[_jpeg()],
-        gate_reports=[{
-            "identity_match": None,
-            "quality_check_failed": True,
-        }],
+        gate_reports=[
+            {
+                "identity_match": None,
+                "quality_check_failed": True,
+            }
+        ],
     )
 
     result_dict: dict = {"base_description": "test"}
@@ -204,10 +207,12 @@ async def test_retry_disabled_by_feature_flag(mock_settings):
     _base_settings(mock_settings, retry_enabled=False)
     executor, image_gen, _ = _build_executor(
         provider_outputs=[_jpeg()],
-        gate_reports=[{
-            "identity_match": 2.5,
-            "quality_check_failed": False,
-        }],
+        gate_reports=[
+            {
+                "identity_match": 2.5,
+                "quality_check_failed": False,
+            }
+        ],
     )
 
     result_dict: dict = {"base_description": "test"}
@@ -233,10 +238,12 @@ async def test_retry_skipped_when_first_score_already_passes(mock_settings):
     _base_settings(mock_settings)
     executor, image_gen, _ = _build_executor(
         provider_outputs=[_jpeg()],
-        gate_reports=[{
-            "identity_match": 9.0,
-            "quality_check_failed": False,
-        }],
+        gate_reports=[
+            {
+                "identity_match": 9.0,
+                "quality_check_failed": False,
+            }
+        ],
     )
 
     result_dict: dict = {"base_description": "test"}

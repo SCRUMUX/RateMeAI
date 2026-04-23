@@ -4,6 +4,7 @@ Protects against accidental use of diaclect-specific helpers like
 `.astext` on the generic `sqlalchemy.JSON` comparator, which fails at
 runtime with AttributeError.
 """
+
 from __future__ import annotations
 
 from sqlalchemy import cast, func, select, String
@@ -19,10 +20,12 @@ def test_tasks_query_compiles_for_postgres():
         | cast(Task.result["generated_image_path"], String).isnot(None)
     )
     q = select(func.count(Task.id)).where(gen_url_filter)
-    sql = str(q.compile(
-        dialect=postgresql.dialect(),
-        compile_kwargs={"literal_binds": True},
-    ))
+    sql = str(
+        q.compile(
+            dialect=postgresql.dialect(),
+            compile_kwargs={"literal_binds": True},
+        )
+    )
     assert "CAST" in sql.upper()
     assert "generated_image_url" in sql
     assert "image_url" in sql

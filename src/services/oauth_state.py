@@ -1,4 +1,5 @@
 """OAuth state + PKCE code_verifier storage in Redis."""
+
 from __future__ import annotations
 
 import hashlib
@@ -29,12 +30,14 @@ async def save_oauth_state(
     device_id: str | None = None,
     link_user_id: str | None = None,
 ) -> None:
-    payload = json.dumps({
-        "provider": provider,
-        "code_verifier": code_verifier,
-        "device_id": device_id,
-        "link_user_id": link_user_id,
-    })
+    payload = json.dumps(
+        {
+            "provider": provider,
+            "code_verifier": code_verifier,
+            "device_id": device_id,
+            "link_user_id": link_user_id,
+        }
+    )
     await redis.set(f"{_PREFIX}{state}", payload, ex=_TTL)
 
 
