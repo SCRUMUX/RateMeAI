@@ -101,6 +101,12 @@ class RemoteAnalysisRequest(BaseModel):
     trace_id: str = ""
     policy_flags: dict[str, Any] = Field(default_factory=dict)
     artifact_refs: dict[str, str] = Field(default_factory=dict)
+    # v1.22: A/B image-gen selection forwarded from the edge server.
+    # Missing / unknown values fall back to ``settings.ab_default_model``
+    # / ``settings.ab_default_quality`` so edge traffic always hits
+    # Nano Banana 2 or GPT Image 2, never the legacy StyleRouter.
+    image_model: str = ""
+    image_quality: str = ""
 
 
 class RemoteAnalysisResponse(BaseModel):
@@ -171,6 +177,30 @@ async def process_analysis_remote(
 
     ctx["skip_credit_deduct"] = True
     ctx["defer_delta_scoring"] = True
+
+    # v1.22: mirror the /analyze A/B fallback here so edge traffic
+    # (RU-edge → primary) routes through Nano Banana 2 / GPT Image 2
+    # just like direct primary traffic. Empty / unknown values resolve
+    # to settings.ab_default_model / settings.ab_default_quality
+    # (typically ``gpt_image_2`` + ``low``). When AB_TEST_ENABLED is
+    # false the block is skipped entirely and the legacy hybrid
+    # StyleRouter takes over — same rollback knob as on /analyze.
+    if settings.ab_test_enabled:
+        _AB_MODELS = {"nano_banana_2", "gpt_image_2"}
+        _AB_QUALITIES = {"low", "medium", "high"}
+        im = (request.image_model or "").strip().lower()
+        iq = (request.image_quality or "").strip().lower()
+        if im not in _AB_MODELS:
+            im = getattr(settings, "ab_default_model", "gpt_image_2")
+            if im not in _AB_MODELS:
+                im = "gpt_image_2"
+        if iq not in _AB_QUALITIES:
+            iq = getattr(settings, "ab_default_quality", "low")
+            if iq not in _AB_QUALITIES:
+                iq = "low"
+        ctx["image_model"] = im
+        ctx["image_quality"] = iq
+
     ctx = build_task_context(
         ctx,
         market_id=request.market_id,

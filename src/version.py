@@ -798,4 +798,35 @@
 #          body tests flipped to 1K / 2K / 4K; frontend build
 #          passes with the tightened ``AbImageModel`` type (no
 #          ``null``). All 2151+ unit tests still pass.
-APP_VERSION = "1.22.0"
+# 1.22.1 — Hotfix: RU edge was stripping ``image_model`` /
+#          ``image_quality`` on the edge→primary hop, so every
+#          request that landed on ailookstudio.ru fell through
+#          to the legacy StyleRouter despite the user picking
+#          Nano Banana 2 / GPT Image 2 in the web UI.
+#
+#          Fix threads A/B selection through the three missing
+#          hops:
+#            * ``src/api/v1/analyze.py`` — ``_handle_edge_analysis``
+#              now accepts ``image_model`` + ``image_quality`` and
+#              forwards them into ``remote_ai.submit_and_wait``
+#              (pre-seeded from the already-normalized ctx so the
+#              primary can't receive an empty string).
+#            * ``src/services/remote_ai.py`` — both
+#              ``submit_task`` and ``submit_and_wait`` added
+#              ``image_model`` / ``image_quality`` kwargs and the
+#              JSON payload carries them alongside the existing
+#              policy/market/trace metadata.
+#            * ``src/api/v1/internal.py`` —
+#              ``RemoteAnalysisRequest`` schema extended with the
+#              two new fields and ``process_analysis_remote``
+#              mirrors the ``/analyze`` fallback (empty / unknown
+#              value → ``settings.ab_default_model`` /
+#              ``settings.ab_default_quality``) before
+#              ``build_task_context`` so the worker always sees
+#              an explicit A/B selection on edge traffic too.
+#
+#          Legacy primaries keep ignoring the extra JSON fields,
+#          so this change is forward/backward compatible across
+#          rolling deploys. ``AB_TEST_ENABLED=false`` still fully
+#          rolls back to the hybrid StyleRouter.
+APP_VERSION = "1.22.1"

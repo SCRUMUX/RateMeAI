@@ -58,6 +58,8 @@ class RemoteAIService:
         trace_id: str = "",
         policy_flags: dict[str, Any] | None = None,
         artifact_refs: dict[str, str] | None = None,
+        image_model: str = "",
+        image_quality: str = "",
     ) -> str:
         """Submit an analysis task to the primary backend. Returns remote task ID."""
         payload = {
@@ -82,6 +84,12 @@ class RemoteAIService:
                 data_class="regional_photo",
             ),
             "artifact_refs": artifact_refs or {},
+            # v1.22: forward A/B image-gen selection so the primary
+            # routes through Nano Banana 2 / GPT Image 2 instead of
+            # silently falling through to the legacy StyleRouter.
+            # Older primaries simply ignore the extra fields.
+            "image_model": image_model or "",
+            "image_quality": image_quality or "",
         }
         try:
             resp = await self._client.post(
@@ -229,6 +237,8 @@ class RemoteAIService:
         trace_id: str = "",
         policy_flags: dict[str, Any] | None = None,
         artifact_refs: dict[str, str] | None = None,
+        image_model: str = "",
+        image_quality: str = "",
         on_poll: Any | None = None,
     ) -> dict[str, Any]:
         """Submit a task and wait for it to complete. Returns full result."""
@@ -248,6 +258,8 @@ class RemoteAIService:
             trace_id=trace_id,
             policy_flags=policy_flags,
             artifact_refs=artifact_refs,
+            image_model=image_model,
+            image_quality=image_quality,
         )
         return await self.poll_result(remote_id, on_poll=on_poll)
 

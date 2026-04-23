@@ -75,6 +75,8 @@ async def _handle_edge_analysis(
     scenario_slug: str,
     scenario_type: str,
     entry_mode: str,
+    image_model: str = "",
+    image_quality: str = "",
 ) -> None:
     """In edge mode: proxy the AI task to the primary Railway backend.
 
@@ -140,6 +142,11 @@ async def _handle_edge_analysis(
                 trace_id=get_trace_id(task_context) or str(task_id),
                 policy_flags=get_policy_flags(task_context),
                 artifact_refs=(task_context or {}).get("artifact_refs") or {},
+                # v1.22: forward A/B selection to the primary so the
+                # executor engages Nano Banana 2 / GPT Image 2 instead
+                # of silently falling through to the legacy StyleRouter.
+                image_model=(task_context or {}).get("image_model", "") or image_model,
+                image_quality=(task_context or {}).get("image_quality", "") or image_quality,
                 on_poll=_edge_progress,
             )
 
@@ -441,6 +448,13 @@ async def create_analysis(
                 scenario_slug=scenario_slug.strip(),
                 scenario_type=scenario_type.strip(),
                 entry_mode=entry_mode.strip(),
+                # v1.22: A/B selection must survive the edge→primary hop.
+                # ``ctx["image_model"]`` was already normalized above
+                # (unknown/empty → settings.ab_default_model) so we hand
+                # the primary an explicit choice rather than an empty
+                # string that would land on the legacy StyleRouter.
+                image_model=ctx.get("image_model", "") or image_model,
+                image_quality=ctx.get("image_quality", "") or image_quality,
             ),
             name=f"edge-analysis-{task.id}",
         )

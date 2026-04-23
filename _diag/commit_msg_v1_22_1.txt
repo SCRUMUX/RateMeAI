@@ -1,0 +1,33 @@
+fix(v1.22.1): forward A/B image-gen selection across RU edge→primary hop
+
+The RU edge server (ailookstudio.ru, COMPUTE_MODE=remote) was dropping
+``image_model`` and ``image_quality`` when proxying /analyze to the
+Railway primary. The web UI correctly sent ``image_model=gpt_image_2``
+to the edge, the edge stored it in ``task.context`` on its own DB row,
+but the proxy call (``remote_ai.submit_and_wait``) had no A/B kwargs,
+and the primary's internal ``/internal/process-analysis`` endpoint had
+no A/B fields on its Pydantic schema — so the primary built its task
+context without ``image_model``, and the executor silently fell through
+to the legacy hybrid StyleRouter (PuLID/Seedream/FLUX.2).
+
+Threads the two fields through all three missing hops:
+
+- ``src/api/v1/analyze.py`` — ``_handle_edge_analysis`` now accepts
+  ``image_model`` / ``image_quality`` and forwards them into
+  ``remote_ai.submit_and_wait``. The caller seeds them from the already
+  normalized ``ctx`` so primary never receives an empty string.
+
+- ``src/services/remote_ai.py`` — ``submit_task`` and ``submit_and_wait``
+  grow matching kwargs and include them in the JSON payload.
+
+- ``src/api/v1/internal.py`` — ``RemoteAnalysisRequest`` schema gets
+  the two new fields, ``process_analysis_remote`` mirrors the
+  ``/analyze`` fallback (unknown/empty → ``settings.ab_default_model``
+  / ``settings.ab_default_quality``) so worker traffic via the edge
+  path always routes through Nano Banana 2 / GPT Image 2.
+
+Legacy primaries keep ignoring the extra JSON fields, making this
+rolling-deploy safe. ``AB_TEST_ENABLED=false`` still fully rolls back
+to the hybrid StyleRouter.
+
+Version bumped to 1.22.1. All 2359 unit tests pass.
