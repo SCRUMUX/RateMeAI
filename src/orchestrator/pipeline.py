@@ -203,12 +203,31 @@ class AnalysisPipeline:
             # instead of re-detecting inside the prerestore / face-crop
             # chain — ``input_quality.face_bbox`` is the same detection
             # the input gate already accepted.
-            face_bbox = getattr(input_quality, "face_bbox", None)
-            with _trace_step(trace, "face_prerestore") as pre_entry:
-                generation_bytes, prerestore_info = await prerestore_if_needed(
-                    image_bytes, input_quality, face_bbox=face_bbox,
-                )
-                pre_entry["info"] = prerestore_info
+            # v1.23: SKIP GFPGAN preclean on the A/B path. Nano Banana 2
+            # and GPT Image 2 are edit-style models that rely on seeing
+            # the user's *original* face. Pre-restoring with GFPGAN
+            # subtly re-renders facial features — the models then encode
+            # a slightly altered identity and drift from the real user.
+            # Legacy StyleRouter keeps the preclean since PuLID benefits
+            # from sharper reference faces.
+            ab_active = bool(
+                getattr(settings, "ab_test_enabled", False)
+                and ab_image_model
+            )
+            if ab_active:
+                generation_bytes = image_bytes
+                prerestore_info = {"applied": False, "reason": "ab_path_skip"}
+                trace.setdefault("steps", []).append({
+                    "name": "face_prerestore",
+                    "info": prerestore_info,
+                })
+            else:
+                face_bbox = getattr(input_quality, "face_bbox", None)
+                with _trace_step(trace, "face_prerestore") as pre_entry:
+                    generation_bytes, prerestore_info = await prerestore_if_needed(
+                        image_bytes, input_quality, face_bbox=face_bbox,
+                    )
+                    pre_entry["info"] = prerestore_info
             if prerestore_info.get("applied"):
                 trace["decisions"].append({
                     "phase": "face_prerestore",

@@ -1,10 +1,14 @@
-"""Unit tests for :class:`FalGptImage2Edit` (v1.21 A/B path).
+"""Unit tests for :class:`FalGptImage2Edit` (v1.21 A/B path, v1.23 sizes).
 
 Focus areas that differ from the other FAL providers:
 
 - GPT Image 2 forwards ``quality`` verbatim on the wire (low/medium/high)
-- ``image_size`` is a ``{width, height}`` square per quality tier
-  (low=1024, medium=1536, high=2048) — both dims must be multiples of 16
+- v1.23: ``image_size`` is one of OpenAI's officially-supported sizes
+  (``1024x1024``, ``1024x1536`` portrait, ``1536x1024`` landscape,
+  ``2560x1440`` 2K). The executor supplies an explicit
+  ``image_size`` derived from the StyleSpec aspect; the provider
+  snaps any off-list value to the nearest entry and falls back to
+  a portrait default if nothing is provided.
 - ``num_images`` is pinned to 1
 - no ``seed`` support on the GPT Image 2 schema — we must NOT leak one
 - optional ``mask_url`` passes through when a caller provides it
@@ -23,8 +27,9 @@ from PIL import Image
 from src.providers.image_gen._fal_queue_base import FalContentViolationError
 from src.providers.image_gen.fal_gpt_image_2 import (
     FalGptImage2Edit,
-    _QUALITY_TO_LONG_EDGE,
+    _default_size_for_quality,
     _long_edge_for_quality,
+    _sanitize_image_size,
 )
 
 
@@ -124,24 +129,79 @@ def _make_gen(**overrides) -> FalGptImage2Edit:
 # ----------------------------------------------------------------------
 
 
-def test_quality_tier_mapping():
-    assert _QUALITY_TO_LONG_EDGE == {
-        "low": 1024,
-        "medium": 1536,
-        "high": 2048,
+def test_default_size_portrait_per_tier():
+    # v1.23: defaults are the OpenAI-recommended HD portrait sizes.
+    assert _default_size_for_quality("low", portrait=True) == {
+        "width": 1024, "height": 1024,
+    }
+    assert _default_size_for_quality("medium", portrait=True) == {
+        "width": 1024, "height": 1536,
+    }
+    assert _default_size_for_quality("high", portrait=True) == {
+        "width": 1440, "height": 2560,
     }
 
 
-def test_quality_tier_multiples_of_16():
+def test_default_size_landscape_per_tier():
+    assert _default_size_for_quality("low", portrait=False) == {
+        "width": 1024, "height": 1024,
+    }
+    assert _default_size_for_quality("medium", portrait=False) == {
+        "width": 1536, "height": 1024,
+    }
+    assert _default_size_for_quality("high", portrait=False) == {
+        "width": 2560, "height": 1440,
+    }
+
+
+def test_default_size_dimensions_multiples_of_16():
     # The GPT Image 2 schema requires both dimensions to be multiples of
     # 16; if this ever drifts the API returns HTTP 422.
-    for edge in _QUALITY_TO_LONG_EDGE.values():
-        assert edge % 16 == 0
+    for quality in ("low", "medium", "high"):
+        for portrait in (True, False):
+            sz = _default_size_for_quality(quality, portrait=portrait)
+            assert sz["width"] % 16 == 0
+            assert sz["height"] % 16 == 0
 
 
 def test_long_edge_unknown_collapses_to_medium():
     assert _long_edge_for_quality("banana") == 1536
     assert _long_edge_for_quality(None) == 1536
+
+
+def test_sanitize_image_size_snaps_portrait_to_nearest_whitelist():
+    # A 1080x1920 portrait has ~2.07 MP → closest portrait entry by
+    # total pixel count is 1024x1536 (~1.57 MP), not the 2K/3.69 MP one.
+    out = _sanitize_image_size(
+        {"width": 1080, "height": 1920}, quality="medium",
+    )
+    assert out == {"width": 1024, "height": 1536}
+
+
+def test_sanitize_image_size_large_portrait_snaps_to_2k():
+    # A 2000x3000 portrait has ~6 MP → closest portrait entry is
+    # 1440x2560 (~3.69 MP).
+    out = _sanitize_image_size(
+        {"width": 2000, "height": 3000}, quality="high",
+    )
+    assert out == {"width": 1440, "height": 2560}
+
+
+def test_sanitize_image_size_snaps_landscape_to_nearest_whitelist():
+    out = _sanitize_image_size(
+        {"width": 1600, "height": 900}, quality="medium",
+    )
+    # 1600x900 is landscape; closest medium entry is 1536x1024.
+    assert out == {"width": 1536, "height": 1024}
+
+
+def test_sanitize_image_size_falls_back_to_portrait_default_on_bad_input():
+    assert _sanitize_image_size(None, quality="medium") == {
+        "width": 1024, "height": 1536,
+    }
+    assert _sanitize_image_size(
+        {"width": 0, "height": 0}, quality="medium",
+    ) == {"width": 1024, "height": 1536}
 
 
 # ----------------------------------------------------------------------
@@ -160,37 +220,61 @@ def test_body_has_expected_gpt_image_2_shape():
     assert body["quality"] == "low"
     assert body["num_images"] == 1
     assert body["output_format"] in ("jpeg", "png", "webp")
+    # v1.23: default is the OpenAI portrait tier (square at low).
     assert body["image_size"] == {"width": 1024, "height": 1024}
     # GPT Image 2 does not accept ``seed`` — make sure we never send one.
     assert "seed" not in body
 
 
-def test_body_quality_medium_1536_square():
+def test_body_quality_medium_default_portrait():
     gen = _make_gen()
     body = gen._build_body("x", _jpeg_bytes(), {"quality": "medium"})
-    assert body["image_size"] == {"width": 1536, "height": 1536}
+    # v1.23: medium default is 1024x1536 HD portrait (was 1536x1536 square).
+    assert body["image_size"] == {"width": 1024, "height": 1536}
     assert body["quality"] == "medium"
 
 
-def test_body_quality_high_2048_square():
+def test_body_quality_high_default_portrait():
     gen = _make_gen()
     body = gen._build_body("x", _jpeg_bytes(), {"quality": "high"})
-    assert body["image_size"] == {"width": 2048, "height": 2048}
+    # v1.23: high default is 1440x2560 (2K portrait).
+    assert body["image_size"] == {"width": 1440, "height": 2560}
     assert body["quality"] == "high"
+
+
+def test_body_honours_explicit_image_size_from_params():
+    # The executor passes ``image_size`` derived from StyleSpec. The
+    # provider must forward it (after snapping to the whitelist).
+    gen = _make_gen()
+    body = gen._build_body(
+        "x", _jpeg_bytes(),
+        {"quality": "medium", "image_size": {"width": 1536, "height": 1024}},
+    )
+    assert body["image_size"] == {"width": 1536, "height": 1024}
+
+
+def test_body_snaps_offlist_image_size_to_whitelist():
+    gen = _make_gen()
+    body = gen._build_body(
+        "x", _jpeg_bytes(),
+        {"quality": "medium", "image_size": {"width": 1800, "height": 1200}},
+    )
+    # 1800x1200 landscape snaps to medium-tier landscape 1536x1024.
+    assert body["image_size"] == {"width": 1536, "height": 1024}
 
 
 def test_body_unknown_quality_collapses_to_default():
     gen = _make_gen(default_quality="medium")
     body = gen._build_body("x", _jpeg_bytes(), {"quality": "ultra"})
     assert body["quality"] == "medium"
-    assert body["image_size"] == {"width": 1536, "height": 1536}
+    assert body["image_size"] == {"width": 1024, "height": 1536}
 
 
 def test_body_missing_quality_uses_default():
     gen = _make_gen(default_quality="high")
     body = gen._build_body("x", _jpeg_bytes(), None)
     assert body["quality"] == "high"
-    assert body["image_size"] == {"width": 2048, "height": 2048}
+    assert body["image_size"] == {"width": 1440, "height": 2560}
 
 
 def test_body_forwards_mask_url_when_present():
@@ -272,7 +356,7 @@ async def test_generate_happy_path_inline_data_uri():
     assert submit["method"] == "POST"
     assert submit["url"].endswith("/openai/gpt-image-2/edit")
     assert submit["json"]["quality"] == "medium"
-    assert submit["json"]["image_size"] == {"width": 1536, "height": 1536}
+    assert submit["json"]["image_size"] == {"width": 1024, "height": 1536}
 
 
 @pytest.mark.asyncio

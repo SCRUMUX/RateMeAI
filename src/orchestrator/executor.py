@@ -63,6 +63,48 @@ def _document_target_aspect(style: str) -> str | None:
 _UPSCALE_FACE_THRESHOLD = 0.15
 
 
+# Nano Banana 2 aspect-ratio enum (fal schema). See
+# ``src/providers/image_gen/fal_nano_banana.py:_VALID_ASPECT_RATIOS``.
+_NB2_ASPECT_BUCKETS: tuple[tuple[float, str], ...] = (
+    # Ordered from tall portrait to wide landscape so ``min(..)`` picks
+    # the closest bucket by signed distance from the requested ratio.
+    (9 / 16, "9:16"),
+    (2 / 3, "2:3"),
+    (3 / 4, "3:4"),
+    (4 / 5, "4:5"),
+    (1.0, "1:1"),
+    (5 / 4, "5:4"),
+    (4 / 3, "4:3"),
+    (3 / 2, "3:2"),
+    (16 / 9, "16:9"),
+    (21 / 9, "21:9"),
+)
+
+
+def _aspect_ratio_enum_for_size(width: int, height: int) -> str:
+    """Snap an arbitrary ``(width, height)`` onto the NB2 AR enum.
+
+    Nano Banana 2 Edit does not accept a raw ``{width, height}``; it
+    needs an enum from the fixed list (``4:5``, ``3:4``, ``16:9`` …).
+    We pick the closest bucket by the ratio ``width / height`` so a
+    portrait StyleSpec (e.g. 1024x1536 from ``resolve_output_size``)
+    maps to ``2:3`` and a CV landscape (e.g. 1536x1024) to ``3:2``.
+
+    Returning ``auto`` defeats the purpose — the model then reframes
+    4K outputs into square and crops the head out, which we saw in
+    v1.22. Always return a concrete enum.
+    """
+    try:
+        w = int(width or 0)
+        h = int(height or 0)
+    except (TypeError, ValueError):
+        return "auto"
+    if w <= 0 or h <= 0:
+        return "auto"
+    target = w / h
+    return min(_NB2_ASPECT_BUCKETS, key=lambda b: abs(b[0] - target))[1]
+
+
 def _apply_local_postprocess(
     raw: bytes, mode: AnalysisMode, style: str, face_area_ratio: float,
 ) -> bytes:
@@ -544,6 +586,25 @@ class ImageGenerationExecutor:
                     ab_image_quality
                     or getattr(settings, "ab_default_quality", "medium")
                 )
+                # v1.23: derive a Nano Banana 2 aspect_ratio enum from
+                # the resolved StyleSpec output_size. NB2 does NOT
+                # accept a raw ``{width, height}`` — it needs an enum
+                # from its white-list (``4:5``, ``3:4``, ``16:9`` etc.).
+                # Without this the provider defaults to ``auto`` and
+                # tends to reframe portraits into square at 4K, which
+                # crops the head and drops identity match. GPT Image 2
+                # uses ``image_size`` (already in ``extra``) — no-op
+                # here for that provider.
+                if output_size and not extra.get("aspect_ratio"):
+                    extra["aspect_ratio"] = _aspect_ratio_enum_for_size(
+                        output_size["width"], output_size["height"],
+                    )
+                # v1.23: strip the legacy ``generation_mode`` key for
+                # the A/B path — NB2 / GPT-2 don't understand PuLID vs
+                # Seedream semantics, and keeping it around makes
+                # observability harder (looks like we're still routing
+                # through StyleRouter).
+                extra.pop("generation_mode", None)
 
             with _trace_step(trace, "image_gen"):
                 raw = await image_gen.generate(
@@ -569,14 +630,25 @@ class ImageGenerationExecutor:
                 # (Seedream edits) and only when the face is large
                 # enough to show polish. identity_scene outputs from
                 # PuLID are already sharp at 25 steps.
-                raw, cf_applied = await _apply_codeformer_post(
-                    raw,
-                    generation_mode=generation_mode,
-                    face_area_ratio=face_area_ratio or None,
-                    is_retry=False,
-                )
-                codeformer_applied = codeformer_applied or cf_applied
-                raw = await _maybe_real_esrgan_upscale(raw, face_area_ratio)
+                # v1.23: on the A/B path we DO NOT run CodeFormer /
+                # Real-ESRGAN. Nano Banana 2 and GPT Image 2 already
+                # emit clean, sharp faces at native resolution (1K–4K
+                # for NB2, up to 2560 for GPT-2). CodeFormer subtly
+                # re-renders facial features — exactly what we spent
+                # the A/B model budget trying to avoid. Real-ESRGAN
+                # x2 on an already-4K image only adds compression
+                # artefacts and doubles FAL spend. The legacy
+                # StyleRouter path keeps both stages for PuLID /
+                # Seedream outputs that were trained at 1 MP.
+                if not ab_active:
+                    raw, cf_applied = await _apply_codeformer_post(
+                        raw,
+                        generation_mode=generation_mode,
+                        face_area_ratio=face_area_ratio or None,
+                        is_retry=False,
+                    )
+                    codeformer_applied = codeformer_applied or cf_applied
+                    raw = await _maybe_real_esrgan_upscale(raw, face_area_ratio)
             provider_name = type(image_gen).__name__
             # v1.20: generic provider-agnostic counter. Name changed
             # from the historical ``ratemeai_reve_calls_total`` to
@@ -652,9 +724,20 @@ class ImageGenerationExecutor:
                     # and retrying doubles the cost without a decision
                     # signal. Capped at settings.identity_retry_max_attempts
                     # additional attempts (default 1).
-                    retry_enabled = bool(
-                        getattr(settings, "identity_retry_enabled", False)
-                    )
+                    # v1.23: the A/B path has its own feature flag so we
+                    # can keep PuLID retries alive without blowing budget
+                    # on NB2 / GPT-2 calls. The legacy retry sends
+                    # ``pulid_mode`` + ``id_scale`` escalation which both
+                    # A/B providers silently strip, so a retry under the
+                    # old flag only bought a fresh seed at 2× cost.
+                    if ab_active:
+                        retry_enabled = bool(
+                            getattr(settings, "ab_identity_retry_enabled", False)
+                        )
+                    else:
+                        retry_enabled = bool(
+                            getattr(settings, "identity_retry_enabled", False)
+                        )
                     try:
                         _cfg_max = getattr(
                             settings, "identity_retry_max_attempts", 0,

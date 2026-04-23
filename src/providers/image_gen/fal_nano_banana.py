@@ -29,6 +29,23 @@ portrait and we never 422 on framing mismatches.
 
 The ``num_images=1`` knob is fixed; we deliberately do not expose batch
 generation so Prometheus cost accounting stays 1-call = 1-image.
+
+v1.23 identity-fidelity knobs (per FAL / Google docs and Nano Banana 2
+prompting guide):
+
+* ``thinking_level="high"`` is enabled for the ``medium`` and ``high``
+  quality tiers. The Gemini 3.1 Flash Image backing this endpoint
+  supports a reasoning mode that plans the edit before rendering; in
+  practice this is the single biggest lever for holding the reference
+  face together on non-trivial edits. ``low`` stays on fast mode so
+  the cheapest tier keeps its 5-10 s latency budget.
+* ``limit_generations=True`` is sent explicitly so the model cannot
+  decide to emit multiple intermediate frames (which the FAL wrapper
+  otherwise lets bleed through into cost/time).
+* ``safety_tolerance="4"`` is the fal default but we pin it so our
+  metrics and logs stay reproducible across deployments.
+* ``aspect_ratio`` is caller-controlled (executor derives it from the
+  StyleSpec), with ``auto`` as the backstop.
 """
 from __future__ import annotations
 
@@ -64,10 +81,26 @@ _VALID_ASPECT_RATIOS = frozenset({
     "4:5", "3:4", "2:3", "9:16", "4:1", "1:4", "8:1", "1:8",
 })
 
+_VALID_THINKING_LEVELS = frozenset({"minimal", "high"})
+_VALID_SAFETY_TOLERANCES = frozenset({"1", "2", "3", "4", "5", "6"})
+
 
 def _resolution_for_quality(quality: str | None) -> str:
     q = (quality or "medium").strip().lower()
     return _QUALITY_TO_RESOLUTION.get(q, _QUALITY_TO_RESOLUTION["medium"])
+
+
+def _thinking_level_for_quality(quality: str | None) -> str | None:
+    """Pick the Gemini reasoning level for this quality tier.
+
+    ``medium`` / ``high`` → ``"high"`` (reasoning-guided edit, strongest
+    face preservation at the cost of ~40-60% extra latency).
+    ``low`` → ``None`` (omit parameter; fast non-reasoning mode).
+    """
+    q = (quality or "medium").strip().lower()
+    if q in ("medium", "high"):
+        return "high"
+    return None
 
 
 class FalNanoBanana2Edit(FalQueueClient, ImageGenProvider):
@@ -128,6 +161,18 @@ class FalNanoBanana2Edit(FalQueueClient, ImageGenProvider):
         if aspect_ratio not in _VALID_ASPECT_RATIOS:
             aspect_ratio = "auto"
 
+        # v1.23: reasoning-guided edit on medium/high. Caller can
+        # override via ``extras["thinking_level"]`` (e.g. tests).
+        thinking_level = extras.get("thinking_level")
+        if thinking_level is None:
+            thinking_level = _thinking_level_for_quality(quality)
+        elif thinking_level not in _VALID_THINKING_LEVELS:
+            thinking_level = _thinking_level_for_quality(quality)
+
+        safety_tolerance = str(extras.get("safety_tolerance") or "4")
+        if safety_tolerance not in _VALID_SAFETY_TOLERANCES:
+            safety_tolerance = "4"
+
         body: dict[str, Any] = {
             "prompt": prompt,
             "image_urls": [self._data_url(reference_image)],
@@ -136,7 +181,16 @@ class FalNanoBanana2Edit(FalQueueClient, ImageGenProvider):
             "sync_mode": True,
             "resolution": resolution,
             "aspect_ratio": aspect_ratio,
+            # v1.23: pin safety_tolerance and limit_generations so the
+            # request body is reproducible for metrics and the model
+            # never silently emits intermediate frames we'd have to pay
+            # for.
+            "safety_tolerance": safety_tolerance,
+            "limit_generations": True,
         }
+
+        if thinking_level:
+            body["thinking_level"] = thinking_level
 
         seed = extras.get("seed")
         if isinstance(seed, int):
@@ -161,11 +215,13 @@ class FalNanoBanana2Edit(FalQueueClient, ImageGenProvider):
             )
         body = self._build_body(prompt, reference_image, params)
         logger.info(
-            "FAL request model=%s prompt_len=%d resolution=%s aspect=%s keys=%s",
+            "FAL request model=%s prompt_len=%d resolution=%s aspect=%s "
+            "thinking=%s keys=%s",
             self._model,
             len(prompt or ""),
             body.get("resolution"),
             body.get("aspect_ratio"),
+            body.get("thinking_level", "none"),
             sorted(body.keys()),
         )
         return self._run_queue_sync(body)
@@ -193,4 +249,8 @@ class FalNanoBanana2Edit(FalQueueClient, ImageGenProvider):
             ) from exc
 
 
-__all__ = ["FalNanoBanana2Edit", "_resolution_for_quality"]
+__all__ = [
+    "FalNanoBanana2Edit",
+    "_resolution_for_quality",
+    "_thinking_level_for_quality",
+]

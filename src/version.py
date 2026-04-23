@@ -829,4 +829,137 @@
 #          so this change is forward/backward compatible across
 #          rolling deploys. ``AB_TEST_ENABLED=false`` still fully
 #          rolls back to the hybrid StyleRouter.
-APP_VERSION = "1.22.1"
+# 1.23.0 — Face-fidelity adaptation for Nano Banana 2 and GPT Image 2.
+#          The v1.22 A/B cutover exposed three regressions in prod:
+#          (1) GPT Image 2 at ``quality=high`` routinely produced a
+#          result that the edge proxy never delivered because its 180-
+#          second poll ceiling was shorter than the primary's end-to-
+#          end time (generation + VLM gate). (2) Nano Banana 2 at
+#          ``quality=medium`` fired a second FAL call through the
+#          legacy PuLID identity-retry — that retry escalated
+#          ``pulid_mode`` / ``id_scale`` which NB2 silently ignores,
+#          doubling cost and latency for no gain. (3) NB2 outputs kept
+#          drifting on the face even though it's nominally an
+#          identity-preserving edit model, because the executor still
+#          piped every A/B output through CodeFormer (general face
+#          restoration), Real-ESRGAN (x2 upscale that added artefacts
+#          on an already-4K image) and GFPGAN preclean (which rewrote
+#          the reference face *before* the edit model ever saw it).
+#
+#          v1.23 is a targeted pipeline + prompt adaptation that keeps
+#          the legacy StyleRouter code path bit-for-bit untouched
+#          (still available via ``AB_TEST_ENABLED=false``) and only
+#          changes behaviour when the A/B branch is active.
+#
+#          1) Face-fidelity pipeline (src/orchestrator/pipeline.py,
+#             src/orchestrator/executor.py):
+#               * GFPGAN preclean is SKIPPED on the A/B path — NB2 /
+#                 GPT-2 both work better when they see the user's
+#                 unaltered reference.
+#               * CodeFormer post and Real-ESRGAN upscale are SKIPPED
+#                 on the A/B path. NB2 emits clean 1K–4K output and
+#                 GPT-2 up to 2560 at native resolution; the legacy
+#                 polish stages only re-render features and add JPEG
+#                 artefacts.
+#               * Identity-retry loop is gated behind the new
+#                 ``ab_identity_retry_enabled`` flag (defaults to
+#                 ``False``). The legacy retry shipped PuLID-only
+#                 parameters that NB2 / GPT-2 strip, so the second
+#                 call cost money without fixing identity. Legacy
+#                 StyleRouter path keeps its own
+#                 ``identity_retry_enabled`` flag — they're
+#                 independent.
+#               * The ``generation_mode`` key (PuLID vs Seedream
+#                 semantics) is stripped from the A/B provider
+#                 params for clean observability.
+#
+#          2) GPT Image 2 — standard sizes
+#             (src/providers/image_gen/fal_gpt_image_2.py):
+#               * Replaced the forced non-standard squares (1024² /
+#                 1536² / 2048²) with OpenAI's officially-supported
+#                 sizes: 1024×1024, 1024×1536 portrait, 1536×1024
+#                 landscape, 2560×1440 2K. The 2048² combination was
+#                 never on the supported list and had unstable
+#                 latency on ``high`` — a direct contributor to the
+#                 edge-timeout regression.
+#               * Provider now honours an explicit ``image_size``
+#                 from the executor (StyleSpec-aware) and snaps any
+#                 off-list caller-supplied size onto the nearest
+#                 whitelist entry.
+#
+#          3) Nano Banana 2 — Gemini reasoning lock
+#             (src/providers/image_gen/fal_nano_banana.py):
+#               * ``thinking_level="high"`` is sent on the medium /
+#                 high quality tiers. The reasoning-guided edit is
+#                 the single biggest lever in the fal.ai / Google
+#                 prompting guides for holding the reference face
+#                 together at higher resolutions. ``low`` keeps fast
+#                 non-reasoning mode for speed.
+#               * ``safety_tolerance="4"`` and
+#                 ``limit_generations=True`` are now pinned
+#                 explicitly so payloads are reproducible for
+#                 metrics and the model never silently emits extra
+#                 intermediate frames.
+#               * Executor derives a valid ``aspect_ratio`` enum
+#                 from the StyleSpec output size (``_aspect_ratio_
+#                 enum_for_size``) and forwards it, so NB2 stops
+#                 reframing 4K outputs into square and cropping the
+#                 head out.
+#
+#          4) Prompts — model-specific rewrites
+#             (src/prompts/ab_prompt.py):
+#               * NB2 wrapper rewritten from the 8-block stack to a
+#                 concise 3-paragraph prose prompt (identity anchor /
+#                 change description / explicit change-vs-preserve
+#                 split). Gemini 3.1 Flash Image deprioritises
+#                 labelled stacks — the prose form is what Google's
+#                 and fal.ai's own guides recommend. Anchor phrase
+#                 "Do not alter the person's face in any way." is
+#                 now first, followed by the scene description and
+#                 closed with a preserve inventory. Anti-plastic-
+#                 skin clause (``NANO_BANANA_SKIN_CLAUSE``) appended
+#                 to keep pores / micro-imperfections.
+#               * GPT-2 wrapper extends the Preserve/Constraints
+#                 triptych with explicit anchors per the OpenAI
+#                 "Generate images with high input fidelity"
+#                 cookbook: eye shape, nose bridge, jawline,
+#                 hairline, expression, framing in ``GPT_PRESERVE_
+#                 BASE``; "no face change, no airbrushing, no
+#                 plastic skin" in ``GPT_CONSTRAINTS``.
+#               * ``ab_prompt_max_len`` bumped from 1500 → 2000 to
+#                 keep the longer Preserve/Constraints intact on
+#                 styles with rich scene descriptions.
+#
+#          5) Edge polling timeout (src/services/remote_ai.py):
+#               * ``_POLL_MAX_SECONDS`` 180 → 300. Covers NB2
+#                 thinking-high and GPT-2 high end-to-end.
+#               * ``httpx.AsyncClient`` read timeout 120s → 240s.
+#               * Frontend polling is already 300s so no web change
+#                 needed.
+#
+#          Config / env:
+#               * New ``ab_identity_retry_enabled`` (default
+#                 ``False``) + ``AB_IDENTITY_RETRY_ENABLED=false``
+#                 in ``.env.example``.
+#               * ``ab_prompt_max_len`` default 1500 → 2000.
+#
+#          Expected effect:
+#               * NB2 faces stop drifting — no more CodeFormer re-
+#                 render, no GFPGAN preclean, thinking-high lock on
+#                 medium/high.
+#               * GPT-2 high stops timing out on the edge; uses
+#                 standard sizes so latency is predictable.
+#               * Cost per A/B request drops ~1.5-2× on medium/high
+#                 (one provider call instead of a retry + a Real-
+#                 ESRGAN upscale + a CodeFormer polish).
+#               * Legacy StyleRouter path: completely unchanged.
+#
+#          Tests: ``test_fal_gpt_image_2`` rewritten for the size
+#          whitelist + sanitizer; ``test_fal_nano_banana`` adds
+#          thinking_level / safety_tolerance / limit_generations
+#          assertions; ``test_ab_prompt`` rewritten for the new
+#          prose NB2 form + extended GPT-2 anchors;
+#          ``test_executor_ab_path`` adds two guard cases
+#          (CodeFormer/Real-ESRGAN skipped; identity-retry
+#          skipped on low identity_match). All 2376 tests pass.
+APP_VERSION = "1.23.0"

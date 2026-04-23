@@ -7,9 +7,23 @@ pipeline runs untouched.
 Model: ``openai/gpt-image-2/edit`` (OpenAI ChatGPT Images 2.0 via fal).
 The model accepts an explicit ``quality`` enum (``low`` / ``medium`` /
 ``high``) and a free-form ``image_size`` with both dimensions multiples
-of 16. We forward ``quality`` verbatim and pick a square portrait size
-per quality tier (1024 at low, 1536 at medium, 2048 at high) so the
-request cost is predictable regardless of what the client uploads.
+of 16.
+
+v1.23: switched the per-tier defaults from non-standard squares
+(``1024² / 1536² / 2048²``) to OpenAI's officially-recommended sizes
+from the GPT Image 2 docs (Image API guide and prompting cookbook):
+
+* ``1024 x 1024`` square (low)
+* ``1024 x 1536`` HD portrait (medium, default for portraits)
+* ``1536 x 1024`` HD landscape (medium full-body)
+* ``2560 x 1440`` 2K landscape (high; max reliability boundary)
+
+The forced ``2048²`` we used in v1.22 is *not* in the recommended
+list — that combination produced unstable latency and degraded
+identity preservation, and on ``high`` it routinely tripped the
+edge poll timeout. We now (a) honour an explicit ``image_size``
+from the executor / StyleSpec when supplied and (b) fall back to
+the white-listed sizes above.
 
 Empirical pricing (token-based — see fal model page):
 
@@ -33,18 +47,80 @@ from src.services.ai_transfer_guard import assert_external_transfer_allowed
 logger = logging.getLogger(__name__)
 
 
-_QUALITY_TO_LONG_EDGE: dict[str, int] = {
-    "low": 1024,
-    "medium": 1536,
-    "high": 2048,
-}
+_VALID_QUALITIES = frozenset(("low", "medium", "high"))
 
-_VALID_QUALITIES = frozenset(_QUALITY_TO_LONG_EDGE.keys())
+# OpenAI-recommended GPT Image 2 sizes (Image API guide, 2026 edition).
+# Anything else either rounds DOWN to the nearest entry by total pixel
+# count or is rejected. ``portrait`` / ``landscape`` is decided by the
+# requested image_size aspect ratio.
+_GPT2_PORTRAIT_SIZES: tuple[tuple[int, int], ...] = (
+    (1024, 1024),
+    (1024, 1536),
+    (1440, 2560),
+)
+_GPT2_LANDSCAPE_SIZES: tuple[tuple[int, int], ...] = (
+    (1024, 1024),
+    (1536, 1024),
+    (2560, 1440),
+)
 
 
 def _long_edge_for_quality(quality: str | None) -> int:
+    """Backwards-compatible long-edge accessor for legacy tests.
+
+    The provider no longer forces a square size, but a few legacy
+    callsites (and tests) still ask "what's the canonical long edge
+    for this quality tier?" — return the longest dimension of the
+    portrait default per tier.
+    """
     q = (quality or "medium").strip().lower()
-    return _QUALITY_TO_LONG_EDGE.get(q, _QUALITY_TO_LONG_EDGE["medium"])
+    return {
+        "low": 1024,
+        "medium": 1536,
+        "high": 2560,
+    }.get(q, 1536)
+
+
+def _default_size_for_quality(
+    quality: str, *, portrait: bool = True,
+) -> dict[str, int]:
+    """Pick the OpenAI-recommended (width, height) for this tier."""
+    table = _GPT2_PORTRAIT_SIZES if portrait else _GPT2_LANDSCAPE_SIZES
+    idx = {"low": 0, "medium": 1, "high": 2}.get(quality, 1)
+    w, h = table[idx]
+    return {"width": w, "height": h}
+
+
+def _sanitize_image_size(
+    raw: Any, *, quality: str,
+) -> dict[str, int]:
+    """Snap an arbitrary ``{width, height}`` request onto a valid size.
+
+    GPT Image 2 only ships a small set of officially-supported sizes
+    on fal. Off-list values either fail the request outright or kick
+    the model into a slow path. We respect the *aspect orientation*
+    requested by the executor (portrait vs landscape) and pick the
+    closest white-listed size for the active quality tier.
+    """
+    width = 0
+    height = 0
+    if isinstance(raw, dict):
+        try:
+            width = int(raw.get("width") or 0)
+            height = int(raw.get("height") or 0)
+        except (TypeError, ValueError):
+            width = 0
+            height = 0
+    if width <= 0 or height <= 0:
+        return _default_size_for_quality(quality, portrait=True)
+
+    portrait = height >= width
+    candidates = _GPT2_PORTRAIT_SIZES if portrait else _GPT2_LANDSCAPE_SIZES
+    requested_pixels = width * height
+    best = min(
+        candidates, key=lambda wh: abs(wh[0] * wh[1] - requested_pixels),
+    )
+    return {"width": best[0], "height": best[1]}
 
 
 class FalGptImage2Edit(FalQueueClient, ImageGenProvider):
@@ -97,16 +173,23 @@ class FalGptImage2Edit(FalQueueClient, ImageGenProvider):
         quality = str(extras.get("quality") or self._default_quality).lower()
         if quality not in _VALID_QUALITIES:
             quality = self._default_quality
-        long_edge = _long_edge_for_quality(quality)
+
+        # v1.23: prefer the caller-supplied image_size (StyleSpec aspect
+        # resolved by executor.resolve_output_size) and snap it onto the
+        # OpenAI-recommended list. Legacy callers that do not pass the
+        # key get the portrait default for the tier.
+        requested_size = extras.get("image_size")
+        if requested_size:
+            image_size = _sanitize_image_size(requested_size, quality=quality)
+        else:
+            image_size = _default_size_for_quality(quality, portrait=True)
 
         body: dict[str, Any] = {
             "prompt": prompt,
             "image_urls": [self._data_url(reference_image)],
             "quality": quality,
             "output_format": self._output_format,
-            # Square portrait tier; both dimensions multiples of 16 are
-            # required by the GPT Image 2 schema.
-            "image_size": {"width": long_edge, "height": long_edge},
+            "image_size": image_size,
             "num_images": 1,
         }
 
@@ -164,4 +247,9 @@ class FalGptImage2Edit(FalQueueClient, ImageGenProvider):
             ) from exc
 
 
-__all__ = ["FalGptImage2Edit", "_long_edge_for_quality"]
+__all__ = [
+    "FalGptImage2Edit",
+    "_long_edge_for_quality",
+    "_default_size_for_quality",
+    "_sanitize_image_size",
+]

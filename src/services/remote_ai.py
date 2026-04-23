@@ -13,7 +13,13 @@ from src.services.task_contract import build_policy_flags
 logger = logging.getLogger(__name__)
 
 _POLL_INTERVAL_SECONDS = 2.0
-_POLL_MAX_SECONDS = 180.0
+# v1.23: raised from 180s to 300s. Nano Banana 2 on ``thinking_level=
+# "high"`` plus GPT Image 2 at ``quality="high"`` can legitimately spend
+# 180-240 s on the primary (generation + VLM gate). The old 180s ceiling
+# caused the edge to mark the request failed while the primary was still
+# producing the image, which is exactly the regression reported after
+# the v1.22.1 hotfix. Frontend already polls up to 300s.
+_POLL_MAX_SECONDS = 300.0
 
 
 class RemoteAIError(Exception):
@@ -31,8 +37,12 @@ class RemoteAIService:
         self._key = settings.internal_api_key
         if not self._key:
             raise RuntimeError("INTERNAL_API_KEY must be set in edge mode")
+        # v1.23: read timeout bumped from 120s to 240s to cover slow
+        # ``submit``/``status`` hops when the primary is busy running a
+        # ``quality=high`` GPT Image 2 edit — a single GET used to time
+        # out at 120s and trigger a spurious RemoteAIError on the edge.
         self._client = httpx.AsyncClient(
-            timeout=httpx.Timeout(connect=10.0, read=120.0, write=30.0, pool=10.0),
+            timeout=httpx.Timeout(connect=10.0, read=240.0, write=30.0, pool=10.0),
         )
 
     async def close(self) -> None:

@@ -276,7 +276,24 @@ class Settings(BaseSettings):
     # Maximum character length for the 8-block adapter prompt. Both
     # A/B models handle longer prompts than FLUX Lightning, so the cap
     # is higher than ``PROMPT_MAX_LEN`` (1200) used by the hybrid path.
-    ab_prompt_max_len: int = 1500
+    # v1.23: bumped from 1500 to 2000. The v1.23 GPT Image 2 wrapper
+    # emits an extended Preserve/Constraints inventory (eye shape,
+    # nose bridge, jawline, hairline, …) per the OpenAI fidelity
+    # cookbook and the old 1500-char cap truncated the tail of
+    # ``Constraints:`` on styles with long scene descriptions,
+    # losing the critical ``no face change`` / ``no plastic skin``
+    # anchors. 2000 leaves comfortable headroom for both models
+    # (GPT-2 handles multi-thousand-char prompts well).
+    ab_prompt_max_len: int = 2000
+    # v1.23: identity-retry is intentionally DISABLED on the A/B path.
+    # The legacy retry loop re-runs the provider with PuLID-specific
+    # parameters (``pulid_mode``, ``id_scale``) that Nano Banana 2 and
+    # GPT Image 2 simply ignore — so the second call only burns budget
+    # and latency without actually improving the face. VLM quality
+    # scoring is still computed and logged for analytics, but it no
+    # longer triggers a re-generation. Legacy PuLID / StyleRouter path
+    # continues to honour ``identity_retry_enabled`` independently.
+    ab_identity_retry_enabled: bool = False
 
     # Nano Banana 2 Edit (Google Gemini 3.1 Flash Image).
     # https://fal.ai/models/fal-ai/nano-banana-2/edit

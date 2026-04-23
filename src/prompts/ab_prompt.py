@@ -72,13 +72,33 @@ OUTPUT_BLOCK = (
 # Prepended to the Identity block for Nano Banana so the reference-edit
 # sampler holds the face geometry at full fidelity.
 NANO_BANANA_IDENTITY_ANCHOR = (
-    "Keep facial features exactly the same as the reference image."
+    "Keep the face, facial features, identity, skin tone, and "
+    "expression exactly as in the reference photo. "
+    "Do not alter the person's face in any way."
 )
 
-# Boilerplate for the GPT Image 2 triptych.
-GPT_PRESERVE_BASE = "face, facial features, skin tone, body shape, pose"
+# Short natural-texture clause appended to NB2 prompts — pulled from the
+# Google Gemini portrait-prompting guide. Without it the model tends to
+# smooth skin into a waxy "plastic" look especially at 4K.
+NANO_BANANA_SKIN_CLAUSE = (
+    "natural skin texture with visible pores and subtle "
+    "micro-imperfections, no plastic smoothing, no airbrushing"
+)
+
+# Preserve list for the GPT Image 2 triptych. v1.23: extended with
+# explicit anchors (eye shape, nose bridge, jawline, hairline,
+# expression, framing) per OpenAI's "Generate images with high input
+# fidelity" cookbook and the fal.ai GPT Image 2 guide — the model
+# responds much better to an inventory than to a single "preserve
+# identity" clause.
+GPT_PRESERVE_BASE = (
+    "face, facial features, skin tone, skin texture, eye shape, "
+    "nose bridge, jawline, hairline, hair, body shape, pose, "
+    "expression, framing"
+)
 GPT_CONSTRAINTS = (
-    "no watermark, no logo drift, no extra objects, no redesign, "
+    "no face change, no airbrushing, no plastic skin, no watermark, "
+    "no logo drift, no extra text, no extra objects, no redesign, "
     "no identity change"
 )
 
@@ -228,18 +248,77 @@ def _render_blocks(blocks: dict[str, str]) -> str:
 
 
 def _wrap_nano_banana(blocks: dict[str, str]) -> str:
-    """Structured natural paragraph with explicit identity anchor."""
-    id_block = blocks["Identity & Realism"]
-    if NANO_BANANA_IDENTITY_ANCHOR not in id_block:
-        blocks = dict(blocks)
-        blocks["Identity & Realism"] = (
-            f"{NANO_BANANA_IDENTITY_ANCHOR} {id_block}"
-        )
-    return _render_blocks(blocks)
+    """Concise 3-paragraph prompt for Nano Banana 2 (Gemini 3.1 Flash).
+
+    v1.23: replaces the 8-block stack with the format the fal.ai Nano
+    Banana 2 guide, the Google Developer Blog (Gemini 2.5 Flash Image
+    prompting), and the ImagineArt NB2 guide all recommend — three
+    short paragraphs structured as:
+
+      1. Identity anchor (hard lock on the face)
+      2. Change description (subject, scene, style, lighting, camera)
+      3. Explicit change/preserve split
+
+    Gemini 3's multimodal reasoning path responds to *instructional*
+    prose, not labelled blocks — and its sweet spot is 1-3 sentences
+    per idea. An 8-block stack caused the model to deprioritise the
+    Identity block and drift on the face at high resolutions.
+    """
+    subject = blocks.get("Subject", "").strip().rstrip(".")
+    scene = blocks.get("Scene", "").strip().rstrip(".")
+    style = blocks.get("Style", "").strip().rstrip(".")
+    lighting = blocks.get("Lighting", "").strip().rstrip(".")
+    camera = blocks.get("Camera", "").strip().rstrip(".")
+
+    identity_paragraph = NANO_BANANA_IDENTITY_ANCHOR
+
+    change_bits: list[str] = []
+    if subject:
+        change_bits.append(f"Show {subject}")
+    if scene:
+        change_bits.append(f"in {scene}")
+    if lighting:
+        change_bits.append(f"with {lighting}")
+    change_sentence = ", ".join(change_bits).strip()
+    if change_sentence and not change_sentence.endswith("."):
+        change_sentence += "."
+
+    details_bits: list[str] = []
+    if style:
+        details_bits.append(f"Style: {style}")
+    if camera:
+        details_bits.append(f"Camera: {camera}")
+    details_bits.append(NANO_BANANA_SKIN_CLAUSE)
+    details_sentence = ". ".join(details_bits)
+    if details_sentence and not details_sentence.endswith("."):
+        details_sentence += "."
+
+    change_paragraph = " ".join(p for p in (change_sentence, details_sentence) if p)
+
+    preserve_paragraph = (
+        "Change only the environment, clothing styling, and lighting as "
+        "described. Preserve the subject's face, pose, hair, body "
+        "proportions, and framing exactly."
+    )
+
+    return (
+        f"{identity_paragraph}\n\n"
+        f"{change_paragraph}\n\n"
+        f"{preserve_paragraph}"
+    )
 
 
 def _wrap_gpt_image_2(blocks: dict[str, str]) -> str:
-    """Wrap the body in the Change / Preserve / Constraints triptych."""
+    """Wrap the body in the Change / Preserve / Constraints triptych.
+
+    v1.23: the Preserve line now carries the extended inventory from
+    :data:`GPT_PRESERVE_BASE` (eye shape, nose bridge, jawline,
+    hairline, hair, expression, framing) — the OpenAI cookbook
+    "Generate images with high input fidelity" explicitly recommends
+    listing anchors instead of relying on a single "preserve identity"
+    clause. GPT Image 2 is also happy with longer structured prompts
+    so we keep the full 8-block body.
+    """
     body = _render_blocks(blocks)
     change_line = ", ".join(
         p for p in (
@@ -250,7 +329,9 @@ def _wrap_gpt_image_2(blocks: dict[str, str]) -> str:
     )
     preserve_line = (
         f"{blocks.get('Identity & Realism', IDENTITY_BLOCK)} "
-        f"Preserve {GPT_PRESERVE_BASE}."
+        f"Preserve {GPT_PRESERVE_BASE}. "
+        "Keep the subject clearly recognizable as the same person "
+        "from the reference photo."
     )
     suffix = (
         f"\n\nChange: {change_line}"
@@ -310,4 +391,7 @@ __all__ = [
     "ENHANCEMENT_BLOCK",
     "OUTPUT_BLOCK",
     "NANO_BANANA_IDENTITY_ANCHOR",
+    "NANO_BANANA_SKIN_CLAUSE",
+    "GPT_PRESERVE_BASE",
+    "GPT_CONSTRAINTS",
 ]

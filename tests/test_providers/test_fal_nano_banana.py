@@ -35,6 +35,7 @@ from src.providers.image_gen.fal_nano_banana import (
     FalNanoBanana2Edit,
     _QUALITY_TO_RESOLUTION,
     _resolution_for_quality,
+    _thinking_level_for_quality,
 )
 
 
@@ -170,6 +171,11 @@ def test_body_has_expected_nano_banana_shape():
     # v1.22: low tier now maps to 1K (was 0.5K).
     assert body["resolution"] == "1K"
     assert body["aspect_ratio"] == "auto"
+    # v1.23: reproducibility pins.
+    assert body["safety_tolerance"] == "4"
+    assert body["limit_generations"] is True
+    # v1.23: low keeps fast non-reasoning mode.
+    assert "thinking_level" not in body
     assert "image_size" not in body, (
         "Nano Banana 2 Edit schema has no image_size field; "
         "sending it would 422"
@@ -177,16 +183,54 @@ def test_body_has_expected_nano_banana_shape():
     assert body["seed"] == 7
 
 
-def test_body_quality_medium_is_2k():
+def test_body_quality_medium_enables_thinking_high():
     gen = _make_gen()
     body = gen._build_body("x", _jpeg_bytes(), {"quality": "medium"})
     assert body["resolution"] == "2K"
+    # v1.23: medium/high opt into Gemini reasoning for identity lock.
+    assert body["thinking_level"] == "high"
 
 
-def test_body_quality_high_is_4k():
+def test_body_quality_high_enables_thinking_high():
     gen = _make_gen()
     body = gen._build_body("x", _jpeg_bytes(), {"quality": "high"})
     assert body["resolution"] == "4K"
+    assert body["thinking_level"] == "high"
+
+
+def test_body_explicit_thinking_level_override_honoured():
+    gen = _make_gen()
+    body = gen._build_body(
+        "x", _jpeg_bytes(),
+        {"quality": "high", "thinking_level": "minimal"},
+    )
+    assert body["thinking_level"] == "minimal"
+
+
+def test_body_invalid_thinking_level_falls_back_to_quality_default():
+    gen = _make_gen()
+    body = gen._build_body(
+        "x", _jpeg_bytes(),
+        {"quality": "high", "thinking_level": "garbage"},
+    )
+    assert body["thinking_level"] == "high"
+
+
+def test_body_invalid_safety_tolerance_falls_back_to_4():
+    gen = _make_gen()
+    body = gen._build_body(
+        "x", _jpeg_bytes(),
+        {"quality": "low", "safety_tolerance": "99"},
+    )
+    assert body["safety_tolerance"] == "4"
+
+
+def test_thinking_level_helper():
+    assert _thinking_level_for_quality("low") is None
+    assert _thinking_level_for_quality("medium") == "high"
+    assert _thinking_level_for_quality("high") == "high"
+    assert _thinking_level_for_quality(None) == "high"  # defaults to medium
+    assert _thinking_level_for_quality("banana") is None
 
 
 def test_body_unknown_quality_collapses_to_default_quality():
