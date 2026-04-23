@@ -214,17 +214,14 @@ IDENTITY_SCENE_QUALITY = (
 )
 
 DOC_PRESERVE = (
-    "Preserve the exact same person from the reference photo: identical face "
-    "(bone structure, eyes, nose, mouth, hairline, ear position), identical "
-    "skin tone with natural pores, same hair color and length, same head "
-    "shape and head-to-shoulders proportion."
+    "Preserve the exact same person from the reference photo: identical facial "
+    "features, skin tone with natural pores, hair color and length, and "
+    "head-to-shoulders proportion."
 )
 
 DOC_QUALITY = (
-    "Photorealistic ID-style headshot, soft even frontal studio light, clean "
-    "backdrop with minimal residual shadow, true-to-life skin tones, "
-    "authentic skin texture, sharp detail across the face, balanced natural "
-    "color."
+    "Photorealistic ID-style headshot, soft even frontal light, clean "
+    "backdrop, true-to-life skin tones, authentic skin texture, sharp detail."
 )
 
 # ---------------------------------------------------------------------------
@@ -1429,11 +1426,9 @@ def build_cv_prompt(
     style_key = (style or "").strip()
     if style_key in _DOCUMENT_STYLE_KEYS:
         change_instruction = (
-            "Replace the background with a clean neutral backdrop and clothing "
-            "with a simple solid-color top, minimal plain accessories, bare "
-            "head, while maintaining the same facial features, skin tone and "
-            "head-to-body proportions. Head centered, shoulders straight, eyes "
-            "open looking at the camera, mouth relaxed and closed."
+            "Replace background with a clean neutral backdrop and clothing "
+            "with a simple solid-color top, bare head. Head centered, "
+            "shoulders straight, eyes open looking at camera, mouth closed."
         )
     else:
         change_instruction = (
