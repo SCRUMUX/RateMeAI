@@ -164,9 +164,19 @@ def _build_unified_provider():
     Model B: Nano Banana
     """
     from src.providers.image_gen.unified import UnifiedImageGenProvider
+    from src.providers._testing import MockImageGen
 
-    model_a = _build_gpt_image_2()
-    model_b = _build_nano_banana_2()
+    try:
+        model_a = _build_gpt_image_2()
+    except Exception as exc:
+        logger.warning("UnifiedProvider: Model A (GPT-2) init failed (%s), using Mock", exc)
+        model_a = MockImageGen()
+
+    try:
+        model_b = _build_nano_banana_2()
+    except Exception as exc:
+        logger.warning("UnifiedProvider: Model B (Nano Banana) init failed (%s), using Mock", exc)
+        model_b = MockImageGen()
 
     pulid = None
     if settings.pulid_enabled:

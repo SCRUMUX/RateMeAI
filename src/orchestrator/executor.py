@@ -695,11 +695,14 @@ class ImageGenerationExecutor:
                 fal_model = getattr(settings, "gpt_image_2_model", "openai/gpt-image-2/edit")
             
             if fal_model:
-                FAL_CALLS.labels(
-                    mode=mode.value,
-                    step="single_pass",
-                    model=fal_model,
-                ).inc()
+                try:
+                    FAL_CALLS.labels(
+                        mode=mode.value,
+                        step="single_pass",
+                        model=fal_model,
+                    ).inc()
+                except Exception as e:
+                    logger.warning("Failed to record FAL_CALLS metric for single_pass: %s", e)
 
             if not raw or len(raw) <= 100:
                 logger.warning(

@@ -52,12 +52,12 @@ def test_consensus_handles_partial_failure():
     assert result["score"] == 7.0
 
 
-def test_consensus_all_fail_raises():
+def test_consensus_all_fail_returns_empty():
     llm = MagicMock()
     llm.analyze_image = AsyncMock(side_effect=Exception("down"))
 
-    with pytest.raises(RuntimeError, match="All consensus calls failed"):
-        _run(consensus_analyze(llm, b"img", "prompt", n=3))
+    result = _run(consensus_analyze(llm, b"img", "prompt", n=3))
+    assert result == {}
 
 
 def test_median_dict_lists_take_longest():

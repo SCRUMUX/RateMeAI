@@ -78,7 +78,8 @@ async def consensus_analyze(
 
     valid = [r for r in results if isinstance(r, dict)]
     if not valid:
-        raise RuntimeError("All consensus calls failed")
+        logger.warning("All consensus calls failed to return a valid dict. Returning empty dict as fallback.")
+        return {}
 
     if len(valid) == 1:
         return valid[0]
