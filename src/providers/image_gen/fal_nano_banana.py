@@ -190,7 +190,6 @@ class FalNanoBanana2Edit(FalQueueClient, ImageGenProvider):
             "image_urls": [self._data_url(reference_image)],
             "num_images": 1,
             "output_format": self._output_format,
-            "sync_mode": True,
             "resolution": resolution,
             "aspect_ratio": aspect_ratio,
             # v1.23: pin safety_tolerance and limit_generations so the

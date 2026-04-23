@@ -26,7 +26,7 @@ logger = logging.getLogger(__name__)
 # Hard cap — worker logs a warning and truncates anything above this
 # before handing off to the image-gen provider. Matches the test budget
 # in tests/test_prompts/test_prompt_length_budget.py.
-PROMPT_MAX_LEN = 1200
+PROMPT_MAX_LEN = 900
 
 
 # ---------------------------------------------------------------------------
@@ -148,14 +148,10 @@ def resolve_output_size(
 # ---------------------------------------------------------------------------
 
 PRESERVE_PHOTO = (
-    "Preserve the exact same person from the reference photo — unmistakably "
-    "recognizable as the same individual: identical face (bone structure, "
-    "eye shape and color, nose, mouth, jawline, ears, hairline, hair color "
-    "and parting), identical skin tone and undertone with the same natural "
-    "pores and micro-asymmetry, same head-to-shoulders proportion and neck "
-    "length, original pose and body proportions, hair silhouette crisp "
-    "against the new background, hands with exactly five clearly separated "
-    "fingers."
+    "Preserve the exact same person from the reference photo: identical facial "
+    "features, skin tone with natural pores, hair, original pose, and body "
+    "proportions. Hair silhouette crisp, hands with exactly five clearly "
+    "separated fingers."
 )
 
 # Body-change variant: the target scene (yoga mat, beach, running track,
@@ -171,14 +167,10 @@ PRESERVE_PHOTO = (
 # scene" lets the scene description drive the pose without inviting a
 # plastic rewrite.
 PRESERVE_PHOTO_FACE_ONLY = (
-    "Preserve the exact same person's identity from the reference photo — "
-    "unmistakably the same individual: identical face (bone structure, eye "
-    "shape and color, nose, mouth, jawline, ears, hairline, hair color and "
-    "parting), identical skin tone with the same natural pores and "
-    "micro-asymmetry, same age and gender, same head-to-shoulders "
-    "proportion, hair silhouette crisp. Render a body pose fitting the new "
-    "scene with realistic body proportions, hands with five clearly "
-    "separated fingers."
+    "Preserve the exact same person's identity from the reference photo: "
+    "identical facial features, skin tone with natural pores, age, gender, "
+    "and hair. Render a body pose fitting the new scene with realistic body "
+    "proportions, hands with exactly five clearly separated fingers."
 )
 
 # Short identity-lock suffix appended at the very end of every non-emoji
@@ -189,15 +181,13 @@ PRESERVE_PHOTO_FACE_ONLY = (
 # reference" once more at the tail improves prompt adherence on borderline
 # identity cases without extra cost.
 IDENTITY_LOCK_SUFFIX = (
-    "Final anchor: the output must remain the same individual as the "
-    "reference photo."
+    "Final anchor: output must be the exact same person."
 )
 
 QUALITY_PHOTO = (
-    "Photorealistic unedited photograph, entire scene sharp from subject to "
-    "background with textures and distant objects crisp and legible, natural "
-    "true-to-life colors, even realistic lighting, deep field of focus, "
-    "genuine relaxed expression, authentic skin texture."
+    "Photorealistic unedited photograph, sharp from subject to background, "
+    "crisp textures, true-to-life colors, realistic lighting, genuine "
+    "expression, authentic skin texture."
 )
 
 # ---------------------------------------------------------------------------
