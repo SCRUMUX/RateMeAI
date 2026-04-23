@@ -217,7 +217,6 @@ class FalGptImage2Edit(FalQueueClient, ImageGenProvider):
             "output_format": self._output_format,
             "image_size": image_size,
             "num_images": 1,
-            "sync_mode": True,
         }
 
         # Optional mask (future inpaint support — not used in MVP).

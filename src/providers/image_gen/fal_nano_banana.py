@@ -229,7 +229,6 @@ class FalNanoBanana2Edit(FalQueueClient, ImageGenProvider):
             "aspect_ratio": aspect_ratio,
             "safety_tolerance": safety_tolerance,
             "limit_generations": True,
-            "sync_mode": True,
         }
 
         if thinking_level:
