@@ -50,6 +50,14 @@ class Settings(BaseSettings):
     # Получить токен: https://fal.ai → Dashboard → Keys (формат: uuid:secret).
     # В .env храним под именем FAL_API_KEY, но fal-client также читает FAL_KEY.
     fal_api_key: str = ""
+    fal_api_host: str = "https://fal.run"
+    fal_model: str = "fal-ai/flux-pro/v1.1"
+    fal_guidance_scale: float = 2.5
+    fal_safety_tolerance: str = "6"
+    fal_output_format: str = "jpeg"
+    fal_max_retries: int = 3
+    fal_request_timeout: float = 120.0
+    fal_poll_interval: float = 1.0
 
     # Reve (https://api.reve.com — /v1/image/edit only)
     reve_api_token: str = ""

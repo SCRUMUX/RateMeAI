@@ -44,7 +44,7 @@ def get_structured_specs() -> list[StructuredStyleSpec]:
         except ValueError:
             type_val = StyleType.FLEXIBLE
 
-        from src.prompts.image_gen import _DOCUMENT_STYLE_KEYS
+        from src.prompts.style_spec import _DOCUMENT_STYLE_KEYS, detect_needs_full_body
 
         is_doc = s["id"] in _DOCUMENT_STYLE_KEYS
         gen_mode = "scene_preserve" if is_doc else "identity_scene"
@@ -67,10 +67,7 @@ def get_structured_specs() -> list[StructuredStyleSpec]:
             photo_style="",
             key=s["id"],
             mode=s["mode"],
-            needs_full_body="yoga" in s["id"]
-            or "running" in s["id"]
-            or "beach" in s["id"]
-            or "hiking" in s["id"],
+            needs_full_body=detect_needs_full_body(s["id"], s["mode"]),
             generation_mode=gen_mode,
             output_aspect=aspect,
         )

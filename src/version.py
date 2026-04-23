@@ -1059,4 +1059,4 @@
 #          updated for the new tier map; ``test_executor_ab_path``
 #          cost expectation updated for the new ``high`` price.
 #          TypeScript check (``tsc --noEmit``) clean.
-APP_VERSION = "1.24.0"
+APP_VERSION = "1.24.1"

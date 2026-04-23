@@ -48,52 +48,9 @@ def _image_gen_provider_mode() -> str:
             p,
         )
         return "auto"
-    if p in ("auto", "mock", "fal_flux", "fal_flux2"):
+    if p in ("auto", "mock"):
         return p
     return "auto"
-
-
-def _build_fal_flux():
-    """Construct :class:`FalFluxImageGen` from settings.
-
-    Legacy Kontext Pro provider — kept on as a one-release rollback
-    target via ``IMAGE_GEN_PROVIDER=fal_flux``. New traffic goes to
-    ``fal_flux2`` (FLUX.2 Pro Edit) by default; see ``_build_fal_flux2``.
-    """
-    from src.providers.image_gen.fal_flux import FalFluxImageGen
-
-    return FalFluxImageGen(
-        api_key=settings.fal_api_key,
-        model=settings.fal_model,
-        api_host=settings.fal_api_host,
-        guidance_scale=settings.fal_guidance_scale,
-        safety_tolerance=settings.fal_safety_tolerance,
-        output_format=settings.fal_output_format,
-        max_retries=settings.fal_max_retries,
-        request_timeout=settings.fal_request_timeout,
-        poll_interval=settings.fal_poll_interval,
-    )
-
-
-def _build_fal_flux2():
-    """Construct :class:`FalFlux2ImageGen` (FLUX.2 Pro Edit) from settings.
-
-    This is the default provider as of v1.16. Shares the FAL auth key
-    with the legacy Kontext provider (same FAL account), but targets a
-    different model and accepts ``image_size`` for 2 MP output.
-    """
-    from src.providers.image_gen.fal_flux2 import FalFlux2ImageGen
-
-    return FalFlux2ImageGen(
-        api_key=settings.fal_api_key,
-        model=settings.fal2_model,
-        api_host=settings.fal_api_host,
-        safety_tolerance=settings.fal_safety_tolerance,
-        output_format=settings.fal_output_format,
-        max_retries=settings.fal_max_retries,
-        request_timeout=settings.fal_request_timeout,
-        poll_interval=settings.fal_poll_interval,
-    )
 
 
 def _build_fal_pulid():
@@ -306,13 +263,15 @@ def get_image_gen() -> ImageGenProvider:
             p = _build_unified_provider()
         except Exception as exc:
             logger.exception(
-                "StyleRouter assembly failed, falling back to FLUX.2: %s",
+                "StyleRouter assembly failed: %s",
                 exc,
             )
-            p = _build_fal_flux2()
+            if prod:
+                raise RuntimeError(f"StyleRouter failed to initialize in production: {exc}") from exc
+            p = MockImageGen()
             _log_image_gen_choice(
                 p,
-                reason=f"strategy={strategy} → router failed, FLUX.2",
+                reason=f"strategy={strategy} → router failed, falling back to mock",
             )
             return p
         _log_image_gen_choice(p, reason=f"strategy={strategy}")
@@ -326,39 +285,13 @@ def get_image_gen() -> ImageGenProvider:
         _log_image_gen_choice(p, reason="mode=mock")
         return p
 
-    if mode == "fal_flux2":
-        if not (settings.fal_api_key or "").strip():
-            if prod:
-                raise RuntimeError(
-                    "IMAGE_GEN_PROVIDER=fal_flux2 requires FAL_API_KEY",
-                )
-            p = MockImageGen()
-            _log_image_gen_choice(p, reason="mode=fal_flux2 but no FAL_API_KEY (dev)")
-            return p
-        p = _build_fal_flux2()
-        _log_image_gen_choice(p, reason="mode=fal_flux2")
-        return p
-
-    if mode == "fal_flux":
-        if not (settings.fal_api_key or "").strip():
-            if prod:
-                raise RuntimeError(
-                    "IMAGE_GEN_PROVIDER=fal_flux requires FAL_API_KEY",
-                )
-            p = MockImageGen()
-            _log_image_gen_choice(p, reason="mode=fal_flux but no FAL_API_KEY (dev)")
-            return p
-        p = _build_fal_flux()
-        _log_image_gen_choice(p, reason="mode=fal_flux (legacy Kontext rollback)")
-        return p
-
-    # v1.20: auto — FAL-only. FLUX.2 Pro Edit is the default because
+    # v1.20: auto — FAL-only. Unified provider is the default because
     # it matches the StyleRouter fallback and accepts the same 2 MP
     # ``image_size`` knob the rest of the pipeline uses. Reve /
     # Replicate fallbacks are retired — see module-level comment and
     # ``docs/architecture/reserved.md``.
     if (settings.fal_api_key or "").strip():
-        p = _build_fal_flux2()
+        p = _build_unified_provider()
         _log_image_gen_choice(p, reason="auto → FAL_API_KEY present")
         return p
     if prod:
