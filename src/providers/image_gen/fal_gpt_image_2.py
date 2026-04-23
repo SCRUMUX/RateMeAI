@@ -160,7 +160,7 @@ class FalGptImage2Edit(FalQueueClient, ImageGenProvider):
 
     def _compress_reference(self, image_bytes: bytes, max_dim: int = 1536) -> bytes:
         """Compress the reference image to avoid proxy worker payload crashes.
-        
+
         GPT Image 2 and Nano Banana 2 run through proxies (OpenAI/Google).
         Large data URIs (e.g. 5MB+) can crash the FAL proxy worker's JSON parser
         or exceed internal message broker limits, causing the request to hang

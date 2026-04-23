@@ -154,7 +154,7 @@ class FalNanoBanana2Edit(FalQueueClient, ImageGenProvider):
 
     def _compress_reference(self, image_bytes: bytes, max_dim: int = 1536) -> bytes:
         """Compress the reference image to avoid proxy worker payload crashes.
-        
+
         Google Gemini 3.1 Flash Image via FAL.ai proxy. Large data URIs
         (e.g. 5MB+) can crash the FAL proxy worker's JSON parser or exceed
         internal message broker limits, causing the request to hang IN_QUEUE
