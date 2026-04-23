@@ -305,12 +305,34 @@ STYLE_CATALOG: dict[str, list[tuple[str, str, str, dict]]] = {
 
 def get_catalog_json(mode: str) -> list[dict]:
     """Return catalog for a mode as JSON-friendly list of dicts."""
-    items = STYLE_CATALOG.get(mode, [])
-    return [
-        {"key": key, "label": label, "hook": hook, "meta": meta}
-        for key, label, hook, meta in items
-    ]
-
+    from src.services.style_loader import load_styles_from_json
+    styles = load_styles_from_json()
+    items = []
+    
+    for s in styles:
+        if s.get("mode") == mode and not s.get("is_scenario_only", False):
+            items.append({
+                "key": s["id"],
+                "label": s.get("display_label", s["id"]),
+                "hook": s.get("hook_text", ""),
+                "meta": s.get("meta", {}),
+                "category": s.get("category", "General"),
+                "unlock_after_generations": s.get("unlock_after_generations", 0)
+            })
+            
+    return items
 
 def get_available_modes() -> list[str]:
-    return list(STYLE_CATALOG.keys())
+    from src.services.style_loader import load_styles_from_json
+    styles = load_styles_from_json()
+    modes = set(s.get("mode") for s in styles if s.get("mode"))
+    return list(modes)
+
+def get_style_options(style_id: str) -> dict | None:
+    """Return allowed variations for a specific style."""
+    from src.services.style_loader import load_styles_from_json
+    styles = load_styles_from_json()
+    for s in styles:
+        if s["id"] == style_id:
+            return s.get("allowed_variations", {})
+    return None

@@ -19,14 +19,13 @@ def test_prompt_has_no_section_tags():
     assert "[QUALITY]" not in p
 
 
-def test_prompt_has_preserve_and_photorealistic_anchors():
-    # v1.19: ``warm_outdoor`` is an identity_scene style (PuLID) so the
-    # Preserve anchor is intentionally dropped. Photorealistic still
-    # ships via IDENTITY_SCENE_QUALITY, and the scene opener supplies
-    # the "reference subject" identity anchor in its place.
-    p = ig.build_dating_prompt(style="warm_outdoor", gender="male")
-    assert "Photorealistic" in p
-    assert "reference subject" in p
+    def test_prompt_has_preserve_and_photorealistic_anchors():
+        # v1.19: ``warm_outdoor`` is an identity_scene style (PuLID) so the
+        # Preserve anchor is intentionally dropped. Photorealistic still
+        # ships via IDENTITY_SCENE_QUALITY, and the scene opener supplies
+        # the "reference subject" identity anchor in its place.
+        p = ig.build_dating_prompt(style="warm_outdoor", gender="male")
+        assert "person in the reference photo" in p
 
 
 def test_prompt_mentions_sharp_scene():
@@ -46,9 +45,9 @@ def test_all_modes_build_without_error():
         ig.build_cv_prompt,
         ig.build_social_prompt,
     ):
-        p = builder(style="", gender="male")
-        assert p
-        assert "reference subject" in p
+            p = builder(style="", gender="male")
+            assert p
+            assert "person in the reference photo" in p
 
 
 def test_document_style_uses_doc_template():

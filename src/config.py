@@ -40,43 +40,14 @@ class Settings(BaseSettings):
     # If local file missing, try GET {base}/storage/{key} (e.g. worker -> http://app:8000 in Docker)
     storage_http_fallback_base: str = ""
 
-    # Image generation: mock | reve | replicate | fal_flux | fal_flux2 | auto
-    # Default: fal_flux2 (FLUX.2 [pro] edit через FAL.ai — identity-preserving
-    # edit с поддержкой ``image_size`` до 4 МП, 2 МП портрет по умолчанию
-    # для headshot / dating / social / CV). ``fal_flux`` (Kontext Pro, 1 МП)
-    # остаётся на один релиз как rollback-target: переключается одной env
-    # переменной ``IMAGE_GEN_PROVIDER=fal_flux`` без передеплоя провайдера.
-    # auto — fal_flux2 при наличии FAL_API_KEY, иначе Reve, иначе mock/ошибка.
-    image_gen_provider: str = "fal_flux2"
+    # Image generation: mock | reve | auto
+    # auto — gpt_image_2 при наличии FAL_API_KEY, иначе Reve, иначе mock/ошибка.
+    image_gen_provider: str = "auto"
 
     # FAL.ai (https://fal.ai — FLUX.1 Kontext [pro] / image-to-image edit)
     # Получить токен: https://fal.ai → Dashboard → Keys (формат: uuid:secret).
     # В .env храним под именем FAL_API_KEY, но fal-client также читает FAL_KEY.
     fal_api_key: str = ""
-    fal_model: str = "fal-ai/flux-pro/kontext"
-    fal_api_host: str = "https://queue.fal.run"
-    # Guidance scale для Kontext Pro (default 3.5, ниже = больше свободы).
-    fal_guidance_scale: float = 3.5
-    # Safety tolerance 1..5 (1 — строже всего). API требует строковый enum.
-    fal_safety_tolerance: str = "2"
-    # Output format у FAL: jpeg | png. Локально в pipeline всё равно нормализуем.
-    fal_output_format: str = "jpeg"
-    # Максимум HTTP-попыток на один generate(). 1 = без ретраев (единственный
-    # запрос). Ретраим только небиллящиеся исходы (5xx / transport / queue stall).
-    fal_max_retries: int = 2
-    # Таймаут одной операции (POST submit + polling) в секундах.
-    fal_request_timeout: float = 180.0
-    # Интервал опроса статуса в очереди (секунды).
-    fal_poll_interval: float = 1.5
-
-    # FAL.ai FLUX.2 [pro] edit (https://fal.ai/models/fal-ai/flux-2-pro/edit).
-    # Активный image-gen провайдер с v1.16 — поддерживает ``image_size``
-    # (preset или ``{width, height}``), multi-reference, до 4 МП на выход.
-    # Используется тот же FAL_API_KEY что и для Kontext Pro.
-    fal2_model: str = "fal-ai/flux-2-pro/edit"
-    # Целевой выход (для калькулятора стоимости; фактический размер
-    # резолвится per-style через StyleSpec.output_aspect).
-    fal2_output_mp: float = 2.0
 
     # Reve (https://api.reve.com — /v1/image/edit only)
     reve_api_token: str = ""
@@ -89,10 +60,6 @@ class Settings(BaseSettings):
     # через внешний worker-retry. Значение 1 = ровно один HTTP-запрос на
     # generate().
     reve_max_retries: int = 1
-
-    # Replicate (image generation)
-    replicate_api_token: str = ""
-    replicate_model_version: str = ""
 
     # YooKassa payments
     yookassa_shop_id: str = ""
@@ -266,13 +233,11 @@ class Settings(BaseSettings):
     ab_test_enabled: bool = True
     # Default A/B model when the client does not send ``image_model``
     # (old bot builds, edge proxy, curl, tests). GPT Image 2 at
-    # ``quality=low`` is the cheapest reliable option on fal
-    # (~$0.02/image) and is OpenAI's own recommended starting tier.
+    # ``quality=medium`` is the recommended starting tier to guarantee background details.
     ab_default_model: str = "gpt_image_2"
     # Default quality tier for the A/B models when the web client does
-    # not pass an explicit one. ``low`` minimises per-request spend
-    # while still producing a 1024px output on GPT Image 2.
-    ab_default_quality: str = "low"
+    # not pass an explicit one. Minimum for production is medium.
+    ab_default_quality: str = "medium"
     # Maximum character length for the 8-block adapter prompt. Both
     # A/B models handle longer prompts than FLUX Lightning, so the cap
     # is higher than ``PROMPT_MAX_LEN`` (1200) used by the hybrid path.

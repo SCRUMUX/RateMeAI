@@ -6,6 +6,12 @@ import StylesSheet from './StylesSheet';
 import { computeLockedKeys, getUserLockSeed, UNLOCK_AFTER_GENERATIONS } from './lockedStyles';
 import { PARAM_LABELS, computeStyleDeltas } from './shared';
 
+const FRAMING_OPTIONS = [
+  { id: 'portrait', label: 'Портрет' },
+  { id: 'half_body', label: 'По пояс' },
+  { id: 'full_body', label: 'В полный рост' },
+];
+
 interface Props {
   onNext: () => void;
 }
@@ -99,7 +105,7 @@ export default function StepStyle({ onNext }: Props) {
         <div className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-[var(--space-16)] pb-[var(--space-8)]">
           {/* 1. Selected style — recap + future long description slot */}
           {selectedStyle && (
-            <div className="gradient-border-card glass-card rounded-[var(--radius-12)] p-[var(--space-16)] flex flex-col gap-[var(--space-8)]">
+            <div className="gradient-border-card glass-card rounded-[var(--radius-12)] p-[var(--space-16)] flex flex-col gap-[var(--space-12)]">
               <div className="flex items-center gap-[var(--space-10)]">
                 <span className="text-[28px] leading-none">{selectedStyle.icon}</span>
                 <div className="flex flex-col min-w-0">
@@ -110,7 +116,27 @@ export default function StepStyle({ onNext }: Props) {
               <p className="text-[13px] leading-[18px] text-[var(--color-text-secondary)]">
                 {selectedStyle.desc}
               </p>
-              {/* Reserved slot for future extended style description */}
+              
+              {/* Framing selector */}
+              <div className="flex flex-col gap-[var(--space-8)] pt-[var(--space-4)] border-t border-[rgba(255,255,255,0.05)]">
+                <span className="text-[12px] leading-[16px] text-[var(--color-text-muted)]">Формат кадра</span>
+                <div className="flex bg-[rgba(255,255,255,0.03)] p-1 rounded-[var(--radius-8)]">
+                  {FRAMING_OPTIONS.map((opt) => (
+                    <button
+                      key={opt.id}
+                      type="button"
+                      onClick={() => app.setFraming(opt.id)}
+                      className={`flex-1 py-[var(--space-6)] text-[13px] leading-[18px] font-medium rounded-[var(--radius-6)] transition-all ${
+                        app.framing === opt.id
+                          ? 'bg-[rgba(255,255,255,0.1)] text-[#E6EEF8] shadow-sm'
+                          : 'text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)]'
+                      }`}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
             </div>
           )}
 

@@ -51,12 +51,18 @@ class PromptEngine:
         base_description: str = "", gender: str = "male",
         input_hints: dict | None = None,
         variant_id: str = "",
+        target_model: str = "gpt_image_2",
     ) -> str:
         builder = _IMAGE_PROMPT_MAP.get(mode)
         if builder is None:
             raise ValueError(f"No image prompt for mode: {mode}")
         mode_str = _MODE_VALUE_MAP.get(mode, mode.value)
         variant = ig.resolve_style_variant(mode_str, style, variant_id) if variant_id else None
+        
+        # If the builder is one of the mode-specific builders, pass target_model
+        if builder in (ig.build_dating_prompt, ig.build_cv_prompt, ig.build_social_prompt):
+            return builder(style, base_description, gender, input_hints, variant, target_model)
+        
         return builder(style, base_description, gender, input_hints, variant)
 
     def build_step_prompt(

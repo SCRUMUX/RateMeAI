@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter, HTTPException, Query
 
-from src.services.style_catalog import get_catalog_json, get_available_modes
+from src.services.style_catalog import get_catalog_json, get_available_modes, get_style_options
 
 router = APIRouter()
 
@@ -21,3 +21,12 @@ async def list_styles(mode: str = Query(..., description="Analysis mode: dating,
     if not items:
         raise HTTPException(status_code=404, detail=f"Unknown mode: {mode}")
     return {"mode": mode, "count": len(items), "styles": items}
+
+
+@router.get("/styles/{style_id}/options")
+async def get_options(style_id: str):
+    """Return allowed variations and options for a specific style."""
+    options = get_style_options(style_id)
+    if options is None:
+        raise HTTPException(status_code=404, detail=f"Style not found: {style_id}")
+    return {"style_id": style_id, "options": options}

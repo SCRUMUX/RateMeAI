@@ -74,51 +74,70 @@ export default function StylesSheet({ open, onClose, styles, selectedKey, locked
 
             {/* Scrollable list */}
             <div className="flex-1 min-h-0 overflow-y-auto px-[var(--space-16)] pb-[var(--space-16)] flex flex-col gap-[var(--space-8)]">
-              {ordered.map((s) => {
-                const locked = lockedKeys.has(s.key);
-                const selected = !locked && s.key === selectedKey;
-                return (
-                  <button
-                    key={s.key}
-                    type="button"
-                    disabled={locked}
-                    onClick={() => { if (!locked) { onPick(s.key); onClose(); } }}
-                    className={`gradient-border-item flex items-center w-full px-[var(--space-16)] py-[var(--space-10)] gap-[var(--space-8)] min-h-[48px] rounded-[var(--radius-12)] transition-all text-left ${
-                      locked ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'
-                    } ${selected ? 'glass-row-active' : 'glass-row'}`}
-                    style={{
-                      '--gb-color': selected
-                        ? 'rgba(var(--accent-r), var(--accent-g), var(--accent-b), 0.30)'
-                        : 'rgba(255, 255, 255, 0.10)',
-                    } as React.CSSProperties}
-                  >
-                    <div className="flex items-center justify-center w-6 h-6 shrink-0 text-[20px] leading-none relative">
-                      {locked ? (
-                        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" className="text-[var(--color-text-muted)]">
-                          <rect x="3" y="7" width="10" height="7" rx="1.5" stroke="currentColor" strokeWidth="1.3" />
-                          <path d="M5.5 7V5a2.5 2.5 0 1 1 5 0v2" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
-                        </svg>
-                      ) : s.icon}
-                    </div>
-                    <div className="flex flex-col flex-1 min-w-0 gap-[2px]">
-                      <span className="text-[15px] leading-[20px] text-[#E6EEF8] font-medium truncate">{s.name}</span>
-                      <span className="text-[11px] leading-[14px] text-[var(--color-text-muted)] truncate">
-                        {locked ? LOCK_BADGE : s.desc}
-                      </span>
-                    </div>
-                    {!locked && (
-                      <span className="px-[var(--space-8)] py-[var(--space-4)] rounded-[var(--radius-pill)] text-[13px] leading-[18px] text-[var(--color-success-base)] font-medium tabular-nums shrink-0">
-                        {getMockDelta(s.deltaRange, s.key)}
-                      </span>
-                    )}
-                    {locked && (
-                      <span className="px-[var(--space-8)] py-[var(--space-4)] rounded-[var(--radius-pill)] text-[11px] leading-[14px] text-[var(--color-text-muted)] font-medium bg-[rgba(255,255,255,0.06)] shrink-0">
-                        Скоро
-                      </span>
-                    )}
-                  </button>
-                );
-              })}
+              {Object.entries(
+                ordered.reduce((acc, s) => {
+                  const cat = s.category || 'General';
+                  if (!acc[cat]) acc[cat] = [];
+                  acc[cat].push(s);
+                  return acc;
+                }, {} as Record<string, typeof ordered>)
+              ).map(([category, items]) => (
+                <div key={category} className="flex flex-col gap-[var(--space-8)] mt-2 first:mt-0">
+                  {category !== 'General' && (
+                    <span className="text-[13px] leading-[18px] font-medium text-[var(--color-text-muted)] px-1">
+                      {category}
+                    </span>
+                  )}
+                  {items.map((s) => {
+                    const locked = lockedKeys.has(s.key);
+                    const selected = !locked && s.key === selectedKey;
+                    const lockBadge = s.unlock_after_generations 
+                      ? `Доступно после ${s.unlock_after_generations} генераций` 
+                      : LOCK_BADGE;
+                    return (
+                      <button
+                        key={s.key}
+                        type="button"
+                        disabled={locked}
+                        onClick={() => { if (!locked) { onPick(s.key); onClose(); } }}
+                        className={`gradient-border-item flex items-center w-full px-[var(--space-16)] py-[var(--space-10)] gap-[var(--space-8)] min-h-[48px] rounded-[var(--radius-12)] transition-all text-left ${
+                          locked ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'
+                        } ${selected ? 'glass-row-active' : 'glass-row'}`}
+                        style={{
+                          '--gb-color': selected
+                            ? 'rgba(var(--accent-r), var(--accent-g), var(--accent-b), 0.30)'
+                            : 'rgba(255, 255, 255, 0.10)',
+                        } as React.CSSProperties}
+                      >
+                        <div className="flex items-center justify-center w-6 h-6 shrink-0 text-[20px] leading-none relative">
+                          {locked ? (
+                            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" className="text-[var(--color-text-muted)]">
+                              <rect x="3" y="7" width="10" height="7" rx="1.5" stroke="currentColor" strokeWidth="1.3" />
+                              <path d="M5.5 7V5a2.5 2.5 0 1 1 5 0v2" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
+                            </svg>
+                          ) : s.icon}
+                        </div>
+                        <div className="flex flex-col flex-1 min-w-0 gap-[2px]">
+                          <span className="text-[15px] leading-[20px] text-[#E6EEF8] font-medium truncate">{s.name}</span>
+                          <span className="text-[11px] leading-[14px] text-[var(--color-text-muted)] truncate">
+                            {locked ? lockBadge : s.desc}
+                          </span>
+                        </div>
+                        {!locked && (
+                          <span className="px-[var(--space-8)] py-[var(--space-4)] rounded-[var(--radius-pill)] text-[13px] leading-[18px] text-[var(--color-success-base)] font-medium tabular-nums shrink-0">
+                            {getMockDelta(s.deltaRange, s.key)}
+                          </span>
+                        )}
+                        {locked && (
+                          <span className="px-[var(--space-8)] py-[var(--space-4)] rounded-[var(--radius-pill)] text-[11px] leading-[14px] text-[var(--color-text-muted)] font-medium bg-[rgba(255,255,255,0.06)] shrink-0">
+                            Скоро
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              ))}
               {ordered.length === 0 && (
                 <div className="text-[13px] text-[var(--color-text-muted)] text-center py-[var(--space-16)]">
                   Нет доступных стилей

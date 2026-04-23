@@ -23,11 +23,6 @@ from src.orchestrator.advanced.enhancement_levels import (
     level_for_depth,
 )
 from src.orchestrator.advanced.execute_plan import AdvancedPipelineExecutor
-from src.orchestrator.advanced.model_router import (
-    ModelRouter,
-    ModelSpec,
-    build_model_registry,
-)
 from src.orchestrator.advanced.planner import (
     PipelinePlan,
     PipelinePlanner,
@@ -39,10 +34,7 @@ __all__ = [
     "EnhancementLevel",
     "LEVELS",
     "level_for_depth",
-    "ModelRouter",
-    "ModelSpec",
     "PipelinePlan",
     "PipelinePlanner",
     "PipelineStep",
-    "build_model_registry",
 ]

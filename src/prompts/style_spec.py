@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass, field
+from enum import Enum
 from typing import Literal
 
 
@@ -73,6 +74,48 @@ class StyleVariant:
             else self.clothing_male_accent
         )
 
+
+class StyleType(str, Enum):
+    SCENE_LOCKED = "scene_locked"
+    SEMI_LOCKED = "semi_locked"
+    FLEXIBLE = "flexible"
+
+@dataclass
+class StructuredStyleSpec:
+    """New structured style specification."""
+    name: str
+    type: StyleType
+    base_scene: str
+    allowed_variations: list[str]
+    camera: str
+    pose: str
+    clothing: str
+    scene: str
+    lighting: str
+    weather: str
+    emotion: str
+    energy: str
+    photo_style: str
+    expression: str = ""
+    
+    # Legacy fields mapping
+    key: str = ""
+    mode: str = ""
+    needs_full_body: bool = False
+    output_aspect: OutputAspect = "portrait_4_3"
+    generation_mode: GenerationMode = "identity_scene"
+    variants: tuple[StyleVariant, ...] = field(default_factory=tuple)
+
+    def variant_by_id(self, variant_id: str) -> StyleVariant | None:
+        if not variant_id or not self.variants:
+            return None
+        for v in self.variants:
+            if v.id == variant_id:
+                return v
+        return None
+
+    def clothing_for(self, gender: str = "male") -> str:
+        return self.clothing
 
 @dataclass
 class StyleSpec:
@@ -509,31 +552,50 @@ def build_spec_from_legacy(
     variants: tuple[StyleVariant, ...] = (),
     output_aspect: OutputAspect | None = None,
     generation_mode: GenerationMode | None = None,
-) -> StyleSpec:
-    """Create a StyleSpec from a legacy dict entry plus optional overrides."""
+) -> StructuredStyleSpec:
+    """Create a StructuredStyleSpec from a legacy dict entry plus optional overrides."""
     bg, clothing_male = parse_legacy_style(style_text)
     lighting = lighting_override or extract_lighting(bg)
-    clothing_female = clothing_female_override or adapt_female_clothing(clothing_male)
-    dof: DepthOfField = depth_of_field or detect_depth_of_field(bg)
+    _clothing_female = clothing_female_override or adapt_female_clothing(clothing_male)
+    _dof: DepthOfField = depth_of_field or detect_depth_of_field(bg)
     aspect: OutputAspect = output_aspect or detect_output_aspect(key, mode)
     gen_mode: GenerationMode = (
         generation_mode or detect_generation_mode(key, mode)
     )
 
-    return StyleSpec(
+    # Determine type based on content
+    type_ = StyleType.FLEXIBLE
+    if key in _DOCUMENT_STYLE_KEYS or "landmark" in bg.lower() or "tower" in bg.lower() or "bridge" in bg.lower() or "colosseum" in bg.lower():
+        type_ = StyleType.SCENE_LOCKED
+    elif "cafe" in bg.lower() or "restaurant" in bg.lower() or "studio" in bg.lower():
+        type_ = StyleType.SEMI_LOCKED
+        
+    # Extract allowed variations from variants
+    allowed_variations = []
+    for v in variants:
+        if v.lighting:
+            allowed_variations.append(v.lighting)
+        if v.scene and type_ != StyleType.SCENE_LOCKED:
+            allowed_variations.append(v.scene)
+
+    return StructuredStyleSpec(
+        name=key,
+        type=type_,
+        base_scene=bg,
+        allowed_variations=allowed_variations,
+        camera="",
+        pose="",
+        clothing=clothing_male,
+        scene=bg,
+        lighting=lighting,
+        weather="",
+        emotion=personality_text,
+        energy="",
+        photo_style="",
         key=key,
         mode=mode,
-        background=bg,
-        clothing_male=clothing_male,
-        clothing_female=clothing_female,
-        lighting=lighting,
-        expression=personality_text,
-        props=props,
-        edit_compatible=edit_compatible,
-        complexity=complexity,
-        depth_of_field=dof,
+        variants=variants,
         needs_full_body=detect_needs_full_body(key, mode),
         output_aspect=aspect,
-        variants=variants,
         generation_mode=gen_mode,
     )

@@ -41,17 +41,27 @@ export function computeLockedKeys(
   userSeed: string,
   taskHistoryCount: number,
 ): Set<string> {
-  if (taskHistoryCount >= UNLOCK_AFTER_GENERATIONS) return new Set();
-  if (styles.length === 0) return new Set();
-
-  const scored = styles.map((s) => ({
-    key: s.key,
-    rank: fnv1a(`${userSeed}:${s.key}`),
-  }));
-  scored.sort((a, b) => a.rank - b.rank);
-  const lockedCount = Math.floor(styles.length * 0.3);
   const locked = new Set<string>();
-  for (let i = 0; i < lockedCount; i++) locked.add(scored[i].key);
+  for (const s of styles) {
+    if (s.unlock_after_generations && taskHistoryCount < s.unlock_after_generations) {
+      locked.add(s.key);
+    }
+  }
+  
+  // Если у стилей нет unlock_after_generations (старый хардкод), применяем старую логику:
+  if (locked.size === 0 && styles.some(s => s.unlock_after_generations === undefined)) {
+    if (taskHistoryCount >= UNLOCK_AFTER_GENERATIONS) return new Set();
+    if (styles.length === 0) return new Set();
+
+    const scored = styles.map((s) => ({
+      key: s.key,
+      rank: fnv1a(`${userSeed}:${s.key}`),
+    }));
+    scored.sort((a, b) => a.rank - b.rank);
+    const lockedCount = Math.floor(styles.length * 0.3);
+    for (let i = 0; i < lockedCount; i++) locked.add(scored[i].key);
+  }
+  
   return locked;
 }
 

@@ -16,6 +16,7 @@ import {
 import { useApp } from '../../context/AppContext';
 import ProgressBar from './ProgressBar';
 import ShareModal from '../ShareModal';
+import StyleSettingsModal from './StyleSettingsModal';
 
 interface Props {
   onGoToStep: (step: 'upload' | 'analysis' | 'style') => void;
@@ -77,6 +78,7 @@ export default function StepGenerate({ onGoToStep, onOpenStorage }: Props) {
   const factTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const [frozenStyle, setFrozenStyle] = useState<{ name: string; score: number } | null>(null);
   const [genFailed, setGenFailed] = useState(false);
+  const [settingsModalOpen, setSettingsModalOpen] = useState(false);
 
   const isRunning = app.isGenerating && !hasGenResult;
   const progress = parseTaskProgress(app.currentTask?.status);
@@ -583,6 +585,12 @@ export default function StepGenerate({ onGoToStep, onOpenStorage }: Props) {
               {isDocPaywall ? 'Другой формат' : 'Другой стиль'}
             </button>
             <button
+              onClick={() => setSettingsModalOpen(true)}
+              className="glass-btn-ghost px-[var(--space-20)] py-[var(--space-6)] text-[13px] leading-[18px] rounded-[var(--radius-pill)] font-medium"
+            >
+              Другой вариант
+            </button>
+            <button
               onClick={handleImproveGenerated}
               className="glass-btn-ghost px-[var(--space-20)] py-[var(--space-6)] text-[13px] leading-[18px] rounded-[var(--radius-pill)] font-medium"
             >
@@ -695,6 +703,17 @@ export default function StepGenerate({ onGoToStep, onOpenStorage }: Props) {
           imageUrl={shareData.imageUrl}
         />
       )}
+
+      <StyleSettingsModal
+        open={settingsModalOpen}
+        onClose={() => setSettingsModalOpen(false)}
+        styleId={app.selectedStyleKey}
+        onApply={(hints) => {
+          app.resetGeneration();
+          setFrozenStyle(null);
+          app.generate(undefined, undefined, hints);
+        }}
+      />
     </div>
   );
 }

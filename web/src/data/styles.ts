@@ -7,6 +7,8 @@ export interface StyleItem {
   desc: string;
   param: 'warmth' | 'presence' | 'appeal' | 'trust' | 'competence' | 'hireability';
   deltaRange: [number, number];
+  category?: string;
+  unlock_after_generations?: number;
 }
 
 export interface ScoreParam {

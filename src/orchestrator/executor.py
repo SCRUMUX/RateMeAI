@@ -452,44 +452,25 @@ class ImageGenerationExecutor:
             and ab_image_model
         )
         image_gen: ImageGenProvider = self._image_gen
-        if ab_active:
-            try:
-                from src.providers.factory import get_ab_image_gen
-                image_gen = get_ab_image_gen(ab_image_model)
-                logger.info(
-                    "AB path engaged task=%s model=%s quality=%s",
-                    task_id, ab_image_model, ab_image_quality or "medium",
-                )
-            except Exception as exc:
-                logger.warning(
-                    "AB provider init failed for task=%s model=%s, "
-                    "falling back to default pipeline: %s",
-                    task_id, ab_image_model, exc,
-                )
-                image_gen = self._image_gen
-                ab_active = False
+        
+        # Extract framing parameter if present
+        framing = str(result_dict.get("framing", "")).strip().lower()
+        if framing not in ("portrait", "half_body", "full_body"):
+            framing = None
 
+        image_gen: ImageGenProvider = self._image_gen
+        
         try:
             desc = str(result_dict.get("base_description", ""))
             input_hints = input_quality.to_prompt_hints() if input_quality is not None else None
-            if ab_active:
-                from src.prompts.ab_prompt import build_structured_prompt
-                from src.prompts.image_gen import STYLE_REGISTRY as _REG
-                ab_spec = _REG.get(mode.value, style)
-                ab_variant = (
-                    ab_spec.variant_by_id(variant_id)
-                    if ab_spec is not None and variant_id
-                    else None
-                )
-                prompt = build_structured_prompt(
-                    mode.value, style, gender, ab_variant, ab_image_model,
-                )
-            else:
-                prompt = self._prompt_engine.build_image_prompt(
-                    mode, style=style, base_description=desc, gender=gender,
-                    input_hints=input_hints,
-                    variant_id=variant_id,
-                )
+            
+            prompt = self._prompt_engine.build_image_prompt(
+                mode, style=style, base_description=desc, gender=gender,
+                input_hints=input_hints,
+                variant_id=variant_id,
+                target_model=ab_image_model,
+            )
+            
             if variant_id:
                 result_dict["variant_id"] = variant_id
 
@@ -542,6 +523,7 @@ class ImageGenerationExecutor:
                 spec,
                 face_area_ratio=face_area_ratio or None,
                 generation_mode=generation_mode,
+                framing=framing,
             )
             if output_size:
                 extra["image_size"] = output_size

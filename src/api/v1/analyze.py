@@ -310,14 +310,10 @@ async def create_analysis(
     scenario_slug: str = Form(""),
     scenario_type: str = Form(""),
     entry_mode: str = Form(""),
-    # v1.21 A/B test — optional, additive. When either is missing or the
-    # feature is turned off, the default hybrid StyleRouter pipeline runs.
     image_model: str = Form(""),
     image_quality: str = Form(""),
-    # ВНИМАНИЕ: осознанно НЕ применяем дневной rate-limit на пользовательском
-    # /analyze. Генерация лимитируется ТОЛЬКО балансом кредитов (check_credits
-    # атомарно резервирует 1 кредит или возвращает 402). Старый 429
-    # "Daily limit reached" для web/bot больше не возникает.
+    framing: str = Form(""),
+    input_hints: str = Form(""),
     user: User = Depends(check_credits_with_consent),
     db: AsyncSession = Depends(get_db),
     redis: Redis = Depends(get_redis),
@@ -360,6 +356,14 @@ async def create_analysis(
         ctx["pre_analysis_id"] = pre_analysis_id.strip()
     if variant_id.strip():
         ctx["variant_id"] = variant_id.strip()
+    if framing.strip():
+        ctx["framing"] = framing.strip()
+    if input_hints.strip():
+        import json
+        try:
+            ctx["input_hints"] = json.loads(input_hints.strip())
+        except json.JSONDecodeError:
+            logger.warning("Failed to parse input_hints JSON: %s", input_hints)
     if getattr(user, "_credit_reserved", False):
         ctx["credit_pre_reserved"] = True
     if mode in (AnalysisMode.DATING, AnalysisMode.CV, AnalysisMode.SOCIAL):

@@ -68,15 +68,17 @@ interface AppState {
   consentState: api.ConsentState | null;
   imageModel: api.AbImageModel;
   imageQuality: api.AbImageQuality;
+  framing: string;
 }
 
 interface AppActions {
   syncScenarioFromRoute: (slug: string | undefined) => void;
   setActiveCategory: (c: CategoryId) => void;
   setSelectedStyleKey: (k: string) => void;
+  setFraming: (f: string) => void;
   uploadPhoto: (f: File) => void;
   runPreAnalyze: () => Promise<void>;
-  generate: (onTaskCreated?: () => void, styleKeyOverride?: string) => Promise<void>;
+  generate: (onTaskCreated?: () => void, styleKeyOverride?: string, inputHints?: Record<string, any>) => Promise<void>;
   share: () => Promise<api.ShareResponse | null>;
   refreshBalance: () => Promise<void>;
   clearError: () => void;
@@ -184,6 +186,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const raw = localStorage.getItem('ailook_ab_quality');
     return raw === 'low' || raw === 'medium' || raw === 'high' ? raw : 'low';
   });
+  const [framing, setFraming] = useState<string>('portrait');
+  
   const setImageModel = useCallback((m: api.AbImageModel) => {
     setImageModelState(m);
     try { localStorage.setItem('ailook_ab_model', m); }
@@ -223,10 +227,39 @@ export function AppProvider({ children }: { children: ReactNode }) {
     return modeMap[activeCategory];
   }, [scenarioDef, activeCategory, modeMap]);
 
+  const [catalogStyles, setCatalogStyles] = useState<Record<string, StyleItem[]>>({});
+
   const effectiveStyleList = useMemo(() => {
     const resolved = resolveScenarioStyles(scenarioDef);
-    return resolved ?? STYLES_BY_CATEGORY[activeCategory];
-  }, [scenarioDef, activeCategory]);
+    if (resolved) return resolved;
+    return catalogStyles[activeCategory] || STYLES_BY_CATEGORY[activeCategory] || [];
+  }, [scenarioDef, activeCategory, catalogStyles]);
+
+  useEffect(() => {
+    const mode = effectiveApiMode;
+    if (!mode) return;
+    if (catalogStyles[mode]) return;
+    
+    api.getCatalogStyles(mode).then(res => {
+      const mapped: StyleItem[] = res.styles.map(s => {
+        const icon = s.label.match(/^[\p{Emoji}\u200d]+/u)?.[0] || '✨';
+        const name = s.label.replace(/^[\p{Emoji}\u200d]+\s*/u, '');
+        return {
+          key: s.key,
+          icon,
+          name,
+          desc: s.hook || '',
+          param: (s.meta?.param as any) || 'appeal',
+          deltaRange: (s.meta?.delta_range as any) || [0.1, 0.3],
+          category: s.category || 'General',
+          unlock_after_generations: s.unlock_after_generations || 0,
+        };
+      });
+      setCatalogStyles(prev => ({ ...prev, [mode]: mapped }));
+    }).catch(e => {
+      console.warn('Failed to fetch catalog styles for mode', mode, e);
+    });
+  }, [effectiveApiMode, catalogStyles]);
 
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const sseRef = useRef<EventSource | null>(null);
@@ -799,7 +832,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     };
   }, [isGenerating, canAccessApp, fetchTaskHistory, refreshBalance]);
 
-  const generate = useCallback(async (onTaskCreated?: () => void, styleKeyOverride?: string) => {
+  const generate = useCallback(async (onTaskCreated?: () => void, styleKeyOverride?: string, inputHints?: Record<string, any>) => {
     const effectiveStyle = styleKeyOverride || selectedStyleKey;
     if (!photo || !effectiveStyle || isGenerating) return;
     setIsGenerating(true);
@@ -823,6 +856,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
           entryMode: scenarioEntryMode ?? undefined,
           imageModel,
           imageQuality,
+          framing,
+          inputHints,
         },
       );
       setCurrentTask({ taskId: res.task_id, status: res.status, result: null });
@@ -922,14 +957,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
     scenarioDocumentPaywall, scenarioPrimaryCtaMainApp, scenarioSimplifiedAnalysis,
     scenarioPaymentPackQty, effectiveStyleList, effectiveApiMode, hasRealAuth, canAccessApp,
     consentState,
-    imageModel, imageQuality,
+    imageModel, imageQuality, framing,
     syncScenarioFromRoute,
     setActiveCategory, setSelectedStyleKey, uploadPhoto, runPreAnalyze,
     generate, share, refreshBalance, clearError, clearGeneratedImage, clearNoCreditsError,
     resetGeneration, fetchTaskHistory,
     loginWithOAuth, loginWithToken, logout, refreshIdentities,
     fetchConsents, grantConsents, revokeConsents,
-    setImageModel, setImageQuality,
+    setImageModel, setImageQuality, setFraming,
   };
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;

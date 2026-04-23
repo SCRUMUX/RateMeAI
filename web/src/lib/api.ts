@@ -162,6 +162,8 @@ export interface AnalyzeOptions {
   imageModel?: AbImageModel;
   /** v1.22: tier качества. Если не задано — бэк подставит ``low``. */
   imageQuality?: AbImageQuality;
+  framing?: string;
+  inputHints?: Record<string, any>;
 }
 
 export function analyze(
@@ -179,6 +181,8 @@ export function analyze(
   if (options.scenarioSlug) fd.append('scenario_slug', options.scenarioSlug);
   if (options.scenarioType) fd.append('scenario_type', options.scenarioType);
   if (options.entryMode) fd.append('entry_mode', options.entryMode);
+  if (options.framing) fd.append('framing', options.framing);
+  if (options.inputHints) fd.append('input_hints', JSON.stringify(options.inputHints));
   fd.append('image_model', options.imageModel ?? 'gpt_image_2');
   fd.append('image_quality', options.imageQuality ?? 'low');
   return request<TaskCreated>('/api/v1/analyze', { method: 'POST', body: fd });
@@ -241,12 +245,15 @@ export function createShare(taskId: string) {
 
 // -- Catalog --
 
-// TODO: Replace static styles.ts with dynamic catalog when backend catalog is finalized.
-// export function getCatalogStyles(mode: string) {
-//   return request<{ mode: string; count: number; styles: Array<{ key: string; label: string; hook: string; meta: Record<string, unknown> }> }>(
-//     `/api/v1/catalog/styles?mode=${mode}`,
-//   );
-// }
+export function getCatalogStyles(mode: string) {
+  return request<{ mode: string; count: number; styles: Array<{ key: string; label: string; hook: string; meta: Record<string, unknown>; category: string; unlock_after_generations: number }> }>(
+    `/api/v1/catalog/styles?mode=${mode}`,
+  );
+}
+
+export function getStyleOptions(styleId: string) {
+  return request<{ style_id: string; options: any }>(`/api/v1/catalog/styles/${styleId}/options`);
+}
 
 // -- SSE Ticket --
 

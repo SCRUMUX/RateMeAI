@@ -26,7 +26,8 @@ logger = logging.getLogger(__name__)
 # Hard cap — worker logs a warning and truncates anything above this
 # before handing off to the image-gen provider. Matches the test budget
 # in tests/test_prompts/test_prompt_length_budget.py.
-PROMPT_MAX_LEN = 900
+# For GPT-2 we now allow longer prompts, this cap is primarily for legacy models.
+PROMPT_MAX_LEN = 2500
 
 
 # ---------------------------------------------------------------------------
@@ -65,6 +66,7 @@ def resolve_output_size(
     face_area_ratio: float | None = None,
     *,
     generation_mode: str | None = None,
+    framing: str | None = None,
 ) -> dict[str, int] | None:
     """Translate a style's ``output_aspect`` into a FAL ``image_size`` dict.
 
@@ -88,7 +90,16 @@ def resolve_output_size(
     """
     if spec is None:
         return None
+        
     aspect: OutputAspect = getattr(spec, "output_aspect", "portrait_4_3")
+    
+    # User-requested framing overrides the style's default aspect
+    if framing == "full_body":
+        aspect = "portrait_16_9"
+    elif framing == "half_body":
+        aspect = "portrait_4_3"
+    elif framing == "portrait":
+        aspect = "square_hd"
 
     needs_full_body = bool(getattr(spec, "needs_full_body", False))
     if (
@@ -1163,38 +1174,45 @@ _STYLE_OVERRIDES: dict[tuple[str, str], dict] = {
     },
 }
 
-for _key, _text in DATING_STYLES.items():
-    _pers = DATING_PERSONALITIES.get(_key, "")
-    _ovr = _STYLE_OVERRIDES.get(("dating", _key), {})
-    STYLE_REGISTRY.register(build_spec_from_legacy(
-        _key, "dating", _text, _pers,
-        clothing_female_override=_ovr.get("clothing_female_override", ""),
-        edit_compatible=_ovr.get("edit_compatible", True),
-        complexity=_ovr.get("complexity", "simple"),
-        variants=STYLE_VARIANTS.get(("dating", _key), ()),
-    ))
+try:
+    from src.services.style_loader import get_structured_specs
+    for spec in get_structured_specs():
+        STYLE_REGISTRY.register(spec)
+except Exception as e:
+    logger.error(f"Failed to load styles from JSON: {e}")
+    # Fallback to legacy loading if JSON fails
+    for _key, _text in DATING_STYLES.items():
+        _pers = DATING_PERSONALITIES.get(_key, "")
+        _ovr = _STYLE_OVERRIDES.get(("dating", _key), {})
+        STYLE_REGISTRY.register(build_spec_from_legacy(
+            _key, "dating", _text, _pers,
+            clothing_female_override=_ovr.get("clothing_female_override", ""),
+            edit_compatible=_ovr.get("edit_compatible", True),
+            complexity=_ovr.get("complexity", "simple"),
+            variants=STYLE_VARIANTS.get(("dating", _key), ()),
+        ))
 
-for _key, _text in CV_STYLES.items():
-    _pers = CV_PERSONALITIES.get(_key, "")
-    _ovr = _STYLE_OVERRIDES.get(("cv", _key), {})
-    STYLE_REGISTRY.register(build_spec_from_legacy(
-        _key, "cv", _text, _pers,
-        clothing_female_override=_ovr.get("clothing_female_override", ""),
-        edit_compatible=_ovr.get("edit_compatible", True),
-        complexity=_ovr.get("complexity", "simple"),
-        variants=STYLE_VARIANTS.get(("cv", _key), ()),
-    ))
+    for _key, _text in CV_STYLES.items():
+        _pers = CV_PERSONALITIES.get(_key, "")
+        _ovr = _STYLE_OVERRIDES.get(("cv", _key), {})
+        STYLE_REGISTRY.register(build_spec_from_legacy(
+            _key, "cv", _text, _pers,
+            clothing_female_override=_ovr.get("clothing_female_override", ""),
+            edit_compatible=_ovr.get("edit_compatible", True),
+            complexity=_ovr.get("complexity", "simple"),
+            variants=STYLE_VARIANTS.get(("cv", _key), ()),
+        ))
 
-for _key, _text in SOCIAL_STYLES.items():
-    _pers = SOCIAL_PERSONALITIES.get(_key, "")
-    _ovr = _STYLE_OVERRIDES.get(("social", _key), {})
-    STYLE_REGISTRY.register(build_spec_from_legacy(
-        _key, "social", _text, _pers,
-        clothing_female_override=_ovr.get("clothing_female_override", ""),
-        edit_compatible=_ovr.get("edit_compatible", True),
-        complexity=_ovr.get("complexity", "simple"),
-        variants=STYLE_VARIANTS.get(("social", _key), ()),
-    ))
+    for _key, _text in SOCIAL_STYLES.items():
+        _pers = SOCIAL_PERSONALITIES.get(_key, "")
+        _ovr = _STYLE_OVERRIDES.get(("social", _key), {})
+        STYLE_REGISTRY.register(build_spec_from_legacy(
+            _key, "social", _text, _pers,
+            clothing_female_override=_ovr.get("clothing_female_override", ""),
+            edit_compatible=_ovr.get("edit_compatible", True),
+            complexity=_ovr.get("complexity", "simple"),
+            variants=STYLE_VARIANTS.get(("social", _key), ()),
+        ))
 
 
 # ---------------------------------------------------------------------------
@@ -1252,73 +1270,60 @@ def _build_mode_prompt(
     change_instruction: str,
     input_hints: dict | None = None,
     variant: StyleVariant | None = None,
+    target_model: str = "gpt_image_2",
 ) -> str:
     """Assemble a compact photorealistic paragraph.
 
     Layout: change line → Background/Clothing → expression → [framing hint
     if head-crop × full-body] → PRESERVE → QUALITY. No section tags, no
     redundant anchors, no conditional DoF — one natural paragraph that the
-    generation model parses cleanly and stays well under 1200 chars.
-
-    When ``variant`` is provided, its scene/lighting/props/camera/clothing
-    accent override (or append to) the fields from the base :class:`StyleSpec`
-    to diversify the generation without touching identity anchors.
+    generation model parses cleanly.
     """
     style_key_norm = (style or "").strip()
     is_doc = mode == "cv" and style_key_norm in _DOCUMENT_STYLE_KEYS
 
     spec = STYLE_REGISTRY.get_or_default(mode, style)
-    clothing = spec.clothing_for(gender)
-    bg = spec.background
-
-    if variant is not None and not is_doc:
-        if variant.scene:
-            bg = variant.scene
-        accent = variant.clothing_accent_for(gender)
-        if accent:
-            clothing = f"{clothing}, {accent}" if clothing else accent
-
-    # v1.18: identity_scene (PuLID) gets a lean, scene-focused prompt
-    # without explicit identity anchors (the ID adapter covers that).
-    # scene_preserve (Seedream / legacy FLUX.2) keeps the full identity
-    # lock + quality prologue to defend against edit drift. Documents
-    # always use the strict DOC branch regardless of mode.
-    generation_mode = getattr(spec, "generation_mode", "identity_scene")
-    is_identity_scene = (
-        generation_mode == "identity_scene" and not is_doc
-    )
-
-    if is_identity_scene:
-        # For PuLID the "change the background and clothing of the
-        # reference photo" phrasing is misleading — the model doesn't
-        # edit an image, it generates a new scene conditioned on a face
-        # crop. Replace the change instruction with a direct "Render ..."
-        # that focuses the sampler on the new scene.
-        parts: list[str] = [_identity_scene_opener(mode, style)]
+    
+    # Try to use VariationEngine if it's a StructuredStyleSpec
+    from src.prompts.style_spec import StructuredStyleSpec
+    if isinstance(spec, StructuredStyleSpec):
+        from src.prompts.variation_engine import VariationEngine
+        user_input = input_hints or {}
+        if variant:
+            user_input["scene_override"] = variant.scene
+            user_input["lighting"] = variant.lighting
+            user_input["clothing_override"] = variant.clothing_accent_for(gender)
+        
+        base_text = VariationEngine.apply_variation(spec, user_input)
+        parts = [change_instruction, base_text]
+        if spec.expression:
+            parts.append(spec.expression)
     else:
+        # Legacy fallback
+        clothing = spec.clothing_for(gender)
+        bg = spec.background
+
+        if variant is not None and not is_doc:
+            if variant.scene:
+                bg = variant.scene
+            accent = variant.clothing_accent_for(gender)
+            if accent:
+                clothing = f"{clothing}, {accent}" if clothing else accent
+
         parts = [change_instruction]
-
-    if bg:
-        parts.append(f"Background: {bg}.")
-    if clothing:
-        parts.append(f"Clothing: {clothing}.")
-    if variant is not None and not is_doc:
-        if variant.lighting:
-            parts.append(f"Lighting: {variant.lighting}.")
-        if variant.props:
-            parts.append(f"Props: {variant.props}.")
-        if variant.camera:
-            parts.append(f"Camera: {variant.camera}.")
-    if spec.expression:
-        parts.append(spec.expression)
-
-    # NOTE: the previous "Framing note: keep upper-body crop, do not
-    # extend the body" for head-crop inputs × ``needs_full_body`` styles
-    # has been removed. It contradicted the scene description (yoga,
-    # beach, running) and produced "headshot in yoga clothes" outputs
-    # at 1024 px. FLUX.2 Pro Edit at 2 MP invents the lower body
-    # consistently with the scene; identity is held by
-    # ``PRESERVE_PHOTO_FACE_ONLY`` instead.
+        if bg:
+            parts.append(f"Background: {bg}.")
+        if clothing:
+            parts.append(f"Clothing: {clothing}.")
+        if variant is not None and not is_doc:
+            if variant.lighting:
+                parts.append(f"Lighting: {variant.lighting}.")
+            if variant.props:
+                parts.append(f"Props: {variant.props}.")
+            if variant.camera:
+                parts.append(f"Camera: {variant.camera}.")
+        if spec.expression:
+            parts.append(spec.expression)
 
     if is_doc:
         composition = _DOC_COMPOSITION_HINT.get(
@@ -1328,28 +1333,30 @@ def _build_mode_prompt(
         parts.append(f"Composition: {composition}")
         parts.append(DOC_PRESERVE)
         parts.append(DOC_QUALITY)
-    elif is_identity_scene:
-        # PuLID: scene-focused quality line only. v1.19 removed the
-        # ``SOLO_SUBJECT_ANCHOR`` from the positive prompt — stacking
-        # "one person / single subject / five fingers" as POSITIVE
-        # tokens was reinforcing the "person" concept under low CFG
-        # and producing duplicate subjects. Those constraints now live
-        # in the PuLID ``negative_prompt`` where they actually help.
-        parts.append(IDENTITY_SCENE_QUALITY)
     else:
-        # Full-body scenes (yoga, beach, running, hiking, ...) require a new
-        # pose that differs from the reference; the default PRESERVE_PHOTO
-        # pins "original pose and body proportions" and creates a
-        # contradiction for FLUX Kontext Pro. Fall back to the face-only
-        # variant for those styles.
-        if getattr(spec, "needs_full_body", False):
-            parts.append(PRESERVE_PHOTO_FACE_ONLY)
-        else:
-            parts.append(PRESERVE_PHOTO)
-        parts.append(QUALITY_PHOTO)
-        parts.append(IDENTITY_LOCK_SUFFIX)
+        # Model-dependent logic
+        if target_model == "gpt_image_2":
+            # GPT-2 needs strict photo anchors to prevent blurring
+            if getattr(spec, "needs_full_body", False):
+                parts.append(PRESERVE_PHOTO_FACE_ONLY)
+            else:
+                parts.append(PRESERVE_PHOTO)
+            parts.append(QUALITY_PHOTO)
+            parts.append(IDENTITY_LOCK_SUFFIX)
+        elif target_model == "nano_banana_2":
+            # Nano Banana works better with lighter constraints
+            parts.append("Keep the identity of the person from the reference photo.")
+            parts.append("High quality photorealistic image.")
 
     prompt = " ".join(p.strip() for p in parts if p and p.strip())
+    
+    # Apply compression
+    try:
+        from src.prompts.compression import compress_prompt
+        prompt = compress_prompt(prompt)
+    except ImportError:
+        pass
+        
     return _truncate(prompt)
 
 
@@ -1408,20 +1415,21 @@ def _dating_social_change_instruction(mode: str, style: str) -> str:
 
 
 def build_dating_prompt(
-    style: str = "", gender: str = "male", input_hints: dict | None = None,
-    variant: StyleVariant | None = None,
+    style: str = "", base_description: str = "", gender: str = "male", input_hints: dict | None = None,
+    variant: StyleVariant | None = None, target_model: str = "gpt_image_2",
 ) -> str:
     return _build_mode_prompt(
         "dating", style, gender,
         _dating_social_change_instruction("dating", style),
         input_hints=input_hints,
         variant=variant,
+        target_model=target_model,
     )
 
 
 def build_cv_prompt(
-    style: str = "", gender: str = "male", input_hints: dict | None = None,
-    variant: StyleVariant | None = None,
+    style: str = "", base_description: str = "", gender: str = "male", input_hints: dict | None = None,
+    variant: StyleVariant | None = None, target_model: str = "gpt_image_2",
 ) -> str:
     style_key = (style or "").strip()
     if style_key in _DOCUMENT_STYLE_KEYS:
@@ -1439,19 +1447,20 @@ def build_cv_prompt(
         )
     return _build_mode_prompt(
         "cv", style_key, gender, change_instruction,
-        input_hints=input_hints, variant=variant,
+        input_hints=input_hints, variant=variant, target_model=target_model,
     )
 
 
 def build_social_prompt(
-    style: str = "", gender: str = "male", input_hints: dict | None = None,
-    variant: StyleVariant | None = None,
+    style: str = "", base_description: str = "", gender: str = "male", input_hints: dict | None = None,
+    variant: StyleVariant | None = None, target_model: str = "gpt_image_2",
 ) -> str:
     return _build_mode_prompt(
         "social", style, gender,
         _dating_social_change_instruction("social", style),
         input_hints=input_hints,
         variant=variant,
+        target_model=target_model,
     )
 
 

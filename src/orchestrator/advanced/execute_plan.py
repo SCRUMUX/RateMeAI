@@ -17,7 +17,6 @@ from typing import Any, Awaitable, Callable
 
 from src.metrics import IDENTITY_SCORE, IMAGE_GEN_CALLS
 from src.models.enums import AnalysisMode
-from src.orchestrator.advanced.model_router import ModelRouter
 from src.orchestrator.advanced.planner import PipelinePlan, PipelineStep
 from src.orchestrator.errors import format_image_gen_error
 from src.orchestrator.trace import trace_step as _trace_step
@@ -42,14 +41,12 @@ class AdvancedPipelineExecutor:
     def __init__(
         self,
         prompt_engine: PromptEngine,
-        model_router: ModelRouter,
         storage: StorageProvider,
         gate_runner_getter: Callable,
         apply_local_postprocess: Callable[[bytes, AnalysisMode, str, float], bytes],
         compute_authenticity: Callable[[dict], float],
     ):
         self._prompt_engine = prompt_engine
-        self._model_router = model_router
         self._storage = storage
         self._get_gate_runner = gate_runner_getter
         self._apply_local_postprocess = apply_local_postprocess
@@ -77,14 +74,6 @@ class AdvancedPipelineExecutor:
 
         try:
             for i, step in enumerate(plan.steps):
-                if remaining_budget < self._model_router.cheapest_cost:
-                    trace["decisions"].append({
-                        "phase": f"step_{i}",
-                        "decision": "Skipped — budget exhausted",
-                        "reason": f"remaining=${remaining_budget:.3f}",
-                    })
-                    break
-
                 raw, cost = await self._run_single_step(
                     step, i, plan, mode, style, current_image, image_bytes,
                     gate_runner, remaining_budget, trace,
@@ -226,7 +215,7 @@ class AdvancedPipelineExecutor:
                 gender=gender,
             )
 
-            selection = self._model_router.select(step.model_preference, budget)
+            selection = None # self._model_router.select(step.model_preference, budget)
             if selection is None:
                 trace["decisions"].append({
                     "phase": f"step_{i}_{step.step}",

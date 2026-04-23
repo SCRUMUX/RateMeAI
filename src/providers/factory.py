@@ -199,66 +199,38 @@ def get_ab_image_gen(model_key: str) -> ImageGenProvider:
     raise RuntimeError(f"unreachable AB provider branch: {key}")
 
 
-def _build_style_router():
-    """Assemble :class:`StyleRouter` for hybrid / pulid_only strategies.
-
-    PuLID handles identity_scene requests; Seedream handles
-    scene_preserve. The fallback is FLUX.2 Pro Edit — kept as the "safe
-    choice" when generation_mode is missing, the face crop fails, or a
-    feature flag is off.
+def _build_unified_provider():
+    """Assemble :class:`UnifiedImageGenProvider` for the new pipeline.
+    
+    Model A: GPT-2
+    Model B: Nano Banana
     """
-    from src.providers.image_gen.style_router import StyleRouter
+    from src.providers.image_gen.unified import UnifiedImageGenProvider
 
-    strategy = (settings.image_gen_strategy or "legacy").strip().lower()
+    model_a = _build_gpt_image_2()
+    model_b = _build_nano_banana_2()
+    
     pulid = None
     if settings.pulid_enabled:
         try:
             pulid = _build_fal_pulid()
         except Exception as exc:
-            # v1.19.3: in production, failing to build PuLID under a
-            # strategy that actually needs it ("hybrid" or "pulid_only")
-            # means every identity_scene request will silently degrade
-            # to the fallback and the whole point of the hybrid pipeline
-            # is lost. We would rather fail startup loudly so Railway
-            # restarts the service and CI catches it, than ship a
-            # provider that returns generic Seedream output for
-            # identity-scene styles.
-            if (
-                getattr(settings, "is_production", False)
-                and strategy in ("hybrid", "pulid_only")
-            ):
-                logger.error(
-                    "StyleRouter: PuLID init failed in production "
-                    "under strategy=%s — aborting startup. Reason: %s",
-                    strategy, exc,
-                )
-                raise
-            logger.warning("StyleRouter: PuLID init failed (%s)", exc)
+            logger.warning("UnifiedProvider: PuLID init failed (%s)", exc)
+            
     seedream = None
     if settings.seedream_enabled:
         try:
             seedream = _build_fal_seedream()
         except Exception as exc:
-            logger.warning("StyleRouter: Seedream init failed (%s)", exc)
+            logger.warning("UnifiedProvider: Seedream init failed (%s)", exc)
 
-    fallback = _build_fal_flux2()
+    return UnifiedImageGenProvider(
+        model_a=model_a,
+        model_b=model_b,
+        pulid=pulid,
+        seedream=seedream,
+    )
 
-    # ``pulid_only``: wire Seedream to the same PuLID provider so every
-    # request lands on PuLID regardless of style mode. The face-crop
-    # fallback still routes through the real seedream / fallback path.
-    if strategy == "pulid_only" and pulid is not None:
-        router = StyleRouter(
-            pulid=pulid,
-            seedream=pulid,
-            fallback=fallback,
-        )
-    else:
-        router = StyleRouter(
-            pulid=pulid,
-            seedream=seedream,
-            fallback=fallback,
-        )
-    return router
 
 
 def _log_image_gen_choice(provider: ImageGenProvider, *, reason: str) -> None:
@@ -336,7 +308,7 @@ def get_image_gen() -> ImageGenProvider:
             )
             return p
         try:
-            p = _build_style_router()
+            p = _build_unified_provider()
         except Exception as exc:
             logger.exception(
                 "StyleRouter assembly failed, falling back to FLUX.2: %s",

@@ -22,7 +22,7 @@ import httpx
 import pytest
 from PIL import Image
 
-from src.providers.image_gen.fal_flux import FalContentViolationError
+from src.providers.image_gen._fal_queue_base import FalContentViolationError
 from src.providers.image_gen.fal_gfpgan import FalGfpganRestorer
 
 

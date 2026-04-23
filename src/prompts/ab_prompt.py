@@ -178,7 +178,7 @@ def _scene_block(spec: StyleSpec, variant: StyleVariant | None) -> str:
     if variant is not None and variant.scene:
         scene = variant.scene
     if not scene:
-        scene = spec.background or ""
+        scene = getattr(spec, "background", getattr(spec, "base_scene", ""))
     extras: list[str] = []
     if variant is not None and variant.props:
         extras.append(variant.props)
