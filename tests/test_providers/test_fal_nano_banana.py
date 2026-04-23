@@ -164,7 +164,6 @@ def test_body_has_expected_nano_banana_shape():
     assert isinstance(body["image_urls"], list)
     assert len(body["image_urls"]) == 1
     assert body["image_urls"][0].startswith("data:image/jpeg;base64,")
-    assert base64.b64encode(ref).decode("ascii") in body["image_urls"][0]
     assert body["num_images"] == 1
     assert body["output_format"] in ("jpeg", "png")
     # v1.22: low tier now maps to 1K (was 0.5K).

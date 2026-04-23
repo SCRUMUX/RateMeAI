@@ -158,6 +158,27 @@ class FalGptImage2Edit(FalQueueClient, ImageGenProvider):
 
     # ------------------------------------------------------------------
 
+    def _compress_reference(self, image_bytes: bytes, max_dim: int = 1536) -> bytes:
+        """Compress the reference image to avoid proxy worker payload crashes.
+        
+        GPT Image 2 and Nano Banana 2 run through proxies (OpenAI/Google).
+        Large data URIs (e.g. 5MB+) can crash the FAL proxy worker's JSON parser
+        or exceed internal message broker limits, causing the request to hang
+        IN_QUEUE forever (timeout after 240s) without showing up on the dashboard.
+        """
+        try:
+            img = Image.open(io.BytesIO(image_bytes))
+            if img.mode != "RGB":
+                img = img.convert("RGB")
+            if max(img.width, img.height) > max_dim:
+                img.thumbnail((max_dim, max_dim), Image.Resampling.LANCZOS)
+            buf = io.BytesIO()
+            img.save(buf, format="JPEG", quality=85)
+            return buf.getvalue()
+        except Exception as e:
+            logger.warning("FalGptImage2Edit: failed to compress reference: %s", e)
+            return image_bytes
+
     def _build_body(
         self,
         prompt: str,
@@ -169,15 +190,14 @@ class FalGptImage2Edit(FalQueueClient, ImageGenProvider):
                 "FAL GPT Image 2 Edit requires reference_image",
             )
 
+        # Compress to prevent silent queue broker crashes on massive data URIs
+        safe_reference = self._compress_reference(reference_image)
+
         extras = params or {}
         quality = str(extras.get("quality") or self._default_quality).lower()
         if quality not in _VALID_QUALITIES:
             quality = self._default_quality
 
-        # v1.23: prefer the caller-supplied image_size (StyleSpec aspect
-        # resolved by executor.resolve_output_size) and snap it onto the
-        # OpenAI-recommended list. Legacy callers that do not pass the
-        # key get the portrait default for the tier.
         requested_size = extras.get("image_size")
         if requested_size:
             image_size = _sanitize_image_size(requested_size, quality=quality)
@@ -186,11 +206,12 @@ class FalGptImage2Edit(FalQueueClient, ImageGenProvider):
 
         body: dict[str, Any] = {
             "prompt": prompt,
-            "image_urls": [self._data_url(reference_image)],
+            "image_urls": [self._data_url(safe_reference)],
             "quality": quality,
             "output_format": self._output_format,
             "image_size": image_size,
             "num_images": 1,
+            "sync_mode": True,
         }
 
         # Optional mask (future inpaint support — not used in MVP).

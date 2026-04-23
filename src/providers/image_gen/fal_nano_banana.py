@@ -152,6 +152,27 @@ class FalNanoBanana2Edit(FalQueueClient, ImageGenProvider):
 
     # ------------------------------------------------------------------
 
+    def _compress_reference(self, image_bytes: bytes, max_dim: int = 1536) -> bytes:
+        """Compress the reference image to avoid proxy worker payload crashes.
+        
+        Google Gemini 3.1 Flash Image via FAL.ai proxy. Large data URIs
+        (e.g. 5MB+) can crash the FAL proxy worker's JSON parser or exceed
+        internal message broker limits, causing the request to hang IN_QUEUE
+        forever (timeout after 240s) without showing up on the dashboard.
+        """
+        try:
+            img = Image.open(io.BytesIO(image_bytes))
+            if img.mode != "RGB":
+                img = img.convert("RGB")
+            if max(img.width, img.height) > max_dim:
+                img.thumbnail((max_dim, max_dim), Image.Resampling.LANCZOS)
+            buf = io.BytesIO()
+            img.save(buf, format="JPEG", quality=85)
+            return buf.getvalue()
+        except Exception as e:
+            logger.warning("FalNanoBanana2Edit: failed to compress reference: %s", e)
+            return image_bytes
+
     def _build_body(
         self,
         prompt: str,
@@ -163,6 +184,8 @@ class FalNanoBanana2Edit(FalQueueClient, ImageGenProvider):
                 "FAL Nano Banana 2 Edit requires reference_image",
             )
 
+        safe_reference = self._compress_reference(reference_image)
+
         extras = params or {}
         quality = str(extras.get("quality") or self._default_quality).lower()
         if quality not in _QUALITY_TO_RESOLUTION:
@@ -173,8 +196,6 @@ class FalNanoBanana2Edit(FalQueueClient, ImageGenProvider):
         if aspect_ratio not in _VALID_ASPECT_RATIOS:
             aspect_ratio = "auto"
 
-        # v1.23: reasoning-guided edit on medium/high. Caller can
-        # override via ``extras["thinking_level"]`` (e.g. tests).
         thinking_level = extras.get("thinking_level")
         if thinking_level is None:
             thinking_level = _thinking_level_for_quality(quality)
@@ -187,17 +208,14 @@ class FalNanoBanana2Edit(FalQueueClient, ImageGenProvider):
 
         body: dict[str, Any] = {
             "prompt": prompt,
-            "image_urls": [self._data_url(reference_image)],
+            "image_urls": [self._data_url(safe_reference)],
             "num_images": 1,
             "output_format": self._output_format,
             "resolution": resolution,
             "aspect_ratio": aspect_ratio,
-            # v1.23: pin safety_tolerance and limit_generations so the
-            # request body is reproducible for metrics and the model
-            # never silently emits intermediate frames we'd have to pay
-            # for.
             "safety_tolerance": safety_tolerance,
             "limit_generations": True,
+            "sync_mode": True,
         }
 
         if thinking_level:

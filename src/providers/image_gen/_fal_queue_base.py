@@ -416,8 +416,8 @@ class FalQueueClient:
         handle or surface upstream.
         """
         last_err: Exception | None = None
-        deadline = time.monotonic() + self._timeout
         for attempt in range(self._max_retries):
+            deadline = time.monotonic() + self._timeout
             try:
                 with httpx.Client(timeout=self._timeout) as client:
                     request_id, status_url, response_url = self._submit(
