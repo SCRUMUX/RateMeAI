@@ -12,7 +12,6 @@ actually differ for Nano Banana 2 Edit:
   and ``aspect_ratio`` defaults to ``"auto"`` (Nano Banana 2 Edit has
   no ``image_size`` field)
 - ``num_images`` is pinned to 1 so cost accounting stays 1-call = 1-image
-- ``sync_mode=True`` so the queue helper resolves the payload inline
 - missing / unknown ``quality`` collapses to ``default_quality``
 - reference-image is mandatory (image-to-image only)
 """
@@ -167,7 +166,6 @@ def test_body_has_expected_nano_banana_shape():
     assert body["image_urls"][0].startswith("data:image/jpeg;base64,")
     assert base64.b64encode(ref).decode("ascii") in body["image_urls"][0]
     assert body["num_images"] == 1
-    assert body["sync_mode"] is True
     assert body["output_format"] in ("jpeg", "png")
     # v1.22: low tier now maps to 1K (was 0.5K).
     assert body["resolution"] == "1K"
@@ -338,7 +336,6 @@ async def test_generate_happy_path_inline_data_uri():
     # medium quality → 2K (v1.22 mapping)
     assert submit["json"]["resolution"] == "2K"
     assert submit["json"]["aspect_ratio"] == "auto"
-    assert submit["json"]["sync_mode"] is True
 
 
 @pytest.mark.asyncio
