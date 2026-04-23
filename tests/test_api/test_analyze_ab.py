@@ -64,7 +64,7 @@ class _TaskCtxCapture:
         self._orig_init = None
 
     def __enter__(self):
-        from src.models.task import Task
+        from src.models.db import Task
         self._orig_init = Task.__init__
         capture = self
 

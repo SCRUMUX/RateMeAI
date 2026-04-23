@@ -1,0 +1,31 @@
+v1.22.0: A/B image-gen (Nano Banana 2 vs GPT Image 2) becomes the default; retire "Стандарт" UI option
+
+Everything the v1.21.0-ab branch shipped as an additive opt-in is now
+the primary path:
+
+- Frontend: removed the "Стандарт" pill from StepGenerate.tsx. The
+  model row renders only Nano Banana 2 / GPT Image 2 and the quality
+  row is always visible. First-visit default is GPT Image 2 + Low.
+  AppContext tightens AbImageModel (no more null) and api.analyze
+  unconditionally sends image_model + image_quality.
+
+- Backend: /api/v1/analyze falls back to ab_default_model /
+  ab_default_quality (gpt_image_2 / low) when the client omits the
+  fields, so old bot builds and curl also route through the A/B path.
+  The legacy hybrid StyleRouter (PuLID / Seedream / FLUX.2 /
+  CodeFormer / ESRGAN / GFPGAN) is reachable ONLY via
+  AB_TEST_ENABLED=false on Railway - that is now the documented
+  emergency rollback, not a per-user UI toggle.
+
+- Nano Banana 2 quality floor bumped from 0.5K to 1K. The new mapping
+  is low=1K ($0.08), medium=2K ($0.12), high=4K ($0.16) - 512 px
+  portraits were below production minimum. GPT Image 2 costs updated
+  to empirical per-tier averages: $0.02 / $0.06 / $0.25.
+
+- Docs / .env.example / ab-models.ts synced. src/version.py adds the
+  1.22.0 release note and APP_VERSION bumped.
+
+Tests: updated test_analyze_ab (unknown/missing model now falls back
+to default A/B model, not legacy path), executor_ab_path (defaults
+flipped to gpt_image_2 / low), fal_nano_banana (1K / 2K / 4K map +
+new costs). Full suite: 2359 passed / 42 skipped. Web build clean.
