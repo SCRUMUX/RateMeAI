@@ -59,6 +59,13 @@ def test_consensus_all_fail_returns_empty():
     result = _run(consensus_analyze(llm, b"img", "prompt", n=3))
     assert result == {}
 
+def test_consensus_n1_fail_returns_empty():
+    llm = MagicMock()
+    llm.analyze_image = AsyncMock(side_effect=Exception("down"))
+
+    result = _run(consensus_analyze(llm, b"img", "prompt", n=1))
+    assert result == {}
+
 
 def test_median_dict_lists_take_longest():
     result = _median_dict(

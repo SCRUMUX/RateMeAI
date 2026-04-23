@@ -42,10 +42,17 @@ async def consensus_analyze(
         # (~96s) blocking the ARQ job_timeout. Now a slow provider fails
         # fast and the worker can accept the next job.
         try:
-            return await asyncio.wait_for(
+            res = await asyncio.wait_for(
                 llm.analyze_image(image_bytes, prompt, temperature=temperature),
                 timeout=_CONSENSUS_WALL_TIMEOUT_S,
             )
+            if not isinstance(res, dict):
+                logger.warning(
+                    "consensus_analyze: n=1 returned non-dict %s. Returning empty dict.",
+                    type(res),
+                )
+                return {}
+            return res
         except asyncio.TimeoutError:
             logger.warning(
                 "consensus_analyze: n=1 wall-clock timeout after %.0fs",
@@ -54,6 +61,12 @@ async def consensus_analyze(
             raise TimeoutError(
                 f"analyze_image exceeded {_CONSENSUS_WALL_TIMEOUT_S:.0f}s wall clock"
             )
+        except Exception as exc:
+            logger.warning(
+                "consensus_analyze: n=1 failed with error %s. Returning empty dict as fallback.",
+                exc,
+            )
+            return {}
 
     try:
         results = await asyncio.wait_for(
@@ -78,7 +91,9 @@ async def consensus_analyze(
 
     valid = [r for r in results if isinstance(r, dict)]
     if not valid:
-        logger.warning("All consensus calls failed to return a valid dict. Returning empty dict as fallback.")
+        logger.warning(
+            "All consensus calls failed to return a valid dict. Returning empty dict as fallback."
+        )
         return {}
 
     if len(valid) == 1:
