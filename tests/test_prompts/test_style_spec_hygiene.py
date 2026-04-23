@@ -107,7 +107,10 @@ def test_document_styles_no_or():
         spec = ig.STYLE_REGISTRY.get("cv", key)
         if spec is None:
             continue
-        combined = f"{spec.background} {spec.clothing_male} {spec.clothing_female}"
+        if hasattr(spec, "base_scene"):
+            combined = f"{spec.base_scene} {spec.clothing}"
+        else:
+            combined = f"{spec.background} {spec.clothing_male} {spec.clothing_female}"
         assert " or " not in combined, (
             f"{key}: document style still offers an 'or' option: {combined}"
         )

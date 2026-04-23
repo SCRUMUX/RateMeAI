@@ -71,6 +71,17 @@ async def test_variant_handler_resolves_and_forwards_variant_id(monkeypatch):
 
     chosen = StyleVariant(id="chosen_variant", scene="x", lighting="y")
 
+    # Mock STYLE_REGISTRY to return a spec with variants so it passes the check
+    from src.prompts.image_gen import STYLE_REGISTRY
+    from src.prompts.style_spec import StyleSpec
+    fake_spec = StyleSpec(
+        key="yoga_outdoor", mode="dating", background="x",
+        clothing_male="y", clothing_female="z", lighting="a",
+        expression="b",
+        variants=(chosen,)
+    )
+    monkeypatch.setattr(STYLE_REGISTRY, "get", lambda m, s: fake_spec)
+
     async def fake_resolve(redis, spec, user_id, mode, style):  # noqa: ARG001
         return chosen
 

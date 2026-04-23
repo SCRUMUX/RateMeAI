@@ -23,21 +23,7 @@ def compress_prompt(prompt: str) -> str:
     for word in noise_words:
         compressed = re.sub(rf'\b{word}\b', '', compressed, flags=re.IGNORECASE)
         
-    # Deduplicate common terms
-    terms = compressed.split()
-    seen = set()
-    deduped = []
-    
-    for term in terms:
-        clean_term = term.lower().strip('.,!?;:')
-        if len(clean_term) > 3:  # Only deduplicate meaningful words
-            if clean_term not in seen:
-                seen.add(clean_term)
-                deduped.append(term)
-        else:
-            deduped.append(term)
-            
-    compressed = ' '.join(deduped)
+    compressed = re.sub(r'\s+', ' ', compressed).strip()
     
     # Fix punctuation
     compressed = re.sub(r'\s+([.,!?;:])', r'\1', compressed)

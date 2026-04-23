@@ -214,11 +214,23 @@ def validate_style(spec: StyleSpec) -> list[str]:
     """Return a list of quality warnings for a style spec."""
     warnings: list[str] = []
 
-    for fname in ("background", "clothing_male", "clothing_female", "expression"):
+    is_structured = hasattr(spec, "base_scene")
+    
+    if is_structured:
+        fields_to_check = ("base_scene", "clothing", "emotion")
+    else:
+        fields_to_check = ("background", "clothing_male", "clothing_female", "expression")
+
+    for fname in fields_to_check:
         if not getattr(spec, fname, "").strip():
             warnings.append(f"{spec.key}: empty {fname}")
 
-    for fname in ("background", "clothing_male", "clothing_female", "lighting"):
+    if is_structured:
+        text_fields = ("base_scene", "clothing", "lighting")
+    else:
+        text_fields = ("background", "clothing_male", "clothing_female", "lighting")
+
+    for fname in text_fields:
         text = getattr(spec, fname, "").lower()
         for phrase in _BANNED_PHRASES:
             if phrase in text:

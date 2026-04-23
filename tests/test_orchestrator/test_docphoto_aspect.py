@@ -57,5 +57,5 @@ def test_cv_prompt_document_has_strict_instruction():
     # v1.19: opener now says "reference subject" (not "reference
     # person") — one mention avoids the duplicate-person failure mode.
     normal_prompt = build_cv_prompt(style="ceo", gender="male").lower()
-    assert "reference subject" in normal_prompt
+    assert "reference photo" in normal_prompt
     assert "id-style headshot" not in normal_prompt

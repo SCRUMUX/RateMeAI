@@ -182,7 +182,7 @@ def _scene_block(spec: StyleSpec, variant: StyleVariant | None) -> str:
     extras: list[str] = []
     if variant is not None and variant.props:
         extras.append(variant.props)
-    if spec.props:
+    if getattr(spec, "props", ""):
         extras.append(spec.props)
     text = scene.strip().rstrip(".")
     if extras:
@@ -198,12 +198,14 @@ def _lighting_block(spec: StyleSpec, variant: StyleVariant | None) -> str:
 
 def _camera_block(spec: StyleSpec, variant: StyleVariant | None) -> str:
     extras: list[str] = [CAMERA_BLOCK]
-    dof = spec.depth_of_field_prompt().strip().rstrip(".")
+    dof = getattr(spec, "depth_of_field_prompt", lambda: "")()
+    if type(dof) is str:
+        dof = dof.strip().rstrip(".")
     if dof:
         extras.append(dof)
     if variant is not None and variant.camera:
         extras.append(variant.camera.strip().rstrip("."))
-    elif spec.camera_note:
+    elif getattr(spec, "camera_note", ""):
         extras.append(spec.camera_note.strip().rstrip("."))
     return ", ".join(extras)
 

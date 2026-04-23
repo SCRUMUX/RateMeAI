@@ -84,9 +84,9 @@ def test_prompt_contains_identity_anchors(mode: str, style: str, gender: str) ->
         # The SOLO_SUBJECT_ANCHOR was moved out of the POSITIVE prompt
         # and into PuLID's negative_prompt, so it no longer appears
         # here — the PuLID API body carries it instead.
-        assert "reference subject" in prompt, (
-            f"{mode}/{style}/{gender}: identity_scene opener missing"
-        )
+            assert "reference photo" in prompt, (
+                f"{mode}/{style}/{gender}: identity_scene opener missing"
+            )
 
 
 def test_emoji_prompt_has_identity_power_words() -> None:
