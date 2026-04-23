@@ -12,11 +12,12 @@ name: Smoke — Live Providers
 # NB: image-gen-probe is intentionally NOT part of the hourly schedule
 # — every call costs a paid FAL credit (~720/day if scheduled) and the
 # analyze probes already catch the common failure modes (token expiry,
-# network, quota on OpenRouter). The FAL image-gen path is exercised
-# live on every git push via
-# the deploy-backend "Live provider smoke" step in .github/workflows/
-# ci.yml, and can be fired on demand through the "Diag — Image Gen
-# Probe" workflow (workflow_dispatch).
+# network, quota on OpenRouter). The FAL image-gen path is verified on
+# demand via the ``diag-image-gen-probe.yml`` workflow
+# (workflow_dispatch). v1.24.1 removed the duplicate copy that used to
+# live inside ``ci.yml``'s post-deploy step, because upstream 504s were
+# painting the deploy red without actually saying anything about the
+# deploy.
 
 on:
   schedule:

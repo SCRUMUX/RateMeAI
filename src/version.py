@@ -1005,15 +1005,26 @@
 #                 (``config.py`` high cost 0.16 → 0.12,
 #                 ``web/src/data/ab-models.ts`` labels and tier hints).
 #
-#          3) CI paid smoke split
+#          3) CI post-deploy provider smoke removed
 #             (.github/workflows/ci.yml):
 #               * The single "Live provider smoke" step burned
 #                 ~$0.15/deploy on 4 FAL image-gen probes + 1
-#                 synthetic OpenRouter probe. Split into two steps:
-#                 cheap ``provider-probe`` still runs on every push;
-#                 the paid probes are gated behind
-#                 ``workflow_dispatch`` with an explicit
-#                 ``run_paid_smoke=true`` input.
+#                 synthetic OpenRouter probe, and its ``provider-
+#                 probe`` subcheck hit OpenRouter vision on every
+#                 push — the first v1.24.0 deploy went red because
+#                 ``vision_plain`` returned a transient 504 three
+#                 times in a row even though the actual deploy was
+#                 healthy.
+#               * The block was fully extracted. Deploy responsibility
+#                 ends at ``/health`` (confirms our container serves
+#                 the right version). External-provider liveness is
+#                 covered by the dedicated ``smoke-live.yml`` hourly
+#                 workflow, and ad-hoc verification uses
+#                 ``diag-provider-probe.yml`` /
+#                 ``diag-synthetic-analyze.yml`` /
+#                 ``diag-image-gen-probe.yml`` (workflow_dispatch).
+#                 One responsibility per workflow; transient upstream
+#                 errors no longer block deploys.
 #
 #          4) Frontend UX fixes (web/):
 #               * NavBar "Пополнить баланс" — swapped
