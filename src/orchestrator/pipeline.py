@@ -217,10 +217,19 @@ class AnalysisPipeline:
             if ab_active:
                 generation_bytes = image_bytes
                 prerestore_info = {"applied": False, "reason": "ab_path_skip"}
-                trace.setdefault("steps", []).append({
-                    "name": "face_prerestore",
+                # v1.24: trace["steps"] is a dict keyed by step name (see
+                # ``_trace_step`` / ``trace.py``). v1.23 accidentally used
+                # ``setdefault("steps", []).append(...)`` which returned the
+                # existing dict and blew up with
+                # ``AttributeError: 'dict' object has no attribute 'append'``
+                # on every A/B generation. Write to the dict directly.
+                now = time.time()
+                trace["steps"]["face_prerestore"] = {
+                    "started_at": now,
+                    "ended_at": now,
+                    "duration_ms": 0.0,
                     "info": prerestore_info,
-                })
+                }
             else:
                 face_bbox = getattr(input_quality, "face_bbox", None)
                 with _trace_step(trace, "face_prerestore") as pre_entry:

@@ -27,9 +27,11 @@ export const AB_MODELS: AbModelMeta[] = [
     short: 'Google · Gemini 3.1 Flash',
     description:
       'Быстрая i2i-модель с хорошим балансом натуральности и сохранения лица. ' +
-      'Low ≈ 1024 px, Medium ≈ 2048 px, High ≈ 4096 px.',
-    // fal pricing: 1K=$0.08, 2K=$0.12, 4K=$0.16.
-    cost: { low: 0.08, medium: 0.12, high: 0.16 },
+      'Low ≈ 1024 px, Medium ≈ 2048 px, High ≈ 2048 px + reasoning-edit.',
+    // v1.24: fal pricing 1K=$0.08, 2K=$0.12. ``high`` is 2K + thinking
+    // so the price matches ``medium`` — the extra spend is latency,
+    // not pixels.
+    cost: { low: 0.08, medium: 0.12, high: 0.12 },
   },
   {
     key: 'gpt_image_2',
@@ -44,9 +46,9 @@ export const AB_MODELS: AbModelMeta[] = [
 ];
 
 export const AB_QUALITIES: { key: AbImageQuality; label: string; hint: string }[] = [
-  { key: 'low', label: 'Low', hint: '≈1024 px, дефолт — самый бюджетный' },
-  { key: 'medium', label: 'Medium', hint: '≈1536–2048 px, баланс цены и детали' },
-  { key: 'high', label: 'High', hint: '≈2048–4096 px, максимум деталей' },
+  { key: 'low', label: 'Low', hint: '≈1024 px, быстро и бюджетно' },
+  { key: 'medium', label: 'Medium', hint: '≈1536–2048 px, больше деталей' },
+  { key: 'high', label: 'High', hint: '≈2048 px + reasoning, максимум реализма лица' },
 ];
 
 export function getAbModelCost(

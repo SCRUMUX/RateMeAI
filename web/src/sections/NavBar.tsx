@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import { GlobeIcon, CoinIcon, ImageIcon } from '@ai-ds/core/icons';
 import { useApp } from '../context/AppContext';
@@ -24,6 +24,25 @@ export default function NavBar({ onLoginClick, onOpenStorage, onHomeClick, onCta
   const [menuOpen, setMenuOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+  const navigate = useNavigate();
+
+  // v1.24: «Пополнить баланс» должен просто прокручивать к блоку
+  // тарифов на главной. react-router-dom Link с хешем /#тарифы не
+  // триггерит прокрутку к anchor, поэтому делаем это руками — тот же
+  // паттерн, что уже работает в StepGenerate.
+  function scrollToPricing() {
+    setMenuOpen(false);
+    setMobileMenuOpen(false);
+    const target = document.getElementById('тарифы');
+    if (target && window.location.pathname === '/') {
+      target.scrollIntoView({ behavior: 'smooth' });
+      return;
+    }
+    navigate('/');
+    setTimeout(() => {
+      document.getElementById('тарифы')?.scrollIntoView({ behavior: 'smooth' });
+    }, 100);
+  }
 
   useEffect(() => {
     if (!menuOpen) return;
@@ -144,14 +163,14 @@ export default function NavBar({ onLoginClick, onOpenStorage, onHomeClick, onCta
                   className="absolute top-full right-0 mt-2 w-[340px] rounded-[var(--radius-12)] p-[var(--space-20)] flex flex-col gap-[var(--space-16)]"
                   style={{ background: 'rgba(12, 16, 24, 0.95)', border: '1px solid rgba(255,255,255,0.10)', backdropFilter: 'blur(20px)' }}
                 >
-                  <Link
-                    to="/#тарифы"
-                    onClick={() => setMenuOpen(false)}
-                    className="flex items-center gap-[var(--space-6)] px-[var(--space-12)] py-[var(--space-8)] text-[14px] leading-[20px] font-medium text-[var(--color-brand-primary)] rounded-[var(--radius-8)] hover:bg-[rgba(255,255,255,0.06)] transition-all cursor-pointer no-underline"
+                  <button
+                    type="button"
+                    onClick={scrollToPricing}
+                    className="flex items-center gap-[var(--space-6)] px-[var(--space-12)] py-[var(--space-8)] text-[14px] leading-[20px] font-medium text-[var(--color-brand-primary)] rounded-[var(--radius-8)] hover:bg-[rgba(255,255,255,0.06)] transition-all cursor-pointer bg-transparent border-0 w-full text-left"
                   >
                     <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6" stroke="currentColor" strokeWidth="1.2"/><path d="M8 5v6M5 8h6" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/></svg>
                     Пополнить баланс
-                  </Link>
+                  </button>
                   <div className="h-px" style={{ background: 'rgba(255,255,255,0.08)' }} />
                   <LinkedAccountsPanel />
                   <a
@@ -298,14 +317,14 @@ export default function NavBar({ onLoginClick, onOpenStorage, onHomeClick, onCta
 
           {session ? (
             <div className="flex flex-col gap-[var(--space-8)]">
-              <Link
-                to="/#тарифы"
-                onClick={() => setMobileMenuOpen(false)}
-                className="flex items-center gap-[var(--space-10)] px-[var(--space-12)] py-[var(--space-12)] text-[16px] leading-[24px] font-medium text-[var(--color-brand-primary)] rounded-[var(--radius-12)] hover:bg-[rgba(255,255,255,0.06)] transition-all cursor-pointer no-underline"
+              <button
+                type="button"
+                onClick={scrollToPricing}
+                className="flex items-center gap-[var(--space-10)] px-[var(--space-12)] py-[var(--space-12)] text-[16px] leading-[24px] font-medium text-[var(--color-brand-primary)] rounded-[var(--radius-12)] hover:bg-[rgba(255,255,255,0.06)] transition-all cursor-pointer bg-transparent border-0 w-full text-left"
               >
                 <svg width="18" height="18" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6" stroke="currentColor" strokeWidth="1.2"/><path d="M8 5v6M5 8h6" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/></svg>
                 Пополнить баланс
-              </Link>
+              </button>
 
               <div className="h-px" style={{ background: 'rgba(255,255,255,0.08)' }} />
 

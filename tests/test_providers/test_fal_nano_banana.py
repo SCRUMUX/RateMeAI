@@ -138,10 +138,11 @@ def _make_gen(**overrides) -> FalNanoBanana2Edit:
 def test_quality_tier_mapping():
     # v1.22: floor lifted from 0.5K → 1K so the cheapest user-visible
     # output is still ~1 MP (512px portraits were below prod quality).
-    assert _QUALITY_TO_RESOLUTION == {"low": "1K", "medium": "2K", "high": "4K"}
+    # v1.24: 4K dropped; ``high`` is now 2K + thinking=high.
+    assert _QUALITY_TO_RESOLUTION == {"low": "1K", "medium": "2K", "high": "2K"}
     assert _resolution_for_quality("low") == "1K"
     assert _resolution_for_quality("medium") == "2K"
-    assert _resolution_for_quality("high") == "4K"
+    assert _resolution_for_quality("high") == "2K"
 
 
 def test_quality_tier_unknown_falls_back_to_medium():
@@ -183,18 +184,21 @@ def test_body_has_expected_nano_banana_shape():
     assert body["seed"] == 7
 
 
-def test_body_quality_medium_enables_thinking_high():
+def test_body_quality_medium_runs_fast_mode():
+    # v1.24: medium now runs 2K without reasoning so it keeps its
+    # fast latency budget; thinking is reserved for ``high``.
     gen = _make_gen()
     body = gen._build_body("x", _jpeg_bytes(), {"quality": "medium"})
     assert body["resolution"] == "2K"
-    # v1.23: medium/high opt into Gemini reasoning for identity lock.
-    assert body["thinking_level"] == "high"
+    assert "thinking_level" not in body
 
 
 def test_body_quality_high_enables_thinking_high():
     gen = _make_gen()
     body = gen._build_body("x", _jpeg_bytes(), {"quality": "high"})
-    assert body["resolution"] == "4K"
+    # v1.24: resolution capped at 2K; ``high`` differs from ``medium``
+    # only by ``thinking_level=high`` (reasoning-guided edit).
+    assert body["resolution"] == "2K"
     assert body["thinking_level"] == "high"
 
 
@@ -226,10 +230,12 @@ def test_body_invalid_safety_tolerance_falls_back_to_4():
 
 
 def test_thinking_level_helper():
+    # v1.24: only ``high`` opts into Gemini reasoning; medium now runs
+    # fast mode so the mid-tier keeps its latency budget.
     assert _thinking_level_for_quality("low") is None
-    assert _thinking_level_for_quality("medium") == "high"
+    assert _thinking_level_for_quality("medium") is None
     assert _thinking_level_for_quality("high") == "high"
-    assert _thinking_level_for_quality(None) == "high"  # defaults to medium
+    assert _thinking_level_for_quality(None) is None  # defaults to medium -> fast
     assert _thinking_level_for_quality("banana") is None
 
 

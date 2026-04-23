@@ -401,3 +401,100 @@ def test_decisions_logged_in_trace(mock_nsfw, mock_norm, mock_face, mock_setting
     assert any("Single-pass" in d.get("decision", "") for d in decisions)
 
 
+# ----------------------------------------------------------------------
+# v1.24 regression — trace["steps"] must stay a dict on the A/B path
+# ----------------------------------------------------------------------
+#
+# v1.23 shipped with ``trace.setdefault("steps", []).append({...})`` inside
+# the ``if ab_active:`` branch of AnalysisPipeline._execute_inner. Because
+# trace["steps"] is initialised as ``{}`` (a dict, not a list) the
+# ``setdefault`` returned the existing dict and ``.append(...)`` blew up
+# with ``AttributeError: 'dict' object has no attribute 'append'`` on
+# every A/B generation — which is exactly the production error the user
+# saw ("Remote AI processing failed: [stage=worker] AttributeError:
+# 'dict' object has no attribute 'append'"). This test runs the pipeline
+# with an A/B context and asserts that (a) no AttributeError is raised
+# and (b) trace["steps"] stays a dict containing the face_prerestore
+# entry written by the A/B branch.
+
+
+@patch("src.orchestrator.pipeline.settings")
+@patch("src.orchestrator.pipeline.analyze_input_quality", side_effect=lambda b: _ok_report())
+@patch("src.orchestrator.pipeline.validate_and_normalize", side_effect=lambda b: (b, {}))
+@patch("src.orchestrator.pipeline.extract_nsfw_from_analysis", return_value=(True, ""))
+def test_ab_path_records_face_prerestore_without_crashing(
+    mock_nsfw, mock_norm, mock_face, mock_settings,
+):
+    mock_settings.segmentation_enabled = False
+    mock_settings.multi_pass_enabled = False
+    mock_settings.identity_threshold = 0.85
+    mock_settings.identity_max_retries = 2
+    mock_settings.ab_test_enabled = True
+    mock_settings.gfpgan_preclean_enabled = True
+    mock_settings.model_cost_reve = 0.02
+    mock_settings.model_cost_replicate = 0.05
+
+    pipeline, llm, storage = _build_pipeline()
+
+    service_mock = MagicMock()
+    service_mock.analyze = AsyncMock(return_value={
+        "dating_score": 7,
+        "base_description": "person",
+        "strengths": [],
+    })
+    pipeline._router = MagicMock()
+    pipeline._router.get_service.return_value = service_mock
+    pipeline._prompt_engine = MagicMock()
+    pipeline._prompt_engine.build_image_prompt.return_value = "test prompt"
+
+    # Short-circuit the executor so the pipeline code path we care about
+    # (trace writes around the A/B prerestore skip) runs but we don't
+    # have to fully stub the image-gen branch.
+    async def fake_single_pass(*args, **kwargs):
+        trace = kwargs.get("trace") or (args[6] if len(args) > 6 else None)
+        result_dict = kwargs.get("result_dict") or (args[3] if len(args) > 3 else None)
+        if result_dict is not None:
+            result_dict["generated_image_url"] = "http://example/ab.jpg"
+        if trace is not None:
+            # Mirror what the real executor would add; the dict integrity
+            # check below still catches the v1.23 bug because we reach
+            # this callback only AFTER the buggy .append() would have run.
+            trace["steps"].setdefault("generate_image", {"info": "stub"})
+        return None
+
+    pipeline._executor.single_pass = AsyncMock(side_effect=fake_single_pass)
+
+    merged: dict = {}
+    def capture_merge(result, card, uid):
+        merged.update(result)
+        return result
+    pipeline._merger = MagicMock()
+    pipeline._merger.merge.side_effect = capture_merge
+
+    import asyncio
+    asyncio.run(
+        pipeline.execute(
+            mode=AnalysisMode.DATING,
+            image_bytes=_make_jpeg_stub(),
+            user_id="u_ab",
+            task_id="t_ab",
+            context={
+                "style": "warm_outdoor",
+                "image_model": "nano_banana_2",
+                "image_quality": "high",
+            },
+        )
+    )
+
+    trace = merged.get("pipeline_trace", {})
+    steps = trace.get("steps")
+    assert isinstance(steps, dict), (
+        "v1.23 regression: trace['steps'] must stay a dict on the A/B path; "
+        "setdefault('steps', []).append(...) used to return the existing dict "
+        "and raise AttributeError on every Nano Banana / GPT Image 2 run."
+    )
+    assert "face_prerestore" in steps
+    assert steps["face_prerestore"].get("info", {}).get("applied") is False
+    assert steps["face_prerestore"].get("info", {}).get("reason") == "ab_path_skip"
+
+

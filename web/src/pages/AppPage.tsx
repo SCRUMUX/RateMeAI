@@ -162,19 +162,29 @@ export default function AppPage({ scenarioSlugOverride, onBackToLanding }: AppPa
     }
   }, [app.photo, app.currentTask, app.generatedImageUrl, currentStep, restoringPhoto]);
 
+  // v1.24: раньше этот effect ФОРСИЛ шаг 'generate' при любом состоянии
+  // генерации (isGenerating / currentTask / generatedImageUrl / pending /
+  // error), что ломало навигацию — пользователь не мог вернуться на
+  // предыдущие шаги пока есть результат или ошибка. Теперь прыгаем на
+  // 'generate' только один раз на фронте (переход false→true), а дальше
+  // уважаем выбор пользователя.
+  const wasInGenPhaseRef = useRef(false);
   useEffect(() => {
-    if (
+    const inGenPhase = !!(
       app.isGenerating
       || app.currentTask
-      || app.generatedImageUrl
       || hasPendingTask()
-      || peekLastGenerationError()
-    ) {
+    );
+    if (inGenPhase) {
       visitedSteps.current.add('generate');
-      if (currentStep !== 'generate') {
+      if (!wasInGenPhaseRef.current && currentStep !== 'generate') {
         setCurrentStep('generate');
       }
     }
+    if (app.generatedImageUrl) {
+      visitedSteps.current.add('generate');
+    }
+    wasInGenPhaseRef.current = inGenPhase;
   }, [app.isGenerating, app.currentTask, app.generatedImageUrl, currentStep]);
 
   async function handleImproveFromStorage(imageUrl: string) {

@@ -75,10 +75,11 @@ def _base_settings(mock_settings) -> None:
     mock_settings.ab_prompt_max_len = 1500
     # v1.23: A/B path has its own retry flag (defaults to OFF).
     mock_settings.ab_identity_retry_enabled = False
-    # v1.22 Nano Banana 2 costs after the floor bump (1K/2K/4K).
+    # v1.24 Nano Banana 2 costs — high now matches medium (2K pixels,
+    # the extra cost was 4K which we dropped; thinking=high is free).
     mock_settings.model_cost_fal_nano_banana_low = 0.08
     mock_settings.model_cost_fal_nano_banana_medium = 0.12
-    mock_settings.model_cost_fal_nano_banana_high = 0.16
+    mock_settings.model_cost_fal_nano_banana_high = 0.12
     # GPT Image 2 empirical per-tier averages.
     mock_settings.model_cost_gpt_image_2_low = 0.02
     mock_settings.model_cost_gpt_image_2_medium = 0.06

@@ -591,12 +591,44 @@ export default function StepGenerate({ onGoToStep, onOpenStorage }: Props) {
           </div>
         )}
         {genFailed && !isRunning && !hasGenResult && (
-          <button
-            onClick={() => { app.clearError(); setGenFailed(false); handleGenerate(); }}
-            className="glass-btn-primary px-[var(--space-24)] py-[var(--space-10)] text-[14px] leading-[20px] rounded-[var(--radius-pill)]"
-          >
-            Повторить генерацию
-          </button>
+          <div className="flex flex-col items-center gap-[var(--space-8)] w-full max-w-[520px] mx-auto px-[var(--space-8)]">
+            {app.error && (
+              <p className="text-[12px] leading-[16px] text-[var(--color-text-secondary)] text-center whitespace-pre-wrap">
+                {app.error}
+              </p>
+            )}
+            <div className="flex flex-wrap items-center justify-center gap-[var(--space-8)] w-full">
+              <button
+                onClick={() => { app.clearError(); setGenFailed(false); handleGenerate(); }}
+                className="glass-btn-primary px-[var(--space-20)] py-[var(--space-10)] text-[14px] leading-[20px] rounded-[var(--radius-pill)]"
+              >
+                Попробовать ещё раз
+              </button>
+              <button
+                onClick={() => {
+                  app.clearError();
+                  app.resetGeneration();
+                  setGenFailed(false);
+                  onGoToStep('upload');
+                }}
+                className="glass-btn-ghost px-[var(--space-20)] py-[var(--space-10)] text-[14px] leading-[20px] rounded-[var(--radius-pill)]"
+              >
+                Другое фото
+              </button>
+              {/* v1.24: show top-up CTA when the backend flagged
+                  no-credits or the error text mentions кредит/баланс,
+                  so the user never gets stuck with a blank message. */}
+              {(app.noCreditsError
+                || /кредит|баланс|no_credits|оплат/i.test(app.error ?? '')) && (
+                <button
+                  onClick={goToPricing}
+                  className="glass-btn-ghost px-[var(--space-20)] py-[var(--space-10)] text-[14px] leading-[20px] rounded-[var(--radius-pill)] text-[var(--color-brand-primary)]"
+                >
+                  Пополнить баланс
+                </button>
+              )}
+            </div>
+          </div>
         )}
       </div>
 

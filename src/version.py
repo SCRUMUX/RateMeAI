@@ -962,4 +962,90 @@
 #          ``test_executor_ab_path`` adds two guard cases
 #          (CodeFormer/Real-ESRGAN skipped; identity-retry
 #          skipped on low identity_match). All 2376 tests pass.
-APP_VERSION = "1.23.0"
+#
+# v1.24.0 — real-fix release: the "AttributeError: 'dict' object has
+#          no attribute 'append'" shown in the production toast was the
+#          root cause of NB2 / GPT-2 generations failing, not the
+#          timeout / invalid_parameter theory from v1.23. Fixed here
+#          along with a batch of UX gripes the user flagged (wizard
+#          snap-back, top-up button, error-state CTAs, paid CI smoke,
+#          payment re-auth) and a simplification of the NB2 quality
+#          tier ladder.
+#
+#          1) Pipeline A/B trace bug (src/orchestrator/pipeline.py):
+#               * ``if ab_active:`` branch was writing
+#                 ``trace.setdefault("steps", []).append({...})``. But
+#                 ``trace["steps"]`` is initialised as ``{}`` (a dict
+#                 keyed by step name — see ``_trace_step`` /
+#                 ``orchestrator/trace.py``), so ``setdefault`` returned
+#                 the existing dict and ``.append`` raised on every A/B
+#                 call. Switched to writing the face_prerestore entry
+#                 to the dict directly, matching the pattern used
+#                 everywhere else in the file.
+#               * Regression test: ``test_ab_path_records_face_
+#                 prerestore_without_crashing`` in
+#                 ``tests/test_orchestrator/test_pipeline.py`` — runs
+#                 the pipeline through the A/B path and asserts
+#                 ``trace["steps"]`` stays a dict with the expected
+#                 ``face_prerestore`` entry.
+#
+#          2) NB2 quality tiers dropped 4K
+#             (src/providers/image_gen/fal_nano_banana.py):
+#               * ``_QUALITY_TO_RESOLUTION`` low=1K / medium=2K /
+#                 high=2K (was 4K). ``_thinking_level_for_quality``
+#                 returns "high" only for ``high`` tier (medium now
+#                 runs fast mode). Progression is now cheap/fast
+#                 (1K) → more detail (2K) → more care for the face
+#                 (2K + reasoning).
+#               * 4K added latency + cost with no perceptible realism
+#                 gain in testing; ``thinking_level=high`` at 2K is
+#                 the single biggest identity-preservation lever the
+#                 NB2 endpoint exposes.
+#               * Pricing / UI labels updated accordingly
+#                 (``config.py`` high cost 0.16 → 0.12,
+#                 ``web/src/data/ab-models.ts`` labels and tier hints).
+#
+#          3) CI paid smoke split
+#             (.github/workflows/ci.yml):
+#               * The single "Live provider smoke" step burned
+#                 ~$0.15/deploy on 4 FAL image-gen probes + 1
+#                 synthetic OpenRouter probe. Split into two steps:
+#                 cheap ``provider-probe`` still runs on every push;
+#                 the paid probes are gated behind
+#                 ``workflow_dispatch`` with an explicit
+#                 ``run_paid_smoke=true`` input.
+#
+#          4) Frontend UX fixes (web/):
+#               * NavBar "Пополнить баланс" — swapped
+#                 ``<Link to="/#тарифы">`` (which react-router-dom
+#                 does not scroll to) for a button that navigates to
+#                 ``/`` then scrolls the #тарифы section into view —
+#                 same pattern already used in StepGenerate's
+#                 ``goToPricing``.
+#               * AppPage wizard — the useEffect that force-set
+#                 ``currentStep = 'generate'`` on any generation
+#                 state (isGenerating / currentTask /
+#                 generatedImageUrl / pending / error) now fires only
+#                 on the false→true transition, so the user can
+#                 navigate back to previous steps once a task starts.
+#               * StepGenerate failure panel — three CTAs instead of a
+#                 single retry button: "Попробовать ещё раз",
+#                 "Другое фото", and (when ``noCreditsError`` is set
+#                 or the message matches кредит/баланс/no_credits)
+#                 "Пополнить баланс". Error text is surfaced above the
+#                 buttons instead of relying on the global toast.
+#               * PaymentSuccess — detects missing localStorage token
+#                 on mount (cross-origin / Telegram-webview case) and
+#                 offers one-tap Telegram re-auth via ``startOAuth``
+#                 instead of silently bouncing the user to /app.
+#
+#          Config / env:
+#               * ``MODEL_COST_FAL_NANO_BANANA_HIGH`` default 0.16 →
+#                 0.12 (2K pricing, matches medium).
+#
+#          Tests: All 2377 pytest tests pass (one new regression test
+#          in ``test_pipeline.py`` over the 2376 baseline). NB2 tests
+#          updated for the new tier map; ``test_executor_ab_path``
+#          cost expectation updated for the new ``high`` price.
+#          TypeScript check (``tsc --noEmit``) clean.
+APP_VERSION = "1.24.0"

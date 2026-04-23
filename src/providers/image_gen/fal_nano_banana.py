@@ -11,15 +11,23 @@ other providers, so it inherits from
 :class:`src.providers.image_gen._fal_queue_base.FalQueueClient` and only
 implements the model-specific request body.
 
-Quality -> resolution enum mapping (per fal schema, v1.22):
+Quality -> resolution enum mapping (per fal schema, v1.24):
 
-* ``low``    — ``1K`` (~$0.08 / image, ≈ 1024px long edge)
-* ``medium`` — ``2K`` (~$0.12 / image, ≈ 2048px long edge)
-* ``high``   — ``4K`` (~$0.16 / image, ≈ 4096px long edge)
+* ``low``    — ``1K``, fast mode     (~$0.08 / image, ≈ 1024px long edge)
+* ``medium`` — ``2K``, fast mode     (~$0.12 / image, ≈ 2048px long edge)
+* ``high``   — ``2K`` + thinking=high (~$0.12 / image, same pixels, +reasoning)
 
 v1.22 bumped the floor from 0.5K to 1K because 512px portraits were
 too blurry for production — the cheapest UI-visible output is now a
 full ~1 MP image, matching the GPT Image 2 ``low`` tier.
+
+v1.24 dropped the 4K tier and repurposed ``high`` as the
+"reasoning-edit at 2K" knob — in production 4K added cost + latency
+without a perceptible realism gain, while ``thinking_level="high"``
+is the single biggest identity-preservation lever the NB2 endpoint
+exposes. ``medium`` now runs the same 2K pixels without reasoning, so
+the user-visible progression is: cheap/fast (1K) → more detail (2K)
+→ more care for the face (2K + reasoning).
 
 The Nano Banana 2 Edit schema does **not** accept an ``{width, height}``
 ``image_size``; it exposes ``resolution`` (enum ``0.5K | 1K | 2K | 4K``)
@@ -33,12 +41,12 @@ generation so Prometheus cost accounting stays 1-call = 1-image.
 v1.23 identity-fidelity knobs (per FAL / Google docs and Nano Banana 2
 prompting guide):
 
-* ``thinking_level="high"`` is enabled for the ``medium`` and ``high``
-  quality tiers. The Gemini 3.1 Flash Image backing this endpoint
+* ``thinking_level="high"`` is enabled for the ``high`` quality tier
+  only (v1.24). The Gemini 3.1 Flash Image backing this endpoint
   supports a reasoning mode that plans the edit before rendering; in
   practice this is the single biggest lever for holding the reference
-  face together on non-trivial edits. ``low`` stays on fast mode so
-  the cheapest tier keeps its 5-10 s latency budget.
+  face together on non-trivial edits. ``low`` / ``medium`` stay on
+  fast mode so the cheaper tiers keep their 5-10 s latency budget.
 * ``limit_generations=True`` is sent explicitly so the model cannot
   decide to emit multiple intermediate frames (which the FAL wrapper
   otherwise lets bleed through into cost/time).
@@ -73,7 +81,10 @@ QualityTier = str  # "low" | "medium" | "high"
 _QUALITY_TO_RESOLUTION: dict[str, str] = {
     "low": "1K",
     "medium": "2K",
-    "high": "4K",
+    # v1.24: ``high`` is now "2K + thinking=high" rather than "4K fast".
+    # Resolution is capped at 2K — 4K added latency + cost without a
+    # perceptible realism gain in our tests.
+    "high": "2K",
 }
 
 _VALID_ASPECT_RATIOS = frozenset({
@@ -93,12 +104,13 @@ def _resolution_for_quality(quality: str | None) -> str:
 def _thinking_level_for_quality(quality: str | None) -> str | None:
     """Pick the Gemini reasoning level for this quality tier.
 
-    ``medium`` / ``high`` → ``"high"`` (reasoning-guided edit, strongest
-    face preservation at the cost of ~40-60% extra latency).
-    ``low`` → ``None`` (omit parameter; fast non-reasoning mode).
+    v1.24: only ``high`` opts into reasoning. ``low`` and ``medium``
+    use the fast non-reasoning mode so their latency budget stays
+    5-10 s; ``high`` trades ~40-60% extra latency for the strongest
+    face-preservation signal the endpoint exposes.
     """
     q = (quality or "medium").strip().lower()
-    if q in ("medium", "high"):
+    if q == "high":
         return "high"
     return None
 

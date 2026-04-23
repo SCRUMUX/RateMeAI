@@ -5,6 +5,15 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+  # v1.24: manual trigger so the paid provider probes (synthetic-analyze
+  # + image-gen-probe-*) can be re-run on demand — they're gated out of
+  # the per-push path below to save ~$0.15 per deploy.
+  workflow_dispatch:
+    inputs:
+      run_paid_smoke:
+        description: "Run paid provider smoke (costs ~$0.15 across FAL + OpenRouter)"
+        required: false
+        default: "false"
 
 # Do not cancel main-branch deploys mid-flight (Railway can be left inconsistent).
 # Only cancel redundant pull_request runs.
@@ -265,15 +274,17 @@ jobs:
 
       # Post-deploy live provider smoke. /health only says FastAPI is up;
       # it doesn't say our OpenRouter key, FAL.ai token, or the Gemini
-      # model are still healthy. Run the same diagnostics the hourly
-      # smoke-live workflow runs, but as a blocking step of the deploy —
-      # if a provider is dead we surface it within 4 minutes of pushing
-      # to main instead of hours later.
+      # model are still healthy. We split this into two steps:
       #
-      # v1.19.3+: the image-gen probe runs in BOTH modes, so PuLID
-      # (identity_scene) and Seedream/FLUX.2 (scene_preserve) are each
-      # hit end-to-end. A regression in either branch blocks the deploy.
-      - name: Live provider smoke
+      # 1. Cheap smoke (provider-probe) — runs on every push. Lists
+      #    configured models + checks OpenRouter vision keys respond;
+      #    zero model inference, zero FAL calls, effectively free.
+      # 2. Paid smoke (synthetic-analyze + 4 image-gen probes) — gated
+      #    behind `workflow_dispatch` with `run_paid_smoke=true`. Each
+      #    push to main used to burn ~$0.15 there (vision + 4 FAL
+      #    generations) for marginal extra coverage over the hourly
+      #    smoke-live workflow. Now it's opt-in.
+      - name: Live provider smoke (cheap, every deploy)
         env:
           API_URL: ${{ secrets.RAILWAY_API_URL }}
           INTERNAL_API_KEY: ${{ secrets.INTERNAL_API_KEY }}
@@ -296,18 +307,7 @@ jobs:
               print(json.dumps(data, indent=2)[:1500], file=sys.stderr)
               sys.exit(1)
           EOS
-          cat > /tmp/validate_ok.py <<'EOS'
-          import json, pathlib, sys
-          data = json.loads(pathlib.Path(sys.argv[1]).read_text())
-          if not data.get("ok"):
-              print("ok=false:", data.get("error_message"), file=sys.stderr)
-              print(json.dumps(data, indent=2)[:1500], file=sys.stderr)
-              sys.exit(1)
-          EOS
 
-          # Retry each probe up to 3 times with 20s backoff to ride out
-          # transient upstream 429/504 from OpenRouter/Gemini; fail only on
-          # persistent breakage (expired token, dead endpoint).
           probe() {
             local name="$1" method="$2" path="$3" t="$4" validator="$5"
             local url="$base/api/v1/internal/$path"
@@ -340,23 +340,73 @@ jobs:
 
           probe provider-probe GET \
             "diagnostics/provider-probe" 45 /tmp/validate_provider_probe.py
+          echo "Cheap provider smoke passed"
+
+      - name: Live provider smoke (paid, opt-in)
+        if: github.event_name == 'workflow_dispatch' && inputs.run_paid_smoke == 'true'
+        env:
+          API_URL: ${{ secrets.RAILWAY_API_URL }}
+          INTERNAL_API_KEY: ${{ secrets.INTERNAL_API_KEY }}
+        run: |
+          set -eo pipefail
+          if [ -z "$INTERNAL_API_KEY" ]; then
+            echo "::warning::INTERNAL_API_KEY secret not configured — skipping paid smoke"
+            exit 0
+          fi
+          base="${API_URL:-$GLOBAL_API_BASE_URL}"
+          echo "Paid smoke base: $base"
+
+          cat > /tmp/validate_ok.py <<'EOS'
+          import json, pathlib, sys
+          data = json.loads(pathlib.Path(sys.argv[1]).read_text())
+          if not data.get("ok"):
+              print("ok=false:", data.get("error_message"), file=sys.stderr)
+              print(json.dumps(data, indent=2)[:1500], file=sys.stderr)
+              sys.exit(1)
+          EOS
+
+          probe() {
+            local name="$1" method="$2" path="$3" t="$4" validator="$5"
+            local url="$base/api/v1/internal/$path"
+            local out=$(mktemp)
+            local attempts=3 sleep_s=20 last_err=""
+            for i in $(seq 1 "$attempts"); do
+              echo "::group::[$name] attempt $i/$attempts $method $url"
+              local code
+              code=$(curl -s -X "$method" -o "$out" -w "%{http_code}" \
+                -H "x-internal-key: $INTERNAL_API_KEY" \
+                -H "accept: application/json" \
+                --max-time "$t" \
+                "$url" || echo "000")
+              echo "[$name] http=$code"
+              if [ "$code" = "200" ]; then
+                if python3 "$validator" "$out"; then
+                  echo "[$name] OK"; echo "::endgroup::"; return 0
+                fi
+                last_err="validator rejected"
+              else
+                last_err="http=$code"
+                echo "[$name] body (first 600B):"; head -c 600 "$out" 2>/dev/null || true; echo
+              fi
+              echo "::endgroup::"
+              [ "$i" -lt "$attempts" ] && sleep "$sleep_s"
+            done
+            echo "::error::[$name] failed after $attempts attempts: $last_err"
+            return 1
+          }
+
           probe synthetic-analyze POST \
             "diagnostics/synthetic-analyze?mode=social" 120 /tmp/validate_ok.py
           probe image-gen-probe-scene POST \
             "diagnostics/image-gen-probe?mode=scene_preserve" 180 /tmp/validate_ok.py
           probe image-gen-probe-identity POST \
             "diagnostics/image-gen-probe?mode=identity_scene" 180 /tmp/validate_ok.py
-          # v1.21 A/B-path smokes — ``quality=low`` keeps per-run cost
-          # around $0.05-0.06 total while still exercising the Nano Banana
-          # 2 and GPT Image 2 providers, the structured prompt wrapping,
-          # and the factory dispatch. Skipped silently if the underlying
-          # model is in fal's cold/queue state; probe still returns 200.
           probe image-gen-probe-nano-banana POST \
             "diagnostics/image-gen-probe?mode=scene_preserve&provider=nano_banana_2&quality=low" 240 /tmp/validate_ok.py
           probe image-gen-probe-gpt-image-2 POST \
             "diagnostics/image-gen-probe?mode=scene_preserve&provider=gpt_image_2&quality=low" 240 /tmp/validate_ok.py
 
-          echo "All post-deploy provider smokes passed"
+          echo "All paid provider smokes passed"
 
       - name: Deploy summary
         if: always()

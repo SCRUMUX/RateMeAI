@@ -302,10 +302,13 @@ class Settings(BaseSettings):
     #   0.5K = 0.75×. v1.22 bumps the UI ``low`` tier floor from
     #   0.5K (512px — too blurry for prod) to 1K (1024px) so the
     #   cheapest user-visible output is a 1MP picture.
+    # v1.24: ``high`` repurposed as "2K + thinking_level=high" (reasoning
+    #   edit); 4K tier retired — added latency/cost without a perceptible
+    #   realism gain. Price per image matches medium (same pixel budget).
     nano_banana_model: str = "fal-ai/nano-banana-2/edit"
     model_cost_fal_nano_banana_low: float = 0.08     # 1K  (1024px long edge)
     model_cost_fal_nano_banana_medium: float = 0.12  # 2K  (2048px long edge)
-    model_cost_fal_nano_banana_high: float = 0.16    # 4K  (4096px long edge)
+    model_cost_fal_nano_banana_high: float = 0.12    # 2K + thinking=high
 
     # GPT Image 2 Edit (OpenAI ChatGPT Images 2.0 via fal).
     # https://fal.ai/models/openai/gpt-image-2/edit
