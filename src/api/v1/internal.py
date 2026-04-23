@@ -765,6 +765,14 @@ async def image_gen_probe(
         "scene_preserve",
         pattern="^(identity_scene|scene_preserve)$",
     ),
+    provider: str = Query(
+        "styled_router",
+        pattern="^(styled_router|nano_banana_2|gpt_image_2)$",
+    ),
+    quality: str = Query(
+        "low",
+        pattern="^(low|medium|high)$",
+    ),
     _key: str = Depends(_verify_internal_key),
 ):
     """Fire one ``image_gen.generate`` call to verify the image-gen
@@ -789,7 +797,10 @@ async def image_gen_probe(
     StyleRouter provider selects the correct backend.
     """
     import time as _time
-    from src.providers.factory import get_image_gen as _get_image_gen
+    from src.providers.factory import (
+        get_image_gen as _get_image_gen,
+        get_ab_image_gen as _get_ab_image_gen,
+    )
     from src.services.ai_transfer_guard import task_context_scope as _task_context_scope
     from src.workers.tasks import (
         _format_task_error as _fmt_err,
@@ -797,7 +808,23 @@ async def image_gen_probe(
         _http_status_of as _http_status,
     )
 
-    image_gen = _get_image_gen()
+    # v1.21 A/B: ``provider=nano_banana_2|gpt_image_2`` routes the probe
+    # through the new A/B-path providers, bypassing the default
+    # StyleRouter. ``provider=styled_router`` (default) keeps the
+    # pre-v1.21 behaviour.
+    if provider == "styled_router":
+        image_gen = _get_image_gen()
+    else:
+        try:
+            image_gen = _get_ab_image_gen(provider)
+        except Exception as exc:
+            return {
+                "ok": False,
+                "mode": mode,
+                "provider": provider,
+                "exc_type": "InitError",
+                "error_message": f"AB provider init failed: {exc}",
+            }
     provider_name = type(image_gen).__name__
 
     if mode == "identity_scene":
@@ -819,19 +846,25 @@ async def image_gen_probe(
         "consent_ai_transfer": True,
     })}
 
+    params: dict = {"generation_mode": mode}
+    if provider != "styled_router":
+        params["quality"] = quality
+
     t0 = _time.monotonic()
     try:
         with _task_context_scope(guard_ctx):
             out = await image_gen.generate(
                 prompt=prompt,
                 reference_image=reference,
-                params={"generation_mode": mode},
+                params=params,
             )
         took_ms = int((_time.monotonic() - t0) * 1000)
         return {
             "ok": True,
             "mode": mode,
             "provider": provider_name,
+            "provider_key": provider,
+            "quality": quality if provider != "styled_router" else None,
             "took_ms": took_ms,
             "bytes": len(out) if isinstance(out, (bytes, bytearray)) else 0,
         }
@@ -849,6 +882,8 @@ async def image_gen_probe(
             "ok": False,
             "mode": mode,
             "provider": provider_name,
+            "provider_key": provider,
+            "quality": quality if provider != "styled_router" else None,
             "took_ms": took_ms,
             "exc_type": type(original).__name__,
             "http_status": _http_status(original),

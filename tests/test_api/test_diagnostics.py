@@ -23,6 +23,11 @@ def _call_probe(mode: str, fake_provider):
     directly. Both ``image_gen_probe`` and the helper it imports live
     inside the module, so we can patch ``get_image_gen`` via
     ``monkeypatch`` on the factory.
+
+    v1.21: ``provider`` / ``quality`` default to the pre-v1.21 styled
+    router path so these tests (which predate A/B) keep exercising the
+    original code path. Direct Python invocation does not run FastAPI
+    Query defaults resolution, so we pass literals explicitly.
     """
     from src.api.v1 import internal as internal_mod
     from src.providers import factory as factory_mod
@@ -31,7 +36,9 @@ def _call_probe(mode: str, fake_provider):
     factory_mod.get_image_gen = lambda: fake_provider
     try:
         result = asyncio.run(
-            internal_mod.image_gen_probe(mode=mode, _key="ok"),
+            internal_mod.image_gen_probe(
+                mode=mode, provider="styled_router", quality="low", _key="ok",
+            ),
         )
     finally:
         factory_mod.get_image_gen = original

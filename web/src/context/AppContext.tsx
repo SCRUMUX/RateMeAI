@@ -66,6 +66,8 @@ interface AppState {
   hasRealAuth: boolean;
   canAccessApp: boolean;
   consentState: api.ConsentState | null;
+  imageModel: api.AbImageModel;
+  imageQuality: api.AbImageQuality;
 }
 
 interface AppActions {
@@ -89,6 +91,8 @@ interface AppActions {
   fetchConsents: () => Promise<void>;
   grantConsents: (kinds: string[]) => Promise<void>;
   revokeConsents: (kinds: string[]) => Promise<void>;
+  setImageModel: (m: api.AbImageModel) => void;
+  setImageQuality: (q: api.AbImageQuality) => void;
 }
 
 const Ctx = createContext<(AppState & AppActions) | null>(null);
@@ -165,6 +169,30 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [identities, setIdentities] = useState<api.LinkedIdentity[]>([]);
   const [scenarioSlug, setScenarioSlug] = useState<string | null>(null);
   const [consentState, setConsentState] = useState<api.ConsentState | null>(null);
+  // v1.22 A/B became default: the UI always sends an explicit
+  // ``image_model`` + ``image_quality`` pair. GPT Image 2 @ low is the
+  // cheapest reliable option on fal ($0.02/image) and is the new OOTB
+  // default for every user. The legacy hybrid StyleRouter stays in the
+  // codebase purely as a Railway-level rollback (AB_TEST_ENABLED=false).
+  const [imageModel, setImageModelState] = useState<api.AbImageModel>(() => {
+    if (typeof localStorage === 'undefined') return 'gpt_image_2';
+    const raw = localStorage.getItem('ailook_ab_model');
+    return raw === 'nano_banana_2' || raw === 'gpt_image_2' ? raw : 'gpt_image_2';
+  });
+  const [imageQuality, setImageQualityState] = useState<api.AbImageQuality>(() => {
+    if (typeof localStorage === 'undefined') return 'low';
+    const raw = localStorage.getItem('ailook_ab_quality');
+    return raw === 'low' || raw === 'medium' || raw === 'high' ? raw : 'low';
+  });
+  const setImageModel = useCallback((m: api.AbImageModel) => {
+    setImageModelState(m);
+    try { localStorage.setItem('ailook_ab_model', m); }
+    catch { /* localStorage unavailable */ }
+  }, []);
+  const setImageQuality = useCallback((q: api.AbImageQuality) => {
+    setImageQualityState(q);
+    try { localStorage.setItem('ailook_ab_quality', q); } catch { /* noop */ }
+  }, []);
 
   const hasRealAuth = useMemo(
     () => identities.some(id => id.provider !== 'web'),
@@ -787,11 +815,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
         photo.file,
         effectiveApiMode,
         effectiveStyle,
-        preAnalysis?.pre_analysis_id,
-        enhancementLevel,
-        scenarioSlug ?? undefined,
-        scenarioType ?? undefined,
-        scenarioEntryMode ?? undefined,
+        {
+          preAnalysisId: preAnalysis?.pre_analysis_id,
+          enhancementLevel,
+          scenarioSlug: scenarioSlug ?? undefined,
+          scenarioType: scenarioType ?? undefined,
+          entryMode: scenarioEntryMode ?? undefined,
+          imageModel,
+          imageQuality,
+        },
       );
       setCurrentTask({ taskId: res.task_id, status: res.status, result: null });
       rememberPendingTask({
@@ -843,6 +875,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
     scenarioType,
     scenarioEntryMode,
     fetchConsents,
+    imageModel,
+    imageQuality,
   ]);
 
   const share = useCallback(async () => {
@@ -888,12 +922,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
     scenarioDocumentPaywall, scenarioPrimaryCtaMainApp, scenarioSimplifiedAnalysis,
     scenarioPaymentPackQty, effectiveStyleList, effectiveApiMode, hasRealAuth, canAccessApp,
     consentState,
+    imageModel, imageQuality,
     syncScenarioFromRoute,
     setActiveCategory, setSelectedStyleKey, uploadPhoto, runPreAnalyze,
     generate, share, refreshBalance, clearError, clearGeneratedImage, clearNoCreditsError,
     resetGeneration, fetchTaskHistory,
     loginWithOAuth, loginWithToken, logout, refreshIdentities,
     fetchConsents, grantConsents, revokeConsents,
+    setImageModel, setImageQuality,
   };
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;

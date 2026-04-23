@@ -127,6 +127,78 @@ def _build_fal_seedream():
     )
 
 
+# ---------------------------------------------------------------------------
+# v1.21 A/B test providers — additive. Selected per-request via the
+# ``image_model`` form field on /api/v1/analyze, routed from the executor.
+# The default hybrid StyleRouter pipeline is untouched when the A/B path
+# is not requested. Disabled wholesale via ``settings.ab_test_enabled``.
+# ---------------------------------------------------------------------------
+
+
+def _build_nano_banana_2():
+    """Construct :class:`FalNanoBanana2Edit` from settings (v1.21 A/B)."""
+    from src.providers.image_gen.fal_nano_banana import FalNanoBanana2Edit
+
+    return FalNanoBanana2Edit(
+        api_key=settings.fal_api_key,
+        model=settings.nano_banana_model,
+        api_host=settings.fal_api_host,
+        output_format=settings.fal_output_format,
+        default_quality=settings.ab_default_quality,
+        max_retries=settings.fal_max_retries,
+        request_timeout=settings.fal_request_timeout,
+        poll_interval=settings.fal_poll_interval,
+    )
+
+
+def _build_gpt_image_2():
+    """Construct :class:`FalGptImage2Edit` from settings (v1.21 A/B)."""
+    from src.providers.image_gen.fal_gpt_image_2 import FalGptImage2Edit
+
+    return FalGptImage2Edit(
+        api_key=settings.fal_api_key,
+        model=settings.gpt_image_2_model,
+        api_host=settings.fal_api_host,
+        output_format=settings.fal_output_format,
+        default_quality=settings.ab_default_quality,
+        max_retries=settings.fal_max_retries,
+        # GPT Image 2 runs through OpenAI's backend — a bit slower p95
+        # than FLUX/Seedream, so we give it a longer timeout ceiling.
+        request_timeout=max(settings.fal_request_timeout, 240.0),
+        poll_interval=settings.fal_poll_interval,
+    )
+
+
+AB_IMAGE_MODELS: frozenset[str] = frozenset({"nano_banana_2", "gpt_image_2"})
+
+
+@lru_cache(maxsize=8)
+def get_ab_image_gen(model_key: str) -> ImageGenProvider:
+    """Return an A/B image-gen provider for the given model key.
+
+    Cached per key so each Railway process holds at most one client per
+    model. Raises :class:`RuntimeError` if the key is unknown or FAL
+    credentials are missing — the executor catches this and degrades
+    back to the default StyleRouter path.
+    """
+    key = (model_key or "").strip().lower()
+    if key not in AB_IMAGE_MODELS:
+        raise RuntimeError(
+            f"unknown AB image_model={key!r}; "
+            f"allowed={sorted(AB_IMAGE_MODELS)}",
+        )
+    if not (settings.fal_api_key or "").strip():
+        raise RuntimeError(
+            f"AB image_model={key} requires FAL_API_KEY",
+        )
+    if key == "nano_banana_2":
+        return _build_nano_banana_2()
+    if key == "gpt_image_2":
+        return _build_gpt_image_2()
+    # Unreachable — guarded by the whitelist above.
+    raise RuntimeError(f"unreachable AB provider branch: {key}")
+
+
 def _build_style_router():
     """Assemble :class:`StyleRouter` for hybrid / pulid_only strategies.
 

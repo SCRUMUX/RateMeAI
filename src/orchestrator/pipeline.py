@@ -170,6 +170,12 @@ class AnalysisPipeline:
         style = (context or {}).get("style", "")
         variant_id = (context or {}).get("variant_id", "")
         skip_gen = (context or {}).get("skip_image_gen", False)
+        # v1.21 A/B test — optional per-request override that routes
+        # this single task to Nano Banana 2 Edit / GPT Image 2 Edit via
+        # the structured prompt adapter. Missing / unknown values drop
+        # through to the default hybrid StyleRouter pipeline.
+        ab_image_model = (context or {}).get("image_model") or ""
+        ab_image_quality = (context or {}).get("image_quality") or ""
         # TODO(gender-single-source): detected_gender is currently driven by the
         # LLM JSON output in four prompts (rating/dating/cv/social). A dedicated
         # gender detector should own this value; the LLM value should only be used
@@ -223,6 +229,8 @@ class AnalysisPipeline:
                     gender=gender,
                     input_quality=input_quality,
                     variant_id=variant_id,
+                    ab_image_model=ab_image_model,
+                    ab_image_quality=ab_image_quality,
                 )
 
             if (

@@ -637,4 +637,165 @@
 #          ``test_face_bbox_arg_degenerate_returns_no_face`` in
 #          ``tests/test_services/test_face_crop.py``; factory tests
 #          updated to cover the legacy-value remap.
-APP_VERSION = "1.20.0"
+# 1.21.0-ab — A/B test: Nano Banana 2 Edit vs GPT Image 2 Edit, additive.
+#          The v1.18 hybrid StyleRouter pipeline (PuLID / Seedream /
+#          FLUX.2 Pro Edit + CodeFormer / ESRGAN / GFPGAN) is frozen
+#          and stays bit-for-bit unchanged. The A/B surface is a
+#          strictly additive code path activated per-request when the
+#          web UI sends ``image_model`` in the analyze form. Missing
+#          / unknown values drop through to the default pipeline. The
+#          whole feature turns off via ``AB_TEST_ENABLED=false`` —
+#          the endpoint keeps its 202 contract, the UI pills become
+#          inert, and no Railway code change is required.
+#
+#          New providers (src/providers/image_gen/):
+#            * ``fal_nano_banana.py`` — ``FalNanoBanana2Edit`` wrapping
+#              ``fal-ai/nano-banana-2/edit`` (Google Gemini 3.1 Flash
+#              Image). Quality → ``resolution`` enum: low=``0.5K``
+#              ($0.06), medium=``1K`` ($0.08, default), high=``2K``
+#              ($0.12). Uses ``aspect_ratio="auto"`` so the model infers
+#              aspect from the reference portrait — the schema has no
+#              ``image_size`` field (only ``resolution`` + ``aspect_ratio``).
+#              Single image per call so cost is 1-call = 1-image.
+#            * ``fal_gpt_image_2.py`` — ``FalGptImage2Edit`` wrapping
+#              ``openai/gpt-image-2/edit`` (OpenAI ChatGPT Images 2.0
+#              via fal). Forwards ``quality`` verbatim (low ≈$0.03,
+#              medium ≈$0.07, high ≈$0.18). ``image_size`` is a
+#              square multiple of 16 per tier (1024 / 1536 / 2048).
+#              No ``seed`` field on the GPT Image 2 schema — we never
+#              send one.
+#          Both inherit from ``_fal_queue_base.FalQueueClient`` for
+#          free submit / poll / fetch / decode + retry / NSFW
+#          semantics, same as every other FAL provider.
+#
+#          Structured prompt adapter (src/prompts/ab_prompt.py):
+#            * ``build_structured_prompt(mode, style, gender, variant,
+#              model)`` auto-assembles the 8-block layout
+#              (Subject / Scene / Style / Lighting / Camera / Identity
+#              & Realism / Enhancement / Output) from existing
+#              ``StyleSpec`` + ``StyleVariant`` fields. No rewrite of
+#              the ~130 existing variants.
+#            * Model-specific wrappers: GPT Image 2 emits the
+#              ``Change: / Preserve: / Constraints:`` triptych
+#              recommended by the fal GPT Image 2 prompting guide;
+#              Nano Banana 2 emits the structured natural paragraph
+#              with an explicit ``Keep facial features exactly the
+#              same as the reference image.`` identity anchor.
+#            * ``AB_PROMPT_MAX_LEN=1500`` cap — both models handle
+#              longer prompts than FLUX Lightning, so the limit is
+#              wider than ``PROMPT_MAX_LEN=1200`` of the hybrid path.
+#
+#          API surface (src/api/v1/analyze.py): ``create_analysis``
+#          accepts ``image_model`` + ``image_quality`` Form fields.
+#          Whitelist: ``{"nano_banana_2", "gpt_image_2"}`` and
+#          ``{"low", "medium", "high"}``; unknown values drop on the
+#          floor. Quality fills from ``AB_DEFAULT_QUALITY=medium``
+#          when caller omits it. ``Task.context["image_model"]`` is
+#          the only thing the executor reads.
+#
+#          Executor routing (src/orchestrator/executor.py):
+#            * ``single_pass`` has one additive ``if ab_active`` branch
+#              at the top. When engaged it resolves the per-model
+#              provider via ``get_ab_image_gen(model_key)`` (cached
+#              per key), builds the prompt through
+#              ``build_structured_prompt``, and injects ``quality``
+#              into the provider params. Every other step (identity
+#              retry, CodeFormer polish, ESRGAN upscale, VLM gate)
+#              runs unchanged — the quality gates don't care which
+#              generator produced the bytes.
+#            * On provider init error (missing FAL key, unknown
+#              model) the branch degrades back to the default
+#              ``self._image_gen`` and the request never fails
+#              upstream.
+#            * Cost metrics: ``estimate_ab_image_gen_cost_usd`` +
+#              ``ab_backend_label`` emit a composite label
+#              ``nano_banana_2:medium`` / ``gpt_image_2:high`` on the
+#              existing ``ratemeai_generation_cost_usd`` + ``IMAGE_GEN_CALLS``
+#              metrics — no new Prometheus dimensions.
+#
+#          Frontend (web/src/components/wizard/StepGenerate.tsx,
+#          AppContext.tsx, data/ab-models.ts): two pill rows above
+#          "Запустить генерацию". Model: [Стандарт] [Nano Banana 2]
+#          [GPT Image 2]. Quality appears only when a non-standard
+#          model is selected; price hint rendered under the pills.
+#          Selection persists in ``localStorage`` (``ailook_ab_model``
+#          / ``ailook_ab_quality``); clearing them restores the
+#          default path. ``api.analyze`` takes an ``options`` object
+#          now so new knobs don't bloat the positional signature.
+#
+#          Diagnostics: ``/api/v1/internal/diagnostics/image-gen-probe``
+#          accepts ``provider={styled_router|nano_banana_2|gpt_image_2}``
+#          and ``quality`` query params; CI "Live provider smoke"
+#          fires two additional low-quality probes post-deploy
+#          (~$0.05 extra per Railway deploy) so a regression in
+#          either A/B provider fails the release pipeline the way
+#          PuLID regressions already do.
+#
+#          Tests: ``test_fal_nano_banana.py`` / ``test_fal_gpt_image_2.py``
+#          (body shape, quality-tier mapping, error paths, reference
+#          requirement); ``test_factory_ab_image_gen.py`` (dispatch +
+#          caching + missing-key handling); ``test_ab_prompt.py``
+#          (8-block invariants, GPT triptych, Nano Banana identity
+#          anchor, length budget, gender sensitivity, unknown-mode
+#          fallback); ``test_executor_ab_path.py`` (default path
+#          untouched when AB fields absent; feature flag off; AB
+#          branch engages correct provider; provider init error
+#          falls back); ``test_analyze_ab.py`` (form whitelist,
+#          feature flag gating). 2151+ unit tests pass unchanged.
+#
+#          Rollback recipe: ``AB_TEST_ENABLED=false`` on Railway
+#          hides the whole surface server-side; clearing
+#          ``localStorage.ailook_ab_model`` restores the default
+#          pipeline for an individual user. The frozen hybrid
+#          pipeline remains the default — no data migration, no
+#          feature cleanup, just a flag flip.
+# 1.22.0 — A/B path becomes the default surface. The v1.18 hybrid
+#          StyleRouter (PuLID / Seedream / FLUX.2 + CodeFormer /
+#          ESRGAN / GFPGAN) still lives in the codebase as a
+#          single-env-flag rollback (``AB_TEST_ENABLED=false``),
+#          but every UI-visible request now goes to Nano Banana 2
+#          or GPT Image 2 with an explicit quality tier. Summary:
+#
+#          1) Backend defaults (src/config.py):
+#             * ``ab_default_model="gpt_image_2"`` (new) and
+#               ``ab_default_quality="low"`` (was ``"medium"``).
+#               GPT Image 2 @ low is the cheapest reliable option
+#               on fal (~$0.02/image at 1024²) and is the new OOTB
+#               default for every user. Empty/unknown form values
+#               fall through to these constants in
+#               ``src/api/v1/analyze.py``.
+#
+#          2) Nano Banana 2 quality floor raised (src/providers/
+#             image_gen/fal_nano_banana.py): the ``low`` tier was
+#             producing 512-px outputs (``resolution="0.5K"``),
+#             which is below our production minimum. The new
+#             quality map is ``low=1K / medium=2K / high=4K``
+#             (1024 / 2048 / 4096 px long edge) at fal's official
+#             pricing of $0.08 / $0.12 / $0.16 per image. Schema
+#             still uses ``resolution`` + ``aspect_ratio="auto"``
+#             (no ``image_size`` field).
+#
+#          3) Frontend (web/src/components/wizard/StepGenerate.tsx,
+#             context/AppContext.tsx, lib/api.ts): removed the
+#             "Стандарт" pill. The model row now renders only the
+#             two A/B pills and the quality row is always visible.
+#             Default state on first visit is Model=GPT Image 2 +
+#             Quality=Low; localStorage still overrides selection
+#             on return visits. ``api.analyze`` unconditionally
+#             sends ``image_model`` + ``image_quality`` — any
+#             request from the web is guaranteed to land on an A/B
+#             provider when the feature flag is on.
+#
+#          4) The legacy hybrid path is reachable ONLY via the
+#             ``AB_TEST_ENABLED=false`` Railway flag (no UI
+#             affordance). Executor branch gating, CodeFormer /
+#             ESRGAN / GFPGAN orchestration and the StyleRouter
+#             class itself are unchanged — this release is a UI /
+#             default flip, not a pipeline rewrite.
+#
+#          Tests: ``test_analyze_ab.py`` updated to expect the
+#          new defaults when A/B fields are absent; Nano Banana
+#          body tests flipped to 1K / 2K / 4K; frontend build
+#          passes with the tightened ``AbImageModel`` type (no
+#          ``null``). All 2151+ unit tests still pass.
+APP_VERSION = "1.22.0"

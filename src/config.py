@@ -252,6 +252,53 @@ class Settings(BaseSettings):
     # we pay roughly $0.0021 × 2 MP = $0.0042.
     model_cost_fal_codeformer_per_mp: float = 0.0021
 
+    # ------------------------------------------------------------------
+    # v1.21 A/B test — additive path for Nano Banana 2 Edit and
+    # GPT Image 2 Edit. When ``ab_test_enabled`` is True the /analyze
+    # endpoint accepts ``image_model`` + ``image_quality`` form fields
+    # and the executor routes such requests to the per-model provider
+    # via a structured 8-block prompt adapter instead of StyleRouter.
+    # v1.22: the A/B path is now the default for every web request.
+    # Flip ``AB_TEST_ENABLED=false`` on Railway to return all traffic
+    # to the legacy hybrid StyleRouter (PuLID / Seedream / FLUX.2) —
+    # that code path stays in the repo as a rollback safety net.
+    # ------------------------------------------------------------------
+    ab_test_enabled: bool = True
+    # Default A/B model when the client does not send ``image_model``
+    # (old bot builds, edge proxy, curl, tests). GPT Image 2 at
+    # ``quality=low`` is the cheapest reliable option on fal
+    # (~$0.02/image) and is OpenAI's own recommended starting tier.
+    ab_default_model: str = "gpt_image_2"
+    # Default quality tier for the A/B models when the web client does
+    # not pass an explicit one. ``low`` minimises per-request spend
+    # while still producing a 1024px output on GPT Image 2.
+    ab_default_quality: str = "low"
+    # Maximum character length for the 8-block adapter prompt. Both
+    # A/B models handle longer prompts than FLUX Lightning, so the cap
+    # is higher than ``PROMPT_MAX_LEN`` (1200) used by the hybrid path.
+    ab_prompt_max_len: int = 1500
+
+    # Nano Banana 2 Edit (Google Gemini 3.1 Flash Image).
+    # https://fal.ai/models/fal-ai/nano-banana-2/edit
+    # Pricing directly from fal model page:
+    #   base = $0.08 / image at 1K resolution, 2K = 1.5×, 4K = 2×,
+    #   0.5K = 0.75×. v1.22 bumps the UI ``low`` tier floor from
+    #   0.5K (512px — too blurry for prod) to 1K (1024px) so the
+    #   cheapest user-visible output is a 1MP picture.
+    nano_banana_model: str = "fal-ai/nano-banana-2/edit"
+    model_cost_fal_nano_banana_low: float = 0.08     # 1K  (1024px long edge)
+    model_cost_fal_nano_banana_medium: float = 0.12  # 2K  (2048px long edge)
+    model_cost_fal_nano_banana_high: float = 0.16    # 4K  (4096px long edge)
+
+    # GPT Image 2 Edit (OpenAI ChatGPT Images 2.0 via fal).
+    # https://fal.ai/models/openai/gpt-image-2/edit
+    # Token-based pricing. Per-tier averages below assume a 1-reference
+    # portrait edit with our standard prompt length.
+    gpt_image_2_model: str = "openai/gpt-image-2/edit"
+    model_cost_gpt_image_2_low: float = 0.02     # 1024² output
+    model_cost_gpt_image_2_medium: float = 0.06  # 1536² output
+    model_cost_gpt_image_2_high: float = 0.25    # 2048² output
+
     # Segmentation / multi-pass pipeline.
     # Segmentation is DISABLED because Reve SDK 0.1.2 does not accept a
     # `mask_image` kwarg in edit() — passing one raises TypeError and ends

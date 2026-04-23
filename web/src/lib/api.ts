@@ -149,25 +149,38 @@ export interface TaskCreated {
   estimated_seconds: number;
 }
 
+export type AbImageModel = 'nano_banana_2' | 'gpt_image_2';
+export type AbImageQuality = 'low' | 'medium' | 'high';
+
+export interface AnalyzeOptions {
+  preAnalysisId?: string;
+  enhancementLevel?: number;
+  scenarioSlug?: string;
+  scenarioType?: string;
+  entryMode?: string;
+  /** v1.22: A/B путь стал дефолтным. Если не задано — бэк подставит ``gpt_image_2``. */
+  imageModel?: AbImageModel;
+  /** v1.22: tier качества. Если не задано — бэк подставит ``low``. */
+  imageQuality?: AbImageQuality;
+}
+
 export function analyze(
   image: File,
   mode: string,
   style: string,
-  preAnalysisId?: string,
-  enhancementLevel?: number,
-  scenarioSlug?: string,
-  scenarioType?: string,
-  entryMode?: string,
+  options: AnalyzeOptions = {},
 ) {
   const fd = new FormData();
   fd.append('image', image);
   fd.append('mode', mode);
   fd.append('style', style);
-  if (preAnalysisId) fd.append('pre_analysis_id', preAnalysisId);
-  if (enhancementLevel != null) fd.append('enhancement_level', String(enhancementLevel));
-  if (scenarioSlug) fd.append('scenario_slug', scenarioSlug);
-  if (scenarioType) fd.append('scenario_type', scenarioType);
-  if (entryMode) fd.append('entry_mode', entryMode);
+  if (options.preAnalysisId) fd.append('pre_analysis_id', options.preAnalysisId);
+  if (options.enhancementLevel != null) fd.append('enhancement_level', String(options.enhancementLevel));
+  if (options.scenarioSlug) fd.append('scenario_slug', options.scenarioSlug);
+  if (options.scenarioType) fd.append('scenario_type', options.scenarioType);
+  if (options.entryMode) fd.append('entry_mode', options.entryMode);
+  fd.append('image_model', options.imageModel ?? 'gpt_image_2');
+  fd.append('image_quality', options.imageQuality ?? 'low');
   return request<TaskCreated>('/api/v1/analyze', { method: 'POST', body: fd });
 }
 

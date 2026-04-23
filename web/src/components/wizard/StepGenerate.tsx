@@ -7,6 +7,12 @@ import { rememberFlowReturnPath, rememberFlowStep } from '../../lib/flow-resume'
 import { savePhotoBeforePayment } from '../../lib/photo-persist';
 import { PERCEPTION_FACTS, getRandomFact } from '../../data/ai-facts';
 import { CATEGORIES } from '../../data/styles';
+import {
+  AB_MODELS,
+  AB_QUALITIES,
+  formatAbCost,
+  getAbModelCost,
+} from '../../data/ab-models';
 import { useApp } from '../../context/AppContext';
 import ProgressBar from './ProgressBar';
 import ShareModal from '../ShareModal';
@@ -476,6 +482,55 @@ export default function StepGenerate({ onGoToStep, onOpenStorage }: Props) {
           </div>
         </div>
       </div>
+
+      {/* v1.22: A/B surface became the default. The old "Стандарт" hybrid
+          StyleRouter path is still available as a server-side rollback
+          (AB_TEST_ENABLED=false on Railway) but is intentionally hidden
+          from the UI — every UI-visible run is now Nano Banana 2 or GPT
+          Image 2 with an explicit quality tier. */}
+      {showStartGenerateCta && !isDocPaywall && (
+        <div className="shrink-0 flex flex-col items-center gap-[var(--space-6)] w-full max-w-[520px] mx-auto px-[var(--space-8)]">
+          <div className="flex flex-wrap items-center justify-center gap-[var(--space-4)]">
+            <span className="text-[11px] leading-[14px] text-[var(--color-text-muted)] mr-[var(--space-4)]">Модель:</span>
+            {AB_MODELS.map((m) => (
+              <button
+                key={m.key}
+                type="button"
+                onClick={() => app.setImageModel(m.key)}
+                title={m.description}
+                className={`px-[var(--space-12)] py-[var(--space-4)] rounded-[var(--radius-pill)] text-[12px] leading-[16px] font-medium transition-all ${
+                  app.imageModel === m.key
+                    ? 'glass-btn-primary text-white'
+                    : 'glass-btn-ghost text-[var(--color-text-secondary)]'
+                }`}
+              >
+                {m.label}
+              </button>
+            ))}
+          </div>
+          <div className="flex flex-wrap items-center justify-center gap-[var(--space-4)]">
+            <span className="text-[11px] leading-[14px] text-[var(--color-text-muted)] mr-[var(--space-4)]">Качество:</span>
+            {AB_QUALITIES.map((q) => (
+              <button
+                key={q.key}
+                type="button"
+                onClick={() => app.setImageQuality(q.key)}
+                title={q.hint}
+                className={`px-[var(--space-10)] py-[var(--space-4)] rounded-[var(--radius-pill)] text-[12px] leading-[16px] font-medium transition-all ${
+                  app.imageQuality === q.key
+                    ? 'glass-btn-primary text-white'
+                    : 'glass-btn-ghost text-[var(--color-text-secondary)]'
+                }`}
+              >
+                {q.label}
+              </button>
+            ))}
+          </div>
+          <span className="text-[11px] leading-[14px] text-[var(--color-text-muted)]">
+            {formatAbCost(getAbModelCost(app.imageModel, app.imageQuality))}
+          </span>
+        </div>
+      )}
 
       {/* Primary CTA — explicit "Запустить генерацию" for non-document scenarios */}
       {showStartGenerateCta && (

@@ -392,20 +392,62 @@ class ImageGenerationExecutor:
         gender: str = "male",
         input_quality: Any | None = None,
         variant_id: str = "",
+        ab_image_model: str = "",
+        ab_image_quality: str = "",
     ) -> None:
         if mode not in (AnalysisMode.CV, AnalysisMode.EMOJI, AnalysisMode.DATING, AnalysisMode.SOCIAL):
             return
         if self._image_gen is None:
             return
 
+        # v1.21 A/B path — resolve a per-request provider + structured
+        # prompt instead of the default hybrid StyleRouter. When the
+        # feature flag is off or the requested model isn't whitelisted,
+        # we silently fall through to the default path: the default
+        # hybrid pipeline is bit-for-bit untouched.
+        ab_active = bool(
+            getattr(settings, "ab_test_enabled", False)
+            and ab_image_model
+        )
+        image_gen: ImageGenProvider = self._image_gen
+        if ab_active:
+            try:
+                from src.providers.factory import get_ab_image_gen
+                image_gen = get_ab_image_gen(ab_image_model)
+                logger.info(
+                    "AB path engaged task=%s model=%s quality=%s",
+                    task_id, ab_image_model, ab_image_quality or "medium",
+                )
+            except Exception as exc:
+                logger.warning(
+                    "AB provider init failed for task=%s model=%s, "
+                    "falling back to default pipeline: %s",
+                    task_id, ab_image_model, exc,
+                )
+                image_gen = self._image_gen
+                ab_active = False
+
         try:
             desc = str(result_dict.get("base_description", ""))
             input_hints = input_quality.to_prompt_hints() if input_quality is not None else None
-            prompt = self._prompt_engine.build_image_prompt(
-                mode, style=style, base_description=desc, gender=gender,
-                input_hints=input_hints,
-                variant_id=variant_id,
-            )
+            if ab_active:
+                from src.prompts.ab_prompt import build_structured_prompt
+                from src.prompts.image_gen import STYLE_REGISTRY as _REG
+                ab_spec = _REG.get(mode.value, style)
+                ab_variant = (
+                    ab_spec.variant_by_id(variant_id)
+                    if ab_spec is not None and variant_id
+                    else None
+                )
+                prompt = build_structured_prompt(
+                    mode.value, style, gender, ab_variant, ab_image_model,
+                )
+            else:
+                prompt = self._prompt_engine.build_image_prompt(
+                    mode, style=style, base_description=desc, gender=gender,
+                    input_hints=input_hints,
+                    variant_id=variant_id,
+                )
             if variant_id:
                 result_dict["variant_id"] = variant_id
 
@@ -494,8 +536,17 @@ class ImageGenerationExecutor:
                 routed_backend_var.set("")
             except Exception:
                 pass
+            # v1.21 A/B: inject ``quality`` into the provider params so
+            # FalNanoBanana2Edit / FalGptImage2Edit pick the right tier.
+            # Hybrid StyleRouter silently ignores the key.
+            if ab_active:
+                extra["quality"] = (
+                    ab_image_quality
+                    or getattr(settings, "ab_default_quality", "medium")
+                )
+
             with _trace_step(trace, "image_gen"):
-                raw = await self._image_gen.generate(
+                raw = await image_gen.generate(
                     prompt, reference_image=image_bytes,
                     params=extra or None,
                 )
@@ -526,7 +577,7 @@ class ImageGenerationExecutor:
                 )
                 codeformer_applied = codeformer_applied or cf_applied
                 raw = await _maybe_real_esrgan_upscale(raw, face_area_ratio)
-            provider_name = type(self._image_gen).__name__
+            provider_name = type(image_gen).__name__
             # v1.20: generic provider-agnostic counter. Name changed
             # from the historical ``ratemeai_reve_calls_total`` to
             # ``ratemeai_image_gen_calls_total``; see ``src/metrics.py``.
@@ -700,7 +751,7 @@ class ImageGenerationExecutor:
                         retry_check_failed = False
                         try:
                             with _trace_step(trace, "image_gen_retry"):
-                                retry_raw = await self._image_gen.generate(
+                                retry_raw = await image_gen.generate(
                                     prompt,
                                     reference_image=image_bytes,
                                     params=retry_params,
@@ -942,12 +993,27 @@ class ImageGenerationExecutor:
                     )
                 except Exception:
                     routed_label = first_pass_backend or ""
-                backend_label, per_call_cost = _estimate_backend_cost(
-                    provider_name,
-                    generation_mode,
-                    image_size=extra.get("image_size"),
-                    routed_backend=routed_label,
-                )
+                if ab_active:
+                    from src.metrics import (
+                        ab_backend_label,
+                        estimate_ab_image_gen_cost_usd,
+                    )
+                    _ab_q = (
+                        extra.get("quality")
+                        or ab_image_quality
+                        or getattr(settings, "ab_default_quality", "medium")
+                    )
+                    backend_label = ab_backend_label(ab_image_model, _ab_q)
+                    per_call_cost = estimate_ab_image_gen_cost_usd(
+                        ab_image_model, _ab_q,
+                    )
+                else:
+                    backend_label, per_call_cost = _estimate_backend_cost(
+                        provider_name,
+                        generation_mode,
+                        image_size=extra.get("image_size"),
+                        routed_backend=routed_label,
+                    )
                 estimated_cost = per_call_cost * max(1, generation_attempts)
 
                 # v1.20: IMAGE_GEN_BACKEND is now emitted exclusively

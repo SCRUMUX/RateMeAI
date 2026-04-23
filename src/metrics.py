@@ -82,6 +82,56 @@ def estimate_image_gen_cost_usd(
         return settings.model_cost_replicate
     return settings.model_cost_reve
 
+
+# v1.21 A/B cost table — keyed by (model, quality). Consulted by the
+# executor when ``context["image_model"]`` is set (additive A/B path).
+_AB_COST_FIELDS: dict[str, dict[str, str]] = {
+    "nano_banana_2": {
+        "low": "model_cost_fal_nano_banana_low",
+        "medium": "model_cost_fal_nano_banana_medium",
+        "high": "model_cost_fal_nano_banana_high",
+    },
+    "gpt_image_2": {
+        "low": "model_cost_gpt_image_2_low",
+        "medium": "model_cost_gpt_image_2_medium",
+        "high": "model_cost_gpt_image_2_high",
+    },
+}
+
+
+def estimate_ab_image_gen_cost_usd(
+    model_key: str,
+    quality: str | None = None,
+) -> float:
+    """USD cost estimate for an A/B-path generation call.
+
+    ``model_key`` is one of ``"nano_banana_2"`` / ``"gpt_image_2"``.
+    ``quality`` is ``"low"`` / ``"medium"`` / ``"high"``. Unknown values
+    collapse to the medium tier so the histogram always records a real
+    number.
+    """
+    key = (model_key or "").strip().lower()
+    q = (quality or "medium").strip().lower()
+    tier_map = _AB_COST_FIELDS.get(key)
+    if not tier_map:
+        return 0.0
+    field = tier_map.get(q) or tier_map["medium"]
+    return float(getattr(settings, field, 0.0) or 0.0)
+
+
+def ab_backend_label(
+    model_key: str,
+    quality: str | None = None,
+) -> str:
+    """Format a single Prometheus label value encoding model+quality.
+
+    Keeps existing metrics (``IMAGE_GEN_CALLS.provider``,
+    ``GENERATION_COST_USD.backend``) backwards-compatible: we do not
+    add a new label dimension, we just use a distinctive value like
+    ``"nano_banana_2:medium"``.
+    """
+    return f"{(model_key or 'unknown').strip().lower()}:{(quality or 'medium').strip().lower()}"
+
 LLM_CALLS = Counter(
     "ratemeai_llm_calls_total",
     "Number of LLM API calls",

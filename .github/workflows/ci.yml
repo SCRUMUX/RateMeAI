@@ -346,6 +346,15 @@ jobs:
             "diagnostics/image-gen-probe?mode=scene_preserve" 180 /tmp/validate_ok.py
           probe image-gen-probe-identity POST \
             "diagnostics/image-gen-probe?mode=identity_scene" 180 /tmp/validate_ok.py
+          # v1.21 A/B-path smokes — ``quality=low`` keeps per-run cost
+          # around $0.05-0.06 total while still exercising the Nano Banana
+          # 2 and GPT Image 2 providers, the structured prompt wrapping,
+          # and the factory dispatch. Skipped silently if the underlying
+          # model is in fal's cold/queue state; probe still returns 200.
+          probe image-gen-probe-nano-banana POST \
+            "diagnostics/image-gen-probe?mode=scene_preserve&provider=nano_banana_2&quality=low" 240 /tmp/validate_ok.py
+          probe image-gen-probe-gpt-image-2 POST \
+            "diagnostics/image-gen-probe?mode=scene_preserve&provider=gpt_image_2&quality=low" 240 /tmp/validate_ok.py
 
           echo "All post-deploy provider smokes passed"
 

@@ -286,6 +286,10 @@ async def _fail_edge_task(db_sessionmaker, redis, task_id, user_id, error_msg: s
         logger.exception("FATAL: failed to mark task %s as failed in crash recovery", task_id)
 
 
+AB_MODELS_ALLOWED = frozenset({"nano_banana_2", "gpt_image_2"})
+AB_QUALITIES_ALLOWED = frozenset({"low", "medium", "high"})
+
+
 @router.post("", response_model=TaskCreated, status_code=202)
 async def create_analysis(
     request: Request,
@@ -299,6 +303,10 @@ async def create_analysis(
     scenario_slug: str = Form(""),
     scenario_type: str = Form(""),
     entry_mode: str = Form(""),
+    # v1.21 A/B test — optional, additive. When either is missing or the
+    # feature is turned off, the default hybrid StyleRouter pipeline runs.
+    image_model: str = Form(""),
+    image_quality: str = Form(""),
     # ВНИМАНИЕ: осознанно НЕ применяем дневной rate-limit на пользовательском
     # /analyze. Генерация лимитируется ТОЛЬКО балансом кредитов (check_credits
     # атомарно резервирует 1 кредит или возвращает 402). Старый 429
@@ -349,6 +357,27 @@ async def create_analysis(
         ctx["credit_pre_reserved"] = True
     if mode in (AnalysisMode.DATING, AnalysisMode.CV, AnalysisMode.SOCIAL):
         ctx["defer_delta_scoring"] = True
+
+    # v1.22: A/B path is now the default. If the client did not send
+    # ``image_model`` (old bot build, edge proxy, curl, etc.) we fall
+    # back to ``settings.ab_default_model`` / ``settings.ab_default_quality``
+    # so the executor always routes through the new providers. The old
+    # hybrid StyleRouter only takes over when ``AB_TEST_ENABLED=false``
+    # is flipped on Railway — that's the documented emergency rollback
+    # and keeps this endpoint one env-var away from pre-v1.22 behaviour.
+    if settings.ab_test_enabled:
+        im = (image_model or "").strip().lower()
+        iq = (image_quality or "").strip().lower()
+        if im not in AB_MODELS_ALLOWED:
+            im = getattr(settings, "ab_default_model", "gpt_image_2")
+            if im not in AB_MODELS_ALLOWED:
+                im = "gpt_image_2"
+        if iq not in AB_QUALITIES_ALLOWED:
+            iq = getattr(settings, "ab_default_quality", "low")
+            if iq not in AB_QUALITIES_ALLOWED:
+                iq = "low"
+        ctx["image_model"] = im
+        ctx["image_quality"] = iq
 
     consent_snapshot = getattr(user, "_consents_snapshot", None) or {}
     if consent_snapshot:
