@@ -8,6 +8,8 @@ template without tying to exact wording.
 
 from __future__ import annotations
 
+import pytest
+
 from src.prompts import image_gen as ig
 from src.prompts.style_spec import StyleSpec, detect_depth_of_field
 
@@ -152,6 +154,57 @@ def test_detect_depth_of_field_keywords():
     assert detect_depth_of_field("blurred city lights at night") == "shallow"
     assert detect_depth_of_field("softly blurred park at golden hour") == "shallow"
     assert detect_depth_of_field("clean studio with gradient backdrop") == "deep"
+
+
+# ---------------------------------------------------------------------------
+# v1.26.1 — pose-clamp removal для всех non-document стилей
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "builder,style",
+    [
+        (ig.build_dating_prompt, "paris_eiffel"),
+        (ig.build_dating_prompt, "studio_elegant"),
+        (ig.build_dating_prompt, "warm_outdoor"),
+        (ig.build_social_prompt, "influencer"),
+        (ig.build_social_prompt, "feed_clean"),
+        (ig.build_cv_prompt, "corporate"),
+        (ig.build_cv_prompt, "business_casual"),
+    ],
+)
+@pytest.mark.parametrize("framing", ["portrait", "half_body", "full_body"])
+def test_no_pose_clamp_in_non_document_prompts(builder, style, framing):
+    """v1.26.1: в non-document стилях промпт не должен фиксировать
+    исходную позу и кадр — они определяются сценой и пользовательским
+    framing из шага 3 wizard'а. Лицо продолжает фиксироваться через
+    PRESERVE_PHOTO_FACE_ONLY («Body pose naturally fits the new scene»).
+    """
+    prompt = builder(style=style, gender="male", framing=framing)
+    low = prompt.lower()
+    assert "original pose" not in low, (
+        f"pose-clamp {style=} {framing=}: {prompt!r}"
+    )
+    assert "original framing" not in low, (
+        f"framing-clamp {style=} {framing=}: {prompt!r}"
+    )
+    assert "Body pose naturally fits the new scene" in prompt, (
+        f"missing face-only anchor {style=} {framing=}: {prompt!r}"
+    )
+
+
+@pytest.mark.parametrize("style", ["passport_rf", "visa_us", "photo_3x4"])
+def test_document_styles_keep_doc_preserve_anchor(style):
+    """Регресс-гард: документные стили (passport/visa/photo_3x4) НЕ
+    затронуты снятием pose-clamp. У них свои требования к композиции
+    (ID-фото, фронтальный кадр, плечи ровно) — DOC_PRESERVE + DOC_QUALITY
+    + _DOC_COMPOSITION_HINT остаются на месте, face-only anchor сюда не
+    попадает."""
+    prompt = ig.build_cv_prompt(style=style, gender="female", framing="full_body")
+    assert "ID-style headshot" in prompt
+    assert "Composition" in prompt
+    assert "Body pose naturally fits the new scene" not in prompt
+    assert "full body" not in prompt.lower()
 
 
 def test_depth_of_field_prompt_variants_on_spec():

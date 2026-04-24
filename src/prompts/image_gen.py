@@ -1457,10 +1457,13 @@ def _build_mode_prompt(
         # without contradictory "sharp everywhere" or "exact same
         # person" duplicates.
         if target_model in ("gpt_image_2", "nano_banana_2"):
-            if getattr(spec, "needs_full_body", False):
-                parts.append(PRESERVE_PHOTO_FACE_ONLY)
-            else:
-                parts.append(PRESERVE_PHOTO)
+            # v1.26.1: единый face-only якорь для всех non-doc A/B стилей.
+            # До этого needs_full_body переключал на PRESERVE_PHOTO_FACE_ONLY,
+            # а close-up стили получали PRESERVE_PHOTO с косвенным pose-lock.
+            # Теперь лицо жёстко сохраняется везде одинаково, а поза/кадр
+            # адаптируются под сцену + пользовательский framing. PRESERVE_PHOTO
+            # остаётся в модуле для legacy non-A/B пути и тестов.
+            parts.append(PRESERVE_PHOTO_FACE_ONLY)
             parts.append(QUALITY_PHOTO)
             # v1.25.1 — scene lighting / color integration anchor.
             # Placed right after QUALITY (general "realistic lighting"
@@ -1522,6 +1525,14 @@ def _dating_social_change_instruction(mode: str, style: str) -> str:
     was the contradictory signal that destabilised FLUX Kontext Pro in
     production. We drop that clamp for ``needs_full_body`` styles while
     still pinning identity.
+
+    v1.26.1: pose-clamp снят и для non-full-body стилей. Раньше здесь
+    было "Keep the original pose and framing" — эта фраза напрямую
+    конфликтовала с пользовательским ``framing`` из шага 3 wizard'а:
+    например, при ``framing=portrait`` на стиле paris_eiffel промпт
+    одновременно говорил «сохрани исходный кадр» и «head-and-shoulders
+    close-up». Теперь позу и кадр определяют сцена + ``framing_line`` +
+    ``PRESERVE_PHOTO_FACE_ONLY`` (лицо жёстко, тело адаптируется).
     """
     spec = STYLE_REGISTRY.get(mode, style)
     if spec is not None and spec.needs_full_body:
@@ -1530,8 +1541,8 @@ def _dating_social_change_instruction(mode: str, style: str) -> str:
             "described below, adopting a natural pose that fits the scene."
         )
     return (
-        "Change only the background and clothing of the person in the "
-        "reference photo. Keep the original pose and framing."
+        "Change the background and clothing of the person in the "
+        "reference photo."
     )
 
 
@@ -1573,9 +1584,17 @@ def build_cv_prompt(
             "shoulders straight, eyes open looking at camera, mouth closed."
         )
     else:
+        # v1.26.1: снят pose-clamp для non-doc CV. Раньше было "Keep the
+        # original pose" — оно конфликтовало с ``framing`` из шага 3, и
+        # при corporate + framing=full_body модель игнорировала выбор
+        # кадра. Теперь лицо фиксируется через PRESERVE_PHOTO_FACE_ONLY,
+        # поза и кадр адаптируются под сцену и framing_line. Document
+        # styles (passport/visa/photo_3x4) по-прежнему идут через is_doc
+        # ветку с DOC_PRESERVE + фиксированной Composition — там
+        # pose-clamp оправдан требованиями к ID-фото.
         change_instruction = (
-            "Change only the background and clothing to professional attire "
-            "for the person in the reference photo. Keep the original pose."
+            "Change the background and clothing to professional attire "
+            "for the person in the reference photo."
         )
     return _build_mode_prompt(
         "cv",

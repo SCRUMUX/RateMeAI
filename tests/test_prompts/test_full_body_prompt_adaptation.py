@@ -8,13 +8,25 @@ yoga clothes". FLUX.2 Pro Edit at 2 MP consistently invents the lower
 body from ``PRESERVE_PHOTO_FACE_ONLY`` + scene description alone, so
 the contradiction is gone and the mitigation is no longer needed.
 
+**v1.26.1** unified the identity anchor across every non-doc A/B style.
+Previously ``needs_full_body`` styles used ``PRESERVE_PHOTO_FACE_ONLY``
+(face-only clamp, pose adapts) and close-up styles used
+``PRESERVE_PHOTO`` + a ``"Keep the original pose"`` sentence in the
+change-instruction. That pose clamp directly contradicted the
+user-selected ``framing`` from step 3 of the wizard (e.g. "portrait"
+framing on a reference whose original pose was full-body would be
+silently ignored because the prompt said "keep the original pose"
+first). The clamp is now gone for every non-doc style; document styles
+(passport / visa / photo_3x4) still get ``DOC_PRESERVE`` + a fixed
+``Composition:`` line because ID photo regulations require it.
+
 What we still guard:
 
-1. **PRESERVE_PHOTO vs PRESERVE_PHOTO_FACE_ONLY** — for styles flagged
-   ``needs_full_body`` the base PRESERVE anchor previously said
-   "keep original pose", which directly contradicts a yoga / beach /
-   running scene. Full-body styles use ``PRESERVE_PHOTO_FACE_ONLY``
-   (no pose clamp), classic close-up styles keep the full anchor.
+1. **PRESERVE_PHOTO vs PRESERVE_PHOTO_FACE_ONLY** — the constants are
+   still distinct strings so that the legacy non-A/B path (and any
+   future caller) can pick either anchor. In the A/B path we always
+   emit ``PRESERVE_PHOTO_FACE_ONLY`` — see the unified branch in
+   ``_build_mode_prompt``.
 2. ``input_hints`` is accepted without crashing and does **not**
    introduce the old framing-note sentence for any face ratio.
 """
@@ -35,9 +47,14 @@ def test_full_body_style_uses_face_only_preserve():
     assert "Photorealistic" in prompt
 
 
-def test_close_up_style_keeps_full_preserve_anchor():
+def test_close_up_style_drops_pose_clamp():
+    """v1.26.1: close-up стили тоже без pose-clamp — лицо фиксируется
+    через PRESERVE_PHOTO_FACE_ONLY, поза/кадр определяются сценой и
+    пользовательским framing из шага 3."""
     prompt = build_dating_prompt(style="studio_elegant", gender="male")
-    assert "original pose" in prompt.lower()
+    assert "original pose" not in prompt.lower()
+    assert "original framing" not in prompt.lower()
+    assert "Body pose naturally fits the new scene" in prompt
     assert "Photorealistic" in prompt
 
 
@@ -73,6 +90,10 @@ def test_preserve_variants_are_distinct_strings():
     is now "Body pose naturally fits the new scene." in the face-only
     variant, and "natural pores" (a close-up-only detail) in the
     default variant.
+
+    v1.26.1: A/B-путь всегда эмитит PRESERVE_PHOTO_FACE_ONLY, но
+    обе константы сохраняются отдельно — их используют legacy
+    non-A/B билдеры, и мы не хотим «сливать» два разных анкера в один.
     """
     assert PRESERVE_PHOTO != PRESERVE_PHOTO_FACE_ONLY
     assert "Body pose naturally fits the new scene" in PRESERVE_PHOTO_FACE_ONLY

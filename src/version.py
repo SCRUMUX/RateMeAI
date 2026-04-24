@@ -1436,4 +1436,68 @@
 #          Рollback: Phase 1-3 — чистые feature-edits, revert
 #          коммита. Phase 4 огорожен ``if settings.edge_peer_url:``,
 #          без env-переменной — старое поведение.
-APP_VERSION = "1.26.0"
+# 1.26.1 — Patch: swap A/B labels + universal face-only anchor.
+#
+#          1) A/B labels swap (web/src/data/ab-models.ts):
+#             * ``gpt_image_2`` теперь первым в списке с лейблом
+#               «Обычный режим» (1 кредит), ``nano_banana_2`` — вторым
+#               как «Премиум» (2 кредита). До этого маппинг был
+#               обратным: пользователи жаловались, что по нажатию
+#               «Обычный» в логах FAL видно вызов Nano Banana. Default
+#               на бэке (``src/config.py::ab_default_model``) уже был
+#               ``gpt_image_2`` — он совпал с новым «Обычным» без
+#               правок бэка. Роутинг в ``unified.py`` / ``factory.py``
+#               по ключу модели не менялся, swap чисто
+#               UI-косметический (но устраняет product-смысловое
+#               расхождение). Стоимость списания остаётся 1 кредит
+#               за любой режим (отложенный billing, см. 1.26.0).
+#
+#          2) Универсальный face-only anchor + drop pose-clamp
+#             (src/prompts/image_gen.py):
+#             * ``_dating_social_change_instruction`` убрал
+#               «Keep the original pose and framing» в non-full-body
+#               ветке. Full-body (yoga/beach/…) уже был без clamp.
+#             * ``build_cv_prompt`` убрал «Keep the original pose» в
+#               non-doc ветке. Document styles (passport_rf /
+#               visa_us / photo_3x4 / …) продолжают идти через
+#               ``is_doc`` ветку с DOC_PRESERVE + DOC_QUALITY +
+#               фиксированной ``Composition:`` — им pose-clamp нужен
+#               по требованиям ID-фото.
+#             * ``_build_mode_prompt`` в A/B-пути всегда эмитит
+#               ``PRESERVE_PHOTO_FACE_ONLY`` (раньше для close-up
+#               стилей ставил ``PRESERVE_PHOTO``, который косвенно
+#               блокировал позу). Лицо фиксируется жёстко везде
+#               одинаково; поза и кадр определяются сценой +
+#               ``framing_line`` из шага 3 wizard'а.
+#             * Константа ``PRESERVE_PHOTO`` сохранена в модуле —
+#               её ещё использует legacy non-A/B path и тест
+#               ``test_preserve_text.py``; мы не «сливаем» два
+#               разных анкера в один.
+#
+#          Мотивация: в v1.26 пользовательский framing (портрет /
+#          полрост / полный рост) пробрасывался по всей цепочке edge
+#          → primary → pipeline → PromptEngine и добавлялся
+#          директивой «Framing: …» в промпт. Но в том же промпте
+#          выше стояла жёсткая фраза «Keep the original pose and
+#          framing» (для non-full-body стилей), что буквально
+#          запрещало модели менять кадр. Получалось два
+#          взаимоисключающих сигнала, и в большинстве случаев
+#          модель отдавала приоритет первому — пользовательский
+#          framing молча игнорировался. Теперь клампа нет, и
+#          framing управляет композицией без конфликта с
+#          изначальным кадром реферанса.
+#
+#          Тесты: ``test_full_body_prompt_adaptation.py`` — тест
+#          close-up стиля инвертирован (теперь без pose-clamp).
+#          ``test_image_gen_prompt.py`` — добавлен
+#          параметризованный тест (7 стилей × 3 framing) на
+#          отсутствие «original pose»/«original framing» и
+#          присутствие PRESERVE_PHOTO_FACE_ONLY + регресс-гард
+#          для passport_rf/visa_us/photo_3x4 (DOC_PRESERVE +
+#          Composition на месте).
+#
+#          Rollback: обе правки — чистые feature-reverts. Swap
+#          лейблов — revert web/src/data/ab-models.ts; pose-clamp
+#          — revert двух строк в ``_dating_social_change_instruction``
+#          / ``build_cv_prompt`` и ветки в ``_build_mode_prompt``.
+APP_VERSION = "1.26.1"
