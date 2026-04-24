@@ -134,14 +134,30 @@ jobs:
             -H "Content-Type: application/json" \
             -H "Project-Access-Token: $RAILWAY_TOKEN" \
             -d "$Q")
-          SVC_NAMES=$(echo "$SVC_JSON" | jq -r '.data.project.services.edges[].node.name' 2>/dev/null || true)
+          echo "DEBUG project(id) response:"
+          echo "$SVC_JSON" | jq . 2>/dev/null || echo "$SVC_JSON"
+
+          SVC_NAMES=$(echo "$SVC_JSON" | jq -r '.data.project.services.edges[]?.node.name // empty' 2>/dev/null)
+
+          # Fallback enumeration via environment query — some tokens
+          # only have env-scope permission.
           if [ -z "$SVC_NAMES" ]; then
-            echo "::error::Could not list services. Raw response:"
-            echo "$SVC_JSON"
+            EQ='{"query":"query($id: String!) { environment(id:$id) { serviceInstances { edges { node { serviceName serviceId } } } } }","variables":{"id":"'"$ENV_ID"'"}}'
+            ENV_JSON=$(curl -sS -X POST https://backboard.railway.com/graphql/v2 \
+              -H "Content-Type: application/json" \
+              -H "Project-Access-Token: $RAILWAY_TOKEN" \
+              -d "$EQ")
+            echo "DEBUG environment(id) response:"
+            echo "$ENV_JSON" | jq . 2>/dev/null || echo "$ENV_JSON"
+            SVC_NAMES=$(echo "$ENV_JSON" | jq -r '.data.environment.serviceInstances.edges[]?.node.serviceName // empty' 2>/dev/null)
+          fi
+
+          if [ -z "$SVC_NAMES" ]; then
+            echo "::error::Could not list services via GraphQL."
             exit 1
           fi
           echo "Services in project:"
-          echo "$SVC_JSON" | jq -r '.data.project.services.edges[].node | "  - \(.name)"'
+          for N in $SVC_NAMES; do echo "  - $N"; done
 
           PUBLIC_URL=""
           RESOLVED_NAME=""
