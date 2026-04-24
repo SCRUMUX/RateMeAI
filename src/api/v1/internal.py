@@ -27,7 +27,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.config import settings
-from src.models.db import Task
+from src.models.db import CreditTransaction, Task, User, UserIdentity
 from src.models.enums import AnalysisMode, TaskStatus
 from src.api.deps import get_db, get_redis
 from src.services.task_contract import build_policy_flags, build_task_context
@@ -977,3 +977,239 @@ async def image_gen_probe(
             "repr": repr(original)[:400],
             "error_message": _fmt_err(exc),
         }
+
+
+# ── Admin: credit grants ─────────────────────────────────────
+#
+# Mirror of ``scripts/grant_credits.py`` as an HTTP endpoint so admin
+# top-ups can be triggered from outside the Railway network (e.g. a
+# GitHub Actions workflow) without exposing the Postgres public proxy.
+# Reuses ``_verify_internal_key`` (X-Internal-Key header → checked
+# against ``settings.internal_api_key``), which is already the
+# authentication surface for edge→primary traffic. workflow_dispatch
+# gating in ``.github/workflows/admin-grant-credits.yml`` provides the
+# second layer (only repo admins can trigger a grant).
+#
+# Invariants mirror the CLI variant:
+#   * Credits and the ``CreditTransaction(tx_type='admin_grant')``
+#     audit row land in the same transaction — a failure rolls
+#     everything back.
+#   * Ambiguous lookups (multiple candidates) return HTTP 409 with
+#     the candidate list and never mutate state.
+#   * ``dry_run=True`` returns the candidate that WOULD have been
+#     credited without writing.
+
+
+class AdminGrantCreditsRequest(BaseModel):
+    provider: str = Field(
+        ...,
+        description="Identity namespace to search: 'telegram' or 'vk_id'.",
+    )
+    amount: int = Field(100, gt=0, le=10_000)
+    username: str | None = None
+    first_name: str | None = None
+    telegram_id: str | None = None
+    vk_id: str | None = Field(default=None, description="External id for VK.")
+    dry_run: bool = False
+
+
+def _fmt_candidate(user: User, identity: UserIdentity | None) -> dict[str, Any]:
+    data: dict[str, Any] = (identity.profile_data or {}) if identity else {}
+    return {
+        "user_id": str(user.id),
+        "telegram_id": user.telegram_id,
+        "username": user.username,
+        "first_name": user.first_name,
+        "credits_before": user.image_credits,
+        "provider": identity.provider if identity else None,
+        "external_id": identity.external_id if identity else None,
+        "profile_username": data.get("username"),
+        "profile_first_name": data.get("first_name"),
+        "profile_last_name": data.get("last_name"),
+    }
+
+
+async def _find_admin_candidates(
+    db: AsyncSession, req: AdminGrantCreditsRequest
+) -> list[tuple[User, UserIdentity | None]]:
+    """Mirror of ``scripts.grant_credits._find_candidates`` for the API.
+
+    The SQLAlchemy calls here are intentionally duplicated rather than
+    imported from the script — the script is a standalone module and
+    keeping the API self-contained avoids pulling a top-level
+    ``asyncio.run`` into the FastAPI import graph.
+    """
+
+    candidates: list[tuple[User, UserIdentity | None]] = []
+
+    if req.provider == "telegram":
+        if req.telegram_id:
+            ext_id = req.telegram_id.strip()
+            q = (
+                select(User, UserIdentity)
+                .join(
+                    UserIdentity,
+                    UserIdentity.user_id == User.id,
+                    isouter=True,
+                )
+                .where(
+                    (UserIdentity.provider == "telegram")
+                    & (UserIdentity.external_id == ext_id)
+                )
+            )
+            for row in (await db.execute(q)).all():
+                candidates.append((row[0], row[1]))
+            if not candidates:
+                try:
+                    tg_int = int(ext_id)
+                except ValueError:
+                    tg_int = None
+                if tg_int is not None:
+                    q2 = select(User).where(User.telegram_id == tg_int)
+                    for u in (await db.execute(q2)).scalars().all():
+                        candidates.append((u, None))
+            return candidates
+
+        if req.username:
+            uname = req.username.strip().lstrip("@").lower()
+            q = (
+                select(User, UserIdentity)
+                .join(UserIdentity, UserIdentity.user_id == User.id)
+                .where(UserIdentity.provider == "telegram")
+            )
+            for row in (await db.execute(q)).all():
+                identity: UserIdentity = row[1]
+                data = identity.profile_data or {}
+                pd_username = (
+                    str(data.get("username") or "").strip().lstrip("@").lower()
+                )
+                if pd_username == uname:
+                    candidates.append((row[0], identity))
+
+            q_legacy = select(User).where(User.username.isnot(None))
+            for u in (await db.execute(q_legacy)).scalars().all():
+                if (
+                    (u.username or "").strip().lstrip("@").lower() == uname
+                    and not any(c[0].id == u.id for c in candidates)
+                ):
+                    candidates.append((u, None))
+            return candidates
+
+        raise HTTPException(
+            status_code=400,
+            detail="provider=telegram requires 'username' or 'telegram_id'.",
+        )
+
+    if req.provider == "vk_id":
+        if req.vk_id:
+            ext_id = req.vk_id.strip()
+            q = (
+                select(User, UserIdentity)
+                .join(UserIdentity, UserIdentity.user_id == User.id)
+                .where(
+                    (UserIdentity.provider == "vk_id")
+                    & (UserIdentity.external_id == ext_id)
+                )
+            )
+            for row in (await db.execute(q)).all():
+                candidates.append((row[0], row[1]))
+            return candidates
+
+        if req.first_name:
+            needle = req.first_name.strip().lower()
+            q = (
+                select(User, UserIdentity)
+                .join(UserIdentity, UserIdentity.user_id == User.id)
+                .where(UserIdentity.provider == "vk_id")
+            )
+            for row in (await db.execute(q)).all():
+                identity: UserIdentity = row[1]
+                data = identity.profile_data or {}
+                first = str(data.get("first_name") or "").strip().lower()
+                if first == needle or first.startswith(needle):
+                    candidates.append((row[0], identity))
+            return candidates
+
+        raise HTTPException(
+            status_code=400,
+            detail="provider=vk_id requires 'first_name' or 'vk_id'.",
+        )
+
+    raise HTTPException(
+        status_code=400,
+        detail=f"Unknown provider '{req.provider}'. Expected telegram|vk_id.",
+    )
+
+
+@router.post("/admin/grant-credits")
+async def admin_grant_credits(
+    req: AdminGrantCreditsRequest,
+    _key: str = Depends(_verify_internal_key),
+    db: AsyncSession = Depends(get_db),
+) -> dict[str, Any]:
+    """Grant image_credits to a user. Idempotent-safe via audit row."""
+
+    candidates = await _find_admin_candidates(db, req)
+    if not candidates:
+        return {
+            "status": "not_found",
+            "matched": 0,
+            "candidates": [],
+            "amount": req.amount,
+            "dry_run": req.dry_run,
+        }
+
+    if len(candidates) > 1:
+        return {
+            "status": "ambiguous",
+            "matched": len(candidates),
+            "candidates": [_fmt_candidate(u, i) for u, i in candidates],
+            "amount": req.amount,
+            "dry_run": req.dry_run,
+        }
+
+    user, identity = candidates[0]
+    before = user.image_credits or 0
+
+    if req.dry_run:
+        return {
+            "status": "dry_run",
+            "matched": 1,
+            "candidate": _fmt_candidate(user, identity),
+            "credits_before": before,
+            "credits_after_preview": before + req.amount,
+            "amount": req.amount,
+            "dry_run": True,
+        }
+
+    user.image_credits = before + req.amount
+    db.add(
+        CreditTransaction(
+            user_id=user.id,
+            amount=req.amount,
+            balance_after=user.image_credits,
+            tx_type="admin_grant",
+            payment_id=None,
+        )
+    )
+    await db.commit()
+    await db.refresh(user)
+
+    logger.info(
+        "admin_grant: user_id=%s +%d credits (%d → %d) via provider=%s",
+        user.id,
+        req.amount,
+        before,
+        user.image_credits,
+        req.provider,
+    )
+
+    return {
+        "status": "granted",
+        "matched": 1,
+        "candidate": _fmt_candidate(user, identity),
+        "credits_before": before,
+        "credits_after": user.image_credits,
+        "amount": req.amount,
+        "dry_run": False,
+    }

@@ -1261,4 +1261,24 @@
 #          ``admin · grant credits`` workflow_dispatch workflow
 #          (uses the existing ``RAILWAY_TOKEN`` secret to pull
 #          ``DATABASE_PUBLIC_URL`` from the Railway Postgres service).
-APP_VERSION = "1.25.1"
+# 1.25.2 — Admin credit-grant HTTP endpoint.
+#          Adds ``POST /api/v1/internal/admin/grant-credits`` (gated
+#          by ``X-Internal-Key``) that mirrors
+#          ``scripts/grant_credits.py`` for environments where the
+#          Postgres TCP proxy is not publicly reachable (the case on
+#          this Railway project — the managed Postgres only exposes
+#          ``postgres.railway.internal``). The endpoint resolves a
+#          user by (provider, username | first_name | external_id),
+#          applies the balance delta, and writes a
+#          ``CreditTransaction(tx_type='admin_grant')`` audit row in
+#          the same transaction. Returns one of
+#          ``granted | dry_run | not_found | ambiguous``.
+#
+#          Consumed by ``.github/workflows/admin-grant-credits.yml``:
+#          the workflow no longer needs ``DATABASE_PUBLIC_URL`` or
+#          the Railway CLI on the runner — it just posts the grant
+#          payload to ``$RAILWAY_API_URL/api/v1/internal/...`` using
+#          the existing ``INTERNAL_API_KEY`` secret. Two independent
+#          layers of access control (repo-admin-gated
+#          workflow_dispatch + X-Internal-Key) are preserved.
+APP_VERSION = "1.25.2"

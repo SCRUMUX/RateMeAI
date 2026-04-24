@@ -1,21 +1,20 @@
 name: admin · grant credits
 
-# Ad-hoc admin tool. Triggers scripts/grant_credits.py against the live
-# Railway Postgres using the project-scoped RAILWAY_TOKEN secret (same
-# token the main deploy workflow already uses). The script increments
-# ``User.image_credits`` in a single transaction with an audit row
-# (``CreditTransaction.tx_type='admin_grant'``) — see the module
-# docstring for the exact semantics.
+# Ad-hoc admin tool. Posts to the ``/api/v1/internal/admin/grant-credits``
+# endpoint on the primary Railway backend, which applies the grant and
+# writes the ``CreditTransaction(tx_type='admin_grant')`` audit row in a
+# single transaction.
 #
-# Why a workflow and not a local one-liner:
-#   * The Railway DATABASE_URL is only reachable from outside the
-#     platform via the Postgres service's DATABASE_PUBLIC_URL variable,
-#     which we fetch here with the same RAILWAY_TOKEN the deploy job
-#     uses. Keeping the token inside GitHub Actions means it never
-#     touches developer laptops.
-#   * workflow_dispatch is gated by repo write access — only admins
-#     can trigger a grant, and every run is auditable in the Actions
-#     log alongside the inputs that were passed.
+# Why an HTTP endpoint and not direct DB access:
+#   * The project's Postgres service has no public TCP proxy enabled,
+#     so the Railway DATABASE_URL is only reachable from inside the
+#     Railway network (``postgres.railway.internal``). Rather than
+#     punch a public hole in Postgres, we go through the already-
+#     deployed ``app`` service.
+#   * The endpoint is gated by the existing ``INTERNAL_API_KEY``
+#     secret (reused from edge→primary traffic), and
+#     workflow_dispatch is itself gated by repo write access — two
+#     independent layers.
 #
 # Inputs mirror the CLI flags of ``scripts/grant_credits.py``. Always
 # run with ``dry_run=true`` first when operating on a new user.
@@ -31,19 +30,19 @@ on:
           - telegram
           - vk_id
       username:
-        description: "Telegram @username (no @). For provider=telegram only."
+        description: "Telegram @username (no @). provider=telegram only."
         required: false
         type: string
       first_name:
-        description: "VK first_name (case-insensitive prefix match). For provider=vk_id."
+        description: "VK first_name (case-insensitive prefix match). provider=vk_id."
         required: false
         type: string
       telegram_id:
-        description: "Exact Telegram numeric user id (disambiguates when --username matches many)."
+        description: "Exact Telegram numeric user id (disambiguates --username)."
         required: false
         type: string
       vk_id:
-        description: "Exact VK external_id (disambiguates when --first-name matches many)."
+        description: "Exact VK external_id (disambiguates --first-name)."
         required: false
         type: string
       amount:
@@ -61,151 +60,36 @@ jobs:
   grant:
     runs-on: ubuntu-latest
     env:
-      RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
-      RAILWAY_PROJECT_ID: ${{ secrets.RAILWAY_PROJECT_ID }}
+      INTERNAL_API_KEY: ${{ secrets.INTERNAL_API_KEY }}
+      API_BASE_URL: ${{ secrets.RAILWAY_API_URL }}
     steps:
-      - uses: actions/checkout@v4
-
       - name: Validate secrets
         run: |
-          if [ -z "$RAILWAY_TOKEN" ]; then
-            echo "::error::RAILWAY_TOKEN is not set"
+          if [ -z "$INTERNAL_API_KEY" ]; then
+            echo "::error::INTERNAL_API_KEY secret is not set"
             exit 1
           fi
-          if [ -z "$RAILWAY_PROJECT_ID" ]; then
-            echo "::error::RAILWAY_PROJECT_ID is not set"
+          if [ -z "$API_BASE_URL" ]; then
+            echo "::error::RAILWAY_API_URL secret is not set"
             exit 1
           fi
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.13"
-
-      - name: Install runtime dependencies (DB + SQLAlchemy only)
-        # Keep the install minimal — the admin script pulls in src.config
-        # (pydantic settings) and src.models.db (SQLAlchemy + asyncpg).
-        # A full requirements.txt install would drag in ML libs that the
-        # grant path never uses.
+      - name: Ping internal API
         run: |
-          python -m pip install --upgrade pip
-          pip install \
-            "SQLAlchemy>=2,<3" \
-            "asyncpg>=0.29" \
-            "pydantic>=2,<3" \
-            "pydantic-settings>=2,<3"
-
-      - name: Install Railway CLI
-        run: npm install -g @railway/cli
-
-      - name: Resolve public Postgres URL
-        id: pg
-        run: |
-          set -uo pipefail
-          # Railway exposes ``DATABASE_PUBLIC_URL`` on the Postgres
-          # service — accessible from outside the Railway network via
-          # the viaduct proxy. The deploy workflow connects via the
-          # internal address (``postgres.railway.internal``) which is
-          # unreachable from a GitHub Actions runner.
-          #
-          # Per Railway docs, project-scoped ``RAILWAY_TOKEN`` uses
-          # the ``Project-Access-Token`` HTTP header (NOT
-          # ``Authorization: Bearer``) for GraphQL queries, and is
-          # pre-scoped to a specific environment — no need to pass
-          # the env id in queries. We use that to enumerate services.
-
-          # Discover the environment + services the token has access to.
-          SERVICES_JSON=$(curl -sS -X POST https://backboard.railway.com/graphql/v2 \
-            -H "Content-Type: application/json" \
-            -H "Project-Access-Token: $RAILWAY_TOKEN" \
-            -d '{"query":"query { projectToken { projectId environmentId } }"}')
-          echo "projectToken response: $SERVICES_JSON"
-          ENV_ID=$(echo "$SERVICES_JSON" | jq -r '.data.projectToken.environmentId // empty')
-          PROJECT_ID=$(echo "$SERVICES_JSON" | jq -r '.data.projectToken.projectId // empty')
-          if [ -z "$ENV_ID" ] || [ -z "$PROJECT_ID" ]; then
-            echo "::error::Could not resolve project/environment id from RAILWAY_TOKEN."
+          # Fails fast if the token is stale or the endpoint is down,
+          # before we start constructing the grant payload.
+          HTTP=$(curl -sS -o /tmp/ping.json -w "%{http_code}" \
+            -H "X-Internal-Key: $INTERNAL_API_KEY" \
+            "$API_BASE_URL/api/v1/internal/ping")
+          echo "ping http=$HTTP"
+          cat /tmp/ping.json || true
+          if [ "$HTTP" != "200" ]; then
+            echo "::error::Internal ping failed — check INTERNAL_API_KEY / RAILWAY_API_URL."
             exit 1
           fi
-
-          # List all services in the project. With ``Project-Access-Token``
-          # the project query is allowed (token is pre-scoped to it).
-          Q='{"query":"query($id: String!) { project(id:$id) { services { edges { node { id name } } } } }","variables":{"id":"'"$PROJECT_ID"'"}}'
-          SVC_JSON=$(curl -sS -X POST https://backboard.railway.com/graphql/v2 \
-            -H "Content-Type: application/json" \
-            -H "Project-Access-Token: $RAILWAY_TOKEN" \
-            -d "$Q")
-          echo "DEBUG project(id) response:"
-          echo "$SVC_JSON" | jq . 2>/dev/null || echo "$SVC_JSON"
-
-          SVC_NAMES=$(echo "$SVC_JSON" | jq -r '.data.project.services.edges[]?.node.name // empty' 2>/dev/null)
-
-          # Fallback enumeration via environment query — some tokens
-          # only have env-scope permission.
-          if [ -z "$SVC_NAMES" ]; then
-            EQ='{"query":"query($id: String!) { environment(id:$id) { serviceInstances { edges { node { serviceName serviceId } } } } }","variables":{"id":"'"$ENV_ID"'"}}'
-            ENV_JSON=$(curl -sS -X POST https://backboard.railway.com/graphql/v2 \
-              -H "Content-Type: application/json" \
-              -H "Project-Access-Token: $RAILWAY_TOKEN" \
-              -d "$EQ")
-            echo "DEBUG environment(id) response:"
-            echo "$ENV_JSON" | jq . 2>/dev/null || echo "$ENV_JSON"
-            SVC_NAMES=$(echo "$ENV_JSON" | jq -r '.data.environment.serviceInstances.edges[]?.node.serviceName // empty' 2>/dev/null)
-          fi
-
-          if [ -z "$SVC_NAMES" ]; then
-            echo "::error::Could not list services via GraphQL."
-            exit 1
-          fi
-          echo "Services in project:"
-          for N in $SVC_NAMES; do echo "  - $N"; done
-
-          PUBLIC_URL=""
-          RESOLVED_NAME=""
-          for NAME in $SVC_NAMES; do
-            echo "Probing service '$NAME'..."
-            if VARS_JSON=$(railway variables --service "$NAME" -e production --json 2>&1); then
-              KEYS=$(echo "$VARS_JSON" | jq -r 'keys | join(",")' 2>/dev/null || echo "<jq parse failed>")
-              echo "  keys: $KEYS"
-              URL=$(echo "$VARS_JSON" | jq -r '.DATABASE_PUBLIC_URL // .POSTGRES_PUBLIC_URL // empty' 2>/dev/null || echo "")
-              if [ -n "$URL" ]; then
-                PUBLIC_URL="$URL"
-                RESOLVED_NAME="$NAME"
-                break
-              fi
-            else
-              echo "  railway CLI call failed: $VARS_JSON"
-            fi
-          done
-
-          # Fallback: maybe Postgres is external (Neon/Supabase/self-
-          # hosted) — check the ``app`` service for a non-internal
-          # DATABASE_URL.
-          if [ -z "$PUBLIC_URL" ]; then
-            APP_VARS=$(railway variables --service app -e production --json 2>/dev/null || echo '{}')
-            APP_DB_URL=$(echo "$APP_VARS" | jq -r '.DATABASE_URL // empty')
-            if [ -n "$APP_DB_URL" ] && ! echo "$APP_DB_URL" | grep -q "railway.internal"; then
-              PUBLIC_URL="$APP_DB_URL"
-              RESOLVED_NAME="app (external DATABASE_URL)"
-            fi
-          fi
-
-          if [ -z "$PUBLIC_URL" ]; then
-            echo "::error::Could not locate DATABASE_PUBLIC_URL in any service listed above, and app.DATABASE_URL is internal/empty."
-            exit 1
-          fi
-
-          echo "Resolved DATABASE_PUBLIC_URL from service '$RESOLVED_NAME'."
-          # SQLAlchemy needs ``postgresql+asyncpg://``; Railway gives
-          # the bare ``postgresql://`` scheme.
-          ASYNC_URL="${PUBLIC_URL/postgresql:\/\//postgresql+asyncpg://}"
-          # Mask the URL in logs — it carries the password.
-          echo "::add-mask::$ASYNC_URL"
-          echo "::add-mask::$PUBLIC_URL"
-          echo "database_url=$ASYNC_URL" >> "$GITHUB_OUTPUT"
 
       - name: Grant credits
         env:
-          DATABASE_URL: ${{ steps.pg.outputs.database_url }}
           PROVIDER: ${{ inputs.provider }}
           USERNAME: ${{ inputs.username }}
           FIRST_NAME: ${{ inputs.first_name }}
@@ -214,27 +98,68 @@ jobs:
           AMOUNT: ${{ inputs.amount }}
           DRY_RUN: ${{ inputs.dry_run }}
         run: |
-          set -euo pipefail
-          ARGS=(--provider "$PROVIDER" --amount "$AMOUNT")
-          if [ -n "$USERNAME" ]; then
-            ARGS+=(--username "$USERNAME")
+          set -uo pipefail
+          # Build JSON payload with jq so we naturally drop empty
+          # optional fields and escape any odd characters (Cyrillic
+          # first_name etc.).
+          PAYLOAD=$(jq -n \
+            --arg provider "$PROVIDER" \
+            --arg username "$USERNAME" \
+            --arg first_name "$FIRST_NAME" \
+            --arg telegram_id "$TELEGRAM_ID" \
+            --arg vk_id "$VK_ID" \
+            --argjson amount "$AMOUNT" \
+            --argjson dry_run "$DRY_RUN" \
+            '{
+              provider: $provider,
+              amount: $amount,
+              dry_run: $dry_run,
+              username: (if $username == "" then null else $username end),
+              first_name: (if $first_name == "" then null else $first_name end),
+              telegram_id: (if $telegram_id == "" then null else $telegram_id end),
+              vk_id: (if $vk_id == "" then null else $vk_id end)
+            }')
+          echo "payload=$PAYLOAD"
+
+          HTTP=$(curl -sS -o /tmp/resp.json -w "%{http_code}" \
+            -X POST \
+            -H "X-Internal-Key: $INTERNAL_API_KEY" \
+            -H "Content-Type: application/json" \
+            -d "$PAYLOAD" \
+            "$API_BASE_URL/api/v1/internal/admin/grant-credits")
+
+          echo "response http=$HTTP"
+          jq . /tmp/resp.json || cat /tmp/resp.json
+
+          if [ "$HTTP" != "200" ]; then
+            echo "::error::Grant failed with HTTP $HTTP"
+            exit 1
           fi
-          if [ -n "$FIRST_NAME" ]; then
-            ARGS+=(--first-name "$FIRST_NAME")
-          fi
-          if [ -n "$TELEGRAM_ID" ]; then
-            ARGS+=(--telegram-id "$TELEGRAM_ID")
-          fi
-          if [ -n "$VK_ID" ]; then
-            ARGS+=(--vk-id "$VK_ID")
-          fi
-          if [ "$DRY_RUN" = "true" ]; then
-            ARGS+=(--dry-run)
-          else
-            ARGS+=(--yes)
-          fi
-          echo "Running: python -m scripts.grant_credits ${ARGS[*]}"
-          python -m scripts.grant_credits "${ARGS[@]}"
+
+          STATUS=$(jq -r '.status' /tmp/resp.json)
+          case "$STATUS" in
+            granted)
+              before=$(jq -r '.credits_before' /tmp/resp.json)
+              after=$(jq -r '.credits_after' /tmp/resp.json)
+              echo "OK — credits $before → $after"
+              ;;
+            dry_run)
+              echo "DRY-RUN — would grant $(jq -r '.amount' /tmp/resp.json) to $(jq -r '.candidate.user_id' /tmp/resp.json)"
+              ;;
+            not_found)
+              echo "::warning::No user matched the filter."
+              exit 2
+              ;;
+            ambiguous)
+              echo "::warning::Multiple candidates — disambiguate with --telegram-id or --vk-id:"
+              jq -r '.candidates[] | "  - user_id=\(.user_id), username=\(.username // .profile_username), first_name=\(.first_name // .profile_first_name), credits=\(.credits_before), external_id=\(.external_id)"' /tmp/resp.json
+              exit 3
+              ;;
+            *)
+              echo "::error::Unexpected status: $STATUS"
+              exit 4
+              ;;
+          esac
 
       - name: Summary
         if: always()
