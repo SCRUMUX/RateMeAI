@@ -13,8 +13,6 @@ from __future__ import annotations
 
 import random
 
-import pytest
-
 from src.config import settings
 from src.prompts.style_schema_v2 import (
     BackgroundLockLevel,
