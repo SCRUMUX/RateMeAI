@@ -447,3 +447,59 @@ def test_submit_missing_request_id_raises():
     fake = _FakeFalClient([resp])
     with pytest.raises(FalAPIError, match="request_id"):
         gen._submit(fake, {"prompt": "x"})
+
+
+# ----------------------------------------------------------------------
+# v1.24.2 regression — FAL submit response without explicit
+# ``status_url`` / ``response_url``. Falls back to URL synthesis, which
+# must keep the full ``fal-ai/nano-banana-2/edit`` appId (previously the
+# ``/edit`` suffix was dropped → 404 on status poll).
+# ----------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_generate_without_status_url_uses_full_app_path():
+    out_jpeg = _jpeg_bytes((10, 20, 30), size=32)
+    data_uri = "data:image/jpeg;base64," + base64.b64encode(out_jpeg).decode()
+
+    # Submit response without status_url/response_url → forces fallback
+    # URL synthesis in _fal_queue_base.
+    responses = [
+        _json_response(
+            {
+                "request_id": "req-abc",
+                "status": "IN_QUEUE",
+            }
+        ),
+        _json_response({"status": "COMPLETED"}),
+        _json_response(
+            {
+                "images": [{"url": data_uri, "content_type": "image/jpeg"}],
+                "has_nsfw_concepts": [False],
+                "seed": 42,
+            }
+        ),
+    ]
+    fake = _FakeFalClient(responses)
+    gen = _make_gen()
+    with (
+        _patched_client(fake),
+        patch("src.providers.image_gen._fal_queue_base.time.sleep"),
+    ):
+        result = await gen.generate(
+            "p", reference_image=_jpeg_bytes(), params={"quality": "low"}
+        )
+
+    assert result == out_jpeg
+    gets = [c for c in fake.calls if c["method"] == "GET"]
+    # status poll + result fetch both go through the fallback synthesiser;
+    # both must use the *full* appId with the ``/edit`` subpath.
+    assert len(gets) == 2
+    status_url = gets[0]["url"]
+    result_url = gets[1]["url"]
+    assert status_url == (
+        "https://queue.fal.run/fal-ai/nano-banana-2/edit/requests/req-abc/status"
+    ), f"status URL must include /edit subpath, got {status_url!r}"
+    assert result_url == (
+        "https://queue.fal.run/fal-ai/nano-banana-2/edit/requests/req-abc"
+    ), f"result URL must include /edit subpath, got {result_url!r}"

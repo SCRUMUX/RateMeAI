@@ -436,3 +436,54 @@ async def test_nsfw_no_retry():
     ):
         with pytest.raises(FalContentViolationError):
             await gen.generate("p", reference_image=_jpeg_bytes())
+
+
+# ----------------------------------------------------------------------
+# v1.24.2 regression — FAL submit response without explicit
+# ``status_url`` / ``response_url``. The fallback URL synthesiser must
+# keep the full ``openai/gpt-image-2/edit`` appId (previously the
+# ``/edit`` suffix was dropped → 404 on status poll).
+# ----------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_generate_without_status_url_uses_full_app_path():
+    import base64
+
+    out_jpeg = _jpeg_bytes((10, 20, 30), size=32)
+    data_uri = "data:image/jpeg;base64," + base64.b64encode(out_jpeg).decode()
+
+    responses = [
+        _json_response(
+            {
+                "request_id": "req-xyz",
+                "status": "IN_QUEUE",
+            }
+        ),
+        _json_response({"status": "COMPLETED"}),
+        _json_response(
+            {
+                "images": [{"url": data_uri, "content_type": "image/jpeg"}],
+                "has_nsfw_concepts": [False],
+            }
+        ),
+    ]
+    fake = _FakeFalClient(responses)
+    gen = _make_gen()
+    with (
+        _patched_client(fake),
+        patch("src.providers.image_gen._fal_queue_base.time.sleep"),
+    ):
+        result = await gen.generate(
+            "p", reference_image=_jpeg_bytes(), params={"quality": "medium"}
+        )
+
+    assert result == out_jpeg
+    gets = [c for c in fake.calls if c["method"] == "GET"]
+    assert len(gets) == 2
+    assert gets[0]["url"] == (
+        "https://queue.fal.run/openai/gpt-image-2/edit/requests/req-xyz/status"
+    ), f"status URL must include /edit subpath, got {gets[0]['url']!r}"
+    assert gets[1]["url"] == (
+        "https://queue.fal.run/openai/gpt-image-2/edit/requests/req-xyz"
+    ), f"result URL must include /edit subpath, got {gets[1]['url']!r}"

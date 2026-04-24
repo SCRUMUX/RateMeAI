@@ -141,14 +141,20 @@ class FalQueueClient:
         return f"{self._host}/{self._model}"
 
     def _fallback_status_url(self, request_id: str) -> str:
-        parts = self._model.split("/")
-        app_root = "/".join(parts[:2]) if len(parts) >= 2 else self._model
-        return f"{self._host}/{app_root}/requests/{request_id}/status"
+        # v1.24.2: keep the FULL appId (``self._model``), not ``parts[:2]``.
+        # Per docs.fal.ai/model-endpoints/queue the canonical URL is
+        # ``{host}/{appId}/requests/{id}/status`` including every path
+        # segment (e.g. ``fal-ai/nano-banana-2/edit``,
+        # ``openai/gpt-image-2/edit``, ``fal-ai/bytedance/seedream/v4/edit``).
+        # Historically this was truncated to the first two segments, which
+        # happened to match the URL FAL returned for 2-segment apps but
+        # silently 404'd for 3+ segment proxy/subpath models once FAL
+        # stopped accepting the short form.
+        return f"{self._host}/{self._model}/requests/{request_id}/status"
 
     def _fallback_result_url(self, request_id: str) -> str:
-        parts = self._model.split("/")
-        app_root = "/".join(parts[:2]) if len(parts) >= 2 else self._model
-        return f"{self._host}/{app_root}/requests/{request_id}"
+        # v1.24.2: see _fallback_status_url for the rationale.
+        return f"{self._host}/{self._model}/requests/{request_id}"
 
     # ------------------------------------------------------------------
     # Body — subclasses implement this
@@ -300,6 +306,21 @@ class FalQueueClient:
                 )
             resp = client.get(status_url, headers=self._headers())
             if resp.status_code >= 400:
+                # v1.24.2: if FAL returns 404 at the status phase, the
+                # root cause is almost always a mismatched URL (wrong
+                # app prefix, missing subpath segment, sync vs queue host
+                # confusion). Log the exact URL we hit so future regressions
+                # are one grep away — ``_parse_error`` only captures the
+                # body, not the URL, and the exception text doesn't carry
+                # it either.
+                if resp.status_code == 404:
+                    logger.warning(
+                        "FAL %s poll 404 at %s (req=%s) — check FAL_API_HOST "
+                        "and model path; docs say {host}/{appId}/requests/{id}/status",
+                        self._label,
+                        status_url,
+                        request_id,
+                    )
                 raise self._parse_error(
                     resp,
                     phase="status",

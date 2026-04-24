@@ -50,7 +50,15 @@ class Settings(BaseSettings):
     # Получить токен: https://fal.ai → Dashboard → Keys (формат: uuid:secret).
     # В .env храним под именем FAL_API_KEY, но fal-client также читает FAL_KEY.
     fal_api_key: str = ""
-    fal_api_host: str = "https://fal.run"
+    # v1.24.2: default to the async queue endpoint. The previous
+    # ``https://fal.run`` default was the sync ``subscribe``-style host,
+    # which does NOT return ``status_url`` / ``response_url`` in the
+    # submit response and pushes our queue providers into the fallback
+    # URL synthesis path. Production always overrides this via
+    # ``FAL_API_HOST=https://queue.fal.run`` (see ``.env.example``), but
+    # a missing env var on a fresh deploy used to silently land on the
+    # sync host and 404 on every status poll.
+    fal_api_host: str = "https://queue.fal.run"
     fal_model: str = "fal-ai/flux-pro/v1.1"
     fal_guidance_scale: float = 2.5
     fal_safety_tolerance: str = "6"

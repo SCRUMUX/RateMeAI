@@ -1059,4 +1059,135 @@
 #          updated for the new tier map; ``test_executor_ab_path``
 #          cost expectation updated for the new ``high`` price.
 #          TypeScript check (``tsc --noEmit``) clean.
-APP_VERSION = "1.24.1"
+#
+# v1.24.2 — fal pipeline rescue: fixes the ``http=404 phase=status
+#          Path /requests/{id}/status not found`` the user reported
+#          after the v1.24 A/B roll-out, restores real A/B routing
+#          that had silently been forcing every request through
+#          GPT-2, makes fallback symmetric so Nano Banana-first
+#          requests get retried on GPT-2 (not just the other way
+#          around), and surfaces image-gen errors in the TG bot so
+#          failures stop looking like bare text replies.
+#
+#          Root cause — combination of two interlocking bugs:
+#
+#          1) ``src/providers/image_gen/_fal_queue_base.py``:
+#             ``_fallback_status_url`` / ``_fallback_result_url``
+#             were doing ``"/".join(parts[:2])``, which silently
+#             truncated ``fal-ai/nano-banana-2/edit`` to
+#             ``fal-ai/nano-banana-2`` (and any other 3+ segment
+#             app: ``openai/gpt-image-2/edit``,
+#             ``fal-ai/bytedance/seedream/v4/edit``, ...). When
+#             ``FAL_API_HOST`` was not explicitly set to
+#             ``queue.fal.run`` (see #2), FAL's submit response
+#             arrived *without* ``status_url`` / ``response_url``,
+#             forcing us into this synthesiser — which then pointed
+#             poll GETs at a non-existent prefix and got 404 on
+#             every single request.
+#             Fix: rebuild both URLs from the FULL ``self._model``
+#             so every segment round-trips. Added a one-off
+#             ``logger.warning`` with the actual URL on 404 inside
+#             ``_poll_until_done`` so future regressions are a
+#             ``grep`` away instead of a two-hour incident.
+#
+#          2) ``src/config.py``: default ``fal_api_host`` was
+#             ``https://fal.run`` (the *sync* endpoint). Any deploy
+#             where the env var wasn't explicitly set fell back to
+#             sync, whose submit response does not carry
+#             ``status_url`` / ``response_url`` — that's what
+#             pushed us into the broken synthesiser above. Switched
+#             default to ``https://queue.fal.run`` to match
+#             ``.env.example`` and the test fixtures, which were
+#             already using it.
+#
+#          3) ``src/orchestrator/executor.py``: the ``ab_active``
+#             branch put only ``quality`` and ``aspect_ratio`` in
+#             the provider ``extra`` dict — never
+#             ``image_model``. ``UnifiedImageGenProvider._pick_backend``
+#             reads ``params["image_model"]`` to route; without
+#             that key it deterministically returned ``model_a``
+#             (GPT-2). So every "Nano Banana 2" request from the
+#             web client actually went to GPT-2 first and only
+#             reached NB2 via the catch-exception fallback — two
+#             FAL calls per request, wrong model answering the
+#             happy path, correct model answering the 404. Now the
+#             key is forwarded and routing matches user intent on
+#             the first hop.
+#
+#          4) ``src/providers/image_gen/unified.py``: the catch
+#             branch only handled ``provider is self._model_a``, so
+#             once #3 was fixed and Nano Banana 2 could actually
+#             be the primary provider, its failures would bubble up
+#             unhandled (GPT-2 was never tried). Rewrote the fallback
+#             to pick the *other* model regardless of which side
+#             the user chose; specialised providers (PuLID /
+#             Seedream / Rave) keep their legacy "no A/B backstop"
+#             behaviour and still re-raise.
+#
+#          5) ``src/bot/handlers/results.py``: when generation
+#             failed, the TG bot silently dropped the image and
+#             sent only analysis text, so users couldn't tell
+#             whether the service lost their photo, they ran out
+#             of credits, or the model choked. New
+#             ``_no_image_reason_line`` helper mirrors the web
+#             client (``web/src/context/AppContext.tsx``): reads
+#             ``result["no_image_reason"]`` +
+#             ``result["image_gen_error_message"]`` and appends a
+#             one-line user-facing explanation to both
+#             ``_send_enhanced`` and ``_send_emoji`` outputs
+#             (covers ``no_credits`` / ``generation_error`` /
+#             ``upgrade_required`` / ``not_applicable``). The line
+#             is only added when no generated image is actually
+#             attached, so successful paths stay identical.
+#
+#          6) ``src/bot/handlers/mode_select.py`` (line 711): the
+#             bot's POST to ``/api/v1/analyze`` had a 30 s
+#             timeout, but real A/B generation can burn ~45-90 s
+#             (FAL queue wait + NB2/GPT-2 inference + our post-
+#             pipeline). Healthy runs were being cut off at the
+#             HTTP layer, the bot gave up, and the user saw the
+#             status bubble freeze. Raised to 120 s (matches
+#             ``fal_request_timeout``). Also left a TODO next to
+#             ``form_data`` for wiring ``image_model`` /
+#             ``image_quality`` from any future bot-side A/B
+#             picker — today the server falls back to
+#             ``ab_default_model`` which is correct but ignores
+#             user preference.
+#
+#          Tests (all new or refreshed, every suite green):
+#               * ``tests/test_providers/test_fal_queue_base.py``
+#                 (new) — 7 URL-builder tests covering 2/3/5-segment
+#                 appIds including explicit ``/edit`` subpath
+#                 preservation and host/model trailing-slash
+#                 normalisation.
+#               * ``tests/test_providers/test_fal_nano_banana.py``,
+#                 ``test_fal_gpt_image_2.py`` — added "submit
+#                 without ``status_url``" regression: fake FAL
+#                 returns bare ``request_id``, the poll GETs must
+#                 land on the FULL appId including ``/edit``.
+#               * ``tests/test_providers/test_unified_provider.py``
+#                 — added explicit GPT-2 routing, symmetric B→A
+#                 fallback, param preservation across fallback,
+#                 routed-backend context var updates after
+#                 fallback, and a PuLID-does-not-backstop guard.
+#               * ``tests/test_orchestrator/test_executor_ab_routing.py``
+#                 (new) — ``ab_active`` propagates
+#                 ``image_model=nano_banana_2`` and
+#                 ``image_model=gpt_image_2``; ``ab_active=False``
+#                 leaves ``params`` untouched (hybrid path
+#                 unchanged).
+#
+#          Risk / rollback:
+#               * #2 changes the default host. Railway / prod
+#                 already pin ``FAL_API_HOST=https://queue.fal.run``
+#                 in ``.env`` so live traffic is untouched; the
+#                 only ENV that shifts is a fresh deploy with no
+#                 override, which previously 404'd anyway.
+#               * #3 flips routing from "always GPT-2 on the happy
+#                 path" to "whatever the user picked". Cost
+#                 accounting and backend labels already follow
+#                 ``ab_image_model`` so Grafana / billing lines
+#                 move automatically.
+#               * #4 is additive — existing A→B tests keep passing;
+#                 the new B→A path only fires on errors.
+APP_VERSION = "1.24.2"

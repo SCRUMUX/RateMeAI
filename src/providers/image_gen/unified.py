@@ -96,7 +96,14 @@ class UnifiedImageGenProvider(ImageGenProvider):
         except Exception:
             pass
 
-        # If fallback is needed, we can catch exceptions and try Model B
+        # v1.24.2: symmetric fallback. When either model_a (GPT-2) or
+        # model_b (Nano Banana 2) fails we try the *other* one. Prior to
+        # v1.24.2 ``image_model`` was never propagated into ``params``
+        # (see executor.py), so ``_pick_backend`` always returned
+        # model_a and this branch only ever ran A→B. Now that the A/B
+        # choice is honoured, we must also support B→A so the caller
+        # who explicitly picked Nano Banana still gets a GPT-2 retry
+        # on transient errors.
         try:
             return await provider.generate(
                 prompt=prompt,
@@ -105,21 +112,35 @@ class UnifiedImageGenProvider(ImageGenProvider):
             )
         except Exception as exc:
             if provider is self._model_a:
-                logger.warning("Model A failed (%s), falling back to Model B", exc)
-                routed_backend_var.set("nano_banana_2")
-                try:
-                    from src.metrics import STYLE_MODE_OVERRIDE
+                other = self._model_b
+                other_label = "nano_banana_2"
+            elif provider is self._model_b:
+                other = self._model_a
+                other_label = "gpt_image_2"
+            else:
+                # Specialised provider (pulid / seedream / rave) — no A/B
+                # backstop defined; preserve legacy behaviour.
+                raise
 
-                    STYLE_MODE_OVERRIDE.labels(
-                        from_mode="gpt_image_2",
-                        to_mode="nano_banana_2",
-                        reason="fallback_on_error",
-                    ).inc()
-                except Exception:
-                    pass
-                return await self._model_b.generate(
-                    prompt=prompt,
-                    reference_image=reference_image,
-                    params=params,
-                )
-            raise
+            logger.warning(
+                "Model %s failed (%s), falling back to %s",
+                backend_label,
+                exc,
+                other_label,
+            )
+            routed_backend_var.set(other_label)
+            try:
+                from src.metrics import STYLE_MODE_OVERRIDE
+
+                STYLE_MODE_OVERRIDE.labels(
+                    from_mode=backend_label,
+                    to_mode=other_label,
+                    reason="fallback_on_error",
+                ).inc()
+            except Exception:
+                pass
+            return await other.generate(
+                prompt=prompt,
+                reference_image=reference_image,
+                params=params,
+            )

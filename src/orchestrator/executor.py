@@ -596,6 +596,14 @@ class ImageGenerationExecutor:
             # FalNanoBanana2Edit / FalGptImage2Edit pick the right tier.
             # Hybrid StyleRouter silently ignores the key.
             if ab_active:
+                # v1.24.2: propagate the caller-selected A/B model into the
+                # provider params so ``UnifiedImageGenProvider._pick_backend``
+                # actually routes on it. Prior to this, ``extra`` held only
+                # ``quality`` / ``aspect_ratio`` and the picker fell through
+                # to its ``model_a`` (GPT-2) default on every request —
+                # Nano Banana 2 was only reachable via the catch-fallback
+                # path after GPT-2 raised. See unified.py::_pick_backend.
+                extra["image_model"] = ab_image_model
                 extra["quality"] = ab_image_quality or getattr(
                     settings, "ab_default_quality", "medium"
                 )

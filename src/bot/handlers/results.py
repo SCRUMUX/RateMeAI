@@ -253,6 +253,54 @@ def _balance_line(credits: int | None) -> str:
     return f"\n\n\U0001f4b0 Баланс: *{credits} образов*"
 
 
+def _no_image_reason_line(result: dict) -> str:
+    """Return a short human-readable explanation when no image was produced.
+
+    Mirrors the logic in ``web/src/context/AppContext.tsx`` so TG users
+    and web users see the same semantics. Before v1.24.2 the bot silently
+    delivered text-only results on generation errors, leaving users to
+    guess why their photo didn't come back.
+    """
+    reason = str(result.get("no_image_reason") or "").strip()
+    if not reason:
+        return ""
+    refunded = bool(result.get("credit_refunded"))
+    refund_suffix = " Кредит возвращён." if refunded else ""
+
+    diag_tail = ""
+    raw_diag = result.get("image_gen_error_message")
+    if isinstance(raw_diag, str):
+        diag_tail = sanitize_llm_text(raw_diag, max_len=180).strip()
+
+    if reason == "no_credits":
+        return (
+            "\n\n\u26a0\ufe0f Недостаточно кредитов для генерации изображения. "
+            "Пополни баланс и попробуй снова."
+        )
+    if reason == "upgrade_required":
+        return (
+            "\n\n\U0001f512 Для генерации изображения необходимо пополнить баланс."
+        )
+    if reason == "not_applicable":
+        return "\n\n\u2139\ufe0f Для данного режима генерация изображения недоступна."
+    if reason == "generation_error":
+        if diag_tail:
+            return (
+                f"\n\n\u26a0\ufe0f Не удалось сгенерировать изображение: "
+                f"{diag_tail}.{refund_suffix}"
+            )
+        if refunded:
+            return (
+                "\n\n\u26a0\ufe0f Не удалось сгенерировать изображение. "
+                "Кредит возвращён — попробуй другой стиль или фото."
+            )
+        return (
+            "\n\n\u26a0\ufe0f Не удалось сгенерировать изображение. "
+            "Попробуй другой стиль или фото."
+        )
+    return f"\n\n\u2139\ufe0f Анализ завершён без изображения ({reason})."
+
+
 def _is_identity_risky(result: dict) -> bool:
     """Return True when the generated photo is flagged as low-similarity.
 
@@ -350,6 +398,14 @@ async def deliver_result(
     quality_warn = ""
     if gen_warnings:
         quality_warn = "\n\n" + "\n".join(f"\u2139\ufe0f {w}" for w in gen_warnings[:3])
+
+    # v1.24.2: surface the no-image reason to the TG user the same way
+    # the web client does (see web/src/context/AppContext.tsx). Nothing
+    # is appended when generation succeeded.
+    no_image_line = ""
+    if not result.get("generated_image_url") and not result.get("generated_image_b64"):
+        no_image_line = _no_image_reason_line(result)
+    quality_warn = quality_warn + no_image_line
 
     if mode == "rating":
         await _send_rating(bot, chat_id, result, user_id, uname, quality_warn + bal)

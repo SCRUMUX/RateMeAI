@@ -708,7 +708,18 @@ async def _submit_analysis(
         auth_headers = await _get_api_headers(
             redis, user_id, analyze_api, callback.from_user
         )
-        async with httpx.AsyncClient(timeout=30.0) as client:
+        # v1.24.2: 120 s aligned with ``fal_request_timeout`` (see
+        # src/config.py). The old 30 s budget was below the wall-clock
+        # envelope of a real A/B generation (FAL queue wait + Nano
+        # Banana 2 / GPT Image 2 inference at ``medium``/``high`` + our
+        # post-pipeline), so the bot's POST was being cut off on
+        # healthy runs and the status bubble froze with no result.
+        # TODO(bot-ab): plumb through ``image_model`` / ``image_quality``
+        # from UI state (Redis) once the bot exposes A/B picker buttons.
+        # Today the server falls back to ``ab_default_model`` which is
+        # correct but ignores any user preference set from the web client.
+        _ANALYZE_TIMEOUT = 120.0
+        async with httpx.AsyncClient(timeout=_ANALYZE_TIMEOUT) as client:
             resp = await client.post(
                 f"{analyze_api}/api/v1/analyze",
                 files={"image": ("photo.jpg", image_data, "image/jpeg")},
@@ -721,7 +732,7 @@ async def _submit_analysis(
                 redis, user_id, analyze_api, callback.from_user
             )
             file_bytes_retry = io.BytesIO(image_data)
-            async with httpx.AsyncClient(timeout=30.0) as client:
+            async with httpx.AsyncClient(timeout=_ANALYZE_TIMEOUT) as client:
                 resp = await client.post(
                     f"{analyze_api}/api/v1/analyze",
                     files={
