@@ -162,13 +162,18 @@ jobs:
           PUBLIC_URL=""
           RESOLVED_NAME=""
           for NAME in $SVC_NAMES; do
-            if VARS_JSON=$(railway variables --service "$NAME" -e production --json 2>/dev/null); then
-              URL=$(echo "$VARS_JSON" | jq -r '.DATABASE_PUBLIC_URL // .POSTGRES_PUBLIC_URL // empty')
+            echo "Probing service '$NAME'..."
+            if VARS_JSON=$(railway variables --service "$NAME" -e production --json 2>&1); then
+              KEYS=$(echo "$VARS_JSON" | jq -r 'keys | join(",")' 2>/dev/null || echo "<jq parse failed>")
+              echo "  keys: $KEYS"
+              URL=$(echo "$VARS_JSON" | jq -r '.DATABASE_PUBLIC_URL // .POSTGRES_PUBLIC_URL // empty' 2>/dev/null || echo "")
               if [ -n "$URL" ]; then
                 PUBLIC_URL="$URL"
                 RESOLVED_NAME="$NAME"
                 break
               fi
+            else
+              echo "  railway CLI call failed: $VARS_JSON"
             fi
           done
 
