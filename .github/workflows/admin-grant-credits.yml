@@ -101,42 +101,36 @@ jobs:
       - name: Resolve public Postgres URL
         id: pg
         run: |
-          set -euo pipefail
+          set -uo pipefail
           # Railway exposes ``DATABASE_PUBLIC_URL`` on the Postgres
           # service — accessible from outside the Railway network via
           # the viaduct proxy. The deploy workflow connects via the
           # internal address (``postgres.railway.internal``) which is
           # unreachable from a GitHub Actions runner.
           #
-          # Postgres service naming isn't standardised (Railway plugin
-          # defaults can change between versions — "Postgres",
-          # "postgres", "Postgres-prod", etc.). We discover the real
-          # service name via the project-scoped GraphQL API rather than
-          # guessing. The RAILWAY_TOKEN has access to exactly one
-          # project, so this listing is tight.
-          QUERY='{"query":"query($id:String!){ project(id:$id){ services{ edges{ node{ id name } } } } }","variables":{"id":"'"$RAILWAY_PROJECT_ID"'"}}'
-          SERVICES_JSON=$(curl -sS -X POST https://backboard.railway.com/graphql/v2 \
-            -H "Content-Type: application/json" \
-            -H "Authorization: Bearer $RAILWAY_TOKEN" \
-            -d "$QUERY")
+          # The project-scoped ``RAILWAY_TOKEN`` works with CLI calls
+          # (``railway variables --service X``) but the backboard
+          # GraphQL ``project(id:$id)`` query returns "Not Authorized"
+          # for this token class. So instead of listing services via
+          # GraphQL we try candidate service names exhaustively. Last-
+          # resort fallback: the ``app`` service's resolved
+          # ``DATABASE_URL`` if it's external (non-``railway.internal``).
 
-          echo "Services in project:"
-          echo "$SERVICES_JSON" | jq -r '.data.project.services.edges[].node | "  - \(.name) (\(.id))"' || {
-            echo "::error::Failed to list services. Raw response:"
-            echo "$SERVICES_JSON"
-            exit 1
-          }
-
-          # Match by name pattern — any service whose name starts with
-          # "postgres" (case-insensitive). Fall back to the first
-          # service whose variables contain DATABASE_PUBLIC_URL.
-          CANDIDATE_NAMES=$(echo "$SERVICES_JSON" | jq -r '.data.project.services.edges[].node.name' | grep -iE '^(postgres|postgresql|db)' || true)
-
+          CANDIDATES="Postgres postgres PostgreSQL postgresql Postgresql PG pg DB db Database database postgres-global Postgres-prod postgres-prod"
           PUBLIC_URL=""
           RESOLVED_NAME=""
-          for NAME in $CANDIDATE_NAMES; do
+
+          for NAME in $CANDIDATES; do
             if VARS_JSON=$(railway variables --service "$NAME" -e production --json 2>/dev/null); then
               URL=$(echo "$VARS_JSON" | jq -r '.DATABASE_PUBLIC_URL // empty')
+              if [ -n "$URL" ]; then
+                PUBLIC_URL="$URL"
+                RESOLVED_NAME="$NAME"
+                break
+              fi
+              # Some projects store the public URL under
+              # ``POSTGRES_URL`` / ``POSTGRES_PUBLIC_URL``.
+              URL=$(echo "$VARS_JSON" | jq -r '.POSTGRES_PUBLIC_URL // empty')
               if [ -n "$URL" ]; then
                 PUBLIC_URL="$URL"
                 RESOLVED_NAME="$NAME"
@@ -145,24 +139,25 @@ jobs:
             fi
           done
 
-          # Widen the search: iterate every service if the name-match
-          # branch didn't find DATABASE_PUBLIC_URL.
+          # Fallback: maybe Postgres isn't a Railway plugin at all —
+          # the app service might have an external DATABASE_URL
+          # (Supabase, Neon, self-hosted, etc.). Railway resolves
+          # ``${{Postgres.DATABASE_URL}}`` references to the internal
+          # URL in ``--json`` output, so we only accept it here if it
+          # is clearly external.
           if [ -z "$PUBLIC_URL" ]; then
-            ALL_NAMES=$(echo "$SERVICES_JSON" | jq -r '.data.project.services.edges[].node.name')
-            for NAME in $ALL_NAMES; do
-              if VARS_JSON=$(railway variables --service "$NAME" -e production --json 2>/dev/null); then
-                URL=$(echo "$VARS_JSON" | jq -r '.DATABASE_PUBLIC_URL // empty')
-                if [ -n "$URL" ]; then
-                  PUBLIC_URL="$URL"
-                  RESOLVED_NAME="$NAME"
-                  break
-                fi
-              fi
-            done
+            echo "No candidate matched — probing app service DATABASE_URL."
+            APP_VARS=$(railway variables --service app -e production --json 2>/dev/null || echo '{}')
+            APP_DB_URL=$(echo "$APP_VARS" | jq -r '.DATABASE_URL // empty')
+            if [ -n "$APP_DB_URL" ] && ! echo "$APP_DB_URL" | grep -q "railway.internal"; then
+              PUBLIC_URL="$APP_DB_URL"
+              RESOLVED_NAME="app (external DATABASE_URL)"
+            fi
           fi
 
           if [ -z "$PUBLIC_URL" ]; then
-            echo "::error::DATABASE_PUBLIC_URL not found on any service in the project."
+            echo "::error::Could not locate DATABASE_PUBLIC_URL. Tried services: $CANDIDATES"
+            echo "Manually run \`railway variables --service <NAME> -e production --json\` against each service in the project to discover the real name, then add it to the CANDIDATES list."
             exit 1
           fi
 
