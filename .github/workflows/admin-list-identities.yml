@@ -1,0 +1,62 @@
+name: admin · list identities
+
+# Ad-hoc diagnostic. Calls ``GET /api/v1/internal/admin/list-identities``
+# to dump recent users for a given identity provider. Handy when
+# ``admin/grant-credits`` returns ``not_found`` and we need to see how
+# the user actually registered (e.g. different first_name spelling,
+# transliterated cyrillic, separate VK vs telegram accounts).
+
+on:
+  workflow_dispatch:
+    inputs:
+      provider:
+        description: "Identity provider"
+        required: true
+        type: choice
+        options:
+          - telegram
+          - vk_id
+          - google
+          - apple
+          - web
+      limit:
+        description: "Max rows to return (1..200)"
+        required: true
+        type: string
+        default: "50"
+
+jobs:
+  list:
+    runs-on: ubuntu-latest
+    env:
+      INTERNAL_API_KEY: ${{ secrets.INTERNAL_API_KEY }}
+      API_BASE_URL: ${{ secrets.RAILWAY_API_URL }}
+    steps:
+      - name: Call list-identities
+        env:
+          PROVIDER: ${{ inputs.provider }}
+          LIMIT: ${{ inputs.limit }}
+        run: |
+          set -uo pipefail
+          if [ -z "$INTERNAL_API_KEY" ] || [ -z "$API_BASE_URL" ]; then
+            echo "::error::Missing INTERNAL_API_KEY or RAILWAY_API_URL secret"
+            exit 1
+          fi
+
+          HTTP=$(curl -sS -o /tmp/resp.json -w "%{http_code}" \
+            -H "X-Internal-Key: $INTERNAL_API_KEY" \
+            "$API_BASE_URL/api/v1/internal/admin/list-identities?provider=$PROVIDER&limit=$LIMIT")
+          echo "http=$HTTP"
+          if [ "$HTTP" != "200" ]; then
+            cat /tmp/resp.json || true
+            echo "::error::list-identities failed with HTTP $HTTP"
+            exit 1
+          fi
+
+          jq . /tmp/resp.json
+
+          echo "## Identities (provider=$PROVIDER)" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "| user_id | tg_id | username | first_name | credits | provider_external_id |" >> "$GITHUB_STEP_SUMMARY"
+          echo "|---------|-------|----------|------------|---------|----------------------|" >> "$GITHUB_STEP_SUMMARY"
+          jq -r '.items[] | "| \(.user_id) | \(.telegram_id) | \(.username // .profile_username // "") | \(.first_name // .profile_first_name // "") | \(.credits_before) | \(.external_id) |"' /tmp/resp.json >> "$GITHUB_STEP_SUMMARY"
