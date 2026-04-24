@@ -18,6 +18,9 @@ on:
           - vk_id
           - google
           - apple
+          - yandex
+          - ok
+          - phone
           - web
       limit:
         description: "Max rows to return (1..200)"

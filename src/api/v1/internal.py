@@ -1003,13 +1003,21 @@ async def image_gen_probe(
 class AdminGrantCreditsRequest(BaseModel):
     provider: str = Field(
         ...,
-        description="Identity namespace to search: 'telegram' or 'vk_id'.",
+        description=(
+            "Identity namespace to search: 'telegram' | 'vk_id' | "
+            "'email' (email is provider-agnostic — matches profile_data.email "
+            "across google/vk_id/apple/yandex)."
+        ),
     )
-    amount: int = Field(100, gt=0, le=10_000)
+    amount: int = Field(100, gt=0, le=100_000)
     username: str | None = None
     first_name: str | None = None
     telegram_id: str | None = None
     vk_id: str | None = Field(default=None, description="External id for VK.")
+    email: str | None = Field(
+        default=None,
+        description="Email match against profile_data.email for any identity.",
+    )
     dry_run: bool = False
 
 
@@ -1026,6 +1034,7 @@ def _fmt_candidate(user: User, identity: UserIdentity | None) -> dict[str, Any]:
         "profile_username": data.get("username"),
         "profile_first_name": data.get("first_name"),
         "profile_last_name": data.get("last_name"),
+        "profile_email": data.get("email"),
     }
 
 
@@ -1135,15 +1144,38 @@ async def _find_admin_candidates(
             detail="provider=vk_id requires 'first_name' or 'vk_id'.",
         )
 
+    if req.provider == "email":
+        if not req.email:
+            raise HTTPException(
+                status_code=400,
+                detail="provider=email requires 'email'.",
+            )
+        needle = req.email.strip().lower()
+        q = (
+            select(User, UserIdentity)
+            .join(UserIdentity, UserIdentity.user_id == User.id)
+        )
+        seen_user_ids: set = set()
+        for row in (await db.execute(q)).all():
+            identity: UserIdentity = row[1]
+            data = identity.profile_data or {}
+            mail = str(data.get("email") or "").strip().lower()
+            if mail == needle and row[0].id not in seen_user_ids:
+                candidates.append((row[0], identity))
+                seen_user_ids.add(row[0].id)
+        return candidates
+
     raise HTTPException(
         status_code=400,
-        detail=f"Unknown provider '{req.provider}'. Expected telegram|vk_id.",
+        detail=f"Unknown provider '{req.provider}'. Expected telegram|vk_id|email.",
     )
 
 
 @router.get("/admin/list-identities")
 async def admin_list_identities(
-    provider: str = Query(..., pattern="^(telegram|vk_id|google|apple|web)$"),
+    provider: str = Query(
+        ..., pattern="^(telegram|vk_id|google|apple|yandex|ok|phone|web)$"
+    ),
     limit: int = Query(50, ge=1, le=200),
     _key: str = Depends(_verify_internal_key),
     db: AsyncSession = Depends(get_db),

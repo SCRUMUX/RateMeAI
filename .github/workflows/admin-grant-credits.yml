@@ -29,6 +29,7 @@ on:
         options:
           - telegram
           - vk_id
+          - email
       username:
         description: "Telegram @username (no @). provider=telegram only."
         required: false
@@ -43,6 +44,10 @@ on:
         type: string
       vk_id:
         description: "Exact VK external_id (disambiguates --first-name)."
+        required: false
+        type: string
+      email:
+        description: "Email (case-insensitive, matches profile_data.email across providers). provider=email."
         required: false
         type: string
       amount:
@@ -95,6 +100,7 @@ jobs:
           FIRST_NAME: ${{ inputs.first_name }}
           TELEGRAM_ID: ${{ inputs.telegram_id }}
           VK_ID: ${{ inputs.vk_id }}
+          EMAIL: ${{ inputs.email }}
           AMOUNT: ${{ inputs.amount }}
           DRY_RUN: ${{ inputs.dry_run }}
         run: |
@@ -108,6 +114,7 @@ jobs:
             --arg first_name "$FIRST_NAME" \
             --arg telegram_id "$TELEGRAM_ID" \
             --arg vk_id "$VK_ID" \
+            --arg email "$EMAIL" \
             --argjson amount "$AMOUNT" \
             --argjson dry_run "$DRY_RUN" \
             '{
@@ -117,7 +124,8 @@ jobs:
               username: (if $username == "" then null else $username end),
               first_name: (if $first_name == "" then null else $first_name end),
               telegram_id: (if $telegram_id == "" then null else $telegram_id end),
-              vk_id: (if $vk_id == "" then null else $vk_id end)
+              vk_id: (if $vk_id == "" then null else $vk_id end),
+              email: (if $email == "" then null else $email end)
             }')
           echo "payload=$PAYLOAD"
 

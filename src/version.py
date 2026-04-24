@@ -1261,6 +1261,15 @@
 #          ``admin · grant credits`` workflow_dispatch workflow
 #          (uses the existing ``RAILWAY_TOKEN`` secret to pull
 #          ``DATABASE_PUBLIC_URL`` from the Railway Postgres service).
+# 1.25.4 — Admin grant-credits: email-based lookup + provider-agnostic
+#          match against ``profile_data.email`` across google / vk_id /
+#          apple / yandex identities. ``_fmt_candidate`` now surfaces
+#          ``profile_email`` so the list-identities diagnostic can
+#          disambiguate users without re-running the grant. Amount
+#          cap raised 10_000 → 100_000 for bulk admin top-ups.
+#          ``admin-grant-credits.yml`` workflow takes an ``email``
+#          input; ``admin-list-identities.yml`` extends the provider
+#          whitelist to ``yandex`` / ``ok`` / ``phone``.
 # 1.25.3 — Admin diagnostic endpoint ``GET /api/v1/internal/admin/list-identities``
 #          for disambiguating lookups when ``admin/grant-credits``
 #          returns ``not_found`` / ``ambiguous``. Returns recent
@@ -1287,4 +1296,4 @@
 #          the existing ``INTERNAL_API_KEY`` secret. Two independent
 #          layers of access control (repo-admin-gated
 #          workflow_dispatch + X-Internal-Key) are preserved.
-APP_VERSION = "1.25.3"
+APP_VERSION = "1.25.4"
