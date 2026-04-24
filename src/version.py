@@ -1261,6 +1261,12 @@
 #          ``admin · grant credits`` workflow_dispatch workflow
 #          (uses the existing ``RAILWAY_TOKEN`` secret to pull
 #          ``DATABASE_PUBLIC_URL`` from the Railway Postgres service).
+# 1.25.3 — Admin diagnostic endpoint ``GET /api/v1/internal/admin/list-identities``
+#          for disambiguating lookups when ``admin/grant-credits``
+#          returns ``not_found`` / ``ambiguous``. Returns recent
+#          users for a given provider with profile_data snippets,
+#          credits and ``user_id``. Gated by the same
+#          ``X-Internal-Key`` as the rest of ``/internal``.
 # 1.25.2 — Admin credit-grant HTTP endpoint.
 #          Adds ``POST /api/v1/internal/admin/grant-credits`` (gated
 #          by ``X-Internal-Key``) that mirrors
@@ -1281,4 +1287,4 @@
 #          the existing ``INTERNAL_API_KEY`` secret. Two independent
 #          layers of access control (repo-admin-gated
 #          workflow_dispatch + X-Internal-Key) are preserved.
-APP_VERSION = "1.25.2"
+APP_VERSION = "1.25.3"

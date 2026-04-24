@@ -1141,6 +1141,33 @@ async def _find_admin_candidates(
     )
 
 
+@router.get("/admin/list-identities")
+async def admin_list_identities(
+    provider: str = Query(..., pattern="^(telegram|vk_id|google|apple|web)$"),
+    limit: int = Query(50, ge=1, le=200),
+    _key: str = Depends(_verify_internal_key),
+    db: AsyncSession = Depends(get_db),
+) -> dict[str, Any]:
+    """Diagnostic: list recent users for a given identity provider.
+
+    Ops-only helper to disambiguate ``admin/grant-credits`` lookups when
+    a first_name / username filter unexpectedly returns ``not_found``.
+    Returns user_id, display fields, credits and profile snippet.
+    """
+    q = (
+        select(User, UserIdentity)
+        .join(UserIdentity, UserIdentity.user_id == User.id)
+        .where(UserIdentity.provider == provider)
+        .order_by(User.created_at.desc())
+        .limit(limit)
+    )
+    rows = (await db.execute(q)).all()
+    items: list[dict[str, Any]] = []
+    for u, i in rows:
+        items.append(_fmt_candidate(u, i))
+    return {"provider": provider, "count": len(items), "items": items}
+
+
 @router.post("/admin/grant-credits")
 async def admin_grant_credits(
     req: AdminGrantCreditsRequest,
