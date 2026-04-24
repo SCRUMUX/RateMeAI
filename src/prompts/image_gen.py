@@ -12,6 +12,7 @@ required 10+ individual constants.
 from __future__ import annotations
 
 import logging
+from typing import Any
 
 from src.prompts.style_spec import (
     OutputAspect,
@@ -94,13 +95,14 @@ def resolve_output_size(
 
     aspect: OutputAspect = getattr(spec, "output_aspect", "portrait_4_3")
 
-    # User-requested framing overrides the style's default aspect
-    if framing == "full_body":
-        aspect = "portrait_16_9"
-    elif framing == "half_body":
-        aspect = "portrait_4_3"
-    elif framing == "portrait":
-        aspect = "square_hd"
+    # v1.26: framing is a composition hint for the PROMPT, not for output
+    # aspect. Раньше ``portrait`` → ``square_hd``, ``half_body`` →
+    # ``portrait_4_3``, ``full_body`` → ``portrait_16_9`` жёстко переключали
+    # размер и ломали кадрирование (пользователь выбирал ракурс, а получал
+    # квадрат вместо портрета 4:3). Теперь размер определяется только
+    # стилем (``spec.output_aspect``) и PuLID-эвристиками ниже; композицию
+    # framing задаёт через директивы в ``PromptEngine._build_mode_prompt``.
+    _ = framing  # retained in signature for callers; intentionally unused.
 
     needs_full_body = bool(getattr(spec, "needs_full_body", False))
     if (
@@ -1322,6 +1324,32 @@ def _truncate(prompt: str) -> str:
     return prompt[:PROMPT_MAX_LEN].rstrip()
 
 
+# v1.26: framing — это user-facing ракурс (портрет / полрост / полный рост).
+# Раньше он жёстко переключал output aspect через resolve_output_size
+# (square_hd / portrait_4_3 / portrait_16_9), что ломало формат файла
+# независимо от стиля и пугало пользователей. Теперь framing влияет ТОЛЬКО
+# на композицию промпта: короткая директива в текст + ничего в размер.
+# Размер изображения по-прежнему задаёт стиль (spec.output_aspect).
+_FRAMING_PROMPT_DIRECTIVES: dict[str, str] = {
+    "portrait": "Framing: head-and-shoulders close-up, eyes at upper third.",
+    "half_body": (
+        "Framing: half-body composition from the waist up, "
+        "hands may be partially visible."
+    ),
+    "full_body": (
+        "Framing: full body head-to-toe, respectful framing, "
+        "subject centered with natural negative space."
+    ),
+}
+
+
+def _framing_directive(framing: str | None) -> str:
+    """Translate a framing key into a compact composition line for the prompt."""
+    if not framing:
+        return ""
+    return _FRAMING_PROMPT_DIRECTIVES.get(framing.strip().lower(), "")
+
+
 def _build_mode_prompt(
     mode: str,
     style: str,
@@ -1330,6 +1358,7 @@ def _build_mode_prompt(
     input_hints: dict | None = None,
     variant: StyleVariant | None = None,
     target_model: str = "gpt_image_2",
+    framing: str | None = None,
 ) -> str:
     """Assemble a compact photorealistic paragraph.
 
@@ -1349,13 +1378,28 @@ def _build_mode_prompt(
     if isinstance(spec, StructuredStyleSpec):
         from src.prompts.variation_engine import VariationEngine
 
-        user_input = input_hints or {}
-        if variant:
-            user_input["scene_override"] = variant.scene
-            user_input["lighting"] = variant.lighting
-            user_input["clothing_override"] = variant.clothing_accent_for(gender)
+        # v1.26: два источника hints, разные правила валидации:
+        # 1) ``variant`` — curated StyleVariant из ротации «Другой
+        #    вариант». Автор стиля уже отревьюил эти значения, поэтому
+        #    они идут в ``apply_variation(..., strict=False)``.
+        # 2) ``input_hints`` — пользовательский выбор из модалки.
+        #    Каждое поле валидируется по per-channel whitelist;
+        #    ``strict=True`` по умолчанию.
+        user_input: dict[str, Any] = dict(input_hints or {})
+        strict_validation = variant is None
 
-        base_text = VariationEngine.apply_variation(spec, user_input)
+        if variant:
+            if variant.scene:
+                user_input["scene_override"] = variant.scene
+            if variant.lighting:
+                user_input["lighting"] = variant.lighting
+            v_accent = variant.clothing_accent_for(gender)
+            if v_accent:
+                user_input["clothing_override"] = v_accent
+
+        base_text = VariationEngine.apply_variation(
+            spec, user_input, strict=strict_validation
+        )
         parts = [change_instruction, base_text]
         if spec.expression:
             parts.append(spec.expression)
@@ -1386,6 +1430,11 @@ def _build_mode_prompt(
         if spec.expression:
             parts.append(spec.expression)
 
+    # v1.26: user-selected framing feeds a composition line *before* the
+    # identity/quality tail. Skipped for document styles (CV/passport)
+    # where composition is fixed by vendor policy, see _DOC_COMPOSITION_HINT.
+    framing_line = _framing_directive(framing)
+
     if is_doc:
         composition = _DOC_COMPOSITION_HINT.get(
             style_key_norm,
@@ -1395,6 +1444,8 @@ def _build_mode_prompt(
         parts.append(DOC_PRESERVE)
         parts.append(DOC_QUALITY)
     else:
+        if framing_line:
+            parts.append(framing_line)
         # v1.25 — unified A/B tail. Both gpt_image_2 and nano_banana_2
         # receive the same four anchors (identity + quality DOF +
         # camera + anatomy). The earlier split (strict for GPT-2, light
@@ -1491,6 +1542,7 @@ def build_dating_prompt(
     input_hints: dict | None = None,
     variant: StyleVariant | None = None,
     target_model: str = "gpt_image_2",
+    framing: str | None = None,
 ) -> str:
     return _build_mode_prompt(
         "dating",
@@ -1500,6 +1552,7 @@ def build_dating_prompt(
         input_hints=input_hints,
         variant=variant,
         target_model=target_model,
+        framing=framing,
     )
 
 
@@ -1510,6 +1563,7 @@ def build_cv_prompt(
     input_hints: dict | None = None,
     variant: StyleVariant | None = None,
     target_model: str = "gpt_image_2",
+    framing: str | None = None,
 ) -> str:
     style_key = (style or "").strip()
     if style_key in _DOCUMENT_STYLE_KEYS:
@@ -1531,6 +1585,7 @@ def build_cv_prompt(
         input_hints=input_hints,
         variant=variant,
         target_model=target_model,
+        framing=framing,
     )
 
 
@@ -1541,6 +1596,7 @@ def build_social_prompt(
     input_hints: dict | None = None,
     variant: StyleVariant | None = None,
     target_model: str = "gpt_image_2",
+    framing: str | None = None,
 ) -> str:
     return _build_mode_prompt(
         "social",
@@ -1550,6 +1606,7 @@ def build_social_prompt(
         input_hints=input_hints,
         variant=variant,
         target_model=target_model,
+        framing=framing,
     )
 
 

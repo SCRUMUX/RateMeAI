@@ -50,12 +50,29 @@ def get_structured_specs() -> list[StructuredStyleSpec]:
         gen_mode = "scene_preserve" if is_doc else "identity_scene"
         aspect = "square_hd" if is_doc else "portrait_4_3"
 
+        # v1.26: раньше мы плющили per-channel dict в плоский список
+        # лайтинга + сцены, из-за чего ``VariationEngine`` не мог
+        # проверить, какие поля вообще разрешены в стиле, а UI-модалка
+        # «Другой вариант» рисовала все поля одинаково для всех стилей.
+        # Теперь пробрасываем dict как есть — поля, которых в стиле
+        # нет, фронт прячет, а бэкенд игнорирует некорректные значения.
+        raw_variations = s.get("allowed_variations", {})
+        if isinstance(raw_variations, dict):
+            allowed_variations = {
+                k: list(v) if isinstance(v, list) else []
+                for k, v in raw_variations.items()
+            }
+        elif isinstance(raw_variations, list):
+            # backward-compat для старого плоского формата
+            allowed_variations = {"lighting": list(raw_variations)}
+        else:
+            allowed_variations = {}
+
         spec = StructuredStyleSpec(
             name=s["id"],
             type=type_val,
             base_scene=s.get("base_scene", ""),
-            allowed_variations=s.get("allowed_variations", {}).get("lighting", [])
-            + s.get("allowed_variations", {}).get("scene", []),
+            allowed_variations=allowed_variations,
             camera="",
             pose="",
             clothing=s.get("default_clothing", ""),

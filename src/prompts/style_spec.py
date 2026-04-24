@@ -85,12 +85,30 @@ class StyleType(str, Enum):
 
 @dataclass
 class StructuredStyleSpec:
-    """New structured style specification."""
+    """New structured style specification.
+
+    ``allowed_variations`` — per-style whitelist какие hint-поля
+    пользователь вообще может менять в «Другой вариант» и какие значения
+    валидны в каждом поле. Пример из data/styles.json::
+
+        "allowed_variations": {
+            "lighting": ["soft morning light", "warm sunset sidelight"],
+            "clothing": [],
+            "framing": ["portrait", "half_body", "full_body"]
+        }
+
+    Пустой список означает «этот канал закрыт» (например, для стиля
+    «Эйфелева башня» нельзя менять одежду — только ракурс и освещение).
+    Раньше это поле было плоским ``list[str]``, поэтому
+    ``VariationEngine`` сравнивал пользовательское ``lighting`` со
+    списком, в котором лежали значения всех категорий сразу, и либо
+    пропускал что-то лишнее, либо отфильтровывал допустимое.
+    """
 
     name: str
     type: StyleType
     base_scene: str
-    allowed_variations: list[str]
+    allowed_variations: dict[str, list[str]]
     camera: str
     pose: str
     clothing: str
@@ -639,13 +657,27 @@ def build_spec_from_legacy(
     elif "cafe" in bg.lower() or "restaurant" in bg.lower() or "studio" in bg.lower():
         type_ = StyleType.SEMI_LOCKED
 
-    # Extract allowed variations from variants
-    allowed_variations = []
+    # v1.26: extract allowed variations from variants, но структурой —
+    # разным каналам разные списки. Scene-locked стили не позволяют
+    # менять сцену (только свет), flexible — и свет, и сцену.
+    lighting_options: list[str] = []
+    scene_options: list[str] = []
     for v in variants:
-        if v.lighting:
-            allowed_variations.append(v.lighting)
-        if v.scene and type_ != StyleType.SCENE_LOCKED:
-            allowed_variations.append(v.scene)
+        if v.lighting and v.lighting not in lighting_options:
+            lighting_options.append(v.lighting)
+        if (
+            v.scene
+            and type_ != StyleType.SCENE_LOCKED
+            and v.scene not in scene_options
+        ):
+            scene_options.append(v.scene)
+
+    allowed_variations: dict[str, list[str]] = {
+        "lighting": lighting_options,
+        "scene": scene_options,
+        "clothing": [],
+        "framing": ["portrait", "half_body", "full_body"],
+    }
 
     return StructuredStyleSpec(
         name=key,

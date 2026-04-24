@@ -232,6 +232,85 @@ def test_analyze_ignores_ab_fields_when_feature_flag_off(
 
 @patch("src.api.v1.analyze._get_arq", new_callable=AsyncMock)
 @patch("src.api.v1.analyze.get_storage")
+def test_analyze_persists_framing_and_input_hints(
+    mock_get_storage,
+    mock_get_arq,
+    client,
+    monkeypatch,
+):
+    """v1.26: ``framing`` (токбл ракурса на 3-м шаге) и ``input_hints``
+    (поля модалки «Другой вариант») доходят до Task.context и позже
+    читаются пайплайном. Здесь проверяем только персист — дальнейший
+    роутинг до PromptEngine покрыт модульными тестами executor'a."""
+    import json as _json
+
+    monkeypatch.setattr(settings, "ab_test_enabled", True)
+    storage = MagicMock()
+    storage.upload = AsyncMock(return_value="inputs/u/k.jpg")
+    mock_get_storage.return_value = storage
+    pool = MagicMock()
+    pool.enqueue_job = AsyncMock(return_value=None)
+    mock_get_arq.return_value = pool
+
+    hints = {"lighting": "golden hour", "clothing_override": "white linen shirt"}
+    token = _register_user(client, telegram_id=999106)
+    with _TaskCtxCapture() as cap:
+        r = client.post(
+            "/api/v1/analyze",
+            files={"image": ("x.jpg", _VALID_JPEG, "image/jpeg")},
+            data={
+                "mode": "rating",
+                "image_model": "nano_banana_2",
+                "image_quality": "medium",
+                "framing": "half_body",
+                "input_hints": _json.dumps(hints),
+            },
+            headers=_auth(token),
+        )
+    assert r.status_code == 202, r.text
+    ctx = cap.contexts[-1]
+    assert ctx.get("framing") == "half_body"
+    assert ctx.get("input_hints") == hints
+
+
+@patch("src.api.v1.analyze._get_arq", new_callable=AsyncMock)
+@patch("src.api.v1.analyze.get_storage")
+def test_analyze_ignores_invalid_input_hints_json(
+    mock_get_storage,
+    mock_get_arq,
+    client,
+    monkeypatch,
+):
+    """Битый JSON в ``input_hints`` не должен ронять запрос — поле
+    просто не попадает в context (см. логирование в analyze.py)."""
+    monkeypatch.setattr(settings, "ab_test_enabled", True)
+    storage = MagicMock()
+    storage.upload = AsyncMock(return_value="inputs/u/k.jpg")
+    mock_get_storage.return_value = storage
+    pool = MagicMock()
+    pool.enqueue_job = AsyncMock(return_value=None)
+    mock_get_arq.return_value = pool
+
+    token = _register_user(client, telegram_id=999107)
+    with _TaskCtxCapture() as cap:
+        r = client.post(
+            "/api/v1/analyze",
+            files={"image": ("x.jpg", _VALID_JPEG, "image/jpeg")},
+            data={
+                "mode": "rating",
+                "framing": "portrait",
+                "input_hints": "{not-json",
+            },
+            headers=_auth(token),
+        )
+    assert r.status_code == 202, r.text
+    ctx = cap.contexts[-1]
+    assert ctx.get("framing") == "portrait"
+    assert "input_hints" not in ctx
+
+
+@patch("src.api.v1.analyze._get_arq", new_callable=AsyncMock)
+@patch("src.api.v1.analyze.get_storage")
 def test_analyze_without_ab_fields_defaults_to_gpt_image_2_low(
     mock_get_storage,
     mock_get_arq,

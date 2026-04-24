@@ -447,6 +447,8 @@ class ImageGenerationExecutor:
         variant_id: str = "",
         ab_image_model: str = "",
         ab_image_quality: str = "",
+        framing: str | None = None,
+        user_input_hints: dict | None = None,
     ) -> None:
         if mode not in (
             AnalysisMode.CV,
@@ -466,18 +468,28 @@ class ImageGenerationExecutor:
         ab_active = bool(getattr(settings, "ab_test_enabled", False) and ab_image_model)
         image_gen: ImageGenProvider = self._image_gen
 
-        # Extract framing parameter if present
-        framing = str(result_dict.get("framing", "")).strip().lower()
-        if framing not in ("portrait", "half_body", "full_body"):
-            framing = None
-
-        image_gen: ImageGenProvider = self._image_gen
+        # v1.26: framing приходит из task context (см. pipeline._execute_inner),
+        # а не из result_dict — LLM анализ никогда не кладёт framing в свой
+        # ответ, так что старое чтение result_dict.get("framing") всегда
+        # было пустым и frame-selector на UI ничего не менял. Нормализуем
+        # значение один раз, дальше его подсасывает PromptEngine.
+        framing_norm = str(framing or "").strip().lower()
+        if framing_norm not in ("portrait", "half_body", "full_body"):
+            framing_norm = None
 
         try:
             desc = str(result_dict.get("base_description", ""))
-            input_hints = (
-                input_quality.to_prompt_hints() if input_quality is not None else None
-            )
+            # v1.26: base hints берём из input_quality (lighting/blur/etc.
+            # из гейта качества), а пользовательские hints мерджим сверху
+            # — пользовательский выбор перекрывает эвристики, но если
+            # пользователь не трогал поле, оно остаётся из анализа. До
+            # этого user_input_hints молча терялись: executor просто
+            # перезаписывал их ``input_quality.to_prompt_hints()``.
+            base_hints = (
+                input_quality.to_prompt_hints() if input_quality is not None else {}
+            ) or {}
+            merged_hints = {**base_hints, **(user_input_hints or {})}
+            input_hints = merged_hints or None
 
             prompt = self._prompt_engine.build_image_prompt(
                 mode,
@@ -487,6 +499,7 @@ class ImageGenerationExecutor:
                 input_hints=input_hints,
                 variant_id=variant_id,
                 target_model=ab_image_model,
+                framing=framing_norm,
             )
 
             if variant_id:
@@ -548,7 +561,7 @@ class ImageGenerationExecutor:
                 spec,
                 face_area_ratio=face_area_ratio or None,
                 generation_mode=generation_mode,
-                framing=framing,
+                framing=framing_norm,
             )
             if output_size:
                 extra["image_size"] = output_size

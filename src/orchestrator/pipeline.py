@@ -276,6 +276,18 @@ class AnalysisPipeline:
                     {},
                 )["gfpgan_preclean"] = True
 
+            # v1.26: framing и user-provided hints живут в task ``context`` —
+            # их пишет API-роутер при приёме запроса. Раньше executor пытался
+            # прочитать framing из ``result_dict`` (там его никогда не было),
+            # а пользовательские hints перезатирались метриками
+            # ``input_quality``. Передаём явными kwargs — executor мерджит
+            # hints, а prompt engine использует framing в текстовой
+            # композиции кадра (aspect размера больше не трогаем).
+            framing = (context or {}).get("framing") or ""
+            user_hints = (context or {}).get("input_hints")
+            if not isinstance(user_hints, dict):
+                user_hints = None
+
             with _trace_step(trace, "generate_image"):
                 await self._executor.single_pass(
                     mode,
@@ -290,6 +302,8 @@ class AnalysisPipeline:
                     variant_id=variant_id,
                     ab_image_model=ab_image_model,
                     ab_image_quality=ab_image_quality,
+                    framing=framing,
+                    user_input_hints=user_hints,
                 )
 
             if result_dict.get("generated_image_url") and mode in (

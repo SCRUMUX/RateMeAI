@@ -119,6 +119,11 @@ class RemoteAnalysisRequest(BaseModel):
     # Nano Banana 2 or GPT Image 2, never the legacy StyleRouter.
     image_model: str = ""
     image_quality: str = ""
+    # v1.26: user-selected framing (portrait / half_body / full_body) и
+    # произвольные input_hints из «Другой вариант». Эдж-клиент пихает их
+    # без нормализации — валидацию делает PromptEngine/VariationEngine.
+    framing: str = ""
+    input_hints: dict[str, Any] = Field(default_factory=dict)
 
 
 class RemoteAnalysisResponse(BaseModel):
@@ -215,6 +220,13 @@ async def process_analysis_remote(
                 iq = "low"
         ctx["image_model"] = im
         ctx["image_quality"] = iq
+
+    # v1.26: положить framing и input_hints в task ``ctx`` — оттуда их
+    # достаёт ``pipeline._execute_inner`` и передаёт в executor/promp engine.
+    if (request.framing or "").strip():
+        ctx["framing"] = request.framing.strip()
+    if isinstance(request.input_hints, dict) and request.input_hints:
+        ctx["input_hints"] = dict(request.input_hints)
 
     ctx = build_task_context(
         ctx,

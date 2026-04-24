@@ -924,6 +924,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
     fetchConsents,
     imageModel,
     imageQuality,
+    // v1.26: без framing в deps useCallback замыкался на начальный
+    // ``'portrait'`` и ни переключатель кадра, ни его изменение после
+    // первого рендера не влияли на запрос к /analyze. inputHints
+    // прилетает параметром в generate() из StyleSettingsModal, так что
+    // его в deps держать не нужно.
+    framing,
   ]);
 
   const share = useCallback(async () => {

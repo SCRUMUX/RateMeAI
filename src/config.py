@@ -409,6 +409,13 @@ class Settings(BaseSettings):
     internal_api_key: str = ""
     # URL of the RU edge server (bot on Railway uses it for payments/auth so webhook + DB match)
     edge_api_url: str = ""
+    # v1.26: URL соседнего инстанса, к которому ``/storage`` обратится за
+    # файлом, если его нет локально/в Redis/в DB b64. На RU edge ставится
+    # в URL primary; на primary — в URL edge. Запрос идёт с заголовком
+    # ``X-Internal-Key`` и отвечает пиру полным байтовым стримом (на
+    # внутреннем контуре, не публично). Пустая строка отключает fallback
+    # — оставляем legacy-поведение.
+    edge_peer_url: str = ""
 
     # App
     app_env: str = "dev"

@@ -3,7 +3,7 @@ import logging
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
@@ -332,8 +332,25 @@ storage_dir.mkdir(parents=True, exist_ok=True)
 
 
 @app.get("/storage/{file_path:path}")
-async def serve_storage(file_path: str, download: int = 0):
-    """Serve files from local storage with Redis fallback for generated images."""
+async def serve_storage(request: Request, file_path: str, download: int = 0):
+    """Serve files from local storage with Redis + peer fallbacks.
+
+    Order of lookup (each step is a hard 404 if it misses):
+
+    1. Local disk (``storage_dir``).
+    2. Redis cache keyed by task id (``gen_image_cache_keys``).
+    3. DB fallback: ``Task.result.generated_image_b64``.
+    4. **Peer fetch** (v1.26): если ``settings.edge_peer_url`` задан и
+       сосед нас ещё не вызвал (нет ``X-Internal-Key``), идём к
+       соседнему инстансу через internal API. Это чинит 404 при
+       скачивании, когда primary сгенерировал файл, а edge отдал
+       task_id пользователю с URL на edge-домене (или наоборот).
+
+    Peer-запросы узнаются по заголовку ``X-Internal-Key`` — в этом
+    случае файл можно отдать без повторного fallback и с более
+    короткой Cache-Control (иначе peer на другой стороне закэширует
+    собственную копию и начнёт дубликат-тянуть вечно).
+    """
     import base64
     import re
     from fastapi.responses import Response
@@ -341,6 +358,13 @@ async def serve_storage(file_path: str, download: int = 0):
 
     _CORS_HEADERS = {"Access-Control-Allow-Origin": "*"}
     _CACHE_IMMUTABLE = "public, max-age=86400, immutable"
+
+    internal_key_header = request.headers.get("X-Internal-Key", "") or ""
+    is_peer_call = bool(
+        internal_key_header
+        and settings.internal_api_key
+        and internal_key_header == settings.internal_api_key
+    )
 
     def _headers(filename: str, *, cache: bool = True) -> dict[str, str]:
         h: dict[str, str] = {**_CORS_HEADERS}
@@ -404,7 +428,69 @@ async def serve_storage(file_path: str, download: int = 0):
         except Exception:
             logging.getLogger(__name__).exception("DB fallback failed for %s", task_id)
 
-    from fastapi.responses import JSONResponse
+    # v1.26 — peer fallback. Обращаемся к соседу только если запрос
+    # пришёл НЕ от соседа (иначе бесконечный пинг-понг) и только если
+    # у нас есть его URL + internal ключ.
+    if (
+        not is_peer_call
+        and settings.edge_peer_url
+        and settings.internal_api_key
+    ):
+        peer_base = settings.edge_peer_url.rstrip("/")
+        peer_url = f"{peer_base}/storage/{file_path}"
+        try:
+            import httpx
+
+            timeout = httpx.Timeout(connect=5.0, read=30.0, write=10.0, pool=5.0)
+            async with httpx.AsyncClient(timeout=timeout) as client:
+                peer_resp = await client.get(
+                    peer_url,
+                    headers={"X-Internal-Key": settings.internal_api_key},
+                    params={"download": download} if download else None,
+                )
+            if peer_resp.status_code == 200:
+                peer_ct = peer_resp.headers.get(
+                    "content-type", "application/octet-stream"
+                )
+                peer_filename = Path(file_path).name
+                return Response(
+                    content=peer_resp.content,
+                    media_type=peer_ct,
+                    headers=_headers(peer_filename, cache=False),
+                )
+            logging.getLogger(__name__).info(
+                "peer /storage miss file=%s peer=%s status=%s",
+                file_path,
+                peer_base,
+                peer_resp.status_code,
+            )
+        except Exception:
+            logging.getLogger(__name__).exception(
+                "peer /storage fetch failed file=%s", file_path
+            )
+
+    from fastapi.responses import JSONResponse, HTMLResponse
+
+    # UX-improvement: для браузерных запросов отдадим читаемую страницу,
+    # а не голый JSON. API-клиенты (Accept: application/json) получают
+    # прежний формат — ими пользуется фронт через fetch+blob.
+    accepts_html = "text/html" in (request.headers.get("accept", "") or "").lower()
+    if accepts_html:
+        html = (
+            "<!doctype html><html lang=\"ru\"><head>"
+            "<meta charset=\"utf-8\"><title>Файл не найден</title>"
+            "<meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">"
+            "<style>body{background:#0B0F14;color:#E6EEF8;font-family:system-ui,"
+            "sans-serif;display:flex;align-items:center;justify-content:center;"
+            "min-height:100dvh;margin:0;padding:24px;text-align:center}"
+            ".box{max-width:480px}h1{font-size:20px;margin-bottom:12px}"
+            "p{color:#93A3B8;line-height:1.5}</style></head>"
+            "<body><div class=\"box\"><h1>Файл не найден</h1>"
+            "<p>Сгенерированное фото уже удалено по сроку хранения (24&nbsp;часа) "
+            "или ссылка устарела. Вернитесь на главную и попробуйте ещё раз.</p></div>"
+            "</body></html>"
+        )
+        return HTMLResponse(html, status_code=404, headers=_CORS_HEADERS)
 
     return JSONResponse(
         {"detail": "Not found"},

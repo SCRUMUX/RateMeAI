@@ -96,6 +96,58 @@ def test_step_templates_have_preserve_and_photorealistic():
         assert "Photorealistic" in tmpl
 
 
+def test_framing_directive_appears_in_non_document_prompt():
+    """v1.26: user-selected ракурс теперь влияет на КОМПОЗИЦИЮ (директива
+    в промпте), а не на выходной размер. Для non-document стилей в
+    промпте должна присутствовать строка «Framing: …»."""
+    p_half = ig.build_dating_prompt(
+        style="warm_outdoor",
+        gender="male",
+        framing="half_body",
+    )
+    assert "framing:" in p_half.lower()
+    assert "half-body" in p_half.lower()
+
+    p_full = ig.build_dating_prompt(
+        style="warm_outdoor",
+        gender="female",
+        framing="full_body",
+    )
+    assert "full body" in p_full.lower()
+
+
+def test_framing_directive_skipped_for_document_styles():
+    """Документные стили имеют жёсткую композицию от вендора
+    (``_DOC_COMPOSITION_HINT``), поэтому framing-директива туда не
+    должна попасть — иначе модель получит два конфликтующих указания."""
+    p = ig.build_cv_prompt(
+        style="photo_3x4",
+        gender="male",
+        framing="full_body",
+    )
+    assert "full body" not in p.lower()
+    assert "composition" in p.lower()
+
+
+def test_framing_does_not_change_output_size():
+    """v1.26-контракт: ``resolve_output_size`` игнорирует framing.
+    Раньше ``portrait`` → square_hd, ``full_body`` → portrait_16_9 —
+    переключатель ракурса менял формат файла. Теперь размер задаёт
+    только стиль (``spec.output_aspect``) и PuLID-эвристики."""
+    spec = ig.STYLE_REGISTRY.get("dating", "warm_outdoor")
+    if spec is None:
+        import pytest as _pytest
+
+        _pytest.skip("warm_outdoor not registered")
+
+    base = ig.resolve_output_size(spec)
+    for framing in ("portrait", "half_body", "full_body"):
+        assert ig.resolve_output_size(spec, framing=framing) == base, (
+            f"framing={framing!r} изменил output size "
+            f"(было {base}, стало {ig.resolve_output_size(spec, framing=framing)})"
+        )
+
+
 def test_detect_depth_of_field_keywords():
     assert detect_depth_of_field("blurred city lights at night") == "shallow"
     assert detect_depth_of_field("softly blurred park at golden hour") == "shallow"

@@ -34,6 +34,14 @@ _IMAGE_PROMPT_MAP = {
     _variant: ig.build_emoji_prompt(desc, gender=gender),
 }
 
+# Билдеры, понимающие ``target_model`` и ``framing`` (все A/B-модели,
+# кроме emoji, который не уходит в image-gen модели уровня GPT-Image-2).
+_MODE_BUILDERS_WITH_FRAMING = {
+    ig.build_dating_prompt,
+    ig.build_cv_prompt,
+    ig.build_social_prompt,
+}
+
 _MODE_STYLE_DICTS: dict[AnalysisMode, dict[str, str]] = {
     AnalysisMode.DATING: ig.DATING_STYLES,
     AnalysisMode.CV: ig.CV_STYLES,
@@ -69,6 +77,7 @@ class PromptEngine:
         input_hints: dict | None = None,
         variant_id: str = "",
         target_model: str = "gpt_image_2",
+        framing: str | None = None,
     ) -> str:
         builder = _IMAGE_PROMPT_MAP.get(mode)
         if builder is None:
@@ -80,14 +89,15 @@ class PromptEngine:
             else None
         )
 
-        # If the builder is one of the mode-specific builders, pass target_model
-        if builder in (
-            ig.build_dating_prompt,
-            ig.build_cv_prompt,
-            ig.build_social_prompt,
-        ):
+        if builder in _MODE_BUILDERS_WITH_FRAMING:
             return builder(
-                style, base_description, gender, input_hints, variant, target_model
+                style,
+                base_description,
+                gender,
+                input_hints,
+                variant,
+                target_model,
+                framing,
             )
 
         return builder(style, base_description, gender, input_hints, variant)

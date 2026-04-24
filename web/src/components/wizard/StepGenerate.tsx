@@ -9,8 +9,7 @@ import { PERCEPTION_FACTS, getRandomFact } from '../../data/ai-facts';
 import { CATEGORIES } from '../../data/styles';
 import {
   AB_MODELS,
-  formatAbCost,
-  getAbModelCost,
+  formatAbCredits,
 } from '../../data/ab-models';
 import { useApp } from '../../context/AppContext';
 import ProgressBar from './ProgressBar';
@@ -201,6 +200,36 @@ export default function StepGenerate({ onGoToStep, onOpenStorage }: Props) {
   const [shareData, setShareData] = useState<{ url: string; text: string; imageUrl: string } | null>(null);
   const [shareLoading, setShareLoading] = useState(false);
   const [shareModalOpen, setShareModalOpen] = useState(false);
+  const [downloadLoading, setDownloadLoading] = useState(false);
+  const [downloadError, setDownloadError] = useState(false);
+
+  async function handleDownload() {
+    if (!app.generatedImageUrl) return;
+    setDownloadError(false);
+    setDownloadLoading(true);
+    try {
+      const base = app.generatedImageUrl;
+      const sep = base.includes('?') ? '&' : '?';
+      const url = `${base}${sep}download=1`;
+      const res = await fetch(url, { credentials: 'omit' });
+      if (!res.ok) {
+        setDownloadError(true);
+        return;
+      }
+      const blob = await res.blob();
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = isDocPaywall ? 'document-photo.jpg' : 'ai-look-photo.jpg';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(a.href), 2_000);
+    } catch {
+      setDownloadError(true);
+    } finally {
+      setDownloadLoading(false);
+    }
+  }
 
   async function handleShowShare() {
     if (shareData) {
@@ -339,17 +368,17 @@ export default function StepGenerate({ onGoToStep, onOpenStorage }: Props) {
           </div>
         )}
         {!isRunning && hasGenResult && app.generatedImageUrl && (
-          <div className="flex flex-wrap items-center justify-center gap-[var(--space-6)]">
-            <a
-              href={app.generatedImageUrl}
-              download={isDocPaywall ? 'document-photo.jpg' : 'ai-look-photo.jpg'}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="glass-btn-primary px-[var(--space-20)] py-[var(--space-6)] text-[13px] leading-[18px] rounded-[var(--radius-pill)] font-medium no-underline inline-flex items-center gap-[var(--space-6)]"
+          <div className="flex flex-col items-center gap-[var(--space-4)]">
+            <div className="flex flex-wrap items-center justify-center gap-[var(--space-6)]">
+            <button
+              type="button"
+              onClick={handleDownload}
+              disabled={downloadLoading}
+              className="glass-btn-primary px-[var(--space-20)] py-[var(--space-6)] text-[13px] leading-[18px] rounded-[var(--radius-pill)] font-medium no-underline inline-flex items-center gap-[var(--space-6)] disabled:opacity-50"
             >
               <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M8 2v8m0 0L5 7m3 3l3-3M3 12h10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
-              Скачать фото
-            </a>
+              {downloadLoading ? 'Скачивание...' : 'Скачать фото'}
+            </button>
             <button
               onClick={handleShowShare}
               disabled={shareLoading}
@@ -367,6 +396,12 @@ export default function StepGenerate({ onGoToStep, onOpenStorage }: Props) {
               >
                 Открыть AI Look Studio
               </Link>
+            )}
+            </div>
+            {downloadError && (
+              <p className="text-[11px] leading-[14px] text-red-400 text-center">
+                Не удалось скачать файл. Попробуйте позже.
+              </p>
             )}
           </div>
         )}
@@ -484,15 +519,15 @@ export default function StepGenerate({ onGoToStep, onOpenStorage }: Props) {
         </div>
       </div>
 
-      {/* v1.22: A/B surface became the default. The old "Стандарт" hybrid
-          StyleRouter path is still available as a server-side rollback
-          (AB_TEST_ENABLED=false on Railway) but is intentionally hidden
-          from the UI — every UI-visible run is now Nano Banana 2 or GPT
-          Image 2 with an explicit quality tier. */}
+      {/* v1.26: продуктовые лейблы «Обычный режим / Премиум» + кредитный
+          ценник. Внутренне это всё ещё Nano Banana 2 и GPT Image 2, но
+          пользователь видит их как два режима с понятной ценой в кредитах.
+          Реальное списание сейчас 1 кредит за любой режим (см.
+          src/api/deps.py::_reserve_credit_for) — это UI-обещание. */}
       {showStartGenerateCta && !isDocPaywall && (
         <div className="shrink-0 flex flex-col items-center gap-[var(--space-6)] w-full max-w-[520px] mx-auto px-[var(--space-8)]">
           <div className="flex flex-wrap items-center justify-center gap-[var(--space-4)]">
-            <span className="text-[11px] leading-[14px] text-[var(--color-text-muted)] mr-[var(--space-4)]">Модель:</span>
+            <span className="text-[11px] leading-[14px] text-[var(--color-text-muted)] mr-[var(--space-4)]">Режим:</span>
             {AB_MODELS.map((m) => (
               <button
                 key={m.key}
@@ -509,13 +544,8 @@ export default function StepGenerate({ onGoToStep, onOpenStorage }: Props) {
               </button>
             ))}
           </div>
-          {/* v1.25: quality tier is locked to "medium" on the server —
-              the pill selector was removed to stop surfacing a choice
-              that does not affect the output. formatAbCost still
-              receives app.imageQuality from context, which is now a
-              constant "medium". */}
           <span className="text-[11px] leading-[14px] text-[var(--color-text-muted)]">
-            {formatAbCost(getAbModelCost(app.imageModel, app.imageQuality))}
+            {formatAbCredits(app.imageModel)}
           </span>
         </div>
       )}

@@ -31,11 +31,23 @@ def main():
                     spec, "clothing", getattr(spec, "clothing_male", "")
                 ),
                 "expression": getattr(spec, "emotion", getattr(spec, "expression", "")),
-                "allowed_variations": {
-                    "lighting": getattr(spec, "allowed_variations", []),
-                    "clothing": [],
-                    "framing": ["portrait", "half_body", "full_body"],
-                },
+                "allowed_variations": (
+                    # v1.26: StructuredStyleSpec.allowed_variations теперь
+                    # — per-channel dict (lighting/scene/clothing/framing).
+                    # Для обратной совместимости поддерживаем и старый
+                    # плоский список (мигрирует в "lighting").
+                    dict(getattr(spec, "allowed_variations", {}) or {})
+                    if isinstance(
+                        getattr(spec, "allowed_variations", None), dict
+                    )
+                    else {
+                        "lighting": list(
+                            getattr(spec, "allowed_variations", []) or []
+                        ),
+                        "clothing": [],
+                        "framing": ["portrait", "half_body", "full_body"],
+                    }
+                ),
                 "unlock_after_generations": 0,
                 "is_scenario_only": False,
                 "display_label": display_label,

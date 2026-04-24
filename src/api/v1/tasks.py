@@ -6,7 +6,7 @@ from pathlib import Path
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from redis.asyncio import Redis
-from sqlalchemy import select, func, cast, String
+from sqlalchemy import select, cast, String
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.config import settings
@@ -117,6 +117,13 @@ async def _image_available(task: Task, redis: Redis) -> bool:
     return False
 
 
+# Верхняя граница выборки для подсчёта доступных задач. История хранится 24ч
+# и для типичного пользователя помещается в этот лимит с огромным запасом;
+# аномальные аккаунты с >500 завершёнными тасками всё равно увидят корректный
+# счётчик первых 500 (дальше — «500+», но UI этим числом не манипулирует).
+_HISTORY_AVAILABILITY_CAP = 500
+
+
 @router.get("", response_model=TaskHistoryResponse)
 async def list_tasks(
     user: User = Depends(get_current_user),
@@ -128,28 +135,19 @@ async def list_tasks(
     """List completed tasks that have a generated image (for the Storage gallery).
 
     Counter (``total_count``) и список ``items`` должны идти вровень: если задача
-    закрылась без картинки (FAL provider / moderation / ошибка), её нельзя учитывать —
-    иначе счётчик хранилища растёт, а галерея пуста (и пользователь пугается,
-    думая что его фото пропало). Мы фильтруем COMPLETED-задачи по флагу
-    ``result.has_generated_image`` (его выставляет worker на финальном шаге)
-    и по ``_image_available`` (чтобы не показывать файлы, подчищенные TTL).
+    закрылась без картинки (FAL provider / moderation / ошибка) или файл вымело
+    TTL — её нельзя учитывать, иначе счётчик хранилища растёт, а галерея пуста
+    (и пользователь пугается, думая что его фото пропало). Для этого мы
+    выбираем до ``_HISTORY_AVAILABILITY_CAP`` последних COMPLETED-задач с
+    URL-ом, прогоняем каждую через ``_image_available`` и отдаём
+    ``total_count`` уже по отфильтрованному списку — счётчик гарантированно
+    совпадает с содержимым модалки.
     """
-    # Отфильтровываем tasks, у которых нет сгенерированного URL/пути. Используем
-    # CAST(... AS VARCHAR) — это работает и для sqlalchemy.JSON, и для JSONB, в
-    # отличие от диалект-специфичного .astext. Старые записи без маркера
-    # has_generated_image тоже попадут, если у них есть любой из трёх URL-ключей
-    # в result.
     gen_url_filter = (
         cast(Task.result["generated_image_url"], String).isnot(None)
         | cast(Task.result["image_url"], String).isnot(None)
         | cast(Task.result["generated_image_path"], String).isnot(None)
     )
-    count_q = select(func.count(Task.id)).where(
-        Task.user_id == user.id,
-        Task.status == TaskStatus.COMPLETED.value,
-        gen_url_filter,
-    )
-    total_count = (await db.execute(count_q)).scalar() or 0
 
     base_q = (
         select(Task)
@@ -159,16 +157,22 @@ async def list_tasks(
             gen_url_filter,
         )
         .order_by(Task.completed_at.desc())
+        .limit(_HISTORY_AVAILABILITY_CAP)
     )
 
-    rows = await db.execute(base_q.limit(limit * 3).offset(offset))
+    rows = await db.execute(base_q)
     tasks = rows.scalars().all()
 
-    items: list[TaskHistoryItem] = []
+    available: list[Task] = []
     for t in tasks:
-        if not await _image_available(t, redis):
-            continue
+        if await _image_available(t, redis):
+            available.append(t)
 
+    total_count = len(available)
+    window = available[offset : offset + limit]
+
+    items: list[TaskHistoryItem] = []
+    for t in window:
         r = t.result or {}
         ctx = t.context or {}
 
@@ -196,9 +200,6 @@ async def list_tasks(
                 purged=bool(r.get("_purged_at")),
             )
         )
-
-        if len(items) >= limit:
-            break
 
     return TaskHistoryResponse(items=items, total_count=total_count)
 

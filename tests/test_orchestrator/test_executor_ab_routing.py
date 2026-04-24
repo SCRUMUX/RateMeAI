@@ -168,6 +168,112 @@ async def test_ab_active_propagates_gpt_image_2_model(mock_settings):
 
 @pytest.mark.asyncio
 @patch("src.orchestrator.executor.settings")
+async def test_single_pass_threads_framing_into_prompt_engine(mock_settings):
+    """v1.26: ``framing`` kwarg reaches ``PromptEngine.build_image_prompt``
+    as a normalized lowercase token (``portrait`` / ``half_body`` /
+    ``full_body``). Previously the executor read it from ``result_dict``,
+    where it was never populated, so the UI toggle was a silent no-op."""
+    _base_settings(mock_settings)
+    image_gen = MagicMock()
+    image_gen.generate = AsyncMock(return_value=_png())
+    executor = _build_executor(image_gen)
+
+    await executor.single_pass(
+        mode=AnalysisMode.DATING,
+        style="motorcycle",
+        image_bytes=_jpeg(),
+        result_dict={"base_description": "test"},
+        user_id="u1",
+        task_id="t1",
+        trace={"decisions": [], "steps": {}},
+        gender="male",
+        input_quality=_ok_report(),
+        ab_image_model="nano_banana_2",
+        ab_image_quality="medium",
+        framing="HALF_BODY",
+    )
+
+    _, pe_kwargs = executor._prompt_engine.build_image_prompt.call_args
+    assert pe_kwargs.get("framing") == "half_body"
+
+
+@pytest.mark.asyncio
+@patch("src.orchestrator.executor.settings")
+async def test_single_pass_drops_invalid_framing(mock_settings):
+    """Нежелательные токены (``square``, ``'' ``, мусор из API) должны
+    нормализоваться в ``None`` — PromptEngine затем сам решает fallback.
+    Это страхует от будущих расширений UI без контрактной координации."""
+    _base_settings(mock_settings)
+    image_gen = MagicMock()
+    image_gen.generate = AsyncMock(return_value=_png())
+    executor = _build_executor(image_gen)
+
+    await executor.single_pass(
+        mode=AnalysisMode.DATING,
+        style="motorcycle",
+        image_bytes=_jpeg(),
+        result_dict={"base_description": "test"},
+        user_id="u1",
+        task_id="t1",
+        trace={"decisions": [], "steps": {}},
+        gender="male",
+        input_quality=_ok_report(),
+        ab_image_model="nano_banana_2",
+        ab_image_quality="medium",
+        framing="square",
+    )
+
+    _, pe_kwargs = executor._prompt_engine.build_image_prompt.call_args
+    assert pe_kwargs.get("framing") is None
+
+
+@pytest.mark.asyncio
+@patch("src.orchestrator.executor.settings")
+async def test_single_pass_merges_user_input_hints_over_quality_hints(mock_settings):
+    """``user_input_hints`` should take precedence over the quality
+    gate's auto-derived hints, but the quality hints should still come
+    through for keys the user did NOT override. This is the whole point
+    of the «Другой вариант» modal — user overrides, gate fills the rest.
+    """
+    _base_settings(mock_settings)
+    image_gen = MagicMock()
+    image_gen.generate = AsyncMock(return_value=_png())
+    executor = _build_executor(image_gen)
+
+    report = _ok_report()
+    base_hints = report.to_prompt_hints() or {}
+
+    user_hints = {"lighting": "golden hour", "clothing_override": "trench coat"}
+
+    await executor.single_pass(
+        mode=AnalysisMode.DATING,
+        style="motorcycle",
+        image_bytes=_jpeg(),
+        result_dict={"base_description": "test"},
+        user_id="u1",
+        task_id="t1",
+        trace={"decisions": [], "steps": {}},
+        gender="male",
+        input_quality=report,
+        ab_image_model="nano_banana_2",
+        ab_image_quality="medium",
+        user_input_hints=user_hints,
+    )
+
+    _, pe_kwargs = executor._prompt_engine.build_image_prompt.call_args
+    merged = pe_kwargs.get("input_hints") or {}
+    assert merged.get("lighting") == "golden hour"
+    assert merged.get("clothing_override") == "trench coat"
+    for k, v in base_hints.items():
+        if k in user_hints:
+            continue
+        assert merged.get(k) == v, (
+            f"quality-gate key {k!r} lost when user hints only override other keys"
+        )
+
+
+@pytest.mark.asyncio
+@patch("src.orchestrator.executor.settings")
 async def test_ab_inactive_does_not_inject_image_model(mock_settings):
     """If A/B is off (or no model chosen), don't pollute params with an
     ``image_model`` key — the default hybrid path must stay untouched.

@@ -1314,4 +1314,126 @@
 #          the existing ``INTERNAL_API_KEY`` secret. Two independent
 #          layers of access control (repo-admin-gated
 #          workflow_dispatch + X-Internal-Key) are preserved.
-APP_VERSION = "1.25.6"
+# 1.26.0 — Photo pipeline v2 fixes: storage counter + download, framing
+#          as prompt-only, per-style «Другой вариант», cross-server
+#          /storage peer fallback, A/B UI relabel.
+#
+#          1) Storage UX (src/api/v1/tasks.py + web):
+#             * ``list_tasks`` теперь фильтрует задачи по
+#               ``_image_available`` до того, как считает ``total_count``,
+#               поэтому счётчик в NavBar больше не расходится с тем,
+#               что открывает ``StorageModal``. Был баг «кнопка
+#               хранилища открывает пустую модалку» — причина была в
+#               том, что ``total_count`` считался sql-уровнем, а items
+#               фильтровались в Python.
+#             * ``StepGenerate.tsx`` ушёл с ``<a href download>`` на
+#               ``fetch+blob`` с in-place сообщением «Не удалось
+#               скачать файл» при 404 (тот самый ``{"detail":"Not
+#               found"}`` из прод-репорта).
+#
+#          2) Framing как директива промпта, не размер
+#             (src/prompts/image_gen.py + engine.py + orchestrator):
+#             * ``resolve_output_size`` больше не переключает
+#               ``output_aspect`` по ``framing`` — размер теперь
+#               определяется только стилем + PuLID-эвристиками.
+#               Раньше portrait→square_hd / half_body→portrait_4_3 /
+#               full_body→portrait_16_9 ломали формат файла независимо
+#               от стиля, и пользователь, выбравший «портрет»,
+#               получал квадрат.
+#             * ``PromptEngine.build_image_prompt`` принимает
+#               ``framing``; ``_build_mode_prompt`` добавляет короткую
+#               «Framing: head-and-shoulders close-up» / «half-body
+#               from the waist up» / «full body head-to-toe» директиву.
+#               Для документных стилей директива не добавляется —
+#               там композиция фиксирована вендором.
+#             * ``pipeline._execute_inner`` достаёт ``framing`` и
+#               ``user_input_hints`` из task context и передаёт в
+#               ``executor.single_pass`` явными kwargs. ``single_pass``
+#               мерджит ``input_quality.to_prompt_hints()`` с
+#               пользовательскими hints (user > quality-gate), раньше
+#               они перезатирались метриками из input-гейта и
+#               модалка «Другой вариант» молча ничего не меняла.
+#             * Edge→primary пропаганда: ``remote_ai.submit_task/
+#               submit_and_wait``, ``_handle_edge_analysis`` и
+#               ``internal.process_analysis_remote`` теперь форвардят
+#               ``framing`` + ``input_hints``. До этого RU-edge
+#               выкидывал оба поля при проксировании на primary.
+#             * ``web/src/context/AppContext.tsx`` добавил ``framing``
+#               в deps у ``useCallback(generate)`` — иначе фронт
+#               замыкался на первое значение ``framing='portrait'``
+#               и не отправлял последующие выборы.
+#
+#          3) Модалка «Другой вариант» — per-style поля, перевод,
+#             применение (src/prompts/style_spec.py +
+#             services/style_loader.py + prompts/variation_engine.py +
+#             web/src/components/wizard/StyleSettingsModal.tsx):
+#             * ``StructuredStyleSpec.allowed_variations``: плоский
+#               ``list[str]`` заменён на ``dict[str, list[str]]``
+#               (каналы ``lighting`` / ``scene`` / ``clothing`` /
+#               ``framing``). ``style_loader`` перестал плющить эту
+#               структуру — отдаёт 1-в-1 из ``data/styles.json``.
+#             * ``VariationEngine.apply_variation`` переписан на новую
+#               схему: ``lighting`` проверяется по
+#               ``allowed_variations["lighting"]``,
+#               ``scene_override`` — только для ``FLEXIBLE`` +
+#               непустого канала ``scene``, ``clothing_override`` —
+#               только если канал ``clothing`` непуст. Введён
+#               ``strict`` флаг: curated ``StyleVariant`` из ротации
+#               идёт с ``strict=False`` (авторское ревью), а
+#               пользовательские hints — с ``strict=True`` (строгая
+#               per-channel валидация). ``_build_mode_prompt`` теперь
+#               действительно вызывает этот движок для A/B-пути.
+#             * ``StyleSettingsModal.tsx`` перекрашен в
+#               ``gradient-border-card glass-card`` (как
+#               ``StorageModal``), добавил RU-словари (golden hour
+#               → «Золотой час», portrait → «Портрет», …), условный
+#               рендер полей (``options[key]?.length > 0``) и
+#               заголовок «Настройки стиля · <name>». Теперь стиль
+#               «Эйфелева башня» показывает только ракурс и свет,
+#               ``flexible`` — scene / clothing сверху.
+#             * ``dump_styles`` обновлён под dict-формат.
+#
+#          4) A/B UI-labels (web/src/data/ab-models.ts +
+#             StepGenerate.tsx):
+#             * ``nano_banana_2`` → «Обычный режим» (1 кредит),
+#               ``gpt_image_2`` → «Премиум» (2 кредита). Новый
+#               ``formatAbCredits(model)`` с корректной русской
+#               плюрализацией («1 кредит» / «2 кредита» /
+#               «5 кредитов»). Списание на бэкенде остаётся 1 кредит
+#               в ``_reserve_credit_for`` — тариф «Премиум 2
+#               кредита» пока UI-обещание, реальное списание будет
+#               отдельным PR через reserve/refund цепочку.
+#
+#          5) Cross-server /storage peer fallback (src/main.py +
+#             src/config.py):
+#             * ``serve_storage`` после неудачных local/Redis/DB b64
+#               теперь дергает соседний инстанс: primary идёт в
+#               ``edge_peer_url``, edge — в
+#               ``remote_ai_backend_url`` (каждый знает адрес
+#               соседа). Запрос авторизуется по ``X-Internal-Key``;
+#               получатель узнаёт peer-запрос по тому же header'у и
+#               НЕ делает рекурсивный fallback, чтобы избежать
+#               пинг-понга.
+#             * Финальный 404 для браузера теперь отдаёт читаемый
+#               HTML «Файл не найден, истёк 24-часовой срок
+#               хранения», а не голый JSON. API-клиенты (Accept:
+#               application/json) получают прежний JSON.
+#             * Новый config-field ``edge_peer_url: str = ""`` +
+#               ``EDGE_PEER_URL=`` в ``.env.example``. Пустое
+#               значение = fallback выключен (legacy-поведение).
+#
+#          Тесты: ``tests/test_prompts/test_variation_engine.py``
+#          (новый, 8 кейсов на per-channel валидацию),
+#          ``tests/test_prompts/test_image_gen_prompt.py`` (+3 кейса
+#          на framing-директивы и независимость от размера),
+#          ``tests/test_orchestrator/test_executor_ab_routing.py``
+#          (+3 кейса на прокидывание framing / user_input_hints +
+#          мердж hints), ``tests/test_api/test_analyze_ab.py``
+#          (+2 кейса на persist ``framing`` / ``input_hints`` в
+#          task.context + невалидный JSON). Все 1712 тестов
+#          проходят, ruff clean, tsc clean.
+#
+#          Рollback: Phase 1-3 — чистые feature-edits, revert
+#          коммита. Phase 4 огорожен ``if settings.edge_peer_url:``,
+#          без env-переменной — старое поведение.
+APP_VERSION = "1.26.0"
