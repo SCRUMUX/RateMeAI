@@ -108,29 +108,46 @@ jobs:
           # internal address (``postgres.railway.internal``) which is
           # unreachable from a GitHub Actions runner.
           #
-          # The project-scoped ``RAILWAY_TOKEN`` works with CLI calls
-          # (``railway variables --service X``) but the backboard
-          # GraphQL ``project(id:$id)`` query returns "Not Authorized"
-          # for this token class. So instead of listing services via
-          # GraphQL we try candidate service names exhaustively. Last-
-          # resort fallback: the ``app`` service's resolved
-          # ``DATABASE_URL`` if it's external (non-``railway.internal``).
+          # Per Railway docs, project-scoped ``RAILWAY_TOKEN`` uses
+          # the ``Project-Access-Token`` HTTP header (NOT
+          # ``Authorization: Bearer``) for GraphQL queries, and is
+          # pre-scoped to a specific environment — no need to pass
+          # the env id in queries. We use that to enumerate services.
 
-          CANDIDATES="Postgres postgres PostgreSQL postgresql Postgresql PG pg DB db Database database postgres-global Postgres-prod postgres-prod"
+          # Discover the environment + services the token has access to.
+          SERVICES_JSON=$(curl -sS -X POST https://backboard.railway.com/graphql/v2 \
+            -H "Content-Type: application/json" \
+            -H "Project-Access-Token: $RAILWAY_TOKEN" \
+            -d '{"query":"query { projectToken { projectId environmentId } }"}')
+          echo "projectToken response: $SERVICES_JSON"
+          ENV_ID=$(echo "$SERVICES_JSON" | jq -r '.data.projectToken.environmentId // empty')
+          PROJECT_ID=$(echo "$SERVICES_JSON" | jq -r '.data.projectToken.projectId // empty')
+          if [ -z "$ENV_ID" ] || [ -z "$PROJECT_ID" ]; then
+            echo "::error::Could not resolve project/environment id from RAILWAY_TOKEN."
+            exit 1
+          fi
+
+          # List all services in the project. With ``Project-Access-Token``
+          # the project query is allowed (token is pre-scoped to it).
+          Q='{"query":"query($id: String!) { project(id:$id) { services { edges { node { id name } } } } }","variables":{"id":"'"$PROJECT_ID"'"}}'
+          SVC_JSON=$(curl -sS -X POST https://backboard.railway.com/graphql/v2 \
+            -H "Content-Type: application/json" \
+            -H "Project-Access-Token: $RAILWAY_TOKEN" \
+            -d "$Q")
+          SVC_NAMES=$(echo "$SVC_JSON" | jq -r '.data.project.services.edges[].node.name' 2>/dev/null || true)
+          if [ -z "$SVC_NAMES" ]; then
+            echo "::error::Could not list services. Raw response:"
+            echo "$SVC_JSON"
+            exit 1
+          fi
+          echo "Services in project:"
+          echo "$SVC_JSON" | jq -r '.data.project.services.edges[].node | "  - \(.name)"'
+
           PUBLIC_URL=""
           RESOLVED_NAME=""
-
-          for NAME in $CANDIDATES; do
+          for NAME in $SVC_NAMES; do
             if VARS_JSON=$(railway variables --service "$NAME" -e production --json 2>/dev/null); then
-              URL=$(echo "$VARS_JSON" | jq -r '.DATABASE_PUBLIC_URL // empty')
-              if [ -n "$URL" ]; then
-                PUBLIC_URL="$URL"
-                RESOLVED_NAME="$NAME"
-                break
-              fi
-              # Some projects store the public URL under
-              # ``POSTGRES_URL`` / ``POSTGRES_PUBLIC_URL``.
-              URL=$(echo "$VARS_JSON" | jq -r '.POSTGRES_PUBLIC_URL // empty')
+              URL=$(echo "$VARS_JSON" | jq -r '.DATABASE_PUBLIC_URL // .POSTGRES_PUBLIC_URL // empty')
               if [ -n "$URL" ]; then
                 PUBLIC_URL="$URL"
                 RESOLVED_NAME="$NAME"
@@ -139,14 +156,10 @@ jobs:
             fi
           done
 
-          # Fallback: maybe Postgres isn't a Railway plugin at all —
-          # the app service might have an external DATABASE_URL
-          # (Supabase, Neon, self-hosted, etc.). Railway resolves
-          # cross-service variable references (Postgres.DATABASE_URL)
-          # to the internal URL in ``--json`` output, so we only
-          # accept it here if it is clearly external.
+          # Fallback: maybe Postgres is external (Neon/Supabase/self-
+          # hosted) — check the ``app`` service for a non-internal
+          # DATABASE_URL.
           if [ -z "$PUBLIC_URL" ]; then
-            echo "No candidate matched — probing app service DATABASE_URL."
             APP_VARS=$(railway variables --service app -e production --json 2>/dev/null || echo '{}')
             APP_DB_URL=$(echo "$APP_VARS" | jq -r '.DATABASE_URL // empty')
             if [ -n "$APP_DB_URL" ] && ! echo "$APP_DB_URL" | grep -q "railway.internal"; then
@@ -156,8 +169,7 @@ jobs:
           fi
 
           if [ -z "$PUBLIC_URL" ]; then
-            echo "::error::Could not locate DATABASE_PUBLIC_URL. Tried services: $CANDIDATES"
-            echo "Manually run \`railway variables --service <NAME> -e production --json\` against each service in the project to discover the real name, then add it to the CANDIDATES list."
+            echo "::error::Could not locate DATABASE_PUBLIC_URL in any service listed above, and app.DATABASE_URL is internal/empty."
             exit 1
           fi
 
