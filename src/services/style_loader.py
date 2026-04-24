@@ -1,4 +1,19 @@
-"""Style loader from JSON database."""
+"""Style loader from JSON database.
+
+Still authoritative for:
+
+* :func:`load_styles_from_json` — thin cached read of
+  ``data/styles.json``. Consumed by :mod:`src.services.style_loader_v2`,
+  :mod:`src.services.style_catalog`, and the v1 fallback block in
+  :mod:`src.prompts.image_gen`.
+* :func:`get_structured_specs` — converts every entry to a v1
+  :class:`StructuredStyleSpec` for :data:`STYLE_REGISTRY` so the v1
+  lookup path keeps working for unexpected edge cases.
+
+See ``docs/CLEANUP_STYLE_V2.md`` for the planned eventual teardown
+(promote ``load_styles_from_json`` to ``style_json.py`` and drop the
+v1 converter).
+"""
 
 import json
 import os

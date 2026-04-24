@@ -5,41 +5,23 @@ from src.prompts import rating, dating, cv, social, emoji
 from src.prompts import image_gen as ig
 from src.prompts import perception as _perception  # noqa: F401 — ensures perception module loads
 
+
+# Direct-dispatch table for the framing/target_model/gender-aware
+# builders. Emoji is intentionally absent — its builder has a different
+# signature and does not consume target_model/framing.
+_DIRECT_IMAGE_BUILDERS = {
+    AnalysisMode.DATING: ig.build_dating_prompt,
+    AnalysisMode.CV: ig.build_cv_prompt,
+    AnalysisMode.SOCIAL: ig.build_social_prompt,
+}
+
+
 _PROMPT_MAP = {
     AnalysisMode.RATING: rating.build_prompt,
     AnalysisMode.DATING: dating.build_prompt,
     AnalysisMode.CV: cv.build_prompt,
     AnalysisMode.SOCIAL: social.build_prompt,
     AnalysisMode.EMOJI: emoji.build_prompt,
-}
-
-_IMAGE_PROMPT_MAP = {
-    AnalysisMode.DATING: lambda style,
-    _desc,
-    gender,
-    q,
-    variant: ig.build_dating_prompt(style, gender, input_hints=q, variant=variant),
-    AnalysisMode.CV: lambda style, _desc, gender, q, variant: ig.build_cv_prompt(
-        style, gender, input_hints=q, variant=variant
-    ),
-    AnalysisMode.SOCIAL: lambda style,
-    _desc,
-    gender,
-    q,
-    variant: ig.build_social_prompt(style, gender, input_hints=q, variant=variant),
-    AnalysisMode.EMOJI: lambda _style,
-    desc,
-    gender,
-    _q,
-    _variant: ig.build_emoji_prompt(desc, gender=gender),
-}
-
-# Билдеры, понимающие ``target_model`` и ``framing`` (все A/B-модели,
-# кроме emoji, который не уходит в image-gen модели уровня GPT-Image-2).
-_MODE_BUILDERS_WITH_FRAMING = {
-    ig.build_dating_prompt,
-    ig.build_cv_prompt,
-    ig.build_social_prompt,
 }
 
 _MODE_STYLE_DICTS: dict[AnalysisMode, dict[str, str]] = {
@@ -79,9 +61,6 @@ class PromptEngine:
         target_model: str = "gpt_image_2",
         framing: str | None = None,
     ) -> str:
-        builder = _IMAGE_PROMPT_MAP.get(mode)
-        if builder is None:
-            raise ValueError(f"No image prompt for mode: {mode}")
         mode_str = _MODE_VALUE_MAP.get(mode, mode.value)
         variant = (
             ig.resolve_style_variant(mode_str, style, variant_id)
@@ -89,18 +68,92 @@ class PromptEngine:
             else None
         )
 
-        if builder in _MODE_BUILDERS_WITH_FRAMING:
-            return builder(
-                style,
-                base_description,
-                gender,
-                input_hints,
-                variant,
-                target_model,
-                framing,
+        if mode in _DIRECT_IMAGE_BUILDERS:
+            return _DIRECT_IMAGE_BUILDERS[mode](
+                style=style,
+                base_description=base_description,
+                gender=gender,
+                input_hints=input_hints,
+                variant=variant,
+                target_model=target_model,
+                framing=framing,
             )
 
-        return builder(style, base_description, gender, input_hints, variant)
+        if mode == AnalysisMode.EMOJI:
+            return ig.build_emoji_prompt(base_description, gender=gender)
+
+        raise ValueError(f"No image prompt for mode: {mode}")
+
+    def build_image_prompt_v2(
+        self,
+        mode: AnalysisMode,
+        style: str = "",
+        base_description: str = "",
+        gender: str = "male",
+        input_hints: dict | None = None,
+        variant_id: str = "",
+        target_model: str = "gpt_image_2",
+        framing: str | None = None,
+    ) -> str | None:
+        """v2 prompt path — :class:`StyleSpecV2` + composition + wrapper.
+
+        Additive companion to :meth:`build_image_prompt`. Returns
+        ``None`` when the requested style is not registered as a v2
+        spec so the executor can transparently fall back to the v1
+        path. When the spec IS v2 (and the caller has already
+        checked the ``unified_prompt_v2_enabled`` flag) the returned
+        string is the final prompt for ``target_model``.
+
+        Emoji intentionally stays on the legacy path; its builder has
+        a different signature and does not benefit from the slot-based
+        composition.
+        """
+        if mode not in _DIRECT_IMAGE_BUILDERS:
+            return None
+
+        mode_str = _MODE_VALUE_MAP.get(mode, mode.value)
+
+        from src.prompts.image_gen import STYLE_REGISTRY as _REG
+        from src.prompts.style_schema_v2 import StyleSpecV2
+
+        spec = _REG.get_v2(mode_str, style)
+        if not isinstance(spec, StyleSpecV2):
+            return None
+
+        from src.prompts.composition_builder import build_composition
+        from src.prompts.image_gen import (
+            _DOCUMENT_STYLE_KEYS,
+            _dating_social_change_instruction,
+        )
+        from src.prompts.model_wrappers import wrap_for_model
+
+        is_doc = mode_str == "cv" and style in _DOCUMENT_STYLE_KEYS
+
+        if is_doc:
+            change_instruction = (
+                "Replace background with a clean neutral backdrop and clothing "
+                "with a simple solid-color top, bare head. Head centered, "
+                "shoulders straight, eyes open looking at camera, mouth closed."
+            )
+        elif mode_str in ("dating", "social"):
+            change_instruction = _dating_social_change_instruction(mode_str, style)
+        else:  # non-doc CV
+            change_instruction = (
+                "Change the background and clothing to professional attire "
+                "for the person in the reference photo."
+            )
+
+        ir = build_composition(
+            spec,
+            mode=mode_str,
+            change_instruction=change_instruction,
+            input_hints=input_hints,
+            framing=framing,
+            gender=gender,
+            strict=(not variant_id),
+            is_document=is_doc,
+        )
+        return wrap_for_model(ir, target_model)
 
     def build_step_prompt(
         self,

@@ -70,6 +70,13 @@ def _base_settings(mock_settings) -> None:
     # v1.24.2 contract: ab_test_enabled is the gate for the A/B path.
     mock_settings.ab_test_enabled = True
     mock_settings.ab_default_quality = "medium"
+    # style-schema-v2 migration flags — default OFF so these tests
+    # keep describing the v1 routing behaviour. Without these, the
+    # MagicMock would otherwise return truthy attribute mocks and
+    # silently flip the v2 branch on.
+    mock_settings.unified_prompt_v2_enabled = False
+    mock_settings.style_schema_v2_enabled = False
+    mock_settings.variation_engine_v2_enabled = False
 
 
 def _build_executor(image_gen):

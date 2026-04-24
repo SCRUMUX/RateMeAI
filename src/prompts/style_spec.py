@@ -320,9 +320,35 @@ class StyleRegistry:
 
     def __init__(self) -> None:
         self._by_key: dict[tuple[str, str], StyleSpec] = {}
+        # style-schema-v2 migration PR1 — StyleSpecV2 instances live in
+        # a parallel map so the v1 code paths (``get`` / ``get_or_default``
+        # / ``style_dict``) stay untouched. Callers that want the v2
+        # spec go through ``get_v2``; the executor decides which path to
+        # take based on the ``unified_prompt_v2_enabled`` flag plus
+        # whether ``get_v2`` returns anything for ``(mode, key)``.
+        self._v2_by_key: dict[tuple[str, str], object] = {}
 
     def register(self, spec: StyleSpec) -> None:
         self._by_key[(spec.mode, spec.key)] = spec
+
+    def register_v2(self, spec: object) -> None:
+        """Register a :class:`StyleSpecV2`.
+
+        Typed as ``object`` here to avoid a cross-module import cycle
+        (``style_schema_v2`` pulls in ``image_gen`` which indirectly
+        pulls in ``style_spec``). The runtime guarantee is still that
+        ``spec.mode`` and ``spec.key`` exist.
+        """
+        self._v2_by_key[(getattr(spec, "mode"), getattr(spec, "key"))] = spec
+
+    def get_v2(self, mode: str, key: str) -> object | None:
+        return self._v2_by_key.get((mode, key))
+
+    def has_v2(self, mode: str, key: str) -> bool:
+        return (mode, key) in self._v2_by_key
+
+    def keys_v2_for_mode(self, mode: str) -> list[str]:
+        return [k for (m, k) in self._v2_by_key if m == mode]
 
     def get(self, mode: str, key: str) -> StyleSpec | None:
         return self._by_key.get((mode, key))

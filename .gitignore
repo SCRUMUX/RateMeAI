@@ -22,4 +22,9 @@ image*.png
 
 # temp probe/diag artifacts
 _tmp_*/
+_diag/
+
+# style-schema-v2 migration: local backups of data/styles.json
+# (scripts/migrate_styles_v1_to_v2.py dumps timestamped snapshots here)
+data/.styles_backup/
 

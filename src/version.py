@@ -1578,4 +1578,165 @@
 #          Правки в worker и ``get_task`` изолированы и могут
 #          жить отдельно, но без них primary-картинка снова не
 #          переживёт рестарт / evict.
-APP_VERSION = "1.26.2"
+# 1.27.0 — Style-schema v2 production cutover. Всю воркфлоу
+#          «image generation» переведём на slot-based стили
+#          (``schema_version: 2``) с явными каналами weather /
+#          time_of_day / season / clothing / background и
+#          модельно-специфичными quality/identity хвостами. Фаза
+#          "big-bang на один деплой, без канарейки" по запросу
+#          пользователя.
+#
+#          1) Data migration (data/styles.json, 100/100 entries):
+#             * ``scripts/migrate_styles_v1_to_v2.py --batch all
+#               --write`` мигрирует все 100 стилей на
+#               ``schema_version: 2``. Бэкапы времянки дропаются
+#               в ``data/.styles_backup/`` (gitignored); миграция
+#               идемпотентна, повторный прогон no-op.
+#             * Новые поля per-entry: ``trigger`` (основной текст
+#               сцены), ``context_slots`` (``lighting`` /
+#               ``framing`` / etc.), ``weather`` (enabled + allowed
+#               + default_na), ``clothing`` (default + allowed +
+#               gender_neutral), ``background`` (base + lock +
+#               overrides_allowed), ``quality_identity`` (пустой
+#               блок — заполняется с per-model wrapper'ом). v1
+#               поля сохранены для fallback.
+#
+#          2) Prompt composition (src/prompts/style_schema_v2.py +
+#             composition_builder.py + model_wrappers.py):
+#             * ``StyleSpecV2`` dataclass с explicit slots.
+#             * ``build_composition(spec, mode, model, gender,
+#               input_hints, variant_id)`` собирает
+#               ``CompositionIR`` из trigger + context slots +
+#               variation (через VariationEngineV2) + background
+#               lock. IR потом упаковывается в финальную строку
+#               per-model через wrapper (``wrap_for_gpt_image_2``
+#               / ``wrap_for_nano_banana_2``) — каждая модель
+#               получает свой quality/identity хвост без ветвления
+#               в общем builder'е.
+#
+#          3) Executor branch (src/orchestrator/executor.py):
+#             * ``single_pass`` теперь сначала пробует
+#               ``PromptEngine.build_image_prompt_v2(...)``, который
+#               заходит в v2-путь только если: а) флаг
+#               ``unified_prompt_v2_enabled=True``, б) стиль
+#               зарегистрирован как ``StyleSpecV2`` в v2-registry
+#               (``register_v2_styles_from_json``). Иначе возвращает
+#               ``None`` → fallback на legacy
+#               ``build_image_prompt(...)`` бит-в-бит без изменений.
+#             * Двойная защита: даже если v2-registry пуст или
+#               JSON битый — executor гарантированно отработает по
+#               v1, production генерация не прерывается.
+#
+#          4) Variation engine v2 (src/prompts/variation_engine_v2.py):
+#             * ``apply_variation_v2`` с раздельными каналами
+#               (weather / time_of_day / season / background_type)
+#               вместо старой whitelist-логики. Старый
+#               ``VariationEngine`` (conflates weather с lighting)
+#               остался как fallback для v1-стилей; на v2-стилях
+#               за движок отвечает флаг
+#               ``variation_engine_v2_enabled=True``.
+#             * ``generate_next_variant_hints(spec, previous_hints,
+#                 history_size)`` — интеллектуальная подстановка
+#               следующего варианта: rotate через каналы, избегая
+#               повтора последних N.
+#
+#          5) Catalog API v2 (src/services/style_catalog.py +
+#             src/api/v1/catalog.py):
+#             * ``GET /api/v1/catalog/styles?mode=...&schema=v2``
+#               возвращает плоский список стилей с
+#               ``schema_version: 2``.
+#             * ``GET /api/v1/catalog/options?style=<id>&schema=v2``
+#               возвращает structured slots: ``trigger``,
+#               ``context_slots``, ``weather`` (enabled/allowed/
+#               default_na), ``clothing`` (default/allowed/gender_
+#               neutral), ``background`` (base/lock/overrides_
+#               allowed). Легко питает будущую «Другой вариант»
+#               UI с раздельными переключателями.
+#             * Без параметра ``?schema=v2`` (legacy) API продолжает
+#               возвращать v1-формат — фронт до миграции не
+#               ломается.
+#
+#          6) Feature flags (src/config.py + .env.example): все
+#             три v2-флага ``STYLE_SCHEMA_V2_ENABLED``,
+#             ``UNIFIED_PROMPT_V2_ENABLED``,
+#             ``VARIATION_ENGINE_V2_ENABLED`` дефолтно = True.
+#             Тривиальный rollback: выставить нужный флаг в
+#             ``False`` в Railway / ``.env.ru`` и перезапустить
+#             сервис — executor моментально валится на v1 без
+#             ревёрта кода.
+#
+#          7) CI/CD — pin флагов (.github/workflows/ci.yml):
+#             * Railway env-sync (``rl_set`` loop) повторно
+#               выставляет три v2-флага в ``true`` на
+#               ``app``/``worker`` при каждом деплое — защита от
+#               ручного override'а в dashboard.
+#             * Также пройдёт ``railway variables delete
+#               PROMPT_ENGINE_MAP_FIX`` — флаг удалён, остаток в
+#               env мусорит логи.
+#             * RU edge deploy (``sync_env``) делает то же самое с
+#               ``/opt/ratemeai/.env.ru``: пишет три v2-флага в
+#               ``true``, выпиливает ``PROMPT_ENGINE_MAP_FIX``.
+#
+#          8) V1 cleanup (чисто dead code):
+#             * ``src/prompts/ab_prompt.py`` удалён — A/B-промпты
+#               теперь строит ``PromptEngine`` → v2 pipeline.
+#             * ``tests/test_prompts/test_ab_prompt.py``,
+#               ``tests/test_prompts/test_engine_map_fix.py``,
+#               ``tests/test_prompts/test_engine_characterization.py``
+#               удалены.
+#             * ``_IMAGE_PROMPT_MAP`` и
+#               ``_prompt_engine_map_fix_enabled`` helper удалены
+#               из ``src/prompts/engine.py``. ``build_image_prompt``
+#               теперь делает прямой dispatch в
+#               ``_DIRECT_IMAGE_BUILDERS`` (баг с теряющимися
+#               framing/target_model из-за лямбд исправлен
+#               окончательно).
+#             * ``src/config.py``: удалены поля
+#               ``prompt_engine_map_fix`` и ``ab_prompt_max_len``.
+#             * Dead-on-prod но alive-in-tree (покрыты тестами,
+#               работают как safety net на случай битого JSON):
+#               ``src/prompts/image_gen.py::_build_mode_prompt``,
+#               ``src/services/style_loader.py``,
+#               ``src/prompts/style_variants.py``. Докстринги
+#               обновлены, план удаления — в
+#               ``docs/CLEANUP_STYLE_V2.md``.
+#
+#          9) .gitignore: добавлены ``_diag/`` (артефакты
+#             ``scripts/shadow_diff_prompt_engine.py``) и
+#             ``data/.styles_backup/`` (таймстемпированные
+#             снэпшоты от миграционного скрипта).
+#
+#          Тесты: 1953 passed (один раз после каждого шага
+#          cleanup), ruff clean. Новые файлы:
+#          ``tests/test_prompts/test_schema_v2_parity.py``
+#          (v1 ↔ v2 промпты должны давать идентичный вывод для
+#          базовых inputs — гарантия того, что v2 ничего не
+#          ломает на старых стилях),
+#          ``tests/test_prompts/test_variation_engine_v2.py``
+#          (раздельные каналы + генерация next-variant hints),
+#          ``tests/test_services/test_style_migration_v2.py``
+#          (idempotency, conservative defaults, батч-режимы).
+#
+#          Rollback plan (инкрементальный, без ревёрта кода):
+#            * Полный откат v2-пайплайна: на обоих сервисах
+#              (Railway app+worker + RU edge) выставить
+#              ``UNIFIED_PROMPT_V2_ENABLED=false`` и
+#              перезапустить. Executor уйдёт в v1 branch,
+#              ``data/styles.json`` с ``schema_version: 2``
+#              по-прежнему читается через v1-конвертер в
+#              ``style_loader.get_structured_specs()``.
+#            * Откат регистрации v2-стилей (если
+#              ``style_loader_v2`` как-то повреждает
+#              ``STYLE_REGISTRY``): ``STYLE_SCHEMA_V2_ENABLED=false``,
+#              v2-registry остаётся пустым, v1 fallback на 100 %.
+#            * Откат variation engine (если новая логика каналов
+#              даёт странный output): ``VARIATION_ENGINE_V2_ENABLED=
+#              false``, composition_builder вернётся к старому
+#              ``VariationEngine`` внутри v2-пути.
+#
+#          Edge contract / worker contract / external API: без
+#          изменений. Frontend: v2-эндпоинты опциональны
+#          (``?schema=v2``), default остаётся v1 JSON — UI
+#          можно мигрировать отдельным PR, когда готов дизайн
+#          для «Другой вариант» с раздельными каналами.
+APP_VERSION = "1.27.0"

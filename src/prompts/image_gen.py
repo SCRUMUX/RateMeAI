@@ -1221,6 +1221,17 @@ try:
 
     for spec in get_structured_specs():
         STYLE_REGISTRY.register(spec)
+
+    # style-schema-v2 migration PR1 — additive. Only registers entries
+    # with ``schema_version: 2`` and only when
+    # ``settings.style_schema_v2_enabled`` is on; otherwise the v2
+    # registry stays empty and the executor branch short-circuits.
+    try:
+        from src.services.style_loader_v2 import register_v2_styles_from_json
+
+        register_v2_styles_from_json()
+    except Exception as _v2_exc:  # noqa: BLE001 — additive path must never break v1
+        logger.warning("style_loader_v2 failed: %s", _v2_exc)
 except Exception as e:
     logger.error(f"Failed to load styles from JSON: {e}")
     # Fallback to legacy loading if JSON fails
@@ -1366,6 +1377,12 @@ def _build_mode_prompt(
     if head-crop × full-body] → PRESERVE → QUALITY. No section tags, no
     redundant anchors, no conditional DoF — one natural paragraph that the
     generation model parses cleanly.
+
+    Post-v2-cutover this function is only reached through the executor's
+    v1 fallback branch (``if prompt is None:`` after
+    ``build_image_prompt_v2``) which does not fire on migrated styles.
+    It stays live for test coverage and as a defensive fallback. See
+    ``docs/CLEANUP_STYLE_V2.md`` for the eventual removal plan.
     """
     style_key_norm = (style or "").strip()
     is_doc = mode == "cv" and style_key_norm in _DOCUMENT_STYLE_KEYS

@@ -70,6 +70,28 @@ jobs:
           API_BASE_URL: http://127.0.0.1:8000
         run: python -m pytest tests/ -v --tb=short
 
+      # Non-blocking PR0 shadow diff: measures how much prompts would
+      # change if the PromptEngine lambdas were replaced with direct
+      # builder calls (see scripts/shadow_diff_prompt_engine.py and the
+      # style-schema-v2 migration plan). Report is uploaded as an
+      # artifact regardless of exit code.
+      - name: Prompt engine shadow diff (non-blocking)
+        if: always()
+        continue-on-error: true
+        env:
+          DATABASE_URL: postgresql+asyncpg://ratemeai:ratemeai@127.0.0.1:5432/ratemeai
+          REDIS_URL: redis://127.0.0.1:6379/0
+          APP_ENV: dev
+        run: python -m scripts.shadow_diff_prompt_engine --output _diag/prompt_shadow_diff.md
+
+      - name: Upload shadow diff report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: prompt-shadow-diff
+          path: _diag/prompt_shadow_diff.md
+          if-no-files-found: ignore
+
       - name: Typecheck frontend
         working-directory: web
         run: |
@@ -189,6 +211,21 @@ jobs:
             rl_set CODEFORMER_ENABLED="true" -s "$SVC" -e production --skip-deploys
             rl_set REAL_ESRGAN_ENABLED="true" -s "$SVC" -e production --skip-deploys
             rl_set GFPGAN_PRECLEAN_ENABLED="true" -s "$SVC" -e production --skip-deploys
+          done
+          # style-schema-v2 rollout (v1.25+): explicitly pin the three
+          # v2 feature flags so Railway dashboard overrides cannot
+          # silently disable the new prompt pipeline. All three default
+          # to true in src/config.py; we re-assert them here so every
+          # deploy heals any accidental dashboard tweak. Removing these
+          # lines requires updating src/config.py defaults first.
+          echo "Syncing style-schema-v2 feature flags to Railway (app + worker)..."
+          for SVC in app worker; do
+            rl_set STYLE_SCHEMA_V2_ENABLED="true" -s "$SVC" -e production --skip-deploys
+            rl_set UNIFIED_PROMPT_V2_ENABLED="true" -s "$SVC" -e production --skip-deploys
+            rl_set VARIATION_ENGINE_V2_ENABLED="true" -s "$SVC" -e production --skip-deploys
+            # Dead flag removed in v1.25 (lambda map fix became unconditional).
+            # Deleting proactively avoids stale env noise on each service.
+            railway variables delete PROMPT_ENGINE_MAP_FIX -s "$SVC" -e production 2>/dev/null || echo "  (PROMPT_ENGINE_MAP_FIX absent on $SVC — skipped)"
           done
           rl_set DEPLOY_GIT_SHA="$SHORT_SHA" -s bot -e production --skip-deploys
           rl_set DEPLOYMENT_MODE="primary" -s bot -e production --skip-deploys
@@ -361,6 +398,16 @@ jobs:
             sync_env WEB_BASE_URL "$RU_PUBLIC_BASE_URL"
             sync_env VITE_API_BASE_URL "$RU_PUBLIC_BASE_URL"
             sync_env VITE_MARKET_ID ru
+            # style-schema-v2 rollout (v1.25+): pin v2 flags on the RU
+            # edge just like on Railway, so a stale .env.ru cannot
+            # silently disable the new prompt pipeline. All three
+            # default to true in src/config.py — these lines heal any
+            # accidental manual override on every deploy.
+            sync_env STYLE_SCHEMA_V2_ENABLED true
+            sync_env UNIFIED_PROMPT_V2_ENABLED true
+            sync_env VARIATION_ENGINE_V2_ENABLED true
+            # Dead flag removed in v1.25; strip it if still present.
+            sed -i '/^PROMPT_ENGINE_MAP_FIX=/d' "$ENV_FILE" 2>/dev/null || true
             if [ -n "$INTERNAL_API_KEY" ]; then
               sync_env INTERNAL_API_KEY "$INTERNAL_API_KEY"
               echo "INTERNAL_API_KEY synced to .env.ru"

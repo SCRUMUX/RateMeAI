@@ -253,21 +253,28 @@ class Settings(BaseSettings):
     # (old bot builds, edge proxy, curl, tests). GPT Image 2 at
     # ``quality=medium`` is the recommended starting tier to guarantee background details.
     ab_default_model: str = "gpt_image_2"
+    # ------------------------------------------------------------------
+    # style-schema-v2 migration — PR1..PR4.
+    # Controls whether the StyleSpecV2 loader registers v2-tagged
+    # entries from data/styles.json (otherwise they are ignored and
+    # the v1 path handles everything). Default false so existing
+    # deployments keep loading exactly what they load today.
+    style_schema_v2_enabled: bool = True
+    # When true AND the resolved StyleSpec is a StyleSpecV2, the
+    # executor routes the prompt through
+    # ``PromptEngine.build_image_prompt_v2`` → composition_builder →
+    # per-model wrappers. Default false so the v2 prompt path is
+    # opt-in per environment.
+    unified_prompt_v2_enabled: bool = True
+    # When true the v2 composition builder uses VariationEngineV2 with
+    # separated weather / time_of_day / season / background channels
+    # instead of the legacy VariationEngine (which conflates weather
+    # with lighting). Has no effect when ``unified_prompt_v2_enabled``
+    # is false.
+    variation_engine_v2_enabled: bool = True
     # Default quality tier for the A/B models when the web client does
     # not pass an explicit one. Minimum for production is medium.
     ab_default_quality: str = "medium"
-    # Maximum character length for the 8-block adapter prompt. Both
-    # A/B models handle longer prompts than FLUX Lightning, so the cap
-    # is higher than ``PROMPT_MAX_LEN`` (1200) used by the hybrid path.
-    # v1.23: bumped from 1500 to 2000. The v1.23 GPT Image 2 wrapper
-    # emits an extended Preserve/Constraints inventory (eye shape,
-    # nose bridge, jawline, hairline, …) per the OpenAI fidelity
-    # cookbook and the old 1500-char cap truncated the tail of
-    # ``Constraints:`` on styles with long scene descriptions,
-    # losing the critical ``no face change`` / ``no plastic skin``
-    # anchors. 2000 leaves comfortable headroom for both models
-    # (GPT-2 handles multi-thousand-char prompts well).
-    ab_prompt_max_len: int = 2000
     # v1.23: identity-retry is intentionally DISABLED on the A/B path.
     # The legacy retry loop re-runs the provider with PuLID-specific
     # parameters (``pulid_mode``, ``id_scale``) that Nano Banana 2 and

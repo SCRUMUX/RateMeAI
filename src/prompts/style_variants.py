@@ -7,6 +7,14 @@ is resolved for the current request.
 
 Document styles are intentionally not listed here: their scene must stay
 rigorously uniform and any diversification would break compliance.
+
+Post-v2-cutover :data:`STYLE_VARIANTS` is only read by the JSON-load
+exception fallback in :mod:`src.prompts.image_gen` — a safety net that
+fires when ``data/styles.json`` is missing or corrupt. v2 supersedes
+this module via per-style context slots
+(:mod:`src.prompts.style_schema_v2`) and dynamic hint generation
+(:func:`src.prompts.variation_engine_v2.generate_next_variant_hints`);
+see ``docs/CLEANUP_STYLE_V2.md`` for the removal plan.
 """
 
 from __future__ import annotations

@@ -908,3 +908,100 @@ def get_style_options(style_id: str) -> dict | None:
         if s["id"] == style_id:
             return s.get("allowed_variations", {})
     return None
+
+
+# --------------------------------------------------------------------------
+# style-schema-v2 catalog helpers (PR4)
+#
+# These helpers expose the slot-based view of a style so API clients can
+# render the new «Другой вариант» modal with explicit channels. They are
+# additive: absence of v2 data simply returns ``None`` and callers fall
+# back to the v1 payload returned by ``get_style_options``.
+# --------------------------------------------------------------------------
+
+
+def _v2_slots_from_raw(raw: dict) -> dict | None:
+    """Build a JSON-friendly v2 slot payload from a raw styles.json entry.
+
+    Returns ``None`` when the entry is not yet v2-tagged so the caller can
+    gracefully fall back to the v1 shape.
+    """
+    if int(raw.get("schema_version") or 0) != 2:
+        return None
+
+    from src.services.style_loader_v2 import _to_v2
+
+    spec = _to_v2(raw)
+    if spec is None:
+        return None
+
+    context_slots = {
+        k: list(v) for k, v in spec.context_slots.items() if v
+    }
+
+    return {
+        "schema_version": 2,
+        "trigger": spec.trigger,
+        "context_slots": context_slots,
+        "weather": {
+            "enabled": spec.weather.enabled,
+            "allowed": list(spec.weather.allowed),
+            "default_na": spec.weather.default_na,
+        },
+        "clothing": {
+            "default": spec.clothing.default,
+            "allowed": list(spec.clothing.allowed),
+            "gender_neutral": spec.clothing.gender_neutral,
+        },
+        "background": {
+            "base": spec.background.base,
+            "lock": spec.background.lock.value,
+            "overrides_allowed": list(spec.background.overrides_allowed),
+        },
+    }
+
+
+def get_style_options_v2(style_id: str) -> dict | None:
+    """Return v2 slot payload for a style or ``None`` if not yet migrated.
+
+    Reads from ``data/styles.json`` directly (not the registry) so it
+    works regardless of the ``style_schema_v2_enabled`` feature flag:
+    the flag gates *runtime prompt generation*, while this function is
+    a pure view over the data file.
+    """
+    from src.services.style_loader import load_styles_from_json
+
+    for entry in load_styles_from_json():
+        if entry.get("id") != style_id:
+            continue
+        return _v2_slots_from_raw(entry)
+    return None
+
+
+def get_catalog_json_v2(mode: str) -> list[dict]:
+    """Return the catalog for a mode enriched with ``schema_version`` flag.
+
+    Clients that send ``?schema=v2`` get the same list as
+    :func:`get_catalog_json` plus a ``schema_version`` field per entry
+    (``1`` or ``2``) so the UI can decide whether to render legacy
+    ``allowed_variations`` or the new slot-based controls for that style.
+    """
+    from src.services.style_loader import load_styles_from_json
+
+    styles = load_styles_from_json()
+    items: list[dict] = []
+    for s in styles:
+        if s.get("mode") != mode or s.get("is_scenario_only", False):
+            continue
+        items.append(
+            {
+                "key": s["id"],
+                "label": s.get("display_label", s["id"]),
+                "hook": s.get("hook_text", ""),
+                "meta": s.get("meta", {}),
+                "category": s.get("category", "General"),
+                "unlock_after_generations": s.get("unlock_after_generations", 0),
+                "schema_version": int(s.get("schema_version") or 1),
+            }
+        )
+    return items

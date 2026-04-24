@@ -491,16 +491,35 @@ class ImageGenerationExecutor:
             merged_hints = {**base_hints, **(user_input_hints or {})}
             input_hints = merged_hints or None
 
-            prompt = self._prompt_engine.build_image_prompt(
-                mode,
-                style=style,
-                base_description=desc,
-                gender=gender,
-                input_hints=input_hints,
-                variant_id=variant_id,
-                target_model=ab_image_model,
-                framing=framing_norm,
-            )
+            # style-schema-v2 migration PR1 — additive branch. The v2
+            # path is only taken when BOTH the feature flag is on AND
+            # the style has been registered as a StyleSpecV2; in every
+            # other case ``build_image_prompt_v2`` returns None and we
+            # fall through to the v1 path bit-for-bit unchanged.
+            prompt = None
+            if getattr(settings, "unified_prompt_v2_enabled", False):
+                prompt = self._prompt_engine.build_image_prompt_v2(
+                    mode,
+                    style=style,
+                    base_description=desc,
+                    gender=gender,
+                    input_hints=input_hints,
+                    variant_id=variant_id,
+                    target_model=ab_image_model,
+                    framing=framing_norm,
+                )
+
+            if prompt is None:
+                prompt = self._prompt_engine.build_image_prompt(
+                    mode,
+                    style=style,
+                    base_description=desc,
+                    gender=gender,
+                    input_hints=input_hints,
+                    variant_id=variant_id,
+                    target_model=ab_image_model,
+                    framing=framing_norm,
+                )
 
             if variant_id:
                 result_dict["variant_id"] = variant_id
