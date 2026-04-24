@@ -142,9 +142,9 @@ jobs:
           # Fallback: maybe Postgres isn't a Railway plugin at all —
           # the app service might have an external DATABASE_URL
           # (Supabase, Neon, self-hosted, etc.). Railway resolves
-          # ``${{Postgres.DATABASE_URL}}`` references to the internal
-          # URL in ``--json`` output, so we only accept it here if it
-          # is clearly external.
+          # cross-service variable references (Postgres.DATABASE_URL)
+          # to the internal URL in ``--json`` output, so we only
+          # accept it here if it is clearly external.
           if [ -z "$PUBLIC_URL" ]; then
             echo "No candidate matched — probing app service DATABASE_URL."
             APP_VARS=$(railway variables --service app -e production --json 2>/dev/null || echo '{}')
