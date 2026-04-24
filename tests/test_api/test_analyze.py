@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import io
+import socket
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import pytest
 from PIL import Image
 
 _CONSENT_HEADERS = {
@@ -33,6 +35,48 @@ def _register_user(client, telegram_id: int = 999001) -> str:
 
 def _auth(token: str) -> dict[str, str]:
     return {"Authorization": f"Bearer {token}", **_CONSENT_HEADERS}
+
+
+def _integration_services_alive() -> bool:
+    """Same reachability check as ``tests/test_api/conftest.py::client``."""
+    try:
+        with socket.create_connection(("127.0.0.1", 5432), timeout=0.35):
+            pg_ok = True
+    except OSError:
+        pg_ok = False
+    try:
+        with socket.create_connection(("127.0.0.1", 6379), timeout=0.35):
+            redis_ok = True
+    except OSError:
+        redis_ok = False
+    return pg_ok and redis_ok
+
+
+class _TaskCtxCapture:
+    """Wrap ``Task.__init__`` to record ``context`` (see test_analyze_ab)."""
+
+    def __init__(self):
+        self.contexts: list[dict] = []
+        self._patcher = None
+        self._orig_init = None
+
+    def __enter__(self):
+        from src.models.db import Task
+
+        self._orig_init = Task.__init__
+        capture = self
+
+        def _wrapped(self, *args, **kwargs):
+            capture.contexts.append(kwargs.get("context") or {})
+            return capture._orig_init(self, *args, **kwargs)
+
+        self._patcher = patch.object(Task, "__init__", _wrapped)
+        self._patcher.start()
+        return self
+
+    def __exit__(self, *exc):
+        self._patcher.stop()
+        return False
 
 
 @patch("src.api.v1.analyze._get_arq", new_callable=AsyncMock)
@@ -125,11 +169,6 @@ def test_primary_ui_flow_does_not_mark_delete_after_process(
     файла в UI). См. баг-репорт «хранилище всегда 0, фото пропадает
     после перезагрузки».
     """
-    import asyncio
-
-    from sqlalchemy import select
-
-    from src.models.db import Task
     from src.services.task_contract import should_delete_after_process
 
     storage = MagicMock()
@@ -142,24 +181,16 @@ def test_primary_ui_flow_does_not_mark_delete_after_process(
 
     token = _register_user(client, telegram_id=999005)
 
-    r = client.post(
-        "/api/v1/analyze",
-        files={"image": ("x.jpg", _VALID_JPEG, "image/jpeg")},
-        data={"mode": "rating"},
-        headers=_auth(token),
-    )
+    with _TaskCtxCapture() as cap:
+        r = client.post(
+            "/api/v1/analyze",
+            files={"image": ("x.jpg", _VALID_JPEG, "image/jpeg")},
+            data={"mode": "rating"},
+            headers=_auth(token),
+        )
     assert r.status_code == 202, r.text
-    task_id = r.json()["task_id"]
-
-    sessionmaker = client.app.state.db_sessionmaker
-
-    async def _fetch_task_context() -> dict:
-        async with sessionmaker() as db:
-            row = await db.execute(select(Task).where(Task.id == task_id))
-            tsk = row.scalar_one()
-            return tsk.context or {}
-
-    ctx = asyncio.get_event_loop().run_until_complete(_fetch_task_context())
+    assert cap.contexts, "Task() was not instantiated during create_analysis"
+    ctx = cap.contexts[-1]
     flags = ctx.get("policy_flags") or {}
     assert flags.get("delete_after_process") is False, (
         "primary UI-поток обязан создавать задачу без delete_after_process "
@@ -168,21 +199,34 @@ def test_primary_ui_flow_does_not_mark_delete_after_process(
     assert should_delete_after_process(ctx) is False
 
 
-@patch("src.api.v1.analyze._get_arq", new_callable=AsyncMock)
+@pytest.mark.asyncio
 @patch("src.api.v1.analyze.get_storage")
-def test_get_task_strips_generated_image_b64_from_response(
-    mock_get_storage, mock_get_arq, client
+@patch("src.api.v1.analyze._get_arq", new_callable=AsyncMock)
+async def test_get_task_strips_generated_image_b64_from_response(
+    mock_get_arq,
+    mock_get_storage,
 ):
     """``GET /api/v1/tasks/{id}`` не должен возвращать сырые байты
     ``generated_image_b64`` в JSON — фронт тянет картинку через
     ``/storage/...``, а полингу эти ~200 КБ b64 на каждом тике не нужны.
     С v1.26.2 b64 всегда пишется в DB как надёжный fallback, поэтому
     стрипаем его именно в API-слое.
-    """
-    import asyncio
 
+    Используем ``httpx.AsyncClient`` + ``ASGITransport``: sync
+    ``TestClient`` держит свой asyncio-loop, а
+    ``get_event_loop().run_until_complete`` в том же тесте создаёт второй
+    loop → ``RuntimeError: Future attached to a different loop`` на CI.
+    """
+    if not _integration_services_alive():
+        pytest.skip(
+            "Postgres (127.0.0.1:5432) and Redis (127.0.0.1:6379) required — "
+            "e.g. docker compose up -d postgres redis",
+        )
+
+    from httpx import ASGITransport, AsyncClient
     from sqlalchemy import select
 
+    from src.main import app
     from src.models.db import Task
     from src.models.enums import TaskStatus
 
@@ -193,21 +237,30 @@ def test_get_task_strips_generated_image_b64_from_response(
     pool.enqueue_job = AsyncMock(return_value=None)
     mock_get_arq.return_value = pool
 
-    token = _register_user(client, telegram_id=999006)
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as ac:
+        reg = await ac.post(
+            "/api/v1/auth/telegram",
+            json={
+                "telegram_id": 999006,
+                "username": "tester",
+                "first_name": "Test",
+            },
+        )
+        assert reg.status_code == 200, reg.text
+        token = reg.json()["session_token"]
 
-    r = client.post(
-        "/api/v1/analyze",
-        files={"image": ("x.jpg", _VALID_JPEG, "image/jpeg")},
-        data={"mode": "rating"},
-        headers=_auth(token),
-    )
-    assert r.status_code == 202, r.text
-    task_id = r.json()["task_id"]
+        r = await ac.post(
+            "/api/v1/analyze",
+            files={"image": ("x.jpg", _VALID_JPEG, "image/jpeg")},
+            data={"mode": "rating"},
+            headers=_auth(token),
+        )
+        assert r.status_code == 202, r.text
+        task_id = r.json()["task_id"]
 
-    fake_b64 = "Zm9vYmFyYmF6" * 50
-    sessionmaker = client.app.state.db_sessionmaker
-
-    async def _seed_completed_result() -> None:
+        fake_b64 = "Zm9vYmFyYmF6" * 50
+        sessionmaker = app.state.db_sessionmaker
         async with sessionmaker() as db:
             row = await db.execute(select(Task).where(Task.id == task_id))
             tsk = row.scalar_one()
@@ -219,12 +272,10 @@ def test_get_task_strips_generated_image_b64_from_response(
             }
             await db.commit()
 
-    asyncio.get_event_loop().run_until_complete(_seed_completed_result())
-
-    r2 = client.get(
-        f"/api/v1/tasks/{task_id}",
-        headers={"Authorization": f"Bearer {token}"},
-    )
+        r2 = await ac.get(
+            f"/api/v1/tasks/{task_id}",
+            headers={"Authorization": f"Bearer {token}"},
+        )
     assert r2.status_code == 200
     data = r2.json()
     assert data["status"] == "completed"
