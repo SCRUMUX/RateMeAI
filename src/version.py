@@ -1500,4 +1500,82 @@
 #          лейблов — revert web/src/data/ab-models.ts; pose-clamp
 #          — revert двух строк в ``_dating_social_change_instruction``
 #          / ``build_cv_prompt`` и ветки в ``_build_mode_prompt``.
-APP_VERSION = "1.26.1"
+# 1.26.2 — Hotfix: primary storage survival (хранилище 0 / фото
+#          исчезает после перезагрузки).
+#
+#          Root cause: ``/api/v1/analyze`` на primary UI-потоке всегда
+#          ставил в ``task.context.policy_flags`` флаг
+#          ``delete_after_process=True`` (src/api/v1/analyze.py:447).
+#          Worker после ``COMPLETED`` честно уважал этот флаг в
+#          ``_cleanup_ephemeral_artifacts`` и удалял Redis-кеш
+#          ``ratemeai:gen_image:global:<task_id>`` + файл
+#          ``generated/<user>/<task>.jpg`` с локального диска.
+#
+#          На Railway primary развернут как три отдельных сервиса
+#          (``app``, ``worker``, ``bot``, см. ``ci.yml`` строки 245-249)
+#          без общего volume. Значит файл, записанный worker'ом на
+#          его эфемерный диск, ``app``-контейнер не видел никогда —
+#          единственный канал выдачи картинки пользователю был
+#          Redis-кеш, который cleanup стирал через секунды после
+#          COMPLETED. База base64 (DB fallback) писалась только при
+#          двойном отказе Redis-staging — то есть в happy-path
+#          никогда. Итог: ``/api/v1/tasks`` → ``_image_available``
+#          возвращал False → галерея 0, превью возвращало 404 → в
+#          ``StepGenerate.tsx`` клик по фото открывал ``StorageModal``,
+#          а тот с ``items.length===0`` показывал «Пока нет генераций»
+#          — именно та «модалка», на которую жаловался пользователь.
+#
+#          Fix — минимальный и не ломающий edge-контракт:
+#            * ``src/api/v1/analyze.py``: ``delete_after_process=True``
+#              → ``False``. Edge → primary поток (``RemoteAIService`` /
+#              ``/internal/process-analysis``) по-прежнему шлёт
+#              ``delete_after_process=True`` в payload, а
+#              ``build_policy_flags`` уважает уже существующий ключ
+#              и не перетирает его дефолтом — edge-семантика
+#              сохранена. Primary-картинка живёт штатные 72 ч в
+#              Redis + чистится ``privacy_gc_cron`` через 24 ч.
+#            * ``src/workers/tasks.py``: staging-блок переписан так,
+#              что ``generated_image_b64`` **всегда** попадает в
+#              ``analysis_result`` (и дальше — в ``task.result`` в
+#              DB), не только как аварийный fallback. Это третий,
+#              самый надёжный канал для ``_image_available`` и
+#              ``/storage/`` endpoint'а — картинка переживает и
+#              рестарт worker-контейнера (эфемерный диск), и
+#              evict Redis-ключа (``allkeys-lru``).
+#            * ``src/api/v1/tasks.py::get_task``: стрипаем
+#              ``generated_image_b64`` из ``TaskResponse`` — клиенту
+#              эти ~200 КБ b64 на каждом polling-запросе не нужны,
+#              фронт забирает картинку напрямую через
+#              ``/storage/`` endpoint. ``/internal/task/{id}/status``
+#              не задет — edge получает b64 в отдельном
+#              ``generated_image_b64`` поле ``RemoteTaskStatusResponse``.
+#
+#          Почему предыдущие правки (1.26.0 peer-fallback /
+#          total_count filter) не помогли: первая не спасала при
+#          двойном cleanup (peer тоже выполнил delete), вторая
+#          честно показывала «0» вместо фантомного счётчика, но
+#          корень не трогала. 1.26.2 возвращает картинку в
+#          хранилище целиком.
+#
+#          Тесты:
+#            * ``tests/test_workers/test_process_analysis.py`` —
+#              два новых кейса: primary-flow НЕ дёргает
+#              ``storage.delete`` / ``redis.delete`` по
+#              gen_image-ключу; worker всегда пишет b64 в
+#              ``task.result`` в happy-path (с верификацией
+#              ``base64.b64decode == bytes``).
+#            * ``tests/test_api/test_analyze.py`` — два новых
+#              кейса: UI-flow создаёт task c
+#              ``policy_flags.delete_after_process=False``; GET
+#              ``/api/v1/tasks/{id}`` после COMPLETED не отдаёт
+#              ``generated_image_b64`` наружу.
+#            * Существующий ``test_process_analysis_cleans_
+#              ephemeral_artifacts_when_policy_requires`` остался
+#              зелёным — edge-путь не изменён.
+#
+#          Rollback: одна строка в ``src/api/v1/analyze.py``
+#          (``False`` → ``True``) возвращает старое поведение.
+#          Правки в worker и ``get_task`` изолированы и могут
+#          жить отдельно, но без них primary-картинка снова не
+#          переживёт рестарт / evict.
+APP_VERSION = "1.26.2"

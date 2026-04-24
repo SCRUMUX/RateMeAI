@@ -223,12 +223,19 @@ async def get_task(
         for k in ("input_image_url", "input_image_path", "original_image_url"):
             if k in result_view:
                 result_view[k] = None
+        # v1.26.2: с этой версии worker всегда пишет ``generated_image_b64``
+        # в ``task.result`` как надёжный fallback-канал для
+        # ``/storage/...`` и ``_image_available`` (чтобы картинка пережила
+        # рестарт эфемерного диска worker-контейнера и evict Redis-ключа).
+        # Клиенту эти ~200 КБ base64 на каждый polling-запрос не нужны
+        # — изображение он тянет напрямую через ``/storage/`` endpoint,
+        # — поэтому всегда стрипаем поле из исходящего TaskResponse.
+        result_view.pop("generated_image_b64", None)
         if result_view.get("_purged_at"):
             for k in (
                 "generated_image_url",
                 "image_url",
                 "generated_image_path",
-                "generated_image_b64",
             ):
                 if k in result_view:
                     result_view[k] = None

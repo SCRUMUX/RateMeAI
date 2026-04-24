@@ -299,3 +299,78 @@ async def test_process_analysis_cleans_ephemeral_artifacts_when_policy_requires(
 
     ctx["storage"].delete.assert_any_await(task.input_image_path)
     ctx["storage"].delete.assert_any_await(f"generated/{user_id}/{task_id}.jpg")
+
+
+@pytest.mark.asyncio
+async def test_process_analysis_primary_flow_does_not_delete_generated_image():
+    """Regression (v1.26.2): primary UI-поток НЕ ставит ``delete_after_process``,
+    значит worker не обязан удалять сгенерированный файл и его Redis-ключ.
+
+    Картинка должна прожить свои 72 ч Redis-TTL + 24 ч в DB (b64) и быть
+    затёрта штатным ``privacy_gc_cron``. Это фикс бага, из-за которого
+    у пользователя хранилище всегда было пустым и фото пропадало при
+    перезагрузке (cleanup срабатывал сразу после COMPLETED).
+    """
+    task_id = uuid.uuid4()
+    user_id = uuid.uuid4()
+    task = _FakeTask(
+        task_id,
+        user_id,
+        context={
+            "credit_pre_reserved": True,
+            "policy_flags": {"delete_after_process": False},
+        },
+    )
+    user = _FakeUser(user_id)
+
+    ctx, _db = _build_ctx(task, user)
+    await process_analysis(ctx, str(task_id))
+
+    gen_key = f"generated/{user_id}/{task_id}.jpg"
+    delete_targets = [c.args[0] for c in ctx["storage"].delete.await_args_list]
+    assert gen_key not in delete_targets, (
+        "primary UI-поток НЕ должен удалять сгенерированный файл в cleanup"
+    )
+
+    redis_delete_targets = [
+        c.args[0] for c in ctx["redis"].delete.await_args_list if c.args
+    ]
+    assert not any(
+        "gen_image" in str(key) and str(task_id) in str(key)
+        for key in redis_delete_targets
+    ), (
+        "Redis-кеш gen_image не должен удаляться в primary-потоке: "
+        "он единственный канал выдачи фото пока файл не попал в DB"
+    )
+
+
+@pytest.mark.asyncio
+async def test_process_analysis_writes_b64_to_db_always():
+    """v1.26.2: b64 сохраняется в ``task.result`` в happy-path, а не только
+    как аварийный fallback при полном отказе Redis.
+
+    На Railway `app`/`worker` — разные контейнеры (без общего volume) и
+    диск эфемерный — DB b64 это единственное persistent-хранилище, из
+    которого `/storage/` endpoint может отдать файл после рестарта
+    worker-контейнера или evict Redis-ключа.
+    """
+    task_id = uuid.uuid4()
+    user_id = uuid.uuid4()
+    task = _FakeTask(
+        task_id,
+        user_id,
+        context={"credit_pre_reserved": True},
+    )
+    user = _FakeUser(user_id)
+
+    ctx, _db = _build_ctx(task, user)
+    await process_analysis(ctx, str(task_id))
+
+    assert task.status == TaskStatus.COMPLETED.value
+    assert task.result is not None
+    b64 = task.result.get("generated_image_b64")
+    assert isinstance(b64, str) and len(b64) > 0, (
+        "happy-path должен записать b64 в result, чтобы пережить рестарт "
+        "worker-контейнера / evict Redis"
+    )
+    assert base64.b64decode(b64) == _jpeg_stub()

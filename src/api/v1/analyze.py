@@ -442,9 +442,24 @@ async def create_analysis(
         ctx["consent"] = snapshot_for_task(consent_snapshot)
 
     trace_id = request.headers.get("x-trace-id") or str(task_uuid)
+    # v1.26.2: primary UI-поток больше НЕ помечает сгенерированный файл
+    # `delete_after_process=True`. Раньше эта метка провоцировала worker
+    # удалять Redis-кеш и локальный файл сразу после `COMPLETED`
+    # (`_cleanup_ephemeral_artifacts`), что на Railway (app/worker —
+    # разные сервисы без общего volume) означало потерю картинки через
+    # секунды: диск app-контейнера пуст, Redis только что очищен,
+    # base64-фолбэк не писался. Пользователь получал пустое «Хранилище»
+    # и 404 при попытке открыть фото сразу после генерации.
+    #
+    # Теперь primary-картинка живёт штатные 72 ч в Redis и чистится
+    # `privacy_gc_cron` через 24 ч (см. `_purged_at`). Edge-proxy поток
+    # (RemoteAIService → `/internal/process-analysis`) по-прежнему
+    # передаёт `delete_after_process=True` в payload — `build_policy_flags`
+    # уважает уже существующий ключ и не перетирает его дефолтом, так что
+    # edge-семантика сохраняется.
     policy_flags = build_policy_flags(
         cache_allowed=not settings.uses_remote_ai,
-        delete_after_process=True,
+        delete_after_process=False,
         retention_policy="privacy_72h",
         data_class="user_photo",
         single_provider_call=True,
