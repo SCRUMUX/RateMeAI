@@ -22,6 +22,14 @@ name: admin · grant credits
 on:
   workflow_dispatch:
     inputs:
+      target:
+        description: "Which backend to hit"
+        required: true
+        type: choice
+        default: primary
+        options:
+          - primary
+          - edge
       provider:
         description: "Identity provider"
         required: true
@@ -66,18 +74,32 @@ jobs:
     runs-on: ubuntu-latest
     env:
       INTERNAL_API_KEY: ${{ secrets.INTERNAL_API_KEY }}
-      API_BASE_URL: ${{ secrets.RAILWAY_API_URL }}
+      PRIMARY_API_URL: ${{ secrets.RAILWAY_API_URL }}
+      EDGE_API_URL: ${{ secrets.RU_PUBLIC_BASE_URL }}
+      TARGET: ${{ inputs.target }}
     steps:
-      - name: Validate secrets
+      - name: Resolve target URL
+        id: resolve
         run: |
+          if [ "$TARGET" = "edge" ]; then
+            URL="$EDGE_API_URL"
+            if [ -z "$URL" ]; then
+              echo "::error::RU_PUBLIC_BASE_URL secret is not set"; exit 1
+            fi
+          else
+            URL="$PRIMARY_API_URL"
+            if [ -z "$URL" ]; then
+              echo "::error::RAILWAY_API_URL secret is not set"; exit 1
+            fi
+          fi
           if [ -z "$INTERNAL_API_KEY" ]; then
-            echo "::error::INTERNAL_API_KEY secret is not set"
-            exit 1
+            echo "::error::INTERNAL_API_KEY secret is not set"; exit 1
           fi
-          if [ -z "$API_BASE_URL" ]; then
-            echo "::error::RAILWAY_API_URL secret is not set"
-            exit 1
-          fi
+          echo "API_BASE_URL=$URL" >> "$GITHUB_ENV"
+          echo "Target=$TARGET → $URL"
+
+      - name: Validate secrets
+        run: echo "API_BASE_URL=$API_BASE_URL"
 
       - name: Ping internal API
         run: |
@@ -176,6 +198,7 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "| Input | Value |" >> $GITHUB_STEP_SUMMARY
           echo "|-------|-------|" >> $GITHUB_STEP_SUMMARY
+          echo "| target | \`${{ inputs.target }}\` |" >> $GITHUB_STEP_SUMMARY
           echo "| provider | \`${{ inputs.provider }}\` |" >> $GITHUB_STEP_SUMMARY
           echo "| username | \`${{ inputs.username }}\` |" >> $GITHUB_STEP_SUMMARY
           echo "| first_name | \`${{ inputs.first_name }}\` |" >> $GITHUB_STEP_SUMMARY

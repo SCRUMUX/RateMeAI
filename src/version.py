@@ -1261,6 +1261,15 @@
 #          ``admin · grant credits`` workflow_dispatch workflow
 #          (uses the existing ``RAILWAY_TOKEN`` secret to pull
 #          ``DATABASE_PUBLIC_URL`` from the Railway Postgres service).
+# 1.25.5 — Admin workflows gain a ``target`` input (``primary`` |
+#          ``edge``). Primary routes to ``RAILWAY_API_URL`` (global
+#          Railway backend). Edge routes to ``RU_PUBLIC_BASE_URL``
+#          (self-hosted RU server) — same ``INTERNAL_API_KEY`` gate
+#          either way, since ``deploy-ru`` syncs the key into
+#          ``.env.ru``. Needed because VK / Yandex registrations
+#          live on the edge DB, not primary: without a target
+#          switch, grants to those users landed on phantom rows on
+#          the primary instance. No endpoint-side change.
 # 1.25.4 — Admin grant-credits: email-based lookup + provider-agnostic
 #          match against ``profile_data.email`` across google / vk_id /
 #          apple / yandex identities. ``_fmt_candidate`` now surfaces
@@ -1296,4 +1305,4 @@
 #          the existing ``INTERNAL_API_KEY`` secret. Two independent
 #          layers of access control (repo-admin-gated
 #          workflow_dispatch + X-Internal-Key) are preserved.
-APP_VERSION = "1.25.4"
+APP_VERSION = "1.25.5"

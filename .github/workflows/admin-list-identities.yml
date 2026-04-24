@@ -9,6 +9,14 @@ name: admin · list identities
 on:
   workflow_dispatch:
     inputs:
+      target:
+        description: "Which backend to hit"
+        required: true
+        type: choice
+        default: primary
+        options:
+          - primary
+          - edge
       provider:
         description: "Identity provider"
         required: true
@@ -33,18 +41,30 @@ jobs:
     runs-on: ubuntu-latest
     env:
       INTERNAL_API_KEY: ${{ secrets.INTERNAL_API_KEY }}
-      API_BASE_URL: ${{ secrets.RAILWAY_API_URL }}
+      PRIMARY_API_URL: ${{ secrets.RAILWAY_API_URL }}
+      EDGE_API_URL: ${{ secrets.RU_PUBLIC_BASE_URL }}
+      TARGET: ${{ inputs.target }}
     steps:
+      - name: Resolve target URL
+        run: |
+          if [ "$TARGET" = "edge" ]; then
+            URL="$EDGE_API_URL"
+          else
+            URL="$PRIMARY_API_URL"
+          fi
+          if [ -z "$URL" ] || [ -z "$INTERNAL_API_KEY" ]; then
+            echo "::error::Missing INTERNAL_API_KEY or target URL secret"
+            exit 1
+          fi
+          echo "API_BASE_URL=$URL" >> "$GITHUB_ENV"
+          echo "Target=$TARGET → $URL"
+
       - name: Call list-identities
         env:
           PROVIDER: ${{ inputs.provider }}
           LIMIT: ${{ inputs.limit }}
         run: |
           set -uo pipefail
-          if [ -z "$INTERNAL_API_KEY" ] || [ -z "$API_BASE_URL" ]; then
-            echo "::error::Missing INTERNAL_API_KEY or RAILWAY_API_URL secret"
-            exit 1
-          fi
 
           HTTP=$(curl -sS -o /tmp/resp.json -w "%{http_code}" \
             -H "X-Internal-Key: $INTERNAL_API_KEY" \
