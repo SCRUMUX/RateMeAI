@@ -1,6 +1,5 @@
 from fastapi import APIRouter
 
-from src.config import settings
 from src.api.v1.analyze import router as analyze_router
 from src.api.v1.pre_analyze import router as pre_analyze_router
 from src.api.v1.tasks import router as tasks_router
@@ -29,5 +28,4 @@ api_router.include_router(engagement_router, prefix="/engagement", tags=["engage
 api_router.include_router(catalog_router, prefix="/catalog", tags=["catalog"])
 api_router.include_router(sse_router, prefix="/sse", tags=["sse"])
 
-if not settings.uses_remote_ai:
-    api_router.include_router(internal_router, prefix="/internal", tags=["internal"])
+api_router.include_router(internal_router, prefix="/internal", tags=["internal"])

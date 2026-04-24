@@ -1261,6 +1261,15 @@
 #          ``admin · grant credits`` workflow_dispatch workflow
 #          (uses the existing ``RAILWAY_TOKEN`` secret to pull
 #          ``DATABASE_PUBLIC_URL`` from the Railway Postgres service).
+# 1.25.6 — Mount /internal router on edge too. Previously the
+#          router was gated by ``not settings.uses_remote_ai``, so
+#          edge (COMPUTE_MODE=remote) returned 404 for every
+#          /api/v1/internal/* path — including the admin
+#          grant-credits / list-identities endpoints we rely on
+#          for VK + Yandex credit adjustments. Edge has its own
+#          Postgres; admin routes just need DB access, which is
+#          available locally. INTERNAL_API_KEY gate is unchanged,
+#          so the exposure surface is identical to primary.
 # 1.25.5 — Admin workflows gain a ``target`` input (``primary`` |
 #          ``edge``). Primary routes to ``RAILWAY_API_URL`` (global
 #          Railway backend). Edge routes to ``RU_PUBLIC_BASE_URL``
@@ -1305,4 +1314,4 @@
 #          the existing ``INTERNAL_API_KEY`` secret. Two independent
 #          layers of access control (repo-admin-gated
 #          workflow_dispatch + X-Internal-Key) are preserved.
-APP_VERSION = "1.25.5"
+APP_VERSION = "1.25.6"
