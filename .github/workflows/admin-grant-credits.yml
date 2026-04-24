@@ -1,0 +1,175 @@
+name: admin · grant credits
+
+# Ad-hoc admin tool. Triggers scripts/grant_credits.py against the live
+# Railway Postgres using the project-scoped RAILWAY_TOKEN secret (same
+# token the main deploy workflow already uses). The script increments
+# ``User.image_credits`` in a single transaction with an audit row
+# (``CreditTransaction.tx_type='admin_grant'``) — see the module
+# docstring for the exact semantics.
+#
+# Why a workflow and not a local one-liner:
+#   * The Railway DATABASE_URL is only reachable from outside the
+#     platform via the Postgres service's DATABASE_PUBLIC_URL variable,
+#     which we fetch here with the same RAILWAY_TOKEN the deploy job
+#     uses. Keeping the token inside GitHub Actions means it never
+#     touches developer laptops.
+#   * workflow_dispatch is gated by repo write access — only admins
+#     can trigger a grant, and every run is auditable in the Actions
+#     log alongside the inputs that were passed.
+#
+# Inputs mirror the CLI flags of ``scripts/grant_credits.py``. Always
+# run with ``dry_run=true`` first when operating on a new user.
+
+on:
+  workflow_dispatch:
+    inputs:
+      provider:
+        description: "Identity provider"
+        required: true
+        type: choice
+        options:
+          - telegram
+          - vk_id
+      username:
+        description: "Telegram @username (no @). For provider=telegram only."
+        required: false
+        type: string
+      first_name:
+        description: "VK first_name (case-insensitive prefix match). For provider=vk_id."
+        required: false
+        type: string
+      telegram_id:
+        description: "Exact Telegram numeric user id (disambiguates when --username matches many)."
+        required: false
+        type: string
+      vk_id:
+        description: "Exact VK external_id (disambiguates when --first-name matches many)."
+        required: false
+        type: string
+      amount:
+        description: "How many image_credits to add"
+        required: true
+        type: string
+        default: "100"
+      dry_run:
+        description: "If true, only lists candidates without writing"
+        required: true
+        type: boolean
+        default: true
+
+jobs:
+  grant:
+    runs-on: ubuntu-latest
+    env:
+      RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+      RAILWAY_PROJECT_ID: ${{ secrets.RAILWAY_PROJECT_ID }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate secrets
+        run: |
+          if [ -z "$RAILWAY_TOKEN" ]; then
+            echo "::error::RAILWAY_TOKEN is not set"
+            exit 1
+          fi
+          if [ -z "$RAILWAY_PROJECT_ID" ]; then
+            echo "::error::RAILWAY_PROJECT_ID is not set"
+            exit 1
+          fi
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Install runtime dependencies (DB + SQLAlchemy only)
+        # Keep the install minimal — the admin script pulls in src.config
+        # (pydantic settings) and src.models.db (SQLAlchemy + asyncpg).
+        # A full requirements.txt install would drag in ML libs that the
+        # grant path never uses.
+        run: |
+          python -m pip install --upgrade pip
+          pip install \
+            "SQLAlchemy>=2,<3" \
+            "asyncpg>=0.29" \
+            "pydantic>=2,<3" \
+            "pydantic-settings>=2,<3"
+
+      - name: Install Railway CLI
+        run: npm install -g @railway/cli
+
+      - name: Resolve public Postgres URL
+        id: pg
+        run: |
+          set -euo pipefail
+          # Railway exposes a proxied DATABASE_PUBLIC_URL on the Postgres
+          # service. The deploy workflow connects via the internal
+          # network (``postgres.railway.internal``) which is not
+          # reachable from a GitHub Actions runner, so we pull the
+          # public URL instead. Service name is the Railway default
+          # ("Postgres"); fall back to probing the env for any key that
+          # looks like ``DATABASE_PUBLIC_URL``.
+          VARS_JSON=$(railway variables --service Postgres -e production --json)
+          PUBLIC_URL=$(echo "$VARS_JSON" | jq -r '.DATABASE_PUBLIC_URL // empty')
+          if [ -z "$PUBLIC_URL" ]; then
+            echo "::error::DATABASE_PUBLIC_URL not found on service 'Postgres'"
+            echo "Available variables:"
+            echo "$VARS_JSON" | jq 'keys'
+            exit 1
+          fi
+          # Normalise the scheme for asyncpg (SQLAlchemy requires
+          # postgresql+asyncpg://, Railway gives postgresql://).
+          ASYNC_URL="${PUBLIC_URL/postgresql:\/\//postgresql+asyncpg://}"
+          # Mask the URL in logs (contains the password).
+          echo "::add-mask::$ASYNC_URL"
+          echo "::add-mask::$PUBLIC_URL"
+          echo "database_url=$ASYNC_URL" >> "$GITHUB_OUTPUT"
+          echo "Resolved DATABASE_PUBLIC_URL from Railway Postgres service."
+
+      - name: Grant credits
+        env:
+          DATABASE_URL: ${{ steps.pg.outputs.database_url }}
+          PROVIDER: ${{ inputs.provider }}
+          USERNAME: ${{ inputs.username }}
+          FIRST_NAME: ${{ inputs.first_name }}
+          TELEGRAM_ID: ${{ inputs.telegram_id }}
+          VK_ID: ${{ inputs.vk_id }}
+          AMOUNT: ${{ inputs.amount }}
+          DRY_RUN: ${{ inputs.dry_run }}
+        run: |
+          set -euo pipefail
+          ARGS=(--provider "$PROVIDER" --amount "$AMOUNT")
+          if [ -n "$USERNAME" ]; then
+            ARGS+=(--username "$USERNAME")
+          fi
+          if [ -n "$FIRST_NAME" ]; then
+            ARGS+=(--first-name "$FIRST_NAME")
+          fi
+          if [ -n "$TELEGRAM_ID" ]; then
+            ARGS+=(--telegram-id "$TELEGRAM_ID")
+          fi
+          if [ -n "$VK_ID" ]; then
+            ARGS+=(--vk-id "$VK_ID")
+          fi
+          if [ "$DRY_RUN" = "true" ]; then
+            ARGS+=(--dry-run)
+          else
+            ARGS+=(--yes)
+          fi
+          echo "Running: python -m scripts.grant_credits ${ARGS[*]}"
+          python -m scripts.grant_credits "${ARGS[@]}"
+
+      - name: Summary
+        if: always()
+        run: |
+          echo "## Admin · grant credits" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Input | Value |" >> $GITHUB_STEP_SUMMARY
+          echo "|-------|-------|" >> $GITHUB_STEP_SUMMARY
+          echo "| provider | \`${{ inputs.provider }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| username | \`${{ inputs.username }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| first_name | \`${{ inputs.first_name }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| telegram_id | \`${{ inputs.telegram_id }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| vk_id | \`${{ inputs.vk_id }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| amount | \`${{ inputs.amount }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| dry_run | \`${{ inputs.dry_run }}\` |" >> $GITHUB_STEP_SUMMARY

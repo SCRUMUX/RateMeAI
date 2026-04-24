@@ -1190,4 +1190,75 @@
 #                 move automatically.
 #               * #4 is additive — existing A→B tests keep passing;
 #                 the new B→A path only fires on errors.
-APP_VERSION = "1.24.2"
+# 1.25.0 — Prompt-audit pass + quality lock.
+#          Goal: stabilise A/B generation quality by removing prompt
+#          contradictions without rearchitecting the pipeline. Changes:
+#            • PRESERVE_PHOTO / PRESERVE_PHOTO_FACE_ONLY rewritten —
+#              dropped "identical", "original pose", "body proportions",
+#              and the five-fingers clause. Identity clause is now a
+#              single positive block (features + bone structure +
+#              eye shape/color + skin tone with pores + hair + face
+#              shape). Full-body variant adds "Body pose naturally fits
+#              the new scene" so we stop telling FLUX to keep the pose
+#              it is also being told to change.
+#            • QUALITY_PHOTO / IDENTITY_SCENE_QUALITY — "sharp from
+#              subject to background" retired in favour of "natural
+#              depth of field: subject sharp, background slightly
+#              soft" (matches the 50mm-lens look the styles target).
+#            • New CAMERA_PHOTO (50mm / eye-level / rectilinear /
+#              undistorted) and ANATOMY_PHOTO (head-to-body ratio +
+#              natural proportions) anchors. All positive-framed so
+#              they pass ``_has_disallowed_negative`` in style_spec.
+#            • ``_build_mode_prompt`` A/B tail unified — gpt_image_2
+#              and nano_banana_2 now share the same
+#              PRESERVE → QUALITY → CAMERA → ANATOMY sequence instead
+#              of two divergent blocks + IDENTITY_LOCK_SUFFIX echo.
+#            • ``_dating_social_change_instruction`` and
+#              ``build_cv_prompt`` (non-doc path) trimmed to
+#              background/clothing/pose composition — the identity
+#              repeats now live once, inside PRESERVE.
+#            • Quality lock: API (``/analyze``) coerces
+#              ``image_quality`` to ``"medium"`` regardless of input;
+#              web client fixes ``imageQuality`` state to
+#              ``"medium"`` and hides the pill selector in
+#              StepGenerate. Two renders × one optimal quality tier.
+#            • Tests updated: test_preserve_text,
+#              test_full_body_prompt_adaptation (distinct-strings
+#              assertion), test_image_gen_prompt (sharp-scene
+#              assertion), test_positive_framing
+#              (change_instruction focuses on composition),
+#              test_analyze_ab (expects medium on all inputs).
+#
+#          Risk / rollback: prompt-level only; no provider-contract
+#          changes, no cost change (still 2 renders, medium tier).
+#          Rollback = revert this commit.
+#
+# 1.25.1 — Scene lighting integration anchor.
+#          Adds ``LIGHT_INTEGRATION_PHOTO`` — "Scene lighting
+#          integration: the scene's ambient light and color temperature
+#          naturally illuminate the subject's face, hair and clothing,
+#          with highlights, shadows and color cast consistent with the
+#          background." Inserted in the A/B tail of
+#          ``_build_mode_prompt`` between QUALITY_PHOTO and CAMERA_PHOTO
+#          (after the general "realistic lighting" primer in QUALITY,
+#          before the geometric anchors). Deliberately skipped for the
+#          CV document branch (DOC_PRESERVE / DOC_QUALITY) — ID-style
+#          photos want flat studio lighting, not scene integration.
+#
+#          Why this placement avoids identity conflict: PRESERVE_PHOTO
+#          is separated from the new anchor by QUALITY_PHOTO (~180
+#          chars), so "skin tone" (identity, melanin/undertone) and
+#          "color cast" (illumination on top of skin) are far enough
+#          apart in the prompt that the model does not read them as
+#          contradicting each other. Phrasing is positive-only and
+#          passes the ``_has_disallowed_negative`` guard.
+#
+#          Also ships ``scripts/grant_credits.py`` — idempotent admin
+#          CLI that grants ``image_credits`` to a user located by
+#          (provider, username | first_name | external_id). Inserts
+#          a ``CreditTransaction(tx_type='admin_grant')`` audit row
+#          in the same commit. Reachable from production via the
+#          ``admin · grant credits`` workflow_dispatch workflow
+#          (uses the existing ``RAILWAY_TOKEN`` secret to pull
+#          ``DATABASE_PUBLIC_URL`` from the Railway Postgres service).
+APP_VERSION = "1.25.1"

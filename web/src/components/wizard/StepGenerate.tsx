@@ -9,7 +9,6 @@ import { PERCEPTION_FACTS, getRandomFact } from '../../data/ai-facts';
 import { CATEGORIES } from '../../data/styles';
 import {
   AB_MODELS,
-  AB_QUALITIES,
   formatAbCost,
   getAbModelCost,
 } from '../../data/ab-models';
@@ -510,24 +509,11 @@ export default function StepGenerate({ onGoToStep, onOpenStorage }: Props) {
               </button>
             ))}
           </div>
-          <div className="flex flex-wrap items-center justify-center gap-[var(--space-4)]">
-            <span className="text-[11px] leading-[14px] text-[var(--color-text-muted)] mr-[var(--space-4)]">Качество:</span>
-            {AB_QUALITIES.map((q) => (
-              <button
-                key={q.key}
-                type="button"
-                onClick={() => app.setImageQuality(q.key)}
-                title={q.hint}
-                className={`px-[var(--space-10)] py-[var(--space-4)] rounded-[var(--radius-pill)] text-[12px] leading-[16px] font-medium transition-all ${
-                  app.imageQuality === q.key
-                    ? 'glass-btn-primary text-white'
-                    : 'glass-btn-ghost text-[var(--color-text-secondary)]'
-                }`}
-              >
-                {q.label}
-              </button>
-            ))}
-          </div>
+          {/* v1.25: quality tier is locked to "medium" on the server —
+              the pill selector was removed to stop surfacing a choice
+              that does not affect the output. formatAbCost still
+              receives app.imageQuality from context, which is now a
+              constant "medium". */}
           <span className="text-[11px] leading-[14px] text-[var(--color-text-muted)]">
             {formatAbCost(getAbModelCost(app.imageModel, app.imageQuality))}
           </span>

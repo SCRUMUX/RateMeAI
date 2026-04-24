@@ -158,10 +158,10 @@ def resolve_output_size(
 # ---------------------------------------------------------------------------
 
 PRESERVE_PHOTO = (
-    "Preserve the exact same person from the reference photo: identical facial "
-    "features, skin tone with natural pores, hair, original pose, and body "
-    "proportions. Hair silhouette crisp, hands with exactly five clearly "
-    "separated fingers."
+    "Use the reference image as the identity source. "
+    "Preserve facial features, bone structure, eye shape and color, "
+    "skin tone with natural pores, and hair. "
+    "Keep the face shape exactly as in the reference."
 )
 
 # Body-change variant: the target scene (yoga mat, beach, running track,
@@ -177,10 +177,10 @@ PRESERVE_PHOTO = (
 # scene" lets the scene description drive the pose without inviting a
 # plastic rewrite.
 PRESERVE_PHOTO_FACE_ONLY = (
-    "Preserve the exact same person's identity from the reference photo: "
-    "identical facial features, skin tone with natural pores, age, gender, "
-    "and hair. Render a body pose fitting the new scene with realistic body "
-    "proportions, hands with exactly five clearly separated fingers."
+    "Use the reference image as the identity source. "
+    "Preserve facial features, bone structure, eye shape and color, "
+    "skin tone and hair. Keep the face shape exactly as in the reference. "
+    "Body pose naturally fits the new scene."
 )
 
 # Short identity-lock suffix appended at the very end of every non-emoji
@@ -193,9 +193,54 @@ PRESERVE_PHOTO_FACE_ONLY = (
 IDENTITY_LOCK_SUFFIX = "Final anchor: output must be the exact same person."
 
 QUALITY_PHOTO = (
-    "Photorealistic unedited photograph, sharp from subject to background, "
-    "crisp textures, true-to-life colors, realistic lighting, genuine "
-    "expression, authentic skin texture."
+    "Photorealistic unedited photograph with natural depth of field: "
+    "subject in sharp focus, background slightly soft. "
+    "True-to-life colors, realistic lighting, authentic skin texture."
+)
+
+# Camera / perspective anchor. One short, positive-framed line appended
+# to both A/B branches so the models render a rectilinear 50 mm look
+# rather than a wide-angle selfie with an enlarged head ("caricature
+# head" failure mode). Positive framing only — the style_spec
+# negative-phrase guard rejects "no X / without X" fragments.
+CAMERA_PHOTO = (
+    "50mm lens, eye-level perspective, natural subject distance, "
+    "rectilinear framing with undistorted geometry."
+)
+
+# Anatomy anchor. Replaces the "five clearly separated fingers" tail
+# that used to live inside PRESERVE_PHOTO — a whole-body formulation
+# that steers the model toward correct proportions without hijacking
+# attention on hands the scene may not even show.
+ANATOMY_PHOTO = (
+    "Realistic human anatomy with correct head-to-body ratio "
+    "and natural proportions."
+)
+
+# Scene lighting / color integration anchor. Without this, both A/B
+# backends sometimes render the subject as an obvious composite — face
+# keeps the flat studio tone of the reference while the scene carries
+# warm/cool/neon ambient light, producing a "paste sticker" look.
+#
+# Terminology is picked carefully so this block does NOT contradict the
+# identity clause in PRESERVE_PHOTO:
+#   * "skin tone" in PRESERVE is the person's inherent melanin /
+#     undertone (identity anchor, must be preserved);
+#   * "color cast" / "illuminate" / "highlights and shadows" here are
+#     cinematography terms that describe the *lighting on top of*
+#     skin/hair/clothing. The two coexist the way a colorist separates
+#     a lit skin-tone LUT from a source skin undertone.
+#
+# Positive-framing only — passes the _has_disallowed_negative guard in
+# src/prompts/style_spec.py (no "no X" / "without X" / "avoid X" /
+# "don't X" phrasing). Placed between QUALITY_PHOTO and CAMERA_PHOTO
+# so it builds on QUALITY's "realistic lighting" token and keeps
+# CAMERA + ANATOMY as the trailing geometric pair.
+LIGHT_INTEGRATION_PHOTO = (
+    "Scene lighting integration: the scene's ambient light and color "
+    "temperature naturally illuminate the subject's face, hair and "
+    "clothing, with highlights, shadows and color cast consistent "
+    "with the background."
 )
 
 # ---------------------------------------------------------------------------
@@ -215,10 +260,10 @@ SOLO_SUBJECT_ANCHOR = (
 )
 
 IDENTITY_SCENE_QUALITY = (
-    "Photorealistic unedited photograph, entire scene sharp from subject "
-    "to background with textures and distant objects crisp and legible, "
-    "natural true-to-life colors, even realistic lighting, authentic skin "
-    "texture with natural pores, genuine relaxed expression."
+    "Photorealistic unedited photograph with natural depth of field: "
+    "subject sharp, background softly resolved. "
+    "True-to-life colors, even realistic lighting, "
+    "authentic skin texture with natural pores."
 )
 
 DOC_PRESERVE = (
@@ -1350,19 +1395,32 @@ def _build_mode_prompt(
         parts.append(DOC_PRESERVE)
         parts.append(DOC_QUALITY)
     else:
-        # Model-dependent logic
-        if target_model == "gpt_image_2":
-            # GPT-2 needs strict photo anchors to prevent blurring
+        # v1.25 — unified A/B tail. Both gpt_image_2 and nano_banana_2
+        # receive the same four anchors (identity + quality DOF +
+        # camera + anatomy). The earlier split (strict for GPT-2, light
+        # for NB2) grew two parallel sets of identity repeats and an
+        # IDENTITY_LOCK_SUFFIX echo that were tripling the same signal
+        # against the already-strong change_instruction — see the
+        # prompt-audit notes in the changelog. A single positive-framed
+        # tail gives both models the photorealism anchors they need
+        # without contradictory "sharp everywhere" or "exact same
+        # person" duplicates.
+        if target_model in ("gpt_image_2", "nano_banana_2"):
             if getattr(spec, "needs_full_body", False):
                 parts.append(PRESERVE_PHOTO_FACE_ONLY)
             else:
                 parts.append(PRESERVE_PHOTO)
             parts.append(QUALITY_PHOTO)
-            parts.append(IDENTITY_LOCK_SUFFIX)
-        elif target_model == "nano_banana_2":
-            # Nano Banana works better with lighter constraints
-            parts.append("Keep the identity of the person from the reference photo.")
-            parts.append("High quality photorealistic image.")
+            # v1.25.1 — scene lighting / color integration anchor.
+            # Placed right after QUALITY (general "realistic lighting"
+            # primer) and before CAMERA/ANATOMY (geometric anchors) so
+            # tonal signals stay grouped. Keeps identity pinned by
+            # PRESERVE while preventing the composite "paste-in" look
+            # where the subject keeps the reference's flat tone and
+            # ignores the scene's ambient light.
+            parts.append(LIGHT_INTEGRATION_PHOTO)
+            parts.append(CAMERA_PHOTO)
+            parts.append(ANATOMY_PHOTO)
 
     prompt = " ".join(p.strip() for p in parts if p and p.strip())
 
@@ -1418,16 +1476,11 @@ def _dating_social_change_instruction(mode: str, style: str) -> str:
     if spec is not None and spec.needs_full_body:
         return (
             "Place the person from the reference photo into the new scene "
-            "described below, adopting a natural pose that fits the scene, "
-            "while maintaining the exact same facial features, bone "
-            "structure, skin tone and head-to-body proportions of the "
-            "reference subject."
+            "described below, adopting a natural pose that fits the scene."
         )
     return (
-        "Change the background and clothing of the person in the reference "
-        "photo while maintaining the exact same facial features, bone "
-        "structure, skin tone and head-to-body proportions, keeping the "
-        "original pose."
+        "Change only the background and clothing of the person in the "
+        "reference photo. Keep the original pose and framing."
     )
 
 
@@ -1467,10 +1520,8 @@ def build_cv_prompt(
         )
     else:
         change_instruction = (
-            "Change the background and clothing to professional attire of the "
-            "person in the reference photo while maintaining the same facial "
-            "features, skin tone and head-to-body proportions, keeping the "
-            "original pose."
+            "Change only the background and clothing to professional attire "
+            "for the person in the reference photo. Keep the original pose."
         )
     return _build_mode_prompt(
         "cv",

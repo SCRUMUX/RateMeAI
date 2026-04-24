@@ -117,7 +117,9 @@ def test_analyze_accepts_known_ab_model(
     assert cap.contexts, "Task() was not instantiated during create_analysis"
     ctx = cap.contexts[-1]
     assert ctx.get("image_model") == "nano_banana_2"
-    assert ctx.get("image_quality") == "high"
+    # v1.25: quality tier is locked to the production-optimal "medium"
+    # on the server regardless of what the client submits.
+    assert ctx.get("image_quality") == "medium"
 
 
 @patch("src.api.v1.analyze._get_arq", new_callable=AsyncMock)
@@ -154,8 +156,9 @@ def test_analyze_unknown_model_falls_back_to_default(
     assert r.status_code == 202, r.text
     ctx = cap.contexts[-1]
     assert ctx.get("image_model") == "gpt_image_2"
-    # valid quality ("high") survives even when the model needed a fallback
-    assert ctx.get("image_quality") == "high"
+    # v1.25: quality is always normalised to "medium" server-side,
+    # even when the client submitted a valid non-medium tier.
+    assert ctx.get("image_quality") == "medium"
 
 
 @patch("src.api.v1.analyze._get_arq", new_callable=AsyncMock)
@@ -238,7 +241,11 @@ def test_analyze_without_ab_fields_defaults_to_gpt_image_2_low(
     """v1.22: when the client omits both fields (old bot / curl),
     the endpoint still routes through A/B using the configured
     defaults (``gpt_image_2`` / ``low``) rather than falling
-    through to the legacy StyleRouter."""
+    through to the legacy StyleRouter.
+
+    v1.25: quality is always forced to ``medium`` server-side, so
+    ``ab_default_quality`` is effectively a no-op for the response
+    context. The model default still applies."""
     monkeypatch.setattr(settings, "ab_test_enabled", True)
     monkeypatch.setattr(settings, "ab_default_model", "gpt_image_2")
     monkeypatch.setattr(settings, "ab_default_quality", "low")
@@ -260,4 +267,4 @@ def test_analyze_without_ab_fields_defaults_to_gpt_image_2_low(
     assert r.status_code == 202, r.text
     ctx = cap.contexts[-1]
     assert ctx.get("image_model") == "gpt_image_2"
-    assert ctx.get("image_quality") == "low"
+    assert ctx.get("image_quality") == "medium"

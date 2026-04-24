@@ -64,7 +64,18 @@ def test_input_hints_accepted_for_close_up_style():
 
 
 def test_preserve_variants_are_distinct_strings():
-    """Guard against accidental collapse of the two anchors back into one."""
+    """Guard against accidental collapse of the two anchors back into one.
+
+    v1.25: the identity-anchor strings were consolidated into a single
+    positive-framed block each; "original pose" moved out of
+    PRESERVE_PHOTO and into the change_instruction (see
+    ``_dating_social_change_instruction``). The distinguishing feature
+    is now "Body pose naturally fits the new scene." in the face-only
+    variant, and "natural pores" (a close-up-only detail) in the
+    default variant.
+    """
     assert PRESERVE_PHOTO != PRESERVE_PHOTO_FACE_ONLY
-    assert "original pose" in PRESERVE_PHOTO
-    assert "original pose" not in PRESERVE_PHOTO_FACE_ONLY
+    assert "Body pose naturally fits the new scene" in PRESERVE_PHOTO_FACE_ONLY
+    assert "Body pose naturally fits the new scene" not in PRESERVE_PHOTO
+    assert "natural pores" in PRESERVE_PHOTO
+    assert "natural pores" not in PRESERVE_PHOTO_FACE_ONLY

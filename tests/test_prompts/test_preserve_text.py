@@ -24,11 +24,10 @@ from src.prompts.image_gen import (
 
 
 REQUIRED_ANCHORS = (
-    "identical",
     "facial features",
+    "bone structure",
     "skin tone",
     "hair",
-    "proportions",
 )
 
 

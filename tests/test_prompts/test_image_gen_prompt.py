@@ -32,8 +32,14 @@ def test_prompt_mentions_sharp_scene():
     # v1.19: SOLO_SUBJECT_ANCHOR (which mentioned "five fingers")
     # was moved out of the positive prompt and into PuLID's
     # negative_prompt. We still assert the scene-quality anchor.
+    # v1.25: QUALITY_PHOTO was re-phrased from "sharp from subject to
+    # background" (CGI-looking) to natural depth of field ("subject
+    # in sharp focus, background slightly soft"). Any of the three
+    # tokens below is sufficient evidence that the quality anchor
+    # survived prompt assembly.
     p = ig.build_dating_prompt(style="rooftop_city", gender="male")
-    assert "sharp" in p.lower()
+    low = p.lower()
+    assert "sharp" in low or "focus" in low or "depth of field" in low
 
 
 def test_all_modes_build_without_error():

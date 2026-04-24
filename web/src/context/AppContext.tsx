@@ -181,11 +181,21 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const raw = localStorage.getItem('ailook_ab_model');
     return raw === 'nano_banana_2' || raw === 'gpt_image_2' ? raw : 'gpt_image_2';
   });
-  const [imageQuality, setImageQualityState] = useState<api.AbImageQuality>(() => {
-    if (typeof localStorage === 'undefined') return 'low';
-    const raw = localStorage.getItem('ailook_ab_quality');
-    return raw === 'low' || raw === 'medium' || raw === 'high' ? raw : 'low';
-  });
+  // v1.25: quality tier is locked to the production-optimal "medium"
+  // on the server (see src/api/v1/analyze.py). The context mirrors
+  // that constant so cost estimates in StepGenerate stay correct.
+  // Any legacy "low" / "high" value left in localStorage from an
+  // older build is normalised to "medium" on load so the pricing pill
+  // never shows a stale amount.
+  const [imageQuality] = useState<api.AbImageQuality>('medium');
+  useEffect(() => {
+    try {
+      if (typeof localStorage === 'undefined') return;
+      if (localStorage.getItem('ailook_ab_quality') !== 'medium') {
+        localStorage.setItem('ailook_ab_quality', 'medium');
+      }
+    } catch { /* localStorage unavailable */ }
+  }, []);
   const [framing, setFraming] = useState<string>('portrait');
   
   const setImageModel = useCallback((m: api.AbImageModel) => {
@@ -193,9 +203,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
     try { localStorage.setItem('ailook_ab_model', m); }
     catch { /* localStorage unavailable */ }
   }, []);
-  const setImageQuality = useCallback((q: api.AbImageQuality) => {
-    setImageQualityState(q);
-    try { localStorage.setItem('ailook_ab_quality', q); } catch { /* noop */ }
+  // v1.25: no-op — quality is a constant, UI pills were removed.
+  // Kept as part of the AppContext shape for binary compatibility with
+  // any caller still wired through an older component build.
+  const setImageQuality = useCallback((_q: api.AbImageQuality) => {
+    // intentionally empty
   }, []);
 
   const hasRealAuth = useMemo(

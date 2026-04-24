@@ -104,11 +104,24 @@ def test_emoji_prompt_has_no_negative_framing() -> None:
     assert hits == [], f"emoji prompt negatives: {hits}"
 
 
-def test_change_instruction_uses_kontext_power_words() -> None:
-    dating = ig._dating_social_change_instruction("dating", "warm_outdoor")
-    assert "while maintaining" in dating
-    assert "skin tone" in dating
-    assert "head-to-body" in dating
+def test_change_instruction_focuses_on_composition() -> None:
+    """v1.25: identity vocabulary was moved out of the change line
+    into ``PRESERVE_PHOTO(_FACE_ONLY)`` to stop tripling the same
+    signal across three anchors. The change_instruction now carries
+    only the compositional delta (what to change + what to keep of
+    the framing), and the identity anchors (skin tone, head-to-body)
+    are asserted on the full prompt in
+    ``test_prompt_contains_identity_anchors``.
+    """
+    # Non-full-body style — should speak of background + clothing only.
+    dating = ig._dating_social_change_instruction("dating", "studio_elegant")
+    assert "reference photo" in dating
+    assert "background" in dating
+    assert "clothing" in dating
+    # Identity-scene / full-body — should phrase the scene placement.
+    dating_full = ig._dating_social_change_instruction("dating", "yoga_outdoor")
+    assert "reference photo" in dating_full
+    assert "natural pose" in dating_full
 
 
 def test_allowed_negatives_is_empty() -> None:

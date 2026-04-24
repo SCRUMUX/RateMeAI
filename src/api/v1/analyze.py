@@ -412,15 +412,19 @@ async def create_analysis(
     # and keeps this endpoint one env-var away from pre-v1.22 behaviour.
     if settings.ab_test_enabled:
         im = (image_model or "").strip().lower()
-        iq = (image_quality or "").strip().lower()
         if im not in AB_MODELS_ALLOWED:
             im = getattr(settings, "ab_default_model", "gpt_image_2")
             if im not in AB_MODELS_ALLOWED:
                 im = "gpt_image_2"
-        if iq not in AB_QUALITIES_ALLOWED:
-            iq = getattr(settings, "ab_default_quality", "low")
-            if iq not in AB_QUALITIES_ALLOWED:
-                iq = "low"
+        # v1.25: quality tier is locked to the production-optimal
+        # ``medium`` on the server regardless of what the client sends.
+        # Both A/B models (NB2 / GPT Image 2) produce Full-HD-class
+        # output at this tier; ``low`` lacks background detail, ``high``
+        # only raises cost without perceptible face-quality gain. The
+        # form parameter ``image_quality`` is kept for contract
+        # compatibility (edge→primary hop, older clients) but its value
+        # no longer drives routing.
+        iq = "medium"
         ctx["image_model"] = im
         ctx["image_quality"] = iq
 
