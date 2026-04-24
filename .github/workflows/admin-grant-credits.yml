@@ -102,29 +102,78 @@ jobs:
         id: pg
         run: |
           set -euo pipefail
-          # Railway exposes a proxied DATABASE_PUBLIC_URL on the Postgres
-          # service. The deploy workflow connects via the internal
-          # network (``postgres.railway.internal``) which is not
-          # reachable from a GitHub Actions runner, so we pull the
-          # public URL instead. Service name is the Railway default
-          # ("Postgres"); fall back to probing the env for any key that
-          # looks like ``DATABASE_PUBLIC_URL``.
-          VARS_JSON=$(railway variables --service Postgres -e production --json)
-          PUBLIC_URL=$(echo "$VARS_JSON" | jq -r '.DATABASE_PUBLIC_URL // empty')
+          # Railway exposes ``DATABASE_PUBLIC_URL`` on the Postgres
+          # service — accessible from outside the Railway network via
+          # the viaduct proxy. The deploy workflow connects via the
+          # internal address (``postgres.railway.internal``) which is
+          # unreachable from a GitHub Actions runner.
+          #
+          # Postgres service naming isn't standardised (Railway plugin
+          # defaults can change between versions — "Postgres",
+          # "postgres", "Postgres-prod", etc.). We discover the real
+          # service name via the project-scoped GraphQL API rather than
+          # guessing. The RAILWAY_TOKEN has access to exactly one
+          # project, so this listing is tight.
+          QUERY='{"query":"query($id:String!){ project(id:$id){ services{ edges{ node{ id name } } } } }","variables":{"id":"'"$RAILWAY_PROJECT_ID"'"}}'
+          SERVICES_JSON=$(curl -sS -X POST https://backboard.railway.com/graphql/v2 \
+            -H "Content-Type: application/json" \
+            -H "Authorization: Bearer $RAILWAY_TOKEN" \
+            -d "$QUERY")
+
+          echo "Services in project:"
+          echo "$SERVICES_JSON" | jq -r '.data.project.services.edges[].node | "  - \(.name) (\(.id))"' || {
+            echo "::error::Failed to list services. Raw response:"
+            echo "$SERVICES_JSON"
+            exit 1
+          }
+
+          # Match by name pattern — any service whose name starts with
+          # "postgres" (case-insensitive). Fall back to the first
+          # service whose variables contain DATABASE_PUBLIC_URL.
+          CANDIDATE_NAMES=$(echo "$SERVICES_JSON" | jq -r '.data.project.services.edges[].node.name' | grep -iE '^(postgres|postgresql|db)' || true)
+
+          PUBLIC_URL=""
+          RESOLVED_NAME=""
+          for NAME in $CANDIDATE_NAMES; do
+            if VARS_JSON=$(railway variables --service "$NAME" -e production --json 2>/dev/null); then
+              URL=$(echo "$VARS_JSON" | jq -r '.DATABASE_PUBLIC_URL // empty')
+              if [ -n "$URL" ]; then
+                PUBLIC_URL="$URL"
+                RESOLVED_NAME="$NAME"
+                break
+              fi
+            fi
+          done
+
+          # Widen the search: iterate every service if the name-match
+          # branch didn't find DATABASE_PUBLIC_URL.
           if [ -z "$PUBLIC_URL" ]; then
-            echo "::error::DATABASE_PUBLIC_URL not found on service 'Postgres'"
-            echo "Available variables:"
-            echo "$VARS_JSON" | jq 'keys'
+            ALL_NAMES=$(echo "$SERVICES_JSON" | jq -r '.data.project.services.edges[].node.name')
+            for NAME in $ALL_NAMES; do
+              if VARS_JSON=$(railway variables --service "$NAME" -e production --json 2>/dev/null); then
+                URL=$(echo "$VARS_JSON" | jq -r '.DATABASE_PUBLIC_URL // empty')
+                if [ -n "$URL" ]; then
+                  PUBLIC_URL="$URL"
+                  RESOLVED_NAME="$NAME"
+                  break
+                fi
+              fi
+            done
+          fi
+
+          if [ -z "$PUBLIC_URL" ]; then
+            echo "::error::DATABASE_PUBLIC_URL not found on any service in the project."
             exit 1
           fi
-          # Normalise the scheme for asyncpg (SQLAlchemy requires
-          # postgresql+asyncpg://, Railway gives postgresql://).
+
+          echo "Resolved DATABASE_PUBLIC_URL from service '$RESOLVED_NAME'."
+          # SQLAlchemy needs ``postgresql+asyncpg://``; Railway gives
+          # the bare ``postgresql://`` scheme.
           ASYNC_URL="${PUBLIC_URL/postgresql:\/\//postgresql+asyncpg://}"
-          # Mask the URL in logs (contains the password).
+          # Mask the URL in logs — it carries the password.
           echo "::add-mask::$ASYNC_URL"
           echo "::add-mask::$PUBLIC_URL"
           echo "database_url=$ASYNC_URL" >> "$GITHUB_OUTPUT"
-          echo "Resolved DATABASE_PUBLIC_URL from Railway Postgres service."
 
       - name: Grant credits
         env:
