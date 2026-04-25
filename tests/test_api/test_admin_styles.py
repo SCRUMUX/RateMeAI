@@ -55,6 +55,13 @@ def isolated_styles_file(tmp_path: Path, monkeypatch):
     monkeypatch.setattr(style_loader, "load_styles_from_json", _fake_loader)
     yield fake_path
     style_loader.load_styles_from_json = real_loader
+    # The bot ``STYLE_CATALOG`` proxy memoises whatever it built during
+    # the test (against the temp file), so without an explicit reset
+    # the next test would see e.g. a 1-entry isolated catalog instead
+    # of the real ``data/styles.json``.
+    from src.services.style_catalog import STYLE_CATALOG
+
+    STYLE_CATALOG._invalidate()  # noqa: SLF001
     style_loader._STYLES_CACHE = []  # noqa: SLF001
 
 
@@ -247,3 +254,113 @@ async def test_create_v2_accepts_complete_slot_block(isolated_styles_file):
     payload = admin_styles.StyleCreatePayload(**raw)
     created = await admin_styles.create_style(payload, _admin=None)
     assert created["id"] == "ok_v2"
+
+
+# ---------------------------------------------------------------------------
+# bot STYLE_CATALOG proxy hot-reload
+# ---------------------------------------------------------------------------
+
+
+def test_bot_catalog_invalidates_after_admin_save(isolated_styles_file):
+    """Editing styles via the admin path must be visible to the bot
+    on the next keyboard render — without a process restart.
+
+    Regression guard for the migration of ``STYLE_CATALOG`` from a
+    hardcoded dict to a ``_BotCatalogProxy`` view over ``data/styles.json``.
+    """
+    from src.services.style_catalog import STYLE_CATALOG
+
+    STYLE_CATALOG._invalidate()  # noqa: SLF001
+
+    isolated_styles_file.write_text(
+        json.dumps(
+            [
+                {
+                    "id": "alpha",
+                    "mode": "cv",
+                    "display_label": "Alpha",
+                    "hook_text": "hookA",
+                }
+            ]
+        ),
+        encoding="utf-8",
+    )
+    style_loader._STYLES_CACHE = []
+    STYLE_CATALOG._invalidate()  # noqa: SLF001
+
+    initial = STYLE_CATALOG.get("cv", [])
+    assert [k for k, *_ in initial] == ["alpha"]
+
+    style_store.save_styles(
+        [
+            {
+                "id": "alpha",
+                "mode": "cv",
+                "display_label": "Alpha",
+                "hook_text": "hookA",
+            },
+            {
+                "id": "beta",
+                "mode": "cv",
+                "display_label": "Beta",
+                "hook_text": "hookB",
+            },
+        ]
+    )
+
+    after = STYLE_CATALOG.get("cv", [])
+    assert sorted(k for k, *_ in after) == ["alpha", "beta"]
+
+
+def test_bot_catalog_skips_scenario_only_entries(isolated_styles_file):
+    from src.services.style_catalog import STYLE_CATALOG
+
+    isolated_styles_file.write_text(
+        json.dumps(
+            [
+                {
+                    "id": "regular",
+                    "mode": "cv",
+                    "display_label": "Reg",
+                    "hook_text": "h",
+                },
+                {
+                    "id": "doc_only",
+                    "mode": "cv",
+                    "display_label": "Doc",
+                    "hook_text": "h",
+                    "scenario": "documents",
+                },
+            ]
+        ),
+        encoding="utf-8",
+    )
+    style_loader._STYLES_CACHE = []
+    STYLE_CATALOG._invalidate()  # noqa: SLF001
+
+    items = STYLE_CATALOG.get("cv", [])
+    assert [k for k, *_ in items] == ["regular"]
+
+
+def test_bot_catalog_supports_dict_protocol(isolated_styles_file):
+    from src.services.style_catalog import STYLE_CATALOG
+
+    isolated_styles_file.write_text(
+        json.dumps(
+            [
+                {"id": "a", "mode": "cv", "display_label": "A", "hook_text": ""},
+                {"id": "b", "mode": "social", "display_label": "B", "hook_text": ""},
+            ]
+        ),
+        encoding="utf-8",
+    )
+    style_loader._STYLES_CACHE = []
+    STYLE_CATALOG._invalidate()  # noqa: SLF001
+
+    assert "cv" in STYLE_CATALOG
+    assert "social" in STYLE_CATALOG
+    assert "missing" not in STYLE_CATALOG
+    assert sorted(STYLE_CATALOG.keys()) == ["cv", "social"]
+    items_per_mode = dict(STYLE_CATALOG.items())
+    assert set(items_per_mode) == {"cv", "social"}
+    assert STYLE_CATALOG["cv"][0][0] == "a"

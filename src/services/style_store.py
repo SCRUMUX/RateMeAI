@@ -61,10 +61,21 @@ def invalidate_caches() -> None:
     can force a refresh after an out-of-band edit (e.g. someone hand-
     edited ``data/styles.json`` on the box).
 
+    Also drops the bot ``STYLE_CATALOG`` proxy snapshot so the next
+    Telegram keyboard render rebuilds from the freshly-written JSON
+    (otherwise admin edits would only reach the bot after the next
+    process restart).
     """
     from src.services import style_loader
 
     style_loader._STYLES_CACHE = []  # noqa: SLF001 — module-private cache reset
+
+    try:
+        from src.services.style_catalog import STYLE_CATALOG
+
+        STYLE_CATALOG._invalidate()  # noqa: SLF001 — proxy-private snapshot reset
+    except Exception as exc:  # noqa: BLE001 — never break the write path
+        logger.warning("style_store: bot catalog reset failed: %s", exc)
 
     try:
         from src.prompts.image_gen import STYLE_REGISTRY
