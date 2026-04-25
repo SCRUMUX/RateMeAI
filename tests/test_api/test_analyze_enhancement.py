@@ -57,7 +57,7 @@ def test_analyze_stores_enhancement_level_in_context(
     r = client.post(
         "/api/v1/analyze",
         files={"image": ("x.jpg", _VALID_JPEG, "image/jpeg")},
-        data={"mode": "social", "style": "influencer", "enhancement_level": "1"},
+        data={"mode": "social", "style": "influencer_urban", "enhancement_level": "1"},
         headers=_auth(token),
     )
     assert r.status_code == 202, r.text

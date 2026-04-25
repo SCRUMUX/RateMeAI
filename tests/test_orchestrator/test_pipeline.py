@@ -255,7 +255,7 @@ def test_execute_social_with_image_gen(mock_nsfw, mock_norm, mock_face, mock_set
             image_bytes=_make_jpeg_stub(),
             user_id="u5",
             task_id="t5",
-            context={"style": "influencer"},
+            context={"style": "influencer_urban"},
         )
     )
     assert result.get("generated_image_url")

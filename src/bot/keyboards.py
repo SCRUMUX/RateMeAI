@@ -159,7 +159,7 @@ def post_result_keyboard(
             [
                 InlineKeyboardButton(
                     text="\U0001f3b2 Другой вариант",
-                    callback_data="variant:social:influencer",
+                    callback_data="variant:social:influencer_urban",
                 ),
                 InlineKeyboardButton(
                     text="\U0001f3a8 Другой стиль", callback_data="restyle:social"

@@ -167,7 +167,7 @@ def test_detect_depth_of_field_keywords():
         (ig.build_dating_prompt, "paris_eiffel"),
         (ig.build_dating_prompt, "studio_elegant"),
         (ig.build_dating_prompt, "warm_outdoor"),
-        (ig.build_social_prompt, "influencer"),
+        (ig.build_social_prompt, "influencer_urban"),
         (ig.build_social_prompt, "feed_clean"),
         (ig.build_cv_prompt, "corporate"),
         (ig.build_cv_prompt, "business_casual"),

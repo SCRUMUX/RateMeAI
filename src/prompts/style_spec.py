@@ -357,7 +357,7 @@ class StyleRegistry:
         spec = self.get(mode, key)
         if spec is not None:
             return spec
-        defaults = {"dating": "warm_outdoor", "cv": "corporate", "social": "influencer"}
+        defaults = {"dating": "warm_outdoor", "cv": "corporate", "social": "influencer_urban"}
         default_key = defaults.get(mode, "warm_outdoor")
         fallback = self._by_key.get((mode, default_key))
         if fallback is not None:

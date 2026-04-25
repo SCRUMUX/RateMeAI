@@ -26,7 +26,7 @@ SYSTEM_PROMPT = (
   ],
   "variants": [
     {
-      "type": "influencer",
+      "type": "influencer_urban",
       "explanation": "<как усилить для стиля инфлюенсера и какой эффект это даст>"
     },
     {
