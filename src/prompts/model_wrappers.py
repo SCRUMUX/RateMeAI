@@ -36,20 +36,29 @@ from src.prompts import image_gen as ig
 from src.prompts.composition_builder import CompositionIR
 
 
-# v2 quality / identity tails.
-# Radically shortened to give the models more attention budget for the actual scene
-# and clothing, increasing diversity and adherence to user choices.
-QUALITY_PHOTO_GPT = (
-    "Identity & Anatomy: Preserve exact facial features, skin tone, eye color, and hair from the reference. "
-    "Maintain realistic human anatomy and natural proportions. Pose must fit the scene naturally. "
-    "Photography: 50mm photorealistic unedited shot. Subject in sharp focus, background softly resolved. "
-    "Lighting: Ambient scene light naturally illuminates the subject's face and clothing with consistent color cast."
+# v2 quality / identity tails. For now they are identical to the v1
+# common block so the "flag on, no v2 styles" parity test passes
+# byte-for-byte. A v2 style can override either one via
+# ``QualityBlock.per_model_tail``; a future PR will tune them
+# independently once we have the shadow-diff evidence.
+QUALITY_PHOTO_GPT = " ".join(
+    [
+        ig.PRESERVE_PHOTO_FACE_ONLY,
+        ig.QUALITY_PHOTO,
+        ig.LIGHT_INTEGRATION_PHOTO,
+        ig.CAMERA_PHOTO,
+        ig.ANATOMY_PHOTO,
+    ]
 )
 
-QUALITY_PHOTO_NANO = (
-    "Exact same person as reference. Preserve face, eyes, skin tone, hair. "
-    "Natural anatomy, correct proportions. Photorealistic 50mm photography, "
-    "sharp subject, soft background. Subject lighting matches scene ambient light perfectly."
+QUALITY_PHOTO_NANO = " ".join(
+    [
+        ig.PRESERVE_PHOTO_FACE_ONLY,
+        ig.QUALITY_PHOTO,
+        ig.LIGHT_INTEGRATION_PHOTO,
+        ig.CAMERA_PHOTO,
+        ig.ANATOMY_PHOTO,
+    ]
 )
 
 _MODEL_DEFAULT_TAIL = {

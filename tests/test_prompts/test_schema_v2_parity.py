@@ -175,11 +175,10 @@ def test_v2_matches_v1_for_neutral_inputs(monkeypatch, mode, style):
         "cv": AnalysisMode.CV,
         "social": AnalysisMode.SOCIAL,
     }[mode]
-    from src.prompts import image_gen as ig_module
     builder = {
-        "dating": ig_module.build_dating_prompt,
-        "cv": ig_module.build_cv_prompt,
-        "social": ig_module.build_social_prompt,
+        "dating": ig.build_dating_prompt,
+        "cv": ig.build_cv_prompt,
+        "social": ig.build_social_prompt,
     }[mode]
 
     engine = PromptEngine()
@@ -198,28 +197,8 @@ def test_v2_matches_v1_for_neutral_inputs(monkeypatch, mode, style):
         target_model="gpt_image_2",
         framing=None,
     )
-    # We changed the tail constants in v2 to be much shorter than v1.
-    # So we only assert that the body (everything before the tail) matches.
-    from src.prompts.model_wrappers import QUALITY_PHOTO_GPT
-    
-    assert via_v2.endswith(QUALITY_PHOTO_GPT)
-    
-    # Strip the tail from both and compare the rest
-    v2_body = via_v2.replace(QUALITY_PHOTO_GPT, "").strip()
-    
-    # v1 has a much longer tail, we need to strip it to compare the body
-    from src.prompts import image_gen as ig
-    v1_tail = " ".join([
-        ig.PRESERVE_PHOTO_FACE_ONLY,
-        ig.QUALITY_PHOTO,
-        ig.LIGHT_INTEGRATION_PHOTO,
-        ig.CAMERA_PHOTO,
-        ig.ANATOMY_PHOTO,
-    ])
-    v1_body = via_v1.replace(v1_tail, "").strip()
-    
-    assert v2_body == v1_body, (
-        f"\n--- v2 body ---\n{v2_body}\n--- v1 body ---\n{v1_body}\n"
+    assert via_v2 == via_v1, (
+        f"\n--- v2 ---\n{via_v2}\n--- v1 ---\n{via_v1}\n"
     )
 
 
@@ -241,8 +220,7 @@ def test_v2_framing_parity(monkeypatch, framing):
         framing=framing,
         target_model="gpt_image_2",
     )
-    from src.prompts import image_gen as ig_module
-    via_v1 = ig_module.build_dating_prompt(
+    via_v1 = ig.build_dating_prompt(
         style="warm_outdoor",
         base_description="",
         gender="male",
@@ -251,27 +229,7 @@ def test_v2_framing_parity(monkeypatch, framing):
         target_model="gpt_image_2",
         framing=framing,
     )
-    # We changed the tail constants in v2 to be much shorter than v1.
-    # So we only assert that the body (everything before the tail) matches.
-    from src.prompts.model_wrappers import QUALITY_PHOTO_GPT
-    
-    assert via_v2.endswith(QUALITY_PHOTO_GPT)
-    
-    # Strip the tail from both and compare the rest
-    v2_body = via_v2.replace(QUALITY_PHOTO_GPT, "").strip()
-    
-    # v1 has a much longer tail, we need to strip it to compare the body
-    from src.prompts import image_gen as ig
-    v1_tail = " ".join([
-        ig.PRESERVE_PHOTO_FACE_ONLY,
-        ig.QUALITY_PHOTO,
-        ig.LIGHT_INTEGRATION_PHOTO,
-        ig.CAMERA_PHOTO,
-        ig.ANATOMY_PHOTO,
-    ])
-    v1_body = via_v1.replace(v1_tail, "").strip()
-    
-    assert v2_body == v1_body
+    assert via_v2 == via_v1
 
 
 # ---------------------------------------------------------------------------
