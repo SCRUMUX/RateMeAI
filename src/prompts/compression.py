@@ -47,7 +47,7 @@ def compress_prompt(prompt: str) -> str:
         r"\b(realistic|photorealistic|hyperrealistic)\s+(realistic|photorealistic|hyperrealistic)\b": r"\1",
         r"\b(sharp|crisp|clear)\s+(sharp|crisp|clear)\b": r"\1",
     }
-    
+
     for pattern, replacement in synonyms.items():
         compressed = re.sub(pattern, replacement, compressed, flags=re.IGNORECASE)
 
@@ -61,5 +61,5 @@ def compress_prompt(prompt: str) -> str:
 
     # Clean up leading/trailing punctuation
     compressed = re.sub(r"^[.,!?;:\s]+", "", compressed)
-    
+
     return compressed.strip()

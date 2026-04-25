@@ -1834,4 +1834,65 @@
 #          UI/API. В случае проблем достаточно
 #          ``git revert 922777e..588c24f`` (10 коммитов) — все
 #          файлы schema-v2 совместимы с v1.27.0.
-APP_VERSION = "1.27.1"
+# 1.27.2 — Prompt content cleanup + bot is now an *always-GPT*
+#          client. Адресует две независимые жалобы из v1.27.1:
+#
+#          1) Promp main motif missing. v2-миграция случайно
+#             разложила scene-данные так, что ключевой мотив стиля
+#             («зеркало», «таймс-сквер crosswalk», «walk-in closet
+#             with full-length mirror») попадал не в
+#             ``background.base``, а в ``context_slots.lighting``.
+#             ``composition_builder._resolve_lighting`` возвращает
+#             ``""``, когда пользователь не открывал «Другой
+#             вариант», поэтому мотив тихо вылетал из default-
+#             промпта (Times Square без неонов, Эйфелева без башни,
+#             зеркало без зеркала). Скрипт-аудит
+#             ``scripts/migrations/2026_04_prompt_quality/
+#             audit_v2_styles.py`` нашёл 117 / 126 стилей с
+#             location-shaped строками в lighting; миграция
+#             ``split_lighting_and_locations.py`` перенесла 395
+#             таких записей в ``background.overrides_allowed``
+#             (с дедупликацией и порядком), а ``lock=flexible``
+#             у 87 стилей переключился на ``"semi"`` —
+#             ``_resolve_scene`` теперь склеивает «<sub_location>
+#             in <base>» вместо REPLACE, default-рендер не
+#             меняется, а через «Другой вариант» мотив
+#             reachable как sub-location. Идемпотентно;
+#             ре-запуск — no-op. Регрессионный тест
+#             ``tests/test_prompts/test_v2_motif_in_prompt.py``
+#             фиксирует, что ``Times Square``, ``Venetian`` и
+#             ``Eiffel`` присутствуют в дефолтных промптах.
+#             Out of scope (трекается в ``audit_report.md`` для
+#             ручной правки через ``/admin/styles``):
+#             ``mirror_aesthetic.background.base`` всё ещё
+#             описан без слова «mirror»; пустой
+#             ``quality_identity.base`` у всех 126 стилей
+#             (legacy ``QUALITY_PHOTO`` уже покрывает —
+#             косметика).
+#
+#          2) Bot occasionally rendered Nano Banana 2 even
+#             though Telegram UI не показывает A/B-пикер. Корень
+#             — ``mode_select._submit_analysis`` не клал
+#             ``image_model`` в multipart, и сервер падал на
+#             ``settings.ab_default_model``. Дефолт правильный
+#             (``gpt_image_2``), но ручная правка Railway
+#             dashboard или флип ``AB_TEST_ENABLED=false``
+#             (фолбэк на PuLID) тихо отправляла бот-трафик
+#             мимо GPT. Архитектурный фикс — declare policy
+#             at the call site: ``form_data['image_model'] =
+#             'gpt_image_2'`` в боте + defense-in-depth pin в
+#             ``ci.yml`` (``AB_TEST_ENABLED=true`` +
+#             ``AB_DEFAULT_MODEL=gpt_image_2`` для app/worker
+#             в том же for-loop, что и v2-флаги — heals
+#             dashboard drift на каждом деплое). Веб-клиент
+#             сохраняет Premium/NB2 toggle и остаётся
+#             единственным каналом, где можно опт-ин в Nano
+#             Banana 2. Static AST-тест
+#             ``tests/test_bot/test_mode_select_form_data.py``
+#             ловит любую попытку откатить policy.
+#
+#          Rollback: миграция данных аддитивная (lighting не
+#          теряется — переезжает в overrides_allowed), бот-патч
+#          и CI-pin тривиально откатываются. ``git revert``
+#          трёх коммитов c1..c3 возвращает v1.27.1 поведение.
+APP_VERSION = "1.27.2"
