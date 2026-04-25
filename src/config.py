@@ -90,6 +90,13 @@ class Settings(BaseSettings):
     # Admin (bootstrap API keys for B2B)
     admin_secret: str = ""
     api_key_pepper: str = ""
+    # Comma-separated list of user IDs (string form, matches DB.User.id)
+    # that are allowed to call the /api/v1/admin/* endpoints. Empty
+    # value (default) means the admin surface is locked down for every
+    # request, returning 403. Set on Railway via
+    # ``ADMIN_USER_IDS=uuid1,uuid2,uuid3`` for the operators who manage
+    # the style catalog through the admin panel.
+    admin_user_ids: str = ""
 
     # Identity preservation gate thresholds.
     # Identity check is a VLM-based 1:1 photo comparison at quality-gate time;
