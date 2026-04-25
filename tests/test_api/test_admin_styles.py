@@ -229,6 +229,46 @@ async def test_create_v2_validates_slot_block(isolated_styles_file):
 
 
 @pytest.mark.asyncio
+async def test_create_v2_requires_clothing_default(isolated_styles_file):
+    """v2 styles without ``clothing.default`` ship an unrenderable prompt."""
+    bad = admin_styles.StyleCreatePayload(
+        id="missing_clothing",
+        mode="social",
+        schema_version=2,
+    )
+    bad_dump = bad.model_dump()
+    bad_dump["background"] = {"base": "neon street at night"}
+    bad_dump["clothing"] = {"default": ""}
+    bad_dump["quality_identity"] = {"base": "8k portrait, soft skin"}
+
+    # Bypass pydantic to inject the raw dict shape the route receives.
+    payload = admin_styles.StyleCreatePayload(**bad_dump)
+    with pytest.raises(HTTPException) as exc:
+        await admin_styles.create_style(payload, _admin=None)
+    assert exc.value.status_code == 422
+    assert "clothing.default" in exc.value.detail
+
+
+@pytest.mark.asyncio
+async def test_create_v2_requires_quality_identity_base(isolated_styles_file):
+    """v2 styles without ``quality_identity.base`` lose the identity anchor."""
+    payload = admin_styles.StyleCreatePayload(
+        id="missing_quality",
+        mode="social",
+        schema_version=2,
+    )
+    raw = payload.model_dump()
+    raw["background"] = {"base": "rooftop at golden hour"}
+    raw["clothing"] = {"default": "smart casual fitted shirt"}
+    raw["quality_identity"] = {"base": "   "}
+    payload = admin_styles.StyleCreatePayload(**raw)
+    with pytest.raises(HTTPException) as exc:
+        await admin_styles.create_style(payload, _admin=None)
+    assert exc.value.status_code == 422
+    assert "quality_identity.base" in exc.value.detail
+
+
+@pytest.mark.asyncio
 async def test_create_v2_accepts_complete_slot_block(isolated_styles_file):
     """A v2 entry with all required slots must be accepted."""
     payload = admin_styles.StyleCreatePayload(

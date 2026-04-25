@@ -136,15 +136,20 @@ def _validate_v2_shape(entry: dict[str, Any]) -> None:
 
     On top of the loader round-trip we require:
 
-    * the slot blocks (``background``, ``clothing``) must be JSON
-      objects, not bare strings or lists;
+    * the slot blocks (``background``, ``clothing``,
+      ``quality_identity``) must be JSON objects, not bare strings
+      or lists;
     * ``background.base`` must be a non-empty string — an empty scene
-      description ships an unrenderable prompt.
+      description ships an unrenderable prompt;
+    * ``clothing.default`` must be a non-empty string — without it the
+      generator falls back to the wrong wardrobe and breaks the style;
+    * ``quality_identity.base`` must be a non-empty string — this is
+      the identity-anchor block that stops face drift across variants.
     """
     if int(entry.get("schema_version") or 0) != 2:
         return
 
-    for key in ("background", "clothing"):
+    for key in ("background", "clothing", "quality_identity"):
         block = entry.get(key)
         if block is not None and not isinstance(block, dict):
             raise HTTPException(
@@ -157,6 +162,20 @@ def _validate_v2_shape(entry: dict[str, Any]) -> None:
         raise HTTPException(
             status_code=422,
             detail="v2 styles require a non-empty background.base description",
+        )
+
+    clothing = entry.get("clothing") or {}
+    if not str(clothing.get("default") or "").strip():
+        raise HTTPException(
+            status_code=422,
+            detail="v2 styles require a non-empty clothing.default description",
+        )
+
+    quality = entry.get("quality_identity") or {}
+    if not str(quality.get("base") or "").strip():
+        raise HTTPException(
+            status_code=422,
+            detail="v2 styles require a non-empty quality_identity.base description",
         )
 
     from src.services.style_loader_v2 import _to_v2

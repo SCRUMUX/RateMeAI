@@ -93,7 +93,7 @@
         "full_body"
       ]
     },
-    "unlock_after_generations": 0,
+    "unlock_after_generations": 5,
     "is_scenario_only": false,
     "display_label": "🏙 Бурдж-Халифа",
     "hook_text": "Амбициозный фон добавит ощущение успеха и масштаба",
@@ -916,7 +916,7 @@
         "full_body"
       ]
     },
-    "unlock_after_generations": 0,
+    "unlock_after_generations": 3,
     "is_scenario_only": false,
     "display_label": "💡 Таймс-сквер",
     "hook_text": "Энергия мегаполиса подчеркнёт уверенность и драйв",
@@ -1734,7 +1734,7 @@
         "full_body"
       ]
     },
-    "unlock_after_generations": 0,
+    "unlock_after_generations": 5,
     "is_scenario_only": false,
     "display_label": "💎 Travel luxury",
     "hook_text": "Премиальная обстановка усилит впечатление успеха",
@@ -1983,7 +1983,7 @@
         "full_body"
       ]
     },
-    "unlock_after_generations": 0,
+    "unlock_after_generations": 5,
     "is_scenario_only": false,
     "display_label": "⛵ На яхте",
     "hook_text": "Морской кадр создаст ощущение свободы и достатка",
@@ -5555,7 +5555,7 @@
         "full_body"
       ]
     },
-    "unlock_after_generations": 0,
+    "unlock_after_generations": 3,
     "is_scenario_only": false,
     "display_label": "🏙 Момент решения",
     "hook_text": "Уверенный взгляд подчеркнёт решительность",
@@ -5638,7 +5638,7 @@
         "full_body"
       ]
     },
-    "unlock_after_generations": 0,
+    "unlock_after_generations": 5,
     "is_scenario_only": false,
     "display_label": "✈️ Бизнес-лаунж",
     "hook_text": "Премиальный фон усилит восприятие статуса",
@@ -5721,7 +5721,7 @@
         "full_body"
       ]
     },
-    "unlock_after_generations": 0,
+    "unlock_after_generations": 5,
     "is_scenario_only": false,
     "display_label": "🎤 Спикер",
     "hook_text": "Сцена подчеркнёт авторитет и экспертность",
@@ -7666,7 +7666,7 @@
         "full_body"
       ]
     },
-    "unlock_after_generations": 0,
+    "unlock_after_generations": 3,
     "is_scenario_only": false,
     "display_label": "🌟 Golden hour",
     "hook_text": "Золотой свет сделает кадр тёплым и запоминающимся",
@@ -7749,7 +7749,7 @@
         "full_body"
       ]
     },
-    "unlock_after_generations": 0,
+    "unlock_after_generations": 3,
     "is_scenario_only": false,
     "display_label": "💠 Неон",
     "hook_text": "Неоновый свет создаст яркий цепляющий контент",
@@ -8994,7 +8994,7 @@
         "full_body"
       ]
     },
-    "unlock_after_generations": 0,
+    "unlock_after_generations": 5,
     "is_scenario_only": false,
     "display_label": "🌇 Вид с небоскрёба",
     "hook_text": "Панорамный фон создаст ощущение достижений",
