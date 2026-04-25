@@ -693,7 +693,20 @@ async def _submit_analysis(
 
         enh_level = level_for_depth(depth).level
 
-        form_data = {"mode": mode, "enhancement_level": str(enh_level)}
+        # v1.27.2: bot is an *always-GPT client* by design — Telegram UI
+        # has no Premium/NB2 picker, so we declare the model at the call
+        # site instead of relying on ``settings.ab_default_model``. That
+        # default is correct on a clean deploy, but a manual Railway
+        # dashboard tweak to ``AB_DEFAULT_MODEL`` (or flipping
+        # ``AB_TEST_ENABLED=false``, which falls back to PuLID) would
+        # silently route bot traffic away from GPT with no source-control
+        # trace. The web client retains the Premium toggle and remains
+        # the only path that can opt into Nano Banana 2.
+        form_data = {
+            "mode": mode,
+            "enhancement_level": str(enh_level),
+            "image_model": "gpt_image_2",
+        }
         if style:
             form_data["style"] = style
         if variant_id:
@@ -714,10 +727,6 @@ async def _submit_analysis(
         # Banana 2 / GPT Image 2 inference at ``medium``/``high`` + our
         # post-pipeline), so the bot's POST was being cut off on
         # healthy runs and the status bubble froze with no result.
-        # TODO(bot-ab): plumb through ``image_model`` / ``image_quality``
-        # from UI state (Redis) once the bot exposes A/B picker buttons.
-        # Today the server falls back to ``ab_default_model`` which is
-        # correct but ignores any user preference set from the web client.
         _ANALYZE_TIMEOUT = 120.0
         async with httpx.AsyncClient(timeout=_ANALYZE_TIMEOUT) as client:
             resp = await client.post(

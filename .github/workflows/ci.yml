@@ -223,6 +223,13 @@ jobs:
             rl_set STYLE_SCHEMA_V2_ENABLED="true" -s "$SVC" -e production --skip-deploys
             rl_set UNIFIED_PROMPT_V2_ENABLED="true" -s "$SVC" -e production --skip-deploys
             rl_set VARIATION_ENGINE_V2_ENABLED="true" -s "$SVC" -e production --skip-deploys
+            # v1.27.2: pin the A/B router defaults so a Railway dashboard
+            # tweak cannot silently route Telegram-bot traffic away from
+            # GPT Image 2. The bot also sends image_model=gpt_image_2
+            # explicitly (see src/bot/handlers/mode_select.py) — this is
+            # the defense-in-depth layer for the same policy.
+            rl_set AB_TEST_ENABLED="true" -s "$SVC" -e production --skip-deploys
+            rl_set AB_DEFAULT_MODEL="gpt_image_2" -s "$SVC" -e production --skip-deploys
             # Dead flag removed in v1.25 (lambda map fix became unconditional).
             # Deleting proactively avoids stale env noise on each service.
             railway variables delete PROMPT_ENGINE_MAP_FIX -s "$SVC" -e production 2>/dev/null || echo "  (PROMPT_ENGINE_MAP_FIX absent on $SVC — skipped)"
