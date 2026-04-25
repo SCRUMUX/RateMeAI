@@ -1,5 +1,6 @@
-import { DOCUMENT_FORMAT_ITEMS } from '../scenarios/extraStyles';
-import { CATEGORIES, STYLES_BY_CATEGORY, type CategoryId } from './styles';
+import { DOCUMENT_LANDING_ITEMS } from './landingStyles';
+import { CATEGORIES, type CategoryId } from './styles';
+import { FULL_LANDING_STYLES_BY_CATEGORY } from './landingStyles';
 import { TESTIMONIALS } from './testimonials';
 
 export interface SocialProofFeedItem {
@@ -162,7 +163,7 @@ function capitalize(value: string): string {
 }
 
 function getStyleName(category: CategoryId, styleKey: string): string {
-  return STYLES_BY_CATEGORY[category].find((style) => style.key === styleKey)?.name ?? 'Новый стиль';
+  return FULL_LANDING_STYLES_BY_CATEGORY[category].find((style) => style.key === styleKey)?.name ?? 'Новый стиль';
 }
 
 function buildTestimonialFeed(category: CategoryId): SocialProofFeedItem[] {
@@ -208,7 +209,7 @@ function buildTestimonialFeed(category: CategoryId): SocialProofFeedItem[] {
 
 function buildComingSoonFeed(category: CategoryId): SocialProofFeedItem[] {
   const categoryLabel = CATEGORIES.find((item) => item.id === category)?.label ?? capitalize(category);
-  const styles = STYLES_BY_CATEGORY[category].slice(0, 5);
+  const styles = FULL_LANDING_STYLES_BY_CATEGORY[category].slice(0, 5);
 
   const styleMessages = styles.flatMap((style, index) => [
     {
@@ -242,7 +243,7 @@ function buildComingSoonFeed(category: CategoryId): SocialProofFeedItem[] {
 }
 
 function buildDocumentFeed(): SocialProofFeedItem[] {
-  const derived = DOCUMENT_FORMAT_ITEMS.flatMap((item, index) => [
+  const derived = DOCUMENT_LANDING_ITEMS.flatMap((item, index) => [
     {
       id: `documents-${item.key}-main`,
       author: FALLBACK_AUTHORS.documents[index % FALLBACK_AUTHORS.documents.length],

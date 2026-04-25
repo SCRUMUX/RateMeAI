@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { CATEGORIES, STYLES_BY_CATEGORY, COMING_SOON_CATEGORIES, getMockDelta, type CategoryId } from '../data/styles';
+import { CATEGORIES, COMING_SOON_CATEGORIES, getMockDelta, type CategoryId } from '../data/styles';
+import { FULL_LANDING_STYLES_BY_CATEGORY } from '../data/landingStyles';
 import { getTestimonialsByCategory } from '../data/testimonials';
 import CategoryTabs from '../components/CategoryTabs';
 import ReviewModal from '../components/ReviewModal';
@@ -16,7 +17,7 @@ export default function Simulation() {
 
   const isComingSoon = COMING_SOON_CATEGORIES.includes(activeCategory);
   const testimonials = getTestimonialsByCategory(activeCategory);
-  const styles = STYLES_BY_CATEGORY[activeCategory];
+  const styles = FULL_LANDING_STYLES_BY_CATEGORY[activeCategory];
 
   const testimonialsWithStyle = testimonials.map(t => ({
     ...t,

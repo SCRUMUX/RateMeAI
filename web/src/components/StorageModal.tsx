@@ -5,22 +5,26 @@ import { AnimatePresence, motion } from 'framer-motion';
 import type { TaskHistoryItem } from '../lib/api';
 import { createShare } from '../lib/api';
 import { normalizeImageUrl } from '../lib/image-url';
-import { STYLES_BY_CATEGORY } from '../data/styles';
-import { DOCUMENT_FORMAT_ITEMS } from '../scenarios/extraStyles';
+import { FULL_LANDING_STYLES_BY_CATEGORY, DOCUMENT_LANDING_ITEMS } from '../data/landingStyles';
 import { useApp } from '../context/AppContext';
 import ProgressBar from './wizard/ProgressBar';
 import ShareButtons from './ShareButtons';
 
+// Static fallback for displaying style name/icon next to a generation in the
+// archive. The wizard now fetches the live catalog from the API, but this
+// modal renders historical task metadata that may include styles we no longer
+// surface in the active catalog (e.g. style was hidden via admin), so we keep
+// a frozen mirror to avoid showing raw keys.
 const STYLE_LOOKUP: Record<string, { name: string; icon: string }> = {};
-for (const styles of Object.values(STYLES_BY_CATEGORY)) {
+for (const styles of Object.values(FULL_LANDING_STYLES_BY_CATEGORY)) {
   for (const s of styles) {
     STYLE_LOOKUP[s.key] = { name: s.name, icon: s.icon };
   }
 }
-for (const s of DOCUMENT_FORMAT_ITEMS) {
+for (const s of DOCUMENT_LANDING_ITEMS) {
   STYLE_LOOKUP[s.key] = { name: s.name, icon: s.icon };
 }
-const DOCUMENT_STYLE_KEYS = new Set(DOCUMENT_FORMAT_ITEMS.map(d => d.key));
+const DOCUMENT_STYLE_KEYS = new Set(DOCUMENT_LANDING_ITEMS.map(d => d.key));
 
 interface Props {
   items: TaskHistoryItem[];

@@ -11,11 +11,18 @@ interface Props {
   onApply: (hints: Record<string, any>) => void;
 }
 
+// v2 catalog payload normalised into a shape the modal renders directly.
+// The `sceneLocked` flag mirrors `background.lock === 'locked'`: for
+// document/passport styles we hide the «Сцена» section so the user can't
+// override a hard-locked background and break the format.
 interface StyleOptions {
   lighting?: string[];
   scene?: string[];
   clothing?: string[];
   framing?: string[];
+  weather?: string[];
+  sceneLocked?: boolean;
+  weatherEnabled?: boolean;
 }
 
 // v1.26: RU-словари для known-значений. Значения в styles.json — это
@@ -39,11 +46,26 @@ const FRAMING_LABELS_RU: Record<string, string> = {
   full_body: 'В полный рост',
 };
 
+const WEATHER_LABELS_RU: Record<string, string> = {
+  clear: 'Ясно',
+  sunny: 'Солнечно',
+  overcast: 'Пасмурно',
+  cloudy: 'Облачно',
+  rain: 'Дождь',
+  rainy: 'Дождь',
+  snow: 'Снег',
+  fog: 'Туман',
+  mist: 'Дымка',
+  windy: 'Ветрено',
+  storm: 'Шторм',
+};
+
 const CATEGORY_LABELS_RU: Record<string, string> = {
   lighting: 'Освещение',
   scene: 'Сцена / локация',
   clothing: 'Одежда',
   framing: 'Ракурс',
+  weather: 'Погода',
 };
 
 function capitalize(s: string): string {
@@ -62,7 +84,38 @@ function labelFor(channel: string, value: string): string {
     }
     return capitalize(value);
   }
+  if (channel === 'weather') {
+    return WEATHER_LABELS_RU[value.toLowerCase()] ?? capitalize(value);
+  }
   return capitalize(value);
+}
+
+// Normalise either v1 (allowed_variations dict) or v2 (slot-based)
+// payloads into a shape the modal renders without conditionals further
+// down. Backend keeps both shapes alive so the FE handles both.
+function normaliseOptions(res: api.StyleOptionsResponse): StyleOptions {
+  if (res.schema_version === 2) {
+    const v2 = res.options as api.StyleOptionsV2Payload;
+    return {
+      lighting: v2.context_slots?.lighting ?? [],
+      framing: v2.context_slots?.framing ?? [],
+      scene: v2.background?.overrides_allowed ?? [],
+      clothing: v2.clothing?.allowed ?? [],
+      weather: v2.weather?.allowed ?? [],
+      sceneLocked: v2.background?.lock === 'locked',
+      weatherEnabled: !!v2.weather?.enabled,
+    };
+  }
+  const v1 = (res.options ?? {}) as Record<string, string[]>;
+  return {
+    lighting: v1.lighting ?? [],
+    framing: v1.framing ?? [],
+    scene: v1.scene ?? [],
+    clothing: v1.clothing ?? [],
+    weather: [],
+    sceneLocked: false,
+    weatherEnabled: false,
+  };
 }
 
 export default function StyleSettingsModal({ open, onClose, styleId, onApply }: Props) {
@@ -91,7 +144,7 @@ export default function StyleSettingsModal({ open, onClose, styleId, onApply }: 
     setLoading(true);
     api.getStyleOptions(styleId)
       .then(res => {
-        setOptions((res.options ?? {}) as StyleOptions);
+        setOptions(normaliseOptions(res));
         setLoading(false);
       })
       .catch(e => {
@@ -104,10 +157,14 @@ export default function StyleSettingsModal({ open, onClose, styleId, onApply }: 
   if (!open) return null;
 
   const hasLighting = !!options?.lighting && options.lighting.length > 0;
-  const hasScene = !!options?.scene && options.scene.length > 0;
+  // Сцена-секция доступна, если background не запрещён жёстко (документы),
+  // даже когда overrides_allowed пуст: пользователь может ввести свободный
+  // текст. Если background.lock === 'locked' — секцию полностью скрываем.
+  const hasScene = !!options && !options.sceneLocked;
   const hasClothing = !!options?.clothing && options.clothing.length > 0;
   const hasFraming = !!options?.framing && options.framing.length > 0;
-  const hasAnyField = hasLighting || hasScene || hasClothing || hasFraming;
+  const hasWeather = !!options?.weatherEnabled;
+  const hasAnyField = hasLighting || hasScene || hasClothing || hasFraming || hasWeather;
 
   return createPortal(
     <AnimatePresence>
@@ -226,7 +283,7 @@ export default function StyleSettingsModal({ open, onClose, styleId, onApply }: 
                       onChange={(e) => setHints((h) => ({ ...h, scene_override: e.target.value }))}
                       className="w-full bg-[rgba(255,255,255,0.05)] border border-[rgba(255,255,255,0.1)] rounded-[var(--radius-8)] px-3 py-2 text-[14px] text-[#E6EEF8]"
                     />
-                    {options!.scene!.length > 0 && (
+                    {(options!.scene?.length ?? 0) > 0 && (
                       <div className="flex flex-wrap gap-[var(--space-4)]">
                         {options!.scene!.slice(0, 6).map((opt) => (
                           <button
@@ -255,7 +312,7 @@ export default function StyleSettingsModal({ open, onClose, styleId, onApply }: 
                       onChange={(e) => setHints((h) => ({ ...h, clothing_override: e.target.value }))}
                       className="w-full bg-[rgba(255,255,255,0.05)] border border-[rgba(255,255,255,0.1)] rounded-[var(--radius-8)] px-3 py-2 text-[14px] text-[#E6EEF8]"
                     />
-                    {options!.clothing!.length > 0 && (
+                    {(options!.clothing?.length ?? 0) > 0 && (
                       <div className="flex flex-wrap gap-[var(--space-4)]">
                         {options!.clothing!.slice(0, 6).map((opt) => (
                           <button
@@ -269,6 +326,36 @@ export default function StyleSettingsModal({ open, onClose, styleId, onApply }: 
                         ))}
                       </div>
                     )}
+                  </div>
+                )}
+
+                {hasWeather && (
+                  <div className="flex flex-col gap-[var(--space-8)]">
+                    <span className="text-[13px] font-medium text-[var(--color-text-muted)]">
+                      {CATEGORY_LABELS_RU.weather}
+                    </span>
+                    <div className="flex flex-wrap gap-[var(--space-4)]">
+                      {(options!.weather ?? []).map((opt) => {
+                        const active = (hints.weather ?? '') === opt;
+                        return (
+                          <button
+                            key={opt}
+                            type="button"
+                            onClick={() => setHints((h) => ({
+                              ...h,
+                              weather: active ? '' : opt,
+                            }))}
+                            className={`px-[var(--space-12)] py-[var(--space-4)] rounded-[var(--radius-pill)] text-[12px] leading-[16px] font-medium transition-all ${
+                              active
+                                ? 'glass-btn-primary text-white'
+                                : 'glass-btn-ghost text-[var(--color-text-secondary)]'
+                            }`}
+                          >
+                            {labelFor('weather', opt)}
+                          </button>
+                        );
+                      })}
+                    </div>
                   </div>
                 )}
               </>

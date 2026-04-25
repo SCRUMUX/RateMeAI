@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import type { Testimonial } from '../data/testimonials';
-import { STYLES_BY_CATEGORY } from '../data/styles';
+import { FULL_LANDING_STYLES_BY_CATEGORY } from '../data/landingStyles';
 import { useApp } from '../context/AppContext';
 
 interface Props {
@@ -29,7 +29,7 @@ export default function ReviewModal({ testimonials, initialIndex, open, onClose 
 
   const testimonial = testimonials[idx];
   const style = testimonial
-    ? STYLES_BY_CATEGORY[testimonial.category].find(s => s.key === testimonial.styleKey)
+    ? FULL_LANDING_STYLES_BY_CATEGORY[testimonial.category].find(s => s.key === testimonial.styleKey)
     : null;
 
   const canPrev = idx > 0;

@@ -1,44 +1,20 @@
 import type { StyleItem } from '../../data/styles';
 
-const ANON_SEED_KEY = 'lookstudio:anon-seed';
-export const UNLOCK_AFTER_GENERATIONS = 5;
-
-// FNV-1a 32-bit hash — стабильный, быстрый, детерминированный.
-function fnv1a(str: string): number {
-  let hash = 0x811c9dc5;
-  for (let i = 0; i < str.length; i++) {
-    hash ^= str.charCodeAt(i);
-    hash = Math.imul(hash, 0x01000193);
-  }
-  return hash >>> 0;
-}
-
-export function getUserLockSeed(userId: string | null | undefined): string {
-  if (userId) return `u:${userId}`;
-  if (typeof window === 'undefined') return 'anon:server';
-  try {
-    let seed = window.localStorage.getItem(ANON_SEED_KEY);
-    if (!seed) {
-      seed = (window.crypto && 'randomUUID' in window.crypto)
-        ? window.crypto.randomUUID()
-        : `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
-      window.localStorage.setItem(ANON_SEED_KEY, seed);
-    }
-    return `a:${seed}`;
-  } catch {
-    return 'anon:fallback';
-  }
-}
-
 /**
- * Детерминированно выбирает ~30% стилей из списка как локнутые.
- * Один и тот же `userSeed` + `styles` всегда даёт один и тот же Set,
- * поэтому при повторных визитах пользователь видит те же локнутые стили.
- * При `taskHistoryCount >= UNLOCK_AFTER_GENERATIONS` всё разлочено.
+ * Source of truth for "what's still locked for this user" — driven entirely
+ * by the per-style ``unlock_after_generations`` field that ships from the
+ * backend (``/api/v1/catalog/styles?schema=v2``). Pre-v1.27 there was a
+ * fallback path that hashed the user id with FNV-1a to lock ~30% of styles
+ * whenever the catalog hadn't been migrated yet; with the Phase-3+ catalog
+ * cleanup every style ships an explicit unlock threshold (0 = open from
+ * day one), so the hash-and-pick branch is gone.
+ *
+ * Keeping the helper module-scoped instead of inlining it into ``StepStyle``
+ * because ``StylesSheet`` and the recommended-styles filter both need the
+ * same locked set.
  */
 export function computeLockedKeys(
   styles: readonly StyleItem[],
-  userSeed: string,
   taskHistoryCount: number,
 ): Set<string> {
   const locked = new Set<string>();
@@ -47,27 +23,13 @@ export function computeLockedKeys(
       locked.add(s.key);
     }
   }
-  
-  // Если у стилей нет unlock_after_generations (старый хардкод), применяем старую логику:
-  if (locked.size === 0 && styles.some(s => s.unlock_after_generations === undefined)) {
-    if (taskHistoryCount >= UNLOCK_AFTER_GENERATIONS) return new Set();
-    if (styles.length === 0) return new Set();
-
-    const scored = styles.map((s) => ({
-      key: s.key,
-      rank: fnv1a(`${userSeed}:${s.key}`),
-    }));
-    scored.sort((a, b) => a.rank - b.rank);
-    const lockedCount = Math.floor(styles.length * 0.3);
-    for (let i = 0; i < lockedCount; i++) locked.add(scored[i].key);
-  }
-  
   return locked;
 }
 
 /**
- * Сортирует стили так, чтобы доступные шли первыми (в исходном порядке),
- * а локнутые — в самом конце.
+ * Stable ordering: unlocked styles first (preserving the catalog's
+ * curated order), locked ones at the tail. Lets ``StylesSheet`` render
+ * a single flat list without losing the "best stuff at the top" feel.
  */
 export function orderStylesByLock<T extends { key: string }>(
   styles: readonly T[],
