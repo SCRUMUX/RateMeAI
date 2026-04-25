@@ -412,6 +412,66 @@ export function claimLink(code: string, provider: string, externalId: string, pr
   });
 }
 
+// -- Admin (style catalog CRUD) --
+//
+// Gated server-side by ADMIN_USER_IDS — non-admin sessions get a plain
+// 403. The admin web page does not pre-flight that check; it just calls
+// listAdminStyles() and shows the error if the request 403s.
+
+export interface AdminStyleSummary {
+  id: string;
+  mode: string;
+  display_label: string;
+  hook_text: string;
+  scenario: string | null;
+  unlock_after_generations: number;
+  is_scenario_only: boolean;
+  schema_version: number;
+}
+
+export type AdminStyleEntry = Record<string, unknown> & {
+  id: string;
+  mode: string;
+};
+
+export function listAdminStyles() {
+  return request<AdminStyleSummary[]>('/api/v1/admin/styles');
+}
+
+export function getAdminStyle(styleId: string) {
+  return request<AdminStyleEntry>(
+    `/api/v1/admin/styles/${encodeURIComponent(styleId)}`,
+  );
+}
+
+export function createAdminStyle(payload: AdminStyleEntry) {
+  return request<AdminStyleEntry>('/api/v1/admin/styles', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+}
+
+export function updateAdminStyle(styleId: string, patch: Partial<AdminStyleEntry>) {
+  return request<AdminStyleEntry>(
+    `/api/v1/admin/styles/${encodeURIComponent(styleId)}`,
+    { method: 'PUT', body: JSON.stringify(patch) },
+  );
+}
+
+export function deleteAdminStyle(styleId: string) {
+  return request<void>(
+    `/api/v1/admin/styles/${encodeURIComponent(styleId)}`,
+    { method: 'DELETE' },
+  );
+}
+
+export function reloadAdminStyles() {
+  return request<{ status: string; count: number }>(
+    '/api/v1/admin/styles/reload',
+    { method: 'POST' },
+  );
+}
+
 // -- Phone OTP --
 
 export function phoneSendCode(phone: string) {

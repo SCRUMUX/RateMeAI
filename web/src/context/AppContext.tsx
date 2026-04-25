@@ -240,18 +240,29 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, [scenarioDef, activeCategory, modeMap]);
 
   const [catalogStyles, setCatalogStyles] = useState<Record<string, StyleItem[]>>({});
+  // Stash for `/api/v1/catalog/scenario-styles?scenario=...` results.
+  // Keyed by scenario slug (e.g. "document-photo", "tinder-pack") so the
+  // wizard renders the curated bucket instead of the main mode catalog.
+  const [scenarioStyles, setScenarioStyles] = useState<Record<string, StyleItem[]>>({});
+
+  const scenarioBucketSlug = scenarioDef?.styles.kind === 'scenario'
+    ? scenarioDef.styles.slug
+    : null;
 
   const effectiveStyleList = useMemo(() => {
+    if (scenarioBucketSlug) {
+      return scenarioStyles[scenarioBucketSlug] || [];
+    }
     const resolved = resolveScenarioStyles(scenarioDef);
     if (resolved) return resolved;
     return catalogStyles[activeCategory] || STYLES_BY_CATEGORY[activeCategory] || [];
-  }, [scenarioDef, activeCategory, catalogStyles]);
+  }, [scenarioDef, scenarioBucketSlug, scenarioStyles, activeCategory, catalogStyles]);
 
   useEffect(() => {
     const mode = effectiveApiMode;
     if (!mode) return;
     if (catalogStyles[mode]) return;
-    
+
     api.getCatalogStyles(mode).then(res => {
       const mapped: StyleItem[] = res.styles.map(s => {
         const icon = s.label.match(/^[\p{Emoji}\u200d]+/u)?.[0] || '✨';
@@ -263,7 +274,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
           desc: s.hook || '',
           param: (s.meta?.param as any) || 'appeal',
           deltaRange: (s.meta?.delta_range as any) || [0.1, 0.3],
-          category: s.category || 'General',
           unlock_after_generations: s.unlock_after_generations || 0,
         };
       });
@@ -272,6 +282,30 @@ export function AppProvider({ children }: { children: ReactNode }) {
       console.warn('Failed to fetch catalog styles for mode', mode, e);
     });
   }, [effectiveApiMode, catalogStyles]);
+
+  useEffect(() => {
+    if (!scenarioBucketSlug) return;
+    if (scenarioStyles[scenarioBucketSlug]) return;
+
+    api.getScenarioStyles(scenarioBucketSlug).then(res => {
+      const mapped: StyleItem[] = res.styles.map(s => {
+        const icon = s.label.match(/^[\p{Emoji}\u200d]+/u)?.[0] || '✨';
+        const name = s.label.replace(/^[\p{Emoji}\u200d]+\s*/u, '');
+        return {
+          key: s.key,
+          icon,
+          name,
+          desc: s.hook || '',
+          param: (s.meta?.param as any) || 'appeal',
+          deltaRange: (s.meta?.delta_range as any) || [0.1, 0.3],
+          unlock_after_generations: s.unlock_after_generations || 0,
+        };
+      });
+      setScenarioStyles(prev => ({ ...prev, [scenarioBucketSlug]: mapped }));
+    }).catch(e => {
+      console.warn('Failed to fetch scenario styles for', scenarioBucketSlug, e);
+    });
+  }, [scenarioBucketSlug, scenarioStyles]);
 
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const sseRef = useRef<EventSource | null>(null);
