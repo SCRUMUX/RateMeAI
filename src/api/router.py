@@ -12,6 +12,7 @@ from src.api.v1.sse import router as sse_router
 from src.api.v1.internal import router as internal_router
 from src.api.v1.consents import router as consents_router
 from src.api.v1.users_data import router as users_data_router
+from src.api.v1.admin import styles_router as admin_styles_router
 
 api_router = APIRouter()
 api_router.include_router(analyze_router, prefix="/analyze", tags=["analyze"])
@@ -29,3 +30,5 @@ api_router.include_router(catalog_router, prefix="/catalog", tags=["catalog"])
 api_router.include_router(sse_router, prefix="/sse", tags=["sse"])
 
 api_router.include_router(internal_router, prefix="/internal", tags=["internal"])
+
+api_router.include_router(admin_styles_router, prefix="/admin", tags=["admin"])
