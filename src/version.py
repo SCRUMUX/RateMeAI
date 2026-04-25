@@ -1739,4 +1739,99 @@
 #          (``?schema=v2``), default остаётся v1 JSON — UI
 #          можно мигрировать отдельным PR, когда готов дизайн
 #          для «Другой вариант» с раздельными каналами.
-APP_VERSION = "1.27.0"
+# 1.27.1 — Catalog tech-debt cleanup + admin panel for styles.
+#          Серия из 10 коммитов на main; пользовательский контракт
+#          без изменений, всё edge/bot/worker остаётся совместимым,
+#          но изнутри каталог стилей теперь живёт в одном месте —
+#          ``data/styles.json`` — и редактируется через UI.
+#
+#          1) Hotfix удалённого ``influencer`` (588c24f). Стиль
+#             был выпилен ещё в v1.26.x cleanup'е, но оставались
+#             ссылки в SOCIAL_STYLES / variants — заменены на
+#             ``influencer_urban``. Без этого хелпер
+#             ``style_variants`` падал на старых записях, где
+#             пользователь когда-то выбрал ``influencer``.
+#
+#          2) One-shot migrations (b6b12ff, b00a240) перенесены
+#             в ``scripts/migrations/2026_04_catalog_cleanup/``,
+#             ``data/styles.json`` пересохранён единым каноном
+#             (schema_version: 2 везде, дедуплицированные id),
+#             из ``image_gen.SOCIAL_STYLES/CV_STYLES/PERSONALITIES``
+#             и ``style_variants.SOCIAL_VARIANTS`` вычищены
+#             ID удалённых стилей — мёртвый fallback больше не
+#             всплывает в логах ``Unknown style id``.
+#
+#          3) Scenario styles (2a24bb2). Часть стилей теперь
+#             помечается полем ``scenario`` в JSON: они не
+#             попадают в основной каталог
+#             (``GET /api/v1/catalog/styles``) и доступны только
+#             через сценарии (онбординг, A/B-эксперименты). Новые
+#             хелперы ``get_scenario_styles_json[_v2]`` +
+#             фильтр в ``get_catalog_json[_v2]``. Frontend
+#             (``web/src/scenarios/config.ts`` + Storage/Review
+#             модалки) ходит за этим списком отдельно.
+#
+#          4) Admin panel (0232bb3 + 556ed80 + f7ee2ab). Новый
+#             whitelist-gate ``ADMIN_USER_IDS`` (см.
+#             ``src/api/v1/admin/auth.py`` — пустой whitelist =
+#             замок для всех; безопасный production default),
+#             атомарный store на ``data/styles.json``
+#             (``os.replace`` + ``threading.Lock`` +
+#             timestamped backup в ``data/.styles_backup/``),
+#             CRUD-эндпоинты ``GET/POST/PUT/DELETE
+#             /api/v1/admin/styles`` со схемой v1+v2 и
+#             ``_validate_v2_shape`` (server-side enforcement
+#             для ``background.base``, ``clothing.default``,
+#             ``quality_identity.base``). Web-UI на
+#             ``/admin/styles`` (React, slot-based редактор,
+#             dirty-state guard через ``window.confirm``,
+#             inline валидация v2-полей).
+#
+#          5) Bot catalog hot-reload (8078f2c, 922777e).
+#             Хардкод ``STYLE_CATALOG`` (~850 строк Python dict)
+#             в ``src/services/style_catalog.py`` заменён на
+#             ``_BotCatalogProxy`` поверх ``load_styles_from_json()``.
+#             Прокси кэширует список стилей; админский endpoint
+#             вызывает ``style_store.invalidate_caches()``,
+#             которая дёргает ``STYLE_CATALOG._invalidate()`` —
+#             бот моментально подхватывает изменения админки
+#             без рестарта. Интерфейс прокси совместим со
+#             старым dict (``.get``, ``__getitem__``, ``.items``)
+#             — все потребители не поменялись.
+#
+#          6) Premium unlocks seed (922777e). Скрипт
+#             ``scripts/migrations/2026_04_catalog_cleanup/
+#             seed_premium_unlocks.py`` (одноразовый) проставил
+#             ``unlock_after_generations: 3..5`` десяти стилям:
+#             ``business_executive``, ``casual_chic_pro``,
+#             ``coffee_shop_premium``, ``culinary_artisan``,
+#             ``evening_elegance``, ``executive_traveler``,
+#             ``gallery_curator``, ``professional_warm``,
+#             ``rooftop_evening``, ``vinyl_lounge``. Замок lock'ов
+#             остался жив (FNV-fallback из web выпилен в
+#             8c11024 — теперь UI считывает поле напрямую из
+#             API и не выдумывает блокировки).
+#
+#          7) Frontend sync (8c11024). ``StylesSheet`` /
+#             ``StyleSettingsModal`` /
+#             ``Simulation``/``StorageModal`` подключены к
+#             scenario-API; legacy FNV-fallback убран,
+#             ``CatalogStyleEntry`` единый source-of-truth.
+#
+#          Тесты: 1953 passed (включая новые
+#          ``tests/test_api/test_admin_styles.py``,
+#          ``tests/test_api/test_catalog.py``,
+#          ``tests/test_services/test_style_migration_v2.py``).
+#          Test-isolation fix: фикстура ``isolated_styles_file``
+#          в ``test_admin_styles.py`` теперь сбрасывает
+#          ``STYLE_CATALOG._invalidate()`` и
+#          ``style_loader._STYLES_CACHE`` на teardown — без этого
+#          предыдущий тест с временным styles.json оставлял
+#          пустой кэш и валил ``enhancement_advisor`` с
+#          ``ZeroDivisionError``.
+#
+#          Rollback: серия чисто аддитивная, кроме админского
+#          UI/API. В случае проблем достаточно
+#          ``git revert 922777e..588c24f`` (10 коммитов) — все
+#          файлы schema-v2 совместимы с v1.27.0.
+APP_VERSION = "1.27.1"
