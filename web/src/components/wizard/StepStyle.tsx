@@ -3,7 +3,7 @@ import { COMING_SOON_CATEGORIES, getMockDelta } from '../../data/styles';
 import { useApp } from '../../context/AppContext';
 import ProgressBar from './ProgressBar';
 import StylesSheet from './StylesSheet';
-import { computeLockedKeys, getUserLockSeed, UNLOCK_AFTER_GENERATIONS } from './lockedStyles';
+import { computeLockedKeys } from './lockedStyles';
 import { PARAM_LABELS, computeStyleDeltas } from './shared';
 
 const FRAMING_OPTIONS = [
@@ -25,13 +25,9 @@ export default function StepStyle({ onNext }: Props) {
 
   const [sheetOpen, setSheetOpen] = useState(false);
 
-  const userSeed = useMemo(
-    () => getUserLockSeed(app.session?.userId ?? null),
-    [app.session?.userId],
-  );
   const lockedKeys = useMemo(
-    () => computeLockedKeys(styles, userSeed, app.taskHistoryCount),
-    [styles, userSeed, app.taskHistoryCount],
+    () => computeLockedKeys(styles, app.taskHistoryCount),
+    [styles, app.taskHistoryCount],
   );
 
   const selectedStyle = styles.find(s => s.key === app.selectedStyleKey) ?? styles[0];
@@ -204,7 +200,7 @@ export default function StepStyle({ onNext }: Props) {
               <path d="M3 5h10M3 8h10M3 11h6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
             </svg>
             Хочу другой образ
-            {app.taskHistoryCount < UNLOCK_AFTER_GENERATIONS && (
+            {lockedKeys.size > 0 && (
               <span className="text-[11px] leading-[14px] text-[var(--color-text-muted)]">
                 · {styles.length} стилей
               </span>

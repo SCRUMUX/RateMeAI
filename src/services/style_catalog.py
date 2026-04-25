@@ -876,7 +876,11 @@ def get_catalog_json(mode: str) -> list[dict]:
     items = []
 
     for s in styles:
-        if s.get("mode") == mode and not s.get("is_scenario_only", False):
+        if (
+            s.get("mode") == mode
+            and not s.get("is_scenario_only", False)
+            and not s.get("scenario")
+        ):
             items.append(
                 {
                     "key": s["id"],
@@ -888,6 +892,32 @@ def get_catalog_json(mode: str) -> list[dict]:
                 }
             )
 
+    return items
+
+
+def get_scenario_styles_json(scenario: str) -> list[dict]:
+    """Return styles tagged with ``scenario == <scenario>`` (v1 shape).
+
+    Powers ``GET /api/v1/catalog/scenario-styles?scenario=...`` so the
+    web app can fetch e.g. document-format styles for ``/dokumenty``
+    without polluting the main ``cv`` catalog.
+    """
+    from src.services.style_loader import load_styles_from_json
+
+    items: list[dict] = []
+    for s in load_styles_from_json():
+        if s.get("scenario") != scenario:
+            continue
+        items.append(
+            {
+                "key": s["id"],
+                "label": s.get("display_label", s["id"]),
+                "hook": s.get("hook_text", ""),
+                "meta": s.get("meta", {}),
+                "unlock_after_generations": s.get("unlock_after_generations", 0),
+                "mode": s.get("mode"),
+            }
+        )
     return items
 
 
@@ -991,7 +1021,11 @@ def get_catalog_json_v2(mode: str) -> list[dict]:
     styles = load_styles_from_json()
     items: list[dict] = []
     for s in styles:
-        if s.get("mode") != mode or s.get("is_scenario_only", False):
+        if (
+            s.get("mode") != mode
+            or s.get("is_scenario_only", False)
+            or s.get("scenario")
+        ):
             continue
         items.append(
             {
@@ -1001,6 +1035,28 @@ def get_catalog_json_v2(mode: str) -> list[dict]:
                 "meta": s.get("meta", {}),
                 "category": s.get("category", "General"),
                 "unlock_after_generations": s.get("unlock_after_generations", 0),
+                "schema_version": int(s.get("schema_version") or 1),
+            }
+        )
+    return items
+
+
+def get_scenario_styles_json_v2(scenario: str) -> list[dict]:
+    """Return styles tagged with ``scenario == <scenario>`` enriched with v2 flag."""
+    from src.services.style_loader import load_styles_from_json
+
+    items: list[dict] = []
+    for s in load_styles_from_json():
+        if s.get("scenario") != scenario:
+            continue
+        items.append(
+            {
+                "key": s["id"],
+                "label": s.get("display_label", s["id"]),
+                "hook": s.get("hook_text", ""),
+                "meta": s.get("meta", {}),
+                "unlock_after_generations": s.get("unlock_after_generations", 0),
+                "mode": s.get("mode"),
                 "schema_version": int(s.get("schema_version") or 1),
             }
         )

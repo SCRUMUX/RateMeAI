@@ -17,6 +17,8 @@ from src.services.style_catalog import (
     get_available_modes,
     get_catalog_json,
     get_catalog_json_v2,
+    get_scenario_styles_json,
+    get_scenario_styles_json_v2,
     get_style_options,
     get_style_options_v2,
 )
@@ -53,6 +55,42 @@ async def list_styles(
     if not items:
         raise HTTPException(status_code=404, detail=f"Unknown mode: {mode}")
     return {"mode": mode, "count": len(items), "styles": items, "schema": schema}
+
+
+@router.get("/scenario-styles")
+async def list_scenario_styles(
+    scenario: str = Query(
+        ...,
+        description=(
+            "Scenario slug. Returns styles whose ``scenario`` field "
+            "matches this value (e.g. ``document-photo`` or "
+            "``tinder-pack``). These styles are intentionally hidden "
+            "from the main ``/styles?mode=...`` catalog."
+        ),
+    ),
+    schema: SchemaParam = Query(
+        "v1",
+        description=(
+            "Catalog payload schema. ``v2`` adds a per-entry "
+            "``schema_version`` field, otherwise identical to v1."
+        ),
+    ),
+):
+    """Return styles bound to a specific scenario page."""
+    if schema == "v2":
+        items = get_scenario_styles_json_v2(scenario)
+    else:
+        items = get_scenario_styles_json(scenario)
+    if not items:
+        raise HTTPException(
+            status_code=404, detail=f"Unknown scenario: {scenario}"
+        )
+    return {
+        "scenario": scenario,
+        "count": len(items),
+        "styles": items,
+        "schema": schema,
+    }
 
 
 @router.get("/styles/{style_id}/options")

@@ -106,7 +106,6 @@ def test_options_v2_falls_back_unit(monkeypatch):
         "mode": "dating",
         "display_label": "Unit V1",
         "hook_text": "unit hook",
-        "category": "General",
     }
 
     def _load():
@@ -194,3 +193,135 @@ def test_get_style_options_v2_returns_none_for_v1(monkeypatch):
         ],
     )
     assert style_catalog.get_style_options_v2("legacy_style") is None
+
+
+# ----------------------------------------------------------------------
+# Phase 3 — scenario-styles endpoint and main-catalog filtering
+# ----------------------------------------------------------------------
+
+
+def test_scenario_styles_returns_document_format_styles(client):
+    """``GET /scenario-styles?scenario=document-photo`` returns the 5 format styles."""
+    r = client.get("/api/v1/catalog/scenario-styles?scenario=document-photo")
+    assert r.status_code == 200
+    data = r.json()
+    assert data["scenario"] == "document-photo"
+    assert data["schema"] == "v1"
+    keys = {s["key"] for s in data["styles"]}
+    assert {"photo_3x4", "passport_rf", "visa_eu", "visa_us", "photo_4x6"} <= keys
+
+
+def test_scenario_styles_unknown(client):
+    r = client.get("/api/v1/catalog/scenario-styles?scenario=does-not-exist")
+    assert r.status_code == 404
+
+
+def test_scenario_styles_v2_includes_schema_version(client):
+    r = client.get(
+        "/api/v1/catalog/scenario-styles?scenario=document-photo&schema=v2"
+    )
+    assert r.status_code == 200
+    data = r.json()
+    for style in data["styles"]:
+        assert "schema_version" in style
+
+
+def test_main_catalog_excludes_scenario_styles(client):
+    """Scenario-tagged styles must not appear in ``/styles?mode=cv``."""
+    r = client.get("/api/v1/catalog/styles?mode=cv")
+    assert r.status_code == 200
+    keys = {s["key"] for s in r.json()["styles"]}
+    for doc_key in ("photo_3x4", "passport_rf", "visa_eu", "visa_us", "photo_4x6"):
+        assert doc_key not in keys
+
+
+def test_legacy_doc_styles_purged(client):
+    """Removed legacy doc styles are gone from every cv-mode endpoint."""
+    r = client.get("/api/v1/catalog/styles?mode=cv")
+    assert r.status_code == 200
+    keys = {s["key"] for s in r.json()["styles"]}
+    for legacy in ("doc_passport_neutral", "doc_visa_compliant", "doc_resume_headshot"):
+        assert legacy not in keys
+
+
+# ----------------------------------------------------------------------
+# Phase 3 — unit-level coverage for the scenario filter (no FastAPI)
+# ----------------------------------------------------------------------
+
+
+def test_scenario_filter_unit_excludes_scenario_styles(monkeypatch):
+    """``get_catalog_json`` filters out entries with ``scenario`` set."""
+    from src.services import style_catalog
+
+    fake_entries = [
+        {
+            "id": "regular_cv",
+            "mode": "cv",
+            "display_label": "🧑‍💼 Regular",
+            "hook_text": "main catalog entry",
+        },
+        {
+            "id": "doc_format",
+            "mode": "cv",
+            "scenario": "document-photo",
+            "display_label": "📋 Doc",
+            "hook_text": "scenario-only",
+        },
+        {
+            "id": "legacy_only",
+            "mode": "cv",
+            "is_scenario_only": True,
+            "display_label": "👻 Legacy",
+            "hook_text": "legacy boolean still works",
+        },
+    ]
+
+    monkeypatch.setattr(
+        "src.services.style_loader.load_styles_from_json",
+        lambda: fake_entries,
+    )
+
+    keys = {s["key"] for s in style_catalog.get_catalog_json("cv")}
+    assert keys == {"regular_cv"}
+
+    keys_v2 = {s["key"] for s in style_catalog.get_catalog_json_v2("cv")}
+    assert keys_v2 == {"regular_cv"}
+
+
+def test_scenario_styles_unit_returns_only_matching_scenario(monkeypatch):
+    """``get_scenario_styles_json`` returns only entries with matching scenario."""
+    from src.services import style_catalog
+
+    fake_entries = [
+        {
+            "id": "doc_a",
+            "mode": "cv",
+            "scenario": "document-photo",
+            "display_label": "A",
+            "hook_text": "",
+        },
+        {
+            "id": "tinder_a",
+            "mode": "dating",
+            "scenario": "tinder-pack",
+            "display_label": "T",
+            "hook_text": "",
+        },
+        {
+            "id": "regular",
+            "mode": "cv",
+            "display_label": "R",
+            "hook_text": "",
+        },
+    ]
+    monkeypatch.setattr(
+        "src.services.style_loader.load_styles_from_json",
+        lambda: fake_entries,
+    )
+
+    docs = style_catalog.get_scenario_styles_json("document-photo")
+    assert {s["key"] for s in docs} == {"doc_a"}
+
+    tinder = style_catalog.get_scenario_styles_json_v2("tinder-pack")
+    assert {s["key"] for s in tinder} == {"tinder_a"}
+    assert all("schema_version" in s for s in tinder)

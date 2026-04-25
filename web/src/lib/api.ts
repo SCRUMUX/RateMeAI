@@ -244,15 +244,84 @@ export function createShare(taskId: string) {
 }
 
 // -- Catalog --
+//
+// All catalog endpoints use ?schema=v2 — backend keeps a v1 default for
+// older clients, but the Cabinet web app is now exclusively on the
+// slot-based view (StylesSheet groups, StyleSettingsModal options).
+
+export interface CatalogStyleEntry {
+  key: string;
+  label: string;
+  hook: string;
+  meta: Record<string, unknown>;
+  unlock_after_generations: number;
+  schema_version: 1 | 2;
+}
+
+export interface CatalogStylesResponse {
+  mode: string;
+  count: number;
+  styles: CatalogStyleEntry[];
+  schema: 'v1' | 'v2';
+}
 
 export function getCatalogStyles(mode: string) {
-  return request<{ mode: string; count: number; styles: Array<{ key: string; label: string; hook: string; meta: Record<string, unknown>; category: string; unlock_after_generations: number }> }>(
-    `/api/v1/catalog/styles?mode=${mode}`,
+  return request<CatalogStylesResponse>(`/api/v1/catalog/styles?mode=${mode}&schema=v2`);
+}
+
+// Styles that live behind a specific scenario page (e.g. /dokumenty,
+// /tinder-pack). The backend filters them out of the main mode catalog
+// so they don't pollute the regular wizard, and serves them through
+// /api/v1/catalog/scenario-styles?scenario=<slug>.
+
+export interface ScenarioStyleEntry extends CatalogStyleEntry {
+  mode: string;
+}
+
+export interface ScenarioStylesResponse {
+  scenario: string;
+  count: number;
+  styles: ScenarioStyleEntry[];
+  schema: 'v1' | 'v2';
+}
+
+export function getScenarioStyles(scenarioSlug: string) {
+  return request<ScenarioStylesResponse>(
+    `/api/v1/catalog/scenario-styles?scenario=${encodeURIComponent(scenarioSlug)}&schema=v2`,
   );
 }
 
+// v2 slot payload returned by /api/v1/catalog/styles/{id}/options?schema=v2
+// Keep aligned with src/services/style_catalog._v2_slots_from_raw().
+
+export interface StyleOptionsV2Payload {
+  schema_version: 2;
+  trigger: string;
+  context_slots: Partial<{
+    lighting: string[];
+    framing: string[];
+    time_of_day: string[];
+    season: string[];
+  }> & Record<string, string[]>;
+  weather: { enabled: boolean; allowed: string[]; default_na: boolean };
+  clothing: { default: string; allowed: string[]; gender_neutral: boolean };
+  background: { base: string; lock: 'unlocked' | 'soft' | 'locked'; overrides_allowed: string[] };
+}
+
+export interface StyleOptionsV1Payload {
+  schema_version: 1;
+  // Legacy allowed_variations dict (lighting / scene / clothing / framing).
+  [key: string]: unknown;
+}
+
+export interface StyleOptionsResponse {
+  style_id: string;
+  schema_version: 1 | 2;
+  options: StyleOptionsV2Payload | Record<string, string[]>;
+}
+
 export function getStyleOptions(styleId: string) {
-  return request<{ style_id: string; options: any }>(`/api/v1/catalog/styles/${styleId}/options`);
+  return request<StyleOptionsResponse>(`/api/v1/catalog/styles/${styleId}/options?schema=v2`);
 }
 
 // -- SSE Ticket --

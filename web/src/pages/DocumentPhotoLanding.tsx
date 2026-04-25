@@ -7,7 +7,7 @@ import EnergyField from '../components/effects/EnergyField';
 import SocialProof from '../sections/SocialProof';
 import { useApp } from '../context/AppContext';
 import { DOCUMENT_SOCIAL_PROOF_PRESET } from '../data/social-proof';
-import { DOCUMENT_FORMAT_ITEMS } from '../scenarios/extraStyles';
+import { DOCUMENT_LANDING_ITEMS } from '../data/landingStyles';
 import { REQUIREMENTS_SHORT, REJECT_BULLETS } from '../data/photo-requirements';
 
 const STEPS = [
@@ -87,7 +87,7 @@ export default function DocumentPhotoLanding({ onStart, showAuth, onAuthClose }:
         <section className="relative z-[2] flex flex-col items-center gap-[var(--space-32)] px-[var(--space-16)] tablet:px-[var(--space-24)] py-[60px] tablet:py-[80px]">
           <h2 className="text-[24px] tablet:text-[36px] font-semibold leading-[1.2] text-[#E6EEF8]">Поддерживаемые форматы</h2>
           <div className="grid grid-cols-1 tablet:grid-cols-2 desktop:grid-cols-3 gap-[var(--space-12)] max-w-[900px] w-full">
-            {DOCUMENT_FORMAT_ITEMS.map((f) => (
+            {DOCUMENT_LANDING_ITEMS.map((f) => (
               <div key={f.key} className="gradient-border-item glass-row flex items-center gap-[var(--space-12)] px-[var(--space-16)] py-[var(--space-12)] rounded-[var(--radius-12)]"
                 style={{ '--gb-color': 'rgba(255, 255, 255, 0.10)' } as React.CSSProperties}
               >

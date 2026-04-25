@@ -1,5 +1,5 @@
 import { useApp } from '../../context/AppContext';
-import { isDocumentFormatItem, type DocumentFormatItem } from '../../scenarios/extraStyles';
+import { DOCUMENT_USAGE_LOOKUP } from '../../data/landingStyles';
 
 interface Props {
   onNext: () => void;
@@ -7,7 +7,14 @@ interface Props {
 
 export default function StepDocumentFormat({ onNext }: Props) {
   const app = useApp();
-  const formats = app.effectiveStyleList.filter(isDocumentFormatItem) as DocumentFormatItem[];
+  // The API returns the document-photo bucket without the marketing
+  // ``usage`` blurb, so we enrich each item from the static lookup
+  // (``DOCUMENT_USAGE_LOOKUP`` keeps the same copy as the landing page
+  // and falls back gracefully for keys we don't recognise yet).
+  const formats = app.effectiveStyleList.map((s) => ({
+    ...s,
+    usage: DOCUMENT_USAGE_LOOKUP[s.key] ?? '',
+  }));
   const selectedKey = app.selectedStyleKey || formats[0]?.key || '';
 
   function handleSelect(key: string) {
