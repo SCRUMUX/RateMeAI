@@ -108,7 +108,7 @@ def _mirror_v1_as_v2(mode: str, key: str) -> StyleSpecV2:
         ("dating", "warm_outdoor"),
         ("dating", "rooftop_city"),
         ("cv", "corporate"),
-        ("social", "influencer"),
+        ("social", "influencer_urban"),
     ],
 )
 def test_flag_on_without_v2_migration_preserves_v1_output(
@@ -159,7 +159,7 @@ def test_flag_on_without_v2_migration_preserves_v1_output(
     [
         ("dating", "warm_outdoor"),
         ("cv", "corporate"),
-        ("social", "influencer"),
+        ("social", "influencer_urban"),
     ],
 )
 def test_v2_matches_v1_for_neutral_inputs(monkeypatch, mode, style):

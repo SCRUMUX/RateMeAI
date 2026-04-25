@@ -89,7 +89,6 @@ SCENARIO_STYLES: dict[str, list[str]] = {
         "corporate",
         "boardroom",
         "formal_portrait",
-        "creative",
         "startup_casual",
         "coworking",
         "standing_desk",
@@ -112,20 +111,12 @@ SCENARIO_STYLES: dict[str, list[str]] = {
         "coffee_break_work",
         "late_hustle",
         # archetypes
-        "quiet_expert",
         "digital_nomad",
-        "entrepreneur_on_move",
         "intellectual",
-        "man_with_mission",
         # moments
         "before_meeting",
-        "between_meetings",
         "business_lounge",
         "decision_moment",
-        # Document photos (web scenario)
-        "doc_passport_neutral",
-        "doc_visa_compliant",
-        "doc_resume_headshot",
         # Document format photos (document-photo scenario)
         "photo_3x4",
         "passport_rf",
@@ -134,10 +125,8 @@ SCENARIO_STYLES: dict[str, list[str]] = {
         "photo_4x6",
     ],
     "social": [
-        "influencer",
         "influencer_urban",
         "influencer_minimal",
-        "influencer_luxury",
         "luxury",
         "casual",
         "morning_routine",
@@ -148,18 +137,15 @@ SCENARIO_STYLES: dict[str, list[str]] = {
         "golden_hour",
         "neon_night",
         "vintage_film",
-        "dark_moody",
         "pastel_soft",
         "youtube_creator",
         "linkedin_premium",
         "tinder_top",
         "instagram_aesthetic",
         "podcast_host",
-        "creative_portrait",
         # aesthetic
         "mirror_aesthetic",
         "elevator_clean",
-        "book_and_coffee",
         "shopfront",
         "candid_street",
         # hobbies
@@ -170,12 +156,10 @@ SCENARIO_STYLES: dict[str, list[str]] = {
         "meditation",
         "online_learning",
         # sport social
-        "yoga_social",
         "cycling_social",
         # cinematic
         "panoramic_window",
         "in_motion",
-        "creative_insight",
         "architecture_shadow",
         "achievement_moment",
         # evening & mood

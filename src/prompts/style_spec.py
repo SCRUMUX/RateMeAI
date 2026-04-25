@@ -540,7 +540,6 @@ _NEEDS_FULL_BODY_KEYS: frozenset[str] = frozenset(
         "yacht",
         "motorcycle",
         # social — mirrors of the above
-        "yoga_social",
         "cycling_social",
         "in_motion",
     }

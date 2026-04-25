@@ -1431,28 +1431,6 @@ CV_VARIANTS: dict[str, tuple[StyleVariant, ...]] = {
             "warm low-key directional lighting",
         ),
     ),
-    "creative": (
-        _v(
-            "bright_studio",
-            "bright creative studio with whiteboard",
-            "warm ambient daylight with natural fill",
-        ),
-        _v(
-            "concept_wall",
-            "open concept wall with sketches and mood art",
-            "soft directional warm lighting",
-        ),
-        _v(
-            "coworking_nook",
-            "creative nook in a coworking space",
-            "bright cool daylight with warm accent lamps",
-        ),
-        _v(
-            "gallery_studio",
-            "gallery-like studio with artworks",
-            "warm track lighting on art",
-        ),
-    ),
     "startup_casual": (
         _v(
             "open_floor",
@@ -1889,28 +1867,6 @@ CV_VARIANTS: dict[str, tuple[StyleVariant, ...]] = {
             "warm phone/laptop glow with cool city lights",
         ),
     ),
-    "quiet_expert": (
-        _v(
-            "home_library",
-            "home library with floor-to-ceiling bookshelves",
-            "warm reading lamp with soft ambient",
-        ),
-        _v(
-            "oak_study",
-            "oak-paneled study with leather chair",
-            "warm amber lamp light with rich shadows",
-        ),
-        _v(
-            "minimalist_study",
-            "minimalist study with a single shelf",
-            "soft even daylight with clean fill",
-        ),
-        _v(
-            "academic_office",
-            "academic office with stacked journals",
-            "warm desk lamp with soft window fill",
-        ),
-    ),
     "digital_nomad": (
         _v(
             "beach_cafe_workspace",
@@ -1931,28 +1887,6 @@ CV_VARIANTS: dict[str, tuple[StyleVariant, ...]] = {
             "desert_resort_work",
             "desert resort courtyard with laptop",
             "warm late-afternoon sunlight, sand tones",
-        ),
-    ),
-    "entrepreneur_on_move": (
-        _v(
-            "airport_gate",
-            "modern airport departure gate with phone in hand",
-            "bright cool daylight with warm accent",
-        ),
-        _v(
-            "train_platform",
-            "high-speed train platform with travel bag",
-            "warm afternoon daylight, sharp architecture",
-        ),
-        _v(
-            "city_avenue_move",
-            "city avenue with carry-on luggage",
-            "warm golden-hour sidelight",
-        ),
-        _v(
-            "taxi_curbside",
-            "taxi curbside with modern skyline behind",
-            "cool daylight with warm building reflections",
         ),
     ),
     "intellectual": (
@@ -1977,28 +1911,6 @@ CV_VARIANTS: dict[str, tuple[StyleVariant, ...]] = {
             "warm fireplace glow with soft ambient fill",
         ),
     ),
-    "man_with_mission": (
-        _v(
-            "glass_facade",
-            "glass-and-steel building facade",
-            "strong directional daylight with sharp shadows",
-        ),
-        _v(
-            "concrete_plaza",
-            "modern concrete plaza with geometric shadows",
-            "warm low-angle sunlight with long shadows",
-        ),
-        _v(
-            "skyscraper_lobby",
-            "skyscraper lobby with polished stone",
-            "warm amber ambient with cool daylight",
-        ),
-        _v(
-            "industrial_gate",
-            "industrial gate with strong architectural lines",
-            "warm golden-hour sidelight",
-        ),
-    ),
     "before_meeting": (
         _v(
             "office_corridor",
@@ -2019,24 +1931,6 @@ CV_VARIANTS: dict[str, tuple[StyleVariant, ...]] = {
             "rooftop_prep",
             "rooftop office corner for a pre-meeting moment",
             "warm afternoon daylight with city behind",
-        ),
-    ),
-    "between_meetings": (
-        _v(
-            "hallway_phone",
-            "office hallway with phone in hand",
-            "bright cool daylight with warm accent",
-        ),
-        _v("lobby_bench", "office lobby bench with phone", "warm ambient lamp light"),
-        _v(
-            "glass_corner",
-            "glass-walled office corner with skyline behind",
-            "warm afternoon daylight",
-        ),
-        _v(
-            "stair_landing",
-            "modern staircase landing with phone in hand",
-            "soft directional daylight",
         ),
     ),
     "business_lounge": (
@@ -2091,28 +1985,6 @@ CV_VARIANTS: dict[str, tuple[StyleVariant, ...]] = {
 # ---------------------------------------------------------------------------
 
 SOCIAL_VARIANTS: dict[str, tuple[StyleVariant, ...]] = {
-    "influencer": (
-        _v(
-            "rooftop_golden",
-            "urban rooftop with city skyline at golden hour",
-            "warm directional sidelight, natural edge highlights",
-        ),
-        _v(
-            "neon_street",
-            "neon-lit urban street at night",
-            "vivid neon color with warm accent",
-        ),
-        _v(
-            "boutique_hotel_lobby",
-            "boutique hotel lobby with fashion mood",
-            "warm amber ambient with soft spot light",
-        ),
-        _v(
-            "courtyard_art",
-            "art-filled courtyard with murals",
-            "warm afternoon sidelight",
-        ),
-    ),
     "influencer_urban": (
         _v(
             "downtown_rooftop",
@@ -2151,28 +2023,6 @@ SOCIAL_VARIANTS: dict[str, tuple[StyleVariant, ...]] = {
             "soft_grey_minimal",
             "soft grey minimalist studio",
             "warm even portrait lighting",
-        ),
-    ),
-    "influencer_luxury": (
-        _v(
-            "marble_hotel_lobby",
-            "upscale hotel lobby with marble floor",
-            "warm amber ambient with brass accents",
-        ),
-        _v(
-            "velvet_lounge",
-            "velvet lounge with rich textures",
-            "warm directional lamp with crystal accent",
-        ),
-        _v(
-            "private_yacht",
-            "private yacht deck at golden hour",
-            "warm backlight, reflective water",
-        ),
-        _v(
-            "penthouse_balcony",
-            "penthouse balcony with city skyline",
-            "warm golden-hour sidelight",
         ),
     ),
     "luxury": (
@@ -2385,28 +2235,6 @@ SOCIAL_VARIANTS: dict[str, tuple[StyleVariant, ...]] = {
             "warm tungsten light, nostalgic palette",
         ),
     ),
-    "dark_moody": (
-        _v(
-            "low_key_room",
-            "dark low-key interior with deep shadows",
-            "single directional key with rich shadow",
-        ),
-        _v(
-            "stone_corridor",
-            "moody stone corridor with single light source",
-            "directional warm key with deep shadow",
-        ),
-        _v(
-            "fog_street",
-            "foggy night street with single lamppost",
-            "warm lamppost light with cool ambient fog",
-        ),
-        _v(
-            "metal_studio",
-            "dark metal studio with one rim light",
-            "single rim light with warm accent",
-        ),
-    ),
     "pastel_soft": (
         _v("pink_wall", "soft pink minimal backdrop", "bright even diffused light"),
         _v(
@@ -2519,28 +2347,6 @@ SOCIAL_VARIANTS: dict[str, tuple[StyleVariant, ...]] = {
             "warm natural daylight with ambient fill",
         ),
     ),
-    "creative_portrait": (
-        _v(
-            "concrete_texture",
-            "textured concrete wall",
-            "warm directional sidelight with soft shadow",
-        ),
-        _v(
-            "painted_wall_portrait",
-            "hand-painted colorful wall",
-            "warm directional side light",
-        ),
-        _v(
-            "wood_panel_portrait",
-            "wood panel wall with vertical slats",
-            "soft warm directional key light",
-        ),
-        _v(
-            "velvet_portrait",
-            "deep velvet drape as backdrop",
-            "warm single directional key with rim",
-        ),
-    ),
     "mirror_aesthetic": (
         _v(
             "modern_bedroom_mirror",
@@ -2581,28 +2387,6 @@ SOCIAL_VARIANTS: dict[str, tuple[StyleVariant, ...]] = {
             "glass_elevator",
             "glass panoramic elevator with skyline behind",
             "bright natural daylight with warm accent",
-        ),
-    ),
-    "book_and_coffee": (
-        _v(
-            "home_reading_corner",
-            "cozy reading corner with open book",
-            "warm lamp light with soft ambient",
-        ),
-        _v(
-            "cafe_reading",
-            "cafe table with open book and coffee",
-            "warm window light with amber pendant",
-        ),
-        _v(
-            "library_reading",
-            "library table with open book and coffee",
-            "warm reading lamp with cool ambient",
-        ),
-        _v(
-            "garden_reading",
-            "garden bench with open book and coffee",
-            "soft warm morning light",
         ),
     ),
     "shopfront": (
@@ -2777,32 +2561,6 @@ SOCIAL_VARIANTS: dict[str, tuple[StyleVariant, ...]] = {
             "soft warm afternoon daylight",
         ),
     ),
-    "yoga_social": (
-        _v(
-            "sunrise_deck_social",
-            "outdoor wooden deck at sunrise",
-            "warm pink-orange sunrise backlight",
-            props="yoga mat on the deck",
-        ),
-        _v(
-            "beach_yoga_social",
-            "quiet beach near gentle waves",
-            "warm soft morning light",
-            props="yoga mat on the sand",
-        ),
-        _v(
-            "forest_yoga_social",
-            "forest clearing on soft moss",
-            "dappled green-gold morning light",
-            props="natural-fibre mat",
-        ),
-        _v(
-            "rooftop_yoga_social",
-            "urban rooftop with skyline",
-            "warm golden-hour ambient light",
-            props="minimalist yoga block",
-        ),
-    ),
     "cycling_social": (
         _v(
             "coast_road_social",
@@ -2867,28 +2625,6 @@ SOCIAL_VARIANTS: dict[str, tuple[StyleVariant, ...]] = {
             "golden_hour_motion",
             "urban street at golden hour",
             "warm low-angle sidelight",
-        ),
-    ),
-    "creative_insight": (
-        _v(
-            "cork_board_studio",
-            "creative studio with cork board and sketches",
-            "warm desk-lamp lighting",
-        ),
-        _v(
-            "plants_creative_desk",
-            "creative desk with plants and art supplies",
-            "soft warm natural light",
-        ),
-        _v(
-            "loft_creative_studio",
-            "loft creative studio with exposed brick",
-            "warm tungsten lamp light",
-        ),
-        _v(
-            "minimal_creative",
-            "minimal creative desk with notebook and laptop",
-            "soft even daylight",
         ),
     ),
     "architecture_shadow": (

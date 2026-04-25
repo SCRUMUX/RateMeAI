@@ -35,7 +35,6 @@ _V1_FIXTURE = [
     {
         "id": "paris_eiffel",
         "mode": "dating",
-        "category": "General",
         "type": "scene_locked",
         "base_scene": "Parisian boulevard with Eiffel Tower",
         "default_clothing": "fitted navy blazer over white tee",
@@ -49,7 +48,6 @@ _V1_FIXTURE = [
     {
         "id": "warm_outdoor",
         "mode": "dating",
-        "category": "General",
         "type": "flexible",
         "base_scene": "golden-hour park",
         "default_clothing": "crew-neck tee",
@@ -62,7 +60,6 @@ _V1_FIXTURE = [
     {
         "id": "corporate",
         "mode": "cv",
-        "category": "General",
         "type": "semi_locked",
         "base_scene": "modern corner office",
         "default_clothing": "tailored charcoal suit",
@@ -121,7 +118,7 @@ def test_v1_to_v2_block_context_slots_include_framing_fallback():
 
 def test_merge_preserves_v1_fields():
     merged = _merge_v2(_V1_FIXTURE[0])
-    for k in ("id", "mode", "category", "type", "base_scene", "default_clothing"):
+    for k in ("id", "mode", "type", "base_scene", "default_clothing"):
         assert merged[k] == _V1_FIXTURE[0][k]
     assert merged["schema_version"] == 2
     assert "background" in merged

@@ -652,11 +652,6 @@ CV_STYLES: dict[str, str] = {
         "Clothing: dark formal suit, white shirt, conservative tie, clean grooming."
     ),
     # --- Modern business ---
-    "creative": (
-        "Background: bright creative workspace, whiteboard or bookshelf behind, "
-        "warm ambient light. "
-        "Clothing: smart-casual blazer over fitted shirt, relaxed professional."
-    ),
     "startup_casual": (
         "Background: open-plan startup office, standing desks, plants, glass partitions, "
         "bright natural light. "
@@ -761,41 +756,21 @@ CV_STYLES: dict[str, str] = {
         "Clothing: professional shirt with loosened collar, sleeves rolled, focused work look."
     ),
     # --- Archetypes ---
-    "quiet_expert": (
-        "Background: home library or study with floor-to-ceiling bookshelves, "
-        "warm reading lamp, rich wood tones, intellectual atmosphere. "
-        "Clothing: quality cardigan or fitted cashmere sweater, subtle glasses, refined understated."
-    ),
     "digital_nomad": (
         "Background: tropical co-working space or beach cafe with laptop on table, "
         "palm trees and ocean visible through open walls, bright natural light. "
         "Clothing: casual smart lightweight shirt, relaxed professional travel style."
-    ),
-    "entrepreneur_on_move": (
-        "Background: modern city transit hub or street, phone in hand, "
-        "fast-paced urban energy, sleek architecture behind. "
-        "Clothing: smart blazer over casual outfit, carry-on bag, confident traveler style."
     ),
     "intellectual": (
         "Background: classic library or bookstore, warm amber ambient lighting, "
         "books and wooden shelves behind, academic atmosphere. "
         "Clothing: turtleneck or fitted quality shirt, subtle glasses, refined academic style."
     ),
-    "man_with_mission": (
-        "Background: dramatic modern architectural backdrop, glass and steel building, "
-        "strong directional light, purposeful atmosphere. "
-        "Clothing: dark tailored outfit, minimal accessories, determined professional style."
-    ),
     # --- Professional moments ---
     "before_meeting": (
         "Background: modern office corridor or glass-walled lobby, bright clean environment, "
         "meeting rooms visible behind, professional workspace atmosphere. "
         "Clothing: fresh professional attire, straightened collar, polished ready-for-action look."
-    ),
-    "between_meetings": (
-        "Background: office hallway or cafe between meetings, phone in hand checking messages, "
-        "natural window light, transitional professional moment. "
-        "Clothing: professional suit with relaxed posture, jacket unbuttoned, composed ease."
     ),
     "business_lounge": (
         "Background: premium airport or hotel business lounge, marble and leather surfaces, "
@@ -806,21 +781,6 @@ CV_STYLES: dict[str, str] = {
         "Background: standing at large window overlooking cityscape, contemplative atmosphere, "
         "warm rim light from window, cityscape in sharp focus through the window. "
         "Clothing: tailored dark suit against bright window, face evenly lit, executive presence."
-    ),
-    "doc_passport_neutral": (
-        "Background: flat uniform light-grey wall, evenly lit backdrop with minimal residual shadow, "
-        "frontal lighting, official document photo standard. "
-        "Clothing: conservative solid dark top, neat collar, minimal accessories, neutral grooming."
-    ),
-    "doc_visa_compliant": (
-        "Background: plain light-grey seamless backdrop, bright even lighting, "
-        "high clarity, embassy-style compliant framing, shoulders square to camera. "
-        "Clothing: business formal shirt with subtle tie, clean executive appearance."
-    ),
-    "doc_resume_headshot": (
-        "Background: soft light-grey studio with visible details, "
-        "flattering three-quarter portrait light, LinkedIn-standard professionalism. "
-        "Clothing: tailored blazer, crisp shirt, confident approachable business attire."
     ),
     "photo_3x4": (
         "Background: clean uniform matte white. "
@@ -848,7 +808,6 @@ CV_PERSONALITIES: dict[str, str] = {
     "corporate": "Trustworthy direct gaze, professional confident half-smile, composed still mouth.",
     "boardroom": "Authoritative composed expression, steady leadership gaze, strong confident brow.",
     "formal_portrait": "Steady composed direct gaze, neutral professional expression, timeless authority.",
-    "creative": "Bold expressive gaze, artistic confident half-smile.",
     "startup_casual": "Approachable bright-eyed expression, relaxed innovative confidence.",
     "coworking": "Collaborative friendly expression, modern entrepreneurial half-smile.",
     "standing_desk": "Focused productive expression, tech-savvy composed confidence.",
@@ -871,19 +830,12 @@ CV_PERSONALITIES: dict[str, str] = {
     "coffee_break_work": "Relaxed confident smile, approachable warm expression, human professional soft eyes.",
     "late_hustle": "Focused determined expression, intense productive gaze, ambitious driven brow.",
     # Archetypes
-    "quiet_expert": "Calm wise expression, subtle knowing smile, deep understated authority.",
     "digital_nomad": "Easy confident smile, free productive expression, relaxed modern gaze.",
-    "entrepreneur_on_move": "Dynamic confident expression, purposeful forward gaze, sharp focused eyes.",
     "intellectual": "Thoughtful composed gaze, deep contemplative expression, scholarly refined brow.",
-    "man_with_mission": "Strong direct gaze, determined composed expression, visionary leadership brow.",
     # Professional moments
     "before_meeting": "Focused composed gaze, subtle prepared smile, polished professional still mouth.",
-    "between_meetings": "Relaxed but alert expression, composed ease, efficient professional gaze.",
     "business_lounge": "Composed traveler expression, confident relaxed smile, premium professional gaze.",
     "decision_moment": "Strong thoughtful expression, composed decisive brow, executive vision.",
-    "doc_passport_neutral": "Neutral composed expression, mouth closed relaxed, direct even gaze, official photo calm.",
-    "doc_visa_compliant": "Serious neutral expression, attentive steady gaze, formal compliant demeanor.",
-    "doc_resume_headshot": "Warm professional half-smile, confident approachable gaze, trustworthy executive eyes.",
     "photo_3x4": "Neutral composed expression, mouth closed, eyes open, direct forward gaze, calm official demeanor.",
     "passport_rf": "Strictly neutral expression, mouth closed relaxed, eyes fully open, direct even frontal gaze, official composure.",
     "visa_eu": "Serious neutral expression, attentive steady centered gaze, formal compliant demeanor, mouth closed with a composed neutral line.",
@@ -893,11 +845,6 @@ CV_PERSONALITIES: dict[str, str] = {
 
 SOCIAL_STYLES: dict[str, str] = {
     # --- Influencer ---
-    "influencer": (
-        "Background: trendy urban rooftop at golden hour, city skyline clearly visible, "
-        "warm directional side light, natural highlights on edges. "
-        "Clothing: stylish streetwear, statement accessories, layered textures."
-    ),
     "influencer_urban": (
         "Background: trendy urban rooftop at golden hour, city skyline clearly visible, "
         "warm directional side light, natural highlights on edges. "
@@ -907,11 +854,6 @@ SOCIAL_STYLES: dict[str, str] = {
         "Background: pure white or light beige minimalist studio, clean even lighting, "
         "Scandinavian aesthetic. "
         "Clothing: monochrome fitted outfit, one statement accessory, clean lines."
-    ),
-    "influencer_luxury": (
-        "Background: upscale hotel lobby or lounge, marble surfaces, warm amber light, "
-        "velvet and brass details. "
-        "Clothing: designer outfit, fine fabrics, luxury watch or minimal gold jewelry."
     ),
     # --- Lifestyle ---
     "luxury": (
@@ -965,11 +907,6 @@ SOCIAL_STYLES: dict[str, str] = {
         "subtle film grain, muted colors. "
         "Clothing: vintage-inspired outfit, classic cuts, earth and mustard tones."
     ),
-    "dark_moody": (
-        "Background: dark interior or dramatic outdoor setting, deep shadows, single "
-        "directional light source, high contrast. "
-        "Clothing: all-black fitted outfit, dark layers, minimal accessories."
-    ),
     "pastel_soft": (
         "Background: light pastel-colored wall, bright even diffused light, "
         "warm tones, clean minimal setting. "
@@ -1001,11 +938,6 @@ SOCIAL_STYLES: dict[str, str] = {
         "warm studio lighting, headphones on desk. "
         "Clothing: smart casual, comfortable quality fabrics, clean modern look."
     ),
-    "creative_portrait": (
-        "Background: textured concrete wall with warm directional side lighting, "
-        "natural shadow patterns, clean composition. "
-        "Clothing: dark fitted turtleneck, one statement ring, clean minimalist creative style."
-    ),
     # --- Social aesthetic ---
     "mirror_aesthetic": (
         "Background: clean modern minimalist room, indirect lighting, "
@@ -1016,11 +948,6 @@ SOCIAL_STYLES: dict[str, str] = {
         "Background: modern elevator interior, stainless steel or mirrored walls, "
         "even overhead lighting, clean minimal space. "
         "Clothing: fitted smart outfit, clean sharp silhouette, polished aesthetic."
-    ),
-    "book_and_coffee": (
-        "Background: cozy aesthetic table setting with open book and coffee cup, "
-        "warm light, textured surfaces, neutral tones. "
-        "Clothing: comfortable stylish layers, quality sweater, relaxed intellectual vibe."
     ),
     "shopfront": (
         "Background: stylish boutique or designer store window facade, "
@@ -1064,11 +991,6 @@ SOCIAL_STYLES: dict[str, str] = {
         "Clothing: casual but clean fitted hoodie or sweater, headphones nearby."
     ),
     # --- Sport social ---
-    "yoga_social": (
-        "Background: outdoor yoga session at sunrise, mat on grass or deck, "
-        "golden morning light, serene nature backdrop. "
-        "Clothing: premium fitted yoga wear, clean athletic aesthetic, barefoot."
-    ),
     "cycling_social": (
         "Background: scenic urban bike path or countryside road, bicycle in frame, "
         "golden light, green landscape, active lifestyle setting. "
@@ -1084,11 +1006,6 @@ SOCIAL_STYLES: dict[str, str] = {
         "Background: urban street with dynamic energy, caught walking "
         "dynamically, sense of movement and energy. "
         "Clothing: stylish casual outfit with flowing jacket or coat, dynamic movement."
-    ),
-    "creative_insight": (
-        "Background: creative workspace with cork board and sketches on wall, "
-        "warm desk lamp lighting, wooden desk with art supplies, cozy studio. "
-        "Clothing: casual fitted dark shirt with rolled sleeves, dark jeans, clean creative style."
     ),
     "architecture_shadow": (
         "Background: dramatic architectural shadows and geometric light patterns, "
@@ -1130,10 +1047,8 @@ SOCIAL_STYLES: dict[str, str] = {
 }
 
 SOCIAL_PERSONALITIES: dict[str, str] = {
-    "influencer": "Bright confident look, engaging direct eye contact, charismatic half-smile.",
     "influencer_urban": "Engaging direct eye contact, animated charismatic expression, bold confidence.",
     "influencer_minimal": "Calm confident gaze, serene sophisticated still mouth, poised expression.",
-    "influencer_luxury": "Mysterious soft eyes, sophisticated calm expression, elegant still brow.",
     "luxury": "Elegant mysterious soft eyes, sophisticated calm expression.",
     "casual": "Genuine relaxed look, warm natural feel, approachable open smile.",
     "morning_routine": "Peaceful fresh morning expression, warm genuine relaxed smile.",
@@ -1144,18 +1059,15 @@ SOCIAL_PERSONALITIES: dict[str, str] = {
     "golden_hour": "Soft dreamy gaze, warm peaceful expression, ethereal golden-lit soft eyes.",
     "neon_night": "Intense direct gaze, bold edgy steady mouth, bold confident expression.",
     "vintage_film": "Nostalgic thoughtful gaze, gentle analog expression, timeless romantic soft eyes.",
-    "dark_moody": "Dramatic shadow-play on face, intense mysterious gaze, powerful brooding brow.",
     "pastel_soft": "Gentle soft smile, relaxed gentle eyes, light airy expression.",
     "youtube_creator": "Animated engaging expression, bright enthusiastic creator smile.",
     "linkedin_premium": "Warm professional smile, trustworthy confident soft eyes, approachable gaze.",
     "tinder_top": "Natural genuine smile, warm attractive easy-going soft eyes.",
     "instagram_aesthetic": "Editorial confident expression, polished still mouth, striking gaze.",
     "podcast_host": "Natural conversational smile, engaging authentic attentive gaze.",
-    "creative_portrait": "Intense expressive gaze, bold artistic steady brow, striking expression.",
     # Social aesthetic
     "mirror_aesthetic": "Calm confident gaze, effortless polished still mouth, composed expression.",
     "elevator_clean": "Direct gaze, composed minimal expression, sharp modern still brow.",
-    "book_and_coffee": "Warm thoughtful expression, gentle intellectual smile, cozy wisdom soft eyes.",
     "shopfront": "Natural fashion expression, confident modern street-style half-smile.",
     "candid_street": "Genuine unposed look, authentic spontaneous smile, natural expression.",
     # Hobbies
@@ -1166,12 +1078,10 @@ SOCIAL_PERSONALITIES: dict[str, str] = {
     "meditation": "Serene peaceful expression, calm balanced soft eyes, mindful presence.",
     "online_learning": "Engaged curious expression, productive concentration, growth-minded attentive gaze.",
     # Sport social
-    "yoga_social": "Serene calm expression, healthy glow, peaceful mindful soft eyes.",
     "cycling_social": "Fresh active expression, bright confident smile, healthy outdoor glow.",
     # Cinematic
     "panoramic_window": "Contemplative expression, profound calm gaze, grand-scale composed brow.",
     "in_motion": "Confident forward gaze, dynamic purposeful stride, bold expression.",
-    "creative_insight": "Excited eureka expression, bright inspired eyes, raised eyebrow insight.",
     "architecture_shadow": "Mysterious confident expression, dramatic artistic presence, partial shadow.",
     "achievement_moment": "Genuine bright celebration expression, relieved proud smile, triumphant wide eyes.",
     # Evening social
@@ -1297,9 +1207,6 @@ _DOCUMENT_STYLE_KEYS = frozenset(
         "visa_us",
         "photo_4x6",
         "driver_license",
-        "doc_passport_neutral",
-        "doc_visa_compliant",
-        "doc_resume_headshot",
     }
 )
 
@@ -1317,9 +1224,6 @@ _DOC_COMPOSITION_HINT: dict[str, str] = {
     "visa_us": "1:1 square framing, face centered, 50-70% of the frame.",
     "photo_4x6": "2:3 portrait framing, face fills 60-75% of the frame.",
     "driver_license": "3:4 portrait framing, face centered.",
-    "doc_passport_neutral": "Centered head-and-shoulders, shoulders square to camera.",
-    "doc_visa_compliant": "Centered head-and-shoulders, shoulders square to camera.",
-    "doc_resume_headshot": "Head-and-shoulders business portrait framing.",
 }
 
 
