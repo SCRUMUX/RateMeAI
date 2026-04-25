@@ -180,7 +180,9 @@
     "background": {
       "base": "Brooklyn Bridge walkway at golden sunset, warm orange sky, Manhattan skyline visible behind",
       "lock": "locked",
-      "overrides_allowed": []
+      "overrides_allowed": [
+        "warm bridge lamps with deep blue sky"
+      ]
     },
     "clothing": {
       "default": "casual fitted jacket, dark jeans, comfortable walking shoes",
@@ -196,7 +198,6 @@
       "lighting": [
         "soft warm sunrise backlight with cool shadows",
         "warm golden-hour light with skyline visible",
-        "warm bridge lamps with deep blue sky",
         "bright cool morning daylight",
         "blue-hour cinematic rim light with cool ambient fill",
         "soft overcast daylight, even natural diffusion"
@@ -327,8 +328,12 @@
     "trigger": "venice",
     "background": {
       "base": "Piazza San Marco at golden hour, historic Venetian architecture, warm amber light, canal water reflections in distance",
-      "lock": "flexible",
-      "overrides_allowed": []
+      "lock": "semi",
+      "overrides_allowed": [
+        "St Mark's Square at quiet morning",
+        "Grand Canal with gondolas near St Mark's",
+        "Rialto bridge with canal stretched behind"
+      ]
     },
     "clothing": {
       "default": "elegant smart-casual, fitted blazer, quality leather shoes, refined style",
@@ -343,13 +348,10 @@
     "context_slots": {
       "lighting": [
         "soft warm morning light on marble",
-        "St Mark's Square at quiet morning",
         "warm afternoon light on water",
-        "Grand Canal with gondolas near St Mark's",
         "warm amber backlight on red brick",
         "St Mark's campanile glowing at sunset",
         "warm golden-hour light on stone arch",
-        "Rialto bridge with canal stretched behind",
         "blue-hour cinematic rim light with cool ambient fill",
         "same base setting at blue hour with subtle cinematic mood",
         "soft overcast daylight, even natural diffusion",
@@ -405,7 +407,9 @@
     "background": {
       "base": "sunlit Barcelona terrace with Sagrada Familia landmark visible in sharp detail, warm morning light, breakfast table with juice and pastries",
       "lock": "locked",
-      "overrides_allowed": []
+      "overrides_allowed": [
+        "warm uplit stone with deep blue sky"
+      ]
     },
     "clothing": {
       "default": "relaxed summer shirt, light chinos, straw hat, Mediterranean casual",
@@ -422,7 +426,6 @@
         "warm afternoon light on ornate facade",
         "bright Mediterranean daylight",
         "warm amber backlight on stone detail",
-        "warm uplit stone with deep blue sky",
         "blue-hour cinematic rim light with cool ambient fill",
         "soft overcast daylight, even natural diffusion"
       ],
@@ -481,8 +484,12 @@
     "trigger": "london",
     "background": {
       "base": "Thames embankment with London Eye in background, grey-blue London sky with golden patches, river reflections",
-      "lock": "flexible",
-      "overrides_allowed": []
+      "lock": "semi",
+      "overrides_allowed": [
+        "South Bank walkway with London Eye behind",
+        "illuminated London Eye at night",
+        "London Eye through morning mist over the Thames"
+      ]
     },
     "clothing": {
       "default": "tailored overcoat or trench, dark scarf, smart casual British layers",
@@ -497,13 +504,10 @@
     "context_slots": {
       "lighting": [
         "soft cool afternoon daylight",
-        "South Bank walkway with London Eye behind",
         "warm sunset sidelight, gentle river tones",
         "London Eye reflecting in the Thames at sunset",
         "warm lamp light with cool blue river behind",
-        "illuminated London Eye at night",
         "soft diffused cool morning light",
-        "London Eye through morning mist over the Thames",
         "blue-hour cinematic rim light with cool ambient fill",
         "same base setting at blue hour with subtle cinematic mood",
         "soft overcast daylight, even natural diffusion",
@@ -635,8 +639,14 @@
     "trigger": "singapore",
     "background": {
       "base": "Marina Bay Sands and Singapore skyline at night, illuminated reflections on water, modern futuristic architecture",
-      "lock": "flexible",
-      "overrides_allowed": []
+      "lock": "semi",
+      "overrides_allowed": [
+        "Skypark pool deck with Marina Bay skyline",
+        "Helix Bridge walkway with Marina Bay Sands behind",
+        "colorful evening uplighting with warm accents",
+        "Gardens by the Bay walkway with supertrees",
+        "Merlion Park with Marina Bay skyline behind"
+      ]
     },
     "clothing": {
       "default": "smart fitted shirt, tailored dark trousers, polished modern shoes",
@@ -651,13 +661,8 @@
     "context_slots": {
       "lighting": [
         "warm sunset sidelight, reflective water",
-        "Skypark pool deck with Marina Bay skyline",
         "blue-hour sky with warm bridge lights",
-        "Helix Bridge walkway with Marina Bay Sands behind",
-        "colorful evening uplighting with warm accents",
-        "Gardens by the Bay walkway with supertrees",
         "soft bright morning light, sparkling water",
-        "Merlion Park with Marina Bay skyline behind",
         "blue-hour cinematic rim light with cool ambient fill",
         "same base setting at blue hour with subtle cinematic mood",
         "soft overcast daylight, even natural diffusion",
@@ -784,7 +789,9 @@
     "background": {
       "base": "narrow Athens street with Acropolis landmark on hilltop in warm light, whitewashed walls, Mediterranean plants and bougainvillea",
       "lock": "locked",
-      "overrides_allowed": []
+      "overrides_allowed": [
+        "warm afternoon sidelight on white stone"
+      ]
     },
     "clothing": {
       "default": "relaxed white linen shirt, light trousers, leather sandals",
@@ -798,7 +805,6 @@
     },
     "context_slots": {
       "lighting": [
-        "warm afternoon sidelight on white stone",
         "warm amber backlight, long stone shadows",
         "soft warm morning light on weathered stone",
         "warm golden-hour light, Mediterranean tones",
@@ -855,7 +861,9 @@
     "background": {
       "base": "Sydney harbour with Opera House sails landmark visible in sharp detail, sparkling blue water, bright Australian daylight",
       "lock": "locked",
-      "overrides_allowed": []
+      "overrides_allowed": [
+        "warm uplighting with deep blue sky"
+      ]
     },
     "clothing": {
       "default": "casual smart outfit, fitted polo or button-down, clean summer style",
@@ -871,7 +879,6 @@
       "lighting": [
         "warm afternoon light on sail-shapes",
         "bright midday sunlight, sparkling water",
-        "warm uplighting with deep blue sky",
         "warm golden-hour backlight, green lawns",
         "blue-hour cinematic rim light with cool ambient fill",
         "soft overcast daylight, even natural diffusion"
@@ -931,8 +938,13 @@
     "trigger": "nyc",
     "background": {
       "base": "Times Square with vibrant billboards and neon lights, bustling atmosphere, sharp vibrant night street scene with teal and magenta neon reflections on pavement",
-      "lock": "flexible",
-      "overrides_allowed": []
+      "lock": "semi",
+      "overrides_allowed": [
+        "Times Square crosswalk with illuminated billboards",
+        "Times Square at morning with softer foot traffic",
+        "deep blue sky with bright screens",
+        "Times Square at blue hour, signs blazing"
+      ]
     },
     "clothing": {
       "default": "streetwear layers, statement jacket, fitted dark pants, designer sneakers",
@@ -947,13 +959,9 @@
     "context_slots": {
       "lighting": [
         "vivid neon color with warm accent glow",
-        "Times Square crosswalk with illuminated billboards",
         "soft cool daylight with sharp signage",
-        "Times Square at morning with softer foot traffic",
         "rain-wet reflections with saturated neon",
         "Times Square pavement reflecting billboard lights",
-        "deep blue sky with bright screens",
-        "Times Square at blue hour, signs blazing",
         "blue-hour cinematic rim light with cool ambient fill",
         "same base setting at blue hour with subtle cinematic mood",
         "soft overcast daylight, even natural diffusion",
@@ -1014,8 +1022,13 @@
     "trigger": "nyc",
     "background": {
       "base": "Central Park with autumn foliage in warm tones, dappled sunlight through trees, green lawns and pathway",
-      "lock": "flexible",
-      "overrides_allowed": []
+      "lock": "semi",
+      "overrides_allowed": [
+        "Central Park Bow Bridge over calm water",
+        "Central Park autumn pathway with golden foliage",
+        "Sheep Meadow in Central Park with skyline behind",
+        "Central Park Loeb Boathouse at morning"
+      ]
     },
     "clothing": {
       "default": "casual fitted sweater, dark jeans, clean casual sneakers",
@@ -1030,13 +1043,9 @@
     "context_slots": {
       "lighting": [
         "warm afternoon light with skyline visible",
-        "Central Park Bow Bridge over calm water",
         "warm low-angle sunlight through leaves",
-        "Central Park autumn pathway with golden foliage",
         "bright summer daylight, green grass",
-        "Sheep Meadow in Central Park with skyline behind",
         "soft cool morning light, lake reflections",
-        "Central Park Loeb Boathouse at morning",
         "blue-hour cinematic rim light with cool ambient fill",
         "same base setting at blue hour with subtle cinematic mood",
         "soft overcast daylight, even natural diffusion",
@@ -1092,7 +1101,10 @@
     "background": {
       "base": "Westminster with Big Ben landmark visible in sharp detail, classic London overcast light, Thames embankment visible",
       "lock": "locked",
-      "overrides_allowed": []
+      "overrides_allowed": [
+        "warm afternoon sidelight on stonework",
+        "warm uplit tower with deep blue sky"
+      ]
     },
     "clothing": {
       "default": "classic British smart-casual, tailored jacket, polished accessories",
@@ -1106,8 +1118,6 @@
     },
     "context_slots": {
       "lighting": [
-        "warm afternoon sidelight on stonework",
-        "warm uplit tower with deep blue sky",
         "soft cool morning light, historic stone",
         "warm golden-hour light, gentle river tones",
         "blue-hour cinematic rim light with cool ambient fill",
@@ -1168,8 +1178,13 @@
     "trigger": "airplane",
     "background": {
       "base": "airplane window seat with clouds and blue sky visible outside, dim cabin light, tray table with book or headphones",
-      "lock": "flexible",
-      "overrides_allowed": []
+      "lock": "semi",
+      "overrides_allowed": [
+        "business-class window seat above a sea of clouds",
+        "window seat with wing and sunset horizon",
+        "window seat during morning ascent",
+        "warm cabin accent with deep blue sky outside"
+      ]
     },
     "clothing": {
       "default": "comfortable travel outfit, quality hoodie or fitted sweater, headphones",
@@ -1184,12 +1199,8 @@
     "context_slots": {
       "lighting": [
         "bright high-altitude sunlight, cool tones",
-        "business-class window seat above a sea of clouds",
         "deep amber sunset light, long cabin shadows",
-        "window seat with wing and sunset horizon",
         "soft cool morning light from the window",
-        "window seat during morning ascent",
-        "warm cabin accent with deep blue sky outside",
         "window seat with distant city lights at blue hour",
         "blue-hour cinematic rim light with cool ambient fill",
         "same base setting at blue hour with subtle cinematic mood",
@@ -1252,7 +1263,12 @@
     "background": {
       "base": "hotel restaurant with panoramic floor-to-ceiling windows, city or sea view, elegant breakfast table setting with fresh food",
       "lock": "semi",
-      "overrides_allowed": []
+      "overrides_allowed": [
+        "hotel breakfast terrace overlooking the sea",
+        "garden breakfast cafe with potted plants",
+        "wood-trimmed hotel dining room",
+        "rooftop brunch deck with city skyline"
+      ]
     },
     "clothing": {
       "default": "clean casual morning outfit, quality polo or light linen shirt",
@@ -1267,13 +1283,9 @@
     "context_slots": {
       "lighting": [
         "warm golden morning light, sparkling water",
-        "hotel breakfast terrace overlooking the sea",
         "bright soft morning daylight",
-        "garden breakfast cafe with potted plants",
         "warm ambient light with natural window glow",
-        "wood-trimmed hotel dining room",
         "warm morning sunlight, fresh clarity",
-        "rooftop brunch deck with city skyline",
         "blue-hour cinematic rim light with cool ambient fill",
         "same base setting at blue hour with subtle cinematic mood",
         "soft overcast daylight, even natural diffusion",
@@ -1334,8 +1346,13 @@
     "trigger": "sea",
     "background": {
       "base": "hotel or villa balcony overlooking turquoise sea, white railing, bright morning light, blue sky, tropical plants",
-      "lock": "flexible",
-      "overrides_allowed": []
+      "lock": "semi",
+      "overrides_allowed": [
+        "coastal villa balcony at sunset",
+        "balcony overlooking coast in the morning",
+        "whitewashed balcony on a Greek island",
+        "tropical resort balcony with palms"
+      ]
     },
     "clothing": {
       "default": "relaxed morning linen outfit, light cotton, fresh natural look",
@@ -1350,13 +1367,9 @@
     "context_slots": {
       "lighting": [
         "deep amber sunset light, calm sea behind",
-        "coastal villa balcony at sunset",
         "soft cool morning light with distant cliffs",
-        "balcony overlooking coast in the morning",
         "bright Mediterranean daylight, turquoise sea",
-        "whitewashed balcony on a Greek island",
         "warm afternoon sunlight, coconut breeze mood",
-        "tropical resort balcony with palms",
         "blue-hour cinematic rim light with cool ambient fill",
         "same base setting at blue hour with subtle cinematic mood",
         "soft overcast daylight, even natural diffusion",
@@ -1417,8 +1430,12 @@
     "trigger": "old",
     "background": {
       "base": "charming European old-town cobblestone street, colorful facades, warm afternoon light, flower boxes on windows",
-      "lock": "flexible",
-      "overrides_allowed": []
+      "lock": "semi",
+      "overrides_allowed": [
+        "medieval old-town cobblestone street at morning",
+        "stone-arched alley in a historic old town",
+        "quiet historic square with a central fountain"
+      ]
     },
     "clothing": {
       "default": "relaxed stylish outfit, light layers, comfortable leather shoes",
@@ -1433,13 +1450,10 @@
     "context_slots": {
       "lighting": [
         "soft warm morning sidelight on stone",
-        "medieval old-town cobblestone street at morning",
         "warm afternoon light on painted facades",
         "colorful Mediterranean old-town lane",
         "dappled sidelight through the arches",
-        "stone-arched alley in a historic old town",
         "warm golden-hour light, long soft shadows",
-        "quiet historic square with a central fountain",
         "blue-hour cinematic rim light with cool ambient fill",
         "same base setting at blue hour with subtle cinematic mood",
         "soft overcast daylight, even natural diffusion",
@@ -1500,8 +1514,13 @@
     "trigger": "train",
     "background": {
       "base": "modern train interior, green landscape streaming by window, laptop on tray table, earbuds, warm natural light from window",
-      "lock": "flexible",
-      "overrides_allowed": []
+      "lock": "semi",
+      "overrides_allowed": [
+        "intercity train cabin with alpine scenery outside",
+        "coastal train with sea view through window",
+        "night train cabin with distant city lights passing",
+        "countryside train with autumn fields outside"
+      ]
     },
     "clothing": {
       "default": "smart-casual travel outfit, fitted jacket, comfortable layers",
@@ -1516,13 +1535,9 @@
     "context_slots": {
       "lighting": [
         "bright crisp daylight through the window",
-        "intercity train cabin with alpine scenery outside",
         "warm afternoon sunlight, sparkling water",
-        "coastal train with sea view through window",
         "warm cabin lamp light with cool outside",
-        "night train cabin with distant city lights passing",
         "warm golden-hour light through the window",
-        "countryside train with autumn fields outside",
         "blue-hour cinematic rim light with cool ambient fill",
         "same base setting at blue hour with subtle cinematic mood",
         "soft overcast daylight, even natural diffusion",
@@ -1583,8 +1598,13 @@
     "trigger": "street",
     "background": {
       "base": "vibrant outdoor street market with colorful produce and goods, warm natural light, exotic textures, bustling atmosphere",
-      "lock": "flexible",
-      "overrides_allowed": []
+      "lock": "semi",
+      "overrides_allowed": [
+        "bustling Asian night market with lanterns",
+        "colorful morning bazaar with fresh produce",
+        "European flower market with potted blooms",
+        "aromatic spice souk alley with piled spices"
+      ]
     },
     "clothing": {
       "default": "casual travel outfit, rolled sleeves, crossbody bag, explorer vibe",
@@ -1599,13 +1619,9 @@
     "context_slots": {
       "lighting": [
         "warm lantern light with cool shadows",
-        "bustling Asian night market with lanterns",
         "bright warm morning daylight, vivid colors",
-        "colorful morning bazaar with fresh produce",
         "soft warm midday sunlight",
-        "European flower market with potted blooms",
         "warm ambient light with rich earth tones",
-        "aromatic spice souk alley with piled spices",
         "blue-hour cinematic rim light with cool ambient fill",
         "same base setting at blue hour with subtle cinematic mood",
         "soft overcast daylight, even natural diffusion",
@@ -1666,8 +1682,13 @@
     "trigger": "hotel",
     "background": {
       "base": "luxury hotel lobby with marble floor, warm amber ambient lighting, modern reception area visible, luggage nearby",
-      "lock": "flexible",
-      "overrides_allowed": []
+      "lock": "semi",
+      "overrides_allowed": [
+        "marble hotel lobby with concierge desk",
+        "modern design-hotel reception with wood accents",
+        "boutique hotel entrance with plants",
+        "rooftop hotel check-in with city view"
+      ]
     },
     "clothing": {
       "default": "travel-smart outfit, fitted blazer or quality jacket, polished casual look",
@@ -1682,13 +1703,9 @@
     "context_slots": {
       "lighting": [
         "warm amber ambient light with crystal accents",
-        "marble hotel lobby with concierge desk",
         "soft directional warm light, clean surfaces",
-        "modern design-hotel reception with wood accents",
         "warm daylight with soft interior glow",
-        "boutique hotel entrance with plants",
         "bright afternoon light, skyline behind",
-        "rooftop hotel check-in with city view",
         "blue-hour cinematic rim light with cool ambient fill",
         "same base setting at blue hour with subtle cinematic mood",
         "soft overcast daylight, even natural diffusion",
@@ -1749,8 +1766,11 @@
     "trigger": "travel",
     "background": {
       "base": "first-class airport lounge or luxury resort entrance, marble and brass details, warm ambient lighting, premium interior",
-      "lock": "flexible",
-      "overrides_allowed": []
+      "lock": "semi",
+      "overrides_allowed": [
+        "private jet air-stairs with bright tarmac",
+        "tropical resort lobby with open walls"
+      ]
     },
     "clothing": {
       "default": "elevated travel outfit, quality fabrics, leather accessories, luxury watch",
@@ -1765,11 +1785,9 @@
     "context_slots": {
       "lighting": [
         "bright afternoon sunlight, polished fuselage",
-        "private jet air-stairs with bright tarmac",
         "warm backlight, reflective water",
         "luxury yacht marina at golden hour",
         "warm ambient amber light, greenery behind",
-        "tropical resort lobby with open walls",
         "bright sunlight with sparkling sea behind",
         "helicopter pad atop a coastal hotel",
         "blue-hour cinematic rim light with cool ambient fill",
@@ -1832,8 +1850,11 @@
     "trigger": "car",
     "background": {
       "base": "stepping out of luxury car, door open, city backdrop, natural light catching the scene, polished car interior visible",
-      "lock": "flexible",
-      "overrides_allowed": []
+      "lock": "semi",
+      "overrides_allowed": [
+        "luxury hotel portico with sedan beside",
+        "sleek sedan at a modern night boulevard"
+      ]
     },
     "clothing": {
       "default": "tailored smart outfit, polished shoes, clean confident style",
@@ -1848,13 +1869,11 @@
     "context_slots": {
       "lighting": [
         "warm amber canopy light",
-        "luxury hotel portico with sedan beside",
         "warm directional lamp light, stylish ambience",
         "event entrance with warm event lighting",
         "warm low-angle sunlight on polished car",
         "sleek rooftop garage at golden hour",
         "cool city lights with warm accent beams",
-        "sleek sedan at a modern night boulevard",
         "blue-hour cinematic rim light with cool ambient fill",
         "same base setting at blue hour with subtle cinematic mood",
         "soft overcast daylight, even natural diffusion",
@@ -1915,8 +1934,12 @@
     "trigger": "near",
     "background": {
       "base": "luxury sedan or sports car parked on sunlit city boulevard, warm golden reflections on polished paint, urban architecture visible behind",
-      "lock": "flexible",
-      "overrides_allowed": []
+      "lock": "semi",
+      "overrides_allowed": [
+        "matte black sports car on a sunlit city boulevard",
+        "vintage coupe parked in a cobblestone alley",
+        "premium SUV parked on a mountain viewpoint"
+      ]
     },
     "clothing": {
       "default": "fitted dark jeans, crisp white crew-neck t-shirt, leather watch, aviator sunglasses pushed up on head",
@@ -1931,13 +1954,10 @@
     "context_slots": {
       "lighting": [
         "warm golden reflections on polished paint",
-        "matte black sports car on a sunlit city boulevard",
         "soft afternoon light, warm brick tones",
-        "vintage coupe parked in a cobblestone alley",
         "warm backlight, gentle lens flare",
         "luxury sedan on a marina parking lot at golden hour",
         "bright natural daylight, cool air clarity",
-        "premium SUV parked on a mountain viewpoint",
         "blue-hour cinematic rim light with cool ambient fill",
         "same base setting at blue hour with subtle cinematic mood",
         "soft overcast daylight, even natural diffusion",
@@ -1998,8 +2018,11 @@
     "trigger": "yacht",
     "background": {
       "base": "yacht deck with turquoise sea, white railings, clear blue sky, sparkling water reflections",
-      "lock": "flexible",
-      "overrides_allowed": []
+      "lock": "semi",
+      "overrides_allowed": [
+        "yacht deck moored in a luxury marina at sunset",
+        "yacht deck along a rocky coastline at morning"
+      ]
     },
     "clothing": {
       "default": "white linen shirt unbuttoned at top, navy shorts or chinos, deck shoes",
@@ -2016,9 +2039,7 @@
         "bright midday sun, sparkling water",
         "yacht deck above turquoise open sea",
         "warm amber sidelight, reflective water",
-        "yacht deck moored in a luxury marina at sunset",
         "soft cool morning light, fresh clarity",
-        "yacht deck along a rocky coastline at morning",
         "warm low-angle sunlight, gentle ripples",
         "yacht deck in a quiet bay at golden hour",
         "blue-hour cinematic rim light with cool ambient fill",
@@ -2081,8 +2102,13 @@
     "trigger": "coffee",
     "background": {
       "base": "upscale third-wave coffee shop, warm tungsten lighting, exposed wood shelving, latte art on table",
-      "lock": "flexible",
-      "overrides_allowed": []
+      "lock": "semi",
+      "overrides_allowed": [
+        "sunny outdoor cafe terrace with greenery",
+        "window booth in a wood-trimmed cafe",
+        "cozy cafe interior with rain-speckled window",
+        "wooden beach cafe kiosk near the dunes"
+      ]
     },
     "clothing": {
       "default": "soft knit sweater or henley, dark jeans, clean casual style",
@@ -2097,13 +2123,9 @@
     "context_slots": {
       "lighting": [
         "warm golden-hour sunlight filtering through leaves",
-        "sunny outdoor cafe terrace with greenery",
         "bright cool daylight through the window",
-        "window booth in a wood-trimmed cafe",
         "warm amber pendant lights, soft window glow",
-        "cozy cafe interior with rain-speckled window",
         "warm afternoon sun, sandy-white reflections",
-        "wooden beach cafe kiosk near the dunes",
         "blue-hour cinematic rim light with cool ambient fill",
         "same base setting at blue hour with subtle cinematic mood",
         "soft overcast daylight, even natural diffusion",
@@ -2164,8 +2186,13 @@
     "trigger": "beach",
     "background": {
       "base": "tropical beach at golden sunset, warm orange-pink sky, gentle waves, wet sand reflections",
-      "lock": "flexible",
-      "overrides_allowed": []
+      "lock": "semi",
+      "overrides_allowed": [
+        "tropical beach with palm silhouettes",
+        "pacific coast beach with coastal cliffs behind",
+        "white-sand beach with a distant wooden pier",
+        "dune ridge above a wide empty beach"
+      ]
     },
     "clothing": {
       "default": "unbuttoned linen shirt over tee, rolled chinos or shorts, bare feet",
@@ -2180,13 +2207,9 @@
     "context_slots": {
       "lighting": [
         "warm pink-orange sunset sky",
-        "tropical beach with palm silhouettes",
         "deep amber sunset light, crashing waves",
-        "pacific coast beach with coastal cliffs behind",
         "soft warm low-angle sunlight",
-        "white-sand beach with a distant wooden pier",
         "golden-hour backlight with long sand shadows",
-        "dune ridge above a wide empty beach",
         "blue-hour cinematic rim light with cool ambient fill",
         "same base setting at blue hour with subtle cinematic mood",
         "soft overcast daylight, even natural diffusion",
@@ -2247,8 +2270,13 @@
     "trigger": "dog",
     "background": {
       "base": "sunlit park with green grass and trees, warm golden backlight, open natural landscape",
-      "lock": "flexible",
-      "overrides_allowed": []
+      "lock": "semi",
+      "overrides_allowed": [
+        "grassy park meadow with a friendly golden retriever",
+        "tree-lined city street with a medium-sized dog",
+        "sandy beach shoreline with a playful dog",
+        "bright living room with a small dog on a sofa"
+      ]
     },
     "clothing": {
       "default": "relaxed casual outfit, fitted jeans, comfortable cotton shirt",
@@ -2263,13 +2291,9 @@
     "context_slots": {
       "lighting": [
         "warm late-afternoon sunlight, soft backlight",
-        "grassy park meadow with a friendly golden retriever",
         "bright cool daylight, dappled tree shadows",
-        "tree-lined city street with a medium-sized dog",
         "warm sunset backlight, gentle surf",
-        "sandy beach shoreline with a playful dog",
         "warm window light, cozy domestic ambience",
-        "bright living room with a small dog on a sofa",
         "blue-hour cinematic rim light with cool ambient fill",
         "same base setting at blue hour with subtle cinematic mood",
         "soft overcast daylight, even natural diffusion",
@@ -2330,8 +2354,13 @@
     "trigger": "rooftop",
     "background": {
       "base": "rooftop terrace at blue hour, city skyline rendered in sharp legible detail with warm lights, modern glass railing, ambient string lights",
-      "lock": "flexible",
-      "overrides_allowed": []
+      "lock": "semi",
+      "overrides_allowed": [
+        "rooftop terrace with city skyline at blue hour",
+        "rooftop terrace overlooking a sunset panorama",
+        "rooftop lounge at night above illuminated avenues",
+        "rooftop terrace at morning above a waking city"
+      ]
     },
     "clothing": {
       "default": "dark fitted blazer over black tee, tailored trousers, minimalist watch",
@@ -2346,13 +2375,9 @@
     "context_slots": {
       "lighting": [
         "deep blue sky with warm city lights",
-        "rooftop terrace with city skyline at blue hour",
         "amber golden-hour backlight, long warm shadows",
-        "rooftop terrace overlooking a sunset panorama",
         "warm ambient bulbs, sharp distant city lights",
-        "rooftop lounge at night above illuminated avenues",
         "soft cool diffused dawn light",
-        "rooftop terrace at morning above a waking city",
         "blue-hour cinematic rim light with cool ambient fill",
         "same base setting at blue hour with subtle cinematic mood",
         "soft overcast daylight, even natural diffusion",
@@ -2413,8 +2438,13 @@
     "trigger": "gym",
     "background": {
       "base": "modern gym with matte equipment, even overhead lighting, mirrors in background",
-      "lock": "flexible",
-      "overrides_allowed": []
+      "lock": "semi",
+      "overrides_allowed": [
+        "even overhead LED light with clean fill",
+        "modern gym weight area with matte equipment",
+        "functional training floor with turf and kettlebells",
+        "minimalist gym studio with mirrored wall"
+      ]
     },
     "clothing": {
       "default": "fitted athletic tank top or compression shirt, athletic shorts, training shoes",
@@ -2428,12 +2458,8 @@
     },
     "context_slots": {
       "lighting": [
-        "even overhead LED light with clean fill",
-        "modern gym weight area with matte equipment",
         "bright directional daylight from wide windows",
-        "functional training floor with turf and kettlebells",
         "warm soft directional light, polished reflections",
-        "minimalist gym studio with mirrored wall",
         "warm low-angle sunlight, soft long shadows",
         "outdoor calisthenics park at golden hour",
         "blue-hour cinematic rim light with cool ambient fill",
@@ -2496,8 +2522,11 @@
     "trigger": "running",
     "background": {
       "base": "tree-lined park path at early morning, diffused golden light, green foliage with dew",
-      "lock": "flexible",
-      "overrides_allowed": []
+      "lock": "semi",
+      "overrides_allowed": [
+        "forest running trail with wood boards and pine trees",
+        "wet shoreline of a wide sandy beach"
+      ]
     },
     "clothing": {
       "default": "lightweight running shirt, athletic shorts, running shoes, sport watch",
@@ -2512,9 +2541,7 @@
     "context_slots": {
       "lighting": [
         "dappled morning light through the canopy",
-        "forest running trail with wood boards and pine trees",
         "warm sunrise backlight, gentle waves behind",
-        "wet shoreline of a wide sandy beach",
         "soft cool morning light with sharp distant skyline",
         "river embankment running path through a city",
         "crisp bright daylight, clear mountain air",
@@ -2579,8 +2606,12 @@
     "trigger": "swimming",
     "background": {
       "base": "infinity pool edge with blue water, palm trees, resort setting, bright daylight with sparkling reflections",
-      "lock": "flexible",
-      "overrides_allowed": []
+      "lock": "semi",
+      "overrides_allowed": [
+        "tropical villa pool surrounded by palms",
+        "quiet lap pool with morning mist rising",
+        "modern indoor spa pool with stone walls"
+      ]
     },
     "clothing": {
       "default": "fitted swim trunks, athletic build, optional sunglasses in hand",
@@ -2597,11 +2628,8 @@
         "warm golden-hour backlight, sparkling water",
         "rooftop infinity pool overlooking a skyline",
         "bright midday sunlight, turquoise reflections",
-        "tropical villa pool surrounded by palms",
         "soft cool morning light, calm surface",
-        "quiet lap pool with morning mist rising",
         "warm ambient amber pool lights",
-        "modern indoor spa pool with stone walls",
         "blue-hour cinematic rim light with cool ambient fill",
         "same base setting at blue hour with subtle cinematic mood",
         "soft overcast daylight, even natural diffusion",
@@ -2662,8 +2690,11 @@
     "trigger": "hiking",
     "background": {
       "base": "mountain trail with panoramic valley view at golden hour, rocky terrain, dramatic sky with warm clouds",
-      "lock": "flexible",
-      "overrides_allowed": []
+      "lock": "semi",
+      "overrides_allowed": [
+        "forest ridge trail with pines and a distant valley",
+        "hiking trail by a clear mountain lake"
+      ]
     },
     "clothing": {
       "default": "fitted outdoor jacket or fleece, hiking pants, backpack straps visible",
@@ -2680,9 +2711,7 @@
         "crisp bright daylight, cool mountain air",
         "alpine summit viewpoint above misty valleys",
         "warm golden hour light between trees",
-        "forest ridge trail with pines and a distant valley",
         "bright morning light with soft reflections",
-        "hiking trail by a clear mountain lake",
         "warm late-afternoon sidelight, long warm shadows",
         "red-rock desert canyon trail",
         "blue-hour cinematic rim light with cool ambient fill",
@@ -2745,8 +2774,12 @@
     "trigger": "yoga",
     "background": {
       "base": "outdoor yoga mat on green grass or beach at sunrise, gentle morning golden light, serene natural landscape, calm atmosphere",
-      "lock": "flexible",
-      "overrides_allowed": []
+      "lock": "semi",
+      "overrides_allowed": [
+        "sandy beach near gentle ocean waves",
+        "urban rooftop with city skyline",
+        "sunlit pine forest clearing"
+      ]
     },
     "clothing": {
       "default": "fitted clean athletic wear, barefoot, minimal yoga outfit",
@@ -2761,13 +2794,10 @@
     "context_slots": {
       "lighting": [
         "warm pink-orange sunrise backlight",
-        "sandy beach near gentle ocean waves",
         "soft cool morning diffused daylight",
         "wooden deck above misty mountains",
         "warm golden-hour ambient light",
-        "urban rooftop with city skyline",
         "dappled green-gold tree light",
-        "sunlit pine forest clearing",
         "blue-hour cinematic rim light with cool ambient fill",
         "same base setting at blue hour with subtle cinematic mood",
         "soft overcast daylight, even natural diffusion",
@@ -2828,8 +2858,13 @@
     "trigger": "cycling",
     "background": {
       "base": "scenic road or park trail with bicycle nearby, golden morning light, green landscape, open sky",
-      "lock": "flexible",
-      "overrides_allowed": []
+      "lock": "semi",
+      "overrides_allowed": [
+        "coastal road with ocean on one side",
+        "forest cycling trail with pines",
+        "urban waterfront cycling path with skyline",
+        "mountain pass cycling road with valleys behind"
+      ]
     },
     "clothing": {
       "default": "fitted cycling jersey or casual athletic top, sport sunglasses, helmet nearby",
@@ -2844,13 +2879,9 @@
     "context_slots": {
       "lighting": [
         "warm golden-hour sidelight, sparkling water",
-        "coastal road with ocean on one side",
         "dappled afternoon light through the canopy",
-        "forest cycling trail with pines",
         "bright cool morning daylight, sharp distant skyline",
-        "urban waterfront cycling path with skyline",
         "warm late-afternoon sunlight with long shadows",
-        "mountain pass cycling road with valleys behind",
         "blue-hour cinematic rim light with cool ambient fill",
         "same base setting at blue hour with subtle cinematic mood",
         "soft overcast daylight, even natural diffusion",
@@ -2911,8 +2942,13 @@
     "trigger": "tennis",
     "background": {
       "base": "outdoor tennis court, warm afternoon light, green court surface, net visible behind",
-      "lock": "flexible",
-      "overrides_allowed": []
+      "lock": "semi",
+      "overrides_allowed": [
+        "outdoor blue hard court with clean lines",
+        "red-clay tennis court at a sunny club",
+        "grass tennis court with classic green fencing",
+        "indoor tennis training hall with wood ceiling"
+      ]
     },
     "clothing": {
       "default": "fitted polo shirt, tennis shorts, wristband, clean white sneakers",
@@ -2927,13 +2963,9 @@
     "context_slots": {
       "lighting": [
         "bright warm afternoon sunlight",
-        "outdoor blue hard court with clean lines",
         "warm directional afternoon light, long shadows",
-        "red-clay tennis court at a sunny club",
         "soft bright afternoon light with slight haze",
-        "grass tennis court with classic green fencing",
         "even warm overhead lighting, clean interior",
-        "indoor tennis training hall with wood ceiling",
         "blue-hour cinematic rim light with cool ambient fill",
         "same base setting at blue hour with subtle cinematic mood",
         "soft overcast daylight, even natural diffusion",
@@ -2995,7 +3027,12 @@
     "background": {
       "base": "upscale restaurant, warm candlelight with clear interior details, dark wood and white linen, wine glass on table",
       "lock": "semi",
-      "overrides_allowed": []
+      "overrides_allowed": [
+        "upscale fine-dining room with linen tables",
+        "rustic trattoria with brick and wood interior",
+        "glass-walled restaurant terrace above a river",
+        "intimate wine-cellar dining nook with arched ceiling"
+      ]
     },
     "clothing": {
       "default": "tailored dark shirt or blazer, smart evening look, subtle accessories",
@@ -3010,13 +3047,9 @@
     "context_slots": {
       "lighting": [
         "warm amber chandelier light with soft fill",
-        "upscale fine-dining room with linen tables",
         "warm candlelight accents, soft ambient glow",
-        "rustic trattoria with brick and wood interior",
         "soft blue-hour light with interior warmth",
-        "glass-walled restaurant terrace above a river",
         "warm directional lamp light, rich shadows",
-        "intimate wine-cellar dining nook with arched ceiling",
         "blue-hour cinematic rim light with cool ambient fill",
         "same base setting at blue hour with subtle cinematic mood",
         "soft overcast daylight, even natural diffusion",
@@ -3077,8 +3110,12 @@
     "trigger": "bar",
     "background": {
       "base": "modern cocktail lounge, amber and teal lighting, clear interior details, bar shelves with bottles in background",
-      "lock": "flexible",
-      "overrides_allowed": []
+      "lock": "semi",
+      "overrides_allowed": [
+        "speakeasy bar with dark wood and leather",
+        "rooftop cocktail bar with skyline behind",
+        "marble-counter lounge bar with gold accents"
+      ]
     },
     "clothing": {
       "default": "dark fitted shirt, sleeves rolled, leather or fabric watch",
@@ -3093,11 +3130,8 @@
     "context_slots": {
       "lighting": [
         "warm tungsten ambient light, subtle rim",
-        "speakeasy bar with dark wood and leather",
         "blue-hour sky with warm candle accents",
-        "rooftop cocktail bar with skyline behind",
         "warm amber low-angle lighting",
-        "marble-counter lounge bar with gold accents",
         "cool teal ambient with warm spot highlights",
         "modern lounge with subtle neon accent lighting",
         "blue-hour cinematic rim light with cool ambient fill",
@@ -3160,8 +3194,13 @@
     "trigger": "cooking",
     "background": {
       "base": "bright modern kitchen, natural window light, marble countertop, fresh ingredients and herbs visible",
-      "lock": "flexible",
-      "overrides_allowed": []
+      "lock": "semi",
+      "overrides_allowed": [
+        "bright modern chef kitchen with marble counters",
+        "rustic kitchen with stone hearth",
+        "outdoor garden kitchen with grill",
+        "industrial loft kitchen with exposed beams"
+      ]
     },
     "clothing": {
       "default": "clean apron over casual shirt, rolled sleeves, natural domestic setting",
@@ -3176,13 +3215,9 @@
     "context_slots": {
       "lighting": [
         "warm overhead lighting, fresh herbs on counter",
-        "bright modern chef kitchen with marble counters",
         "warm directional window light, copper pans",
-        "rustic kitchen with stone hearth",
         "warm golden-hour backlight, fresh greens behind",
-        "outdoor garden kitchen with grill",
         "bright daylight from tall windows",
-        "industrial loft kitchen with exposed beams",
         "blue-hour cinematic rim light with cool ambient fill",
         "same base setting at blue hour with subtle cinematic mood",
         "soft overcast daylight, even natural diffusion",
@@ -3243,8 +3278,13 @@
     "trigger": "rainy",
     "background": {
       "base": "city street in light rain, wet reflections on pavement, moody atmospheric light, glass surface with droplets, grey sky",
-      "lock": "flexible",
-      "overrides_allowed": []
+      "lock": "semi",
+      "overrides_allowed": [
+        "wet city street with reflective pavement and umbrellas",
+        "cozy cafe window with rain streaks outside",
+        "plaza pavement reflecting illuminated storefronts",
+        "covered city arcade beside rainy street"
+      ]
     },
     "clothing": {
       "default": "dark fitted coat or jacket, quality umbrella, polished rainy-day style",
@@ -3259,13 +3299,9 @@
     "context_slots": {
       "lighting": [
         "soft cool overcast light with warm shop windows",
-        "wet city street with reflective pavement and umbrellas",
         "warm interior lamp light with cool window glow",
-        "cozy cafe window with rain streaks outside",
         "warm lamp reflections with cool ambient rain light",
-        "plaza pavement reflecting illuminated storefronts",
         "warm ambient arcade light with cool exterior",
-        "covered city arcade beside rainy street",
         "blue-hour cinematic rim light with cool ambient fill",
         "same base setting at blue hour with subtle cinematic mood",
         "soft overcast daylight, even natural diffusion",
@@ -3326,8 +3362,13 @@
     "trigger": "night",
     "background": {
       "base": "cozy late-night coffee shop interior, warm tungsten lighting, interior clearly visible, city lights through window, steaming cup on table",
-      "lock": "flexible",
-      "overrides_allowed": []
+      "lock": "semi",
+      "overrides_allowed": [
+        "vintage cafe counter at night with copper espresso machine",
+        "modern glass coffee kiosk on a night street",
+        "rooftop coffee bar with city lights behind",
+        "library cafe corner with bookshelves at night"
+      ]
     },
     "clothing": {
       "default": "dark cozy layers, quality cashmere sweater or fitted dark shirt",
@@ -3342,13 +3383,9 @@
     "context_slots": {
       "lighting": [
         "warm tungsten pendant light",
-        "vintage cafe counter at night with copper espresso machine",
         "cool street lights with warm interior glow",
-        "modern glass coffee kiosk on a night street",
         "warm amber lamps with distant neon",
-        "rooftop coffee bar with city lights behind",
         "warm reading-lamp light with soft shadows",
-        "library cafe corner with bookshelves at night",
         "blue-hour cinematic rim light with cool ambient fill",
         "same base setting at blue hour with subtle cinematic mood",
         "soft overcast daylight, even natural diffusion",
@@ -3409,8 +3446,12 @@
     "trigger": "evening",
     "background": {
       "base": "modern apartment with warm ambient lamp lighting, city view through large window, comfortable interior, book or drink nearby",
-      "lock": "flexible",
-      "overrides_allowed": []
+      "lock": "semi",
+      "overrides_allowed": [
+        "cozy living room with soft sofa and plants",
+        "modern loft kitchen at evening",
+        "reading corner with a throw blanket"
+      ]
     },
     "clothing": {
       "default": "clean quality loungewear, fitted casual pieces, relaxed domestic style",
@@ -3425,11 +3466,8 @@
     "context_slots": {
       "lighting": [
         "warm lamp light with faint cool window tones",
-        "cozy living room with soft sofa and plants",
         "warm pendant lights over kitchen island",
-        "modern loft kitchen at evening",
         "warm directional reading-lamp light",
-        "reading corner with a throw blanket",
         "warm golden light with cool twilight sky",
         "small balcony at dusk with warm lamp",
         "blue-hour cinematic rim light with cool ambient fill",
@@ -3492,8 +3530,13 @@
     "trigger": "motorcycle",
     "background": {
       "base": "matte-black motorcycle parked on empty road at golden hour, open landscape behind, warm rim light",
-      "lock": "flexible",
-      "overrides_allowed": []
+      "lock": "semi",
+      "overrides_allowed": [
+        "matte-black motorcycle on an empty coastal road",
+        "motorcycle on a desert highway at sunset",
+        "sports motorcycle on a forest road curve",
+        "motorcycle parked near a modern urban underpass"
+      ]
     },
     "clothing": {
       "default": "fitted leather jacket over plain tee, dark denim, motorcycle boots",
@@ -3508,13 +3551,9 @@
     "context_slots": {
       "lighting": [
         "warm golden-hour backlight, calm sea behind",
-        "matte-black motorcycle on an empty coastal road",
         "rich orange sidelight, long shadows",
-        "motorcycle on a desert highway at sunset",
         "soft dappled afternoon light through pines",
-        "sports motorcycle on a forest road curve",
         "cool directional daylight with warm accent",
-        "motorcycle parked near a modern urban underpass",
         "blue-hour cinematic rim light with cool ambient fill",
         "same base setting at blue hour with subtle cinematic mood",
         "soft overcast daylight, even natural diffusion",
@@ -3575,8 +3614,12 @@
     "trigger": "in",
     "background": {
       "base": "interior of modern car, diffused window light streaming through windshield, leather steering wheel and dashboard visible",
-      "lock": "flexible",
-      "overrides_allowed": []
+      "lock": "semi",
+      "overrides_allowed": [
+        "interior of a modern car on a quiet morning road",
+        "modern car interior on a city street",
+        "modern car cabin with coastline blurred outside"
+      ]
     },
     "clothing": {
       "default": "casual button-down shirt with rolled sleeves, subtle wrist accessory",
@@ -3591,13 +3634,10 @@
     "context_slots": {
       "lighting": [
         "diffused cool window light, steering wheel in view",
-        "interior of a modern car on a quiet morning road",
         "warm reflections through the windshield",
-        "modern car interior on a city street",
         "amber sunlight streaming through side window",
         "leather-trimmed car cabin at golden hour",
         "bright natural daylight, soft sea blue tones",
-        "modern car cabin with coastline blurred outside",
         "blue-hour cinematic rim light with cool ambient fill",
         "same base setting at blue hour with subtle cinematic mood",
         "soft overcast daylight, even natural diffusion",
@@ -3658,8 +3698,13 @@
     "trigger": "art",
     "background": {
       "base": "contemporary art gallery, white walls with large paintings visible, track lighting creating directional light",
-      "lock": "flexible",
-      "overrides_allowed": []
+      "lock": "semi",
+      "overrides_allowed": [
+        "white-cube gallery with large colorful paintings",
+        "modern gallery wing with sculptures",
+        "classical museum hall with gilded frames",
+        "clean directional gallery lighting on art"
+      ]
     },
     "clothing": {
       "default": "smart turtleneck or fitted dark shirt, tailored trousers, minimalist style",
@@ -3674,12 +3719,8 @@
     "context_slots": {
       "lighting": [
         "warm track lighting on paintings",
-        "white-cube gallery with large colorful paintings",
         "soft even daylight from skylights",
-        "modern gallery wing with sculptures",
         "warm ambient amber light with spot accents",
-        "classical museum hall with gilded frames",
-        "clean directional gallery lighting on art",
         "concrete industrial gallery space",
         "blue-hour cinematic rim light with cool ambient fill",
         "same base setting at blue hour with subtle cinematic mood",
@@ -3741,8 +3782,11 @@
     "trigger": "street",
     "background": {
       "base": "vibrant city street with graffiti walls, modern architecture, warm directional sunlight creating long shadows",
-      "lock": "flexible",
-      "overrides_allowed": []
+      "lock": "semi",
+      "overrides_allowed": [
+        "narrow urban alley with brick walls and murals",
+        "graffiti-covered wall with vivid colors"
+      ]
     },
     "clothing": {
       "default": "streetwear layers, bomber or denim jacket, fitted pants, clean sneakers",
@@ -3757,11 +3801,9 @@
     "context_slots": {
       "lighting": [
         "warm directional side light",
-        "narrow urban alley with brick walls and murals",
         "bright cool midday daylight with sharp shadows",
         "modern concrete pedestrian crossing",
         "warm afternoon sun, saturated tones",
-        "graffiti-covered wall with vivid colors",
         "cool neon glow with warm accent spots",
         "modern underpass with ambient neon tubes",
         "blue-hour cinematic rim light with cool ambient fill",
@@ -3824,8 +3866,12 @@
     "trigger": "concert",
     "background": {
       "base": "intimate music venue or home setting with guitar or instruments visible, warm moody lighting, exposed brick or wood",
-      "lock": "flexible",
-      "overrides_allowed": []
+      "lock": "semi",
+      "overrides_allowed": [
+        "rock concert stage with silhouetted crowd",
+        "intimate club venue with small stage",
+        "classical concert hall with tiered seating"
+      ]
     },
     "clothing": {
       "default": "vintage band tee or flannel shirt, relaxed creative style",
@@ -3840,13 +3886,10 @@
     "context_slots": {
       "lighting": [
         "warm amber stage lights with crisp rim",
-        "rock concert stage with silhouetted crowd",
         "warm low-angle sunlight with stage visible behind",
         "open-air festival field at golden hour",
         "warm spotlights with soft crowd glow",
-        "intimate club venue with small stage",
         "warm ambient uplighting, rich wood tones",
-        "classical concert hall with tiered seating",
         "blue-hour cinematic rim light with cool ambient fill",
         "same base setting at blue hour with subtle cinematic mood",
         "soft overcast daylight, even natural diffusion",
@@ -3907,8 +3950,12 @@
     "trigger": "travel",
     "background": {
       "base": "modern airport terminal or departure lounge, large windows with aircraft visible, clean bright interior",
-      "lock": "flexible",
-      "overrides_allowed": []
+      "lock": "semi",
+      "overrides_allowed": [
+        "premium airport lounge with large windows",
+        "cobblestone street in a historic old town",
+        "mountain train platform with alpine view"
+      ]
     },
     "clothing": {
       "default": "travel-smart outfit, fitted jacket, comfortable trousers, carry-on bag nearby",
@@ -3923,11 +3970,8 @@
     "context_slots": {
       "lighting": [
         "warm ambient light with bright daylight outside",
-        "premium airport lounge with large windows",
         "warm golden-hour side light on stone walls",
-        "cobblestone street in a historic old town",
         "bright crisp daylight with cool shadows",
-        "mountain train platform with alpine view",
         "bright midday sunlight, sparkling water",
         "coastal viewpoint overlooking a turquoise bay",
         "blue-hour cinematic rim light with cool ambient fill",
@@ -3990,8 +4034,13 @@
     "trigger": "warm",
     "background": {
       "base": "golden-hour park or waterfront, warm backlight with subtle rim light, natural green and water textures visible in background",
-      "lock": "flexible",
-      "overrides_allowed": []
+      "lock": "semi",
+      "overrides_allowed": [
+        "sunlit urban park with trees and pathway",
+        "wooden pier at a calm lakefront",
+        "open meadow with tall grass and wildflowers",
+        "leafy boulevard with autumn-gold foliage"
+      ]
     },
     "clothing": {
       "default": "stylish casual, fitted, clean fabrics",
@@ -4006,13 +4055,9 @@
     "context_slots": {
       "lighting": [
         "warm golden-hour backlight, soft rim highlights",
-        "sunlit urban park with trees and pathway",
         "low-angle amber sunset light, gentle reflections",
-        "wooden pier at a calm lakefront",
         "bright warm afternoon light, clear sky behind",
-        "open meadow with tall grass and wildflowers",
         "dappled afternoon light through tree canopy",
-        "leafy boulevard with autumn-gold foliage",
         "blue-hour cinematic rim light with cool ambient fill",
         "same base setting at blue hour with subtle cinematic mood",
         "soft overcast daylight, even natural diffusion",
@@ -4074,7 +4119,11 @@
     "background": {
       "base": "studio with smooth gradient lighting, charcoal-to-warm-grey backdrop, clean even studio falloff",
       "lock": "semi",
-      "overrides_allowed": []
+      "overrides_allowed": [
+        "seamless charcoal-to-warm-grey studio backdrop",
+        "deep burgundy painted studio wall",
+        "matte soft-grey panel backdrop"
+      ]
     },
     "clothing": {
       "default": "elegant evening wear, dark tones, silk or fine wool textures",
@@ -4089,11 +4138,8 @@
     "context_slots": {
       "lighting": [
         "smooth even key light with soft fill",
-        "seamless charcoal-to-warm-grey studio backdrop",
         "single directional warm key with subtle rim",
-        "deep burgundy painted studio wall",
         "wide diffused beauty-dish style lighting",
-        "matte soft-grey panel backdrop",
         "golden backlight with classic portrait fill",
         "warm amber textured wall in photo studio",
         "blue-hour cinematic rim light with cool ambient fill",
@@ -4157,7 +4203,12 @@
     "background": {
       "base": "cozy upscale cafe, warm tungsten light, exposed brick or wood paneling, bottles and candles in background",
       "lock": "semi",
-      "overrides_allowed": []
+      "overrides_allowed": [
+        "cozy artisan cafe corner with shelves of ceramics",
+        "bright cafe window seat with potted plants",
+        "industrial loft cafe with exposed brick",
+        "Scandinavian minimal cafe with pale wood"
+      ]
     },
     "clothing": {
       "default": "smart-casual date outfit, earth tones, linen or cotton",
@@ -4172,13 +4223,9 @@
     "context_slots": {
       "lighting": [
         "warm window light, soft amber ambience",
-        "cozy artisan cafe corner with shelves of ceramics",
         "diffused cool morning daylight",
-        "bright cafe window seat with potted plants",
         "warm hanging bulbs with gentle spot lighting",
-        "industrial loft cafe with exposed brick",
         "soft even daylight, clean white surfaces",
-        "Scandinavian minimal cafe with pale wood",
         "blue-hour cinematic rim light with cool ambient fill",
         "same base setting at blue hour with subtle cinematic mood",
         "soft overcast daylight, even natural diffusion",
@@ -4239,8 +4286,11 @@
     "trigger": "tinder",
     "background": {
       "base": "urban rooftop terrace at golden hour, warm rim light on skyline, distant city lights clearly visible across skyline, romantic open-air atmosphere",
-      "lock": "flexible",
-      "overrides_allowed": []
+      "lock": "semi",
+      "overrides_allowed": [
+        "rooftop with planted greenery and city behind",
+        "rooftop lounge with low couches and city view"
+      ]
     },
     "clothing": {
       "default": "fitted casual-smart outfit, clean lines, subtle accessories, date-ready polish",
@@ -4259,9 +4309,7 @@
         "deep amber sunset sidelight",
         "rooftop facing a western city skyline",
         "warm directional golden-hour light",
-        "rooftop with planted greenery and city behind",
         "warm ambient amber light with city warmth",
-        "rooftop lounge with low couches and city view",
         "blue-hour cinematic rim light with cool ambient fill",
         "same base setting at blue hour with subtle cinematic mood",
         "soft overcast daylight, even natural diffusion",
@@ -4324,7 +4372,13 @@
     "background": {
       "base": "pure neutral studio backdrop soft grey-to-white gradient, even beauty-dish lighting, empty backdrop area, clean studio setup with backdrop fully visible",
       "lock": "semi",
-      "overrides_allowed": []
+      "overrides_allowed": [
+        "pure white seamless studio backdrop",
+        "warm mid-grey seamless backdrop",
+        "muted beige seamless backdrop",
+        "gentle portrait key with natural fill",
+        "soft taupe studio backdrop"
+      ]
     },
     "clothing": {
       "default": "simple fitted top in solid color, minimal jewelry, fresh grooming",
@@ -4339,13 +4393,8 @@
     "context_slots": {
       "lighting": [
         "even soft diffused key light with gentle fill",
-        "pure white seamless studio backdrop",
         "soft directional key with subtle rim",
-        "warm mid-grey seamless backdrop",
         "warm even studio lighting",
-        "muted beige seamless backdrop",
-        "gentle portrait key with natural fill",
-        "soft taupe studio backdrop",
         "blue-hour cinematic rim light with cool ambient fill",
         "same base setting at blue hour with subtle cinematic mood",
         "soft overcast daylight, even natural diffusion",
@@ -4408,7 +4457,12 @@
     "background": {
       "base": "bright cafe interior by large window, natural daylight, plants and warm wood tones visible behind, details preserved",
       "lock": "semi",
-      "overrides_allowed": []
+      "overrides_allowed": [
+        "cafe window seat at morning",
+        "cafe window seat with soft rain outside",
+        "cafe window at a sunny terrace",
+        "cafe window seat at early evening"
+      ]
     },
     "clothing": {
       "default": "relaxed smart-casual, soft sweater or crisp shirt, approachable style",
@@ -4423,13 +4477,9 @@
     "context_slots": {
       "lighting": [
         "soft cool morning light with warm interior glow",
-        "cafe window seat at morning",
         "warm interior lamp light with cool window",
-        "cafe window seat with soft rain outside",
         "warm afternoon sunlight on the table",
-        "cafe window at a sunny terrace",
         "warm amber pendant lights with soft window glow",
-        "cafe window seat at early evening",
         "blue-hour cinematic rim light with cool ambient fill",
         "same base setting at blue hour with subtle cinematic mood",
         "soft overcast daylight, even natural diffusion",
@@ -4491,8 +4541,11 @@
     "trigger": "corporate",
     "background": {
       "base": "modern corner office, floor-to-ceiling windows with diffused diffused daylight, neutral beige wall, clean minimalist interior",
-      "lock": "flexible",
-      "overrides_allowed": []
+      "lock": "semi",
+      "overrides_allowed": [
+        "modern corner office with floor-to-ceiling windows",
+        "executive office lobby with marble wall"
+      ]
     },
     "clothing": {
       "default": "tailored formal charcoal suit, crisp white shirt, subtle tie or silk scarf",
@@ -4507,11 +4560,9 @@
     "context_slots": {
       "lighting": [
         "diffused warm daylight with soft fill",
-        "modern corner office with floor-to-ceiling windows",
         "bright cool daylight with warm accent",
         "glass-walled corner beside a boardroom",
         "warm ambient amber light with clean fill",
-        "executive office lobby with marble wall",
         "warm directional lamp light with natural fill",
         "wood-paneled executive office",
         "blue-hour cinematic rim light with cool ambient fill",
@@ -4574,8 +4625,12 @@
     "trigger": "boardroom",
     "background": {
       "base": "executive boardroom, polished dark table, leather chairs, large screen or whiteboard behind, even overhead lighting",
-      "lock": "flexible",
-      "overrides_allowed": []
+      "lock": "semi",
+      "overrides_allowed": [
+        "executive boardroom with dark polished table",
+        "glass-walled boardroom with city view",
+        "heritage boardroom with oil paintings"
+      ]
     },
     "clothing": {
       "default": "navy suit, power tie, pocket square, cufflinks",
@@ -4590,13 +4645,10 @@
     "context_slots": {
       "lighting": [
         "even warm overhead lighting",
-        "executive boardroom with dark polished table",
         "bright cool daylight with warm interior accent",
-        "glass-walled boardroom with city view",
         "soft even diffused lighting",
         "modern light-wood boardroom",
         "warm ambient amber light, rich textures",
-        "heritage boardroom with oil paintings",
         "blue-hour cinematic rim light with cool ambient fill",
         "same base setting at blue hour with subtle cinematic mood",
         "soft overcast daylight, even natural diffusion",
@@ -4658,7 +4710,12 @@
     "background": {
       "base": "neutral gradient studio backdrop charcoal-to-grey, classic Rembrandt lighting with gentle fill",
       "lock": "semi",
-      "overrides_allowed": []
+      "overrides_allowed": [
+        "classic Rembrandt key with gentle fill",
+        "deep blue studio backdrop",
+        "warm grey portrait backdrop",
+        "textured painterly canvas backdrop"
+      ]
     },
     "clothing": {
       "default": "dark formal suit, white shirt, conservative tie, clean grooming",
@@ -4672,14 +4729,10 @@
     },
     "context_slots": {
       "lighting": [
-        "classic Rembrandt key with gentle fill",
         "neutral charcoal-to-grey gradient studio",
         "soft clamshell portrait lighting",
-        "deep blue studio backdrop",
         "butterfly key light with soft fill",
-        "warm grey portrait backdrop",
         "warm low-key directional lighting",
-        "textured painterly canvas backdrop",
         "blue-hour cinematic rim light with cool ambient fill",
         "same base setting at blue hour with subtle cinematic mood",
         "soft overcast daylight, even natural diffusion",
@@ -4740,8 +4793,13 @@
     "trigger": "glass",
     "background": {
       "base": "modern office with floor-to-ceiling glass wall, city panorama behind, clean architectural lines, natural daylight streaming in",
-      "lock": "flexible",
-      "overrides_allowed": []
+      "lock": "semi",
+      "overrides_allowed": [
+        "floor-to-ceiling glass wall facing the skyline",
+        "warm interior lamp with deep blue outside",
+        "glass-walled office at morning with skyline",
+        "glass wall overlooking a harbor"
+      ]
     },
     "clothing": {
       "default": "tailored suit or smart business attire, confident professional silhouette",
@@ -4756,13 +4814,9 @@
     "context_slots": {
       "lighting": [
         "warm golden-hour backlight, soft interior fill",
-        "floor-to-ceiling glass wall facing the skyline",
-        "warm interior lamp with deep blue outside",
         "glass wall with city lights at blue hour",
         "soft cool morning daylight",
-        "glass-walled office at morning with skyline",
         "bright natural daylight with cool water tones",
-        "glass wall overlooking a harbor",
         "blue-hour cinematic rim light with cool ambient fill",
         "same base setting at blue hour with subtle cinematic mood",
         "soft overcast daylight, even natural diffusion",
@@ -4823,8 +4877,13 @@
     "trigger": "startup",
     "background": {
       "base": "open-plan startup office, standing desks, plants, glass partitions, bright natural light",
-      "lock": "flexible",
-      "overrides_allowed": []
+      "lock": "semi",
+      "overrides_allowed": [
+        "open-plan startup office with standing desks",
+        "startup lounge with colorful beanbags and sofas",
+        "glass meeting pod in a modern office",
+        "brick-loft startup office with exposed beams"
+      ]
     },
     "clothing": {
       "default": "smart casual, fitted chinos, clean button-down with rolled sleeves, open collar",
@@ -4839,13 +4898,9 @@
     "context_slots": {
       "lighting": [
         "bright natural daylight, plants around",
-        "open-plan startup office with standing desks",
         "warm ambient amber light with playful accents",
-        "startup lounge with colorful beanbags and sofas",
         "bright cool daylight with warm interior",
-        "glass meeting pod in a modern office",
         "warm directional daylight with clean fill",
-        "brick-loft startup office with exposed beams",
         "blue-hour cinematic rim light with cool ambient fill",
         "same base setting at blue hour with subtle cinematic mood",
         "soft overcast daylight, even natural diffusion",
@@ -4906,8 +4961,13 @@
     "trigger": "coworking",
     "background": {
       "base": "trendy coworking loft, exposed brick, industrial lighting, community workspace in background",
-      "lock": "flexible",
-      "overrides_allowed": []
+      "lock": "semi",
+      "overrides_allowed": [
+        "industrial coworking loft with exposed brick",
+        "coworking garden terrace",
+        "Scandinavian-style coworking with pale wood",
+        "rooftop coworking deck with city behind"
+      ]
     },
     "clothing": {
       "default": "fitted blazer over crew-neck tee, dark jeans, modern smart-casual",
@@ -4922,13 +4982,9 @@
     "context_slots": {
       "lighting": [
         "warm directional daylight with clean fill",
-        "industrial coworking loft with exposed brick",
         "bright warm afternoon sunlight, fresh greens",
-        "coworking garden terrace",
         "soft even daylight, minimal palette",
-        "Scandinavian-style coworking with pale wood",
         "warm golden-hour backlight with soft fill",
-        "rooftop coworking deck with city behind",
         "blue-hour cinematic rim light with cool ambient fill",
         "same base setting at blue hour with subtle cinematic mood",
         "soft overcast daylight, even natural diffusion",
@@ -4989,8 +5045,14 @@
     "trigger": "video",
     "background": {
       "base": "clean home office with ring light or monitor glow, neat bookshelves behind, webcam-friendly framing, even lighting",
-      "lock": "flexible",
-      "overrides_allowed": []
+      "lock": "semi",
+      "overrides_allowed": [
+        "clean home office with ring light and monitor",
+        "home office with neat bookshelves behind",
+        "home office with plant wall behind",
+        "clean even key with warm accent",
+        "home office with gradient color panel behind"
+      ]
     },
     "clothing": {
       "default": "professional fitted shirt, crisp collar, clean grooming visible above desk",
@@ -5005,13 +5067,8 @@
     "context_slots": {
       "lighting": [
         "even soft ring-light key, subtle fill",
-        "clean home office with ring light and monitor",
         "warm ambient lamp with soft key light",
-        "home office with neat bookshelves behind",
         "soft warm natural light, green fill",
-        "home office with plant wall behind",
-        "clean even key with warm accent",
-        "home office with gradient color panel behind",
         "blue-hour cinematic rim light with cool ambient fill",
         "same base setting at blue hour with subtle cinematic mood",
         "soft overcast daylight, even natural diffusion",
@@ -5072,8 +5129,13 @@
     "trigger": "analytics",
     "background": {
       "base": "office desk with financial charts on monitor screen, organized documents, warm desk lamp, focused workspace atmosphere",
-      "lock": "flexible",
-      "overrides_allowed": []
+      "lock": "semi",
+      "overrides_allowed": [
+        "office desk with clean analytics on a monitor",
+        "tablet dashboard on a tidy desk",
+        "desk with printed report sheets",
+        "quiet ops room with data wall"
+      ]
     },
     "clothing": {
       "default": "professional shirt with rolled sleeves, reading glasses optional, sharp look",
@@ -5088,13 +5150,9 @@
     "context_slots": {
       "lighting": [
         "warm desk lamp with cool monitor glow",
-        "office desk with clean analytics on a monitor",
         "soft warm afternoon daylight",
-        "tablet dashboard on a tidy desk",
         "warm directional task lamp light",
-        "desk with printed report sheets",
         "cool ambient LED with warm face accent",
-        "quiet ops room with data wall",
         "blue-hour cinematic rim light with cool ambient fill",
         "same base setting at blue hour with subtle cinematic mood",
         "soft overcast daylight, even natural diffusion",
@@ -5156,7 +5214,12 @@
     "background": {
       "base": "bright cafe or office corner, quality notebook open on table, pen in hand, warm natural window light, coffee cup nearby",
       "lock": "semi",
-      "overrides_allowed": []
+      "overrides_allowed": [
+        "bright cafe window with notebook open",
+        "library reading-desk with notebook",
+        "park bench with notebook",
+        "home desk with notebook and coffee"
+      ]
     },
     "clothing": {
       "default": "smart-casual layers, clean fitted shirt, professional yet relaxed",
@@ -5171,13 +5234,9 @@
     "context_slots": {
       "lighting": [
         "soft warm window light",
-        "bright cafe window with notebook open",
         "warm ambient amber light",
-        "library reading-desk with notebook",
         "warm golden-hour backlight",
-        "park bench with notebook",
         "soft warm natural light",
-        "home desk with notebook and coffee",
         "blue-hour cinematic rim light with cool ambient fill",
         "same base setting at blue hour with subtle cinematic mood",
         "soft overcast daylight, even natural diffusion",
@@ -5238,8 +5297,13 @@
     "trigger": "tablet",
     "background": {
       "base": "creative workspace, digital tablet on desk with sketches visible, clean modern interior, directional task light",
-      "lock": "flexible",
-      "overrides_allowed": []
+      "lock": "semi",
+      "overrides_allowed": [
+        "creative desk with digital tablet and sketches",
+        "modern glass desk with tablet",
+        "cafe table with a graphics tablet",
+        "art studio corner with tablet on easel stand"
+      ]
     },
     "clothing": {
       "default": "smart-casual fitted dark sweater, creative professional look",
@@ -5254,13 +5318,9 @@
     "context_slots": {
       "lighting": [
         "soft warm directional task light",
-        "creative desk with digital tablet and sketches",
         "bright natural daylight with clean fill",
-        "modern glass desk with tablet",
         "warm afternoon window light",
-        "cafe table with a graphics tablet",
         "warm track lighting on sketches",
-        "art studio corner with tablet on easel stand",
         "blue-hour cinematic rim light with cool ambient fill",
         "same base setting at blue hour with subtle cinematic mood",
         "soft overcast daylight, even natural diffusion",
@@ -5321,8 +5381,12 @@
     "trigger": "coffee",
     "background": {
       "base": "modern office kitchen or lounge area, coffee machine in background, bright even lighting, clean minimalist break space",
-      "lock": "flexible",
-      "overrides_allowed": []
+      "lock": "semi",
+      "overrides_allowed": [
+        "modern office kitchen with espresso machine",
+        "office lounge with armchairs for coffee break",
+        "office patio garden for a coffee break"
+      ]
     },
     "clothing": {
       "default": "professional attire slightly relaxed, sleeves rolled, coffee cup in hand",
@@ -5337,13 +5401,10 @@
     "context_slots": {
       "lighting": [
         "bright even overhead light, clean surfaces",
-        "modern office kitchen with espresso machine",
         "warm golden-hour backlight",
         "office rooftop coffee break spot",
         "warm ambient lamp light",
-        "office lounge with armchairs for coffee break",
         "warm afternoon daylight, fresh greens",
-        "office patio garden for a coffee break",
         "blue-hour cinematic rim light with cool ambient fill",
         "same base setting at blue hour with subtle cinematic mood",
         "soft overcast daylight, even natural diffusion",
@@ -5404,8 +5465,13 @@
     "trigger": "late",
     "background": {
       "base": "modern office at evening, warm desk lamp light, city lights visible through window behind, focused productive workspace atmosphere",
-      "lock": "flexible",
-      "overrides_allowed": []
+      "lock": "semi",
+      "overrides_allowed": [
+        "modern office desk at night with warm desk lamp",
+        "glass-walled office at night with skyline",
+        "home office at night, one focused lamp on",
+        "rooftop office corner at night"
+      ]
     },
     "clothing": {
       "default": "professional shirt with loosened collar, sleeves rolled, focused work look",
@@ -5420,13 +5486,9 @@
     "context_slots": {
       "lighting": [
         "warm lamp with cool city lights outside",
-        "modern office desk at night with warm desk lamp",
         "warm lamp with cool city lights outside",
-        "glass-walled office at night with skyline",
         "warm desk lamp with cool dim ambient",
-        "home office at night, one focused lamp on",
         "warm phone/laptop glow with cool city lights",
-        "rooftop office corner at night",
         "blue-hour cinematic rim light with cool ambient fill",
         "same base setting at blue hour with subtle cinematic mood",
         "soft overcast daylight, even natural diffusion",
@@ -5487,8 +5549,12 @@
     "trigger": "before",
     "background": {
       "base": "modern office corridor or glass-walled lobby, bright clean environment, meeting rooms visible behind, professional workspace atmosphere",
-      "lock": "flexible",
-      "overrides_allowed": []
+      "lock": "semi",
+      "overrides_allowed": [
+        "modern office corridor with glass meeting rooms",
+        "executive lobby with leather seating",
+        "modern elevator hall with polished floor"
+      ]
     },
     "clothing": {
       "default": "fresh professional attire, straightened collar, polished ready-for-action look",
@@ -5503,11 +5569,8 @@
     "context_slots": {
       "lighting": [
         "bright even cool daylight",
-        "modern office corridor with glass meeting rooms",
         "warm ambient amber light",
-        "executive lobby with leather seating",
         "warm directional interior light",
-        "modern elevator hall with polished floor",
         "warm afternoon daylight with city behind",
         "rooftop office corner for a pre-meeting moment",
         "blue-hour cinematic rim light with cool ambient fill",
@@ -5570,8 +5633,14 @@
     "trigger": "decision",
     "background": {
       "base": "standing at large window overlooking cityscape, contemplative atmosphere, warm rim light from window, cityscape in sharp focus through the window",
-      "lock": "flexible",
-      "overrides_allowed": []
+      "lock": "semi",
+      "overrides_allowed": [
+        "tall window overlooking city skyline",
+        "warm interior lamp with deep blue outside",
+        "executive window at blue hour",
+        "executive window with rain-streaked glass",
+        "executive window at sunset"
+      ]
     },
     "clothing": {
       "default": "tailored dark suit against bright window, face evenly lit, executive presence",
@@ -5586,13 +5655,8 @@
     "context_slots": {
       "lighting": [
         "warm rim light with cool city outside",
-        "tall window overlooking city skyline",
-        "warm interior lamp with deep blue outside",
-        "executive window at blue hour",
         "cool overcast light with warm interior accent",
-        "executive window with rain-streaked glass",
         "warm amber sidelight with golden city below",
-        "executive window at sunset",
         "blue-hour cinematic rim light with cool ambient fill",
         "same base setting at blue hour with subtle cinematic mood",
         "soft overcast daylight, even natural diffusion",
@@ -5653,8 +5717,12 @@
     "trigger": "business",
     "background": {
       "base": "premium airport or hotel business lounge, marble and leather surfaces, warm lighting, laptop and documents on table",
-      "lock": "flexible",
-      "overrides_allowed": []
+      "lock": "semi",
+      "overrides_allowed": [
+        "executive hotel club lounge",
+        "private club lounge with bar shelves behind",
+        "rooftop business lounge with skyline"
+      ]
     },
     "clothing": {
       "default": "business-casual travel outfit, quality fabrics, polished accessories",
@@ -5671,11 +5739,8 @@
         "warm ambient amber light",
         "premium airport business lounge",
         "warm lamp light with leather textures",
-        "executive hotel club lounge",
         "warm directional bar lighting",
-        "private club lounge with bar shelves behind",
         "warm golden-hour backlight",
-        "rooftop business lounge with skyline",
         "blue-hour cinematic rim light with cool ambient fill",
         "same base setting at blue hour with subtle cinematic mood",
         "soft overcast daylight, even natural diffusion",
@@ -5736,8 +5801,13 @@
     "trigger": "speaker",
     "background": {
       "base": "conference stage, podium with microphone, presentation screen clearly visible behind, warm stage key light from above keeping both speaker and screen readable",
-      "lock": "flexible",
-      "overrides_allowed": []
+      "lock": "semi",
+      "overrides_allowed": [
+        "keynote conference stage with large screen",
+        "panel-discussion stage with modern seating",
+        "round stage with a bright circular backdrop",
+        "expo keynote stage with colorful backdrop"
+      ]
     },
     "clothing": {
       "default": "tailored suit with open-collar shirt, confident speaker style",
@@ -5752,13 +5822,9 @@
     "context_slots": {
       "lighting": [
         "warm stage key with soft rim",
-        "keynote conference stage with large screen",
         "warm ambient stage lighting",
-        "panel-discussion stage with modern seating",
         "clean directional key light",
-        "round stage with a bright circular backdrop",
         "warm saturated stage lighting",
-        "expo keynote stage with colorful backdrop",
         "blue-hour cinematic rim light with cool ambient fill",
         "same base setting at blue hour with subtle cinematic mood",
         "soft overcast daylight, even natural diffusion",
@@ -5819,8 +5885,13 @@
     "trigger": "standing",
     "background": {
       "base": "minimal home office or tech workspace, monitor screens behind, clean desk, natural window light",
-      "lock": "flexible",
-      "overrides_allowed": []
+      "lock": "semi",
+      "overrides_allowed": [
+        "minimal home office with monitor and plant",
+        "tech studio with dual monitors and ambient LED",
+        "architect's standing desk with blueprints",
+        "art director's standing desk with mood board"
+      ]
     },
     "clothing": {
       "default": "premium fitted polo or cashmere sweater, clean minimalist style",
@@ -5835,13 +5906,9 @@
     "context_slots": {
       "lighting": [
         "soft warm window light",
-        "minimal home office with monitor and plant",
         "cool ambient LED with warm desk accent",
-        "tech studio with dual monitors and ambient LED",
         "bright daylight with directional task light",
-        "architect's standing desk with blueprints",
         "warm directional lamp light with natural fill",
-        "art director's standing desk with mood board",
         "blue-hour cinematic rim light with cool ambient fill",
         "same base setting at blue hour with subtle cinematic mood",
         "soft overcast daylight, even natural diffusion",
@@ -5903,7 +5970,12 @@
     "background": {
       "base": "tropical co-working space or beach cafe with laptop on table, palm trees and ocean visible through open walls, bright natural light",
       "lock": "semi",
-      "overrides_allowed": []
+      "overrides_allowed": [
+        "beach cafe with laptop and palm behind",
+        "mountain cabin with laptop on wooden table",
+        "island balcony workspace with ocean view",
+        "desert resort courtyard with laptop"
+      ]
     },
     "clothing": {
       "default": "casual smart lightweight shirt, relaxed professional travel style",
@@ -5918,13 +5990,9 @@
     "context_slots": {
       "lighting": [
         "bright tropical daylight, sparkling water",
-        "beach cafe with laptop and palm behind",
         "soft warm morning light through window",
-        "mountain cabin with laptop on wooden table",
         "warm afternoon sunlight, sparkling water",
-        "island balcony workspace with ocean view",
         "warm late-afternoon sunlight, sand tones",
-        "desert resort courtyard with laptop",
         "blue-hour cinematic rim light with cool ambient fill",
         "same base setting at blue hour with subtle cinematic mood",
         "soft overcast daylight, even natural diffusion",
@@ -5985,8 +6053,12 @@
     "trigger": "intellectual",
     "background": {
       "base": "classic library or bookstore, warm amber ambient lighting, books and wooden shelves behind, academic atmosphere",
-      "lock": "flexible",
-      "overrides_allowed": []
+      "lock": "semi",
+      "overrides_allowed": [
+        "cozy bookstore corner with reading chair",
+        "university reading hall with wooden tables",
+        "study with stone fireplace behind"
+      ]
     },
     "clothing": {
       "default": "turtleneck or fitted quality shirt, subtle glasses, refined academic style",
@@ -6003,11 +6075,8 @@
         "warm reading lamp with ambient amber fill",
         "classic library with warm amber ambient",
         "warm pendant light with soft shelves fill",
-        "cozy bookstore corner with reading chair",
         "warm directional daylight",
-        "university reading hall with wooden tables",
         "warm fireplace glow with soft ambient fill",
-        "study with stone fireplace behind",
         "blue-hour cinematic rim light with cool ambient fill",
         "same base setting at blue hour with subtle cinematic mood",
         "soft overcast daylight, even natural diffusion",
@@ -6068,8 +6137,13 @@
     "trigger": "tech",
     "background": {
       "base": "developer workspace, multiple monitors with code on screen, dark ambient room, LED desk lighting",
-      "lock": "flexible",
-      "overrides_allowed": []
+      "lock": "semi",
+      "overrides_allowed": [
+        "developer workspace with dual code monitors",
+        "dark home office with RGB accent lighting",
+        "minimalist tech workspace with single monitor",
+        "cafe table with laptop and code on screen"
+      ]
     },
     "clothing": {
       "default": "quality hoodie or fitted dark sweater, comfortable technical style",
@@ -6084,13 +6158,9 @@
     "context_slots": {
       "lighting": [
         "warm desk lamp with cool ambient LED",
-        "developer workspace with dual code monitors",
         "cool ambient LED with warm face accent",
-        "dark home office with RGB accent lighting",
         "soft even daylight with clean shadows",
-        "minimalist tech workspace with single monitor",
         "warm afternoon window light",
-        "cafe table with laptop and code on screen",
         "blue-hour cinematic rim light with cool ambient fill",
         "same base setting at blue hour with subtle cinematic mood",
         "soft overcast daylight, even natural diffusion",
@@ -6152,7 +6222,12 @@
     "background": {
       "base": "design studio, mood boards and sketches behind, warm directional studio light, mood boards in clear focus",
       "lock": "semi",
-      "overrides_allowed": []
+      "overrides_allowed": [
+        "design studio wall with mood-boards",
+        "table with fabric and color samples",
+        "clean black studio with minimal props",
+        "art-loft studio with track lights"
+      ]
     },
     "clothing": {
       "default": "black turtleneck, minimalist dark outfit, statement glasses optional",
@@ -6167,13 +6242,9 @@
     "context_slots": {
       "lighting": [
         "warm directional studio light on board",
-        "design studio wall with mood-boards",
         "soft even warm lighting",
-        "table with fabric and color samples",
         "single warm key light with crisp rim",
-        "clean black studio with minimal props",
         "warm track lighting with rich shadow",
-        "art-loft studio with track lights",
         "blue-hour cinematic rim light with cool ambient fill",
         "same base setting at blue hour with subtle cinematic mood",
         "soft overcast daylight, even natural diffusion",
@@ -6234,8 +6305,12 @@
     "trigger": "medical",
     "background": {
       "base": "clean modern clinic or hospital corridor, bright even lighting, medical equipment in background",
-      "lock": "flexible",
-      "overrides_allowed": []
+      "lock": "semi",
+      "overrides_allowed": [
+        "tidy exam room with medical charts",
+        "hospital hallway with bright clean surfaces",
+        "research lab corner with microscope"
+      ]
     },
     "clothing": {
       "default": "white lab coat over dress shirt, stethoscope, professional medical attire",
@@ -6252,11 +6327,8 @@
         "bright cool even lighting",
         "clean modern clinic corridor",
         "soft warm ambient with cool overhead",
-        "tidy exam room with medical charts",
         "bright even cool lighting",
-        "hospital hallway with bright clean surfaces",
         "cool ambient with warm task lamp",
-        "research lab corner with microscope",
         "blue-hour cinematic rim light with cool ambient fill",
         "same base setting at blue hour with subtle cinematic mood",
         "soft overcast daylight, even natural diffusion",
@@ -6317,8 +6389,13 @@
     "trigger": "legal",
     "background": {
       "base": "wood-paneled office or library, law books on shelves, warm ambient desk lamp, leather chair",
-      "lock": "flexible",
-      "overrides_allowed": []
+      "lock": "semi",
+      "overrides_allowed": [
+        "wood-paneled office with leather chair",
+        "law-book archive shelves behind desk",
+        "marble chamber room with heritage details",
+        "city-view executive office"
+      ]
     },
     "clothing": {
       "default": "three-piece suit, silk tie, pocket square, classic luxury watch",
@@ -6333,13 +6410,9 @@
     "context_slots": {
       "lighting": [
         "warm desk-lamp light with ambient fill",
-        "wood-paneled office with leather chair",
         "warm ambient amber light, rich shadows",
-        "law-book archive shelves behind desk",
         "warm directional light with cool stone fill",
-        "marble chamber room with heritage details",
         "bright cool daylight with warm interior accent",
-        "city-view executive office",
         "blue-hour cinematic rim light with cool ambient fill",
         "same base setting at blue hour with subtle cinematic mood",
         "soft overcast daylight, even natural diffusion",
@@ -6401,7 +6474,10 @@
     "background": {
       "base": "architectural studio, blueprints and scale models on table, large drafting table, bright workspace lighting",
       "lock": "semi",
-      "overrides_allowed": []
+      "overrides_allowed": [
+        "architectural studio with drafting table",
+        "scale-model lab with detailed miniatures"
+      ]
     },
     "clothing": {
       "default": "fitted blazer, dark turtleneck, architect glasses optional",
@@ -6416,9 +6492,7 @@
     "context_slots": {
       "lighting": [
         "bright cool daylight with warm task lamp",
-        "architectural studio with drafting table",
         "soft directional warm lamp light",
-        "scale-model lab with detailed miniatures",
         "bright natural daylight with clean fill",
         "modern architect glass office",
         "bright cool daylight with warm lamp accent",
@@ -6484,7 +6558,11 @@
     "background": {
       "base": "podcast studio, professional microphone on boom arm, acoustic panels, warm ambient lighting, headphones",
       "lock": "semi",
-      "overrides_allowed": []
+      "overrides_allowed": [
+        "home podcast studio with acoustic panels",
+        "loft podcast studio with exposed brick",
+        "minimalist broadcast booth with neat desk"
+      ]
     },
     "clothing": {
       "default": "smart casual, clean fitted shirt, relaxed professional look",
@@ -6499,11 +6577,8 @@
     "context_slots": {
       "lighting": [
         "warm ambient lamp light with soft fill",
-        "home podcast studio with acoustic panels",
         "warm tungsten lamp light",
-        "loft podcast studio with exposed brick",
         "soft even diffused lighting",
-        "minimalist broadcast booth with neat desk",
         "warm golden-hour daylight, gentle breeze mood",
         "rooftop outdoor podcast setup",
         "blue-hour cinematic rim light with cool ambient fill",
@@ -6567,7 +6642,12 @@
     "background": {
       "base": "bright meeting room or cafe, whiteboard with diagrams behind, warm collaborative atmosphere",
       "lock": "semi",
-      "overrides_allowed": []
+      "overrides_allowed": [
+        "bright meeting room with whiteboard",
+        "cafe corner for mentoring chat",
+        "warm office with bookshelves",
+        "garden meeting nook"
+      ]
     },
     "clothing": {
       "default": "smart casual blazer, open collar shirt, approachable professional style",
@@ -6582,13 +6662,9 @@
     "context_slots": {
       "lighting": [
         "warm ambient daylight with clean fill",
-        "bright meeting room with whiteboard",
         "warm window light with amber pendant",
-        "cafe corner for mentoring chat",
         "warm directional lamp light, cozy tone",
-        "warm office with bookshelves",
         "soft afternoon daylight with green fill",
-        "garden meeting nook",
         "blue-hour cinematic rim light with cool ambient fill",
         "same base setting at blue hour with subtle cinematic mood",
         "soft overcast daylight, even natural diffusion",
@@ -6650,7 +6726,12 @@
     "background": {
       "base": "upscale outdoor cafe terrace, city street behind, laptop on table, natural daylight",
       "lock": "semi",
-      "overrides_allowed": []
+      "overrides_allowed": [
+        "upscale outdoor cafe terrace on a city street",
+        "rooftop business nook with skyline",
+        "outdoor garden office with laptop",
+        "harborfront cafe with boats behind"
+      ]
     },
     "clothing": {
       "default": "linen blazer over fitted shirt, chinos, digital nomad smart-casual",
@@ -6665,13 +6746,9 @@
     "context_slots": {
       "lighting": [
         "warm afternoon daylight with soft shadows",
-        "upscale outdoor cafe terrace on a city street",
         "warm golden-hour backlight",
-        "rooftop business nook with skyline",
         "soft warm morning light, fresh greens",
-        "outdoor garden office with laptop",
         "bright cool daylight with warm accent",
-        "harborfront cafe with boats behind",
         "blue-hour cinematic rim light with cool ambient fill",
         "same base setting at blue hour with subtle cinematic mood",
         "soft overcast daylight, even natural diffusion",
@@ -6733,7 +6810,13 @@
     "background": {
       "base": "light-grey studio backdrop, even lighting from both sides, clean and distraction-free",
       "lock": "semi",
-      "overrides_allowed": []
+      "overrides_allowed": [
+        "even diffused key light from both sides",
+        "light-grey studio backdrop, distraction-free",
+        "warm beige minimal backdrop",
+        "soft white minimalist studio backdrop",
+        "textured grey studio backdrop with subtle grain"
+      ]
     },
     "clothing": {
       "default": "classic professional attire, solid neutral colors",
@@ -6747,14 +6830,9 @@
     },
     "context_slots": {
       "lighting": [
-        "even diffused key light from both sides",
-        "light-grey studio backdrop, distraction-free",
         "soft balanced studio lighting",
-        "warm beige minimal backdrop",
         "bright even beauty-dish style lighting",
-        "soft white minimalist studio backdrop",
         "warm even portrait lighting",
-        "textured grey studio backdrop with subtle grain",
         "blue-hour cinematic rim light with cool ambient fill",
         "same base setting at blue hour with subtle cinematic mood",
         "soft overcast daylight, even natural diffusion",
@@ -7100,8 +7178,13 @@
     "trigger": "mirror",
     "background": {
       "base": "clean modern minimalist room, indirect lighting, neutral walls, warm ambient glow, polished interior",
-      "lock": "flexible",
-      "overrides_allowed": []
+      "lock": "semi",
+      "overrides_allowed": [
+        "modern bedroom with mirror and plants",
+        "walk-in closet with full-length mirror",
+        "hotel bathroom mirror with marble",
+        "studio with full-length mirror"
+      ]
     },
     "clothing": {
       "default": "curated outfit with clean lines, one statement piece, polished silhouette",
@@ -7116,13 +7199,9 @@
     "context_slots": {
       "lighting": [
         "soft warm ambient light",
-        "modern bedroom with mirror and plants",
         "warm directional closet light",
-        "walk-in closet with full-length mirror",
         "warm ambient amber light",
-        "hotel bathroom mirror with marble",
         "soft even warm lighting",
-        "studio with full-length mirror",
         "blue-hour cinematic rim light with cool ambient fill",
         "same base setting at blue hour with subtle cinematic mood",
         "soft overcast daylight, even natural diffusion",
@@ -7183,8 +7262,12 @@
     "trigger": "elevator",
     "background": {
       "base": "modern elevator interior, stainless steel or mirrored walls, even overhead lighting, clean minimal space",
-      "lock": "flexible",
-      "overrides_allowed": []
+      "lock": "semi",
+      "overrides_allowed": [
+        "modern elevator with stainless steel walls",
+        "black matte elevator with gold trim",
+        "glass panoramic elevator with skyline behind"
+      ]
     },
     "clothing": {
       "default": "fitted smart outfit, clean sharp silhouette, polished aesthetic",
@@ -7199,13 +7282,10 @@
     "context_slots": {
       "lighting": [
         "even overhead cool light",
-        "modern elevator with stainless steel walls",
         "warm overhead light with clean reflections",
         "mirrored-walls elevator",
         "warm ambient amber with soft spot",
-        "black matte elevator with gold trim",
         "bright natural daylight with warm accent",
-        "glass panoramic elevator with skyline behind",
         "blue-hour cinematic rim light with cool ambient fill",
         "same base setting at blue hour with subtle cinematic mood",
         "soft overcast daylight, even natural diffusion",
@@ -7266,8 +7346,12 @@
     "trigger": "candid",
     "background": {
       "base": "urban street caught mid-stride, natural unposed moment, warm directional sunlight, pedestrians and architecture in scene",
-      "lock": "flexible",
-      "overrides_allowed": []
+      "lock": "semi",
+      "overrides_allowed": [
+        "urban street caught mid-stride in morning",
+        "modern crosswalk caught candidly",
+        "rainy street candid with umbrella nearby"
+      ]
     },
     "clothing": {
       "default": "effortless casual outfit, natural unstaged authentic look",
@@ -7282,13 +7366,10 @@
     "context_slots": {
       "lighting": [
         "soft cool morning light with warm accents",
-        "urban street caught mid-stride in morning",
         "warm low-angle sidelight",
         "urban street at golden hour",
         "warm afternoon daylight with crisp shadows",
-        "modern crosswalk caught candidly",
         "soft cool overcast with warm shop windows",
-        "rainy street candid with umbrella nearby",
         "blue-hour cinematic rim light with cool ambient fill",
         "same base setting at blue hour with subtle cinematic mood",
         "soft overcast daylight, even natural diffusion",
@@ -7349,8 +7430,13 @@
     "trigger": "shopfront",
     "background": {
       "base": "stylish boutique or designer store window facade, clean architectural lines, warm display lighting, urban fashion setting",
-      "lock": "flexible",
-      "overrides_allowed": []
+      "lock": "semi",
+      "overrides_allowed": [
+        "designer boutique window facade",
+        "vintage shopfront with colorful window",
+        "bookstore facade with neat display",
+        "coffee shop facade with plant accents"
+      ]
     },
     "clothing": {
       "default": "on-trend outfit, shopping bags optional, fashion-forward street style",
@@ -7365,13 +7451,9 @@
     "context_slots": {
       "lighting": [
         "warm display lighting with clean lines",
-        "designer boutique window facade",
         "warm afternoon sidelight",
-        "vintage shopfront with colorful window",
         "warm ambient amber light",
-        "bookstore facade with neat display",
         "warm afternoon daylight",
-        "coffee shop facade with plant accents",
         "blue-hour cinematic rim light with cool ambient fill",
         "same base setting at blue hour with subtle cinematic mood",
         "soft overcast daylight, even natural diffusion",
@@ -7432,8 +7514,15 @@
     "trigger": "focused",
     "background": {
       "base": "clean minimal backdrop fully visible, single directional key light with rich shadow on face, backdrop surfaces cleanly readable",
-      "lock": "flexible",
-      "overrides_allowed": []
+      "lock": "semi",
+      "overrides_allowed": [
+        "single directional key with rich shadow",
+        "clean black minimal backdrop",
+        "charcoal minimal backdrop",
+        "deep blue minimal backdrop",
+        "soft single key with gentle fill",
+        "warm grey minimal backdrop"
+      ]
     },
     "clothing": {
       "default": "minimal dark outfit, all attention drawn to face and expression",
@@ -7447,14 +7536,8 @@
     },
     "context_slots": {
       "lighting": [
-        "single directional key with rich shadow",
-        "clean black minimal backdrop",
         "warm single key with subtle rim",
-        "charcoal minimal backdrop",
         "single warm directional key",
-        "deep blue minimal backdrop",
-        "soft single key with gentle fill",
-        "warm grey minimal backdrop",
         "blue-hour cinematic rim light with cool ambient fill",
         "same base setting at blue hour with subtle cinematic mood",
         "soft overcast daylight, even natural diffusion",
@@ -7515,8 +7598,12 @@
     "trigger": "influencer",
     "background": {
       "base": "trendy urban rooftop at golden hour, city skyline clearly visible, warm directional side light, natural highlights on edges",
-      "lock": "flexible",
-      "overrides_allowed": []
+      "lock": "semi",
+      "overrides_allowed": [
+        "modern metro platform with clean lines",
+        "stylish alley with colorful mural",
+        "urban skatepark at sunset"
+      ]
     },
     "clothing": {
       "default": "streetwear layers, statement accessories, designer sneakers",
@@ -7533,11 +7620,8 @@
         "warm directional sidelight",
         "downtown rooftop with skyline at golden hour",
         "cool fluorescent with warm accent",
-        "modern metro platform with clean lines",
         "warm afternoon sidelight",
-        "stylish alley with colorful mural",
         "warm low-angle sunlight",
-        "urban skatepark at sunset",
         "blue-hour cinematic rim light with cool ambient fill",
         "same base setting at blue hour with subtle cinematic mood",
         "soft overcast daylight, even natural diffusion",
@@ -7599,7 +7683,10 @@
     "background": {
       "base": "pure white or light beige minimalist studio, clean even lighting, Scandinavian aesthetic",
       "lock": "semi",
-      "overrides_allowed": []
+      "overrides_allowed": [
+        "beige Scandinavian studio with soft textures",
+        "taupe seamless backdrop with a chair"
+      ]
     },
     "clothing": {
       "default": "monochrome fitted outfit, one statement accessory, clean lines",
@@ -7616,9 +7703,7 @@
         "bright even diffused key light",
         "pure white minimalist studio",
         "soft warm key with clean fill",
-        "beige Scandinavian studio with soft textures",
         "gentle directional key, minimal palette",
-        "taupe seamless backdrop with a chair",
         "warm even portrait lighting",
         "soft grey minimalist studio",
         "blue-hour cinematic rim light with cool ambient fill",
@@ -7764,8 +7849,12 @@
     "trigger": "neon",
     "background": {
       "base": "city street at night with neon signs, vibrant pink-blue-purple reflections on wet pavement, sharp vibrant neon-lit street scene with readable signage",
-      "lock": "flexible",
-      "overrides_allowed": []
+      "lock": "semi",
+      "overrides_allowed": [
+        "Asian night alley with signs in sharp detail",
+        "game arcade exterior with neon marquee",
+        "subway entrance with neon signage"
+      ]
     },
     "clothing": {
       "default": "dark streetwear, leather jacket or fitted dark outfit, reflective elements",
@@ -7782,11 +7871,8 @@
         "vivid neon with reflective rain",
         "city street with wet pavement reflecting neon",
         "saturated neon with warm accent",
-        "Asian night alley with signs in sharp detail",
         "vivid saturated neon color",
-        "game arcade exterior with neon marquee",
         "cool neon with warm accent glow",
-        "subway entrance with neon signage",
         "blue-hour cinematic rim light with cool ambient fill",
         "same base setting at blue hour with subtle cinematic mood",
         "soft overcast daylight, even natural diffusion",
@@ -7847,8 +7933,12 @@
     "trigger": "tinder",
     "background": {
       "base": "natural outdoor setting with warm golden-hour backlight, simple uncluttered composition, warm tones",
-      "lock": "flexible",
-      "overrides_allowed": []
+      "lock": "semi",
+      "overrides_allowed": [
+        "waterfront pier at sunset",
+        "bright cafe window seat",
+        "rooftop terrace at warm afternoon"
+      ]
     },
     "clothing": {
       "default": "casual fitted outfit that shows personality, clean attractive look",
@@ -7865,11 +7955,8 @@
         "warm low-angle sunlight",
         "sunlit park with warm golden-hour backlight",
         "warm amber backlight, reflective water",
-        "waterfront pier at sunset",
         "soft warm window light",
-        "bright cafe window seat",
         "warm directional afternoon sunlight",
-        "rooftop terrace at warm afternoon",
         "blue-hour cinematic rim light with cool ambient fill",
         "same base setting at blue hour with subtle cinematic mood",
         "soft overcast daylight, even natural diffusion",
@@ -7930,8 +8017,12 @@
     "trigger": "reading",
     "background": {
       "base": "cozy home corner with diffused window light, comfortable armchair, bookshelves behind, warm domestic atmosphere",
-      "lock": "flexible",
-      "overrides_allowed": []
+      "lock": "semi",
+      "overrides_allowed": [
+        "armchair by a bright window with book",
+        "fireplace nook with a throw blanket",
+        "bed reading nook with pillows"
+      ]
     },
     "clothing": {
       "default": "comfortable quality loungewear, cozy socks, relaxed domestic style",
@@ -7946,13 +8037,10 @@
     "context_slots": {
       "lighting": [
         "warm diffused window light",
-        "armchair by a bright window with book",
         "warm fireplace glow with soft ambient fill",
-        "fireplace nook with a throw blanket",
         "soft warm natural light, green fill",
         "plant-filled reading corner",
         "warm bedside lamp with soft ambient",
-        "bed reading nook with pillows",
         "blue-hour cinematic rim light with cool ambient fill",
         "same base setting at blue hour with subtle cinematic mood",
         "soft overcast daylight, even natural diffusion",
@@ -8014,7 +8102,12 @@
     "background": {
       "base": "atmospheric bookshop cafe, books on shelves around, warm overhead pendant lights, coffee on table beside open book",
       "lock": "semi",
-      "overrides_allowed": []
+      "overrides_allowed": [
+        "classic bookstore cafe with shelves",
+        "modern quiet cafe with minimalist shelves",
+        "library-style cafe with tall shelves",
+        "garden cafe reading spot"
+      ]
     },
     "clothing": {
       "default": "casual intellectual look, fitted sweater, comfortable smart style",
@@ -8029,13 +8122,9 @@
     "context_slots": {
       "lighting": [
         "warm pendant light with soft shelves fill",
-        "classic bookstore cafe with shelves",
         "soft cool daylight with warm accent",
-        "modern quiet cafe with minimalist shelves",
         "warm ambient amber light",
-        "library-style cafe with tall shelves",
         "soft warm afternoon daylight",
-        "garden cafe reading spot",
         "blue-hour cinematic rim light with cool ambient fill",
         "same base setting at blue hour with subtle cinematic mood",
         "soft overcast daylight, even natural diffusion",
@@ -8097,7 +8186,12 @@
     "background": {
       "base": "studio or desk with sketching supplies, drawings and pencils visible, warm directional task lamp, creative workspace atmosphere",
       "lock": "semi",
-      "overrides_allowed": []
+      "overrides_allowed": [
+        "creative desk with pencils and sketches",
+        "cafe table with open sketchbook",
+        "art studio corner with easel sketches",
+        "park bench with sketchbook"
+      ]
     },
     "clothing": {
       "default": "creative casual tee, comfortable fit, artistic relaxed vibe",
@@ -8112,13 +8206,9 @@
     "context_slots": {
       "lighting": [
         "warm directional task lamp",
-        "creative desk with pencils and sketches",
         "soft warm window light",
-        "cafe table with open sketchbook",
         "warm track lighting on sketches",
-        "art studio corner with easel sketches",
         "warm golden-hour backlight",
-        "park bench with sketchbook",
         "blue-hour cinematic rim light with cool ambient fill",
         "same base setting at blue hour with subtle cinematic mood",
         "soft overcast daylight, even natural diffusion",
@@ -8180,7 +8270,12 @@
     "background": {
       "base": "outdoor or studio setting with interesting light conditions, professional camera in hands, creative shooting environment",
       "lock": "semi",
-      "overrides_allowed": []
+      "overrides_allowed": [
+        "studio with camera on tripod and backdrop",
+        "urban street shoot location",
+        "nature location with camera in hands",
+        "coastal shoot location with cliffs behind"
+      ]
     },
     "clothing": {
       "default": "practical creative outfit, dark layers, camera strap, artistic professional",
@@ -8195,13 +8290,9 @@
     "context_slots": {
       "lighting": [
         "soft even studio lighting",
-        "studio with camera on tripod and backdrop",
         "warm afternoon sidelight",
-        "urban street shoot location",
         "warm golden-hour backlight",
-        "nature location with camera in hands",
         "warm late-afternoon sidelight",
-        "coastal shoot location with cliffs behind",
         "blue-hour cinematic rim light with cool ambient fill",
         "same base setting at blue hour with subtle cinematic mood",
         "soft overcast daylight, even natural diffusion",
@@ -8262,8 +8353,13 @@
     "trigger": "meditation",
     "background": {
       "base": "serene outdoor garden or minimalist bright room, natural light, plants, calm zen atmosphere",
-      "lock": "flexible",
-      "overrides_allowed": []
+      "lock": "semi",
+      "overrides_allowed": [
+        "serene zen garden with stones",
+        "minimal bright room for meditation",
+        "quiet beach shoreline at sunrise",
+        "forest clearing for meditation"
+      ]
     },
     "clothing": {
       "default": "comfortable clean neutral outfit, natural tones, peaceful energy",
@@ -8278,13 +8374,9 @@
     "context_slots": {
       "lighting": [
         "soft warm morning light",
-        "serene zen garden with stones",
         "soft even daylight with plant fill",
-        "minimal bright room for meditation",
         "warm pink sunrise backlight",
-        "quiet beach shoreline at sunrise",
         "soft dappled morning light",
-        "forest clearing for meditation",
         "blue-hour cinematic rim light with cool ambient fill",
         "same base setting at blue hour with subtle cinematic mood",
         "soft overcast daylight, even natural diffusion",
@@ -8345,8 +8437,13 @@
     "trigger": "online",
     "background": {
       "base": "clean home desk with laptop open showing content, notes and coffee cup, focused study environment, natural light",
-      "lock": "flexible",
-      "overrides_allowed": []
+      "lock": "semi",
+      "overrides_allowed": [
+        "home desk with laptop and notes",
+        "cafe table with laptop for study",
+        "library table with laptop and books",
+        "garden nook with laptop on lap"
+      ]
     },
     "clothing": {
       "default": "casual but clean fitted hoodie or sweater, headphones nearby",
@@ -8361,13 +8458,9 @@
     "context_slots": {
       "lighting": [
         "soft warm natural light",
-        "home desk with laptop and notes",
         "warm window light with amber pendant",
-        "cafe table with laptop for study",
         "warm reading lamp with ambient fill",
-        "library table with laptop and books",
         "soft warm afternoon daylight",
-        "garden nook with laptop on lap",
         "blue-hour cinematic rim light with cool ambient fill",
         "same base setting at blue hour with subtle cinematic mood",
         "soft overcast daylight, even natural diffusion",
@@ -8428,8 +8521,11 @@
     "trigger": "cycling",
     "background": {
       "base": "scenic urban bike path or countryside road, bicycle in frame, golden light, green landscape, active lifestyle setting",
-      "lock": "flexible",
-      "overrides_allowed": []
+      "lock": "semi",
+      "overrides_allowed": [
+        "scenic coastal road with ocean alongside",
+        "countryside road with green fields"
+      ]
     },
     "clothing": {
       "default": "stylish cycling outfit or casual athletic top, sport sunglasses",
@@ -8444,9 +8540,7 @@
     "context_slots": {
       "lighting": [
         "warm sunset sidelight",
-        "scenic coastal road with ocean alongside",
         "soft warm afternoon daylight",
-        "countryside road with green fields",
         "bright cool morning daylight",
         "urban waterfront cycling path",
         "warm late-afternoon sidelight",
@@ -8511,8 +8605,12 @@
     "trigger": "fitness",
     "background": {
       "base": "modern gym or outdoor workout area, bright natural light, clean athletic environment",
-      "lock": "flexible",
-      "overrides_allowed": []
+      "lock": "semi",
+      "overrides_allowed": [
+        "outdoor workout area in a park",
+        "boutique fitness studio with mirrored wall",
+        "beach shoreline training spot"
+      ]
     },
     "clothing": {
       "default": "premium athletic wear, sport watch, clean sneakers, headphones around neck",
@@ -8529,11 +8627,8 @@
         "bright directional daylight",
         "modern glass-walled gym with bright natural light",
         "warm golden-hour backlight",
-        "outdoor workout area in a park",
         "warm directional spotlight, polished reflections",
-        "boutique fitness studio with mirrored wall",
         "warm sunrise backlight, gentle waves",
-        "beach shoreline training spot",
         "blue-hour cinematic rim light with cool ambient fill",
         "same base setting at blue hour with subtle cinematic mood",
         "soft overcast daylight, even natural diffusion",
@@ -8594,8 +8689,13 @@
     "trigger": "panoramic",
     "background": {
       "base": "standing before massive floor-to-ceiling window with dramatic city panorama, soft rim light from the window, face clearly lit from front, dramatic scale",
-      "lock": "flexible",
-      "overrides_allowed": []
+      "lock": "semi",
+      "overrides_allowed": [
+        "floor-to-ceiling window with city panorama",
+        "panoramic window at blue hour",
+        "panoramic window at sunset",
+        "panoramic window with rainy city outside"
+      ]
     },
     "clothing": {
       "default": "minimal dark outfit against bright cityscape, face evenly lit",
@@ -8610,13 +8710,9 @@
     "context_slots": {
       "lighting": [
         "warm directional interior light with cool city outside",
-        "floor-to-ceiling window with city panorama",
         "warm interior light with deep blue outside",
-        "panoramic window at blue hour",
         "warm amber sidelight with golden city below",
-        "panoramic window at sunset",
         "cool overcast with warm interior accent",
-        "panoramic window with rainy city outside",
         "blue-hour cinematic rim light with cool ambient fill",
         "same base setting at blue hour with subtle cinematic mood",
         "soft overcast daylight, even natural diffusion",
@@ -8677,8 +8773,12 @@
     "trigger": "in",
     "background": {
       "base": "urban street with dynamic energy, caught walking dynamically, sense of movement and energy",
-      "lock": "flexible",
-      "overrides_allowed": []
+      "lock": "semi",
+      "overrides_allowed": [
+        "urban street caught mid-stride",
+        "rainy street with dynamic energy",
+        "city street at night with motion"
+      ]
     },
     "clothing": {
       "default": "stylish casual outfit with flowing jacket or coat, dynamic movement",
@@ -8693,11 +8793,8 @@
     "context_slots": {
       "lighting": [
         "warm afternoon sidelight",
-        "urban street caught mid-stride",
         "cool overcast with warm shop windows",
-        "rainy street with dynamic energy",
         "warm street lamps with cool ambient",
-        "city street at night with motion",
         "warm low-angle sidelight",
         "urban street at golden hour",
         "blue-hour cinematic rim light with cool ambient fill",
@@ -8760,8 +8857,12 @@
     "trigger": "architecture",
     "background": {
       "base": "dramatic architectural shadows and geometric light patterns, concrete or stone surfaces, bold contrast between light and dark",
-      "lock": "flexible",
-      "overrides_allowed": []
+      "lock": "semi",
+      "overrides_allowed": [
+        "stone wall with geometric light patterns",
+        "glass building with geometric reflections",
+        "brutalist architecture with bold shadow"
+      ]
     },
     "clothing": {
       "default": "minimal outfit in dark tones, strong visual contrast with light",
@@ -8778,11 +8879,8 @@
         "strong directional warm light",
         "dramatic concrete architectural shadows",
         "warm golden-hour sidelight with sharp shadow",
-        "stone wall with geometric light patterns",
         "warm afternoon sidelight",
-        "glass building with geometric reflections",
         "strong warm directional sunlight",
-        "brutalist architecture with bold shadow",
         "blue-hour cinematic rim light with cool ambient fill",
         "same base setting at blue hour with subtle cinematic mood",
         "soft overcast daylight, even natural diffusion",
@@ -8843,8 +8941,12 @@
     "trigger": "achievement",
     "background": {
       "base": "open rooftop or elevated space, bright expansive sky, sense of accomplishment and freedom, warm golden light",
-      "lock": "flexible",
-      "overrides_allowed": []
+      "lock": "semi",
+      "overrides_allowed": [
+        "open rooftop with bright expansive sky",
+        "empty stadium stands with celebratory feel",
+        "elevated balcony with city below"
+      ]
     },
     "clothing": {
       "default": "smart outfit slightly undone in celebration, genuine joy",
@@ -8859,13 +8961,10 @@
     "context_slots": {
       "lighting": [
         "warm golden-hour backlight",
-        "open rooftop with bright expansive sky",
         "bright crisp daylight, cool mountain air",
         "mountain summit viewpoint",
         "warm directional stadium light",
-        "empty stadium stands with celebratory feel",
         "warm golden-hour sidelight",
-        "elevated balcony with city below",
         "blue-hour cinematic rim light with cool ambient fill",
         "same base setting at blue hour with subtle cinematic mood",
         "soft overcast daylight, even natural diffusion",
@@ -8926,8 +9025,13 @@
     "trigger": "light",
     "background": {
       "base": "urban setting with interesting visual juxtaposition, slightly playful atmosphere, warm natural light, architectural context",
-      "lock": "flexible",
-      "overrides_allowed": []
+      "lock": "semi",
+      "overrides_allowed": [
+        "urban mural street with playful art",
+        "narrow alley with colorful details",
+        "quirky shopfront with small display",
+        "park corner with playful architecture"
+      ]
     },
     "clothing": {
       "default": "smart casual with personality, slight quirk in style, self-aware modern look",
@@ -8942,13 +9046,9 @@
     "context_slots": {
       "lighting": [
         "warm afternoon daylight with vivid colors",
-        "urban mural street with playful art",
         "warm directional sidelight",
-        "narrow alley with colorful details",
         "warm display lighting with soft ambient",
-        "quirky shopfront with small display",
         "warm afternoon sidelight",
-        "park corner with playful architecture",
         "blue-hour cinematic rim light with cool ambient fill",
         "same base setting at blue hour with subtle cinematic mood",
         "soft overcast daylight, even natural diffusion",
@@ -9009,8 +9109,13 @@
     "trigger": "skyscraper",
     "background": {
       "base": "high-rise interior with floor-to-ceiling windows, city lights below at night rendered with crisp distant detail, dramatic metropolitan atmosphere, warm interior accent light",
-      "lock": "flexible",
-      "overrides_allowed": []
+      "lock": "semi",
+      "overrides_allowed": [
+        "warm interior accent with deep blue sky",
+        "high-rise interior at sunset",
+        "high-rise interior with rainy city below",
+        "high-rise interior at day with skyline"
+      ]
     },
     "clothing": {
       "default": "elegant dark outfit against glowing city skyline, face clearly visible",
@@ -9024,14 +9129,10 @@
     },
     "context_slots": {
       "lighting": [
-        "warm interior accent with deep blue sky",
         "high-rise interior at blue hour with city lights",
         "warm amber sidelight with golden city",
-        "high-rise interior at sunset",
         "cool overcast with warm interior accent",
-        "high-rise interior with rainy city below",
         "bright cool daylight with warm accent",
-        "high-rise interior at day with skyline",
         "blue-hour cinematic rim light with cool ambient fill",
         "same base setting at blue hour with subtle cinematic mood",
         "soft overcast daylight, even natural diffusion",
@@ -9092,8 +9193,12 @@
     "trigger": "after",
     "background": {
       "base": "city sidewalk at dusk, warm streetlights beginning to glow, office buildings behind rendered sharply, golden-blue transition sky",
-      "lock": "flexible",
-      "overrides_allowed": []
+      "lock": "semi",
+      "overrides_allowed": [
+        "city sidewalk at dusk with streetlights",
+        "entrance to a lounge bar at dusk",
+        "city pier at sunset"
+      ]
     },
     "clothing": {
       "default": "professional outfit slightly relaxed, jacket over shoulder, end-of-day vibe",
@@ -9108,13 +9213,10 @@
     "context_slots": {
       "lighting": [
         "warm streetlights with cool blue sky",
-        "city sidewalk at dusk with streetlights",
         "warm amber doorway light",
-        "entrance to a lounge bar at dusk",
         "warm sunset sidelight",
         "rooftop after-work unwind",
         "warm amber backlight, cool water",
-        "city pier at sunset",
         "blue-hour cinematic rim light with cool ambient fill",
         "same base setting at blue hour with subtle cinematic mood",
         "soft overcast daylight, even natural diffusion",
@@ -9175,8 +9277,13 @@
     "trigger": "evening",
     "background": {
       "base": "home desk at evening, warm desk lamp light, notebook and tea, calm productivity atmosphere, dim window twilight behind",
-      "lock": "flexible",
-      "overrides_allowed": []
+      "lock": "semi",
+      "overrides_allowed": [
+        "home desk with notebook and tea",
+        "kitchen table with notebook and tea",
+        "living room sofa with notebook",
+        "balcony seat with notebook at evening"
+      ]
     },
     "clothing": {
       "default": "comfortable smart-casual loungewear, focused domestic vibe",
@@ -9191,13 +9298,9 @@
     "context_slots": {
       "lighting": [
         "warm lamp light with cool dim ambient",
-        "home desk with notebook and tea",
         "warm pendant light with soft ambient",
-        "kitchen table with notebook and tea",
         "warm reading-lamp light",
-        "living room sofa with notebook",
         "warm twilight light with soft cool ambient",
-        "balcony seat with notebook at evening",
         "blue-hour cinematic rim light with cool ambient fill",
         "same base setting at blue hour with subtle cinematic mood",
         "soft overcast daylight, even natural diffusion",
@@ -9259,7 +9362,13 @@
     "background": {
       "base": "retro cafe, vintage car, or old-town street, warm desaturated tones, subtle film grain, muted colors",
       "lock": "semi",
-      "overrides_allowed": []
+      "overrides_allowed": [
+        "retro diner cafe interior",
+        "street with a classic 60s car",
+        "warm desaturated tones with subtle grain",
+        "old cinema facade with vintage neon",
+        "retro diner booth seat"
+      ]
     },
     "clothing": {
       "default": "vintage-inspired outfit, classic cuts, earth and mustard tones",
@@ -9274,13 +9383,8 @@
     "context_slots": {
       "lighting": [
         "warm desaturated tones, soft grain",
-        "retro diner cafe interior",
         "warm muted afternoon light",
-        "street with a classic 60s car",
-        "warm desaturated tones with subtle grain",
-        "old cinema facade with vintage neon",
         "warm tungsten light, nostalgic palette",
-        "retro diner booth seat",
         "blue-hour cinematic rim light with cool ambient fill",
         "same base setting at blue hour with subtle cinematic mood",
         "soft overcast daylight, even natural diffusion",
@@ -9341,8 +9445,13 @@
     "trigger": "pastel",
     "background": {
       "base": "light pastel-colored wall, bright even diffused light, warm tones, clean minimal setting",
-      "lock": "flexible",
-      "overrides_allowed": []
+      "lock": "semi",
+      "overrides_allowed": [
+        "soft pink minimal backdrop",
+        "mint-green minimal backdrop",
+        "lavender minimal backdrop",
+        "cream minimal backdrop"
+      ]
     },
     "clothing": {
       "default": "light-colored fitted shirt, clean neutral trousers, minimal accessories",
@@ -9357,13 +9466,9 @@
     "context_slots": {
       "lighting": [
         "bright even diffused light",
-        "soft pink minimal backdrop",
         "soft even daylight, calm palette",
-        "mint-green minimal backdrop",
         "warm soft diffused lighting",
-        "lavender minimal backdrop",
         "bright even soft lighting",
-        "cream minimal backdrop",
         "blue-hour cinematic rim light with cool ambient fill",
         "same base setting at blue hour with subtle cinematic mood",
         "soft overcast daylight, even natural diffusion",
@@ -9424,8 +9529,13 @@
     "trigger": "instagram",
     "background": {
       "base": "visually curated setting with cohesive color palette, architectural lines or nature patterns, balanced composition",
-      "lock": "flexible",
-      "overrides_allowed": []
+      "lock": "semi",
+      "overrides_allowed": [
+        "curated monochrome setting",
+        "earth-tone curated setting with balanced palette",
+        "pastel curated setting",
+        "saturated curated setting with bold color"
+      ]
     },
     "clothing": {
       "default": "color-coordinated outfit matching the background palette",
@@ -9440,13 +9550,9 @@
     "context_slots": {
       "lighting": [
         "soft even balanced lighting",
-        "curated monochrome setting",
         "warm afternoon daylight",
-        "earth-tone curated setting with balanced palette",
         "bright soft diffused light",
-        "pastel curated setting",
         "warm directional light with vivid tones",
-        "saturated curated setting with bold color",
         "blue-hour cinematic rim light with cool ambient fill",
         "same base setting at blue hour with subtle cinematic mood",
         "soft overcast daylight, even natural diffusion",
@@ -9507,8 +9613,13 @@
     "trigger": "youtube",
     "background": {
       "base": "content creator setup, ring light, camera on tripod, colorful backdrop or LED panels",
-      "lock": "flexible",
-      "overrides_allowed": []
+      "lock": "semi",
+      "overrides_allowed": [
+        "content creator setup with ring light",
+        "creator studio with LED panels",
+        "colorful printed backdrop with props",
+        "creator desk with mic and monitor"
+      ]
     },
     "clothing": {
       "default": "bright casual outfit, branded merch style, expressive modern look",
@@ -9523,13 +9634,9 @@
     "context_slots": {
       "lighting": [
         "bright even ring-light key with color accents",
-        "content creator setup with ring light",
         "warm LED with cool accent beams",
-        "creator studio with LED panels",
         "bright even soft lighting, vivid palette",
-        "colorful printed backdrop with props",
         "warm directional desk light with ambient LED",
-        "creator desk with mic and monitor",
         "blue-hour cinematic rim light with cool ambient fill",
         "same base setting at blue hour with subtle cinematic mood",
         "soft overcast daylight, even natural diffusion",
@@ -9590,8 +9697,11 @@
     "trigger": "linkedin",
     "background": {
       "base": "modern office or co-working space, clean bright environment, plants, glass partitions",
-      "lock": "flexible",
-      "overrides_allowed": []
+      "lock": "semi",
+      "overrides_allowed": [
+        "modern office with plants and glass",
+        "glass-walled room with skyline behind"
+      ]
     },
     "clothing": {
       "default": "business casual, fitted blazer over quality shirt, professional but modern",
@@ -9606,11 +9716,9 @@
     "context_slots": {
       "lighting": [
         "bright natural daylight",
-        "modern office with plants and glass",
         "warm ambient amber with clean fill",
         "coworking space with warm ambient light",
         "bright cool daylight with warm accent",
-        "glass-walled room with skyline behind",
         "warm ambient light with leather textures",
         "boutique hotel meeting corner",
         "blue-hour cinematic rim light with cool ambient fill",
@@ -9674,7 +9782,12 @@
     "background": {
       "base": "podcast studio, professional microphone, acoustic foam, warm studio lighting, headphones on desk",
       "lock": "semi",
-      "overrides_allowed": []
+      "overrides_allowed": [
+        "home podcast studio with acoustic foam",
+        "loft podcast studio with brick wall",
+        "warm directional lamp with clean fill",
+        "on-location recording setup"
+      ]
     },
     "clothing": {
       "default": "smart casual, comfortable quality fabrics, clean modern look",
@@ -9689,13 +9802,9 @@
     "context_slots": {
       "lighting": [
         "warm ambient lamp with soft fill",
-        "home podcast studio with acoustic foam",
         "warm tungsten pendant light",
-        "loft podcast studio with brick wall",
-        "warm directional lamp with clean fill",
         "glass-walled podcast studio",
         "warm natural daylight with ambient fill",
-        "on-location recording setup",
         "blue-hour cinematic rim light with cool ambient fill",
         "same base setting at blue hour with subtle cinematic mood",
         "soft overcast daylight, even natural diffusion",
@@ -9756,8 +9865,13 @@
     "trigger": "morning",
     "background": {
       "base": "bright modern bedroom or bathroom, bright morning window light, white linens, plant on nightstand",
-      "lock": "flexible",
-      "overrides_allowed": []
+      "lock": "semi",
+      "overrides_allowed": [
+        "bright modern bedroom with white linens",
+        "modern bathroom with plants and soft tones",
+        "bright kitchen with fresh morning coffee",
+        "cozy balcony with morning tea"
+      ]
     },
     "clothing": {
       "default": "clean loungewear or casual morning outfit, fresh natural look",
@@ -9772,13 +9886,9 @@
     "context_slots": {
       "lighting": [
         "soft bright morning window light",
-        "bright modern bedroom with white linens",
         "bright even morning daylight",
-        "modern bathroom with plants and soft tones",
         "warm morning sunlight on counter",
-        "bright kitchen with fresh morning coffee",
         "soft warm morning light, fresh air mood",
-        "cozy balcony with morning tea",
         "blue-hour cinematic rim light with cool ambient fill",
         "same base setting at blue hour with subtle cinematic mood",
         "soft overcast daylight, even natural diffusion",
@@ -9840,7 +9950,12 @@
     "background": {
       "base": "beautifully plated food on marble table, restaurant or home kitchen, warm overhead lighting, fresh herbs and ingredients",
       "lock": "semi",
-      "overrides_allowed": []
+      "overrides_allowed": [
+        "beautifully plated food on marble table",
+        "rustic wood table with earthy plating",
+        "chef counter at modern restaurant",
+        "outdoor garden brunch table"
+      ]
     },
     "clothing": {
       "default": "casual stylish outfit, clean smart look",
@@ -9855,13 +9970,9 @@
     "context_slots": {
       "lighting": [
         "warm overhead soft light, fresh herbs nearby",
-        "beautifully plated food on marble table",
         "warm directional daylight with shadow",
-        "rustic wood table with earthy plating",
         "warm amber pendant with clean fill",
-        "chef counter at modern restaurant",
         "bright warm daylight, leafy backdrop",
-        "outdoor garden brunch table",
         "blue-hour cinematic rim light with cool ambient fill",
         "same base setting at blue hour with subtle cinematic mood",
         "soft overcast daylight, even natural diffusion",
@@ -9993,8 +10104,13 @@
     "trigger": "luxury",
     "background": {
       "base": "upscale lounge with marble surfaces, warm amber ambient light, velvet and brass details in background",
-      "lock": "flexible",
-      "overrides_allowed": []
+      "lock": "semi",
+      "overrides_allowed": [
+        "upscale lounge with marble and brass",
+        "wine library with cellar shelves",
+        "tailor's atelier with fabric rolls",
+        "penthouse living room with skyline behind"
+      ]
     },
     "clothing": {
       "default": "designer outfit, fine fabrics, watches or minimal jewelry",
@@ -10009,13 +10125,9 @@
     "context_slots": {
       "lighting": [
         "warm ambient amber light",
-        "upscale lounge with marble and brass",
         "warm lamp light, rich shadows",
-        "wine library with cellar shelves",
         "warm directional lamp light",
-        "tailor's atelier with fabric rolls",
         "warm interior lamps with golden-hour fill",
-        "penthouse living room with skyline behind",
         "blue-hour cinematic rim light with cool ambient fill",
         "same base setting at blue hour with subtle cinematic mood",
         "soft overcast daylight, even natural diffusion",
@@ -10076,8 +10188,12 @@
     "trigger": "casual",
     "background": {
       "base": "sunlit park with dappled tree shadows, or bright airy home interior with natural window light",
-      "lock": "flexible",
-      "overrides_allowed": []
+      "lock": "semi",
+      "overrides_allowed": [
+        "bright airy home interior",
+        "warm cafe bench with plants",
+        "casual beach boardwalk"
+      ]
     },
     "clothing": {
       "default": "relaxed casual wear, natural cotton and linen fabrics",
@@ -10094,11 +10210,8 @@
         "warm dappled afternoon light",
         "sunlit park with dappled tree shadows",
         "soft warm natural window light",
-        "bright airy home interior",
         "soft amber afternoon light",
-        "warm cafe bench with plants",
         "bright warm afternoon daylight",
-        "casual beach boardwalk",
         "blue-hour cinematic rim light with cool ambient fill",
         "same base setting at blue hour with subtle cinematic mood",
         "soft overcast daylight, even natural diffusion",
@@ -10159,8 +10272,13 @@
     "trigger": "artistic",
     "background": {
       "base": "art gallery with large colorful paintings on white walls, warm track lighting from above, polished concrete floor",
-      "lock": "flexible",
-      "overrides_allowed": []
+      "lock": "semi",
+      "overrides_allowed": [
+        "white-cube gallery with colorful paintings",
+        "art loft with exposed brick and paint rolls",
+        "sculpture hall with marble pieces",
+        "bright mural wall in an arts district"
+      ]
     },
     "clothing": {
       "default": "dark fitted jacket over quality tee, dark jeans, clean artistic style",
@@ -10175,13 +10293,9 @@
     "context_slots": {
       "lighting": [
         "warm track lighting on art",
-        "white-cube gallery with colorful paintings",
         "warm directional studio light",
-        "art loft with exposed brick and paint rolls",
         "soft even gallery lighting",
-        "sculpture hall with marble pieces",
         "warm afternoon sidelight",
-        "bright mural wall in an arts district",
         "blue-hour cinematic rim light with cool ambient fill",
         "same base setting at blue hour with subtle cinematic mood",
         "soft overcast daylight, even natural diffusion",
