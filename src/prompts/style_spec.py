@@ -564,9 +564,6 @@ _DOCUMENT_STYLE_KEYS: frozenset[str] = frozenset(
         "visa_us",
         "photo_4x6",
         "driver_license",
-        "doc_passport_neutral",
-        "doc_visa_compliant",
-        "doc_resume_headshot",
     }
 )
 
@@ -596,9 +593,6 @@ _SCENE_PRESERVE_STYLE_KEYS: frozenset[str] = frozenset(
         "visa_us",
         "photo_4x6",
         "driver_license",
-        "doc_passport_neutral",
-        "doc_visa_compliant",
-        "doc_resume_headshot",
         # --- social: "keep my own photo" styles ---
         "social_clean",
         "feed_clean",

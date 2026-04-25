@@ -22,7 +22,6 @@ def main():
             style_dict = {
                 "id": style_id,
                 "mode": mode,
-                "category": "General",  # Default category, to be updated manually or by script
                 "type": spec.type.value if hasattr(spec, "type") else "flexible",
                 "base_scene": getattr(
                     spec, "base_scene", getattr(spec, "background", "")
