@@ -43,10 +43,6 @@ def estimate_image_gen_cost_usd(
     reporting surface produce consistent numbers.
     """
     name = (provider_name or "").lower()
-    if "falflux" in name or name == "flux_kontext":
-        return settings.model_cost_fal_flux
-    if "replicate" in name:
-        return settings.model_cost_replicate
     if "unified" in name or "stylerouter" in name:
         # Unified provider defaults to GPT Image 2 cost if no specific route is known
         return float(getattr(settings, "model_cost_gpt_image_2_medium", 0.06))

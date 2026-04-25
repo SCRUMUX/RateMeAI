@@ -341,22 +341,14 @@ class Settings(BaseSettings):
     input_min_blur_face: float = 40.0
     input_min_blur_full: float = 60.0
 
-    # Legacy prompt_strength (unused in edit mode, kept for replicate fallback)
+    # Legacy prompt_strength (unused in edit mode)
     image_gen_strength: float = 0.45
 
     # Model cost estimates (USD per call)
     model_cost_reve: float = 0.02
-    model_cost_replicate: float = 0.05
-    # FLUX.1 Kontext [pro] through FAL.ai: $0.04 per image (fixed, не зависит от MP).
-    model_cost_fal_flux: float = 0.04
-    # FLUX.2 [pro] edit: $0.03 за первый MP + $0.015 за каждый
-    # дополнительный (округление вверх, до 4 МП). Калькулятор стоимости
-    # использует ``fal2_output_mp`` для оценки: 2 МП ≈ $0.045/фото.
-    model_cost_fal_flux2_first_mp: float = 0.03
-    model_cost_fal_flux2_extra_mp: float = 0.015
-
-    # Replicate inpainting model (FLUX-inpaint or similar)
-    replicate_inpaint_model_version: str = ""
+    model_cost_gpt_image_2_medium: float = 0.06
+    model_cost_gpt_image_2_high: float = 0.12
+    model_cost_nano_banana_2: float = 0.02
 
     # Scoring reproducibility
     scoring_temperature: float = 0.0
