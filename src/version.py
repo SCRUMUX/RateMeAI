@@ -1895,4 +1895,80 @@
 #          теряется — переезжает в overrides_allowed), бот-патч
 #          и CI-pin тривиально откатываются. ``git revert``
 #          трёх коммитов c1..c3 возвращает v1.27.1 поведение.
-APP_VERSION = "1.27.2"
+# 1.27.3 — Пользовательские параметры из «Другой вариант» теперь
+#          реально влияют на промпт, одежда учитывает пол,
+#          нераспознанные значения мягко подменяются, а не
+#          теряются. Три точечных изменения, без перестройки
+#          пайплайна сборки промпта.
+#
+#          1) Integration gaps. (a) ``composition_builder._resolve_scene``
+#             и ``variation_engine_v2.apply_variation_v2`` для
+#             ``BackgroundLockLevel.SEMI`` теперь принимают
+#             ``scene_override`` как эквивалент ``sub_location``
+#             (модалка отправляет именно ``scene_override``,
+#             бэкенд раньше его молча дропал). (b) Executor
+#             перенёс merge framing-а: ``input_hints['framing']``
+#             перебивает аргумент ``framing`` (значение из
+#             модалки побеждает значение шага «Выберите стиль»).
+#             (c) В модалке появился explicit-чип
+#             «По умолчанию» в секции framing, чтобы пользователь
+#             понимал, что пустой выбор = унаследовать из шага.
+#
+#          2) Gender-aware clothing. ``ClothingSlot.default``
+#             стал dict-ом ``{male, female, neutral}``;
+#             ``StyleSpecV2.clothing_for(gender)`` отдаёт
+#             gender-specific строку с фолбэком на
+#             ``neutral`` → first non-empty. ``style_loader_v2``
+#             принимает оба формата (str → нормализуется в
+#             dict с одинаковыми значениями), ``style_catalog``
+#             отдаёт админу dict. Миграционный скрипт
+#             ``scripts/migrations/2026_04_gender_clothing/
+#             seed_clothing_dict.py`` (dry-run + apply, atomic
+#             ``os.replace``) перевёл все 126 v2-стилей и
+#             прошил hand-curated женские варианты для 20
+#             очевидно гендерных стилей (Burj Khalifa,
+#             Brooklyn Bridge, Times Square, Yacht и т.п.).
+#             Админка ``StylesAdminPage`` получила три
+#             отдельных поля ``default_male / female /
+#             neutral`` + обновлённую валидацию (хотя бы одно
+#             непустое).
+#
+#          3) Soft substitution + post-generation hint.
+#             ``CompositionIR.substitutions: list[dict]``
+#             накапливает записи ``{channel, requested,
+#             applied}``. ``_resolve_lighting / weather /
+#             scene / clothing`` (и зеркально
+#             ``apply_variation_v2``) при ``strict=True`` и
+#             непустом whitelist делают
+#             ``random.choice(whitelist)`` вместо тихого
+#             ``return ""``. Свободные каналы (clothing без
+#             ``allowed``, ``scene_override`` в FLEXIBLE без
+#             whitelist) пропускают пользовательский текст
+#             как есть. Executor конвертирует записи в
+#             русские сообщения через
+#             ``_format_substitution_notice_ru`` и кладёт в
+#             ``result_dict['generation_warnings']``.
+#             ``web/src/lib/api.ts`` экспортирует
+#             ``readGenerationWarnings`` и ``TaskResultBody``;
+#             ``StepGenerate`` рендерит amber-нотис над
+#             результатом, когда замены были.
+#
+#          Тесты: 4 новых файла — ``test_clothing_gender``,
+#          ``test_soft_substitution``, ``test_modal_overrides``,
+#          ``test_executor_warnings``. Существующий
+#          ``test_variation_engine_v2::
+#          test_weather_rejected_when_not_in_allowed_strict``
+#          переименован в ``..._substituted_...`` и теперь
+#          проверяет soft-substitution вместо drop. Полный
+#          test-suite зелёный (1582 + 4 новых файла).
+#
+#          Бот не трогаем — подсказка о подстановке только
+#          в Web по выбору пользователя; бот продолжает
+#          использовать pinned ``image_model=gpt_image_2``.
+#
+#          Rollback: серия аддитивная. (a) loader v2 по-прежнему
+#          принимает str-форму clothing.default, (b) executor
+#          warnings — append-only, (c) substitutions — поле
+#          IR с default ``[]``. ``git revert`` четырёх коммитов
+#          возвращает v1.27.2 поведение полностью.
+APP_VERSION = "1.27.3"
