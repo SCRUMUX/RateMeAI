@@ -41,7 +41,11 @@
       "overrides_allowed": []
     },
     "clothing": {
-      "default": "fitted navy blazer over white tee, dark jeans, clean white sneakers",
+      "default": {
+        "male": "fitted navy blazer over white tee, dark jeans, clean white sneakers",
+        "female": "fitted navy blazer over white tee, dark jeans, clean white sneakers",
+        "neutral": "fitted navy blazer over white tee, dark jeans, clean white sneakers"
+      },
       "allowed": [],
       "gender_neutral": true
     },
@@ -112,7 +116,11 @@
       "overrides_allowed": []
     },
     "clothing": {
-      "default": "fitted dark shirt, tailored trousers, luxury watch, polished modern style",
+      "default": {
+        "male": "fitted dark shirt, tailored trousers, luxury watch, polished modern style",
+        "female": "tailored dark blouse or fitted dress, slim trousers or pencil skirt, statement watch, polished modern style",
+        "neutral": "fitted dark shirt, tailored trousers, luxury watch, polished modern style"
+      },
       "allowed": [],
       "gender_neutral": true
     },
@@ -185,7 +193,11 @@
       ]
     },
     "clothing": {
-      "default": "casual fitted jacket, dark jeans, comfortable walking shoes",
+      "default": {
+        "male": "casual fitted jacket, dark jeans, comfortable walking shoes",
+        "female": "casual fitted jacket, dark jeans or wide-leg trousers, comfortable walking shoes",
+        "neutral": "casual fitted jacket, dark jeans, comfortable walking shoes"
+      },
       "allowed": [],
       "gender_neutral": true
     },
@@ -255,7 +267,11 @@
       "overrides_allowed": []
     },
     "clothing": {
-      "default": "linen shirt, light chinos, leather loafers, relaxed Italian style",
+      "default": {
+        "male": "linen shirt, light chinos, leather loafers, relaxed Italian style",
+        "female": "linen blouse, light trousers or midi skirt, leather sandals, relaxed Italian style",
+        "neutral": "linen shirt, light chinos, leather loafers, relaxed Italian style"
+      },
       "allowed": [],
       "gender_neutral": true
     },
@@ -336,7 +352,11 @@
       ]
     },
     "clothing": {
-      "default": "elegant smart-casual, fitted blazer, quality leather shoes, refined style",
+      "default": {
+        "male": "elegant smart-casual, fitted blazer, quality leather shoes, refined style",
+        "female": "elegant smart-casual dress or fitted blazer with skirt, quality leather flats, refined style",
+        "neutral": "elegant smart-casual, fitted blazer, quality leather shoes, refined style"
+      },
       "allowed": [],
       "gender_neutral": true
     },
@@ -412,7 +432,11 @@
       ]
     },
     "clothing": {
-      "default": "relaxed summer shirt, light chinos, straw hat, Mediterranean casual",
+      "default": {
+        "male": "relaxed summer shirt, light chinos, straw hat, Mediterranean casual",
+        "female": "relaxed summer blouse or sundress, light trousers, straw hat, Mediterranean casual",
+        "neutral": "relaxed summer shirt, light chinos, straw hat, Mediterranean casual"
+      },
       "allowed": [],
       "gender_neutral": true
     },
@@ -492,7 +516,11 @@
       ]
     },
     "clothing": {
-      "default": "tailored overcoat or trench, dark scarf, smart casual British layers",
+      "default": {
+        "male": "tailored overcoat or trench, dark scarf, smart casual British layers",
+        "female": "tailored overcoat or trench, dark scarf, smart casual British layers",
+        "neutral": "tailored overcoat or trench, dark scarf, smart casual British layers"
+      },
       "allowed": [],
       "gender_neutral": true
     },
@@ -566,7 +594,11 @@
       "overrides_allowed": []
     },
     "clothing": {
-      "default": "minimal Japanese-inspired outfit, clean dark fitted layers",
+      "default": {
+        "male": "minimal Japanese-inspired outfit, clean dark fitted layers",
+        "female": "minimal Japanese-inspired outfit, clean dark fitted layers or wrap dress",
+        "neutral": "minimal Japanese-inspired outfit, clean dark fitted layers"
+      },
       "allowed": [],
       "gender_neutral": true
     },
@@ -649,7 +681,11 @@
       ]
     },
     "clothing": {
-      "default": "smart fitted shirt, tailored dark trousers, polished modern shoes",
+      "default": {
+        "male": "smart fitted shirt, tailored dark trousers, polished modern shoes",
+        "female": "smart fitted blouse, tailored dark trousers or skirt, polished modern flats",
+        "neutral": "smart fitted shirt, tailored dark trousers, polished modern shoes"
+      },
       "allowed": [],
       "gender_neutral": true
     },
@@ -721,7 +757,11 @@
       "overrides_allowed": []
     },
     "clothing": {
-      "default": "fitted fleece or casual jacket, dark jeans, relaxed outdoor-casual style",
+      "default": {
+        "male": "fitted fleece or casual jacket, dark jeans, relaxed outdoor-casual style",
+        "female": "fitted fleece or casual jacket, dark jeans, relaxed outdoor-casual style",
+        "neutral": "fitted fleece or casual jacket, dark jeans, relaxed outdoor-casual style"
+      },
       "allowed": [],
       "gender_neutral": true
     },
@@ -794,7 +834,11 @@
       ]
     },
     "clothing": {
-      "default": "relaxed white linen shirt, light trousers, leather sandals",
+      "default": {
+        "male": "relaxed white linen shirt, light trousers, leather sandals",
+        "female": "relaxed white linen blouse or dress, light trousers, leather sandals",
+        "neutral": "relaxed white linen shirt, light trousers, leather sandals"
+      },
       "allowed": [],
       "gender_neutral": true
     },
@@ -866,7 +910,11 @@
       ]
     },
     "clothing": {
-      "default": "casual smart outfit, fitted polo or button-down, clean summer style",
+      "default": {
+        "male": "casual smart outfit, fitted polo or button-down, clean summer style",
+        "female": "casual smart outfit, fitted blouse or summer dress, clean summer style",
+        "neutral": "casual smart outfit, fitted polo or button-down, clean summer style"
+      },
       "allowed": [],
       "gender_neutral": true
     },
@@ -947,7 +995,11 @@
       ]
     },
     "clothing": {
-      "default": "streetwear layers, statement jacket, fitted dark pants, designer sneakers",
+      "default": {
+        "male": "streetwear layers, statement jacket, fitted dark pants, designer sneakers",
+        "female": "streetwear layers, statement jacket, fitted dark pants or skirt, designer sneakers",
+        "neutral": "streetwear layers, statement jacket, fitted dark pants, designer sneakers"
+      },
       "allowed": [],
       "gender_neutral": true
     },
@@ -1031,7 +1083,11 @@
       ]
     },
     "clothing": {
-      "default": "casual fitted sweater, dark jeans, clean casual sneakers",
+      "default": {
+        "male": "casual fitted sweater, dark jeans, clean casual sneakers",
+        "female": "casual fitted sweater, dark jeans, clean casual sneakers",
+        "neutral": "casual fitted sweater, dark jeans, clean casual sneakers"
+      },
       "allowed": [],
       "gender_neutral": true
     },
@@ -1107,7 +1163,11 @@
       ]
     },
     "clothing": {
-      "default": "classic British smart-casual, tailored jacket, polished accessories",
+      "default": {
+        "male": "classic British smart-casual, tailored jacket, polished accessories",
+        "female": "classic British smart-casual, tailored jacket or wrap dress, polished accessories",
+        "neutral": "classic British smart-casual, tailored jacket, polished accessories"
+      },
       "allowed": [],
       "gender_neutral": true
     },
@@ -1187,7 +1247,11 @@
       ]
     },
     "clothing": {
-      "default": "comfortable travel outfit, quality hoodie or fitted sweater, headphones",
+      "default": {
+        "male": "comfortable travel outfit, quality hoodie or fitted sweater, headphones",
+        "female": "comfortable travel outfit, quality hoodie or fitted sweater, headphones",
+        "neutral": "comfortable travel outfit, quality hoodie or fitted sweater, headphones"
+      },
       "allowed": [],
       "gender_neutral": true
     },
@@ -1271,7 +1335,11 @@
       ]
     },
     "clothing": {
-      "default": "clean casual morning outfit, quality polo or light linen shirt",
+      "default": {
+        "male": "clean casual morning outfit, quality polo or light linen shirt",
+        "female": "clean casual morning outfit, quality polo or light linen shirt",
+        "neutral": "clean casual morning outfit, quality polo or light linen shirt"
+      },
       "allowed": [],
       "gender_neutral": true
     },
@@ -1355,7 +1423,11 @@
       ]
     },
     "clothing": {
-      "default": "relaxed morning linen outfit, light cotton, fresh natural look",
+      "default": {
+        "male": "relaxed morning linen outfit, light cotton, fresh natural look",
+        "female": "relaxed morning linen outfit, light cotton, fresh natural look",
+        "neutral": "relaxed morning linen outfit, light cotton, fresh natural look"
+      },
       "allowed": [],
       "gender_neutral": true
     },
@@ -1438,7 +1510,11 @@
       ]
     },
     "clothing": {
-      "default": "relaxed stylish outfit, light layers, comfortable leather shoes",
+      "default": {
+        "male": "relaxed stylish outfit, light layers, comfortable leather shoes",
+        "female": "relaxed stylish outfit, light layers, comfortable leather shoes",
+        "neutral": "relaxed stylish outfit, light layers, comfortable leather shoes"
+      },
       "allowed": [],
       "gender_neutral": true
     },
@@ -1523,7 +1599,11 @@
       ]
     },
     "clothing": {
-      "default": "smart-casual travel outfit, fitted jacket, comfortable layers",
+      "default": {
+        "male": "smart-casual travel outfit, fitted jacket, comfortable layers",
+        "female": "smart-casual travel outfit, fitted jacket, comfortable layers",
+        "neutral": "smart-casual travel outfit, fitted jacket, comfortable layers"
+      },
       "allowed": [],
       "gender_neutral": true
     },
@@ -1607,7 +1687,11 @@
       ]
     },
     "clothing": {
-      "default": "casual travel outfit, rolled sleeves, crossbody bag, explorer vibe",
+      "default": {
+        "male": "casual travel outfit, rolled sleeves, crossbody bag, explorer vibe",
+        "female": "casual travel outfit, rolled sleeves, crossbody bag, explorer vibe",
+        "neutral": "casual travel outfit, rolled sleeves, crossbody bag, explorer vibe"
+      },
       "allowed": [],
       "gender_neutral": true
     },
@@ -1691,7 +1775,11 @@
       ]
     },
     "clothing": {
-      "default": "travel-smart outfit, fitted blazer or quality jacket, polished casual look",
+      "default": {
+        "male": "travel-smart outfit, fitted blazer or quality jacket, polished casual look",
+        "female": "travel-smart outfit, fitted blazer or quality jacket, polished casual look",
+        "neutral": "travel-smart outfit, fitted blazer or quality jacket, polished casual look"
+      },
       "allowed": [],
       "gender_neutral": true
     },
@@ -1773,7 +1861,11 @@
       ]
     },
     "clothing": {
-      "default": "elevated travel outfit, quality fabrics, leather accessories, luxury watch",
+      "default": {
+        "male": "elevated travel outfit, quality fabrics, leather accessories, luxury watch",
+        "female": "elevated travel outfit, quality fabrics, leather accessories, luxury watch",
+        "neutral": "elevated travel outfit, quality fabrics, leather accessories, luxury watch"
+      },
       "allowed": [],
       "gender_neutral": true
     },
@@ -1857,7 +1949,11 @@
       ]
     },
     "clothing": {
-      "default": "tailored smart outfit, polished shoes, clean confident style",
+      "default": {
+        "male": "tailored smart outfit, polished shoes, clean confident style",
+        "female": "tailored smart outfit, polished shoes, clean confident style",
+        "neutral": "tailored smart outfit, polished shoes, clean confident style"
+      },
       "allowed": [],
       "gender_neutral": true
     },
@@ -1942,7 +2038,11 @@
       ]
     },
     "clothing": {
-      "default": "fitted dark jeans, crisp white crew-neck t-shirt, leather watch, aviator sunglasses pushed up on head",
+      "default": {
+        "male": "fitted dark jeans, crisp white crew-neck t-shirt, leather watch, aviator sunglasses pushed up on head",
+        "female": "fitted dark jeans, crisp white crew-neck t-shirt, leather watch, aviator sunglasses pushed up on head",
+        "neutral": "fitted dark jeans, crisp white crew-neck t-shirt, leather watch, aviator sunglasses pushed up on head"
+      },
       "allowed": [],
       "gender_neutral": true
     },
@@ -2025,7 +2125,11 @@
       ]
     },
     "clothing": {
-      "default": "white linen shirt unbuttoned at top, navy shorts or chinos, deck shoes",
+      "default": {
+        "male": "white linen shirt unbuttoned at top, navy shorts or chinos, deck shoes",
+        "female": "white linen blouse or summer dress, navy shorts or wide-leg trousers, deck shoes",
+        "neutral": "white linen shirt unbuttoned at top, navy shorts or chinos, deck shoes"
+      },
       "allowed": [],
       "gender_neutral": true
     },
@@ -2111,7 +2215,11 @@
       ]
     },
     "clothing": {
-      "default": "soft knit sweater or henley, dark jeans, clean casual style",
+      "default": {
+        "male": "soft knit sweater or henley, dark jeans, clean casual style",
+        "female": "soft knit sweater or henley, dark jeans, clean casual style",
+        "neutral": "soft knit sweater or henley, dark jeans, clean casual style"
+      },
       "allowed": [],
       "gender_neutral": true
     },
@@ -2195,7 +2303,11 @@
       ]
     },
     "clothing": {
-      "default": "unbuttoned linen shirt over tee, rolled chinos or shorts, bare feet",
+      "default": {
+        "male": "unbuttoned linen shirt over tee, rolled chinos or shorts, bare feet",
+        "female": "flowy linen blouse or beach dress, rolled trousers or shorts, bare feet",
+        "neutral": "unbuttoned linen shirt over tee, rolled chinos or shorts, bare feet"
+      },
       "allowed": [],
       "gender_neutral": true
     },
@@ -2279,7 +2391,11 @@
       ]
     },
     "clothing": {
-      "default": "relaxed casual outfit, fitted jeans, comfortable cotton shirt",
+      "default": {
+        "male": "relaxed casual outfit, fitted jeans, comfortable cotton shirt",
+        "female": "relaxed casual outfit, fitted jeans, comfortable cotton shirt",
+        "neutral": "relaxed casual outfit, fitted jeans, comfortable cotton shirt"
+      },
       "allowed": [],
       "gender_neutral": true
     },
@@ -2363,7 +2479,11 @@
       ]
     },
     "clothing": {
-      "default": "dark fitted blazer over black tee, tailored trousers, minimalist watch",
+      "default": {
+        "male": "dark fitted blazer over black tee, tailored trousers, minimalist watch",
+        "female": "fitted blazer over fitted top, tailored trousers or skirt, minimalist watch",
+        "neutral": "dark fitted blazer over black tee, tailored trousers, minimalist watch"
+      },
       "allowed": [],
       "gender_neutral": true
     },
@@ -2447,7 +2567,11 @@
       ]
     },
     "clothing": {
-      "default": "fitted athletic tank top or compression shirt, athletic shorts, training shoes",
+      "default": {
+        "male": "fitted athletic tank top or compression shirt, athletic shorts, training shoes",
+        "female": "fitted athletic top or sports bra under crop hoodie, athletic leggings, training shoes",
+        "neutral": "fitted athletic tank top or compression shirt, athletic shorts, training shoes"
+      },
       "allowed": [],
       "gender_neutral": true
     },
@@ -2529,7 +2653,11 @@
       ]
     },
     "clothing": {
-      "default": "lightweight running shirt, athletic shorts, running shoes, sport watch",
+      "default": {
+        "male": "lightweight running shirt, athletic shorts, running shoes, sport watch",
+        "female": "lightweight running top, athletic shorts or leggings, running shoes, sport watch",
+        "neutral": "lightweight running shirt, athletic shorts, running shoes, sport watch"
+      },
       "allowed": [],
       "gender_neutral": true
     },
@@ -2614,7 +2742,11 @@
       ]
     },
     "clothing": {
-      "default": "fitted swim trunks, athletic build, optional sunglasses in hand",
+      "default": {
+        "male": "fitted swim trunks, athletic build, optional sunglasses in hand",
+        "female": "fitted one-piece or sporty swimsuit, optional sunglasses in hand",
+        "neutral": "fitted swim trunks, athletic build, optional sunglasses in hand"
+      },
       "allowed": [],
       "gender_neutral": true
     },
@@ -2697,7 +2829,11 @@
       ]
     },
     "clothing": {
-      "default": "fitted outdoor jacket or fleece, hiking pants, backpack straps visible",
+      "default": {
+        "male": "fitted outdoor jacket or fleece, hiking pants, backpack straps visible",
+        "female": "fitted outdoor jacket or fleece, hiking pants, backpack straps visible",
+        "neutral": "fitted outdoor jacket or fleece, hiking pants, backpack straps visible"
+      },
       "allowed": [],
       "gender_neutral": true
     },
@@ -2782,7 +2918,11 @@
       ]
     },
     "clothing": {
-      "default": "fitted clean athletic wear, barefoot, minimal yoga outfit",
+      "default": {
+        "male": "fitted clean athletic wear, barefoot, minimal yoga outfit",
+        "female": "fitted clean athletic wear, barefoot, minimal yoga outfit",
+        "neutral": "fitted clean athletic wear, barefoot, minimal yoga outfit"
+      },
       "allowed": [],
       "gender_neutral": true
     },
@@ -2867,7 +3007,11 @@
       ]
     },
     "clothing": {
-      "default": "fitted cycling jersey or casual athletic top, sport sunglasses, helmet nearby",
+      "default": {
+        "male": "fitted cycling jersey or casual athletic top, sport sunglasses, helmet nearby",
+        "female": "fitted cycling jersey or casual athletic top, sport sunglasses, helmet nearby",
+        "neutral": "fitted cycling jersey or casual athletic top, sport sunglasses, helmet nearby"
+      },
       "allowed": [],
       "gender_neutral": true
     },
@@ -2951,7 +3095,11 @@
       ]
     },
     "clothing": {
-      "default": "fitted polo shirt, tennis shorts, wristband, clean white sneakers",
+      "default": {
+        "male": "fitted polo shirt, tennis shorts, wristband, clean white sneakers",
+        "female": "fitted polo or tennis dress, tennis skirt, wristband, clean white sneakers",
+        "neutral": "fitted polo shirt, tennis shorts, wristband, clean white sneakers"
+      },
       "allowed": [],
       "gender_neutral": true
     },
@@ -3035,7 +3183,11 @@
       ]
     },
     "clothing": {
-      "default": "tailored dark shirt or blazer, smart evening look, subtle accessories",
+      "default": {
+        "male": "tailored dark shirt or blazer, smart evening look, subtle accessories",
+        "female": "tailored dark dress or fitted blouse with skirt, smart evening look, subtle accessories",
+        "neutral": "tailored dark shirt or blazer, smart evening look, subtle accessories"
+      },
       "allowed": [],
       "gender_neutral": true
     },
@@ -3118,7 +3270,11 @@
       ]
     },
     "clothing": {
-      "default": "dark fitted shirt, sleeves rolled, leather or fabric watch",
+      "default": {
+        "male": "dark fitted shirt, sleeves rolled, leather or fabric watch",
+        "female": "dark fitted shirt, sleeves rolled, leather or fabric watch",
+        "neutral": "dark fitted shirt, sleeves rolled, leather or fabric watch"
+      },
       "allowed": [],
       "gender_neutral": true
     },
@@ -3203,7 +3359,11 @@
       ]
     },
     "clothing": {
-      "default": "clean apron over casual shirt, rolled sleeves, natural domestic setting",
+      "default": {
+        "male": "clean apron over casual shirt, rolled sleeves, natural domestic setting",
+        "female": "clean apron over casual shirt, rolled sleeves, natural domestic setting",
+        "neutral": "clean apron over casual shirt, rolled sleeves, natural domestic setting"
+      },
       "allowed": [],
       "gender_neutral": true
     },
@@ -3287,7 +3447,11 @@
       ]
     },
     "clothing": {
-      "default": "dark fitted coat or jacket, quality umbrella, polished rainy-day style",
+      "default": {
+        "male": "dark fitted coat or jacket, quality umbrella, polished rainy-day style",
+        "female": "dark fitted coat or jacket, quality umbrella, polished rainy-day style",
+        "neutral": "dark fitted coat or jacket, quality umbrella, polished rainy-day style"
+      },
       "allowed": [],
       "gender_neutral": true
     },
@@ -3371,7 +3535,11 @@
       ]
     },
     "clothing": {
-      "default": "dark cozy layers, quality cashmere sweater or fitted dark shirt",
+      "default": {
+        "male": "dark cozy layers, quality cashmere sweater or fitted dark shirt",
+        "female": "dark cozy layers, quality cashmere sweater or fitted dark shirt",
+        "neutral": "dark cozy layers, quality cashmere sweater or fitted dark shirt"
+      },
       "allowed": [],
       "gender_neutral": true
     },
@@ -3454,7 +3622,11 @@
       ]
     },
     "clothing": {
-      "default": "clean quality loungewear, fitted casual pieces, relaxed domestic style",
+      "default": {
+        "male": "clean quality loungewear, fitted casual pieces, relaxed domestic style",
+        "female": "clean quality loungewear, fitted casual pieces, relaxed domestic style",
+        "neutral": "clean quality loungewear, fitted casual pieces, relaxed domestic style"
+      },
       "allowed": [],
       "gender_neutral": true
     },
@@ -3539,7 +3711,11 @@
       ]
     },
     "clothing": {
-      "default": "fitted leather jacket over plain tee, dark denim, motorcycle boots",
+      "default": {
+        "male": "fitted leather jacket over plain tee, dark denim, motorcycle boots",
+        "female": "fitted leather jacket over plain tee, dark denim, motorcycle boots",
+        "neutral": "fitted leather jacket over plain tee, dark denim, motorcycle boots"
+      },
       "allowed": [],
       "gender_neutral": true
     },
@@ -3622,7 +3798,11 @@
       ]
     },
     "clothing": {
-      "default": "casual button-down shirt with rolled sleeves, subtle wrist accessory",
+      "default": {
+        "male": "casual button-down shirt with rolled sleeves, subtle wrist accessory",
+        "female": "casual button-down shirt with rolled sleeves, subtle wrist accessory",
+        "neutral": "casual button-down shirt with rolled sleeves, subtle wrist accessory"
+      },
       "allowed": [],
       "gender_neutral": true
     },
@@ -3707,7 +3887,11 @@
       ]
     },
     "clothing": {
-      "default": "smart turtleneck or fitted dark shirt, tailored trousers, minimalist style",
+      "default": {
+        "male": "smart turtleneck or fitted dark shirt, tailored trousers, minimalist style",
+        "female": "smart turtleneck or fitted blouse, tailored trousers or midi skirt, minimalist style",
+        "neutral": "smart turtleneck or fitted dark shirt, tailored trousers, minimalist style"
+      },
       "allowed": [],
       "gender_neutral": true
     },
@@ -3789,7 +3973,11 @@
       ]
     },
     "clothing": {
-      "default": "streetwear layers, bomber or denim jacket, fitted pants, clean sneakers",
+      "default": {
+        "male": "streetwear layers, bomber or denim jacket, fitted pants, clean sneakers",
+        "female": "streetwear layers, bomber or denim jacket, fitted pants, clean sneakers",
+        "neutral": "streetwear layers, bomber or denim jacket, fitted pants, clean sneakers"
+      },
       "allowed": [],
       "gender_neutral": true
     },
@@ -3874,7 +4062,11 @@
       ]
     },
     "clothing": {
-      "default": "vintage band tee or flannel shirt, relaxed creative style",
+      "default": {
+        "male": "vintage band tee or flannel shirt, relaxed creative style",
+        "female": "vintage band tee or flannel shirt, relaxed creative style",
+        "neutral": "vintage band tee or flannel shirt, relaxed creative style"
+      },
       "allowed": [],
       "gender_neutral": true
     },
@@ -3958,7 +4150,11 @@
       ]
     },
     "clothing": {
-      "default": "travel-smart outfit, fitted jacket, comfortable trousers, carry-on bag nearby",
+      "default": {
+        "male": "travel-smart outfit, fitted jacket, comfortable trousers, carry-on bag nearby",
+        "female": "travel-smart outfit, fitted jacket, comfortable trousers, carry-on bag nearby",
+        "neutral": "travel-smart outfit, fitted jacket, comfortable trousers, carry-on bag nearby"
+      },
       "allowed": [],
       "gender_neutral": true
     },
@@ -4043,7 +4239,11 @@
       ]
     },
     "clothing": {
-      "default": "stylish casual, fitted, clean fabrics",
+      "default": {
+        "male": "stylish casual, fitted, clean fabrics",
+        "female": "stylish casual, fitted, clean fabrics",
+        "neutral": "stylish casual, fitted, clean fabrics"
+      },
       "allowed": [],
       "gender_neutral": true
     },
@@ -4126,7 +4326,11 @@
       ]
     },
     "clothing": {
-      "default": "elegant evening wear, dark tones, silk or fine wool textures",
+      "default": {
+        "male": "elegant evening wear, dark tones, silk or fine wool textures",
+        "female": "elegant evening wear, dark tones, silk or fine wool textures",
+        "neutral": "elegant evening wear, dark tones, silk or fine wool textures"
+      },
       "allowed": [],
       "gender_neutral": true
     },
@@ -4211,7 +4415,11 @@
       ]
     },
     "clothing": {
-      "default": "smart-casual date outfit, earth tones, linen or cotton",
+      "default": {
+        "male": "smart-casual date outfit, earth tones, linen or cotton",
+        "female": "smart-casual date outfit, earth tones, linen or cotton",
+        "neutral": "smart-casual date outfit, earth tones, linen or cotton"
+      },
       "allowed": [],
       "gender_neutral": true
     },
@@ -4293,7 +4501,11 @@
       ]
     },
     "clothing": {
-      "default": "fitted casual-smart outfit, clean lines, subtle accessories, date-ready polish",
+      "default": {
+        "male": "fitted casual-smart outfit, clean lines, subtle accessories, date-ready polish",
+        "female": "fitted casual-smart outfit, clean lines, subtle accessories, date-ready polish",
+        "neutral": "fitted casual-smart outfit, clean lines, subtle accessories, date-ready polish"
+      },
       "allowed": [],
       "gender_neutral": true
     },
@@ -4381,7 +4593,11 @@
       ]
     },
     "clothing": {
-      "default": "simple fitted top in solid color, minimal jewelry, fresh grooming",
+      "default": {
+        "male": "simple fitted top in solid color, minimal jewelry, fresh grooming",
+        "female": "simple fitted top in solid color, minimal jewelry, fresh grooming",
+        "neutral": "simple fitted top in solid color, minimal jewelry, fresh grooming"
+      },
       "allowed": [],
       "gender_neutral": true
     },
@@ -4465,7 +4681,11 @@
       ]
     },
     "clothing": {
-      "default": "relaxed smart-casual, soft sweater or crisp shirt, approachable style",
+      "default": {
+        "male": "relaxed smart-casual, soft sweater or crisp shirt, approachable style",
+        "female": "relaxed smart-casual, soft sweater or crisp shirt, approachable style",
+        "neutral": "relaxed smart-casual, soft sweater or crisp shirt, approachable style"
+      },
       "allowed": [],
       "gender_neutral": true
     },
@@ -4548,7 +4768,11 @@
       ]
     },
     "clothing": {
-      "default": "tailored formal charcoal suit, crisp white shirt, subtle tie or silk scarf",
+      "default": {
+        "male": "tailored formal charcoal suit, crisp white shirt, subtle tie or silk scarf",
+        "female": "tailored formal charcoal suit, crisp white shirt, subtle tie or silk scarf",
+        "neutral": "tailored formal charcoal suit, crisp white shirt, subtle tie or silk scarf"
+      },
       "allowed": [],
       "gender_neutral": true
     },
@@ -4633,7 +4857,11 @@
       ]
     },
     "clothing": {
-      "default": "navy suit, power tie, pocket square, cufflinks",
+      "default": {
+        "male": "navy suit, power tie, pocket square, cufflinks",
+        "female": "navy suit, power tie, pocket square, cufflinks",
+        "neutral": "navy suit, power tie, pocket square, cufflinks"
+      },
       "allowed": [],
       "gender_neutral": true
     },
@@ -4718,7 +4946,11 @@
       ]
     },
     "clothing": {
-      "default": "dark formal suit, white shirt, conservative tie, clean grooming",
+      "default": {
+        "male": "dark formal suit, white shirt, conservative tie, clean grooming",
+        "female": "dark formal suit, white shirt, conservative tie, clean grooming",
+        "neutral": "dark formal suit, white shirt, conservative tie, clean grooming"
+      },
       "allowed": [],
       "gender_neutral": true
     },
@@ -4802,7 +5034,11 @@
       ]
     },
     "clothing": {
-      "default": "tailored suit or smart business attire, confident professional silhouette",
+      "default": {
+        "male": "tailored suit or smart business attire, confident professional silhouette",
+        "female": "tailored suit or smart business attire, confident professional silhouette",
+        "neutral": "tailored suit or smart business attire, confident professional silhouette"
+      },
       "allowed": [],
       "gender_neutral": true
     },
@@ -4886,7 +5122,11 @@
       ]
     },
     "clothing": {
-      "default": "smart casual, fitted chinos, clean button-down with rolled sleeves, open collar",
+      "default": {
+        "male": "smart casual, fitted chinos, clean button-down with rolled sleeves, open collar",
+        "female": "smart casual, fitted chinos, clean button-down with rolled sleeves, open collar",
+        "neutral": "smart casual, fitted chinos, clean button-down with rolled sleeves, open collar"
+      },
       "allowed": [],
       "gender_neutral": true
     },
@@ -4970,7 +5210,11 @@
       ]
     },
     "clothing": {
-      "default": "fitted blazer over crew-neck tee, dark jeans, modern smart-casual",
+      "default": {
+        "male": "fitted blazer over crew-neck tee, dark jeans, modern smart-casual",
+        "female": "fitted blazer over crew-neck tee, dark jeans, modern smart-casual",
+        "neutral": "fitted blazer over crew-neck tee, dark jeans, modern smart-casual"
+      },
       "allowed": [],
       "gender_neutral": true
     },
@@ -5055,7 +5299,11 @@
       ]
     },
     "clothing": {
-      "default": "professional fitted shirt, crisp collar, clean grooming visible above desk",
+      "default": {
+        "male": "professional fitted shirt, crisp collar, clean grooming visible above desk",
+        "female": "professional fitted shirt, crisp collar, clean grooming visible above desk",
+        "neutral": "professional fitted shirt, crisp collar, clean grooming visible above desk"
+      },
       "allowed": [],
       "gender_neutral": true
     },
@@ -5138,7 +5386,11 @@
       ]
     },
     "clothing": {
-      "default": "professional shirt with rolled sleeves, reading glasses optional, sharp look",
+      "default": {
+        "male": "professional shirt with rolled sleeves, reading glasses optional, sharp look",
+        "female": "professional shirt with rolled sleeves, reading glasses optional, sharp look",
+        "neutral": "professional shirt with rolled sleeves, reading glasses optional, sharp look"
+      },
       "allowed": [],
       "gender_neutral": true
     },
@@ -5222,7 +5474,11 @@
       ]
     },
     "clothing": {
-      "default": "smart-casual layers, clean fitted shirt, professional yet relaxed",
+      "default": {
+        "male": "smart-casual layers, clean fitted shirt, professional yet relaxed",
+        "female": "smart-casual layers, clean fitted shirt, professional yet relaxed",
+        "neutral": "smart-casual layers, clean fitted shirt, professional yet relaxed"
+      },
       "allowed": [],
       "gender_neutral": true
     },
@@ -5306,7 +5562,11 @@
       ]
     },
     "clothing": {
-      "default": "smart-casual fitted dark sweater, creative professional look",
+      "default": {
+        "male": "smart-casual fitted dark sweater, creative professional look",
+        "female": "smart-casual fitted dark sweater, creative professional look",
+        "neutral": "smart-casual fitted dark sweater, creative professional look"
+      },
       "allowed": [],
       "gender_neutral": true
     },
@@ -5389,7 +5649,11 @@
       ]
     },
     "clothing": {
-      "default": "professional attire slightly relaxed, sleeves rolled, coffee cup in hand",
+      "default": {
+        "male": "professional attire slightly relaxed, sleeves rolled, coffee cup in hand",
+        "female": "professional attire slightly relaxed, sleeves rolled, coffee cup in hand",
+        "neutral": "professional attire slightly relaxed, sleeves rolled, coffee cup in hand"
+      },
       "allowed": [],
       "gender_neutral": true
     },
@@ -5474,7 +5738,11 @@
       ]
     },
     "clothing": {
-      "default": "professional shirt with loosened collar, sleeves rolled, focused work look",
+      "default": {
+        "male": "professional shirt with loosened collar, sleeves rolled, focused work look",
+        "female": "professional shirt with loosened collar, sleeves rolled, focused work look",
+        "neutral": "professional shirt with loosened collar, sleeves rolled, focused work look"
+      },
       "allowed": [],
       "gender_neutral": true
     },
@@ -5557,7 +5825,11 @@
       ]
     },
     "clothing": {
-      "default": "fresh professional attire, straightened collar, polished ready-for-action look",
+      "default": {
+        "male": "fresh professional attire, straightened collar, polished ready-for-action look",
+        "female": "fresh professional attire, straightened collar, polished ready-for-action look",
+        "neutral": "fresh professional attire, straightened collar, polished ready-for-action look"
+      },
       "allowed": [],
       "gender_neutral": true
     },
@@ -5643,7 +5915,11 @@
       ]
     },
     "clothing": {
-      "default": "tailored dark suit against bright window, face evenly lit, executive presence",
+      "default": {
+        "male": "tailored dark suit against bright window, face evenly lit, executive presence",
+        "female": "tailored dark suit against bright window, face evenly lit, executive presence",
+        "neutral": "tailored dark suit against bright window, face evenly lit, executive presence"
+      },
       "allowed": [],
       "gender_neutral": true
     },
@@ -5725,7 +6001,11 @@
       ]
     },
     "clothing": {
-      "default": "business-casual travel outfit, quality fabrics, polished accessories",
+      "default": {
+        "male": "business-casual travel outfit, quality fabrics, polished accessories",
+        "female": "business-casual travel outfit, quality fabrics, polished accessories",
+        "neutral": "business-casual travel outfit, quality fabrics, polished accessories"
+      },
       "allowed": [],
       "gender_neutral": true
     },
@@ -5810,7 +6090,11 @@
       ]
     },
     "clothing": {
-      "default": "tailored suit with open-collar shirt, confident speaker style",
+      "default": {
+        "male": "tailored suit with open-collar shirt, confident speaker style",
+        "female": "tailored suit with open-collar shirt, confident speaker style",
+        "neutral": "tailored suit with open-collar shirt, confident speaker style"
+      },
       "allowed": [],
       "gender_neutral": true
     },
@@ -5894,7 +6178,11 @@
       ]
     },
     "clothing": {
-      "default": "premium fitted polo or cashmere sweater, clean minimalist style",
+      "default": {
+        "male": "premium fitted polo or cashmere sweater, clean minimalist style",
+        "female": "premium fitted polo or cashmere sweater, clean minimalist style",
+        "neutral": "premium fitted polo or cashmere sweater, clean minimalist style"
+      },
       "allowed": [],
       "gender_neutral": true
     },
@@ -5978,7 +6266,11 @@
       ]
     },
     "clothing": {
-      "default": "casual smart lightweight shirt, relaxed professional travel style",
+      "default": {
+        "male": "casual smart lightweight shirt, relaxed professional travel style",
+        "female": "casual smart lightweight shirt, relaxed professional travel style",
+        "neutral": "casual smart lightweight shirt, relaxed professional travel style"
+      },
       "allowed": [],
       "gender_neutral": true
     },
@@ -6061,7 +6353,11 @@
       ]
     },
     "clothing": {
-      "default": "turtleneck or fitted quality shirt, subtle glasses, refined academic style",
+      "default": {
+        "male": "turtleneck or fitted quality shirt, subtle glasses, refined academic style",
+        "female": "turtleneck or fitted quality shirt, subtle glasses, refined academic style",
+        "neutral": "turtleneck or fitted quality shirt, subtle glasses, refined academic style"
+      },
       "allowed": [],
       "gender_neutral": true
     },
@@ -6146,7 +6442,11 @@
       ]
     },
     "clothing": {
-      "default": "quality hoodie or fitted dark sweater, comfortable technical style",
+      "default": {
+        "male": "quality hoodie or fitted dark sweater, comfortable technical style",
+        "female": "quality hoodie or fitted dark sweater, comfortable technical style",
+        "neutral": "quality hoodie or fitted dark sweater, comfortable technical style"
+      },
       "allowed": [],
       "gender_neutral": true
     },
@@ -6230,7 +6530,11 @@
       ]
     },
     "clothing": {
-      "default": "black turtleneck, minimalist dark outfit, statement glasses optional",
+      "default": {
+        "male": "black turtleneck, minimalist dark outfit, statement glasses optional",
+        "female": "black turtleneck, minimalist dark outfit, statement glasses optional",
+        "neutral": "black turtleneck, minimalist dark outfit, statement glasses optional"
+      },
       "allowed": [],
       "gender_neutral": true
     },
@@ -6313,7 +6617,11 @@
       ]
     },
     "clothing": {
-      "default": "white lab coat over dress shirt, stethoscope, professional medical attire",
+      "default": {
+        "male": "white lab coat over dress shirt, stethoscope, professional medical attire",
+        "female": "white lab coat over dress shirt, stethoscope, professional medical attire",
+        "neutral": "white lab coat over dress shirt, stethoscope, professional medical attire"
+      },
       "allowed": [],
       "gender_neutral": true
     },
@@ -6398,7 +6706,11 @@
       ]
     },
     "clothing": {
-      "default": "three-piece suit, silk tie, pocket square, classic luxury watch",
+      "default": {
+        "male": "three-piece suit, silk tie, pocket square, classic luxury watch",
+        "female": "three-piece suit, silk tie, pocket square, classic luxury watch",
+        "neutral": "three-piece suit, silk tie, pocket square, classic luxury watch"
+      },
       "allowed": [],
       "gender_neutral": true
     },
@@ -6480,7 +6792,11 @@
       ]
     },
     "clothing": {
-      "default": "fitted blazer, dark turtleneck, architect glasses optional",
+      "default": {
+        "male": "fitted blazer, dark turtleneck, architect glasses optional",
+        "female": "fitted blazer, dark turtleneck, architect glasses optional",
+        "neutral": "fitted blazer, dark turtleneck, architect glasses optional"
+      },
       "allowed": [],
       "gender_neutral": true
     },
@@ -6565,7 +6881,11 @@
       ]
     },
     "clothing": {
-      "default": "smart casual, clean fitted shirt, relaxed professional look",
+      "default": {
+        "male": "smart casual, clean fitted shirt, relaxed professional look",
+        "female": "smart casual, clean fitted shirt, relaxed professional look",
+        "neutral": "smart casual, clean fitted shirt, relaxed professional look"
+      },
       "allowed": [],
       "gender_neutral": true
     },
@@ -6650,7 +6970,11 @@
       ]
     },
     "clothing": {
-      "default": "smart casual blazer, open collar shirt, approachable professional style",
+      "default": {
+        "male": "smart casual blazer, open collar shirt, approachable professional style",
+        "female": "smart casual blazer, open collar shirt, approachable professional style",
+        "neutral": "smart casual blazer, open collar shirt, approachable professional style"
+      },
       "allowed": [],
       "gender_neutral": true
     },
@@ -6734,7 +7058,11 @@
       ]
     },
     "clothing": {
-      "default": "linen blazer over fitted shirt, chinos, digital nomad smart-casual",
+      "default": {
+        "male": "linen blazer over fitted shirt, chinos, digital nomad smart-casual",
+        "female": "linen blazer over fitted shirt, chinos, digital nomad smart-casual",
+        "neutral": "linen blazer over fitted shirt, chinos, digital nomad smart-casual"
+      },
       "allowed": [],
       "gender_neutral": true
     },
@@ -6819,7 +7147,11 @@
       ]
     },
     "clothing": {
-      "default": "classic professional attire, solid neutral colors",
+      "default": {
+        "male": "classic professional attire, solid neutral colors",
+        "female": "classic professional attire, solid neutral colors",
+        "neutral": "classic professional attire, solid neutral colors"
+      },
       "allowed": [],
       "gender_neutral": true
     },
@@ -6884,7 +7216,11 @@
       "overrides_allowed": []
     },
     "clothing": {
-      "default": "simple solid-color top with a neat collar, bare head with hair fully visible",
+      "default": {
+        "male": "simple solid-color top with a neat collar, bare head with hair fully visible",
+        "female": "simple solid-color top with a neat collar, bare head with hair fully visible",
+        "neutral": "simple solid-color top with a neat collar, bare head with hair fully visible"
+      },
       "allowed": [],
       "gender_neutral": true
     },
@@ -6941,7 +7277,11 @@
       "overrides_allowed": []
     },
     "clothing": {
-      "default": "simple dark solid-color top with a neat collar, solid single-color fabric, plain unbranded",
+      "default": {
+        "male": "simple dark solid-color top with a neat collar, solid single-color fabric, plain unbranded",
+        "female": "simple dark solid-color top with a neat collar, solid single-color fabric, plain unbranded",
+        "neutral": "simple dark solid-color top with a neat collar, solid single-color fabric, plain unbranded"
+      },
       "allowed": [],
       "gender_neutral": true
     },
@@ -6998,7 +7338,11 @@
       "overrides_allowed": []
     },
     "clothing": {
-      "default": "simple solid-color business top",
+      "default": {
+        "male": "simple solid-color business top",
+        "female": "simple solid-color business top",
+        "neutral": "simple solid-color business top"
+      },
       "allowed": [],
       "gender_neutral": true
     },
@@ -7055,7 +7399,11 @@
       "overrides_allowed": []
     },
     "clothing": {
-      "default": "simple business top, civilian attire, bare head with hair visible",
+      "default": {
+        "male": "simple business top, civilian attire, bare head with hair visible",
+        "female": "simple business top, civilian attire, bare head with hair visible",
+        "neutral": "simple business top, civilian attire, bare head with hair visible"
+      },
       "allowed": [],
       "gender_neutral": true
     },
@@ -7112,7 +7460,11 @@
       "overrides_allowed": []
     },
     "clothing": {
-      "default": "tidy business top, solid neutral color",
+      "default": {
+        "male": "tidy business top, solid neutral color",
+        "female": "tidy business top, solid neutral color",
+        "neutral": "tidy business top, solid neutral color"
+      },
       "allowed": [],
       "gender_neutral": true
     },
@@ -7187,7 +7539,11 @@
       ]
     },
     "clothing": {
-      "default": "curated outfit with clean lines, one statement piece, polished silhouette",
+      "default": {
+        "male": "curated outfit with clean lines, one statement piece, polished silhouette",
+        "female": "curated outfit with clean lines, one statement piece, polished silhouette",
+        "neutral": "curated outfit with clean lines, one statement piece, polished silhouette"
+      },
       "allowed": [],
       "gender_neutral": true
     },
@@ -7270,7 +7626,11 @@
       ]
     },
     "clothing": {
-      "default": "fitted smart outfit, clean sharp silhouette, polished aesthetic",
+      "default": {
+        "male": "fitted smart outfit, clean sharp silhouette, polished aesthetic",
+        "female": "fitted smart outfit, clean sharp silhouette, polished aesthetic",
+        "neutral": "fitted smart outfit, clean sharp silhouette, polished aesthetic"
+      },
       "allowed": [],
       "gender_neutral": true
     },
@@ -7354,7 +7714,11 @@
       ]
     },
     "clothing": {
-      "default": "effortless casual outfit, natural unstaged authentic look",
+      "default": {
+        "male": "effortless casual outfit, natural unstaged authentic look",
+        "female": "effortless casual outfit, natural unstaged authentic look",
+        "neutral": "effortless casual outfit, natural unstaged authentic look"
+      },
       "allowed": [],
       "gender_neutral": true
     },
@@ -7439,7 +7803,11 @@
       ]
     },
     "clothing": {
-      "default": "on-trend outfit, shopping bags optional, fashion-forward street style",
+      "default": {
+        "male": "on-trend outfit, shopping bags optional, fashion-forward street style",
+        "female": "on-trend outfit, shopping bags optional, fashion-forward street style",
+        "neutral": "on-trend outfit, shopping bags optional, fashion-forward street style"
+      },
       "allowed": [],
       "gender_neutral": true
     },
@@ -7525,7 +7893,11 @@
       ]
     },
     "clothing": {
-      "default": "minimal dark outfit, all attention drawn to face and expression",
+      "default": {
+        "male": "minimal dark outfit, all attention drawn to face and expression",
+        "female": "minimal dark outfit, all attention drawn to face and expression",
+        "neutral": "minimal dark outfit, all attention drawn to face and expression"
+      },
       "allowed": [],
       "gender_neutral": true
     },
@@ -7606,7 +7978,11 @@
       ]
     },
     "clothing": {
-      "default": "streetwear layers, statement accessories, designer sneakers",
+      "default": {
+        "male": "streetwear layers, statement accessories, designer sneakers",
+        "female": "streetwear layers, statement accessories, designer sneakers",
+        "neutral": "streetwear layers, statement accessories, designer sneakers"
+      },
       "allowed": [],
       "gender_neutral": true
     },
@@ -7689,7 +8065,11 @@
       ]
     },
     "clothing": {
-      "default": "monochrome fitted outfit, one statement accessory, clean lines",
+      "default": {
+        "male": "monochrome fitted outfit, one statement accessory, clean lines",
+        "female": "monochrome fitted outfit, one statement accessory, clean lines",
+        "neutral": "monochrome fitted outfit, one statement accessory, clean lines"
+      },
       "allowed": [],
       "gender_neutral": true
     },
@@ -7770,7 +8150,11 @@
       "overrides_allowed": []
     },
     "clothing": {
-      "default": "fitted earth-tone cotton jacket over quality tee, dark jeans, clean classic casual",
+      "default": {
+        "male": "fitted earth-tone cotton jacket over quality tee, dark jeans, clean classic casual",
+        "female": "fitted earth-tone cotton jacket over quality tee, dark jeans, clean classic casual",
+        "neutral": "fitted earth-tone cotton jacket over quality tee, dark jeans, clean classic casual"
+      },
       "allowed": [],
       "gender_neutral": true
     },
@@ -7857,7 +8241,11 @@
       ]
     },
     "clothing": {
-      "default": "dark streetwear, leather jacket or fitted dark outfit, reflective elements",
+      "default": {
+        "male": "dark streetwear, leather jacket or fitted dark outfit, reflective elements",
+        "female": "dark streetwear, leather jacket or fitted dark outfit, reflective elements",
+        "neutral": "dark streetwear, leather jacket or fitted dark outfit, reflective elements"
+      },
       "allowed": [],
       "gender_neutral": true
     },
@@ -7941,7 +8329,11 @@
       ]
     },
     "clothing": {
-      "default": "casual fitted outfit that shows personality, clean attractive look",
+      "default": {
+        "male": "casual fitted outfit that shows personality, clean attractive look",
+        "female": "casual fitted outfit that shows personality, clean attractive look",
+        "neutral": "casual fitted outfit that shows personality, clean attractive look"
+      },
       "allowed": [],
       "gender_neutral": true
     },
@@ -8025,7 +8417,11 @@
       ]
     },
     "clothing": {
-      "default": "comfortable quality loungewear, cozy socks, relaxed domestic style",
+      "default": {
+        "male": "comfortable quality loungewear, cozy socks, relaxed domestic style",
+        "female": "comfortable quality loungewear, cozy socks, relaxed domestic style",
+        "neutral": "comfortable quality loungewear, cozy socks, relaxed domestic style"
+      },
       "allowed": [],
       "gender_neutral": true
     },
@@ -8110,7 +8506,11 @@
       ]
     },
     "clothing": {
-      "default": "casual intellectual look, fitted sweater, comfortable smart style",
+      "default": {
+        "male": "casual intellectual look, fitted sweater, comfortable smart style",
+        "female": "casual intellectual look, fitted sweater, comfortable smart style",
+        "neutral": "casual intellectual look, fitted sweater, comfortable smart style"
+      },
       "allowed": [],
       "gender_neutral": true
     },
@@ -8194,7 +8594,11 @@
       ]
     },
     "clothing": {
-      "default": "creative casual tee, comfortable fit, artistic relaxed vibe",
+      "default": {
+        "male": "creative casual tee, comfortable fit, artistic relaxed vibe",
+        "female": "creative casual tee, comfortable fit, artistic relaxed vibe",
+        "neutral": "creative casual tee, comfortable fit, artistic relaxed vibe"
+      },
       "allowed": [],
       "gender_neutral": true
     },
@@ -8278,7 +8682,11 @@
       ]
     },
     "clothing": {
-      "default": "practical creative outfit, dark layers, camera strap, artistic professional",
+      "default": {
+        "male": "practical creative outfit, dark layers, camera strap, artistic professional",
+        "female": "practical creative outfit, dark layers, camera strap, artistic professional",
+        "neutral": "practical creative outfit, dark layers, camera strap, artistic professional"
+      },
       "allowed": [],
       "gender_neutral": true
     },
@@ -8362,7 +8770,11 @@
       ]
     },
     "clothing": {
-      "default": "comfortable clean neutral outfit, natural tones, peaceful energy",
+      "default": {
+        "male": "comfortable clean neutral outfit, natural tones, peaceful energy",
+        "female": "comfortable clean neutral outfit, natural tones, peaceful energy",
+        "neutral": "comfortable clean neutral outfit, natural tones, peaceful energy"
+      },
       "allowed": [],
       "gender_neutral": true
     },
@@ -8446,7 +8858,11 @@
       ]
     },
     "clothing": {
-      "default": "casual but clean fitted hoodie or sweater, headphones nearby",
+      "default": {
+        "male": "casual but clean fitted hoodie or sweater, headphones nearby",
+        "female": "casual but clean fitted hoodie or sweater, headphones nearby",
+        "neutral": "casual but clean fitted hoodie or sweater, headphones nearby"
+      },
       "allowed": [],
       "gender_neutral": true
     },
@@ -8528,7 +8944,11 @@
       ]
     },
     "clothing": {
-      "default": "stylish cycling outfit or casual athletic top, sport sunglasses",
+      "default": {
+        "male": "stylish cycling outfit or casual athletic top, sport sunglasses",
+        "female": "stylish cycling outfit or casual athletic top, sport sunglasses",
+        "neutral": "stylish cycling outfit or casual athletic top, sport sunglasses"
+      },
       "allowed": [],
       "gender_neutral": true
     },
@@ -8613,7 +9033,11 @@
       ]
     },
     "clothing": {
-      "default": "premium athletic wear, sport watch, clean sneakers, headphones around neck",
+      "default": {
+        "male": "premium athletic wear, sport watch, clean sneakers, headphones around neck",
+        "female": "premium athletic wear, sport watch, clean sneakers, headphones around neck",
+        "neutral": "premium athletic wear, sport watch, clean sneakers, headphones around neck"
+      },
       "allowed": [],
       "gender_neutral": true
     },
@@ -8698,7 +9122,11 @@
       ]
     },
     "clothing": {
-      "default": "minimal dark outfit against bright cityscape, face evenly lit",
+      "default": {
+        "male": "minimal dark outfit against bright cityscape, face evenly lit",
+        "female": "minimal dark outfit against bright cityscape, face evenly lit",
+        "neutral": "minimal dark outfit against bright cityscape, face evenly lit"
+      },
       "allowed": [],
       "gender_neutral": true
     },
@@ -8781,7 +9209,11 @@
       ]
     },
     "clothing": {
-      "default": "stylish casual outfit with flowing jacket or coat, dynamic movement",
+      "default": {
+        "male": "stylish casual outfit with flowing jacket or coat, dynamic movement",
+        "female": "stylish casual outfit with flowing jacket or coat, dynamic movement",
+        "neutral": "stylish casual outfit with flowing jacket or coat, dynamic movement"
+      },
       "allowed": [],
       "gender_neutral": true
     },
@@ -8865,7 +9297,11 @@
       ]
     },
     "clothing": {
-      "default": "minimal outfit in dark tones, strong visual contrast with light",
+      "default": {
+        "male": "minimal outfit in dark tones, strong visual contrast with light",
+        "female": "minimal outfit in dark tones, strong visual contrast with light",
+        "neutral": "minimal outfit in dark tones, strong visual contrast with light"
+      },
       "allowed": [],
       "gender_neutral": true
     },
@@ -8949,7 +9385,11 @@
       ]
     },
     "clothing": {
-      "default": "smart outfit slightly undone in celebration, genuine joy",
+      "default": {
+        "male": "smart outfit slightly undone in celebration, genuine joy",
+        "female": "smart outfit slightly undone in celebration, genuine joy",
+        "neutral": "smart outfit slightly undone in celebration, genuine joy"
+      },
       "allowed": [],
       "gender_neutral": true
     },
@@ -9034,7 +9474,11 @@
       ]
     },
     "clothing": {
-      "default": "smart casual with personality, slight quirk in style, self-aware modern look",
+      "default": {
+        "male": "smart casual with personality, slight quirk in style, self-aware modern look",
+        "female": "smart casual with personality, slight quirk in style, self-aware modern look",
+        "neutral": "smart casual with personality, slight quirk in style, self-aware modern look"
+      },
       "allowed": [],
       "gender_neutral": true
     },
@@ -9118,7 +9562,11 @@
       ]
     },
     "clothing": {
-      "default": "elegant dark outfit against glowing city skyline, face clearly visible",
+      "default": {
+        "male": "elegant dark outfit against glowing city skyline, face clearly visible",
+        "female": "elegant dark outfit against glowing city skyline, face clearly visible",
+        "neutral": "elegant dark outfit against glowing city skyline, face clearly visible"
+      },
       "allowed": [],
       "gender_neutral": true
     },
@@ -9201,7 +9649,11 @@
       ]
     },
     "clothing": {
-      "default": "professional outfit slightly relaxed, jacket over shoulder, end-of-day vibe",
+      "default": {
+        "male": "professional outfit slightly relaxed, jacket over shoulder, end-of-day vibe",
+        "female": "professional outfit slightly relaxed, jacket over shoulder, end-of-day vibe",
+        "neutral": "professional outfit slightly relaxed, jacket over shoulder, end-of-day vibe"
+      },
       "allowed": [],
       "gender_neutral": true
     },
@@ -9286,7 +9738,11 @@
       ]
     },
     "clothing": {
-      "default": "comfortable smart-casual loungewear, focused domestic vibe",
+      "default": {
+        "male": "comfortable smart-casual loungewear, focused domestic vibe",
+        "female": "comfortable smart-casual loungewear, focused domestic vibe",
+        "neutral": "comfortable smart-casual loungewear, focused domestic vibe"
+      },
       "allowed": [],
       "gender_neutral": true
     },
@@ -9371,7 +9827,11 @@
       ]
     },
     "clothing": {
-      "default": "vintage-inspired outfit, classic cuts, earth and mustard tones",
+      "default": {
+        "male": "vintage-inspired outfit, classic cuts, earth and mustard tones",
+        "female": "vintage-inspired outfit, classic cuts, earth and mustard tones",
+        "neutral": "vintage-inspired outfit, classic cuts, earth and mustard tones"
+      },
       "allowed": [],
       "gender_neutral": true
     },
@@ -9454,7 +9914,11 @@
       ]
     },
     "clothing": {
-      "default": "light-colored fitted shirt, clean neutral trousers, minimal accessories",
+      "default": {
+        "male": "light-colored fitted shirt, clean neutral trousers, minimal accessories",
+        "female": "light-colored fitted shirt, clean neutral trousers, minimal accessories",
+        "neutral": "light-colored fitted shirt, clean neutral trousers, minimal accessories"
+      },
       "allowed": [],
       "gender_neutral": true
     },
@@ -9538,7 +10002,11 @@
       ]
     },
     "clothing": {
-      "default": "color-coordinated outfit matching the background palette",
+      "default": {
+        "male": "color-coordinated outfit matching the background palette",
+        "female": "color-coordinated outfit matching the background palette",
+        "neutral": "color-coordinated outfit matching the background palette"
+      },
       "allowed": [],
       "gender_neutral": true
     },
@@ -9622,7 +10090,11 @@
       ]
     },
     "clothing": {
-      "default": "bright casual outfit, branded merch style, expressive modern look",
+      "default": {
+        "male": "bright casual outfit, branded merch style, expressive modern look",
+        "female": "bright casual outfit, branded merch style, expressive modern look",
+        "neutral": "bright casual outfit, branded merch style, expressive modern look"
+      },
       "allowed": [],
       "gender_neutral": true
     },
@@ -9704,7 +10176,11 @@
       ]
     },
     "clothing": {
-      "default": "business casual, fitted blazer over quality shirt, professional but modern",
+      "default": {
+        "male": "business casual, fitted blazer over quality shirt, professional but modern",
+        "female": "business casual, fitted blazer over quality shirt, professional but modern",
+        "neutral": "business casual, fitted blazer over quality shirt, professional but modern"
+      },
       "allowed": [],
       "gender_neutral": true
     },
@@ -9790,7 +10266,11 @@
       ]
     },
     "clothing": {
-      "default": "smart casual, comfortable quality fabrics, clean modern look",
+      "default": {
+        "male": "smart casual, comfortable quality fabrics, clean modern look",
+        "female": "smart casual, comfortable quality fabrics, clean modern look",
+        "neutral": "smart casual, comfortable quality fabrics, clean modern look"
+      },
       "allowed": [],
       "gender_neutral": true
     },
@@ -9874,7 +10354,11 @@
       ]
     },
     "clothing": {
-      "default": "clean loungewear or casual morning outfit, fresh natural look",
+      "default": {
+        "male": "clean loungewear or casual morning outfit, fresh natural look",
+        "female": "clean loungewear or casual morning outfit, fresh natural look",
+        "neutral": "clean loungewear or casual morning outfit, fresh natural look"
+      },
       "allowed": [],
       "gender_neutral": true
     },
@@ -9958,7 +10442,11 @@
       ]
     },
     "clothing": {
-      "default": "casual stylish outfit, clean smart look",
+      "default": {
+        "male": "casual stylish outfit, clean smart look",
+        "female": "casual stylish outfit, clean smart look",
+        "neutral": "casual stylish outfit, clean smart look"
+      },
       "allowed": [],
       "gender_neutral": true
     },
@@ -10031,7 +10519,11 @@
       "overrides_allowed": []
     },
     "clothing": {
-      "default": "travel outfit, linen shirt, hat or sunglasses, adventure accessories",
+      "default": {
+        "male": "travel outfit, linen shirt, hat or sunglasses, adventure accessories",
+        "female": "travel outfit, linen shirt, hat or sunglasses, adventure accessories",
+        "neutral": "travel outfit, linen shirt, hat or sunglasses, adventure accessories"
+      },
       "allowed": [],
       "gender_neutral": true
     },
@@ -10113,7 +10605,11 @@
       ]
     },
     "clothing": {
-      "default": "designer outfit, fine fabrics, watches or minimal jewelry",
+      "default": {
+        "male": "designer outfit, fine fabrics, watches or minimal jewelry",
+        "female": "designer outfit, fine fabrics, watches or minimal jewelry",
+        "neutral": "designer outfit, fine fabrics, watches or minimal jewelry"
+      },
       "allowed": [],
       "gender_neutral": true
     },
@@ -10196,7 +10692,11 @@
       ]
     },
     "clothing": {
-      "default": "relaxed casual wear, natural cotton and linen fabrics",
+      "default": {
+        "male": "relaxed casual wear, natural cotton and linen fabrics",
+        "female": "relaxed casual wear, natural cotton and linen fabrics",
+        "neutral": "relaxed casual wear, natural cotton and linen fabrics"
+      },
       "allowed": [],
       "gender_neutral": true
     },
@@ -10281,7 +10781,11 @@
       ]
     },
     "clothing": {
-      "default": "dark fitted jacket over quality tee, dark jeans, clean artistic style",
+      "default": {
+        "male": "dark fitted jacket over quality tee, dark jeans, clean artistic style",
+        "female": "dark fitted jacket over quality tee, dark jeans, clean artistic style",
+        "neutral": "dark fitted jacket over quality tee, dark jeans, clean artistic style"
+      },
       "allowed": [],
       "gender_neutral": true
     },

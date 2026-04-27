@@ -237,7 +237,9 @@ def _v2_slots_from_raw(raw: dict) -> dict | None:
             "default_na": spec.weather.default_na,
         },
         "clothing": {
-            "default": spec.clothing.default,
+            "default": dict(spec.clothing.default)
+            if isinstance(spec.clothing.default, dict)
+            else {"male": "", "female": "", "neutral": str(spec.clothing.default or "")},
             "allowed": list(spec.clothing.allowed),
             "gender_neutral": spec.clothing.gender_neutral,
         },

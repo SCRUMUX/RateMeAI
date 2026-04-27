@@ -67,16 +67,45 @@ class WeatherPolicy:
 class ClothingSlot:
     """Clothing slot for a v2 style.
 
-    ``default`` is emitted verbatim; ``allowed`` is the whitelist
-    consulted when ``input_hints["clothing_override"]`` is set.
-    ``gender_neutral=True`` means ``default`` is used regardless of the
-    user's declared gender (today's JSON default); if False, the wrapper
-    may later specialize male/female phrasing.
+    ``default`` is a per-gender dict ``{"male": ..., "female": ...,
+    "neutral": ...}``. Empty keys fall back to ``neutral`` so a style
+    that doesn't differentiate genders just sets ``neutral`` and stays
+    silent on ``male`` / ``female``. The legacy ``str`` form is still
+    accepted by the loader (it materialises as
+    ``{"male": s, "female": s, "neutral": s}``) so migrations can ship
+    incrementally.
+
+    ``allowed`` is the whitelist consulted when
+    ``input_hints["clothing_override"]`` is set. ``gender_neutral=True``
+    is a hint for the admin UI / catalog: when the JSON declares a
+    style as gender-neutral, the modal can hide per-gender editors.
     """
 
-    default: str = ""
+    default: dict[str, str] = field(default_factory=dict)
     allowed: tuple[str, ...] = ()
     gender_neutral: bool = True
+
+    def text(self, gender: str = "neutral") -> str:
+        """Return the clothing line for ``gender`` with sane fallbacks.
+
+        Order: requested gender → ``neutral`` → first non-empty value
+        → empty string. Returns ``""`` only when every key is blank.
+        """
+        if not isinstance(self.default, dict):
+            return str(self.default or "")
+        key = (gender or "").strip().lower()
+        if key not in {"male", "female", "neutral"}:
+            key = "neutral"
+        candidate = (self.default.get(key) or "").strip()
+        if candidate:
+            return self.default[key]
+        neutral = (self.default.get("neutral") or "").strip()
+        if neutral:
+            return self.default["neutral"]
+        for v in self.default.values():
+            if v and str(v).strip():
+                return str(v)
+        return ""
 
 
 @dataclass(frozen=True)
@@ -176,7 +205,7 @@ class StyleSpecV2:
 
     @property
     def clothing_text(self) -> str:
-        return self.clothing.default
+        return self.clothing.text("neutral")
 
     def clothing_for(self, gender: str = "male") -> str:
-        return self.clothing.default
+        return self.clothing.text(gender)

@@ -165,7 +165,24 @@ def _validate_v2_shape(entry: dict[str, Any]) -> None:
         )
 
     clothing = entry.get("clothing") or {}
-    if not str(clothing.get("default") or "").strip():
+    raw_default = clothing.get("default")
+    if isinstance(raw_default, dict):
+        # v1.27.3: dict-shape default — at least one of {male, female,
+        # neutral} must be non-empty so the prompt has *something* to
+        # emit regardless of the detected gender.
+        has_value = any(
+            isinstance(raw_default.get(k), str) and raw_default[k].strip()
+            for k in ("male", "female", "neutral")
+        )
+        if not has_value:
+            raise HTTPException(
+                status_code=422,
+                detail=(
+                    "v2 styles require clothing.default with at least one of "
+                    "{male, female, neutral} non-empty"
+                ),
+            )
+    elif not str(raw_default or "").strip():
         raise HTTPException(
             status_code=422,
             detail="v2 styles require a non-empty clothing.default description",

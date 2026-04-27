@@ -42,6 +42,46 @@ def _tuple(values: Any) -> tuple[str, ...]:
     return ()
 
 
+def _clothing_default_dict(raw: Any, *, legacy_str: Any = None) -> dict[str, str]:
+    """Normalise ``clothing.default`` to ``{male, female, neutral}``.
+
+    Accepts:
+
+    * a dict with any subset of ``{"male", "female", "neutral"}`` —
+      missing keys are filled from ``neutral`` (or any non-empty value)
+      so the runtime never has to second-guess fallbacks;
+    * a plain string (legacy v2 entries pre-1.27.3) — copied into all
+      three keys so behaviour is identical to before;
+    * ``None`` / empty — falls back to ``legacy_str`` (the v1
+      ``default_clothing`` field) for the same reason.
+
+    Output keys are always exactly ``{"male", "female", "neutral"}``.
+    """
+    fill: str = ""
+    bucket: dict[str, str] = {"male": "", "female": "", "neutral": ""}
+    if isinstance(raw, dict):
+        for k in ("male", "female", "neutral"):
+            v = raw.get(k)
+            if isinstance(v, str) and v.strip():
+                bucket[k] = v
+        fill = (
+            bucket["neutral"]
+            or bucket["male"]
+            or bucket["female"]
+            or str(legacy_str or "").strip()
+        )
+    elif isinstance(raw, str) and raw.strip():
+        fill = raw
+    else:
+        fill = str(legacy_str or "").strip()
+
+    if fill:
+        for k in ("male", "female", "neutral"):
+            if not bucket[k]:
+                bucket[k] = fill
+    return bucket
+
+
 def _lock_level(raw: Any, legacy_type: str) -> BackgroundLockLevel:
     """Map JSON ``background.lock`` (v2) or legacy ``type`` to an enum.
 
@@ -93,7 +133,10 @@ def _to_v2(raw: dict[str, Any]) -> StyleSpecV2 | None:
     if not isinstance(clothing_raw, dict):
         clothing_raw = {}
     clothing = ClothingSlot(
-        default=str(clothing_raw.get("default") or raw.get("default_clothing") or ""),
+        default=_clothing_default_dict(
+            clothing_raw.get("default"),
+            legacy_str=raw.get("default_clothing"),
+        ),
         allowed=_tuple(clothing_raw.get("allowed")),
         gender_neutral=bool(clothing_raw.get("gender_neutral", True)),
     )

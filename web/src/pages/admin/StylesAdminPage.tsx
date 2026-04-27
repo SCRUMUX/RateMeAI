@@ -19,7 +19,11 @@ const EMPTY_V2_TEMPLATE: AdminStyleEntry = {
   schema_version: 2,
   meta: { param: 'appeal', delta_range: [0.1, 0.3] },
   background: { base: '', lock: 'flexible', overrides_allowed: [] },
-  clothing: { default: '', allowed: [], gender_neutral: true },
+  clothing: {
+    default: { male: '', female: '', neutral: '' },
+    allowed: [],
+    gender_neutral: true,
+  },
   weather: { enabled: false, allowed: [], default_na: true },
   context_slots: { lighting: [], framing: ['portrait', 'half_body', 'full_body'] },
   quality_identity: { base: '', per_model_tail: {} },
@@ -288,7 +292,20 @@ function validateV2Draft(draft: AdminStyleEntry): V2FieldErrors {
   if (!asString(background.base).trim()) {
     errors.background_base = 'background.base обязателен для v2';
   }
-  if (!asString(clothing.default).trim()) {
+  const clothingDefault = clothing.default;
+  if (typeof clothingDefault === 'string') {
+    if (!clothingDefault.trim()) {
+      errors.clothing_default = 'clothing.default обязателен для v2';
+    }
+  } else if (clothingDefault && typeof clothingDefault === 'object') {
+    const dict = clothingDefault as Record<string, unknown>;
+    const hasAny = ['male', 'female', 'neutral'].some(
+      (k) => typeof dict[k] === 'string' && (dict[k] as string).trim() !== '',
+    );
+    if (!hasAny) {
+      errors.clothing_default = 'clothing.default: заполните хотя бы одно поле (male / female / neutral)';
+    }
+  } else {
     errors.clothing_default = 'clothing.default обязателен для v2';
   }
   if (!asString(quality.base).trim()) {
@@ -538,13 +555,66 @@ function StyleEditModal({
               </Fieldset>
 
               <Fieldset legend="clothing">
-                <Field label="default" error={fieldErrors.clothing_default}>
-                  <input
-                    value={asString(clothing.default)}
-                    onChange={(e) => updateNested('clothing', 'default', e.target.value)}
-                    className="input"
-                  />
-                </Field>
+                {(() => {
+                  const rawDefault = clothing.default;
+                  const defaultDict =
+                    typeof rawDefault === 'object' && rawDefault !== null && !Array.isArray(rawDefault)
+                      ? (rawDefault as Record<string, unknown>)
+                      : {
+                          male: typeof rawDefault === 'string' ? rawDefault : '',
+                          female: typeof rawDefault === 'string' ? rawDefault : '',
+                          neutral: typeof rawDefault === 'string' ? rawDefault : '',
+                        };
+                  const updateDefaultKey = (key: 'male' | 'female' | 'neutral', value: string) => {
+                    setDraft((prev) => {
+                      const block = asObject(prev.clothing);
+                      const prevDefault =
+                        typeof block.default === 'object' && block.default !== null && !Array.isArray(block.default)
+                          ? (block.default as Record<string, unknown>)
+                          : {};
+                      return {
+                        ...prev,
+                        clothing: {
+                          ...block,
+                          default: {
+                            male: asString(prevDefault.male),
+                            female: asString(prevDefault.female),
+                            neutral: asString(prevDefault.neutral),
+                            [key]: value,
+                          },
+                        },
+                      };
+                    });
+                  };
+                  return (
+                    <>
+                      <Field label="default.male" error={fieldErrors.clothing_default}>
+                        <input
+                          value={asString(defaultDict.male)}
+                          onChange={(e) => updateDefaultKey('male', e.target.value)}
+                          className="input"
+                          placeholder="мужской вариант, можно оставить пустым"
+                        />
+                      </Field>
+                      <Field label="default.female">
+                        <input
+                          value={asString(defaultDict.female)}
+                          onChange={(e) => updateDefaultKey('female', e.target.value)}
+                          className="input"
+                          placeholder="женский вариант, можно оставить пустым"
+                        />
+                      </Field>
+                      <Field label="default.neutral">
+                        <input
+                          value={asString(defaultDict.neutral)}
+                          onChange={(e) => updateDefaultKey('neutral', e.target.value)}
+                          className="input"
+                          placeholder="нейтральный fallback (используется, если male/female пустой)"
+                        />
+                      </Field>
+                    </>
+                  );
+                })()}
                 <Field label="allowed (csv)">
                   <input
                     value={csvFromArray(clothing.allowed)}
