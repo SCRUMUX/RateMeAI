@@ -18,6 +18,7 @@ Why an IR and not a string?
 
 from __future__ import annotations
 
+import random
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -50,6 +51,12 @@ class CompositionIR:
     # style's whitelist; surfaced in the prompt even when the user
     # doesn't touch anything else.
     framing_requested: bool = False
+    # v1.27.3 — soft-substitution log. Each entry has the shape
+    # ``{"channel": "lighting|scene|clothing|weather", "requested": str,
+    # "applied": str}``. The executor walks this list to surface a
+    # post-generation hint to the user; tests assert on it directly to
+    # avoid coupling to the prompt string.
+    substitutions: list[dict[str, str]] = field(default_factory=list)
 
     def scene_line(self) -> str:
         """Compose the single-sentence scene-and-environment description.
@@ -75,57 +82,150 @@ def _value_in_whitelist(value: str, whitelist: tuple[str, ...]) -> bool:
     return bool(value) and value in whitelist
 
 
-def _resolve_lighting(spec: StyleSpecV2, hints: dict[str, Any], strict: bool) -> str:
+def _soft_substitute(
+    *,
+    channel: str,
+    requested: str,
+    whitelist: tuple[str, ...],
+    rng: random.Random | None,
+    substitutions: list[dict[str, str]],
+) -> str:
+    """Pick a random whitelist value and record the substitution.
+
+    Returns the chosen value (always non-empty when ``whitelist`` is
+    non-empty). The caller is expected to have already verified that
+    ``requested`` is non-empty AND not in ``whitelist``.
+    """
+    if not whitelist:
+        # Free-text channel — passthrough is recorded in the caller.
+        return requested
+    chooser = rng or random
+    applied = chooser.choice(whitelist)
+    substitutions.append(
+        {
+            "channel": channel,
+            "requested": requested,
+            "applied": applied,
+        }
+    )
+    return applied
+
+
+def _resolve_lighting(
+    spec: StyleSpecV2,
+    hints: dict[str, Any],
+    *,
+    strict: bool,
+    substitutions: list[dict[str, str]],
+    rng: random.Random | None,
+) -> str:
     raw = str(hints.get("lighting") or "").strip()
     if not raw:
         return ""
     allowed = spec.context_slots.get("lighting", ())
-    if strict and not _value_in_whitelist(raw, allowed):
-        return ""
-    return raw
+    if not strict or _value_in_whitelist(raw, allowed):
+        return raw
+    return _soft_substitute(
+        channel="lighting",
+        requested=raw,
+        whitelist=allowed,
+        rng=rng,
+        substitutions=substitutions,
+    )
 
 
-def _resolve_weather(spec: StyleSpecV2, hints: dict[str, Any], strict: bool) -> str:
+def _resolve_weather(
+    spec: StyleSpecV2,
+    hints: dict[str, Any],
+    *,
+    strict: bool,
+    substitutions: list[dict[str, str]],
+    rng: random.Random | None,
+) -> str:
     raw = str(hints.get("weather") or "").strip()
     if not raw:
         return ""
     if not spec.weather.enabled:
         return ""
-    if strict and not _value_in_whitelist(raw, spec.weather.allowed):
-        return ""
-    return raw
+    if not strict or _value_in_whitelist(raw, spec.weather.allowed):
+        return raw
+    return _soft_substitute(
+        channel="weather",
+        requested=raw,
+        whitelist=spec.weather.allowed,
+        rng=rng,
+        substitutions=substitutions,
+    )
 
 
-def _resolve_scene(spec: StyleSpecV2, hints: dict[str, Any], strict: bool) -> str:
+def _resolve_scene(
+    spec: StyleSpecV2,
+    hints: dict[str, Any],
+    *,
+    strict: bool,
+    substitutions: list[dict[str, str]],
+    rng: random.Random | None,
+) -> str:
     base = spec.background.base
     override = str(hints.get("scene_override") or "").strip()
     sub_location = str(hints.get("sub_location") or "").strip()
+    background_type = str(hints.get("background_type") or "").strip()
 
     if spec.background.lock == BackgroundLockLevel.LOCKED:
         return base
-    if spec.background.lock == BackgroundLockLevel.SEMI:
-        if sub_location and (
-            not strict
-            or _value_in_whitelist(sub_location, spec.background.overrides_allowed)
-        ):
-            return f"{sub_location} in {base}" if base else sub_location
+    # The modal sends `scene_override` for both SEMI and FLEXIBLE
+    # backgrounds; backend must accept either key without dropping the
+    # user's choice. `background_type` is the catalog-API alias.
+    user_value = sub_location or override or background_type
+    if not user_value:
         return base
-    # flexible
-    if override and (
-        not strict or _value_in_whitelist(override, spec.background.overrides_allowed)
-    ):
-        return override
-    return base
+
+    allowed = spec.background.overrides_allowed
+    is_known = not strict or _value_in_whitelist(user_value, allowed)
+    if not is_known:
+        substituted = _soft_substitute(
+            channel="scene",
+            requested=user_value,
+            whitelist=allowed,
+            rng=rng,
+            substitutions=substitutions,
+        )
+        # If allowed is empty (free-text channel), substituted == user_value
+        # and we keep the user's literal text per the "no explicit
+        # validation" policy.
+        user_value = substituted
+
+    if spec.background.lock == BackgroundLockLevel.SEMI:
+        return f"{user_value} in {base}" if base else user_value
+    return user_value
 
 
-def _resolve_clothing(spec: StyleSpecV2, hints: dict[str, Any], strict: bool) -> str:
+def _resolve_clothing(
+    spec: StyleSpecV2,
+    hints: dict[str, Any],
+    *,
+    strict: bool,
+    gender: str = "neutral",
+    substitutions: list[dict[str, str]],
+    rng: random.Random | None,
+) -> str:
     override = str(hints.get("clothing_override") or "").strip()
-    default = spec.clothing.default
-    if override and (
-        not strict or _value_in_whitelist(override, spec.clothing.allowed)
-    ):
+    default = spec.clothing_for(gender)
+    if not override:
+        return default
+    if not strict or _value_in_whitelist(override, spec.clothing.allowed):
         return override
-    return default
+    if not spec.clothing.allowed:
+        # Free-text channel for styles without a curated wardrobe —
+        # trust the user's text per the "no explicit validation" policy.
+        return override
+    return _soft_substitute(
+        channel="clothing",
+        requested=override,
+        whitelist=spec.clothing.allowed,
+        rng=rng,
+        substitutions=substitutions,
+    )
 
 
 def _variation_engine_v2_enabled() -> bool:
@@ -164,6 +264,7 @@ def build_composition(
     gender: str = "male",
     strict: bool = True,
     is_document: bool = False,
+    rng: random.Random | None = None,
 ) -> CompositionIR:
     """Produce a :class:`CompositionIR` from a v2 spec plus user hints.
 
@@ -189,6 +290,7 @@ def build_composition(
             the quality tail entirely with ``DOC_PRESERVE`` / ``DOC_QUALITY``.
     """
     hints = dict(input_hints or {})
+    substitutions: list[dict[str, str]] = []
 
     # style-schema-v2 migration PR2 — opt in to VariationEngineV2 when
     # the flag is on. Produces structurally richer output (separated
@@ -197,7 +299,14 @@ def build_composition(
     if _variation_engine_v2_enabled():
         from src.prompts.variation_engine_v2 import apply_variation_v2
 
-        vr = apply_variation_v2(spec, hints, strict=strict)
+        vr = apply_variation_v2(
+            spec,
+            hints,
+            strict=strict,
+            gender=gender,
+            substitutions=substitutions,
+            rng=rng,
+        )
         scene_text = vr.scene
         if vr.time_of_day:
             scene_text = f"{scene_text}, {vr.time_of_day}" if scene_text else vr.time_of_day
@@ -218,12 +327,26 @@ def build_composition(
             per_model_tail_map=dict(spec.quality_identity.per_model_tail),
             is_document=is_document,
             framing_requested=framing_requested,
+            substitutions=substitutions,
         )
 
-    scene = _resolve_scene(spec, hints, strict=strict)
-    lighting = _resolve_lighting(spec, hints, strict=strict)
-    weather = _resolve_weather(spec, hints, strict=strict)
-    clothing = _resolve_clothing(spec, hints, strict=strict)
+    scene = _resolve_scene(
+        spec, hints, strict=strict, substitutions=substitutions, rng=rng,
+    )
+    lighting = _resolve_lighting(
+        spec, hints, strict=strict, substitutions=substitutions, rng=rng,
+    )
+    weather = _resolve_weather(
+        spec, hints, strict=strict, substitutions=substitutions, rng=rng,
+    )
+    clothing = _resolve_clothing(
+        spec,
+        hints,
+        strict=strict,
+        gender=gender,
+        substitutions=substitutions,
+        rng=rng,
+    )
     framing_line, framing_requested = _resolve_framing_line(spec, framing)
 
     return CompositionIR(
@@ -240,4 +363,5 @@ def build_composition(
         per_model_tail_map=dict(spec.quality_identity.per_model_tail),
         is_document=is_document,
         framing_requested=framing_requested,
+        substitutions=substitutions,
     )

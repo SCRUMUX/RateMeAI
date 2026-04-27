@@ -63,13 +63,39 @@ def _whitelist(spec: StyleSpecV2, channel: str) -> tuple[str, ...]:
     return tuple(raw)
 
 
-def _pick(value: str, whitelist: Sequence[str], strict: bool) -> str:
+def _pick(
+    value: str,
+    whitelist: Sequence[str],
+    *,
+    strict: bool,
+    channel: str = "",
+    substitutions: list[dict[str, str]] | None = None,
+    rng: random.Random | None = None,
+) -> str:
+    """Resolve a per-channel hint with soft substitution.
+
+    Behaviour:
+
+    * Empty / unset value → empty string.
+    * Value in whitelist (or ``strict=False``) → returned as-is.
+    * Value NOT in whitelist AND whitelist non-empty → random pick from
+      whitelist; the substitution is recorded in ``substitutions``
+      (if supplied) so the caller can surface a user-facing notice.
+    * Value NOT in whitelist AND whitelist empty → returned as-is
+      (free-text channels keep working).
+    """
     value = (value or "").strip()
     if not value:
         return ""
-    if strict and whitelist and value not in whitelist:
-        return ""
-    return value
+    if not strict or not whitelist or value in whitelist:
+        return value
+    chooser = rng or random
+    applied = chooser.choice(tuple(whitelist))
+    if substitutions is not None and channel:
+        substitutions.append(
+            {"channel": channel, "requested": value, "applied": applied}
+        )
+    return applied
 
 
 def apply_variation_v2(
@@ -77,12 +103,21 @@ def apply_variation_v2(
     user_input: dict[str, Any] | None,
     *,
     strict: bool = True,
+    gender: str = "neutral",
+    substitutions: list[dict[str, str]] | None = None,
+    rng: random.Random | None = None,
 ) -> VariationResult:
     """Build a :class:`VariationResult` from a v2 spec + user hints.
 
     Unlike the v1 engine, weather does NOT go through the lighting
     whitelist. Time-of-day and season are first-class. Clothing and
     scene overrides honour the lock level on the background slot.
+    The ``gender`` argument is forwarded to
+    :meth:`StyleSpecV2.clothing_for` so per-gender clothing entries
+    can win over the neutral default. Unrecognised whitelist values
+    are softly substituted by a random whitelist pick; each
+    substitution is appended to ``substitutions`` for the executor
+    to surface as a post-generation notice.
     """
     hints = dict(user_input or {})
 
@@ -92,6 +127,9 @@ def apply_variation_v2(
         str(hints.get("lighting") or ""),
         _whitelist(spec, "lighting"),
         strict=strict,
+        channel="lighting",
+        substitutions=substitutions,
+        rng=rng,
     )
 
     # Weather — honours the dedicated weather policy. Empty allowed
@@ -100,43 +138,87 @@ def apply_variation_v2(
     weather = ""
     if spec.weather.enabled:
         allowed = spec.weather.allowed or _DEFAULT_WEATHER
-        weather = _pick(str(hints.get("weather") or ""), allowed, strict=strict)
+        weather = _pick(
+            str(hints.get("weather") or ""),
+            allowed,
+            strict=strict,
+            channel="weather",
+            substitutions=substitutions,
+            rng=rng,
+        )
 
     # Time-of-day — defaults are permissive because every style has
     # some notion of "morning vs evening"; authors can narrow it.
     tod_allowed = _whitelist(spec, "time_of_day") or _DEFAULT_TIME_OF_DAY
     time_of_day = _pick(
-        str(hints.get("time_of_day") or ""), tod_allowed, strict=strict
+        str(hints.get("time_of_day") or ""),
+        tod_allowed,
+        strict=strict,
+        channel="time_of_day",
+        substitutions=substitutions,
+        rng=rng,
     )
 
     # Season — explicit opt-in. If the style doesn't declare a season
     # slot we keep it empty to avoid "winter at golden hour in Bahamas".
     season_allowed = _whitelist(spec, "season")
-    season = _pick(
-        str(hints.get("season") or ""),
-        season_allowed,
-        strict=strict,
-    ) if season_allowed else ""
+    season = (
+        _pick(
+            str(hints.get("season") or ""),
+            season_allowed,
+            strict=strict,
+            channel="season",
+            substitutions=substitutions,
+            rng=rng,
+        )
+        if season_allowed
+        else ""
+    )
 
-    # Scene override — respects the background lock level.
+    # Scene override — respects the background lock level. Accept the
+    # alias trio (sub_location / scene_override / background_type) so
+    # the modal can use the same `scene_override` field for both SEMI
+    # and FLEXIBLE styles without the backend silently dropping it.
     from src.prompts.style_schema_v2 import BackgroundLockLevel
 
     scene = spec.background.base
-    override = str(hints.get("scene_override") or "").strip()
-    sub_location = str(hints.get("sub_location") or hints.get("background_type") or "").strip()
-    if spec.background.lock == BackgroundLockLevel.SEMI and sub_location:
-        if not strict or sub_location in spec.background.overrides_allowed:
-            scene = f"{sub_location} in {scene}" if scene else sub_location
-    elif spec.background.lock == BackgroundLockLevel.FLEXIBLE and override:
-        if not strict or override in spec.background.overrides_allowed:
-            scene = override
+    raw_user_value = (
+        str(hints.get("sub_location") or "").strip()
+        or str(hints.get("scene_override") or "").strip()
+        or str(hints.get("background_type") or "").strip()
+    )
+    if raw_user_value and spec.background.lock != BackgroundLockLevel.LOCKED:
+        user_value = _pick(
+            raw_user_value,
+            spec.background.overrides_allowed,
+            strict=strict,
+            channel="scene",
+            substitutions=substitutions,
+            rng=rng,
+        )
+        if spec.background.lock == BackgroundLockLevel.SEMI:
+            scene = f"{user_value} in {scene}" if scene else user_value
+        else:  # FLEXIBLE
+            scene = user_value
 
-    # Clothing — whitelist is consulted in strict mode.
-    clothing = spec.clothing.default
+    # Clothing — whitelist is consulted in strict mode. Default
+    # phrasing is gender-aware: ``clothing_for(gender)`` falls back to
+    # ``neutral`` (and then to any non-empty value) when the style
+    # didn't author a per-gender variant.
+    clothing = spec.clothing_for(gender)
     clothing_override = str(hints.get("clothing_override") or "").strip()
     if clothing_override:
-        if not strict or clothing_override in spec.clothing.allowed:
+        if not strict or not spec.clothing.allowed or clothing_override in spec.clothing.allowed:
             clothing = clothing_override
+        else:
+            clothing = _pick(
+                clothing_override,
+                spec.clothing.allowed,
+                strict=strict,
+                channel="clothing",
+                substitutions=substitutions,
+                rng=rng,
+            )
 
     return VariationResult(
         scene=scene,

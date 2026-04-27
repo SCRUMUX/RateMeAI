@@ -247,6 +247,24 @@ export default function StyleSettingsModal({ open, onClose, styleId, onApply }: 
                       {CATEGORY_LABELS_RU.framing}
                     </span>
                     <div className="flex flex-wrap gap-[var(--space-4)]">
+                      {(() => {
+                        const inactiveDefault = (hints.framing ?? '') === '';
+                        return (
+                          <button
+                            key="__default__"
+                            type="button"
+                            onClick={() => setHints((h) => ({ ...h, framing: '' }))}
+                            className={`px-[var(--space-12)] py-[var(--space-4)] rounded-[var(--radius-pill)] text-[12px] leading-[16px] font-medium transition-all ${
+                              inactiveDefault
+                                ? 'glass-btn-primary text-white'
+                                : 'glass-btn-ghost text-[var(--color-text-secondary)]'
+                            }`}
+                            title="Использовать ракурс из шага «Выберите стиль»"
+                          >
+                            По умолчанию
+                          </button>
+                        );
+                      })()}
                       {options!.framing!.map((opt) => {
                         const active = (hints.framing ?? '') === opt;
                         return (

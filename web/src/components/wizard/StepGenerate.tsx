@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { CoinIcon } from '@ai-ds/core/icons';
 import { normalizePostPaymentPath } from '../../scenarios/config';
-import { createPayment, handleCreatePaymentError } from '../../lib/api';
+import { createPayment, handleCreatePaymentError, readGenerationWarnings } from '../../lib/api';
 import { rememberFlowReturnPath, rememberFlowStep } from '../../lib/flow-resume';
 import { savePhotoBeforePayment } from '../../lib/photo-persist';
 import { PERCEPTION_FACTS, getRandomFact } from '../../data/ai-facts';
@@ -65,6 +65,8 @@ export default function StepGenerate({ onGoToStep, onOpenStorage }: Props) {
       : (genAfterScore != null && beforeScore == null)
         ? genAfterScore
         : predictedAfterScore;
+
+  const generationWarnings = readGenerationWarnings(app.currentTask?.result ?? null);
 
   const [viewTab, setViewTab] = useState<'result' | 'original'>('result');
   const [streamedFact, setStreamedFact] = useState('');
@@ -321,6 +323,24 @@ export default function StepGenerate({ onGoToStep, onOpenStorage }: Props) {
             <span className="text-[var(--color-text-muted)]">Стиль:</span>
             <span className="font-medium">«{selectedStyle.name}»</span>
           </button>
+        </div>
+      )}
+
+      {/* v1.27.3 — soft-substitution notice. Shown when one or more
+          unrecognised user inputs were replaced by the closest
+          whitelist value during prompt assembly. */}
+      {hasGenResult && generationWarnings.length > 0 && (
+        <div className="shrink-0 max-w-[640px] mx-auto w-full px-[var(--space-16)]">
+          <div className="glass-card border border-amber-300/30 bg-amber-500/10 rounded-[var(--radius-md)] px-[var(--space-12)] py-[var(--space-8)]">
+            <p className="text-[12px] leading-[16px] font-medium text-amber-200 mb-[var(--space-4)]">
+              Параметры генерации скорректированы
+            </p>
+            <ul className="text-[12px] leading-[16px] text-[#E6EEF8] list-disc pl-[var(--space-16)] space-y-[2px]">
+              {generationWarnings.map((msg, idx) => (
+                <li key={idx}>{msg}</li>
+              ))}
+            </ul>
+          </div>
         </div>
       )}
 

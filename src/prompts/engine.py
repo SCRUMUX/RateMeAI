@@ -94,6 +94,7 @@ class PromptEngine:
         variant_id: str = "",
         target_model: str = "gpt_image_2",
         framing: str | None = None,
+        out_substitutions: list[dict[str, str]] | None = None,
     ) -> str | None:
         """v2 prompt path — :class:`StyleSpecV2` + composition + wrapper.
 
@@ -103,6 +104,12 @@ class PromptEngine:
         path. When the spec IS v2 (and the caller has already
         checked the ``unified_prompt_v2_enabled`` flag) the returned
         string is the final prompt for ``target_model``.
+
+        ``out_substitutions``: optional output list. When supplied, the
+        IR's :attr:`CompositionIR.substitutions` are extended into it
+        so the executor can surface a post-generation hint to the user
+        without needing to expose the IR. Untouched on the v1 fallback
+        path (caller-provided list stays empty).
 
         Emoji intentionally stays on the legacy path; its builder has
         a different signature and does not benefit from the slot-based
@@ -153,6 +160,8 @@ class PromptEngine:
             strict=(not variant_id),
             is_document=is_doc,
         )
+        if out_substitutions is not None and ir.substitutions:
+            out_substitutions.extend(ir.substitutions)
         return wrap_for_model(ir, target_model)
 
     def build_step_prompt(

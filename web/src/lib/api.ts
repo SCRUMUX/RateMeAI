@@ -190,6 +190,23 @@ export function analyze(
 
 // -- Task --
 
+// v1.27.3: shape we actually rely on in the result body. The field is
+// still typed as the loose ``Record<string, unknown>`` below for
+// historic compatibility, but consumers can use
+// ``readGenerationWarnings`` to extract the post-generation notices.
+export interface TaskResultBody extends Record<string, unknown> {
+  generation_warnings?: string[];
+}
+
+export function readGenerationWarnings(
+  result: Record<string, unknown> | null | undefined,
+): string[] {
+  if (!result) return [];
+  const raw = (result as TaskResultBody).generation_warnings;
+  if (!Array.isArray(raw)) return [];
+  return raw.filter((s): s is string => typeof s === 'string' && s.length > 0);
+}
+
 export interface TaskResponse {
   task_id: string;
   status: 'pending' | 'processing' | 'completed' | 'failed';

@@ -58,6 +58,32 @@ def _document_target_aspect(style: str) -> str | None:
     return _CV_DOCUMENT_ASPECT.get((style or "").strip())
 
 
+# v1.27.3 — RU labels for soft-substitution channels. Used when we
+# convert a CompositionIR.substitutions entry into a user-facing notice
+# on the result screen.
+_SUBSTITUTION_CHANNEL_RU: dict[str, str] = {
+    "lighting": "Освещение",
+    "weather": "Погода",
+    "scene": "Сцена",
+    "clothing": "Одежда",
+    "time_of_day": "Время суток",
+    "season": "Сезон",
+}
+
+
+def _format_substitution_notice_ru(sub: dict[str, str]) -> str:
+    """Compose the RU notice text for a single substitution record."""
+    label = _SUBSTITUTION_CHANNEL_RU.get(
+        str(sub.get("channel") or ""), str(sub.get("channel") or "")
+    )
+    requested = str(sub.get("requested") or "")
+    applied = str(sub.get("applied") or "")
+    return (
+        f"Параметр «{label}: {requested}» не распознан, "
+        f"использован близкий вариант: «{applied}»."
+    )
+
+
 # Face-area threshold above which we locally LANCZOS-upscale the
 # generated image x2 (bigger faces benefit from extra detail; smaller
 # faces just amplify upscaling artefacts).
@@ -473,7 +499,18 @@ class ImageGenerationExecutor:
         # ответ, так что старое чтение result_dict.get("framing") всегда
         # было пустым и frame-selector на UI ничего не менял. Нормализуем
         # значение один раз, дальше его подсасывает PromptEngine.
-        framing_norm = str(framing or "").strip().lower()
+        # v1.27.3: «Другой вариант» — framing из модалки перебивает
+        # framing шага «Выберите стиль». Если модалка явно прислала
+        # framing в input_hints, он побеждает; пустое поле модалки
+        # = унаследовать значение основного шага.
+        modal_framing = ""
+        if user_input_hints:
+            modal_framing = str(user_input_hints.get("framing") or "").strip().lower()
+        framing_norm = (
+            modal_framing
+            if modal_framing in ("portrait", "half_body", "full_body")
+            else str(framing or "").strip().lower()
+        )
         if framing_norm not in ("portrait", "half_body", "full_body"):
             framing_norm = None
 
@@ -497,6 +534,7 @@ class ImageGenerationExecutor:
             # other case ``build_image_prompt_v2`` returns None and we
             # fall through to the v1 path bit-for-bit unchanged.
             prompt = None
+            v2_substitutions: list[dict[str, str]] = []
             if getattr(settings, "unified_prompt_v2_enabled", False):
                 prompt = self._prompt_engine.build_image_prompt_v2(
                     mode,
@@ -507,6 +545,7 @@ class ImageGenerationExecutor:
                     variant_id=variant_id,
                     target_model=ab_image_model,
                     framing=framing_norm,
+                    out_substitutions=v2_substitutions,
                 )
 
             if prompt is None:
@@ -520,6 +559,18 @@ class ImageGenerationExecutor:
                     target_model=ab_image_model,
                     framing=framing_norm,
                 )
+
+            # v1.27.3 — surface soft-substitutions as a post-generation
+            # notice. When the user typed a value the style didn't
+            # recognise (e.g. "Эверест" in scene_override on Times Square),
+            # composition_builder picks a random whitelist value AND
+            # records it here; we translate the record into RU and
+            # append to result_dict.generation_warnings so the web
+            # client can show a small notice on the result screen.
+            if v2_substitutions:
+                bucket = result_dict.setdefault("generation_warnings", [])
+                for sub in v2_substitutions:
+                    bucket.append(_format_substitution_notice_ru(sub))
 
             if variant_id:
                 result_dict["variant_id"] = variant_id
