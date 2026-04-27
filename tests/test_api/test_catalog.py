@@ -172,7 +172,11 @@ def test_options_v2_unit_for_migrated_entry(tmp_path, monkeypatch):
         "allowed": [],
         "default_na": True,
     }
-    assert payload["clothing"]["default"] == "athletic training outfit"
+    assert payload["clothing"]["default"] == {
+        "male": "athletic training outfit",
+        "female": "athletic training outfit",
+        "neutral": "athletic training outfit",
+    }
     assert payload["clothing"]["allowed"] == ["tank_top", "hoodie"]
     assert payload["background"]["lock"] == "flexible"
     assert payload["background"]["overrides_allowed"] == ["rooftop_gym", "beach_gym"]

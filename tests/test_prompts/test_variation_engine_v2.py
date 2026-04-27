@@ -90,10 +90,18 @@ def test_weather_rejected_when_disabled():
     assert result.weather == ""
 
 
-def test_weather_rejected_when_not_in_allowed_strict():
+def test_weather_substituted_when_not_in_allowed_strict():
+    """v1.27.3: strict-mode unrecognised values are softly substituted
+    with a random whitelist pick instead of being silently dropped."""
     spec = _make_spec(weather_allowed=("clear",))
-    result = apply_variation_v2(spec, {"weather": "heatwave"}, strict=True)
-    assert result.weather == ""
+    subs: list[dict[str, str]] = []
+    result = apply_variation_v2(
+        spec, {"weather": "heatwave"}, strict=True, substitutions=subs
+    )
+    assert result.weather == "clear"
+    assert subs and subs[0]["channel"] == "weather"
+    assert subs[0]["requested"] == "heatwave"
+    assert subs[0]["applied"] == "clear"
 
 
 def test_weather_allowed_bypassed_in_non_strict_mode():

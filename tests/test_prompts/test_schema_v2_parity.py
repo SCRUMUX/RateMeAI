@@ -323,7 +323,13 @@ def test_style_loader_v2_round_trip(monkeypatch):
     assert spec is not None
     assert spec.weather.enabled is True
     assert "clear" in spec.weather.allowed
-    assert spec.clothing.default == "crew-neck tee and chinos"
+    assert spec.clothing.default == {
+        "male": "crew-neck tee and chinos",
+        "female": "crew-neck tee and chinos",
+        "neutral": "crew-neck tee and chinos",
+    }
+    assert spec.clothing_for("male") == "crew-neck tee and chinos"
+    assert spec.clothing_for("female") == "crew-neck tee and chinos"
     assert spec.background.lock == BackgroundLockLevel.FLEXIBLE
     assert spec.quality_identity.per_model_tail["gpt_image_2"] == "GPT-specific."
 
