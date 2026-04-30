@@ -287,6 +287,16 @@ class AnalysisPipeline:
             user_hints = (context or {}).get("input_hints")
             if not isinstance(user_hints, dict):
                 user_hints = None
+            # v3 prompt-pipeline-overhaul (Stage 3, 2026-05): the
+            # frontend may pin a seed via "Другой вариант" so the slot
+            # sampler reproducibly re-rolls until it finds a fresh
+            # combination. None means "fresh non-deterministic roll".
+            raw_seed = (context or {}).get("seed")
+            seed: int | None
+            try:
+                seed = int(raw_seed) if raw_seed is not None and raw_seed != "" else None
+            except (TypeError, ValueError):
+                seed = None
 
             with _trace_step(trace, "generate_image"):
                 await self._executor.single_pass(
@@ -304,6 +314,7 @@ class AnalysisPipeline:
                     ab_image_quality=ab_image_quality,
                     framing=framing,
                     user_input_hints=user_hints,
+                    seed=seed,
                 )
 
             if result_dict.get("generated_image_url") and mode in (

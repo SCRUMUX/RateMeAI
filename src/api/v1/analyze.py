@@ -356,6 +356,7 @@ async def create_analysis(
     image_quality: str = Form(""),
     framing: str = Form(""),
     input_hints: str = Form(""),
+    seed: str = Form(""),
     user: User = Depends(check_credits_with_consent),
     db: AsyncSession = Depends(get_db),
     redis: Redis = Depends(get_redis),
@@ -407,6 +408,15 @@ async def create_analysis(
             ctx["input_hints"] = json.loads(input_hints.strip())
         except json.JSONDecodeError:
             logger.warning("Failed to parse input_hints JSON: %s", input_hints)
+    # v3 prompt-pipeline-overhaul (Stage 3): the frontend may forward an
+    # explicit seed so "Другой вариант" reliably re-rolls the slot
+    # sampler. We accept any int-parsable string; non-numeric values
+    # are silently ignored so a stale browser cannot crash the queue.
+    if seed.strip():
+        try:
+            ctx["seed"] = int(seed.strip())
+        except ValueError:
+            logger.warning("Failed to parse seed as int: %s", seed)
     if getattr(user, "_credit_reserved", False):
         ctx["credit_pre_reserved"] = True
     if mode in (AnalysisMode.DATING, AnalysisMode.CV, AnalysisMode.SOCIAL):

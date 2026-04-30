@@ -23,6 +23,46 @@ _storage_dir = Path(settings.storage_local_path).resolve()
 
 _STORAGE_PATH_RE = re.compile(r"/storage/.+")
 
+# prompt-pipeline-overhaul (May 2026): keys we expose from
+# ``Task.result["resolved_slots"]`` to the FE history payload.
+# Anything outside this whitelist (e.g. ``random_picks`` or
+# ``substitutions``) stays server-side because it's analyst-grade
+# data the gallery doesn't render. We also bound each value to a
+# reasonable length so a malformed write cannot bloat the response.
+_RESOLVED_SLOT_FE_KEYS: tuple[str, ...] = (
+    "trigger",
+    "lighting",
+    "weather",
+    "time_of_day",
+    "season",
+    "clothing",
+)
+_RESOLVED_SLOT_MAX_LEN = 240
+
+
+def _project_resolved_slots(raw: object) -> dict | None:
+    """Return a JSON-friendly slot map for the FE, or ``None``.
+
+    Tolerates absence (pre-v3 generations don't have the field) and
+    malformed values (drops non-string entries silently). Returning
+    ``None`` instead of ``{}`` matches the FE branch logic that
+    decides whether to render the badge strip at all.
+    """
+    if not isinstance(raw, dict) or not raw:
+        return None
+    out: dict[str, str] = {}
+    for key in _RESOLVED_SLOT_FE_KEYS:
+        val = raw.get(key)
+        if not isinstance(val, str):
+            continue
+        text = val.strip()
+        if not text:
+            continue
+        if len(text) > _RESOLVED_SLOT_MAX_LEN:
+            text = text[: _RESOLVED_SLOT_MAX_LEN].rstrip() + "…"
+        out[key] = text
+    return out or None
+
 
 def _normalize_storage_url(url: str) -> str:
     """Rewrite any storage URL to use current api_base_url.
@@ -198,6 +238,7 @@ async def list_tasks(
                 score_after=float(score_after) if score_after is not None else None,
                 perception_scores=ps if isinstance(ps, dict) else None,
                 purged=bool(r.get("_purged_at")),
+                resolved_slots=_project_resolved_slots(r.get("resolved_slots")),
             )
         )
 

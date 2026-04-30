@@ -78,10 +78,16 @@ interface AppActions {
   setFraming: (f: string) => void;
   uploadPhoto: (f: File) => void;
   runPreAnalyze: () => Promise<void>;
-  generate: (onTaskCreated?: () => void, styleKeyOverride?: string, inputHints?: Record<string, any>) => Promise<void>;
+  generate: (
+    onTaskCreated?: () => void,
+    styleKeyOverride?: string,
+    inputHints?: Record<string, any>,
+    seed?: number,
+  ) => Promise<void>;
   share: () => Promise<api.ShareResponse | null>;
   refreshBalance: () => Promise<void>;
   clearError: () => void;
+  setError: (msg: string) => void;
   clearGeneratedImage: () => void;
   clearNoCreditsError: () => void;
   resetGeneration: () => void;
@@ -878,7 +884,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
     };
   }, [isGenerating, canAccessApp, fetchTaskHistory, refreshBalance]);
 
-  const generate = useCallback(async (onTaskCreated?: () => void, styleKeyOverride?: string, inputHints?: Record<string, any>) => {
+  const generate = useCallback(async (
+    onTaskCreated?: () => void,
+    styleKeyOverride?: string,
+    inputHints?: Record<string, any>,
+    seed?: number,
+  ) => {
     const effectiveStyle = styleKeyOverride || selectedStyleKey;
     if (!photo || !effectiveStyle || isGenerating) return;
     setIsGenerating(true);
@@ -904,6 +915,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
           imageQuality,
           framing,
           inputHints,
+          seed,
         },
       );
       setCurrentTask({ taskId: res.task_id, status: res.status, result: null });
@@ -1012,7 +1024,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     imageModel, imageQuality, framing,
     syncScenarioFromRoute,
     setActiveCategory, setSelectedStyleKey, uploadPhoto, runPreAnalyze,
-    generate, share, refreshBalance, clearError, clearGeneratedImage, clearNoCreditsError,
+    generate, share, refreshBalance, clearError, setError, clearGeneratedImage, clearNoCreditsError,
     resetGeneration, fetchTaskHistory,
     loginWithOAuth, loginWithToken, logout, refreshIdentities,
     fetchConsents, grantConsents, revokeConsents,

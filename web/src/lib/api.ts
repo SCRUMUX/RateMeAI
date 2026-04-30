@@ -164,6 +164,14 @@ export interface AnalyzeOptions {
   imageQuality?: AbImageQuality;
   framing?: string;
   inputHints?: Record<string, any>;
+  /**
+   * Stage 3 of the prompt-pipeline-overhaul (2026-05) — optional seed
+   * for the v3 slot sampler. ``undefined`` means "fresh roll"; the UI
+   * supplies a freshly randomised int when the user clicks
+   * «Другой вариант» so the same `(style, hints, seed)` triple does
+   * not get rolled again on a regen.
+   */
+  seed?: number;
 }
 
 export function analyze(
@@ -183,6 +191,9 @@ export function analyze(
   if (options.entryMode) fd.append('entry_mode', options.entryMode);
   if (options.framing) fd.append('framing', options.framing);
   if (options.inputHints) fd.append('input_hints', JSON.stringify(options.inputHints));
+  if (options.seed != null && Number.isFinite(options.seed)) {
+    fd.append('seed', String(Math.trunc(options.seed)));
+  }
   fd.append('image_model', options.imageModel ?? 'gpt_image_2');
   fd.append('image_quality', options.imageQuality ?? 'low');
   return request<TaskCreated>('/api/v1/analyze', { method: 'POST', body: fd });
@@ -224,6 +235,23 @@ export function getTask(taskId: string) {
 
 // -- Task History (Storage) --
 
+/**
+ * prompt-pipeline-overhaul (May 2026): the v3 slot sampler rolls
+ * trigger / lighting / weather / time_of_day / season / clothing per
+ * generation. The backend whitelists these keys before exposing
+ * them, so missing-or-unrecognised channels simply do not appear in
+ * the record. Treat ``undefined`` as "channel was not rolled" (e.g.
+ * a v1/v2 generation in pre-overhaul history).
+ */
+export type ResolvedSlots = Partial<{
+  trigger: string;
+  lighting: string;
+  weather: string;
+  time_of_day: string;
+  season: string;
+  clothing: string;
+}>;
+
 export interface TaskHistoryItem {
   task_id: string;
   mode: string;
@@ -235,6 +263,8 @@ export interface TaskHistoryItem {
   score_after: number | null;
   perception_scores: Record<string, number> | null;
   purged?: boolean;
+  /** Absent for pre-v3 history rows. */
+  resolved_slots?: ResolvedSlots | null;
 }
 
 export interface TaskHistoryResponse {
@@ -325,6 +355,38 @@ export interface StyleOptionsV2Payload {
   background: { base: string; lock: 'unlocked' | 'soft' | 'locked'; overrides_allowed: string[] };
 }
 
+// v3 slot payload (prompt-pipeline-overhaul, 2026-05) returned by
+// /api/v1/catalog/styles/{id}/options?schema=v3. Mirrors
+// src/services/style_catalog._v3_slots_from_raw().
+//
+// Diff vs v2:
+// - ``trigger`` (string) → ``trigger_pool`` (list of equivalent
+//   formulations). The slot sampler picks one per generation; the user
+//   cannot disable the channel — it is the immutable headline motif.
+// - ``context_slots`` (lighting / framing / time / season) flattened
+//   into ``ambient`` (lighting / weather / time_of_day / season).
+//   ``framing`` lives at the top level because it is structural.
+// - ``background`` (base + overrides_allowed) collapsed into
+//   ``scene_anchor`` (the dry, light/weather-free baseline) plus
+//   ``scene_overrides`` (alternative anchors the user may pin).
+
+export interface StyleOptionsV3Payload {
+  schema_version: 3;
+  trigger_pool: string[];
+  scene_anchor: string;
+  scene_overrides: string[];
+  background_lock: 'unlocked' | 'semi' | 'locked';
+  ambient: {
+    lighting: string[];
+    weather: string[];
+    time_of_day: string[];
+    season: string[];
+  };
+  clothing: { default: string; allowed: string[]; gender_neutral: boolean };
+  framing: string[];
+  expression: string;
+}
+
 export interface StyleOptionsV1Payload {
   schema_version: 1;
   // Legacy allowed_variations dict (lighting / scene / clothing / framing).
@@ -333,12 +395,16 @@ export interface StyleOptionsV1Payload {
 
 export interface StyleOptionsResponse {
   style_id: string;
-  schema_version: 1 | 2;
-  options: StyleOptionsV2Payload | Record<string, string[]>;
+  schema_version: 1 | 2 | 3;
+  options: StyleOptionsV3Payload | StyleOptionsV2Payload | Record<string, string[]>;
 }
 
+// Stage 3 of the prompt-pipeline-overhaul (2026-05): the modal asks
+// for v3 first; the catalog endpoint downgrades to v2/v1 transparently
+// when a style hasn't been migrated yet (impossible right now — every
+// row is v3 — but kept for forward compatibility with admin imports).
 export function getStyleOptions(styleId: string) {
-  return request<StyleOptionsResponse>(`/api/v1/catalog/styles/${styleId}/options?schema=v2`);
+  return request<StyleOptionsResponse>(`/api/v1/catalog/styles/${styleId}/options?schema=v3`);
 }
 
 // -- SSE Ticket --

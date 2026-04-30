@@ -1971,4 +1971,188 @@
 #          warnings — append-only, (c) substitutions — поле
 #          IR с default ``[]``. ``git revert`` четырёх коммитов
 #          возвращает v1.27.2 поведение полностью.
-APP_VERSION = "1.27.3"
+# 1.28.0 — Prompt-pipeline-overhaul (May 2026). Five-stage rebuild
+#          of the style → prompt path that fixes three production
+#          defects in one go: (a) silent failure of "Improve from
+#          storage" on purged generations, (b) "У зеркала" style
+#          producing prompts without the word "mirror", and (c)
+#          ten different users getting identical first generations
+#          because the v2 variation engine only randomised when the
+#          user pinned a hint.
+#
+#          Stage 0 — Hot UX fixes (additive, no schema change).
+#            * ``web/src/pages/AppPage.tsx::handleImproveFromStorage``
+#              now distinguishes 404 / non-image / network failures
+#              and surfaces a concrete RU message via
+#              ``app.setError`` instead of swallowing in ``catch``.
+#            * ``web/src/lib/sanitize.ts::humanizeApiError`` parses
+#              the structured ``detail.message`` / ``detail.suggestion``
+#              from /pre-analyze before falling back to the generic
+#              cleanup, so INVALID_IMAGE / NO_FACE / FACE_TOO_SMALL
+#              all show the actual reason.
+#            * ``web/src/components/StorageModal.tsx`` disables
+#              «Улучшить» / «Скачать» on purged items with a tooltip.
+#            * ``src/prompts/composition_builder.py``: new
+#              ``_with_suffix`` helper kills the "warm light lighting"
+#              stutter, and ``_ensure_trigger_in_scene`` appends
+#              ``spec.trigger`` if it's missing from the resolved
+#              scene — immediate fix for the ten Category-D styles
+#              flagged by ``audit_report.md``.
+#            * ``web/src/context/AppContext.tsx`` exposes
+#              ``setError`` to consumers (was internal).
+#
+#          Stage 1 — StyleSpec v3 + SlotSampler (additive, gated by
+#          ``style_schema_v3_enabled``, default OFF in code; flipped
+#          via Railway env var post-deploy for safe rollback).
+#            * New ``src/prompts/style_schema_v3.py`` —
+#              ``StyleSpecV3`` with ``trigger_pool: tuple[str, ...]``
+#              (≥1 entry, immutable headline motif), ``scene_anchor``
+#              (lighting/weather-free baseline), ``AmbientPools``
+#              (lighting / weather / time_of_day / season / materials
+#              / framing_hint), and ``ResolvedSlots`` for what the
+#              sampler actually rolled.
+#            * New ``src/prompts/slot_sampler.py`` —
+#              ``sample(spec, hints, *, seed) -> ResolvedSlots``.
+#              Picks trigger from the pool every generation; rolls
+#              each ambient channel from its pool when the user did
+#              not pin a hint (this is the diversity fix); soft-
+#              substitutes out-of-pool user values and records the
+#              substitution for the executor warnings bucket.
+#            * ``StyleRegistry`` extended with ``_v3_by_key`` map
+#              and ``register_v3`` / ``get_v3`` / ``has_v3``
+#              helpers.
+#            * New ``src/services/style_loader_v3.py`` — reads only
+#              ``schema_version: 3`` rows; rejects empty
+#              ``trigger_pool``; materialises legacy ``trigger``
+#              into a one-element pool when curated formulations
+#              are missing.
+#            * ``src/prompts/composition_builder.py::build_composition_v3``
+#              consumes ``StyleSpecV3``, runs the sampler, builds
+#              ``CompositionIR`` and asserts the trigger is in
+#              ``scene_line`` (defence in depth).
+#            * ``src/prompts/engine.py::build_image_prompt_v2`` accepts
+#              ``seed`` and ``out_resolved_slots``; prefers v3 spec
+#              when registered + flag on, falls back to v2 path
+#              otherwise.
+#            * Tests: ``test_slot_sampler.py`` (determinism, pool
+#              membership, override precedence, soft substitution),
+#              ``test_v3_composition.py`` (engine wiring, fallback),
+#              ``test_style_loader_v3.py`` (loader gating).
+#
+#          Stage 2 — Migration script + curation. Every v2 row in
+#          ``data/styles.json`` rewritten to ``schema_version: 3``
+#          while preserving every v2 field for backward-compat.
+#            * ``scripts/migrations/2026_05_styles_v3/migrate.py``
+#              auto-derives ``scene_anchor`` (strips lighting via
+#              ``_INLINE_LIGHTING_PATTERNS``), ``trigger_pool``
+#              (defaults to ``[scene_anchor]``), ``ambient`` pools
+#              (from ``context_slots`` / weather / heuristic
+#              ``_TIME_OF_DAY_HINTS``).
+#            * ``scripts/migrations/2026_05_styles_v3/curated.json``
+#              hand-written rich pools for 15 headline styles
+#              (mirror_aesthetic, paris_eiffel, dubai_burj_khalifa,
+#              nyc_times_square, etc.) — 3-6 trigger formulations
+#              each, expanded ambient and scene_overrides.
+#            * Loaders made permissive: ``style_loader_v2._to_v2``
+#              and ``style_catalog._v2_slots_from_raw`` accept both
+#              ``schema_version: 2`` and ``: 3`` rows, so the v2
+#              code path keeps producing a valid view from the
+#              migrated catalog (no flag-day for unmigrated callers).
+#            * New ``src/services/style_catalog._v3_slots_from_raw``
+#              + ``get_style_options_v3``; ``/api/v1/catalog/styles/
+#              {id}/options?schema=v3`` returns the full v3 payload
+#              (trigger_pool, scene_anchor, scene_overrides,
+#              ambient.*, clothing, framing); endpoint downgrades
+#              gracefully to v2 / v1 if the row isn't v3.
+#            * Tests: ``test_styles_v3_data.py`` pins schema-level
+#              invariants (every row has trigger_pool ≥1, scene
+#              _anchor non-empty, ambient block well-shaped, ≥3
+#              triggers for curated styles); regression budget
+#              ``MAX_DIRTY_SCENE_ANCHORS=45`` for residual
+#              lighting/time tokens left by mixed phrases.
+#
+#          Stage 3 — UI per-slot control + seed reroll.
+#            * ``src/api/v1/analyze.py`` accepts optional ``seed``
+#              form field; ``src/orchestrator/pipeline.py`` reads
+#              ``ctx['seed']`` and threads it to the executor; the
+#              executor passes ``seed`` + a fresh ``out_resolved
+#              _slots`` dict into ``build_image_prompt_v2`` and
+#              copies the populated dict into
+#              ``result_dict['resolved_slots']``.
+#            * ``web/src/components/wizard/StyleSettingsModal.tsx``
+#              rewritten for v3: read-only «Триггер» badge with
+#              «Всегда в кадре. Изменить нельзя.» tooltip;
+#              «Авто (рандом)» option for lighting / weather /
+#              time_of_day / season pill groups; scene + clothing
+#              free-text overrides with quick-pick chips. Channels
+#              with empty pools are hidden so the modal never shows
+#              a dead control. v2 / v1 payloads project onto the
+#              same StyleOptions shape (downgrade-safe).
+#            * ``web/src/components/wizard/StepGenerate.tsx``: the
+#              «Другой вариант» button now triggers
+#              ``handleReroll`` — generates a fresh 32-bit seed
+#              client-side, keeps the user's last hints, and
+#              resubmits. Separate «Настройки» button opens the
+#              modal. ``ResolvedSlotsBadges`` (stacked variant)
+#              renders «Что выбрано в этой генерации» under the
+#              live image.
+#            * ``web/src/lib/api.ts`` exposes ``ResolvedSlots``
+#              type; ``analyze`` accepts ``seed?: number``;
+#              ``getStyleOptions`` switched to ``?schema=v3``.
+#            * ``AppContext.generate`` accepts ``seed`` parameter.
+#            * Tests: ``test_executor_seed_and_resolved_slots.py``
+#              pins the executor → engine → result_dict thread.
+#
+#          Stage 4 — Legacy cleanup + docs.
+#            * ``src/prompts/variation_engine_v2.py`` marked
+#              ``.. deprecated::`` (kept on disk for rollback).
+#            * ``audit_report.md`` updated: every category gets a
+#              «Resolution» column pointing at the new tests.
+#            * New ``docs/prompt-pipeline-v3.md`` — author guide,
+#              pipeline topology (Mermaid), how-to-add-a-style,
+#              backwards-compat rules, per-channel UX contract.
+#            * New ``test_v3_motif_in_prompt.py`` exercises ALL
+#              126 styles × 5 seeds (630 generations) and asserts
+#              the trigger lands in every prompt; uses the same
+#              ``compress_prompt`` as production so filler-word
+#              stripping doesn't false-positive.
+#
+#          Follow-up A1 — ``resolved_slots`` in history payload.
+#            * ``src/models/schemas.py::TaskHistoryItem`` gets
+#              ``resolved_slots: dict | None``; ``src/api/v1/
+#              tasks.py`` projects ``Task.result['resolved_slots']``
+#              through a whitelist (trigger / lighting / weather /
+#              time_of_day / season / clothing) with a 240-char
+#              cap, dropping analyst-grade fields like
+#              ``random_picks`` / ``substitutions``.
+#            * ``web/src/components/ResolvedSlotsBadges.tsx``
+#              shared between ``StepGenerate`` (stacked variant)
+#              and ``StorageModal`` (inline variant — dense
+#              chips + overflow counter + tooltip).
+#            * ``web/src/lib/api.ts``: new ``ResolvedSlots`` type
+#              and optional ``resolved_slots`` field on
+#              ``TaskHistoryItem``.
+#            * Tests: ``test_tasks_resolved_slots.py`` (8 unit
+#              tests on the projection helper).
+#
+#          Rollback strategy:
+#            * Code edges with ``style_schema_v3_enabled=False``
+#              by default — even after merge, the v3 code path is
+#              dormant until env var ``STYLE_SCHEMA_V3_ENABLED=true``
+#              is flipped on Railway. Quick-revert: set the env
+#              var back to false, redeploy services.
+#            * ``data/styles.json`` keeps every v2 field intact;
+#              ``style_loader_v2._to_v2`` accepts schema_version 3
+#              and produces a valid v2 view, so unrelated callers
+#              that have not learned v3 still work.
+#            * ``variation_engine_v2`` left on disk and reachable —
+#              not removed in this release.
+#            * ``git revert`` of this version + flipping the
+#              Railway env var to false returns 1.27.3 behaviour
+#              fully.
+#
+#          Test counts: 1966 backend tests pass (was 1601 at
+#          1.27.3); 7 new test files added in the overhaul plus
+#          1 file for follow-up A1. Frontend: ``tsc -b && vite
+#          build`` clean, 499 modules.
+APP_VERSION = "1.28.0"

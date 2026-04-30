@@ -279,6 +279,18 @@ class Settings(BaseSettings):
     # with lighting). Has no effect when ``unified_prompt_v2_enabled``
     # is false.
     variation_engine_v2_enabled: bool = True
+    # ------------------------------------------------------------------
+    # style-schema-v3 — prompt-pipeline-overhaul (April 2026).
+    # Controls whether the StyleSpecV3 loader registers v3-tagged
+    # entries from data/styles.json and routes generation through the
+    # SlotSampler (random pick per channel by default; user-overridable
+    # via input_hints; immutable trigger pool ensures the headline
+    # motif always reaches the prompt).
+    # Default false because Stage 1 ships the schema additively;
+    # data/styles.json doesn't yet contain ``schema_version: 3`` rows.
+    # Stage 2 will flip the migration script's output to v3 and tests
+    # will set the flag explicitly.
+    style_schema_v3_enabled: bool = False
     # Default quality tier for the A/B models when the web client does
     # not pass an explicit one. Minimum for production is medium.
     ab_default_quality: str = "medium"

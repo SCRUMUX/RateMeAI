@@ -9,6 +9,7 @@ import { FULL_LANDING_STYLES_BY_CATEGORY, DOCUMENT_LANDING_ITEMS } from '../data
 import { useApp } from '../context/AppContext';
 import ProgressBar from './wizard/ProgressBar';
 import ShareButtons from './ShareButtons';
+import ResolvedSlotsBadges from './ResolvedSlotsBadges';
 
 // Static fallback for displaying style name/icon next to a generation in the
 // archive. The wizard now fetches the live catalog from the API, but this
@@ -310,19 +311,39 @@ export default function StorageModal({ items, open, onClose, onImprove }: Props)
                 <ProgressBar value={item.score_after ?? 0} accent />
               </div>
 
+              {/* prompt-pipeline-overhaul (May 2026): show what the v3
+                  slot sampler rolled for this generation so the user
+                  can see — and avoid re-rolling — combinations they
+                  have already explored. The component renders nothing
+                  for pre-v3 history rows (``resolved_slots`` absent),
+                  so we mount it unconditionally. ``inline`` variant
+                  fits the dense card layout; the full caption lives
+                  in the live ``StepGenerate`` view instead. */}
+              {item.resolved_slots && (
+                <div className="shrink-0 px-1">
+                  <ResolvedSlotsBadges
+                    slots={item.resolved_slots}
+                    variant="inline"
+                  />
+                </div>
+              )}
+
               {downloadError && (
                 <p className="shrink-0 text-[12px] text-red-400 text-center">
                   Не удалось скачать файл. Попробуйте позже.
                 </p>
               )}
 
-              {/* Actions: Improve + Download */}
+              {/* Actions: Improve + Download. ``purged`` items have no live
+                  binary on disk anymore (24h retention), so both actions
+                  are disabled and the empty-state above explains why. */}
               <div className="shrink-0 flex gap-[var(--space-8)]">
                 {onImprove && (
                   <button
-                    onClick={() => item.generated_image_url && onImprove(normalizeImageUrl(item.generated_image_url))}
-                    disabled={!item.generated_image_url}
-                    className="flex-1 glass-btn-primary rounded-[var(--radius-12)] py-[var(--space-8)] text-[13px] font-semibold text-white flex items-center justify-center gap-1.5 disabled:opacity-40"
+                    onClick={() => item.generated_image_url && !item.purged && onImprove(normalizeImageUrl(item.generated_image_url))}
+                    disabled={!item.generated_image_url || !!item.purged}
+                    title={item.purged ? 'Генерация удалена по политике хранения (24 часа)' : undefined}
+                    className="flex-1 glass-btn-primary rounded-[var(--radius-12)] py-[var(--space-8)] text-[13px] font-semibold text-white flex items-center justify-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed"
                   >
                     <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M1.333 8A6.667 6.667 0 0012 3.333M14.667 8A6.667 6.667 0 014 12.667" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/><path d="M12 1.333v2h2M4 14.667v-2H2" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/></svg>
                     Улучшить
@@ -330,8 +351,9 @@ export default function StorageModal({ items, open, onClose, onImprove }: Props)
                 )}
                 <button
                   onClick={handleDownload}
-                  disabled={!item.generated_image_url}
-                  className="flex-1 glass-btn-ghost rounded-[var(--radius-12)] py-[var(--space-8)] text-[13px] font-medium text-[#E6EEF8] flex items-center justify-center gap-1.5 disabled:opacity-40"
+                  disabled={!item.generated_image_url || !!item.purged}
+                  title={item.purged ? 'Генерация удалена по политике хранения (24 часа)' : undefined}
+                  className="flex-1 glass-btn-ghost rounded-[var(--radius-12)] py-[var(--space-8)] text-[13px] font-medium text-[#E6EEF8] flex items-center justify-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed"
                 >
                   <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M8 2v8m0 0L5 7m3 3l3-3M3 12h10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
                   Скачать

@@ -21,12 +21,16 @@ from src.services.style_catalog import (
     get_scenario_styles_json_v2,
     get_style_options,
     get_style_options_v2,
+    get_style_options_v3,
 )
 
 router = APIRouter()
 
 
-SchemaParam = Literal["v1", "v2"]
+# v3 was added in Stage 3 of the prompt-pipeline-overhaul (2026-05).
+# v1 / v2 / v3 are accepted; the options endpoint downgrades gracefully
+# when the requested schema is not yet authored for a given style.
+SchemaParam = Literal["v1", "v2", "v3"]
 
 
 @router.get("/modes")
@@ -100,15 +104,27 @@ async def get_options(
         "v1",
         description=(
             "Options payload schema. ``v1`` returns the legacy "
-            "``allowed_variations`` dict. ``v2`` returns the slot-based "
-            "structure (context_slots / weather / clothing / background). "
-            "When the style has not been migrated yet and ``v2`` is "
-            "requested, the endpoint falls back to the v1 payload with "
-            "``schema_version: 1``."
+            "``allowed_variations`` dict; ``v2`` returns the slot-based "
+            "structure (context_slots / weather / clothing / background); "
+            "``v3`` returns the v3 schema (trigger_pool, scene_anchor, "
+            "scene_overrides, ambient pools per channel, clothing). When "
+            "the requested schema is not yet authored for a given style "
+            "the endpoint downgrades gracefully (v3 → v2 → v1)."
         ),
     ),
 ):
-    """Return allowed variations (or v2 slots) for a specific style."""
+    """Return allowed variations (or v2 / v3 slots) for a specific style."""
+    if schema == "v3":
+        v3_payload = get_style_options_v3(style_id)
+        if v3_payload is not None:
+            return {
+                "style_id": style_id,
+                "schema_version": 3,
+                "options": v3_payload,
+            }
+        # No v3 row yet — fall through to v2 + v1 like the v2 branch.
+        schema = "v2"
+
     if schema == "v2":
         v2_payload = get_style_options_v2(style_id)
         if v2_payload is not None:

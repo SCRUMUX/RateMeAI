@@ -475,6 +475,7 @@ class ImageGenerationExecutor:
         ab_image_quality: str = "",
         framing: str | None = None,
         user_input_hints: dict | None = None,
+        seed: int | None = None,
     ) -> None:
         if mode not in (
             AnalysisMode.CV,
@@ -535,6 +536,12 @@ class ImageGenerationExecutor:
             # fall through to the v1 path bit-for-bit unchanged.
             prompt = None
             v2_substitutions: list[dict[str, str]] = []
+            # ``resolved_slots`` is populated by the v3 path in
+            # PromptEngine.build_image_prompt_v2 — the executor passes
+            # in a fresh dict so it can persist what the slot sampler
+            # actually rolled into ``result_dict["resolved_slots"]``
+            # (and forward it to the frontend for badge rendering).
+            resolved_slots: dict[str, object] = {}
             if getattr(settings, "unified_prompt_v2_enabled", False):
                 prompt = self._prompt_engine.build_image_prompt_v2(
                     mode,
@@ -546,6 +553,8 @@ class ImageGenerationExecutor:
                     target_model=ab_image_model,
                     framing=framing_norm,
                     out_substitutions=v2_substitutions,
+                    seed=seed,
+                    out_resolved_slots=resolved_slots,
                 )
 
             if prompt is None:
@@ -571,6 +580,13 @@ class ImageGenerationExecutor:
                 bucket = result_dict.setdefault("generation_warnings", [])
                 for sub in v2_substitutions:
                     bucket.append(_format_substitution_notice_ru(sub))
+
+            # Persist the v3 slot roll for the frontend badges and for
+            # the "Другой вариант" anti-repeat logic. We always write
+            # the dict (even when empty) so consumers can branch on
+            # presence without a key check.
+            if resolved_slots:
+                result_dict["resolved_slots"] = dict(resolved_slots)
 
             if variant_id:
                 result_dict["variant_id"] = variant_id

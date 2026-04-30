@@ -29,9 +29,42 @@ function decodeEntities(text: string): string {
  * Humanize an error coming from the API layer for display to end users.
  * Never leak raw JSON / HTML / stack traces into the UI — if the backend
  * body does not look like a short human sentence, fall back to ``fallback``.
+ *
+ * Recognises three shapes in priority order:
+ *   1. ``err.detail`` is an object with a ``message`` field — the canonical
+ *      shape used by FastAPI handlers like ``/api/v1/pre-analyze`` (e.g.
+ *      ``{message, suggestion, code, blocking_issues}``). We render
+ *      ``"<message>. <suggestion>"`` so the user sees both halves.
+ *   2. ``err.detail`` is a plain string — surfaced as-is (legacy 400s).
+ *   3. ``err.body`` / ``err`` is a stringified blob — sanitized and
+ *      returned only if it looks like a short human sentence.
  */
 export function humanizeApiError(err: unknown, fallback: string): string {
   if (!err) return fallback;
+
+  const detail =
+    typeof err === 'object' && err !== null && 'detail' in (err as Record<string, unknown>)
+      ? (err as { detail?: unknown }).detail
+      : undefined;
+
+  if (detail && typeof detail === 'object' && !Array.isArray(detail)) {
+    const obj = detail as Record<string, unknown>;
+    const message = typeof obj.message === 'string' ? obj.message : '';
+    const suggestion = typeof obj.suggestion === 'string' ? obj.suggestion : '';
+    if (message || suggestion) {
+      const merged = [message, suggestion].filter(Boolean).join('. ').replace(/\.\s*\.+$/g, '.');
+      const cleanedStruct = sanitizeLLMText(merged, 300);
+      if (cleanedStruct && cleanedStruct.length <= 240) return cleanedStruct;
+    }
+  }
+
+  if (typeof detail === 'string' && detail.trim()) {
+    const cleanedStr = sanitizeLLMText(detail, 300);
+    if (cleanedStr && cleanedStr.length <= 240 && !/^[\[{<]/.test(cleanedStr)) {
+      return cleanedStr;
+    }
+  }
+
   const raw =
     typeof err === 'object' && err !== null && 'body' in (err as Record<string, unknown>)
       ? (err as { body?: unknown }).body

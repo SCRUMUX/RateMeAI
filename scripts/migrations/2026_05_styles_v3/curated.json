@@ -1,0 +1,262 @@
+{
+  "_doc": [
+    "Curated v3 overrides for the prompt-pipeline-overhaul (2026-05). Each",
+    "key is a style id; the value is a partial StyleSpecV3 payload that the",
+    "migration script merges over the auto-derived v3 fields. Only the",
+    "fields you specify here override the auto-derived ones; everything",
+    "else falls through.",
+    "",
+    "Priorities: 10 'Category D' styles flagged in",
+    "scripts/migrations/2026_04_prompt_quality/audit_report.md (mirror,",
+    "instagram, youtube, linkedin, luxury, casual, artistic, coffee_date,",
+    "digital_nomad, travel_luxury) + headline landmarks where the v2",
+    "trigger ('paris', 'dubai', 'nyc', ...) is too generic.",
+    "",
+    "Trigger pools should be 3-6 equivalent formulations; the slot sampler",
+    "picks one per generation. Avoid duplicating wording across pool",
+    "entries — the more lexical diversity, the better the random sampler",
+    "performs."
+  ],
+
+  "mirror_aesthetic": {
+    "trigger_pool": [
+      "full-length mirror reflection",
+      "polished mirror surface in frame",
+      "mirror selfie composition with the reflection visible",
+      "tall standing mirror anchoring the scene",
+      "modern wall mirror as the focal point"
+    ],
+    "scene_anchor": "clean modern minimalist room with neutral walls and polished interior",
+    "scene_overrides": [
+      "modern bedroom with plants",
+      "walk-in closet",
+      "hotel bathroom with marble",
+      "studio with soft greenery"
+    ],
+    "ambient": {
+      "lighting": [
+        "soft warm ambient",
+        "warm directional",
+        "warm amber",
+        "soft even diffused",
+        "blue-hour cinematic rim",
+        "soft overcast"
+      ],
+      "time_of_day": ["morning", "afternoon", "evening", "blue hour"],
+      "season": ["spring", "autumn"]
+    }
+  },
+
+  "instagram_aesthetic": {
+    "trigger_pool": [
+      "instagram-aesthetic composition",
+      "curated lifestyle frame in instagram style",
+      "feed-ready composition with cohesive palette",
+      "social-first photo composition"
+    ],
+    "scene_anchor": "visually curated setting with cohesive color palette and architectural lines",
+    "ambient": {
+      "lighting": ["soft natural", "golden hour", "warm directional", "diffused window"],
+      "time_of_day": ["morning", "afternoon", "golden hour"],
+      "season": ["spring", "summer", "autumn"]
+    }
+  },
+
+  "youtube_creator": {
+    "trigger_pool": [
+      "youtube creator setup",
+      "content-creation studio backdrop",
+      "ring light and camera-on-tripod creator setup",
+      "youtube-style streaming corner"
+    ],
+    "scene_anchor": "modern content creator setup with ring light, camera on tripod, colorful backdrop or LED panels",
+    "ambient": {
+      "lighting": ["ring light", "soft key", "rgb panel ambient", "warm tungsten"],
+      "time_of_day": ["evening", "night"]
+    }
+  },
+
+  "linkedin_premium": {
+    "trigger_pool": [
+      "linkedin-grade professional setting",
+      "polished linkedin headshot composition",
+      "professional linkedin profile setting",
+      "executive linkedin-style frame"
+    ],
+    "scene_anchor": "modern office or co-working space, clean bright environment with plants and glass partitions",
+    "ambient": {
+      "lighting": ["soft natural", "diffused daylight", "warm directional", "professional softbox"],
+      "time_of_day": ["morning", "afternoon"],
+      "season": ["spring", "summer", "autumn"]
+    }
+  },
+
+  "luxury": {
+    "trigger_pool": [
+      "luxury lounge interior",
+      "upscale luxury setting with marble surfaces",
+      "premium luxury environment",
+      "luxury venue with brass and velvet accents"
+    ],
+    "scene_anchor": "upscale lounge with marble surfaces, velvet and brass accents",
+    "ambient": {
+      "lighting": ["warm amber ambient", "soft warm tungsten", "candlelight glow", "blue-hour rim"],
+      "time_of_day": ["evening", "night", "blue hour"]
+    }
+  },
+
+  "casual": {
+    "trigger_pool": [
+      "casual everyday outdoor scene",
+      "relaxed casual setting",
+      "casual lifestyle frame",
+      "easy casual outdoor moment"
+    ],
+    "scene_anchor": "sunlit park with dappled tree shadows, or bright airy home interior",
+    "ambient": {
+      "lighting": ["soft natural", "dappled sunlight", "diffused daylight", "golden hour"],
+      "weather": ["clear", "lightly cloudy"],
+      "time_of_day": ["morning", "afternoon", "golden hour"],
+      "season": ["spring", "summer", "autumn"]
+    }
+  },
+
+  "artistic": {
+    "trigger_pool": [
+      "artistic gallery setting",
+      "art gallery composition with paintings on walls",
+      "creative artistic frame",
+      "artistic studio scene"
+    ],
+    "scene_anchor": "art gallery with large colorful paintings on white walls",
+    "ambient": {
+      "lighting": ["warm track", "soft directional", "soft museum", "warm spot"],
+      "time_of_day": ["afternoon", "evening"]
+    }
+  },
+
+  "coffee_date": {
+    "trigger_pool": [
+      "coffee shop interior",
+      "third-wave cafe setting",
+      "warm cafe table composition",
+      "cozy coffee shop with espresso bar visible"
+    ],
+    "scene_anchor": "upscale third-wave coffee shop with exposed wood shelving and ceramic cups",
+    "ambient": {
+      "lighting": ["warm tungsten", "soft warm ambient", "diffused window", "warm amber"],
+      "time_of_day": ["morning", "afternoon", "evening"],
+      "season": ["autumn", "winter"]
+    }
+  },
+
+  "digital_nomad": {
+    "trigger_pool": [
+      "digital nomad workspace",
+      "tropical co-working setup with laptop",
+      "remote-work cafe scene",
+      "digital nomad beach cafe setup"
+    ],
+    "scene_anchor": "tropical co-working space or beach cafe with laptop on table, palm trees and ocean visible",
+    "ambient": {
+      "lighting": ["bright natural", "diffused daylight", "warm sunset", "soft golden hour"],
+      "weather": ["clear", "partly cloudy"],
+      "time_of_day": ["morning", "afternoon", "golden hour"],
+      "season": ["spring", "summer"]
+    }
+  },
+
+  "travel_luxury": {
+    "trigger_pool": [
+      "first-class travel lounge",
+      "luxury resort entrance",
+      "premium travel setting with marble and brass",
+      "high-end resort or airport lounge interior"
+    ],
+    "scene_anchor": "first-class airport lounge or luxury resort entrance with marble and brass details",
+    "ambient": {
+      "lighting": ["warm ambient", "soft warm directional", "blue-hour cinematic", "diffused daylight"],
+      "time_of_day": ["morning", "afternoon", "evening", "blue hour"]
+    }
+  },
+
+  "paris_eiffel": {
+    "trigger_pool": [
+      "Eiffel Tower in the background",
+      "Eiffel Tower visible in sharp detail behind",
+      "Parisian frame with the Eiffel Tower silhouette",
+      "Eiffel Tower landmark anchoring the composition"
+    ],
+    "scene_anchor": "Parisian boulevard with classic Haussmann architecture",
+    "ambient": {
+      "lighting": ["soft golden", "blue hour cinematic", "warm afternoon", "diffused overcast"],
+      "weather": ["clear", "partly cloudy", "light overcast"],
+      "time_of_day": ["morning", "afternoon", "golden hour", "blue hour"],
+      "season": ["spring", "autumn"]
+    }
+  },
+
+  "dubai_burj_khalifa": {
+    "trigger_pool": [
+      "Burj Khalifa skyline in the background",
+      "Burj Khalifa tower silhouette behind",
+      "Dubai skyline with Burj Khalifa visible",
+      "rooftop with the Burj Khalifa anchoring the frame"
+    ],
+    "scene_anchor": "modern Dubai boulevard with sleek architecture",
+    "ambient": {
+      "lighting": ["warm cinematic", "blue hour", "golden hour", "soft amber"],
+      "weather": ["clear", "light haze"],
+      "time_of_day": ["evening", "night", "blue hour", "golden hour"],
+      "season": ["spring", "autumn", "winter"]
+    }
+  },
+
+  "nyc_times_square": {
+    "trigger_pool": [
+      "Times Square neon billboards",
+      "Manhattan crosswalk with neon signage",
+      "Times Square with vibrant illuminated billboards",
+      "iconic Times Square neon scene"
+    ],
+    "scene_anchor": "bustling Manhattan crosswalk surrounded by tall buildings",
+    "ambient": {
+      "lighting": ["neon ambient", "warm cinematic", "blue hour rim", "mixed neon and tungsten"],
+      "weather": ["clear", "light rain reflections", "overcast"],
+      "time_of_day": ["evening", "night"],
+      "season": ["autumn", "winter"]
+    }
+  },
+
+  "venice_san_marco": {
+    "trigger_pool": [
+      "Piazza San Marco architecture",
+      "Venetian Piazza San Marco backdrop",
+      "San Marco basilica details visible behind",
+      "historic Venetian piazza scene"
+    ],
+    "scene_anchor": "historic Venetian piazza with classic architecture and stone surfaces",
+    "ambient": {
+      "lighting": ["warm golden", "soft cinematic", "blue hour", "diffused overcast"],
+      "weather": ["clear", "light overcast", "post-rain reflections"],
+      "time_of_day": ["morning", "afternoon", "golden hour"],
+      "season": ["spring", "autumn"]
+    }
+  },
+
+  "rome_colosseum": {
+    "trigger_pool": [
+      "Colosseum in the background",
+      "Roman Colosseum landmark visible behind",
+      "outdoor Roman scene with Colosseum silhouette",
+      "Colosseum architecture anchoring the frame"
+    ],
+    "scene_anchor": "outdoor Roman terrace or street",
+    "ambient": {
+      "lighting": ["warm golden", "soft afternoon", "blue hour", "diffused"],
+      "weather": ["clear", "light overcast"],
+      "time_of_day": ["morning", "afternoon", "golden hour"],
+      "season": ["spring", "summer", "autumn"]
+    }
+  }
+}

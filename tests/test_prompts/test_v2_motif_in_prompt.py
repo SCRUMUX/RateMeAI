@@ -14,13 +14,15 @@ neon, etc. The Phase 2 migration relocated those entries to
 there. This test guards against any future migration silently
 re-introducing the bug.
 
-The asserted styles are an intentional, **small** sanity trio. They
-are styles where ``background.base`` already contains the motif word
-in plain English — i.e. styles for which the test passes without any
-human curation. ``mirror_aesthetic`` is *not* in the trio: its
-``background.base`` still says "clean modern minimalist room" with
-no mirror reference. Adding the keyword there is a manual
-``/admin/styles`` task tracked in the v1.27.2 changelog.
+Stage 0 (prompt-pipeline-overhaul, 2026-04) extends the suite to also
+cover the ten **Category D** styles flagged by
+``scripts/migrations/2026_04_prompt_quality/audit_report.md`` — styles
+whose ``background.base`` lacks the motif keyword. The composition
+builder now safely falls back to ``spec.trigger`` for those, so this
+test asserts on the rendered prompt regardless of the underlying data
+shape. When the Stage 2 rewrite of ``data/styles.json`` lands and
+``trigger_pool`` becomes the canonical source, the assertions stay
+green.
 """
 
 from __future__ import annotations
@@ -67,8 +69,25 @@ _MOTIF_TRIO = [
     ("paris_eiffel", AnalysisMode.DATING, ("eiffel",)),
 ]
 
+# Category D from audit_report.md — styles whose background.base lacks
+# the motif keyword. With the Stage 0 trigger fallback, the rendered
+# prompt should still mention the motif because ``spec.trigger`` is
+# appended to the scene if the base doesn't contain it.
+_MOTIF_CATEGORY_D = [
+    ("travel_luxury", AnalysisMode.DATING, ("travel",)),
+    ("coffee_date", AnalysisMode.DATING, ("coffee", "café", "cafe")),
+    ("digital_nomad", AnalysisMode.CV, ("digital",)),
+    ("mirror_aesthetic", AnalysisMode.SOCIAL, ("mirror",)),
+    ("instagram_aesthetic", AnalysisMode.SOCIAL, ("instagram",)),
+    ("youtube_creator", AnalysisMode.SOCIAL, ("youtube",)),
+    ("linkedin_premium", AnalysisMode.SOCIAL, ("linkedin",)),
+    ("luxury", AnalysisMode.SOCIAL, ("luxury",)),
+    ("casual", AnalysisMode.SOCIAL, ("casual",)),
+    ("artistic", AnalysisMode.SOCIAL, ("artistic", "art ")),
+]
 
-@pytest.mark.parametrize("style,mode,motifs", _MOTIF_TRIO)
+
+@pytest.mark.parametrize("style,mode,motifs", _MOTIF_TRIO + _MOTIF_CATEGORY_D)
 def test_default_prompt_contains_motif_keyword(
     _v2_registered, style: str, mode: AnalysisMode, motifs: tuple[str, ...]
 ):

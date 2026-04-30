@@ -178,15 +178,24 @@ def test_migrated_entry_parses_via_loader(entry_idx):
 # ---------------------------------------------------------------------------
 
 
-def test_live_styles_json_v1_plus_v2_equals_total():
-    """As migration progresses we need the invariant v1+v2 == total to
-    always hold (never drop entries)."""
+def test_live_styles_json_v1_plus_v2_plus_v3_equals_total():
+    """As migration progresses we need the invariant v1+v2+v3 == total to
+    always hold (never drop entries).
+
+    Stage 2 of the prompt-pipeline-overhaul (2026-05) migrated every
+    catalog row to ``schema_version: 3`` while preserving every v2
+    field. The v2 loader now accepts both 2 and 3 (it materialises a
+    v2 view for the legacy code path). This count invariant therefore
+    spans v1 + v2 + v3 — losing entries to an unrecognised version
+    would still fail the test.
+    """
     path = os.path.join(_REPO_ROOT, "data", "styles.json")
     with open(path, "r", encoding="utf-8") as f:
         entries = json.load(f)
+    v3 = [e for e in entries if int(e.get("schema_version") or 0) == 3]
     v2 = [e for e in entries if int(e.get("schema_version") or 0) == 2]
     v1 = [e for e in entries if int(e.get("schema_version") or 0) < 2]
-    assert len(v1) + len(v2) == len(entries)
+    assert len(v1) + len(v2) + len(v3) == len(entries)
 
 
 # ---------------------------------------------------------------------------

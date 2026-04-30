@@ -60,6 +60,16 @@ class TaskHistoryItem(BaseModel):
     score_after: float | None = None
     perception_scores: dict | None = None
     purged: bool = False
+    # prompt-pipeline-overhaul (May 2026): the v3 slot sampler writes
+    # the rolled trigger / lighting / weather / time_of_day / season /
+    # clothing into ``Task.result["resolved_slots"]`` for every
+    # generation. Surfacing it on the history payload lets the
+    # StorageModal render the same "Что выбрано в этой генерации"
+    # badges as the live ``StepGenerate`` view, so users can see
+    # which combinations they have already explored before pressing
+    # «Другой вариант» again. Absent for pre-v3 / non-v3 generations
+    # — the FE branches on key presence.
+    resolved_slots: dict | None = None
 
 
 class TaskHistoryResponse(BaseModel):

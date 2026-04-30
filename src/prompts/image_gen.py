@@ -1142,6 +1142,19 @@ try:
         register_v2_styles_from_json()
     except Exception as _v2_exc:  # noqa: BLE001 — additive path must never break v1
         logger.warning("style_loader_v2 failed: %s", _v2_exc)
+
+    # style-schema-v3 (prompt-pipeline-overhaul, 2026-04). Same
+    # additive contract: only ``schema_version: 3`` rows are picked
+    # up, gated by ``settings.style_schema_v3_enabled``. Until Stage 2
+    # ships data the loader registers nothing, but having the wiring
+    # ready lets us flip the flag to test individual styles in
+    # staging without redeploying.
+    try:
+        from src.services.style_loader_v3 import register_v3_styles_from_json
+
+        register_v3_styles_from_json()
+    except Exception as _v3_exc:  # noqa: BLE001 — additive path must never break v2
+        logger.warning("style_loader_v3 failed: %s", _v3_exc)
 except Exception as e:
     logger.error(f"Failed to load styles from JSON: {e}")
     # Fallback to legacy loading if JSON fails

@@ -95,21 +95,30 @@ class PromptEngine:
         target_model: str = "gpt_image_2",
         framing: str | None = None,
         out_substitutions: list[dict[str, str]] | None = None,
+        seed: int | None = None,
+        out_resolved_slots: dict[str, object] | None = None,
     ) -> str | None:
-        """v2 prompt path — :class:`StyleSpecV2` + composition + wrapper.
+        """Slot-based prompt path — prefers :class:`StyleSpecV3` and
+        falls back to :class:`StyleSpecV2`.
 
-        Additive companion to :meth:`build_image_prompt`. Returns
-        ``None`` when the requested style is not registered as a v2
-        spec so the executor can transparently fall back to the v1
-        path. When the spec IS v2 (and the caller has already
-        checked the ``unified_prompt_v2_enabled`` flag) the returned
-        string is the final prompt for ``target_model``.
+        Returns ``None`` when neither schema has the requested style,
+        so the executor can transparently fall back to the v1 path.
 
-        ``out_substitutions``: optional output list. When supplied, the
-        IR's :attr:`CompositionIR.substitutions` are extended into it
-        so the executor can surface a post-generation hint to the user
-        without needing to expose the IR. Untouched on the v1 fallback
-        path (caller-provided list stays empty).
+        Args:
+            seed: optional integer seed for deterministic sampling on
+                the v3 path. Ignored on the v2 path (which has no
+                first-class random pools — its diversity comes from
+                the soft-substitution flow only).
+            out_resolved_slots: optional output dict. When supplied,
+                the v3 path writes the :class:`ResolvedSlots` payload
+                into it so the executor can persist the rolled values
+                + return them to the frontend (badge rendering +
+                anti-repeat for "Другой вариант"). Untouched on the
+                v2 path.
+            out_substitutions: optional output list. When supplied,
+                soft-substitution records from the IR are appended so
+                the executor can surface a post-generation hint to
+                the user.
 
         Emoji intentionally stays on the legacy path; its builder has
         a different signature and does not benefit from the slot-based
@@ -123,11 +132,28 @@ class PromptEngine:
         from src.prompts.image_gen import STYLE_REGISTRY as _REG
         from src.prompts.style_schema_v2 import StyleSpecV2
 
-        spec = _REG.get_v2(mode_str, style)
-        if not isinstance(spec, StyleSpecV2):
+        v3_enabled = False
+        try:
+            from src.config import settings as _settings
+
+            v3_enabled = bool(getattr(_settings, "style_schema_v3_enabled", False))
+        except Exception:
+            v3_enabled = False
+
+        spec_v3 = _REG.get_v3(mode_str, style) if v3_enabled else None
+        spec = spec_v3 if spec_v3 is not None else _REG.get_v2(mode_str, style)
+
+        # Accept either schema — anything else means the style is not
+        # registered for the slot-based path.
+        from src.prompts.style_schema_v3 import StyleSpecV3
+
+        if not isinstance(spec, (StyleSpecV2, StyleSpecV3)):
             return None
 
-        from src.prompts.composition_builder import build_composition
+        from src.prompts.composition_builder import (
+            build_composition,
+            build_composition_v3,
+        )
         from src.prompts.image_gen import (
             _DOCUMENT_STYLE_KEYS,
             _dating_social_change_instruction,
@@ -150,16 +176,45 @@ class PromptEngine:
                 "for the person in the reference photo."
             )
 
-        ir = build_composition(
-            spec,
-            mode=mode_str,
-            change_instruction=change_instruction,
-            input_hints=input_hints,
-            framing=framing,
-            gender=gender,
-            strict=(not variant_id),
-            is_document=is_doc,
-        )
+        if isinstance(spec, StyleSpecV3):
+            ir = build_composition_v3(
+                spec,
+                mode=mode_str,
+                change_instruction=change_instruction,
+                input_hints=input_hints,
+                framing=framing,
+                gender=gender,
+                strict=(not variant_id),
+                is_document=is_doc,
+                seed=seed,
+            )
+            if out_resolved_slots is not None:
+                # The IR already has substitutions; we synthesise a
+                # ResolvedSlots-equivalent dict from the IR's surface
+                # so the executor can persist exactly what reached
+                # the prompt.
+                out_resolved_slots.update(
+                    {
+                        "scene": ir.scene,
+                        "lighting": ir.lighting,
+                        "weather": ir.weather,
+                        "clothing": ir.clothing,
+                        "expression": ir.expression,
+                        "substitutions": [dict(s) for s in ir.substitutions],
+                    }
+                )
+        else:
+            ir = build_composition(
+                spec,
+                mode=mode_str,
+                change_instruction=change_instruction,
+                input_hints=input_hints,
+                framing=framing,
+                gender=gender,
+                strict=(not variant_id),
+                is_document=is_doc,
+            )
+
         if out_substitutions is not None and ir.substitutions:
             out_substitutions.extend(ir.substitutions)
         return wrap_for_model(ir, target_model)

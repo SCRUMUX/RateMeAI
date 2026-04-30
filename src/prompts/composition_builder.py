@@ -65,17 +65,59 @@ class CompositionIR:
         without an embedded clothing clause (clothing is a separate
         IR field). Returns something like "Parisian boulevard, warm
         sunset lighting, clear weather.".
+
+        Avoids the "X lighting lighting" / "X weather weather" stutter
+        that used to happen when authors put the noun inside the value
+        itself (e.g. ``lighting="warm tungsten light"``).
         """
         parts: list[str] = []
         if self.scene:
             parts.append(self.scene)
         if self.lighting:
-            parts.append(f"{self.lighting} lighting")
+            parts.append(_with_suffix(self.lighting, "lighting", ("lighting", "light")))
         if self.weather:
-            parts.append(f"{self.weather} weather")
+            parts.append(_with_suffix(self.weather, "weather", ("weather",)))
         if not parts:
             return ""
         return ", ".join(p.strip() for p in parts if p and p.strip())
+
+
+def _with_suffix(value: str, suffix_word: str, terminal_words: tuple[str, ...]) -> str:
+    """Return ``value`` with ``suffix_word`` appended, unless the last
+    whitespace-separated token of ``value`` already matches one of
+    ``terminal_words`` (case-insensitive).
+
+    Used by :meth:`CompositionIR.scene_line` to avoid duplications
+    such as "warm tungsten light lighting" or "rainy weather weather"
+    when the channel value already includes the noun.
+    """
+    cleaned = (value or "").strip()
+    if not cleaned:
+        return ""
+    tail = cleaned.rsplit(None, 1)[-1].lower().strip(",.;:!?\"'")
+    if tail in {w.lower() for w in terminal_words}:
+        return cleaned
+    return f"{cleaned} {suffix_word}"
+
+
+def _ensure_trigger_in_scene(scene: str, trigger: str) -> str:
+    """Append the style's trigger keyword to ``scene`` if missing.
+
+    A short hot-fix shim until the style schema migration (Stage 2)
+    moves trigger into a first-class ``trigger_pool`` slot. As of
+    v1.27.x ten styles (mirror_aesthetic, eiffel, times square, ...)
+    have a ``background.base`` that lacks the headline motif. Without
+    this safety net the user picks "У зеркала" but the prompt never
+    mentions a mirror. The check is case-insensitive and conservative:
+    we only append when the literal trigger string is fully absent.
+    """
+    trig = (trigger or "").strip()
+    if not trig:
+        return scene
+    haystack = (scene or "").lower()
+    if trig.lower() in haystack:
+        return scene
+    return f"{scene}, {trig}" if scene else trig
 
 
 def _value_in_whitelist(value: str, whitelist: tuple[str, ...]) -> bool:
@@ -237,6 +279,91 @@ def _variation_engine_v2_enabled() -> bool:
     return bool(getattr(settings, "variation_engine_v2_enabled", False))
 
 
+def build_composition_v3(
+    spec: object,
+    *,
+    mode: str,
+    change_instruction: str,
+    input_hints: dict[str, Any] | None = None,
+    framing: str | None = None,
+    gender: str = "male",
+    strict: bool = True,
+    is_document: bool = False,
+    seed: int | None = None,
+    rng: random.Random | None = None,
+) -> CompositionIR:
+    """Build a :class:`CompositionIR` from a :class:`StyleSpecV3`.
+
+    Mirrors :func:`build_composition` but consumes the v3 schema via
+    the slot sampler (:mod:`src.prompts.slot_sampler`). The trigger is
+    always materialised into the prompt because :func:`slot_sampler.sample`
+    always returns a non-empty trigger value (the schema enforces a
+    non-empty pool).
+
+    Random behaviour:
+
+    * ``seed`` provided → deterministic sampling. The same
+      ``(spec, hints, seed)`` always produces the same IR, useful
+      for "Improve" replay and golden tests.
+    * ``rng`` provided → use the caller's RNG (overrides ``seed``).
+    * Neither → fresh non-deterministic ``random.Random``.
+
+    The IR's :attr:`CompositionIR.substitutions` carries any
+    out-of-pool user values that were softly substituted. The IR
+    additionally exposes :attr:`CompositionIR.scene` with the trigger
+    appended to the chosen scene anchor — same convention as the v2
+    builder so the per-model wrappers stay agnostic.
+    """
+    from src.prompts.slot_sampler import sample as _sample
+    from src.prompts.style_schema_v3 import StyleSpecV3
+
+    if not isinstance(spec, StyleSpecV3):
+        raise TypeError(
+            f"build_composition_v3 expected StyleSpecV3, got {type(spec).__name__}"
+        )
+
+    resolved = _sample(
+        spec,
+        input_hints,
+        seed=seed,
+        rng=rng,
+        strict=strict,
+        gender=gender,
+    )
+
+    scene_with_trigger = _ensure_trigger_in_scene(resolved.scene, resolved.trigger)
+    if resolved.time_of_day:
+        scene_with_trigger = (
+            f"{scene_with_trigger}, {resolved.time_of_day}"
+            if scene_with_trigger
+            else resolved.time_of_day
+        )
+    if resolved.season:
+        scene_with_trigger = (
+            f"{scene_with_trigger}, {resolved.season}"
+            if scene_with_trigger
+            else resolved.season
+        )
+
+    framing_line, framing_requested = _resolve_framing_line(spec, framing)
+    return CompositionIR(
+        mode=mode,
+        style_key=spec.key,
+        change_instruction=change_instruction,
+        scene=scene_with_trigger,
+        lighting=resolved.lighting,
+        weather=resolved.weather,
+        clothing=resolved.clothing,
+        expression=spec.expression,
+        framing_line=framing_line,
+        quality_identity_base=spec.quality_identity.base,
+        per_model_tail_map=dict(spec.quality_identity.per_model_tail),
+        is_document=is_document,
+        framing_requested=framing_requested,
+        substitutions=resolved.substitutions,
+    )
+
+
 def _resolve_framing_line(spec: StyleSpecV2, framing: str | None) -> tuple[str, bool]:
     """Return (prompt_line, was_requested) for the framing directive.
 
@@ -312,6 +439,7 @@ def build_composition(
             scene_text = f"{scene_text}, {vr.time_of_day}" if scene_text else vr.time_of_day
         if vr.season:
             scene_text = f"{scene_text}, {vr.season}" if scene_text else vr.season
+        scene_text = _ensure_trigger_in_scene(scene_text, spec.trigger)
         framing_line, framing_requested = _resolve_framing_line(spec, framing)
         return CompositionIR(
             mode=mode,
@@ -333,6 +461,7 @@ def build_composition(
     scene = _resolve_scene(
         spec, hints, strict=strict, substitutions=substitutions, rng=rng,
     )
+    scene = _ensure_trigger_in_scene(scene, spec.trigger)
     lighting = _resolve_lighting(
         spec, hints, strict=strict, substitutions=substitutions, rng=rng,
     )

@@ -15,6 +15,8 @@ import { useApp } from '../../context/AppContext';
 import ProgressBar from './ProgressBar';
 import ShareModal from '../ShareModal';
 import StyleSettingsModal from './StyleSettingsModal';
+import ResolvedSlotsBadges from '../ResolvedSlotsBadges';
+import type { ResolvedSlots } from '../../lib/api';
 
 interface Props {
   onGoToStep: (step: 'upload' | 'analysis' | 'style') => void;
@@ -79,6 +81,11 @@ export default function StepGenerate({ onGoToStep, onOpenStorage }: Props) {
   const [frozenStyle, setFrozenStyle] = useState<{ name: string; score: number } | null>(null);
   const [genFailed, setGenFailed] = useState(false);
   const [settingsModalOpen, setSettingsModalOpen] = useState(false);
+  // Stage 3 (2026-05) — remember the last user-applied hints so the
+  // "Другой вариант" button can re-roll the slot sampler against the
+  // same hint set (the user said "lighting=cinematic stays, but try
+  // other weather"). The seed is freshly randomised on every reroll.
+  const [lastInputHints, setLastInputHints] = useState<Record<string, any> | undefined>(undefined);
 
   const isRunning = app.isGenerating && !hasGenResult;
   const progress = parseTaskProgress(app.currentTask?.status);
@@ -135,8 +142,13 @@ export default function StepGenerate({ onGoToStep, onOpenStorage }: Props) {
     if (!app.photo) {
       setFrozenStyle(null);
       setGenFailed(false);
+      setLastInputHints(undefined);
     }
   }, [app.photo]);
+
+  useEffect(() => {
+    setLastInputHints(undefined);
+  }, [app.selectedStyleKey]);
 
   async function handleGenerate() {
     if (!app.photo) return;
@@ -171,6 +183,24 @@ export default function StepGenerate({ onGoToStep, onOpenStorage }: Props) {
       app.uploadPhoto(file);
       onGoToStep('upload');
     } catch { /* ignore */ }
+  }
+
+  // Stage 3 (2026-05) — re-roll the slot sampler. We randomise a fresh
+  // 32-bit seed client-side and pass it explicitly so the backend's
+  // SlotSampler is guaranteed to produce a different `(trigger, lighting,
+  // weather, time, season, clothing)` tuple than the previous run with
+  // overwhelming probability. The user's last-applied hints are kept,
+  // because pinned channels (e.g. ``lighting=studio``) should survive
+  // a reroll — only the unspecified channels move.
+  function handleReroll() {
+    if (!app.photo || app.isGenerating) return;
+    const effectiveStyle = app.selectedStyleKey || styles[0]?.key || '';
+    if (!effectiveStyle) return;
+    const fresh = Math.floor(Math.random() * 2_147_483_647);
+    setGenFailed(false);
+    app.resetGeneration();
+    setFrozenStyle({ name: selectedStyle.name, score: predictedAfterScore ?? 7.0 });
+    void app.generate(undefined, effectiveStyle, lastInputHints, fresh);
   }
 
   const isDocPaywall = app.scenarioDocumentPaywall;
@@ -539,6 +569,25 @@ export default function StepGenerate({ onGoToStep, onOpenStorage }: Props) {
         </div>
       </div>
 
+      {/* Stage 3 (2026-05) — resolved-slots badges. The backend writes
+          ``result.resolved_slots`` for every v3 generation; the shared
+          ``ResolvedSlotsBadges`` component handles the absence /
+          shape checks (returns null when nothing to show), so we
+          render unconditionally here. Same component is reused
+          inside StorageModal cards so both surfaces speak the
+          same vocabulary. */}
+      {hasGenResult && !showingOriginal && (
+        <div className="shrink-0">
+          <ResolvedSlotsBadges
+            slots={
+              (app.currentTask?.result as { resolved_slots?: ResolvedSlots } | null)
+                ?.resolved_slots ?? null
+            }
+            variant="stacked"
+          />
+        </div>
+      )}
+
       {/* v1.26: продуктовые лейблы «Обычный режим / Премиум» + кредитный
           ценник. Внутренне это всё ещё Nano Banana 2 и GPT Image 2, но
           пользователь видит их как два режима с понятной ценой в кредитах.
@@ -621,10 +670,19 @@ export default function StepGenerate({ onGoToStep, onOpenStorage }: Props) {
               {isDocPaywall ? 'Другой формат' : 'Другой стиль'}
             </button>
             <button
-              onClick={() => setSettingsModalOpen(true)}
-              className="glass-btn-ghost px-[var(--space-20)] py-[var(--space-6)] text-[13px] leading-[18px] rounded-[var(--radius-pill)] font-medium"
+              onClick={handleReroll}
+              disabled={app.isGenerating}
+              className="glass-btn-ghost px-[var(--space-20)] py-[var(--space-6)] text-[13px] leading-[18px] rounded-[var(--radius-pill)] font-medium disabled:opacity-50"
+              title="Сгенерировать ещё один вариант с теми же настройками — слот-сэмплер выберет другие свет / погоду / время"
             >
               Другой вариант
+            </button>
+            <button
+              onClick={() => setSettingsModalOpen(true)}
+              className="glass-btn-ghost px-[var(--space-20)] py-[var(--space-6)] text-[13px] leading-[18px] rounded-[var(--radius-pill)] font-medium"
+              title="Настроить освещение, погоду, время суток и другие слоты"
+            >
+              Настройки
             </button>
             <button
               onClick={handleImproveGenerated}
@@ -747,6 +805,7 @@ export default function StepGenerate({ onGoToStep, onOpenStorage }: Props) {
         onApply={(hints) => {
           app.resetGeneration();
           setFrozenStyle(null);
+          setLastInputHints(hints);
           app.generate(undefined, undefined, hints);
         }}
       />

@@ -212,9 +212,13 @@ def _v2_slots_from_raw(raw: dict) -> dict | None:
     """Build a JSON-friendly v2 slot payload from a raw styles.json entry.
 
     Returns ``None`` when the entry is not yet v2-tagged so the caller can
-    gracefully fall back to the v1 shape.
+    gracefully fall back to the v1 shape. Stage 2 of the prompt-pipeline
+    overhaul (2026-05) migrated every row to ``schema_version: 3`` while
+    preserving every v2 field, so we accept both 2 and 3 here — the
+    ``_to_v2`` loader builds a v2 view from either flavour.
     """
-    if int(raw.get("schema_version") or 0) != 2:
+    schema_v = int(raw.get("schema_version") or 0)
+    if schema_v != 2 and schema_v != 3:
         return None
 
     from src.services.style_loader_v2 import _to_v2
@@ -316,3 +320,121 @@ def get_scenario_styles_json_v2(scenario: str) -> list[dict]:
             }
         )
     return items
+
+
+# --------------------------------------------------------------------------
+# style-schema-v3 catalog helpers (Stage 3 of the prompt-pipeline-overhaul,
+# 2026-05). The v3 payload exposes the full slot-sampler view of a style:
+# the inviolable ``trigger_pool``, the per-channel ambient pools, and the
+# scene anchor + overrides. The frontend modal renders an Auto/value
+# selector for each ambient channel and a read-only badge for the trigger.
+# Additive on top of the v2 helpers above; v2 stays the default for
+# clients that have not opted in.
+# --------------------------------------------------------------------------
+
+
+def _v3_slots_from_raw(raw: dict) -> dict | None:
+    """JSON-friendly v3 slot payload from a raw entry, or ``None``.
+
+    Returns ``None`` when the entry is not v3-tagged so the caller can
+    fall back to the v2 / v1 shape. The payload mirrors the dataclass
+    shape of :class:`src.prompts.style_schema_v3.StyleSpecV3` plus a
+    ``framing`` whitelist so the modal keeps the same per-channel UI
+    surface as v2.
+    """
+    if int(raw.get("schema_version") or 0) != 3:
+        return None
+
+    trigger_pool = [
+        str(t).strip()
+        for t in (raw.get("trigger_pool") or [])
+        if isinstance(t, str) and t.strip()
+    ]
+    if not trigger_pool:
+        return None
+
+    scene_anchor = str(raw.get("scene_anchor") or "").strip()
+    if not scene_anchor:
+        return None
+
+    ambient_raw = raw.get("ambient") or {}
+    ambient = {
+        "lighting": [
+            str(v) for v in (ambient_raw.get("lighting") or []) if isinstance(v, str) and v
+        ],
+        "weather": [
+            str(v) for v in (ambient_raw.get("weather") or []) if isinstance(v, str) and v
+        ],
+        "time_of_day": [
+            str(v)
+            for v in (ambient_raw.get("time_of_day") or [])
+            if isinstance(v, str) and v
+        ],
+        "season": [
+            str(v) for v in (ambient_raw.get("season") or []) if isinstance(v, str) and v
+        ],
+    }
+
+    scene_overrides = [
+        str(s).strip()
+        for s in (raw.get("scene_overrides") or [])
+        if isinstance(s, str) and s.strip()
+    ]
+
+    clothing_raw = raw.get("clothing") or {}
+    if not isinstance(clothing_raw, dict):
+        clothing_raw = {}
+    clothing_default = clothing_raw.get("default")
+    if not isinstance(clothing_default, dict):
+        clothing_default = {
+            "male": "",
+            "female": "",
+            "neutral": str(clothing_default or ""),
+        }
+    clothing_allowed = [
+        str(c) for c in (clothing_raw.get("allowed") or []) if isinstance(c, str) and c
+    ]
+
+    framing = [
+        str(f)
+        for f in ((raw.get("context_slots") or {}).get("framing") or ())
+        if isinstance(f, str) and f
+    ] or ["portrait", "half_body", "full_body"]
+
+    background_lock = (
+        str(raw.get("background_lock") or "").strip()
+        or str((raw.get("background") or {}).get("lock") or "semi").strip()
+    )
+
+    return {
+        "schema_version": 3,
+        "trigger_pool": trigger_pool,
+        "scene_anchor": scene_anchor,
+        "scene_overrides": scene_overrides,
+        "background_lock": background_lock,
+        "ambient": ambient,
+        "clothing": {
+            "default": clothing_default,
+            "allowed": clothing_allowed,
+            "gender_neutral": bool(clothing_raw.get("gender_neutral", True)),
+        },
+        "framing": framing,
+        "expression": str(raw.get("expression") or ""),
+    }
+
+
+def get_style_options_v3(style_id: str) -> dict | None:
+    """Return v3 slot payload for a style or ``None`` if not migrated.
+
+    Reads from ``data/styles.json`` directly (not the registry) so the
+    payload is available regardless of the
+    ``style_schema_v3_enabled`` runtime flag — the modal can render the
+    rich controls even when the worker is still on the v2 path.
+    """
+    from src.services.style_loader import load_styles_from_json
+
+    for entry in load_styles_from_json():
+        if entry.get("id") != style_id:
+            continue
+        return _v3_slots_from_raw(entry)
+    return None

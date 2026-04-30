@@ -327,6 +327,11 @@ class StyleRegistry:
         # take based on the ``unified_prompt_v2_enabled`` flag plus
         # whether ``get_v2`` returns anything for ``(mode, key)``.
         self._v2_by_key: dict[tuple[str, str], object] = {}
+        # style-schema-v3 (prompt-pipeline-overhaul, 2026-04). v3 specs
+        # live in their own map so the engine can prefer them when the
+        # ``style_schema_v3_enabled`` flag is on and gracefully fall
+        # back to v2 / v1 otherwise.
+        self._v3_by_key: dict[tuple[str, str], object] = {}
 
     def register(self, spec: StyleSpec) -> None:
         self._by_key[(spec.mode, spec.key)] = spec
@@ -349,6 +354,23 @@ class StyleRegistry:
 
     def keys_v2_for_mode(self, mode: str) -> list[str]:
         return [k for (m, k) in self._v2_by_key if m == mode]
+
+    def register_v3(self, spec: object) -> None:
+        """Register a :class:`StyleSpecV3`.
+
+        Same pattern as :meth:`register_v2`. v3 specs are typed
+        ``object`` to keep the registry module free of v3 imports.
+        """
+        self._v3_by_key[(getattr(spec, "mode"), getattr(spec, "key"))] = spec
+
+    def get_v3(self, mode: str, key: str) -> object | None:
+        return self._v3_by_key.get((mode, key))
+
+    def has_v3(self, mode: str, key: str) -> bool:
+        return (mode, key) in self._v3_by_key
+
+    def keys_v3_for_mode(self, mode: str) -> list[str]:
+        return [k for (m, k) in self._v3_by_key if m == mode]
 
     def get(self, mode: str, key: str) -> StyleSpec | None:
         return self._by_key.get((mode, key))

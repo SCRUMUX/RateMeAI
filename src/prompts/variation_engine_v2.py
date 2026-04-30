@@ -1,5 +1,29 @@
 """Variation engine v2 — separated channels, model-evident knobs.
 
+.. deprecated:: prompt-pipeline-overhaul (May 2026)
+   Superseded by :mod:`src.prompts.slot_sampler`. The v3 schema
+   (:class:`src.prompts.style_schema_v3.StyleSpecV3`) drives prompt
+   resolution through ``slot_sampler.sample`` which fixes the two
+   defects of this module:
+
+   1. **Empty hints did not randomise.** ``apply_variation_v2`` only
+      rolled a channel when the user pinned a hint, so ten users
+      with no overrides got ten identical first prompts.
+   2. **The trigger never reached the prompt.** This module operates
+      on slots only; the headline motif had to live inside the scene
+      string, which is exactly why the "У зеркала" style produced
+      mirror-less images.
+
+   This file is kept on disk so any caller that has not been
+   migrated still works, and so we can roll back fast if the v3
+   path develops a regression in production. Once
+   ``data/styles.json`` has been v3 for a full release cycle and the
+   admin import path no longer accepts v2 rows, the module will be
+   deleted (see ``docs/prompt-pipeline-v3.md`` §"Future work").
+
+   New code MUST go through :func:`src.prompts.slot_sampler.sample`
+   and :func:`src.prompts.composition_builder.build_composition_v3`.
+
 PR2 of the style-schema-v2 migration. Replaces the legacy
 :class:`src.prompts.variation_engine.VariationEngine` semantics where
 "weather" values were smuggled through the ``lighting`` whitelist.
@@ -108,6 +132,13 @@ def apply_variation_v2(
     rng: random.Random | None = None,
 ) -> VariationResult:
     """Build a :class:`VariationResult` from a v2 spec + user hints.
+
+    .. deprecated:: prompt-pipeline-overhaul (May 2026)
+       Use :func:`src.prompts.slot_sampler.sample` against a
+       :class:`src.prompts.style_schema_v3.StyleSpecV3` instead.
+       The v3 sampler rolls every channel even when the user did
+       not pin a hint, which is the diversity guarantee this
+       function lacks.
 
     Unlike the v1 engine, weather does NOT go through the lighting
     whitelist. Time-of-day and season are first-class. Clothing and

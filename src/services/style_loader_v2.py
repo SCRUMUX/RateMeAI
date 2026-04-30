@@ -102,11 +102,20 @@ def _lock_level(raw: Any, legacy_type: str) -> BackgroundLockLevel:
 def _to_v2(raw: dict[str, Any]) -> StyleSpecV2 | None:
     """Convert a single v2-tagged JSON entry to a :class:`StyleSpecV2`.
 
+    Accepts both ``schema_version: 2`` and ``schema_version: 3`` rows
+    because the Stage 2 migration (2026-05) keeps every v2 field
+    populated alongside the new v3 fields. The two loaders register
+    into separate registry maps, so producing a v2 view of a v3 entry
+    does not collide with the v3 registration — it simply preserves
+    the existing v2 / v1 code paths for callers that have not opted
+    into v3 yet.
+
     Returns None if the entry is malformed; errors are logged and
     the loader moves on (missing a style is better than crashing the
     worker at startup).
     """
-    if int(raw.get("schema_version") or 0) != SCHEMA_VERSION:
+    schema_v = int(raw.get("schema_version") or 0)
+    if schema_v != SCHEMA_VERSION and schema_v != 3:
         return None
 
     try:

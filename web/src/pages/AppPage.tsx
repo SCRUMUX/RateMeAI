@@ -188,17 +188,50 @@ export default function AppPage({ scenarioSlugOverride, onBackToLanding }: AppPa
   }, [app.isGenerating, app.currentTask, app.generatedImageUrl, currentStep]);
 
   async function handleImproveFromStorage(imageUrl: string) {
+    // The /storage endpoint returns 404 for purged generations and may
+    // return HTML error pages from the CDN/edge. Both used to silently
+    // fail because the catch swallowed everything; now we surface a
+    // concrete error so the user understands why nothing happened.
+    let res: Response;
     try {
-      const res = await fetch(imageUrl, { credentials: 'omit' });
-      const blob = await res.blob();
-      const file = new File([blob], 'improve.jpg', { type: blob.type || 'image/jpeg' });
-      app.resetGeneration();
-      app.uploadPhoto(file);
-      setStorageModalOpen(false);
-      goToStep('upload');
-    } catch {
-      /* ignore fetch errors */
+      res = await fetch(imageUrl, { credentials: 'omit' });
+    } catch (err) {
+      console.error('[improve-from-storage] network error', err);
+      app.setError('Не удалось загрузить фото из хранилища. Проверьте подключение и попробуйте снова.');
+      return;
     }
+
+    if (!res.ok) {
+      console.error('[improve-from-storage] non-ok response', res.status, res.statusText);
+      app.setError(
+        res.status === 404
+          ? 'Фото уже удалено из хранилища (срок хранения — 24 часа). Загрузите его вручную.'
+          : `Не удалось загрузить фото из хранилища (код ${res.status}). Попробуйте позже.`,
+      );
+      return;
+    }
+
+    const contentType = (res.headers.get('content-type') || '').toLowerCase();
+    if (!contentType.startsWith('image/')) {
+      console.error('[improve-from-storage] unexpected content-type', contentType);
+      app.setError('Хранилище вернуло не изображение. Попробуйте снова или загрузите фото вручную.');
+      return;
+    }
+
+    let blob: Blob;
+    try {
+      blob = await res.blob();
+    } catch (err) {
+      console.error('[improve-from-storage] blob read failed', err);
+      app.setError('Не удалось прочитать фото из хранилища. Попробуйте снова.');
+      return;
+    }
+
+    const file = new File([blob], 'improve.jpg', { type: blob.type || contentType || 'image/jpeg' });
+    app.resetGeneration();
+    app.uploadPhoto(file);
+    setStorageModalOpen(false);
+    goToStep('upload');
   }
 
   const selectedStyle = app.effectiveStyleList.find(s => s.key === app.selectedStyleKey)

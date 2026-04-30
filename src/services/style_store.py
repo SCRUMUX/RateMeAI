@@ -89,6 +89,22 @@ def invalidate_caches() -> None:
     except Exception as exc:  # noqa: BLE001 — never break the write path
         logger.warning("style_store: v2 re-registration failed: %s", exc)
 
+    # v3 (prompt-pipeline-overhaul, 2026-04) — re-register on the same
+    # cache-invalidation pass so admin edits to any v3-tagged style hit
+    # production without a worker restart.
+    try:
+        from src.prompts.image_gen import STYLE_REGISTRY
+        from src.services.style_loader_v3 import register_v3_styles_from_json
+
+        STYLE_REGISTRY._v3_by_key.clear()  # noqa: SLF001
+        registered_v3 = register_v3_styles_from_json()
+        if registered_v3:
+            logger.info(
+                "style_store: %d v3 specs re-registered", registered_v3
+            )
+    except Exception as exc:  # noqa: BLE001 — never break the write path
+        logger.warning("style_store: v3 re-registration failed: %s", exc)
+
 
 def save_styles(styles: list[dict[str, Any]]) -> None:
     """Persist ``styles`` to ``data/styles.json`` and refresh caches.

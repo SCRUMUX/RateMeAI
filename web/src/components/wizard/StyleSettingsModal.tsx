@@ -11,25 +11,34 @@ interface Props {
   onApply: (hints: Record<string, any>) => void;
 }
 
-// v2 catalog payload normalised into a shape the modal renders directly.
-// The `sceneLocked` flag mirrors `background.lock === 'locked'`: for
-// document/passport styles we hide the «Сцена» section so the user can't
-// override a hard-locked background and break the format.
+// Stage 3 (2026-05) — the modal is unified across schema versions.
+// It always renders a v3-shaped slot map; v2 / v1 payloads are
+// projected onto the same shape so the UI doesn't have to branch on
+// schema_version. Channels with no candidate values are simply
+// hidden (we never render an empty selector).
+//
+// ``triggerPool`` is read-only: it is the immutable headline motif of
+// the style ("Burj Khalifa", "full-length mirror reflection") and the
+// slot sampler is guaranteed to drop one of these into every prompt.
+// The user can pick lighting/weather/etc. but cannot opt out of the
+// trigger — that's the contract that makes "У зеркала" actually show
+// a mirror.
 interface StyleOptions {
-  lighting?: string[];
-  scene?: string[];
-  clothing?: string[];
-  framing?: string[];
-  weather?: string[];
-  sceneLocked?: boolean;
-  weatherEnabled?: boolean;
+  triggerPool: string[];
+  sceneAnchor: string;
+  sceneOverrides: string[];
+  lighting: string[];
+  weather: string[];
+  timeOfDay: string[];
+  season: string[];
+  clothing: string[];
+  framing: string[];
+  sceneLocked: boolean;
+  weatherEnabled: boolean;
+  // Backwards-compat marker for the analytics layer.
+  schemaVersion: 1 | 2 | 3;
 }
 
-// v1.26: RU-словари для known-значений. Значения в styles.json — это
-// свободные английские фразы ("soft morning light, cool river tones").
-// Полностью словарь не закрыть, поэтому стратегия такая: known ключи
-// (например, 'golden hour', 'studio') отдаём RU, остальное показываем
-// как есть, с capitalize — пользователь хотя бы узнает, что выбрал.
 const LIGHTING_LABELS_RU: Record<string, string> = {
   'golden hour': 'Золотой час',
   'studio': 'Студийный свет',
@@ -60,12 +69,37 @@ const WEATHER_LABELS_RU: Record<string, string> = {
   storm: 'Шторм',
 };
 
+const TIME_OF_DAY_LABELS_RU: Record<string, string> = {
+  dawn: 'Рассвет',
+  morning: 'Утро',
+  noon: 'Полдень',
+  afternoon: 'День',
+  evening: 'Вечер',
+  sunset: 'Закат',
+  dusk: 'Сумерки',
+  twilight: 'Сумерки',
+  'blue hour': 'Синий час',
+  'golden hour': 'Золотой час',
+  night: 'Ночь',
+  midnight: 'Полночь',
+};
+
+const SEASON_LABELS_RU: Record<string, string> = {
+  spring: 'Весна',
+  summer: 'Лето',
+  autumn: 'Осень',
+  fall: 'Осень',
+  winter: 'Зима',
+};
+
 const CATEGORY_LABELS_RU: Record<string, string> = {
   lighting: 'Освещение',
   scene: 'Сцена / локация',
   clothing: 'Одежда',
   framing: 'Ракурс',
   weather: 'Погода',
+  time_of_day: 'Время суток',
+  season: 'Сезон',
 };
 
 function capitalize(s: string): string {
@@ -87,35 +121,82 @@ function labelFor(channel: string, value: string): string {
   if (channel === 'weather') {
     return WEATHER_LABELS_RU[value.toLowerCase()] ?? capitalize(value);
   }
+  if (channel === 'time_of_day') {
+    const lc = value.toLowerCase();
+    return TIME_OF_DAY_LABELS_RU[lc] ?? capitalize(value);
+  }
+  if (channel === 'season') {
+    const lc = value.toLowerCase();
+    return SEASON_LABELS_RU[lc] ?? capitalize(value);
+  }
   return capitalize(value);
 }
 
-// Normalise either v1 (allowed_variations dict) or v2 (slot-based)
-// payloads into a shape the modal renders without conditionals further
-// down. Backend keeps both shapes alive so the FE handles both.
-function normaliseOptions(res: api.StyleOptionsResponse): StyleOptions {
-  if (res.schema_version === 2) {
-    const v2 = res.options as api.StyleOptionsV2Payload;
-    return {
-      lighting: v2.context_slots?.lighting ?? [],
-      framing: v2.context_slots?.framing ?? [],
-      scene: v2.background?.overrides_allowed ?? [],
-      clothing: v2.clothing?.allowed ?? [],
-      weather: v2.weather?.allowed ?? [],
-      sceneLocked: v2.background?.lock === 'locked',
-      weatherEnabled: !!v2.weather?.enabled,
-    };
-  }
-  const v1 = (res.options ?? {}) as Record<string, string[]>;
+// Project a v3 payload directly onto StyleOptions. Trivial — v3 is
+// the canonical shape we render against.
+function fromV3(v3: api.StyleOptionsV3Payload): StyleOptions {
   return {
+    triggerPool: Array.isArray(v3.trigger_pool) ? v3.trigger_pool : [],
+    sceneAnchor: v3.scene_anchor ?? '',
+    sceneOverrides: Array.isArray(v3.scene_overrides) ? v3.scene_overrides : [],
+    lighting: v3.ambient?.lighting ?? [],
+    weather: v3.ambient?.weather ?? [],
+    timeOfDay: v3.ambient?.time_of_day ?? [],
+    season: v3.ambient?.season ?? [],
+    clothing: v3.clothing?.allowed ?? [],
+    framing: Array.isArray(v3.framing) ? v3.framing : [],
+    sceneLocked: v3.background_lock === 'locked',
+    weatherEnabled: (v3.ambient?.weather?.length ?? 0) > 0,
+    schemaVersion: 3,
+  };
+}
+
+// v2 → StyleOptions: keeps the modal usable if the catalog endpoint
+// transparently downgrades for an unmigrated style. The v2 row has
+// no ``trigger_pool``, only a single ``trigger`` string — we wrap it
+// into a one-element pool so the read-only badge still renders.
+function fromV2(v2: api.StyleOptionsV2Payload): StyleOptions {
+  return {
+    triggerPool: v2.trigger ? [v2.trigger] : [],
+    sceneAnchor: v2.background?.base ?? '',
+    sceneOverrides: v2.background?.overrides_allowed ?? [],
+    lighting: v2.context_slots?.lighting ?? [],
+    weather: v2.weather?.allowed ?? [],
+    timeOfDay: v2.context_slots?.time_of_day ?? [],
+    season: v2.context_slots?.season ?? [],
+    clothing: v2.clothing?.allowed ?? [],
+    framing: v2.context_slots?.framing ?? [],
+    sceneLocked: v2.background?.lock === 'locked',
+    weatherEnabled: !!v2.weather?.enabled,
+    schemaVersion: 2,
+  };
+}
+
+function fromV1(v1: Record<string, string[]>): StyleOptions {
+  return {
+    triggerPool: [],
+    sceneAnchor: '',
+    sceneOverrides: v1.scene ?? [],
     lighting: v1.lighting ?? [],
-    framing: v1.framing ?? [],
-    scene: v1.scene ?? [],
-    clothing: v1.clothing ?? [],
     weather: [],
+    timeOfDay: [],
+    season: [],
+    clothing: v1.clothing ?? [],
+    framing: v1.framing ?? [],
     sceneLocked: false,
     weatherEnabled: false,
+    schemaVersion: 1,
   };
+}
+
+function normaliseOptions(res: api.StyleOptionsResponse): StyleOptions {
+  if (res.schema_version === 3) {
+    return fromV3(res.options as api.StyleOptionsV3Payload);
+  }
+  if (res.schema_version === 2) {
+    return fromV2(res.options as api.StyleOptionsV2Payload);
+  }
+  return fromV1((res.options ?? {}) as Record<string, string[]>);
 }
 
 export default function StyleSettingsModal({ open, onClose, styleId, onApply }: Props) {
@@ -128,6 +209,16 @@ export default function StyleSettingsModal({ open, onClose, styleId, onApply }: 
     const style = app.effectiveStyleList.find((s) => s.key === styleId);
     return style?.name ?? '';
   }, [app.effectiveStyleList, styleId]);
+
+  // The "headline" trigger to show in the read-only badge. We pick
+  // the first formulation from the pool because it's the canonical
+  // / shortest variant (curated.json ordering); the slot sampler will
+  // still pick a random one per generation, but the badge needs a
+  // stable display string.
+  const triggerHeadline = useMemo(() => {
+    const pool = options?.triggerPool ?? [];
+    return pool.length > 0 ? pool[0] : '';
+  }, [options]);
 
   useEffect(() => {
     if (!open) return;
@@ -149,22 +240,33 @@ export default function StyleSettingsModal({ open, onClose, styleId, onApply }: 
       })
       .catch(e => {
         console.error(e);
-        setOptions({});
+        setOptions(null);
         setLoading(false);
       });
   }, [open, styleId]);
 
   if (!open) return null;
 
-  const hasLighting = !!options?.lighting && options.lighting.length > 0;
-  // Сцена-секция доступна, если background не запрещён жёстко (документы),
-  // даже когда overrides_allowed пуст: пользователь может ввести свободный
-  // текст. Если background.lock === 'locked' — секцию полностью скрываем.
+  const hasTrigger = !!triggerHeadline;
+  const hasLighting = (options?.lighting?.length ?? 0) > 0;
+  const hasTimeOfDay = (options?.timeOfDay?.length ?? 0) > 0;
+  const hasSeason = (options?.season?.length ?? 0) > 0;
+  // The Scene section is hidden only when background is hard-locked
+  // (passport / document styles). For everything else the user gets
+  // a free-text override field plus quick-pick chips from
+  // ``scene_overrides``.
   const hasScene = !!options && !options.sceneLocked;
-  const hasClothing = !!options?.clothing && options.clothing.length > 0;
-  const hasFraming = !!options?.framing && options.framing.length > 0;
+  const hasClothing = (options?.clothing?.length ?? 0) > 0;
+  const hasFraming = (options?.framing?.length ?? 0) > 0;
   const hasWeather = !!options?.weatherEnabled;
-  const hasAnyField = hasLighting || hasScene || hasClothing || hasFraming || hasWeather;
+  const hasAnyField =
+    hasLighting ||
+    hasTimeOfDay ||
+    hasSeason ||
+    hasScene ||
+    hasClothing ||
+    hasFraming ||
+    hasWeather;
 
   return createPortal(
     <AnimatePresence>
@@ -213,6 +315,39 @@ export default function StyleSettingsModal({ open, onClose, styleId, onApply }: 
           </div>
 
           <div className="flex-1 overflow-y-auto px-[var(--space-16)] pb-[var(--space-16)] flex flex-col gap-[var(--space-16)]">
+            {hasTrigger && (
+              <div
+                className="flex items-start gap-[var(--space-8)] rounded-[var(--radius-12)] px-[var(--space-12)] py-[var(--space-8)] bg-[rgba(123,168,255,0.08)] border border-[rgba(123,168,255,0.2)]"
+                title="Этот элемент всегда в кадре. Изменить нельзя."
+              >
+                <svg
+                  width="16"
+                  height="16"
+                  viewBox="0 0 16 16"
+                  fill="none"
+                  className="shrink-0 mt-[1px] text-[#7BA8FF]"
+                >
+                  <path
+                    d="M8 1.5L9.94 5.43L14.27 6.06L11.13 9.12L11.87 13.43L8 11.4L4.13 13.43L4.87 9.12L1.73 6.06L6.06 5.43L8 1.5Z"
+                    stroke="currentColor"
+                    strokeWidth="1.4"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+                <div className="flex flex-col min-w-0 flex-1">
+                  <span className="text-[11px] uppercase tracking-wider text-[#7BA8FF] font-medium">
+                    Триггер стиля
+                  </span>
+                  <span className="text-[13px] leading-[18px] text-[#E6EEF8] truncate">
+                    {triggerHeadline}
+                  </span>
+                  <span className="text-[11px] leading-[14px] text-[var(--color-text-muted)] mt-[2px]">
+                    Всегда в кадре. Изменить нельзя.
+                  </span>
+                </div>
+              </div>
+            )}
+
             {loading ? (
               <div className="text-[13px] text-[var(--color-text-muted)] text-center py-[var(--space-16)]">
                 Загрузка настроек...
@@ -233,11 +368,95 @@ export default function StyleSettingsModal({ open, onClose, styleId, onApply }: 
                       onChange={(e) => setHints((h) => ({ ...h, lighting: e.target.value }))}
                       className="w-full bg-[rgba(255,255,255,0.05)] border border-[rgba(255,255,255,0.1)] rounded-[var(--radius-8)] px-3 py-2 text-[14px] text-[#E6EEF8]"
                     >
-                      <option value="">По умолчанию</option>
+                      <option value="">Авто (рандом)</option>
                       {options!.lighting!.map((opt) => (
                         <option key={opt} value={opt}>{labelFor('lighting', opt)}</option>
                       ))}
                     </select>
+                  </div>
+                )}
+
+                {hasTimeOfDay && (
+                  <div className="flex flex-col gap-[var(--space-8)]">
+                    <span className="text-[13px] font-medium text-[var(--color-text-muted)]">
+                      {CATEGORY_LABELS_RU.time_of_day}
+                    </span>
+                    <div className="flex flex-wrap gap-[var(--space-4)]">
+                      <button
+                        key="__auto__"
+                        type="button"
+                        onClick={() => setHints((h) => ({ ...h, time_of_day: '' }))}
+                        className={`px-[var(--space-12)] py-[var(--space-4)] rounded-[var(--radius-pill)] text-[12px] leading-[16px] font-medium transition-all ${
+                          (hints.time_of_day ?? '') === ''
+                            ? 'glass-btn-primary text-white'
+                            : 'glass-btn-ghost text-[var(--color-text-secondary)]'
+                        }`}
+                      >
+                        Авто (рандом)
+                      </button>
+                      {options!.timeOfDay!.map((opt) => {
+                        const active = (hints.time_of_day ?? '') === opt;
+                        return (
+                          <button
+                            key={opt}
+                            type="button"
+                            onClick={() => setHints((h) => ({
+                              ...h,
+                              time_of_day: active ? '' : opt,
+                            }))}
+                            className={`px-[var(--space-12)] py-[var(--space-4)] rounded-[var(--radius-pill)] text-[12px] leading-[16px] font-medium transition-all ${
+                              active
+                                ? 'glass-btn-primary text-white'
+                                : 'glass-btn-ghost text-[var(--color-text-secondary)]'
+                            }`}
+                          >
+                            {labelFor('time_of_day', opt)}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {hasSeason && (
+                  <div className="flex flex-col gap-[var(--space-8)]">
+                    <span className="text-[13px] font-medium text-[var(--color-text-muted)]">
+                      {CATEGORY_LABELS_RU.season}
+                    </span>
+                    <div className="flex flex-wrap gap-[var(--space-4)]">
+                      <button
+                        key="__auto__"
+                        type="button"
+                        onClick={() => setHints((h) => ({ ...h, season: '' }))}
+                        className={`px-[var(--space-12)] py-[var(--space-4)] rounded-[var(--radius-pill)] text-[12px] leading-[16px] font-medium transition-all ${
+                          (hints.season ?? '') === ''
+                            ? 'glass-btn-primary text-white'
+                            : 'glass-btn-ghost text-[var(--color-text-secondary)]'
+                        }`}
+                      >
+                        Авто (рандом)
+                      </button>
+                      {options!.season!.map((opt) => {
+                        const active = (hints.season ?? '') === opt;
+                        return (
+                          <button
+                            key={opt}
+                            type="button"
+                            onClick={() => setHints((h) => ({
+                              ...h,
+                              season: active ? '' : opt,
+                            }))}
+                            className={`px-[var(--space-12)] py-[var(--space-4)] rounded-[var(--radius-pill)] text-[12px] leading-[16px] font-medium transition-all ${
+                              active
+                                ? 'glass-btn-primary text-white'
+                                : 'glass-btn-ghost text-[var(--color-text-secondary)]'
+                            }`}
+                          >
+                            {labelFor('season', opt)}
+                          </button>
+                        );
+                      })}
+                    </div>
                   </div>
                 )}
 
@@ -247,24 +466,19 @@ export default function StyleSettingsModal({ open, onClose, styleId, onApply }: 
                       {CATEGORY_LABELS_RU.framing}
                     </span>
                     <div className="flex flex-wrap gap-[var(--space-4)]">
-                      {(() => {
-                        const inactiveDefault = (hints.framing ?? '') === '';
-                        return (
-                          <button
-                            key="__default__"
-                            type="button"
-                            onClick={() => setHints((h) => ({ ...h, framing: '' }))}
-                            className={`px-[var(--space-12)] py-[var(--space-4)] rounded-[var(--radius-pill)] text-[12px] leading-[16px] font-medium transition-all ${
-                              inactiveDefault
-                                ? 'glass-btn-primary text-white'
-                                : 'glass-btn-ghost text-[var(--color-text-secondary)]'
-                            }`}
-                            title="Использовать ракурс из шага «Выберите стиль»"
-                          >
-                            По умолчанию
-                          </button>
-                        );
-                      })()}
+                      <button
+                        key="__default__"
+                        type="button"
+                        onClick={() => setHints((h) => ({ ...h, framing: '' }))}
+                        className={`px-[var(--space-12)] py-[var(--space-4)] rounded-[var(--radius-pill)] text-[12px] leading-[16px] font-medium transition-all ${
+                          (hints.framing ?? '') === ''
+                            ? 'glass-btn-primary text-white'
+                            : 'glass-btn-ghost text-[var(--color-text-secondary)]'
+                        }`}
+                        title="Использовать ракурс из шага «Выберите стиль»"
+                      >
+                        По умолчанию
+                      </button>
                       {options!.framing!.map((opt) => {
                         const active = (hints.framing ?? '') === opt;
                         return (
@@ -301,9 +515,9 @@ export default function StyleSettingsModal({ open, onClose, styleId, onApply }: 
                       onChange={(e) => setHints((h) => ({ ...h, scene_override: e.target.value }))}
                       className="w-full bg-[rgba(255,255,255,0.05)] border border-[rgba(255,255,255,0.1)] rounded-[var(--radius-8)] px-3 py-2 text-[14px] text-[#E6EEF8]"
                     />
-                    {(options!.scene?.length ?? 0) > 0 && (
+                    {(options!.sceneOverrides?.length ?? 0) > 0 && (
                       <div className="flex flex-wrap gap-[var(--space-4)]">
-                        {options!.scene!.slice(0, 6).map((opt) => (
+                        {options!.sceneOverrides!.slice(0, 6).map((opt) => (
                           <button
                             key={opt}
                             type="button"
@@ -353,6 +567,18 @@ export default function StyleSettingsModal({ open, onClose, styleId, onApply }: 
                       {CATEGORY_LABELS_RU.weather}
                     </span>
                     <div className="flex flex-wrap gap-[var(--space-4)]">
+                      <button
+                        key="__auto__"
+                        type="button"
+                        onClick={() => setHints((h) => ({ ...h, weather: '' }))}
+                        className={`px-[var(--space-12)] py-[var(--space-4)] rounded-[var(--radius-pill)] text-[12px] leading-[16px] font-medium transition-all ${
+                          (hints.weather ?? '') === ''
+                            ? 'glass-btn-primary text-white'
+                            : 'glass-btn-ghost text-[var(--color-text-secondary)]'
+                        }`}
+                      >
+                        Авто (рандом)
+                      </button>
                       {(options!.weather ?? []).map((opt) => {
                         const active = (hints.weather ?? '') === opt;
                         return (
