@@ -218,11 +218,17 @@ jobs:
           # to true in src/config.py; we re-assert them here so every
           # deploy heals any accidental dashboard tweak. Removing these
           # lines requires updating src/config.py defaults first.
-          echo "Syncing style-schema-v2 feature flags to Railway (app + worker)..."
+          # v1.28.0: STYLE_SCHEMA_V3_ENABLED added to the same loop —
+          # default in src/config.py is false (Stage 1 ships additive),
+          # but production has it flipped to true so the v3 SlotSampler
+          # path is the live one. Re-asserting here heals dashboard
+          # drift the same way v2 flags do.
+          echo "Syncing style-schema feature flags to Railway (app + worker)..."
           for SVC in app worker; do
             rl_set STYLE_SCHEMA_V2_ENABLED="true" -s "$SVC" -e production --skip-deploys
             rl_set UNIFIED_PROMPT_V2_ENABLED="true" -s "$SVC" -e production --skip-deploys
             rl_set VARIATION_ENGINE_V2_ENABLED="true" -s "$SVC" -e production --skip-deploys
+            rl_set STYLE_SCHEMA_V3_ENABLED="true" -s "$SVC" -e production --skip-deploys
             # v1.27.2: pin the A/B router defaults so a Railway dashboard
             # tweak cannot silently route Telegram-bot traffic away from
             # GPT Image 2. The bot also sends image_model=gpt_image_2
@@ -410,9 +416,14 @@ jobs:
             # silently disable the new prompt pipeline. All three
             # default to true in src/config.py — these lines heal any
             # accidental manual override on every deploy.
+            # v1.28.0: STYLE_SCHEMA_V3_ENABLED pinned alongside —
+            # default in src/config.py is false (additive ship), but
+            # production runs with v3 active. Re-asserted on every
+            # RU deploy to mirror the Railway primary side.
             sync_env STYLE_SCHEMA_V2_ENABLED true
             sync_env UNIFIED_PROMPT_V2_ENABLED true
             sync_env VARIATION_ENGINE_V2_ENABLED true
+            sync_env STYLE_SCHEMA_V3_ENABLED true
             # Dead flag removed in v1.25; strip it if still present.
             sed -i '/^PROMPT_ENGINE_MAP_FIX=/d' "$ENV_FILE" 2>/dev/null || true
             if [ -n "$INTERNAL_API_KEY" ]; then
