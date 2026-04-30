@@ -406,6 +406,22 @@ def _v3_slots_from_raw(raw: dict) -> dict | None:
         or str((raw.get("background") or {}).get("lock") or "semi").strip()
     )
 
+    from src.prompts.style_schema_v3 import (
+        CONFIGURABLE_CHANNELS,
+        LOCATION_TYPES,
+    )
+
+    raw_channels = raw.get("available_channels") or []
+    if isinstance(raw_channels, (list, tuple)):
+        available_channels = [
+            str(c) for c in raw_channels if isinstance(c, str) and c in CONFIGURABLE_CHANNELS
+        ]
+    else:
+        available_channels = []
+
+    raw_location = str(raw.get("location_type") or "").strip().lower()
+    location_type = raw_location if raw_location in LOCATION_TYPES else ""
+
     return {
         "schema_version": 3,
         "trigger_pool": trigger_pool,
@@ -420,6 +436,8 @@ def _v3_slots_from_raw(raw: dict) -> dict | None:
         },
         "framing": framing,
         "expression": str(raw.get("expression") or ""),
+        "available_channels": available_channels,
+        "location_type": location_type,
     }
 
 

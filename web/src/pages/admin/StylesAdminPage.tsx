@@ -1,12 +1,52 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 import * as api from '../../lib/api';
-import type { AdminStyleEntry, AdminStyleSummary } from '../../lib/api';
+import type {
+  AdminLintIssue,
+  AdminLintReport,
+  AdminStyleEntry,
+  AdminStyleSummary,
+} from '../../lib/api';
 import { ApiError } from '../../lib/api';
 
 type ModeFilter = 'all' | 'cv' | 'social' | 'dating' | string;
 
 const MODES: ModeFilter[] = ['all', 'cv', 'social', 'dating'];
 const SCENARIO_OPTIONS = ['', 'document-photo', 'tinder-pack'];
+
+const ALL_CHANNELS: readonly string[] = [
+  'lighting',
+  'weather',
+  'time_of_day',
+  'season',
+  'framing',
+  'clothing',
+  'scene_override',
+] as const;
+
+const LOCATION_TYPES: readonly string[] = [
+  '',
+  'indoor',
+  'outdoor',
+  'mixed',
+  'document',
+] as const;
+
+const DEFAULT_SEASONS = ['spring', 'summer', 'autumn', 'winter'];
+
+function severityCounts(issues: AdminLintIssue[] | undefined): {
+  errors: number;
+  warnings: number;
+} {
+  if (!issues) return { errors: 0, warnings: 0 };
+  let errors = 0;
+  let warnings = 0;
+  for (const i of issues) {
+    if (i.severity === 'error') errors += 1;
+    else if (i.severity === 'warning') warnings += 1;
+  }
+  return { errors, warnings };
+}
 
 const EMPTY_V2_TEMPLATE: AdminStyleEntry = {
   id: '',
@@ -67,9 +107,11 @@ function arrayFromCsv(value: string): string[] {
 
 export default function StylesAdminPage() {
   const [items, setItems] = useState<AdminStyleSummary[] | null>(null);
+  const [lintReport, setLintReport] = useState<AdminLintReport>({});
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [modeFilter, setModeFilter] = useState<ModeFilter>('all');
+  const [issuesOnly, setIssuesOnly] = useState(false);
   const [search, setSearch] = useState('');
   const [editing, setEditing] = useState<{ entry: AdminStyleEntry; isNew: boolean } | null>(null);
 
@@ -79,6 +121,13 @@ export default function StylesAdminPage() {
     try {
       const list = await api.listAdminStyles();
       setItems(list);
+      // Lint report is best-effort; the catalog table renders even if
+      // the lint endpoint is unreachable (older deploy, etc.).
+      try {
+        setLintReport(await api.lintAllAdminStyles());
+      } catch {
+        setLintReport({});
+      }
     } catch (e) {
       if (e instanceof ApiError && e.status === 403) {
         setError('Доступ запрещён. Этот аккаунт не в ADMIN_USER_IDS.');
@@ -102,6 +151,7 @@ export default function StylesAdminPage() {
     const q = search.trim().toLowerCase();
     return items.filter((s) => {
       if (modeFilter !== 'all' && s.mode !== modeFilter) return false;
+      if (issuesOnly && !lintReport[s.id]?.length) return false;
       if (!q) return true;
       return (
         s.id.toLowerCase().includes(q) ||
@@ -109,7 +159,18 @@ export default function StylesAdminPage() {
         s.hook_text.toLowerCase().includes(q)
       );
     });
-  }, [items, modeFilter, search]);
+  }, [items, modeFilter, issuesOnly, lintReport, search]);
+
+  const totalIssues = useMemo(() => {
+    let errors = 0;
+    let warnings = 0;
+    for (const sid of Object.keys(lintReport)) {
+      const c = severityCounts(lintReport[sid]);
+      errors += c.errors;
+      warnings += c.warnings;
+    }
+    return { errors, warnings, dirtyStyles: Object.keys(lintReport).length };
+  }, [lintReport]);
 
   const openEdit = useCallback(async (id: string) => {
     try {
@@ -183,6 +244,12 @@ export default function StylesAdminPage() {
           </p>
         </div>
         <div className="flex gap-2">
+          <Link
+            to="/admin/conflicts"
+            className="px-4 py-2 rounded-lg border border-white/10 hover:bg-white/5 text-sm"
+          >
+            Conflicts report
+          </Link>
           <button onClick={handleReload} className="px-4 py-2 rounded-lg border border-white/10 hover:bg-white/5">
             Reload cache
           </button>
@@ -191,6 +258,22 @@ export default function StylesAdminPage() {
           </button>
         </div>
       </header>
+
+      {totalIssues.dirtyStyles > 0 && (
+        <div className="mb-4 px-4 py-3 bg-amber-500/10 border border-amber-500/30 rounded-lg text-sm text-amber-200 flex items-center gap-3">
+          <span>
+            Lint: <strong>{totalIssues.errors}</strong> errors,{' '}
+            <strong>{totalIssues.warnings}</strong> warnings across{' '}
+            <strong>{totalIssues.dirtyStyles}</strong> styles.
+          </span>
+          <button
+            onClick={() => setIssuesOnly(!issuesOnly)}
+            className={`ml-auto px-3 py-1 rounded border text-xs ${issuesOnly ? 'bg-amber-500/20 border-amber-500/50' : 'border-amber-500/30 hover:bg-amber-500/10'}`}
+          >
+            {issuesOnly ? 'Show all' : 'Show only with issues'}
+          </button>
+        </div>
+      )}
 
       {error && (
         <div className="mb-4 px-4 py-3 bg-red-500/10 border border-red-500/30 rounded-lg text-sm text-red-300">
@@ -229,6 +312,7 @@ export default function StylesAdminPage() {
               <th className="text-left px-3 py-2 font-medium">id</th>
               <th className="text-left px-3 py-2 font-medium">mode</th>
               <th className="text-left px-3 py-2 font-medium">label</th>
+              <th className="text-left px-3 py-2 font-medium">lint</th>
               <th className="text-left px-3 py-2 font-medium">unlock</th>
               <th className="text-left px-3 py-2 font-medium">scenario</th>
               <th className="text-left px-3 py-2 font-medium">v</th>
@@ -236,27 +320,48 @@ export default function StylesAdminPage() {
             </tr>
           </thead>
           <tbody>
-            {filtered.map((s) => (
-              <tr key={s.id} className="border-t border-white/5 hover:bg-white/5">
-                <td className="px-3 py-2 font-mono text-xs">{s.id}</td>
-                <td className="px-3 py-2">{s.mode}</td>
-                <td className="px-3 py-2 truncate max-w-[280px]">{s.display_label}</td>
-                <td className="px-3 py-2">{s.unlock_after_generations || '—'}</td>
-                <td className="px-3 py-2">{s.scenario ?? '—'}</td>
-                <td className="px-3 py-2">{s.schema_version}</td>
-                <td className="px-3 py-2 text-right">
-                  <button onClick={() => openEdit(s.id)} className="px-2 py-1 text-xs rounded border border-white/10 hover:bg-white/10 mr-2">
-                    Edit
-                  </button>
-                  <button onClick={() => handleDelete(s.id)} className="px-2 py-1 text-xs rounded border border-red-500/30 text-red-300 hover:bg-red-500/10">
-                    Delete
-                  </button>
-                </td>
-              </tr>
-            ))}
+            {filtered.map((s) => {
+              const counts = severityCounts(lintReport[s.id]);
+              return (
+                <tr key={s.id} className="border-t border-white/5 hover:bg-white/5">
+                  <td className="px-3 py-2 font-mono text-xs">{s.id}</td>
+                  <td className="px-3 py-2">{s.mode}</td>
+                  <td className="px-3 py-2 truncate max-w-[280px]">{s.display_label}</td>
+                  <td className="px-3 py-2">
+                    {counts.errors === 0 && counts.warnings === 0 ? (
+                      <span className="px-2 py-0.5 rounded text-[10px] bg-emerald-500/15 border border-emerald-500/30 text-emerald-300">clean</span>
+                    ) : (
+                      <span className="flex gap-1">
+                        {counts.errors > 0 && (
+                          <span className="px-2 py-0.5 rounded text-[10px] bg-red-500/15 border border-red-500/30 text-red-300">
+                            {counts.errors}E
+                          </span>
+                        )}
+                        {counts.warnings > 0 && (
+                          <span className="px-2 py-0.5 rounded text-[10px] bg-amber-500/15 border border-amber-500/30 text-amber-300">
+                            {counts.warnings}W
+                          </span>
+                        )}
+                      </span>
+                    )}
+                  </td>
+                  <td className="px-3 py-2">{s.unlock_after_generations || '—'}</td>
+                  <td className="px-3 py-2">{s.scenario ?? '—'}</td>
+                  <td className="px-3 py-2">{s.schema_version}</td>
+                  <td className="px-3 py-2 text-right">
+                    <button onClick={() => openEdit(s.id)} className="px-2 py-1 text-xs rounded border border-white/10 hover:bg-white/10 mr-2">
+                      Edit
+                    </button>
+                    <button onClick={() => handleDelete(s.id)} className="px-2 py-1 text-xs rounded border border-red-500/30 text-red-300 hover:bg-red-500/10">
+                      Delete
+                    </button>
+                  </td>
+                </tr>
+              );
+            })}
             {!loading && filtered.length === 0 && (
               <tr>
-                <td colSpan={7} className="px-3 py-8 text-center text-[#8b95a3]">
+                <td colSpan={8} className="px-3 py-8 text-center text-[#8b95a3]">
                   Ничего не найдено
                 </td>
               </tr>
@@ -325,10 +430,11 @@ function StyleEditModal({
   onClose: (dirty: boolean) => void;
   onSave: (entry: AdminStyleEntry) => void;
 }) {
-  const [tab, setTab] = useState<'basic' | 'slots'>('basic');
+  const [tab, setTab] = useState<'basic' | 'slots' | 'v3'>('basic');
   const initialJson = useMemo(() => JSON.stringify(entry), [entry]);
   const [draft, setDraft] = useState<AdminStyleEntry>(() => structuredClone(entry));
   const [fieldErrors, setFieldErrors] = useState<V2FieldErrors>({});
+  const [liveIssues, setLiveIssues] = useState<AdminLintIssue[]>([]);
 
   const update = useCallback(<K extends string>(key: K, value: unknown) => {
     setDraft((prev) => ({ ...prev, [key]: value }));
@@ -350,9 +456,118 @@ function StyleEditModal({
   const weather = asObject(draft.weather);
   const contextSlots = asObject(draft.context_slots);
   const quality = asObject(draft.quality_identity);
+  const ambient = asObject(draft.ambient);
   const isV2 = asNumber(draft.schema_version, 1) === 2;
+  const isV3 = asNumber(draft.schema_version, 1) === 3;
   const deltaRange = Array.isArray(meta.delta_range) ? (meta.delta_range as number[]) : [0.1, 0.3];
   const isDirty = JSON.stringify(draft) !== initialJson;
+
+  const triggerPool = useMemo<string[]>(
+    () => (Array.isArray(draft.trigger_pool) ? (draft.trigger_pool as string[]).filter((v) => typeof v === 'string') : []),
+    [draft.trigger_pool],
+  );
+
+  const sceneOverrides = useMemo<string[]>(
+    () => (Array.isArray(draft.scene_overrides) ? (draft.scene_overrides as string[]).filter((v) => typeof v === 'string') : []),
+    [draft.scene_overrides],
+  );
+
+  const availableChannels = useMemo<string[]>(
+    () => (Array.isArray(draft.available_channels) ? (draft.available_channels as string[]).filter((v) => typeof v === 'string') : []),
+    [draft.available_channels],
+  );
+
+  // Live lint via the backend — debounced. Only runs for existing
+  // styles (we need an id to GET); for new styles we still surface
+  // structural validation via the inline trigger-pool check.
+  useEffect(() => {
+    if (isNew) {
+      setLiveIssues([]);
+      return;
+    }
+    const handle = window.setTimeout(() => {
+      api
+        .lintOneAdminStyle(entry.id)
+        .then(setLiveIssues)
+        .catch(() => setLiveIssues([]));
+    }, 350);
+    return () => window.clearTimeout(handle);
+  }, [draft, entry.id, isNew]);
+
+  const issuesByField = useMemo(() => {
+    const out: Record<string, AdminLintIssue[]> = {};
+    for (const issue of liveIssues) {
+      const key = issue.field || 'general';
+      if (!out[key]) out[key] = [];
+      out[key].push(issue);
+    }
+    return out;
+  }, [liveIssues]);
+
+  const triggerIssues = issuesByField['trigger_pool'] ?? [];
+  const channelIssues = issuesByField['available_channels'] ?? [];
+  const seasonPoolIssues = issuesByField['ambient.season'] ?? [];
+
+  const toggleChannel = useCallback(
+    (channel: string, on: boolean) => {
+      setDraft((prev) => {
+        const current = Array.isArray(prev.available_channels)
+          ? (prev.available_channels as string[]).filter((c) => typeof c === 'string')
+          : [];
+        if (on && !current.includes(channel)) {
+          return { ...prev, available_channels: [...current, channel] };
+        }
+        if (!on && current.includes(channel)) {
+          return { ...prev, available_channels: current.filter((c) => c !== channel) };
+        }
+        return prev;
+      });
+    },
+    [],
+  );
+
+  const updateTrigger = useCallback((idx: number, value: string) => {
+    setDraft((prev) => {
+      const list = Array.isArray(prev.trigger_pool)
+        ? [...(prev.trigger_pool as string[])]
+        : [];
+      list[idx] = value;
+      return { ...prev, trigger_pool: list };
+    });
+  }, []);
+
+  const addTrigger = useCallback(() => {
+    setDraft((prev) => {
+      const list = Array.isArray(prev.trigger_pool) ? [...(prev.trigger_pool as string[])] : [];
+      return { ...prev, trigger_pool: [...list, ''] };
+    });
+  }, []);
+
+  const removeTrigger = useCallback((idx: number) => {
+    setDraft((prev) => {
+      const list = Array.isArray(prev.trigger_pool) ? [...(prev.trigger_pool as string[])] : [];
+      list.splice(idx, 1);
+      return { ...prev, trigger_pool: list };
+    });
+  }, []);
+
+  const updateAmbientChannel = useCallback((channel: string, csv: string) => {
+    setDraft((prev) => {
+      const block = asObject(prev.ambient);
+      return { ...prev, ambient: { ...block, [channel]: arrayFromCsv(csv) } };
+    });
+  }, []);
+
+  const fillFourSeasons = useCallback(() => {
+    setDraft((prev) => {
+      const block = asObject(prev.ambient);
+      return { ...prev, ambient: { ...block, season: [...DEFAULT_SEASONS] } };
+    });
+  }, []);
+
+  const updateSceneOverrides = useCallback((csv: string) => {
+    setDraft((prev) => ({ ...prev, scene_overrides: arrayFromCsv(csv) }));
+  }, []);
 
   const onSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -383,17 +598,39 @@ function StyleEditModal({
         </header>
 
         <div className="flex border-b border-white/10">
-          {(['basic', 'slots'] as const).map((t) => (
+          {(['basic', 'slots', 'v3'] as const).map((t) => (
             <button
               key={t}
               type="button"
               onClick={() => setTab(t)}
               className={`px-4 py-2 text-sm ${tab === t ? 'border-b-2 border-blue-400 text-white' : 'text-[#8b95a3]'}`}
             >
-              {t === 'basic' ? 'Базовое' : 'Слоты v2'}
+              {t === 'basic'
+                ? 'Базовое'
+                : t === 'slots'
+                  ? 'Слоты v2'
+                  : 'v3 / channels'}
             </button>
           ))}
         </div>
+
+        {liveIssues.length > 0 && (
+          <div className="px-5 py-3 border-b border-white/10 bg-amber-500/5 text-xs text-amber-200 space-y-1">
+            <div className="font-medium uppercase tracking-wide text-amber-300">
+              Lint ({liveIssues.length})
+            </div>
+            <ul className="space-y-0.5 max-h-32 overflow-y-auto">
+              {liveIssues.map((issue, i) => (
+                <li key={i} className="flex gap-2">
+                  <span className={`shrink-0 px-1.5 py-0.5 rounded text-[10px] ${issue.severity === 'error' ? 'bg-red-500/20 text-red-200' : 'bg-amber-500/20 text-amber-200'}`}>
+                    {issue.code}
+                  </span>
+                  <span className="text-amber-100/80">{issue.message}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
 
         <div className="flex-1 overflow-y-auto p-5 space-y-4">
           {tab === 'basic' && (
@@ -687,6 +924,183 @@ function StyleEditModal({
                   />
                 </Field>
               </Fieldset>
+            </>
+          )}
+
+          {tab === 'v3' && (
+            <>
+              {!isV3 && (
+                <div className="px-3 py-2 bg-blue-500/10 border border-blue-500/30 rounded text-sm text-blue-200">
+                  Стиль не v3 — поля ниже сохранятся, но сэмплер их использует только когда{' '}
+                  <code>schema_version = 3</code>.
+                </div>
+              )}
+
+              <div className="grid grid-cols-2 gap-3">
+                <Field
+                  label="location_type"
+                  hint="indoor скрывает season + weather, document скрывает все ambient-каналы"
+                >
+                  <select
+                    value={asString(draft.location_type, '')}
+                    onChange={(e) => update('location_type', e.target.value)}
+                    className="input"
+                  >
+                    {LOCATION_TYPES.map((t) => (
+                      <option key={t || 'unset'} value={t}>
+                        {t || '— не задан —'}
+                      </option>
+                    ))}
+                  </select>
+                </Field>
+                <Field label="background_lock">
+                  <select
+                    value={asString(draft.background_lock, 'semi')}
+                    onChange={(e) => update('background_lock', e.target.value)}
+                    className="input"
+                  >
+                    <option value="flexible">flexible</option>
+                    <option value="semi">semi</option>
+                    <option value="locked">locked</option>
+                  </select>
+                </Field>
+              </div>
+
+              <Fieldset legend="trigger_pool">
+                <p className="text-xs text-[#8b95a3]">
+                  Иммутабельный мотив стиля. Сэмплер выбирает одну формулировку каждую генерацию.
+                  Не должен содержать ракурс/освещение/погоду — это отдельные каналы.
+                </p>
+                {triggerPool.length === 0 && (
+                  <div className="px-3 py-2 bg-red-500/10 border border-red-500/30 rounded text-xs text-red-300">
+                    v3 styles must contain at least one trigger formulation.
+                  </div>
+                )}
+                {triggerPool.map((t, i) => (
+                  <div key={i} className="flex gap-2 items-start">
+                    <input
+                      value={t}
+                      onChange={(e) => updateTrigger(i, e.target.value)}
+                      className="input flex-1"
+                      placeholder='e.g. "round wall mirror in frame"'
+                    />
+                    <button
+                      type="button"
+                      onClick={() => removeTrigger(i)}
+                      className="px-2 py-1.5 text-xs rounded border border-white/10 hover:bg-red-500/10 hover:border-red-500/30 hover:text-red-300"
+                    >
+                      −
+                    </button>
+                  </div>
+                ))}
+                <button
+                  type="button"
+                  onClick={addTrigger}
+                  className="px-3 py-1.5 text-xs rounded border border-white/10 hover:bg-white/5"
+                >
+                  + add formulation
+                </button>
+                {triggerIssues.map((issue, i) => (
+                  <div
+                    key={i}
+                    className="text-[11px] text-amber-300 px-2 py-1 bg-amber-500/10 border border-amber-500/30 rounded"
+                  >
+                    {issue.message}
+                  </div>
+                ))}
+              </Fieldset>
+
+              <Field label="scene_anchor" hint="Базовая сцена БЕЗ описаний света / погоды / времени суток">
+                <textarea
+                  rows={2}
+                  value={asString(draft.scene_anchor)}
+                  onChange={(e) => update('scene_anchor', e.target.value)}
+                  className="input"
+                />
+              </Field>
+
+              <Field label="scene_overrides (csv)" hint="Альтернативные сцены, сэмплер ротирует">
+                <input
+                  value={sceneOverrides.join(', ')}
+                  onChange={(e) => updateSceneOverrides(e.target.value)}
+                  className="input"
+                />
+              </Field>
+
+              <Fieldset legend="available_channels">
+                <p className="text-xs text-[#8b95a3]">
+                  Чекбоксы определяют, какие настройки видит пользователь в StyleSettingsModal.
+                  Пустой список = «не курировано», UI показывает каналы по непустым пулам (старое поведение).
+                </p>
+                <div className="grid grid-cols-2 gap-2">
+                  {ALL_CHANNELS.map((ch) => (
+                    <label
+                      key={ch}
+                      className="flex items-center gap-2 text-sm px-2 py-1 rounded hover:bg-white/5"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={availableChannels.includes(ch)}
+                        onChange={(e) => toggleChannel(ch, e.target.checked)}
+                      />
+                      <span>{ch}</span>
+                    </label>
+                  ))}
+                </div>
+                {channelIssues.map((issue, i) => (
+                  <div
+                    key={i}
+                    className="text-[11px] text-red-300 px-2 py-1 bg-red-500/10 border border-red-500/30 rounded"
+                  >
+                    {issue.message}
+                  </div>
+                ))}
+              </Fieldset>
+
+              <Fieldset legend="ambient pools">
+                {(['lighting', 'weather', 'time_of_day', 'season'] as const).map((ch) => {
+                  const enabled = availableChannels.length === 0 || availableChannels.includes(ch);
+                  const csv = csvFromArray(ambient[ch]);
+                  return (
+                    <Field
+                      key={ch}
+                      label={`ambient.${ch} (csv)`}
+                      hint={enabled ? '' : 'канал отключён в available_channels — пул не используется'}
+                    >
+                      <input
+                        value={csv}
+                        onChange={(e) => updateAmbientChannel(ch, e.target.value)}
+                        className={`input ${enabled ? '' : 'opacity-50'}`}
+                      />
+                    </Field>
+                  );
+                })}
+                {availableChannels.includes('season') && (
+                  <button
+                    type="button"
+                    onClick={fillFourSeasons}
+                    className="px-3 py-1.5 text-xs rounded border border-white/10 hover:bg-white/5 self-start"
+                  >
+                    Fill 4 seasons (spring, summer, autumn, winter)
+                  </button>
+                )}
+                {seasonPoolIssues.map((issue, i) => (
+                  <div
+                    key={i}
+                    className="text-[11px] text-amber-300 px-2 py-1 bg-amber-500/10 border border-amber-500/30 rounded"
+                  >
+                    {issue.message}
+                  </div>
+                ))}
+              </Fieldset>
+
+              <Field label="expression">
+                <input
+                  value={asString(draft.expression)}
+                  onChange={(e) => update('expression', e.target.value)}
+                  className="input"
+                />
+              </Field>
             </>
           )}
         </div>

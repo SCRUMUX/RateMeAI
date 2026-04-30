@@ -272,6 +272,9 @@ def sample(
     ambient: dict[str, str] = {}
     pools: AmbientPools = spec.ambient
     for channel in _AMBIENT_CHANNELS:
+        if not spec.is_channel_enabled(channel):
+            ambient[channel] = ""
+            continue
         ambient[channel] = _resolve_channel(
             channel=channel,
             pool=pools.for_channel(channel),

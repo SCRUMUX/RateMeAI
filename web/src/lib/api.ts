@@ -385,6 +385,24 @@ export interface StyleOptionsV3Payload {
   clothing: { default: string; allowed: string[]; gender_neutral: boolean };
   framing: string[];
   expression: string;
+  /**
+   * 1.29.0 — explicit list of channels the operator wants surfaced
+   * to the user. When non-empty the modal hides every channel that
+   * is NOT in this list, and the SlotSampler skips them. When empty
+   * the un-curated heuristic kicks in (channel visible iff its pool
+   * is non-empty) — keeps backwards compatibility with 1.28.
+   *
+   * Allowed entries: ``"lighting"`` | ``"weather"`` |
+   * ``"time_of_day"`` | ``"season"`` | ``"framing"`` |
+   * ``"clothing"`` | ``"scene_override"``.
+   */
+  available_channels: string[];
+  /**
+   * 1.29.0 — coarse-grained classifier (``"indoor"`` / ``"outdoor"`` /
+   * ``"mixed"`` / ``"document"``) used by the admin lint engine.
+   * Empty string = unclassified.
+   */
+  location_type: string;
 }
 
 export interface StyleOptionsV1Payload {
@@ -553,6 +571,57 @@ export function reloadAdminStyles() {
     '/api/v1/admin/styles/reload',
     { method: 'POST' },
   );
+}
+
+// -- Admin: lint + conflict report (1.29.0) --
+//
+// The lint engine surfaces structured issues for the editor inline
+// warnings; the conflict scanner powers the dedicated
+// /admin/conflicts page. Both endpoints are read-only and gated by
+// ADMIN_USER_IDS the same way as the CRUD surface above.
+
+export interface AdminLintIssue {
+  code: string;
+  severity: 'error' | 'warning';
+  message: string;
+  field: string;
+  detail: Record<string, unknown>;
+}
+
+export type AdminLintReport = Record<string, AdminLintIssue[]>;
+
+export interface AdminDuplicateLabel {
+  label: string;
+  normalised: string;
+  ids: string[];
+}
+
+export interface AdminSimilarLabel {
+  id_a: string;
+  id_b: string;
+  label_a: string;
+  label_b: string;
+  distance: number;
+}
+
+export interface AdminConflictReport {
+  duplicate_labels: AdminDuplicateLabel[];
+  similar_labels: AdminSimilarLabel[];
+  duplicate_ids: string[];
+}
+
+export function lintAllAdminStyles() {
+  return request<AdminLintReport>('/api/v1/admin/styles/lint');
+}
+
+export function lintOneAdminStyle(styleId: string) {
+  return request<AdminLintIssue[]>(
+    `/api/v1/admin/styles/${encodeURIComponent(styleId)}/lint`,
+  );
+}
+
+export function listAdminStyleConflicts() {
+  return request<AdminConflictReport>('/api/v1/admin/styles/conflicts');
 }
 
 // -- Phone OTP --

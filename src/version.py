@@ -2155,4 +2155,174 @@
 #          1.27.3); 7 new test files added in the overhaul plus
 #          1 file for follow-up A1. Frontend: ``tsc -b && vite
 #          build`` clean, 499 modules.
-APP_VERSION = "1.28.0"
+# 1.29.0 — Style audit + admin curation tooling. Closes the loop
+#          opened by 1.28: the v3 pipeline introduced randomised
+#          ambient channels but had no operator surface for
+#          deciding WHICH channels apply per style. The headline
+#          symptom: ``mirror_aesthetic`` (an indoor style) was
+#          surfacing «Сезон» pills with two values because the
+#          ambient.season pool happened to be non-empty after the
+#          migration auto-derivation. There was no way to fix it
+#          without hand-editing data/styles.json.
+#
+#          Schema additions (additive, backwards-compatible):
+#            * ``StyleSpecV3.available_channels: tuple[str, ...]``
+#              — explicit whitelist of channels the user can
+#              configure. Empty tuple = "не курировано", legacy
+#              "non-empty pool ⇒ enabled" heuristic kicks in
+#              (preserves 1.28 behaviour for the 126 styles
+#              already on disk). Allowed values:
+#              ``CONFIGURABLE_CHANNELS`` (lighting, weather,
+#              time_of_day, season, framing, clothing,
+#              scene_override).
+#            * ``StyleSpecV3.location_type: str`` — coarse
+#              classifier (``indoor`` / ``outdoor`` / ``mixed`` /
+#              ``document``) consumed by the lint engine. The
+#              sampler ignores it; the loader auto-derives it
+#              from ``scene_anchor`` keywords when the JSON
+#              entry leaves it blank, so 126-style migration
+#              isn't required to start using lint.
+#            * ``StyleSpecV3.is_channel_enabled(channel) -> bool``
+#              encapsulates the curated/uncurated decision so
+#              both sampler and modal share the contract.
+#
+#          Sampler:
+#            * ``slot_sampler.sample`` now consults
+#              ``spec.is_channel_enabled`` for each ambient
+#              channel; gated channels resolve to ``""`` even
+#              when the user passes a hint (defence in depth
+#              against legacy clients that bypass the modal).
+#
+#          Lint engine — new ``src/services/style_lint.py``:
+#            * ``lint_style(raw)`` returns a list of structured
+#              issues. Codes: ``TRIGGER_DIRTY`` (warning;
+#              framing/lighting/weather/season tokens leaking
+#              into trigger), ``INDOOR_SEASON`` /
+#              ``INDOOR_WEATHER`` (error; indoor styles can't
+#              expose those), ``DOCUMENT_AMBIENT`` (error;
+#              document styles use neutral lighting),
+#              ``SEASON_INCOMPLETE`` (warning; pool < 4
+#              seasons), ``EMPTY_POOL`` (error; channel enabled
+#              but ambient pool empty), ``UNKNOWN_CHANNEL`` /
+#              ``UNKNOWN_LOCATION`` (error; schema typos).
+#            * ``find_conflicts(raw_styles, similarity_cutoff=2)``
+#              returns ``{duplicate_labels, similar_labels,
+#              duplicate_ids}``. Label normalisation strips
+#              leading emoji and lowercases; similarity uses a
+#              bounded Levenshtein with cutoff to keep the scan
+#              O(N²) but cheap on the 200-row catalog.
+#
+#          Admin API — new endpoints in
+#          ``src/api/v1/admin/styles.py``:
+#            * ``GET /api/v1/admin/styles/lint`` — bulk lint,
+#              returns ``{style_id: [issues]}`` for non-clean
+#              rows.
+#            * ``GET /api/v1/admin/styles/{id}/lint`` — single
+#              style, used by the editor's debounced live banner.
+#            * ``GET /api/v1/admin/styles/conflicts`` — naming
+#              conflict report for the ConflictsAdminPage.
+#            * Validation extended: ``_validate_admin_shape``
+#              rejects unknown channels in
+#              ``available_channels`` and bogus
+#              ``location_type`` values with HTTP 422 before
+#              the file is touched.
+#
+#          Admin frontend:
+#            * ``web/src/pages/admin/StylesAdminPage.tsx``
+#              extended with: lint summary banner (errors +
+#              warnings + dirty count), per-row lint badge
+#              (green «clean» / red «NE» / amber «NW»),
+#              "Show only with issues" filter, header link to
+#              the conflicts page, third tab in the editor
+#              ("v3 / channels") with location_type dropdown,
+#              7-channel checkbox grid, trigger_pool array
+#              editor (add/remove rows with live
+#              TRIGGER_DIRTY warnings inline), scene_anchor +
+#              scene_overrides editors, 4 ambient pool inputs
+#              (greyed when channel disabled), "Fill 4
+#              seasons" shortcut, debounced live lint banner
+#              above the form.
+#            * New ``web/src/pages/admin/ConflictsAdminPage.tsx``
+#              at ``/admin/conflicts`` — three sections
+#              (duplicate labels, similar labels with
+#              Levenshtein distance column, duplicate IDs);
+#              clickable rows for jump-to-editor.
+#            * ``web/src/lib/api.ts`` — new types
+#              ``AdminLintIssue`` / ``AdminLintReport`` /
+#              ``AdminConflictReport`` and helpers
+#              ``lintAllAdminStyles`` /
+#              ``lintOneAdminStyle`` /
+#              ``listAdminStyleConflicts``;
+#              ``StyleOptionsV3Payload`` gains
+#              ``available_channels`` and ``location_type``.
+#            * ``web/src/App.tsx`` registers the new
+#              ``/admin/conflicts`` route.
+#
+#          User-facing modal:
+#            * ``StyleSettingsModal`` reads
+#              ``options.availableChannels`` from the v3
+#              payload. When non-empty the modal hides every
+#              channel that is NOT in the list (regardless of
+#              pool contents). Empty list = legacy fallback
+#              kept intact. Direct fix for the
+#              ``mirror_aesthetic`` symptom: the moment the
+#              operator drops ``season`` from
+#              ``available_channels``, the «Сезон» pill group
+#              disappears for end-users without a redeploy.
+#
+#          Tests (newly added):
+#            * ``test_services/test_style_lint.py`` — 19 unit
+#              tests covering every issue code + clean cases +
+#              all three conflict buckets (Cyrillic +
+#              emoji-prefix normalisation included).
+#            * ``test_prompts/test_slot_sampler_channels.py``
+#              — 6 tests pinning the curated/fallback contract
+#              (mirror_aesthetic-style indoor-without-season
+#              case is the headline assertion).
+#            * ``test_api/test_admin_lint.py`` — 7 tests
+#              covering bulk + single lint, conflict report
+#              shape, and the admin validation gates.
+#            * ``test_styles_v3_data.py`` extended with two
+#              tests for ``available_channels`` /
+#              ``location_type`` shape on disk.
+#
+#          Documentation:
+#            * ``docs/prompt-pipeline-v3.md`` gains
+#              "Available channels" and "Admin curation
+#              workflow" sections.
+#            * New ``docs/admin-styles.md`` — operator guide
+#              covering catalog navigation, every lint code
+#              with severity table, conflicts report, and
+#              common workflows ("add new outdoor style" / "fix
+#              mirror_aesthetic" / "after editing JSON by
+#              hand").
+#
+#          Out of scope for this release (deliberately):
+#            * Curation of the 126 existing styles — done by
+#              operators through the new admin UI, separate
+#              follow-up. ``available_channels=[]`` on those
+#              rows means "не курировано" and the legacy
+#              behaviour kicks in.
+#            * Postgres-backed style storage — JSON remains
+#              the source of truth.
+#            * Universal admin auth — still relies on the
+#              ``ADMIN_USER_IDS`` whitelist.
+#
+#          Rollback:
+#            * ``available_channels: tuple[str, ...] = ()``
+#              defaults to the legacy heuristic, so even if
+#              every other change is reverted but somebody
+#              already saved curated values, the runtime is
+#              unaffected.
+#            * Admin endpoints live in their own router prefix
+#              and are gated by ``require_admin``; they do not
+#              touch the user-facing pipeline.
+#            * ``git revert`` of this version returns 1.28.0
+#              behaviour without data loss.
+#
+#          Test counts: 2002 backend tests pass (was 1966 at
+#          1.28.0); +34 from the new lint / sampler-channels /
+#          admin-lint suites and the v3 schema-data extensions.
+#          ``ruff`` clean, ``tsc -b && vite build`` clean
+#          (500 modules).
+APP_VERSION = "1.29.0"

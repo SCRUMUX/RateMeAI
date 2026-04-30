@@ -158,6 +158,77 @@ to work for any consumer that has not been updated:
 | `scene`       | Free text + chips               | Hidden when `background_lock == 'locked'` (passport / document styles)     |
 | `framing`     | Pill group (По умолчанию + pool)| "По умолчанию" inherits the wizard step's framing                          |
 
+## Available channels (1.29.0)
+
+The "non-empty pool ⇒ visible" heuristic above is the **fallback**.
+Curated styles use an explicit whitelist instead:
+
+```jsonc
+{
+  "id": "mirror_aesthetic",
+  "schema_version": 3,
+  "available_channels": ["lighting", "time_of_day"],
+  "location_type": "indoor",
+  "ambient": {
+    "lighting": ["soft ambient", "warm directional"],
+    "time_of_day": ["morning", "evening"],
+    "season": [],     // ignored — channel not whitelisted
+    "weather": []
+  }
+}
+```
+
+Effect:
+
+- The `StyleSettingsModal` renders **only** the channels listed in
+  `available_channels` (lighting + time_of_day above). Season and
+  weather are hidden — even if their pools were populated, the
+  modal would still skip them.
+- The `slot_sampler.sample()` call returns `""` for every channel
+  outside the whitelist, regardless of pool contents and user hints.
+  This is the defence-in-depth gate for cases where the modal
+  somehow sends a hint for a disabled channel (legacy clients,
+  curl experiments, ...).
+- An empty `available_channels` (or an absent key) means **the
+  style has not been curated yet**. The fallback heuristic kicks
+  in: every channel with a non-empty pool stays visible. This
+  preserves 1.28 behaviour for the 126 styles that landed before
+  the field existed.
+
+`location_type` is the lint engine's hint, not a runtime knob:
+
+| `location_type` | Lint rules                                                         |
+|-----------------|--------------------------------------------------------------------|
+| `indoor`        | `season` and `weather` channels must NOT be in `available_channels`|
+| `outdoor`       | (no extra rules)                                                   |
+| `mixed`         | (no extra rules — used for styles that span both)                  |
+| `document`      | No ambient channels at all (passport / id photos)                  |
+| `""` (empty)    | Skip location-sensitive rules                                      |
+
+## Admin curation workflow
+
+Operators curate `available_channels` and `location_type` through
+the web admin (`/admin/styles`):
+
+1. **Open the catalog.** The list page shows lint badges per row
+   (`clean` / `NE` / `NW`) and a top banner with the totals.
+2. **Edit a style.** The "v3 / channels" tab in the editor exposes:
+   - `location_type` dropdown
+   - 7 channel checkboxes (one per `CONFIGURABLE_CHANNELS` entry)
+   - `trigger_pool` array editor with per-row TRIGGER_DIRTY warnings
+   - `scene_anchor` + `scene_overrides` editors
+   - 4 ambient pool editors (CSV input each)
+   - "Fill 4 seasons" shortcut when `season` is enabled
+3. **Watch the live lint banner.** Every save round-trip refreshes
+   `GET /api/v1/admin/styles/{id}/lint`; current issues render in
+   an amber strip at the top of the modal.
+4. **Resolve naming clashes.** Click "Conflicts report" in the
+   header to view duplicate `display_label`s, similar labels
+   (Levenshtein ≤ 2), and duplicate `id`s.
+
+The lint engine itself lives in `src/services/style_lint.py`.
+See `docs/admin-styles.md` for the operator-facing guide.
+
 The "Другой вариант" button under a generated image fires
 `StepGenerate.handleReroll`, which randomises a fresh 32-bit seed
 client-side and resubmits the same `(style, hints)` pair. The

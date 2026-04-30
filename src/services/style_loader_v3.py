@@ -59,12 +59,68 @@ from src.prompts.style_schema_v2 import (
 )
 from src.prompts.style_schema_v3 import (
     AmbientPools,
+    CONFIGURABLE_CHANNELS,
+    LOCATION_TYPES,
+    LOCATION_TYPE_DOCUMENT,
+    LOCATION_TYPE_INDOOR,
+    LOCATION_TYPE_OUTDOOR,
     SCHEMA_VERSION_V3,
     StyleSpecV3,
 )
 
 
 logger = logging.getLogger(__name__)
+
+
+_INDOOR_HINT_TOKENS: tuple[str, ...] = (
+    "room", "office", "studio", "bedroom", "bathroom", "kitchen",
+    "library", "indoor", "interior", "lobby", "hallway", "elevator",
+    "closet", "gym interior", "indoors", "warehouse", "loft", "cafe",
+    "restaurant interior", "bar interior", "showroom",
+)
+"""Substrings that classify a scene_anchor as indoor.
+
+Order matters only for readability. The match is a simple
+case-insensitive substring scan in :func:`_infer_location_type`."""
+
+
+_OUTDOOR_HINT_TOKENS: tuple[str, ...] = (
+    "rooftop", "terrace", "street", "park", "beach", "mountain",
+    "skyline", "outdoor", "outside", "promenade", "square ", "boulevard",
+    "garden", "plaza", "harbour", "harbor", "marina", "alley", "courtyard",
+    "city ", "trail", "forest", "field", "desert", "lake", "river",
+    "embankment", "bridge", "skyscraper", "open air", "open-air",
+)
+
+
+_DOCUMENT_HINT_TOKENS: tuple[str, ...] = (
+    "passport", "document photo", "visa photo", "id photo", "blank background",
+    "white background", "neutral background",
+)
+
+
+def _infer_location_type(scene_anchor: str, key: str) -> str:
+    """Auto-classify a style by scanning its scene anchor.
+
+    Used as a fallback when the JSON entry does not declare an explicit
+    ``location_type`` — keeps the lint engine useful for the long tail
+    of un-curated styles. Returns the empty string when nothing
+    matches; the lint engine treats that as "не классифицирован" and
+    skips location-sensitive rules.
+    """
+    text = (scene_anchor or "").lower()
+    if not text:
+        return ""
+    for tok in _DOCUMENT_HINT_TOKENS:
+        if tok in text or tok in key.lower():
+            return LOCATION_TYPE_DOCUMENT
+    for tok in _INDOOR_HINT_TOKENS:
+        if tok in text:
+            return LOCATION_TYPE_INDOOR
+    for tok in _OUTDOOR_HINT_TOKENS:
+        if tok in text:
+            return LOCATION_TYPE_OUTDOOR
+    return ""
 
 
 def _tuple(values: Any) -> tuple[str, ...]:
@@ -204,6 +260,23 @@ def _to_v3(raw: dict[str, Any]) -> StyleSpecV3 | None:
     aspect = "square_hd" if is_doc else "portrait_4_3"
     gen_mode = "scene_preserve" if is_doc else "identity_scene"
 
+    raw_channels = raw.get("available_channels") or []
+    if isinstance(raw_channels, (list, tuple)):
+        available_channels: tuple[str, ...] = tuple(
+            str(c) for c in raw_channels
+            if isinstance(c, str) and c in CONFIGURABLE_CHANNELS
+        )
+    else:
+        available_channels = ()
+
+    raw_location = str(raw.get("location_type") or "").strip().lower()
+    if raw_location in LOCATION_TYPES:
+        location_type = raw_location
+    elif is_doc:
+        location_type = LOCATION_TYPE_DOCUMENT
+    else:
+        location_type = _infer_location_type(scene_anchor, key)
+
     try:
         return StyleSpecV3(
             key=key,
@@ -222,6 +295,8 @@ def _to_v3(raw: dict[str, Any]) -> StyleSpecV3 | None:
             needs_full_body=detect_needs_full_body(key, mode),
             output_aspect=aspect,  # type: ignore[arg-type]
             generation_mode=gen_mode,  # type: ignore[arg-type]
+            available_channels=available_channels,
+            location_type=location_type,
         )
     except ValueError as exc:
         logger.error("style_loader_v3: rejected %s — %s", key, exc)

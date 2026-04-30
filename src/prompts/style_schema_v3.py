@@ -65,6 +65,52 @@ from src.prompts.style_schema_v2 import (
 SCHEMA_VERSION_V3 = 3
 
 
+CHANNEL_LIGHTING = "lighting"
+CHANNEL_WEATHER = "weather"
+CHANNEL_TIME_OF_DAY = "time_of_day"
+CHANNEL_SEASON = "season"
+CHANNEL_FRAMING = "framing"
+CHANNEL_CLOTHING = "clothing"
+CHANNEL_SCENE_OVERRIDE = "scene_override"
+
+
+CONFIGURABLE_CHANNELS: tuple[str, ...] = (
+    CHANNEL_LIGHTING,
+    CHANNEL_WEATHER,
+    CHANNEL_TIME_OF_DAY,
+    CHANNEL_SEASON,
+    CHANNEL_FRAMING,
+    CHANNEL_CLOTHING,
+    CHANNEL_SCENE_OVERRIDE,
+)
+"""Whitelist of channels that may appear in :attr:`StyleSpecV3.available_channels`.
+
+The admin UI surfaces a checkbox per entry; the loader rejects any
+channel name not in this tuple. Order is the rendering order in the
+admin editor (lighting first, scene_override last)."""
+
+
+LOCATION_TYPE_INDOOR = "indoor"
+LOCATION_TYPE_OUTDOOR = "outdoor"
+LOCATION_TYPE_MIXED = "mixed"
+LOCATION_TYPE_DOCUMENT = "document"
+
+
+LOCATION_TYPES: tuple[str, ...] = (
+    LOCATION_TYPE_INDOOR,
+    LOCATION_TYPE_OUTDOOR,
+    LOCATION_TYPE_MIXED,
+    LOCATION_TYPE_DOCUMENT,
+)
+"""Allowed values for :attr:`StyleSpecV3.location_type`.
+
+Used by the lint engine to flag indoor styles that still expose the
+``season`` or ``weather`` channel — those make no sense indoors. The
+sampler itself ignores this field (it only reads
+``available_channels``). Empty string = "не задано", treated as
+"mixed" by the lint engine (no warnings)."""
+
+
 @dataclass(frozen=True)
 class AmbientPools:
     """Per-channel whitelists used by the slot sampler.
@@ -136,6 +182,27 @@ class StyleSpecV3:
     ] = "portrait_4_3"
     generation_mode: Literal["identity_scene", "scene_preserve"] = "identity_scene"
 
+    available_channels: tuple[str, ...] = ()
+    """Explicit whitelist of channels the user may configure for this style.
+
+    Empty tuple = "not curated yet" → the slot sampler falls back to
+    the legacy heuristic (channel is enabled when its ambient pool is
+    non-empty). Non-empty tuple = the operator has curated this style
+    and ONLY the listed channels are sampled / shown in the modal.
+
+    Allowed channel names live in :data:`CONFIGURABLE_CHANNELS`. The
+    loader rejects unknown names so a typo in the JSON never silently
+    disables a channel."""
+
+    location_type: str = ""
+    """Coarse-grained classifier surfaced to the admin lint engine.
+
+    Allowed values: :data:`LOCATION_TYPES` plus the empty string for
+    "not classified". The sampler does not read this field — it is
+    used purely by the admin lint rules (e.g. an indoor style with
+    ``season`` enabled in :attr:`available_channels` triggers an
+    ``INDOOR_SEASON`` lint error)."""
+
     schema_version: int = SCHEMA_VERSION_V3
 
     def __post_init__(self) -> None:  # noqa: D401 — dataclass hook
@@ -145,6 +212,42 @@ class StyleSpecV3:
                 "least one entry. The trigger is the inviolable motif "
                 "of the style and cannot be empty."
             )
+        if self.available_channels:
+            unknown = [c for c in self.available_channels if c not in CONFIGURABLE_CHANNELS]
+            if unknown:
+                raise ValueError(
+                    f"StyleSpecV3 {self.key!r}: unknown channels in "
+                    f"available_channels: {unknown!r}. Allowed: "
+                    f"{list(CONFIGURABLE_CHANNELS)!r}"
+                )
+        if self.location_type and self.location_type not in LOCATION_TYPES:
+            raise ValueError(
+                f"StyleSpecV3 {self.key!r}: invalid location_type "
+                f"{self.location_type!r}. Allowed: {list(LOCATION_TYPES)!r} "
+                "or the empty string for 'not classified'."
+            )
+
+    def is_channel_enabled(self, channel: str) -> bool:
+        """Whether ``channel`` should be sampled / shown to the user.
+
+        When :attr:`available_channels` is non-empty (style has been
+        curated), the answer is membership in that tuple. Otherwise we
+        fall back to the legacy heuristic: a channel is enabled when
+        its ambient pool is non-empty (or the style declares any
+        ``scene_overrides`` for ``scene_override`` / ``allowed`` for
+        ``clothing``).
+        """
+        if self.available_channels:
+            return channel in self.available_channels
+        if channel in (CHANNEL_LIGHTING, CHANNEL_WEATHER, CHANNEL_TIME_OF_DAY, CHANNEL_SEASON):
+            return bool(self.ambient.for_channel(channel))
+        if channel == CHANNEL_FRAMING:
+            return bool(self.ambient.framing_hint)
+        if channel == CHANNEL_CLOTHING:
+            return bool(self.clothing.allowed)
+        if channel == CHANNEL_SCENE_OVERRIDE:
+            return bool(self.scene_overrides)
+        return False
 
     # ------------------------------------------------------------------
     # v2-compatibility helpers. The runtime registry stores v3 entries

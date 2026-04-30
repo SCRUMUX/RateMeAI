@@ -9,6 +9,7 @@ import AuthCallback from './pages/AuthCallback';
 import LinkPage from './pages/LinkPage';
 import PrivacyPolicy from './pages/PrivacyPolicy';
 import StylesAdminPage from './pages/admin/StylesAdminPage';
+import ConflictsAdminPage from './pages/admin/ConflictsAdminPage';
 
 export default function App() {
   return (
@@ -26,6 +27,7 @@ export default function App() {
             <Route path="/link" element={<LinkPage />} />
             <Route path="/privacy" element={<PrivacyPolicy />} />
             <Route path="/admin/styles" element={<StylesAdminPage />} />
+            <Route path="/admin/conflicts" element={<ConflictsAdminPage />} />
           </Routes>
         </AppProvider>
       </ToastProvider>

@@ -35,6 +35,11 @@ interface StyleOptions {
   framing: string[];
   sceneLocked: boolean;
   weatherEnabled: boolean;
+  // 1.29.0 — explicit list of channels surfaced to the user. Empty
+  // means "не курировано", the modal falls back to "show channel iff
+  // its pool is non-empty" (legacy 1.28 behaviour).
+  availableChannels: string[];
+  locationType: string;
   // Backwards-compat marker for the analytics layer.
   schemaVersion: 1 | 2 | 3;
 }
@@ -135,6 +140,9 @@ function labelFor(channel: string, value: string): string {
 // Project a v3 payload directly onto StyleOptions. Trivial — v3 is
 // the canonical shape we render against.
 function fromV3(v3: api.StyleOptionsV3Payload): StyleOptions {
+  const availableChannels: string[] = Array.isArray(v3.available_channels)
+    ? (v3.available_channels as string[]).filter((c) => typeof c === 'string')
+    : [];
   return {
     triggerPool: Array.isArray(v3.trigger_pool) ? v3.trigger_pool : [],
     sceneAnchor: v3.scene_anchor ?? '',
@@ -146,7 +154,11 @@ function fromV3(v3: api.StyleOptionsV3Payload): StyleOptions {
     clothing: v3.clothing?.allowed ?? [],
     framing: Array.isArray(v3.framing) ? v3.framing : [],
     sceneLocked: v3.background_lock === 'locked',
-    weatherEnabled: (v3.ambient?.weather?.length ?? 0) > 0,
+    weatherEnabled: availableChannels.length > 0
+      ? availableChannels.includes('weather')
+      : (v3.ambient?.weather?.length ?? 0) > 0,
+    availableChannels,
+    locationType: typeof v3.location_type === 'string' ? v3.location_type : '',
     schemaVersion: 3,
   };
 }
@@ -168,6 +180,8 @@ function fromV2(v2: api.StyleOptionsV2Payload): StyleOptions {
     framing: v2.context_slots?.framing ?? [],
     sceneLocked: v2.background?.lock === 'locked',
     weatherEnabled: !!v2.weather?.enabled,
+    availableChannels: [],
+    locationType: '',
     schemaVersion: 2,
   };
 }
@@ -185,6 +199,8 @@ function fromV1(v1: Record<string, string[]>): StyleOptions {
     framing: v1.framing ?? [],
     sceneLocked: false,
     weatherEnabled: false,
+    availableChannels: [],
+    locationType: '',
     schemaVersion: 1,
   };
 }
@@ -247,18 +263,35 @@ export default function StyleSettingsModal({ open, onClose, styleId, onApply }: 
 
   if (!open) return null;
 
+  // 1.29.0 — when the operator has curated ``available_channels``,
+  // a channel is shown iff it appears in that list AND has a non-empty
+  // pool. Otherwise we keep the legacy behaviour ("non-empty pool ⇒
+  // visible") so the 126 styles already on disk continue to work.
+  const curatedChannels = options?.availableChannels ?? [];
+  const isCurated = curatedChannels.length > 0;
+  const channelOn = (channel: string, hasValues: boolean): boolean => {
+    if (!isCurated) return hasValues;
+    return curatedChannels.includes(channel) && hasValues;
+  };
+
   const hasTrigger = !!triggerHeadline;
-  const hasLighting = (options?.lighting?.length ?? 0) > 0;
-  const hasTimeOfDay = (options?.timeOfDay?.length ?? 0) > 0;
-  const hasSeason = (options?.season?.length ?? 0) > 0;
-  // The Scene section is hidden only when background is hard-locked
-  // (passport / document styles). For everything else the user gets
-  // a free-text override field plus quick-pick chips from
-  // ``scene_overrides``.
-  const hasScene = !!options && !options.sceneLocked;
-  const hasClothing = (options?.clothing?.length ?? 0) > 0;
-  const hasFraming = (options?.framing?.length ?? 0) > 0;
-  const hasWeather = !!options?.weatherEnabled;
+  const hasLighting = channelOn('lighting', (options?.lighting?.length ?? 0) > 0);
+  const hasTimeOfDay = channelOn('time_of_day', (options?.timeOfDay?.length ?? 0) > 0);
+  const hasSeason = channelOn('season', (options?.season?.length ?? 0) > 0);
+  // The Scene section is hidden when background is hard-locked
+  // (passport / document styles) OR when the operator gated off the
+  // ``scene_override`` channel.
+  const hasScene =
+    !!options &&
+    !options.sceneLocked &&
+    (isCurated ? curatedChannels.includes('scene_override') : true);
+  const hasClothing = channelOn('clothing', (options?.clothing?.length ?? 0) > 0);
+  // Framing falls back to the three default chips even with empty pool,
+  // so we only hide it when the operator explicitly disabled the channel.
+  const hasFraming = isCurated
+    ? curatedChannels.includes('framing') && (options?.framing?.length ?? 0) > 0
+    : (options?.framing?.length ?? 0) > 0;
+  const hasWeather = channelOn('weather', !!options?.weatherEnabled);
   const hasAnyField =
     hasLighting ||
     hasTimeOfDay ||

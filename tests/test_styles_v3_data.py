@@ -209,6 +209,47 @@ def test_scene_anchor_dirty_word_budget(styles: list[dict]) -> None:
     )
 
 
+def test_available_channels_when_present_are_well_formed(styles: list[dict]) -> None:
+    """1.29.0 — when ``available_channels`` is present it must be a list
+    of strings, every value drawn from the configurable whitelist.
+
+    Curation of the 126 styles is operator work via the admin UI;
+    until then most rows have ``available_channels = []`` (or the key
+    is absent), which means "не курировано" and falls back to the
+    legacy "non-empty pool ⇒ enabled" heuristic. This test only asks
+    that whatever values DO appear are syntactically valid."""
+    from src.prompts.style_schema_v3 import CONFIGURABLE_CHANNELS
+
+    bad: list[tuple[str, object]] = []
+    for s in styles:
+        ch = s.get("available_channels")
+        if ch is None:
+            continue
+        if not isinstance(ch, list):
+            bad.append((s.get("id", "<unknown>"), ch))
+            continue
+        for entry in ch:
+            if not isinstance(entry, str) or entry not in CONFIGURABLE_CHANNELS:
+                bad.append((s.get("id", "<unknown>"), entry))
+                break
+    assert not bad, f"styles with malformed available_channels: {bad[:5]}"
+
+
+def test_location_type_when_present_is_valid(styles: list[dict]) -> None:
+    """1.29.0 — ``location_type`` must be one of the documented enum
+    values when set, or omitted/empty otherwise."""
+    from src.prompts.style_schema_v3 import LOCATION_TYPES
+
+    bad: list[tuple[str, object]] = []
+    for s in styles:
+        loc = s.get("location_type")
+        if loc in (None, ""):
+            continue
+        if not isinstance(loc, str) or loc not in LOCATION_TYPES:
+            bad.append((s.get("id", "<unknown>"), loc))
+    assert not bad, f"styles with invalid location_type: {bad[:5]}"
+
+
 def test_legacy_v2_fields_preserved(styles: list[dict]) -> None:
     """v2 / v1 loaders keep working alongside v3 — every legacy field
     that the v2 loader reads must still be present."""

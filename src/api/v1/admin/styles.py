@@ -29,6 +29,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from src.api.v1.admin.auth import require_admin
 from src.models.db import User
 from src.services import style_store
+from src.services.style_lint import LintIssue, find_conflicts, lint_style
 from src.services.style_loader import load_styles_from_json
 
 logger = logging.getLogger(__name__)
@@ -123,6 +124,61 @@ def _summarise(entry: dict[str, Any]) -> StyleSummary:
 def _load_all() -> list[dict[str, Any]]:
     """Always read fresh from disk — admin views must not race the cache."""
     return list(style_store.load_styles_fresh())
+
+
+def _validate_admin_shape(entry: dict[str, Any]) -> None:
+    """Lightweight shape check on v3-only fields.
+
+    The admin API accepts both v2 and v3 entries. For v3 entries we
+    additionally validate the two new fields introduced in 1.29.0:
+
+    * ``available_channels`` must be a list of strings, every value
+      drawn from :data:`CONFIGURABLE_CHANNELS`.
+    * ``location_type`` must be one of :data:`LOCATION_TYPES` or the
+      empty string.
+
+    Lint issues themselves (TRIGGER_DIRTY, INDOOR_SEASON, ...) are
+    NOT enforced here — the admin can knowingly save a style with
+    warnings; the editor surfaces them so the operator sees what
+    needs fixing without being blocked.
+    """
+    from src.prompts.style_schema_v3 import (
+        CONFIGURABLE_CHANNELS,
+        LOCATION_TYPES,
+    )
+
+    raw_channels = entry.get("available_channels")
+    if raw_channels is not None:
+        if not isinstance(raw_channels, list):
+            raise HTTPException(
+                status_code=422,
+                detail="available_channels must be a list of strings",
+            )
+        for ch in raw_channels:
+            if not isinstance(ch, str) or ch not in CONFIGURABLE_CHANNELS:
+                raise HTTPException(
+                    status_code=422,
+                    detail=(
+                        f"available_channels contains invalid entry "
+                        f"{ch!r}; allowed: {list(CONFIGURABLE_CHANNELS)!r}"
+                    ),
+                )
+
+    raw_location = entry.get("location_type")
+    if raw_location is not None:
+        if not isinstance(raw_location, str):
+            raise HTTPException(
+                status_code=422,
+                detail="location_type must be a string",
+            )
+        if raw_location and raw_location not in LOCATION_TYPES:
+            raise HTTPException(
+                status_code=422,
+                detail=(
+                    f"location_type {raw_location!r} is not allowed; "
+                    f"use one of {list(LOCATION_TYPES)!r} or an empty string"
+                ),
+            )
 
 
 def _validate_v2_shape(entry: dict[str, Any]) -> None:
@@ -222,12 +278,63 @@ async def list_styles(_admin: User = Depends(require_admin)):
     return [_summarise(s) for s in _load_all()]
 
 
+# NOTE: /styles/lint and /styles/conflicts are intentionally registered
+# BEFORE /styles/{style_id} so FastAPI's path matcher doesn't capture
+# the literal segment as the {style_id} parameter. /styles/{id}/lint
+# is fine to register after — the {id} segment is the variable.
+
+
+@router.get("/styles/lint")
+async def lint_all_styles(
+    _admin: User = Depends(require_admin),
+) -> dict[str, list[LintIssue]]:
+    """Lint every style. Returns ``{style_id: [issues]}`` for non-clean rows.
+
+    Empty dict = catalog is clean. Used by the StylesListPage to show
+    badges; the editor calls :func:`lint_one_style` for live feedback.
+    """
+    out: dict[str, list[LintIssue]] = {}
+    for entry in _load_all():
+        sid = str(entry.get("id") or "")
+        if not sid:
+            continue
+        issues = lint_style(entry)
+        if issues:
+            out[sid] = issues
+    return out
+
+
+@router.get("/styles/conflicts")
+async def list_style_conflicts(
+    _admin: User = Depends(require_admin),
+) -> dict[str, list[dict[str, Any]]]:
+    """Cross-style naming conflict report.
+
+    Returns three buckets: duplicate display labels (case + emoji
+    insensitive), similar labels (Levenshtein <= 2 after normalisation,
+    excluding duplicates), and duplicate IDs (defense-in-depth — the
+    on-disk JSON should never contain dupes).
+    """
+    return find_conflicts(_load_all())
+
+
 @router.get("/styles/{style_id}")
 async def get_style(style_id: str, _admin: User = Depends(require_admin)):
     """Return the full raw entry — admin needs every field for the editor."""
     for s in _load_all():
         if s.get("id") == style_id:
             return s
+    raise HTTPException(status_code=404, detail=f"Unknown style: {style_id}")
+
+
+@router.get("/styles/{style_id}/lint")
+async def lint_one_style(
+    style_id: str, _admin: User = Depends(require_admin)
+) -> list[LintIssue]:
+    """Lint a single style by id. Returns an empty list when clean."""
+    for entry in _load_all():
+        if entry.get("id") == style_id:
+            return lint_style(entry)
     raise HTTPException(status_code=404, detail=f"Unknown style: {style_id}")
 
 
@@ -244,6 +351,7 @@ async def create_style(
             status_code=409, detail=f"Style {entry['id']!r} already exists"
         )
 
+    _validate_admin_shape(entry)
     _validate_v2_shape(entry)
 
     styles.append(entry)
@@ -268,6 +376,7 @@ async def update_style(
         # ``id`` is immutable — silently drop any attempt to change it
         # (the route param is the source of truth).
         merged["id"] = style_id
+        _validate_admin_shape(merged)
         _validate_v2_shape(merged)
         styles[i] = merged
         style_store.save_styles(styles)
