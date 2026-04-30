@@ -35,7 +35,18 @@ def test_list_styles_unknown_mode(client):
 
 
 def test_list_styles_schema_v2_includes_schema_version(client):
-    """Each entry carries a per-style ``schema_version`` (1 or 2)."""
+    """Each entry carries a per-style ``schema_version`` (1, 2 or 3).
+
+    The list endpoint advertises ``schema=v2`` (the contract clients
+    are wired to), but each row's ``schema_version`` reflects the
+    underlying data revision: rows can be 1 (legacy v1, never
+    migrated), 2 (v2 migration of 1.27.x) or 3 (v3 migration of
+    1.28.0 — prompt-pipeline-overhaul). The endpoint downgrades v3
+    rows into a v2-compatible payload via
+    :func:`src.services.style_catalog._v2_slots_from_raw`, but the
+    embedded ``schema_version`` field is the source-of-truth value
+    so client-side analytics can tell migration generations apart.
+    """
     r = client.get("/api/v1/catalog/styles?mode=dating&schema=v2")
     assert r.status_code == 200
     data = r.json()
@@ -43,7 +54,7 @@ def test_list_styles_schema_v2_includes_schema_version(client):
     assert data["count"] > 0
     for style in data["styles"]:
         assert "schema_version" in style
-        assert style["schema_version"] in (1, 2)
+        assert style["schema_version"] in (1, 2, 3)
 
 
 def test_options_v1_default_unchanged(client):
@@ -62,11 +73,21 @@ def test_options_v1_default_unchanged(client):
 def test_options_v2_falls_back_for_v1_styles(client):
     """Un-migrated styles return the v1 payload with ``schema_version: 1``.
 
-    After the 1.27.0 cutover every entry in ``data/styles.json`` is v2, so
-    the fallback branch is dormant in practice. We still keep the contract
-    covered — if anyone manually reverts a style or adds a fresh v1 entry
-    the assertions re-engage immediately; otherwise the test soft-skips so
-    the green build truthfully reflects reality.
+    After the 1.28.0 prompt-pipeline-overhaul every entry in
+    ``data/styles.json`` is ``schema_version: 3`` and the v2 catalog
+    helper produces a v2 view from the preserved v2 fields, so the
+    v1 fallback branch is dormant in practice. We still keep the
+    contract covered — if anyone manually reverts a style to a
+    pre-v2 shape the assertions re-engage immediately; otherwise the
+    test soft-skips so the green build truthfully reflects reality.
+    The branch coverage stays alive via the unit test
+    :func:`test_options_v2_falls_back_unit` below.
+
+    The filter is intentionally ``< 2`` (and not ``!= 2``) because
+    after the v3 migration ``schema_version`` is 3 for every row;
+    a ``!= 2`` filter would match those v3 rows and the test would
+    incorrectly try to assert v1 behaviour against a fully-migrated
+    entry.
     """
     import pytest
     from src.services.style_loader import load_styles_from_json
@@ -74,14 +95,14 @@ def test_options_v2_falls_back_for_v1_styles(client):
     v1_style = next(
         (
             s for s in load_styles_from_json()
-            if int(s.get("schema_version") or 0) != 2
+            if int(s.get("schema_version") or 0) < 2
         ),
         None,
     )
     if v1_style is None:
         pytest.skip(
-            "all styles migrated to schema_version=2; fallback branch "
-            "still exercised by test_options_v2_falls_back_unit below"
+            "all styles migrated to schema_version >= 2; fallback "
+            "branch still exercised by test_options_v2_falls_back_unit"
         )
     style_id = v1_style["id"]
 
