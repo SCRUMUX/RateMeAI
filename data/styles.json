@@ -102,9 +102,21 @@
       ],
       "season": [
         "spring",
-        "autumn"
+        "summer",
+        "autumn",
+        "winter"
       ]
-    }
+    },
+    "location_type": "outdoor",
+    "available_channels": [
+      "lighting",
+      "weather",
+      "time_of_day",
+      "season",
+      "framing",
+      "clothing",
+      "scene_override"
+    ]
   },
   {
     "id": "dubai_burj_khalifa",
@@ -208,10 +220,21 @@
       ],
       "season": [
         "spring",
+        "summer",
         "autumn",
         "winter"
       ]
-    }
+    },
+    "location_type": "outdoor",
+    "available_channels": [
+      "lighting",
+      "weather",
+      "time_of_day",
+      "season",
+      "framing",
+      "clothing",
+      "scene_override"
+    ]
   },
   {
     "id": "nyc_brooklyn_bridge",
@@ -305,8 +328,22 @@
       "time_of_day": [
         "morning"
       ],
-      "season": []
-    }
+      "season": [
+        "spring",
+        "summer",
+        "autumn",
+        "winter"
+      ]
+    },
+    "location_type": "outdoor",
+    "available_channels": [
+      "lighting",
+      "time_of_day",
+      "season",
+      "framing",
+      "clothing",
+      "scene_override"
+    ]
   },
   {
     "id": "rome_colosseum",
@@ -410,9 +447,20 @@
       "season": [
         "spring",
         "summer",
-        "autumn"
+        "autumn",
+        "winter"
       ]
-    }
+    },
+    "location_type": "outdoor",
+    "available_channels": [
+      "lighting",
+      "weather",
+      "time_of_day",
+      "season",
+      "framing",
+      "clothing",
+      "scene_override"
+    ]
   },
   {
     "id": "venice_san_marco",
@@ -533,9 +581,21 @@
       ],
       "season": [
         "spring",
-        "autumn"
+        "summer",
+        "autumn",
+        "winter"
       ]
-    }
+    },
+    "location_type": "outdoor",
+    "available_channels": [
+      "lighting",
+      "weather",
+      "time_of_day",
+      "season",
+      "framing",
+      "clothing",
+      "scene_override"
+    ]
   },
   {
     "id": "barcelona_sagrada",
@@ -627,8 +687,21 @@
       ],
       "weather": [],
       "time_of_day": [],
-      "season": []
-    }
+      "season": [
+        "spring",
+        "summer",
+        "autumn",
+        "winter"
+      ]
+    },
+    "location_type": "outdoor",
+    "available_channels": [
+      "lighting",
+      "season",
+      "framing",
+      "clothing",
+      "scene_override"
+    ]
   },
   {
     "id": "london_eye",
@@ -740,8 +813,22 @@
         "sunset",
         "morning"
       ],
-      "season": []
-    }
+      "season": [
+        "spring",
+        "summer",
+        "autumn",
+        "winter"
+      ]
+    },
+    "location_type": "outdoor",
+    "available_channels": [
+      "lighting",
+      "time_of_day",
+      "season",
+      "framing",
+      "clothing",
+      "scene_override"
+    ]
   },
   {
     "id": "tokyo_tower",
@@ -832,8 +919,22 @@
       "time_of_day": [
         "afternoon"
       ],
-      "season": []
-    }
+      "season": [
+        "spring",
+        "summer",
+        "autumn",
+        "winter"
+      ]
+    },
+    "location_type": "outdoor",
+    "available_channels": [
+      "lighting",
+      "time_of_day",
+      "season",
+      "framing",
+      "clothing",
+      "scene_override"
+    ]
   },
   {
     "id": "singapore_marina_bay",
@@ -945,8 +1046,22 @@
         "sunset",
         "morning"
       ],
-      "season": []
-    }
+      "season": [
+        "spring",
+        "summer",
+        "autumn",
+        "winter"
+      ]
+    },
+    "location_type": "outdoor",
+    "available_channels": [
+      "lighting",
+      "time_of_day",
+      "season",
+      "framing",
+      "clothing",
+      "scene_override"
+    ]
   },
   {
     "id": "sf_golden_gate",
@@ -1040,8 +1155,22 @@
       "time_of_day": [
         "afternoon"
       ],
-      "season": []
-    }
+      "season": [
+        "spring",
+        "summer",
+        "autumn",
+        "winter"
+      ]
+    },
+    "location_type": "outdoor",
+    "available_channels": [
+      "lighting",
+      "time_of_day",
+      "season",
+      "framing",
+      "clothing",
+      "scene_override"
+    ]
   },
   {
     "id": "athens_acropolis",
@@ -1134,8 +1263,21 @@
       ],
       "weather": [],
       "time_of_day": [],
-      "season": []
-    }
+      "season": [
+        "spring",
+        "summer",
+        "autumn",
+        "winter"
+      ]
+    },
+    "location_type": "outdoor",
+    "available_channels": [
+      "lighting",
+      "season",
+      "framing",
+      "clothing",
+      "scene_override"
+    ]
   },
   {
     "id": "sydney_opera",
@@ -1230,8 +1372,22 @@
       "time_of_day": [
         "midday"
       ],
-      "season": []
-    }
+      "season": [
+        "spring",
+        "summer",
+        "autumn",
+        "winter"
+      ]
+    },
+    "location_type": "outdoor",
+    "available_channels": [
+      "lighting",
+      "time_of_day",
+      "season",
+      "framing",
+      "clothing",
+      "scene_override"
+    ]
   },
   {
     "id": "nyc_times_square",
@@ -1351,10 +1507,22 @@
         "night"
       ],
       "season": [
+        "spring",
+        "summer",
         "autumn",
         "winter"
       ]
-    }
+    },
+    "location_type": "outdoor",
+    "available_channels": [
+      "lighting",
+      "weather",
+      "time_of_day",
+      "season",
+      "framing",
+      "clothing",
+      "scene_override"
+    ]
   },
   {
     "id": "nyc_central_park",
@@ -1465,8 +1633,22 @@
       "time_of_day": [
         "morning"
       ],
-      "season": []
-    }
+      "season": [
+        "spring",
+        "summer",
+        "autumn",
+        "winter"
+      ]
+    },
+    "location_type": "outdoor",
+    "available_channels": [
+      "lighting",
+      "time_of_day",
+      "season",
+      "framing",
+      "clothing",
+      "scene_override"
+    ]
   },
   {
     "id": "london_big_ben",
@@ -1562,8 +1744,22 @@
       "time_of_day": [
         "morning"
       ],
-      "season": []
-    }
+      "season": [
+        "spring",
+        "summer",
+        "autumn",
+        "winter"
+      ]
+    },
+    "location_type": "outdoor",
+    "available_channels": [
+      "lighting",
+      "time_of_day",
+      "season",
+      "framing",
+      "clothing",
+      "scene_override"
+    ]
   },
   {
     "id": "airplane_window",
@@ -1670,8 +1866,21 @@
       ],
       "weather": [],
       "time_of_day": [],
-      "season": []
-    }
+      "season": [
+        "spring",
+        "summer",
+        "autumn",
+        "winter"
+      ]
+    },
+    "location_type": "outdoor",
+    "available_channels": [
+      "lighting",
+      "season",
+      "framing",
+      "clothing",
+      "scene_override"
+    ]
   },
   {
     "id": "hotel_breakfast",
@@ -1782,8 +1991,22 @@
       "time_of_day": [
         "morning"
       ],
-      "season": []
-    }
+      "season": [
+        "spring",
+        "summer",
+        "autumn",
+        "winter"
+      ]
+    },
+    "location_type": "outdoor",
+    "available_channels": [
+      "lighting",
+      "time_of_day",
+      "season",
+      "framing",
+      "clothing",
+      "scene_override"
+    ]
   },
   {
     "id": "sea_balcony",
@@ -1893,8 +2116,22 @@
       "time_of_day": [
         "afternoon"
       ],
-      "season": []
-    }
+      "season": [
+        "spring",
+        "summer",
+        "autumn",
+        "winter"
+      ]
+    },
+    "location_type": "outdoor",
+    "available_channels": [
+      "lighting",
+      "time_of_day",
+      "season",
+      "framing",
+      "clothing",
+      "scene_override"
+    ]
   },
   {
     "id": "old_town_walk",
@@ -2000,8 +2237,21 @@
       ],
       "weather": [],
       "time_of_day": [],
-      "season": []
-    }
+      "season": [
+        "spring",
+        "summer",
+        "autumn",
+        "winter"
+      ]
+    },
+    "location_type": "outdoor",
+    "available_channels": [
+      "lighting",
+      "season",
+      "framing",
+      "clothing",
+      "scene_override"
+    ]
   },
   {
     "id": "train_journey",
@@ -2111,7 +2361,15 @@
         "afternoon"
       ],
       "season": []
-    }
+    },
+    "location_type": "indoor",
+    "available_channels": [
+      "lighting",
+      "time_of_day",
+      "framing",
+      "clothing",
+      "scene_override"
+    ]
   },
   {
     "id": "street_market",
@@ -2222,8 +2480,22 @@
         "morning",
         "midday"
       ],
-      "season": []
-    }
+      "season": [
+        "spring",
+        "summer",
+        "autumn",
+        "winter"
+      ]
+    },
+    "location_type": "outdoor",
+    "available_channels": [
+      "lighting",
+      "time_of_day",
+      "season",
+      "framing",
+      "clothing",
+      "scene_override"
+    ]
   },
   {
     "id": "hotel_checkin",
@@ -2331,7 +2603,14 @@
       "weather": [],
       "time_of_day": [],
       "season": []
-    }
+    },
+    "location_type": "indoor",
+    "available_channels": [
+      "lighting",
+      "framing",
+      "clothing",
+      "scene_override"
+    ]
   },
   {
     "id": "travel_luxury",
@@ -2447,7 +2726,15 @@
         "blue hour"
       ],
       "season": []
-    }
+    },
+    "location_type": "indoor",
+    "available_channels": [
+      "lighting",
+      "time_of_day",
+      "framing",
+      "clothing",
+      "scene_override"
+    ]
   },
   {
     "id": "car_exit",
@@ -2554,7 +2841,14 @@
       "weather": [],
       "time_of_day": [],
       "season": []
-    }
+    },
+    "location_type": "indoor",
+    "available_channels": [
+      "lighting",
+      "framing",
+      "clothing",
+      "scene_override"
+    ]
   },
   {
     "id": "near_car",
@@ -2661,8 +2955,21 @@
       ],
       "weather": [],
       "time_of_day": [],
-      "season": []
-    }
+      "season": [
+        "spring",
+        "summer",
+        "autumn",
+        "winter"
+      ]
+    },
+    "location_type": "outdoor",
+    "available_channels": [
+      "lighting",
+      "season",
+      "framing",
+      "clothing",
+      "scene_override"
+    ]
   },
   {
     "id": "yacht",
@@ -2773,8 +3080,22 @@
         "midday",
         "morning"
       ],
-      "season": []
-    }
+      "season": [
+        "spring",
+        "summer",
+        "autumn",
+        "winter"
+      ]
+    },
+    "location_type": "outdoor",
+    "available_channels": [
+      "lighting",
+      "time_of_day",
+      "season",
+      "framing",
+      "clothing",
+      "scene_override"
+    ]
   },
   {
     "id": "coffee_date",
@@ -2894,7 +3215,15 @@
         "autumn",
         "winter"
       ]
-    }
+    },
+    "location_type": "indoor",
+    "available_channels": [
+      "lighting",
+      "time_of_day",
+      "framing",
+      "clothing",
+      "scene_override"
+    ]
   },
   {
     "id": "beach_sunset",
@@ -3005,8 +3334,22 @@
       "time_of_day": [
         "sunset"
       ],
-      "season": []
-    }
+      "season": [
+        "spring",
+        "summer",
+        "autumn",
+        "winter"
+      ]
+    },
+    "location_type": "outdoor",
+    "available_channels": [
+      "lighting",
+      "time_of_day",
+      "season",
+      "framing",
+      "clothing",
+      "scene_override"
+    ]
   },
   {
     "id": "dog_lover",
@@ -3118,8 +3461,22 @@
         "afternoon",
         "sunset"
       ],
-      "season": []
-    }
+      "season": [
+        "spring",
+        "summer",
+        "autumn",
+        "winter"
+      ]
+    },
+    "location_type": "outdoor",
+    "available_channels": [
+      "lighting",
+      "time_of_day",
+      "season",
+      "framing",
+      "clothing",
+      "scene_override"
+    ]
   },
   {
     "id": "rooftop_city",
@@ -3230,8 +3587,22 @@
       "time_of_day": [
         "sunrise"
       ],
-      "season": []
-    }
+      "season": [
+        "spring",
+        "summer",
+        "autumn",
+        "winter"
+      ]
+    },
+    "location_type": "outdoor",
+    "available_channels": [
+      "lighting",
+      "time_of_day",
+      "season",
+      "framing",
+      "clothing",
+      "scene_override"
+    ]
   },
   {
     "id": "gym_fitness",
@@ -3340,7 +3711,14 @@
       "weather": [],
       "time_of_day": [],
       "season": []
-    }
+    },
+    "location_type": "indoor",
+    "available_channels": [
+      "lighting",
+      "framing",
+      "clothing",
+      "scene_override"
+    ]
   },
   {
     "id": "running",
@@ -3448,8 +3826,22 @@
       "time_of_day": [
         "morning"
       ],
-      "season": []
-    }
+      "season": [
+        "spring",
+        "summer",
+        "autumn",
+        "winter"
+      ]
+    },
+    "location_type": "outdoor",
+    "available_channels": [
+      "lighting",
+      "time_of_day",
+      "season",
+      "framing",
+      "clothing",
+      "scene_override"
+    ]
   },
   {
     "id": "swimming_pool",
@@ -3561,8 +3953,22 @@
         "midday",
         "morning"
       ],
-      "season": []
-    }
+      "season": [
+        "spring",
+        "summer",
+        "autumn",
+        "winter"
+      ]
+    },
+    "location_type": "outdoor",
+    "available_channels": [
+      "lighting",
+      "time_of_day",
+      "season",
+      "framing",
+      "clothing",
+      "scene_override"
+    ]
   },
   {
     "id": "hiking",
@@ -3673,8 +4079,22 @@
         "golden hour",
         "afternoon"
       ],
-      "season": []
-    }
+      "season": [
+        "spring",
+        "summer",
+        "autumn",
+        "winter"
+      ]
+    },
+    "location_type": "outdoor",
+    "available_channels": [
+      "lighting",
+      "time_of_day",
+      "season",
+      "framing",
+      "clothing",
+      "scene_override"
+    ]
   },
   {
     "id": "yoga_outdoor",
@@ -3787,8 +4207,22 @@
         "sunrise",
         "morning"
       ],
-      "season": []
-    }
+      "season": [
+        "spring",
+        "summer",
+        "autumn",
+        "winter"
+      ]
+    },
+    "location_type": "outdoor",
+    "available_channels": [
+      "lighting",
+      "time_of_day",
+      "season",
+      "framing",
+      "clothing",
+      "scene_override"
+    ]
   },
   {
     "id": "cycling",
@@ -3900,8 +4334,22 @@
         "afternoon",
         "morning"
       ],
-      "season": []
-    }
+      "season": [
+        "spring",
+        "summer",
+        "autumn",
+        "winter"
+      ]
+    },
+    "location_type": "outdoor",
+    "available_channels": [
+      "lighting",
+      "time_of_day",
+      "season",
+      "framing",
+      "clothing",
+      "scene_override"
+    ]
   },
   {
     "id": "tennis",
@@ -4011,8 +4459,22 @@
       "time_of_day": [
         "afternoon"
       ],
-      "season": []
-    }
+      "season": [
+        "spring",
+        "summer",
+        "autumn",
+        "winter"
+      ]
+    },
+    "location_type": "outdoor",
+    "available_channels": [
+      "lighting",
+      "time_of_day",
+      "season",
+      "framing",
+      "clothing",
+      "scene_override"
+    ]
   },
   {
     "id": "restaurant",
@@ -4121,7 +4583,14 @@
       "weather": [],
       "time_of_day": [],
       "season": []
-    }
+    },
+    "location_type": "indoor",
+    "available_channels": [
+      "lighting",
+      "framing",
+      "clothing",
+      "scene_override"
+    ]
   },
   {
     "id": "bar_lounge",
@@ -4229,7 +4698,14 @@
       "weather": [],
       "time_of_day": [],
       "season": []
-    }
+    },
+    "location_type": "indoor",
+    "available_channels": [
+      "lighting",
+      "framing",
+      "clothing",
+      "scene_override"
+    ]
   },
   {
     "id": "cooking",
@@ -4336,7 +4812,14 @@
       "weather": [],
       "time_of_day": [],
       "season": []
-    }
+    },
+    "location_type": "indoor",
+    "available_channels": [
+      "lighting",
+      "framing",
+      "clothing",
+      "scene_override"
+    ]
   },
   {
     "id": "rainy_day",
@@ -4442,8 +4925,21 @@
       ],
       "weather": [],
       "time_of_day": [],
-      "season": []
-    }
+      "season": [
+        "spring",
+        "summer",
+        "autumn",
+        "winter"
+      ]
+    },
+    "location_type": "outdoor",
+    "available_channels": [
+      "lighting",
+      "season",
+      "framing",
+      "clothing",
+      "scene_override"
+    ]
   },
   {
     "id": "night_coffee",
@@ -4551,7 +5047,14 @@
       "weather": [],
       "time_of_day": [],
       "season": []
-    }
+    },
+    "location_type": "indoor",
+    "available_channels": [
+      "lighting",
+      "framing",
+      "clothing",
+      "scene_override"
+    ]
   },
   {
     "id": "evening_home",
@@ -4658,7 +5161,14 @@
       "weather": [],
       "time_of_day": [],
       "season": []
-    }
+    },
+    "location_type": "indoor",
+    "available_channels": [
+      "lighting",
+      "framing",
+      "clothing",
+      "scene_override"
+    ]
   },
   {
     "id": "motorcycle",
@@ -4768,8 +5278,22 @@
       "time_of_day": [
         "afternoon"
       ],
-      "season": []
-    }
+      "season": [
+        "spring",
+        "summer",
+        "autumn",
+        "winter"
+      ]
+    },
+    "location_type": "outdoor",
+    "available_channels": [
+      "lighting",
+      "time_of_day",
+      "season",
+      "framing",
+      "clothing",
+      "scene_override"
+    ]
   },
   {
     "id": "in_car",
@@ -4877,7 +5401,14 @@
       "weather": [],
       "time_of_day": [],
       "season": []
-    }
+    },
+    "location_type": "indoor",
+    "available_channels": [
+      "lighting",
+      "framing",
+      "clothing",
+      "scene_override"
+    ]
   },
   {
     "id": "art_gallery",
@@ -4984,7 +5515,14 @@
       "weather": [],
       "time_of_day": [],
       "season": []
-    }
+    },
+    "location_type": "indoor",
+    "available_channels": [
+      "lighting",
+      "framing",
+      "clothing",
+      "scene_override"
+    ]
   },
   {
     "id": "street_urban",
@@ -5092,8 +5630,22 @@
       "time_of_day": [
         "afternoon"
       ],
-      "season": []
-    }
+      "season": [
+        "spring",
+        "summer",
+        "autumn",
+        "winter"
+      ]
+    },
+    "location_type": "outdoor",
+    "available_channels": [
+      "lighting",
+      "time_of_day",
+      "season",
+      "framing",
+      "clothing",
+      "scene_override"
+    ]
   },
   {
     "id": "concert",
@@ -5200,7 +5752,14 @@
       "weather": [],
       "time_of_day": [],
       "season": []
-    }
+    },
+    "location_type": "indoor",
+    "available_channels": [
+      "lighting",
+      "framing",
+      "clothing",
+      "scene_override"
+    ]
   },
   {
     "id": "travel",
@@ -5309,7 +5868,15 @@
         "midday"
       ],
       "season": []
-    }
+    },
+    "location_type": "indoor",
+    "available_channels": [
+      "lighting",
+      "time_of_day",
+      "framing",
+      "clothing",
+      "scene_override"
+    ]
   },
   {
     "id": "warm_outdoor",
@@ -5421,8 +5988,22 @@
         "sunset",
         "afternoon"
       ],
-      "season": []
-    }
+      "season": [
+        "spring",
+        "summer",
+        "autumn",
+        "winter"
+      ]
+    },
+    "location_type": "outdoor",
+    "available_channels": [
+      "lighting",
+      "time_of_day",
+      "season",
+      "framing",
+      "clothing",
+      "scene_override"
+    ]
   },
   {
     "id": "studio_elegant",
@@ -5529,7 +6110,14 @@
       "weather": [],
       "time_of_day": [],
       "season": []
-    }
+    },
+    "location_type": "indoor",
+    "available_channels": [
+      "lighting",
+      "framing",
+      "clothing",
+      "scene_override"
+    ]
   },
   {
     "id": "cafe",
@@ -5640,7 +6228,15 @@
         "morning"
       ],
       "season": []
-    }
+    },
+    "location_type": "indoor",
+    "available_channels": [
+      "lighting",
+      "time_of_day",
+      "framing",
+      "clothing",
+      "scene_override"
+    ]
   },
   {
     "id": "tinder_pack_rooftop_golden",
@@ -5749,8 +6345,22 @@
       "time_of_day": [
         "sunset"
       ],
-      "season": []
-    }
+      "season": [
+        "spring",
+        "summer",
+        "autumn",
+        "winter"
+      ]
+    },
+    "location_type": "outdoor",
+    "available_channels": [
+      "lighting",
+      "time_of_day",
+      "season",
+      "framing",
+      "clothing",
+      "scene_override"
+    ]
   },
   {
     "id": "tinder_pack_minimal_studio",
@@ -5860,7 +6470,14 @@
       "weather": [],
       "time_of_day": [],
       "season": []
-    }
+    },
+    "location_type": "indoor",
+    "available_channels": [
+      "lighting",
+      "framing",
+      "clothing",
+      "scene_override"
+    ]
   },
   {
     "id": "tinder_pack_cafe_window",
@@ -5968,7 +6585,14 @@
       "weather": [],
       "time_of_day": [],
       "season": []
-    }
+    },
+    "location_type": "indoor",
+    "available_channels": [
+      "lighting",
+      "framing",
+      "clothing",
+      "scene_override"
+    ]
   },
   {
     "id": "corporate",
@@ -6073,7 +6697,14 @@
       "weather": [],
       "time_of_day": [],
       "season": []
-    }
+    },
+    "location_type": "indoor",
+    "available_channels": [
+      "lighting",
+      "framing",
+      "clothing",
+      "scene_override"
+    ]
   },
   {
     "id": "boardroom",
@@ -6183,7 +6814,14 @@
       "weather": [],
       "time_of_day": [],
       "season": []
-    }
+    },
+    "location_type": "indoor",
+    "available_channels": [
+      "lighting",
+      "framing",
+      "clothing",
+      "scene_override"
+    ]
   },
   {
     "id": "formal_portrait",
@@ -6292,7 +6930,14 @@
       "weather": [],
       "time_of_day": [],
       "season": []
-    }
+    },
+    "location_type": "indoor",
+    "available_channels": [
+      "lighting",
+      "framing",
+      "clothing",
+      "scene_override"
+    ]
   },
   {
     "id": "glass_wall_pose",
@@ -6402,7 +7047,15 @@
         "morning"
       ],
       "season": []
-    }
+    },
+    "location_type": "indoor",
+    "available_channels": [
+      "lighting",
+      "time_of_day",
+      "framing",
+      "clothing",
+      "scene_override"
+    ]
   },
   {
     "id": "startup_casual",
@@ -6510,7 +7163,14 @@
       "weather": [],
       "time_of_day": [],
       "season": []
-    }
+    },
+    "location_type": "indoor",
+    "available_channels": [
+      "lighting",
+      "framing",
+      "clothing",
+      "scene_override"
+    ]
   },
   {
     "id": "coworking",
@@ -6621,7 +7281,15 @@
         "afternoon"
       ],
       "season": []
-    }
+    },
+    "location_type": "indoor",
+    "available_channels": [
+      "lighting",
+      "time_of_day",
+      "framing",
+      "clothing",
+      "scene_override"
+    ]
   },
   {
     "id": "video_call",
@@ -6731,7 +7399,14 @@
       "weather": [],
       "time_of_day": [],
       "season": []
-    }
+    },
+    "location_type": "indoor",
+    "available_channels": [
+      "lighting",
+      "framing",
+      "clothing",
+      "scene_override"
+    ]
   },
   {
     "id": "analytics_review",
@@ -6842,7 +7517,15 @@
         "afternoon"
       ],
       "season": []
-    }
+    },
+    "location_type": "indoor",
+    "available_channels": [
+      "lighting",
+      "time_of_day",
+      "framing",
+      "clothing",
+      "scene_override"
+    ]
   },
   {
     "id": "notebook_ideas",
@@ -6952,7 +7635,14 @@
       "weather": [],
       "time_of_day": [],
       "season": []
-    }
+    },
+    "location_type": "indoor",
+    "available_channels": [
+      "lighting",
+      "framing",
+      "clothing",
+      "scene_override"
+    ]
   },
   {
     "id": "tablet_stylus",
@@ -7060,7 +7750,14 @@
       "weather": [],
       "time_of_day": [],
       "season": []
-    }
+    },
+    "location_type": "indoor",
+    "available_channels": [
+      "lighting",
+      "framing",
+      "clothing",
+      "scene_override"
+    ]
   },
   {
     "id": "coffee_break_work",
@@ -7172,7 +7869,15 @@
         "afternoon"
       ],
       "season": []
-    }
+    },
+    "location_type": "indoor",
+    "available_channels": [
+      "lighting",
+      "time_of_day",
+      "framing",
+      "clothing",
+      "scene_override"
+    ]
   },
   {
     "id": "late_hustle",
@@ -7279,7 +7984,14 @@
       "weather": [],
       "time_of_day": [],
       "season": []
-    }
+    },
+    "location_type": "indoor",
+    "available_channels": [
+      "lighting",
+      "framing",
+      "clothing",
+      "scene_override"
+    ]
   },
   {
     "id": "before_meeting",
@@ -7387,7 +8099,14 @@
       "weather": [],
       "time_of_day": [],
       "season": []
-    }
+    },
+    "location_type": "indoor",
+    "available_channels": [
+      "lighting",
+      "framing",
+      "clothing",
+      "scene_override"
+    ]
   },
   {
     "id": "decision_moment",
@@ -7495,7 +8214,14 @@
       "weather": [],
       "time_of_day": [],
       "season": []
-    }
+    },
+    "location_type": "mixed",
+    "available_channels": [
+      "lighting",
+      "framing",
+      "clothing",
+      "scene_override"
+    ]
   },
   {
     "id": "business_lounge",
@@ -7604,7 +8330,14 @@
       "weather": [],
       "time_of_day": [],
       "season": []
-    }
+    },
+    "location_type": "indoor",
+    "available_channels": [
+      "lighting",
+      "framing",
+      "clothing",
+      "scene_override"
+    ]
   },
   {
     "id": "speaker_stage",
@@ -7712,7 +8445,14 @@
       "weather": [],
       "time_of_day": [],
       "season": []
-    }
+    },
+    "location_type": "indoor",
+    "available_channels": [
+      "lighting",
+      "framing",
+      "clothing",
+      "scene_override"
+    ]
   },
   {
     "id": "standing_desk",
@@ -7819,7 +8559,14 @@
       "weather": [],
       "time_of_day": [],
       "season": []
-    }
+    },
+    "location_type": "indoor",
+    "available_channels": [
+      "lighting",
+      "framing",
+      "clothing",
+      "scene_override"
+    ]
   },
   {
     "id": "digital_nomad",
@@ -7942,7 +8689,15 @@
         "spring",
         "summer"
       ]
-    }
+    },
+    "location_type": "indoor",
+    "available_channels": [
+      "lighting",
+      "time_of_day",
+      "framing",
+      "clothing",
+      "scene_override"
+    ]
   },
   {
     "id": "intellectual",
@@ -8049,7 +8804,14 @@
       "weather": [],
       "time_of_day": [],
       "season": []
-    }
+    },
+    "location_type": "indoor",
+    "available_channels": [
+      "lighting",
+      "framing",
+      "clothing",
+      "scene_override"
+    ]
   },
   {
     "id": "tech_developer",
@@ -8156,7 +8918,14 @@
       "weather": [],
       "time_of_day": [],
       "season": []
-    }
+    },
+    "location_type": "indoor",
+    "available_channels": [
+      "lighting",
+      "framing",
+      "clothing",
+      "scene_override"
+    ]
   },
   {
     "id": "creative_director",
@@ -8264,7 +9033,14 @@
       "weather": [],
       "time_of_day": [],
       "season": []
-    }
+    },
+    "location_type": "indoor",
+    "available_channels": [
+      "lighting",
+      "framing",
+      "clothing",
+      "scene_override"
+    ]
   },
   {
     "id": "medical",
@@ -8372,7 +9148,14 @@
       "weather": [],
       "time_of_day": [],
       "season": []
-    }
+    },
+    "location_type": "indoor",
+    "available_channels": [
+      "lighting",
+      "framing",
+      "clothing",
+      "scene_override"
+    ]
   },
   {
     "id": "legal_finance",
@@ -8480,7 +9263,14 @@
       "weather": [],
       "time_of_day": [],
       "season": []
-    }
+    },
+    "location_type": "indoor",
+    "available_channels": [
+      "lighting",
+      "framing",
+      "clothing",
+      "scene_override"
+    ]
   },
   {
     "id": "architect",
@@ -8586,7 +9376,14 @@
       "weather": [],
       "time_of_day": [],
       "season": []
-    }
+    },
+    "location_type": "indoor",
+    "available_channels": [
+      "lighting",
+      "framing",
+      "clothing",
+      "scene_override"
+    ]
   },
   {
     "id": "podcast",
@@ -8695,7 +9492,14 @@
       "weather": [],
       "time_of_day": [],
       "season": []
-    }
+    },
+    "location_type": "indoor",
+    "available_channels": [
+      "lighting",
+      "framing",
+      "clothing",
+      "scene_override"
+    ]
   },
   {
     "id": "mentor",
@@ -8803,7 +9607,14 @@
       "weather": [],
       "time_of_day": [],
       "season": []
-    }
+    },
+    "location_type": "indoor",
+    "available_channels": [
+      "lighting",
+      "framing",
+      "clothing",
+      "scene_override"
+    ]
   },
   {
     "id": "outdoor_business",
@@ -8914,7 +9725,15 @@
         "morning"
       ],
       "season": []
-    }
+    },
+    "location_type": "indoor",
+    "available_channels": [
+      "lighting",
+      "time_of_day",
+      "framing",
+      "clothing",
+      "scene_override"
+    ]
   },
   {
     "id": "neutral",
@@ -9025,7 +9844,14 @@
       "weather": [],
       "time_of_day": [],
       "season": []
-    }
+    },
+    "location_type": "indoor",
+    "available_channels": [
+      "lighting",
+      "framing",
+      "clothing",
+      "scene_override"
+    ]
   },
   {
     "id": "photo_3x4",
@@ -9098,7 +9924,8 @@
       "weather": [],
       "time_of_day": [],
       "season": []
-    }
+    },
+    "location_type": "document"
   },
   {
     "id": "passport_rf",
@@ -9171,7 +9998,8 @@
       "weather": [],
       "time_of_day": [],
       "season": []
-    }
+    },
+    "location_type": "document"
   },
   {
     "id": "visa_eu",
@@ -9244,7 +10072,8 @@
       "weather": [],
       "time_of_day": [],
       "season": []
-    }
+    },
+    "location_type": "document"
   },
   {
     "id": "visa_us",
@@ -9317,7 +10146,8 @@
       "weather": [],
       "time_of_day": [],
       "season": []
-    }
+    },
+    "location_type": "document"
   },
   {
     "id": "photo_4x6",
@@ -9390,7 +10220,8 @@
       "weather": [],
       "time_of_day": [],
       "season": []
-    }
+    },
+    "location_type": "document"
   },
   {
     "id": "mirror_aesthetic",
@@ -9480,10 +10311,8 @@
       "per_model_tail": {}
     },
     "trigger_pool": [
-      "full-length mirror reflection",
       "polished mirror surface in frame",
       "mirror selfie composition with the reflection visible",
-      "tall standing mirror anchoring the scene",
       "modern wall mirror as the focal point"
     ],
     "scene_anchor": "clean modern minimalist room with neutral walls and polished interior",
@@ -9514,7 +10343,15 @@
         "spring",
         "autumn"
       ]
-    }
+    },
+    "location_type": "indoor",
+    "available_channels": [
+      "lighting",
+      "time_of_day",
+      "framing",
+      "clothing",
+      "scene_override"
+    ]
   },
   {
     "id": "elevator_clean",
@@ -9621,7 +10458,14 @@
       "weather": [],
       "time_of_day": [],
       "season": []
-    }
+    },
+    "location_type": "indoor",
+    "available_channels": [
+      "lighting",
+      "framing",
+      "clothing",
+      "scene_override"
+    ]
   },
   {
     "id": "candid_street",
@@ -9727,8 +10571,21 @@
       ],
       "weather": [],
       "time_of_day": [],
-      "season": []
-    }
+      "season": [
+        "spring",
+        "summer",
+        "autumn",
+        "winter"
+      ]
+    },
+    "location_type": "outdoor",
+    "available_channels": [
+      "lighting",
+      "season",
+      "framing",
+      "clothing",
+      "scene_override"
+    ]
   },
   {
     "id": "shopfront",
@@ -9840,7 +10697,15 @@
         "afternoon"
       ],
       "season": []
-    }
+    },
+    "location_type": "indoor",
+    "available_channels": [
+      "lighting",
+      "time_of_day",
+      "framing",
+      "clothing",
+      "scene_override"
+    ]
   },
   {
     "id": "focused_mood",
@@ -9950,7 +10815,14 @@
       "weather": [],
       "time_of_day": [],
       "season": []
-    }
+    },
+    "location_type": "indoor",
+    "available_channels": [
+      "lighting",
+      "framing",
+      "clothing",
+      "scene_override"
+    ]
   },
   {
     "id": "influencer_urban",
@@ -10060,8 +10932,22 @@
       "time_of_day": [
         "afternoon"
       ],
-      "season": []
-    }
+      "season": [
+        "spring",
+        "summer",
+        "autumn",
+        "winter"
+      ]
+    },
+    "location_type": "outdoor",
+    "available_channels": [
+      "lighting",
+      "time_of_day",
+      "season",
+      "framing",
+      "clothing",
+      "scene_override"
+    ]
   },
   {
     "id": "influencer_minimal",
@@ -10169,7 +11055,14 @@
       "weather": [],
       "time_of_day": [],
       "season": []
-    }
+    },
+    "location_type": "indoor",
+    "available_channels": [
+      "lighting",
+      "framing",
+      "clothing",
+      "scene_override"
+    ]
   },
   {
     "id": "golden_hour",
@@ -10274,8 +11167,22 @@
       "time_of_day": [
         "sunset"
       ],
-      "season": []
-    }
+      "season": [
+        "spring",
+        "summer",
+        "autumn",
+        "winter"
+      ]
+    },
+    "location_type": "outdoor",
+    "available_channels": [
+      "lighting",
+      "time_of_day",
+      "season",
+      "framing",
+      "clothing",
+      "scene_override"
+    ]
   },
   {
     "id": "neon_night",
@@ -10381,8 +11288,21 @@
       ],
       "weather": [],
       "time_of_day": [],
-      "season": []
-    }
+      "season": [
+        "spring",
+        "summer",
+        "autumn",
+        "winter"
+      ]
+    },
+    "location_type": "outdoor",
+    "available_channels": [
+      "lighting",
+      "season",
+      "framing",
+      "clothing",
+      "scene_override"
+    ]
   },
   {
     "id": "tinder_top",
@@ -10492,8 +11412,22 @@
       "time_of_day": [
         "afternoon"
       ],
-      "season": []
-    }
+      "season": [
+        "spring",
+        "summer",
+        "autumn",
+        "winter"
+      ]
+    },
+    "location_type": "outdoor",
+    "available_channels": [
+      "lighting",
+      "time_of_day",
+      "season",
+      "framing",
+      "clothing",
+      "scene_override"
+    ]
   },
   {
     "id": "reading_home",
@@ -10600,7 +11534,14 @@
       "weather": [],
       "time_of_day": [],
       "season": []
-    }
+    },
+    "location_type": "indoor",
+    "available_channels": [
+      "lighting",
+      "framing",
+      "clothing",
+      "scene_override"
+    ]
   },
   {
     "id": "reading_cafe",
@@ -10711,7 +11652,15 @@
         "afternoon"
       ],
       "season": []
-    }
+    },
+    "location_type": "indoor",
+    "available_channels": [
+      "lighting",
+      "time_of_day",
+      "framing",
+      "clothing",
+      "scene_override"
+    ]
   },
   {
     "id": "sketching",
@@ -10820,7 +11769,14 @@
       "weather": [],
       "time_of_day": [],
       "season": []
-    }
+    },
+    "location_type": "indoor",
+    "available_channels": [
+      "lighting",
+      "framing",
+      "clothing",
+      "scene_override"
+    ]
   },
   {
     "id": "photographer",
@@ -10933,7 +11889,15 @@
         "afternoon"
       ],
       "season": []
-    }
+    },
+    "location_type": "indoor",
+    "available_channels": [
+      "lighting",
+      "time_of_day",
+      "framing",
+      "clothing",
+      "scene_override"
+    ]
   },
   {
     "id": "meditation",
@@ -11046,7 +12010,15 @@
         "sunrise"
       ],
       "season": []
-    }
+    },
+    "location_type": "indoor",
+    "available_channels": [
+      "lighting",
+      "time_of_day",
+      "framing",
+      "clothing",
+      "scene_override"
+    ]
   },
   {
     "id": "online_learning",
@@ -11157,7 +12129,15 @@
         "afternoon"
       ],
       "season": []
-    }
+    },
+    "location_type": "indoor",
+    "available_channels": [
+      "lighting",
+      "time_of_day",
+      "framing",
+      "clothing",
+      "scene_override"
+    ]
   },
   {
     "id": "cycling_social",
@@ -11269,8 +12249,22 @@
         "afternoon",
         "morning"
       ],
-      "season": []
-    }
+      "season": [
+        "spring",
+        "summer",
+        "autumn",
+        "winter"
+      ]
+    },
+    "location_type": "outdoor",
+    "available_channels": [
+      "lighting",
+      "time_of_day",
+      "season",
+      "framing",
+      "clothing",
+      "scene_override"
+    ]
   },
   {
     "id": "fitness_lifestyle",
@@ -11382,7 +12376,15 @@
         "sunrise"
       ],
       "season": []
-    }
+    },
+    "location_type": "indoor",
+    "available_channels": [
+      "lighting",
+      "time_of_day",
+      "framing",
+      "clothing",
+      "scene_override"
+    ]
   },
   {
     "id": "panoramic_window",
@@ -11488,8 +12490,21 @@
       ],
       "weather": [],
       "time_of_day": [],
-      "season": []
-    }
+      "season": [
+        "spring",
+        "summer",
+        "autumn",
+        "winter"
+      ]
+    },
+    "location_type": "outdoor",
+    "available_channels": [
+      "lighting",
+      "season",
+      "framing",
+      "clothing",
+      "scene_override"
+    ]
   },
   {
     "id": "in_motion",
@@ -11598,8 +12613,22 @@
       "time_of_day": [
         "afternoon"
       ],
-      "season": []
-    }
+      "season": [
+        "spring",
+        "summer",
+        "autumn",
+        "winter"
+      ]
+    },
+    "location_type": "outdoor",
+    "available_channels": [
+      "lighting",
+      "time_of_day",
+      "season",
+      "framing",
+      "clothing",
+      "scene_override"
+    ]
   },
   {
     "id": "architecture_shadow",
@@ -11711,7 +12740,15 @@
         "afternoon"
       ],
       "season": []
-    }
+    },
+    "location_type": "mixed",
+    "available_channels": [
+      "lighting",
+      "time_of_day",
+      "framing",
+      "clothing",
+      "scene_override"
+    ]
   },
   {
     "id": "achievement_moment",
@@ -11820,8 +12857,21 @@
       ],
       "weather": [],
       "time_of_day": [],
-      "season": []
-    }
+      "season": [
+        "spring",
+        "summer",
+        "autumn",
+        "winter"
+      ]
+    },
+    "location_type": "outdoor",
+    "available_channels": [
+      "lighting",
+      "season",
+      "framing",
+      "clothing",
+      "scene_override"
+    ]
   },
   {
     "id": "light_irony",
@@ -11931,8 +12981,22 @@
       "time_of_day": [
         "afternoon"
       ],
-      "season": []
-    }
+      "season": [
+        "spring",
+        "summer",
+        "autumn",
+        "winter"
+      ]
+    },
+    "location_type": "outdoor",
+    "available_channels": [
+      "lighting",
+      "time_of_day",
+      "season",
+      "framing",
+      "clothing",
+      "scene_override"
+    ]
   },
   {
     "id": "skyscraper_view",
@@ -12039,7 +13103,14 @@
       "weather": [],
       "time_of_day": [],
       "season": []
-    }
+    },
+    "location_type": "indoor",
+    "available_channels": [
+      "lighting",
+      "framing",
+      "clothing",
+      "scene_override"
+    ]
   },
   {
     "id": "after_work",
@@ -12150,7 +13221,15 @@
         "sunset"
       ],
       "season": []
-    }
+    },
+    "location_type": "indoor",
+    "available_channels": [
+      "lighting",
+      "time_of_day",
+      "framing",
+      "clothing",
+      "scene_override"
+    ]
   },
   {
     "id": "evening_planning",
@@ -12258,7 +13337,14 @@
       "weather": [],
       "time_of_day": [],
       "season": []
-    }
+    },
+    "location_type": "indoor",
+    "available_channels": [
+      "lighting",
+      "framing",
+      "clothing",
+      "scene_override"
+    ]
   },
   {
     "id": "vintage_film",
@@ -12371,7 +13457,15 @@
         "afternoon"
       ],
       "season": []
-    }
+    },
+    "location_type": "indoor",
+    "available_channels": [
+      "lighting",
+      "time_of_day",
+      "framing",
+      "clothing",
+      "scene_override"
+    ]
   },
   {
     "id": "pastel_soft",
@@ -12482,7 +13576,14 @@
       "weather": [],
       "time_of_day": [],
       "season": []
-    }
+    },
+    "location_type": "indoor",
+    "available_channels": [
+      "lighting",
+      "framing",
+      "clothing",
+      "scene_override"
+    ]
   },
   {
     "id": "instagram_aesthetic",
@@ -12603,7 +13704,15 @@
         "summer",
         "autumn"
       ]
-    }
+    },
+    "location_type": "mixed",
+    "available_channels": [
+      "lighting",
+      "time_of_day",
+      "framing",
+      "clothing",
+      "scene_override"
+    ]
   },
   {
     "id": "youtube_creator",
@@ -12719,7 +13828,15 @@
         "night"
       ],
       "season": []
-    }
+    },
+    "location_type": "indoor",
+    "available_channels": [
+      "lighting",
+      "time_of_day",
+      "framing",
+      "clothing",
+      "scene_override"
+    ]
   },
   {
     "id": "linkedin_premium",
@@ -12810,7 +13927,6 @@
     },
     "trigger_pool": [
       "linkedin-grade professional setting",
-      "polished linkedin headshot composition",
       "professional linkedin profile setting",
       "executive linkedin-style frame"
     ],
@@ -12837,7 +13953,15 @@
         "summer",
         "autumn"
       ]
-    }
+    },
+    "location_type": "indoor",
+    "available_channels": [
+      "lighting",
+      "time_of_day",
+      "framing",
+      "clothing",
+      "scene_override"
+    ]
   },
   {
     "id": "podcast_host",
@@ -12945,7 +14069,14 @@
       "weather": [],
       "time_of_day": [],
       "season": []
-    }
+    },
+    "location_type": "indoor",
+    "available_channels": [
+      "lighting",
+      "framing",
+      "clothing",
+      "scene_override"
+    ]
   },
   {
     "id": "morning_routine",
@@ -13056,7 +14187,15 @@
         "morning"
       ],
       "season": []
-    }
+    },
+    "location_type": "indoor",
+    "available_channels": [
+      "lighting",
+      "time_of_day",
+      "framing",
+      "clothing",
+      "scene_override"
+    ]
   },
   {
     "id": "food_blogger",
@@ -13164,7 +14303,14 @@
       "weather": [],
       "time_of_day": [],
       "season": []
-    }
+    },
+    "location_type": "indoor",
+    "available_channels": [
+      "lighting",
+      "framing",
+      "clothing",
+      "scene_override"
+    ]
   },
   {
     "id": "travel_blogger",
@@ -13256,8 +14402,22 @@
       "time_of_day": [
         "afternoon"
       ],
-      "season": []
-    }
+      "season": [
+        "spring",
+        "summer",
+        "autumn",
+        "winter"
+      ]
+    },
+    "location_type": "outdoor",
+    "available_channels": [
+      "lighting",
+      "time_of_day",
+      "season",
+      "framing",
+      "clothing",
+      "scene_override"
+    ]
   },
   {
     "id": "luxury",
@@ -13374,7 +14534,15 @@
         "blue hour"
       ],
       "season": []
-    }
+    },
+    "location_type": "indoor",
+    "available_channels": [
+      "lighting",
+      "time_of_day",
+      "framing",
+      "clothing",
+      "scene_override"
+    ]
   },
   {
     "id": "casual",
@@ -13497,7 +14665,15 @@
         "summer",
         "autumn"
       ]
-    }
+    },
+    "location_type": "indoor",
+    "available_channels": [
+      "lighting",
+      "time_of_day",
+      "framing",
+      "clothing",
+      "scene_override"
+    ]
   },
   {
     "id": "artistic",
@@ -13613,6 +14789,14 @@
         "evening"
       ],
       "season": []
-    }
+    },
+    "location_type": "indoor",
+    "available_channels": [
+      "lighting",
+      "time_of_day",
+      "framing",
+      "clothing",
+      "scene_override"
+    ]
   }
 ]

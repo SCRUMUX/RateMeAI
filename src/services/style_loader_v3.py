@@ -75,13 +75,24 @@ logger = logging.getLogger(__name__)
 _INDOOR_HINT_TOKENS: tuple[str, ...] = (
     "room", "office", "studio", "bedroom", "bathroom", "kitchen",
     "library", "indoor", "interior", "lobby", "hallway", "elevator",
-    "closet", "gym interior", "indoors", "warehouse", "loft", "cafe",
-    "restaurant interior", "bar interior", "showroom",
+    "closet", "gym interior", "gym", "indoors", "warehouse", "loft",
+    "cafe", "coffee shop", "restaurant interior", "bar interior",
+    "showroom", "shop", "store", "boutique", "lounge", "gallery",
+    "clinic", "hospital", "stage", "venue", "podium", "armchair",
+    "bookshelves", "home corner", "home desk", "minimalist setting",
+    "pastel-colored wall", "minimal setting", "minimal backdrop",
+    "scandinavian aesthetic", "creator setup", "creator setup",
+    "ring light", "exposed brick", "marble surface", "marble floor",
 )
 """Substrings that classify a scene_anchor as indoor.
 
 Order matters only for readability. The match is a simple
-case-insensitive substring scan in :func:`_infer_location_type`."""
+case-insensitive substring scan in :func:`_infer_location_type`.
+
+The list deliberately includes a few visually-indoor compound
+phrases ("ring light", "exposed brick", "marble floor") because
+several catalog entries describe a studio scene without ever
+saying "studio" — they list the props instead."""
 
 
 _OUTDOOR_HINT_TOKENS: tuple[str, ...] = (
@@ -90,7 +101,38 @@ _OUTDOOR_HINT_TOKENS: tuple[str, ...] = (
     "garden", "plaza", "harbour", "harbor", "marina", "alley", "courtyard",
     "city ", "trail", "forest", "field", "desert", "lake", "river",
     "embankment", "bridge", "skyscraper", "open air", "open-air",
+    "piazza", "crosswalk", "balcony", "yacht", "yacht deck", "deck",
+    "bike path", "bicycle", "exterior", "meadow", "grass", "sea",
+    "ocean", "tropical", "scenic", "landmark", "tropical scenery",
+    "exotic location", "iconic landmark", "outdoors", "skies",
+    "blue sky", "clear sky", "country road", "urban setting",
+    "natural green",
 )
+
+
+_INDOOR_ID_HINTS: tuple[str, ...] = (
+    "office", "studio", "lounge", "gallery", "shop", "store", "boutique",
+    "gym", "clinic", "venue", "stage", "home", "library", "minimal",
+    "pastel", "scandi", "cafe", "interior", "indoor", "lobby", "creator",
+    "online_learning", "reading_", "evening_planning",
+)
+
+
+_OUTDOOR_ID_HINTS: tuple[str, ...] = (
+    "outdoor", "beach", "park", "garden", "yacht", "marina", "skyline",
+    "skyscraper", "rooftop", "balcony", "city", "street", "bridge",
+    "tower", "landmark", "travel", "blogger", "exotic", "tropical",
+    "mountain", "trail", "cycling", "golden_hour",
+)
+
+
+_AMBIGUOUS_MIXED_HINTS: tuple[str, ...] = (
+    "instagram", "architecture_shadow", "decision_moment",
+    "shopfront", "stage",
+)
+"""Style ids that the heuristic should classify as ``mixed`` rather
+than leaving unclassified — visually they could go either way and
+the operator can override later through the admin UI."""
 
 
 _DOCUMENT_HINT_TOKENS: tuple[str, ...] = (
@@ -100,19 +142,29 @@ _DOCUMENT_HINT_TOKENS: tuple[str, ...] = (
 
 
 def _infer_location_type(scene_anchor: str, key: str) -> str:
-    """Auto-classify a style by scanning its scene anchor.
+    """Auto-classify a style by scanning its scene anchor + id.
 
     Used as a fallback when the JSON entry does not declare an explicit
     ``location_type`` — keeps the lint engine useful for the long tail
-    of un-curated styles. Returns the empty string when nothing
-    matches; the lint engine treats that as "не классифицирован" and
-    skips location-sensitive rules.
+    of un-curated styles.
+
+    Lookup order (first match wins):
+
+    1. Document tokens in scene anchor or id.
+    2. Indoor / outdoor scene-anchor tokens.
+    3. Indoor / outdoor id-based hints (handles styles whose anchor
+       is too generic but whose id makes the intent obvious — e.g.
+       ``warm_outdoor`` whose anchor is just lighting prose).
+    4. Mixed fallback for known-ambiguous ids.
+
+    Returns the empty string only when nothing matches; the lint
+    engine treats that as "не классифицирован" and skips location-
+    sensitive rules.
     """
     text = (scene_anchor or "").lower()
-    if not text:
-        return ""
+    key_lc = (key or "").lower()
     for tok in _DOCUMENT_HINT_TOKENS:
-        if tok in text or tok in key.lower():
+        if tok in text or tok in key_lc:
             return LOCATION_TYPE_DOCUMENT
     for tok in _INDOOR_HINT_TOKENS:
         if tok in text:
@@ -120,6 +172,15 @@ def _infer_location_type(scene_anchor: str, key: str) -> str:
     for tok in _OUTDOOR_HINT_TOKENS:
         if tok in text:
             return LOCATION_TYPE_OUTDOOR
+    for tok in _OUTDOOR_ID_HINTS:
+        if tok in key_lc:
+            return LOCATION_TYPE_OUTDOOR
+    for tok in _INDOOR_ID_HINTS:
+        if tok in key_lc:
+            return LOCATION_TYPE_INDOOR
+    for tok in _AMBIGUOUS_MIXED_HINTS:
+        if tok in key_lc:
+            return "mixed"
     return ""
 
 

@@ -2325,4 +2325,114 @@
 #          admin-lint suites and the v3 schema-data extensions.
 #          ``ruff`` clean, ``tsc -b && vite build`` clean
 #          (500 modules).
-APP_VERSION = "1.29.0"
+# 1.30.0 — Bulk curation pass for data/styles.json. The 1.29.0
+#          admin tooling shipped with 0/126 styles actually
+#          curated — ``available_channels`` and ``location_type``
+#          were unset on every row, so the slot sampler kept
+#          falling back to the legacy "non-empty pool ⇒ enabled"
+#          heuristic and ``mirror_aesthetic`` continued to expose
+#          a 2-value «Сезон» pill group to users despite being
+#          an indoor style. This release closes that gap.
+#
+#          One-shot data migration in
+#          ``scripts/migrations/2026_05_styles_curation/``:
+#            * ``audit.py`` — read-only diagnostic, prints
+#              dirty-style counts + lint code histogram +
+#              conflict report.
+#            * ``migrate.py`` — applies the curated defaults
+#              deterministically. Per style: classify
+#              ``location_type`` (document / indoor / outdoor /
+#              mixed via the loader's ``_infer_location_type``
+#              with extended id-based hints), pick
+#              ``available_channels`` from the per-location
+#              template, drop ambient channels with empty pools
+#              to avoid ``EMPTY_POOL`` errors, fill 4 seasons
+#              when ``season`` is enabled but its pool is short.
+#              Trigger cleanup is conservative: drop framing /
+#              lighting / weather / season-tainted phrases iff
+#              the pool has at least one clean alternative left
+#              (single-phrase pools are kept as-is — the
+#              operator handles those via the admin UI).
+#            * ``preview_lint.py`` — dry-applies the migration
+#              in memory and shows before/after lint counts so
+#              the change is reviewable without touching disk.
+#            * ``unclassified.py`` — debug helper that lists
+#              the styles ``_infer_location_type`` couldn't
+#              place; used during heuristic tuning.
+#
+#          Loader heuristic upgrades
+#          (``src/services/style_loader_v3.py``):
+#            * ``_INDOOR_HINT_TOKENS`` extended with shop /
+#              boutique / lounge / gallery / clinic / hospital /
+#              stage / venue / podium / armchair / bookshelves
+#              + studio-prop terms (ring light, exposed brick,
+#              marble surface) for catalog rows whose
+#              ``scene_anchor`` lists props instead of saying
+#              "studio".
+#            * ``_OUTDOOR_HINT_TOKENS`` extended with piazza /
+#              crosswalk / balcony / yacht / deck / bicycle /
+#              meadow / grass / sea / ocean / tropical /
+#              landmark / blue sky / clear sky / etc.
+#            * New ``_INDOOR_ID_HINTS`` / ``_OUTDOOR_ID_HINTS``
+#              consulted when the scene-anchor scan misses but
+#              the style id makes the intent obvious (e.g.
+#              ``warm_outdoor`` whose anchor is just lighting
+#              prose, but the id literally says "outdoor").
+#            * New ``_AMBIGUOUS_MIXED_HINTS`` for catalog
+#              entries that genuinely span both contexts
+#              (instagram_aesthetic / architecture_shadow /
+#              decision_moment / shopfront / stage); these
+#              get classified as ``mixed`` rather than left
+#              unclassified so the lint engine has something
+#              to anchor on.
+#
+#          Catalog state after migration:
+#            * ``available_channels`` populated on 121 / 126
+#              rows (the 5 document styles correctly stay
+#              empty — they're scene-locked).
+#            * ``location_type`` populated on 126 / 126 rows.
+#            * Distribution: 71 indoor, 47 outdoor, 5 document,
+#              3 mixed, 0 unclassified.
+#            * Lint: 8 warning-level ``TRIGGER_DIRTY`` issues
+#              left, all on single-phrase trigger pools where
+#              auto-cleanup would destroy meaning. These need
+#              semantic rewrites in the admin UI, not script
+#              work; offending styles include athens_acropolis,
+#              decision_moment, panoramic_window, rooftop_city,
+#              speaker_stage, tinder_pack_rooftop_golden,
+#              tinder_top, warm_outdoor.
+#            * Conflicts: 1 duplicate display_label (cycling vs
+#              cycling_social — both «🚴 Велопрогулка»), 2
+#              similar pairs (near_car ~ in_car, podcast ~
+#              podcast_host); flagged for operator review via
+#              the conflicts page.
+#
+#          Direct user impact:
+#            * ``mirror_aesthetic`` — operator's headline
+#              complaint — now classifies as indoor with
+#              ``available_channels = [lighting, time_of_day,
+#              framing, clothing, scene_override]``. The
+#              «Сезон» and «Погода» pill groups disappear from
+#              StyleSettingsModal automatically.
+#            * Outdoor styles (paris_eiffel, dubai_burj_khalifa,
+#              etc.) get the full 4-season pool by default, so
+#              «4 сезона а не 2» is enforced via lint and via
+#              the actual data.
+#            * Document styles (passport_rf, visa_us, etc.) get
+#              ``available_channels = []`` so the modal hides
+#              every ambient control — they always go through
+#              ``scene_preserve`` mode anyway.
+#
+#          Rollback:
+#            * The migration is data-only (and the loader
+#              heuristic upgrade is a strict superset of 1.29.0).
+#              ``git revert`` of this commit restores the
+#              1.29.0 catalog with no schema breakage.
+#            * Admin operators can also undo per-style edits
+#              via the editor — the 1.29.0 admin path is
+#              unchanged.
+#
+#          Test counts: 2002 backend pytest pass (unchanged —
+#          the migration is data, not behaviour). ``ruff`` /
+#          ``tsc --noEmit`` clean.
+APP_VERSION = "1.30.0"
