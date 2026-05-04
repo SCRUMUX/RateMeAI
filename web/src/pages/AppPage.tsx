@@ -90,8 +90,6 @@ export default function AppPage({ scenarioSlugOverride, onBackToLanding }: AppPa
       ? STEP_ORDER.slice(0, STEP_ORDER.indexOf(returnedStep) + 1) as WizardStepId[]
       : ['upload'],
   ));
-  const scrollRef = useRef<HTMLDivElement>(null);
-
   useEffect(() => {
     if (!restoringPhoto) return;
     let cancelled = false;
@@ -128,7 +126,7 @@ export default function AppPage({ scenarioSlugOverride, onBackToLanding }: AppPa
     setDirection(newIdx > currentIdx ? 1 : -1);
     setCurrentStep(step);
     visitedSteps.current.add(step);
-    scrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   }, [currentIdx]);
 
   const handleStepClick = useCallback((step: WizardStepId) => {
@@ -258,20 +256,22 @@ export default function AppPage({ scenarioSlugOverride, onBackToLanding }: AppPa
   }
 
   return (
-    <div data-category={app.activeCategory} className="h-dvh flex flex-col w-full overflow-hidden selection:bg-brand-primary/30">
-      <NavBar
-        mode="app"
-        onLoginClick={() => setAuthModalOpen(true)}
-        onOpenStorage={() => setStorageModalOpen(true)}
-        onHomeClick={onBackToLanding}
-        logoTo={scenarioConfig?.entryMode === 'landing' ? scenarioConfig.canonicalPath : '/'}
-      />
+    <div data-category={app.activeCategory} className="min-h-dvh flex flex-col w-full selection:bg-brand-primary/30">
+      <div className="sticky top-0 z-[100]">
+        <NavBar
+          mode="app"
+          onLoginClick={() => setAuthModalOpen(true)}
+          onOpenStorage={() => setStorageModalOpen(true)}
+          onHomeClick={onBackToLanding}
+          logoTo={scenarioConfig?.entryMode === 'landing' ? scenarioConfig.canonicalPath : '/'}
+        />
+      </div>
 
-      <main ref={scrollRef} className="relative flex-1 min-h-0 flex flex-col overflow-hidden">
+      <main className="relative flex flex-col">
         <MeshGradientBg />
         <EnergyField />
 
-        <div className="relative z-[2] flex-1 min-h-0 flex flex-col items-center gap-[var(--space-16)] tablet:gap-[48px] px-[var(--space-16)] tablet:px-[var(--space-24)] py-[var(--space-16)] tablet:py-[48px]">
+        <div className="relative z-[2] flex flex-col items-center gap-[var(--space-24)] tablet:gap-[48px] px-[var(--space-16)] tablet:px-[var(--space-24)] py-[var(--space-24)] tablet:py-[48px]">
           {/* Error toast */}
           {app.error && (
             <div className="glass-badge-danger fixed top-20 right-6 z-[200] max-w-[400px] p-[var(--space-16)] text-white rounded-[var(--radius-12)] text-[14px] leading-[20px] cursor-pointer"
@@ -296,7 +296,7 @@ export default function AppPage({ scenarioSlugOverride, onBackToLanding }: AppPa
           </div>
 
           {/* Step content with transitions */}
-          <div className="flex-1 min-h-0 w-full max-w-[1200px]">
+          <div className="w-full max-w-[1200px]">
             <AnimatePresence mode="wait" custom={direction}>
               <motion.div
                 key={currentStep}
@@ -306,7 +306,6 @@ export default function AppPage({ scenarioSlugOverride, onBackToLanding }: AppPa
                 animate="center"
                 exit="exit"
                 transition={{ duration: 0.3, ease: 'easeInOut' }}
-                className="h-full overflow-y-auto"
               >
                 {currentStep === 'upload' && (
                   <StepUpload onNext={goNext} />

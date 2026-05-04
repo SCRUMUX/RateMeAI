@@ -1,8 +1,108 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import * as api from '../../lib/api';
 import { useApp } from '../../context/AppContext';
+
+// 1.31.0 — local popover-dropdown to replace the native <select>.
+// The native control inherits the OS menu styling, which on Windows
+// renders as a white opaque list on top of our dark theme. This
+// component reuses the existing `glass-card` / `glass-btn-*` classes
+// so it stays consistent with the rest of the wizard, and respects
+// `data-theme` automatically. We keep it local here for now; in
+// Wave 2 (1.32.0) it will be extracted into `components/ui/Select.tsx`.
+interface DropdownOption {
+  value: string;
+  label: string;
+}
+
+interface DropdownProps {
+  value: string;
+  options: DropdownOption[];
+  placeholder: string;
+  onChange: (value: string) => void;
+  ariaLabel?: string;
+}
+
+function Dropdown({ value, options, placeholder, onChange, ariaLabel }: DropdownProps) {
+  const [open, setOpen] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    function handleMouseDown(e: MouseEvent) {
+      if (!containerRef.current) return;
+      if (!containerRef.current.contains(e.target as Node)) setOpen(false);
+    }
+    function handleKey(e: KeyboardEvent) {
+      if (e.key === 'Escape') setOpen(false);
+    }
+    document.addEventListener('mousedown', handleMouseDown);
+    document.addEventListener('keydown', handleKey);
+    return () => {
+      document.removeEventListener('mousedown', handleMouseDown);
+      document.removeEventListener('keydown', handleKey);
+    };
+  }, [open]);
+
+  const currentLabel = options.find((o) => o.value === value)?.label ?? placeholder;
+
+  return (
+    <div ref={containerRef} className="relative w-full">
+      <button
+        type="button"
+        aria-label={ariaLabel}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        onClick={() => setOpen((v) => !v)}
+        className="w-full bg-surface-2 border border-border-base rounded-[var(--radius-8)] px-3 py-2 text-[14px] text-text-primary text-left flex items-center justify-between gap-[var(--space-8)]"
+      >
+        <span className={`truncate ${value ? '' : 'text-[var(--color-text-muted)]'}`}>
+          {currentLabel}
+        </span>
+        <svg
+          width="14"
+          height="14"
+          viewBox="0 0 16 16"
+          fill="none"
+          aria-hidden="true"
+          className={`shrink-0 transition-transform ${open ? 'rotate-180' : ''}`}
+        >
+          <path d="M4 6l4 4 4-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      </button>
+      {open && (
+        <div
+          role="listbox"
+          className="absolute left-0 right-0 top-[calc(100%+4px)] z-10 glass-card rounded-[var(--radius-8)] border border-border-base p-[var(--space-4)] flex flex-col gap-[2px] max-h-[240px] overflow-y-auto"
+        >
+          {options.map((opt) => {
+            const active = opt.value === value;
+            return (
+              <button
+                key={opt.value || '__placeholder__'}
+                type="button"
+                role="option"
+                aria-selected={active}
+                onClick={() => {
+                  onChange(opt.value);
+                  setOpen(false);
+                }}
+                className={`w-full text-left px-[var(--space-12)] py-[var(--space-8)] rounded-[var(--radius-md)] text-[14px] leading-[20px] transition-colors ${
+                  active
+                    ? 'bg-surface-3 text-text-primary'
+                    : 'text-text-primary hover:bg-surface-2'
+                }`}
+              >
+                {opt.label}
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
 
 interface Props {
   open: boolean;
@@ -321,12 +421,12 @@ export default function StyleSettingsModal({ open, onClose, styleId, onApply }: 
           transition={{ type: 'spring', damping: 32, stiffness: 320 }}
         >
           <div className="shrink-0 flex flex-col items-center pt-[var(--space-8)] pb-[var(--space-4)] tablet:hidden">
-            <div className="w-10 h-1 rounded-full bg-[rgba(255,255,255,0.2)]" />
+            <div className="w-10 h-1 rounded-full bg-border-strong" />
           </div>
 
           <div className="shrink-0 flex items-start justify-between px-[var(--space-16)] pt-[var(--space-8)] tablet:pt-[var(--space-16)] pb-[var(--space-8)]">
             <div className="flex flex-col min-w-0">
-              <span className="text-[16px] leading-[22px] font-semibold text-[#E6EEF8]">
+              <span className="text-[16px] leading-[22px] font-semibold text-text-primary">
                 Настройки стиля
               </span>
               {styleName && (
@@ -339,7 +439,7 @@ export default function StyleSettingsModal({ open, onClose, styleId, onApply }: 
               type="button"
               onClick={onClose}
               aria-label="Закрыть"
-              className="shrink-0 w-9 h-9 flex items-center justify-center rounded-full glass-btn-ghost text-[var(--color-text-muted)] hover:text-[#E6EEF8] transition-colors"
+              className="shrink-0 w-9 h-9 flex items-center justify-center rounded-full glass-btn-ghost text-[var(--color-text-muted)] hover:text-text-primary transition-colors"
             >
               <svg width="18" height="18" viewBox="0 0 16 16" fill="none">
                 <path d="M4 4L12 12M12 4L4 12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
@@ -350,7 +450,7 @@ export default function StyleSettingsModal({ open, onClose, styleId, onApply }: 
           <div className="flex-1 overflow-y-auto px-[var(--space-16)] pb-[var(--space-16)] flex flex-col gap-[var(--space-16)]">
             {hasTrigger && (
               <div
-                className="flex items-start gap-[var(--space-8)] rounded-[var(--radius-12)] px-[var(--space-12)] py-[var(--space-8)] bg-[rgba(123,168,255,0.08)] border border-[rgba(123,168,255,0.2)]"
+                className="flex items-start gap-[var(--space-8)] rounded-[var(--radius-12)] px-[var(--space-12)] py-[var(--space-8)] bg-brand-primary/10 border border-brand-primary/30"
                 title="Этот элемент всегда в кадре. Изменить нельзя."
               >
                 <svg
@@ -358,7 +458,7 @@ export default function StyleSettingsModal({ open, onClose, styleId, onApply }: 
                   height="16"
                   viewBox="0 0 16 16"
                   fill="none"
-                  className="shrink-0 mt-[1px] text-[#7BA8FF]"
+                  className="shrink-0 mt-[1px] text-brand-primary"
                 >
                   <path
                     d="M8 1.5L9.94 5.43L14.27 6.06L11.13 9.12L11.87 13.43L8 11.4L4.13 13.43L4.87 9.12L1.73 6.06L6.06 5.43L8 1.5Z"
@@ -368,10 +468,10 @@ export default function StyleSettingsModal({ open, onClose, styleId, onApply }: 
                   />
                 </svg>
                 <div className="flex flex-col min-w-0 flex-1">
-                  <span className="text-[11px] uppercase tracking-wider text-[#7BA8FF] font-medium">
+                  <span className="text-[11px] uppercase tracking-wider text-brand-primary font-medium">
                     Триггер стиля
                   </span>
-                  <span className="text-[13px] leading-[18px] text-[#E6EEF8] truncate">
+                  <span className="text-[13px] leading-[18px] text-text-primary truncate">
                     {triggerHeadline}
                   </span>
                   <span className="text-[11px] leading-[14px] text-[var(--color-text-muted)] mt-[2px]">
@@ -396,16 +496,19 @@ export default function StyleSettingsModal({ open, onClose, styleId, onApply }: 
                     <span className="text-[13px] font-medium text-[var(--color-text-muted)]">
                       {CATEGORY_LABELS_RU.lighting}
                     </span>
-                    <select
+                    <Dropdown
+                      ariaLabel={CATEGORY_LABELS_RU.lighting}
                       value={hints.lighting ?? ''}
-                      onChange={(e) => setHints((h) => ({ ...h, lighting: e.target.value }))}
-                      className="w-full bg-[rgba(255,255,255,0.05)] border border-[rgba(255,255,255,0.1)] rounded-[var(--radius-8)] px-3 py-2 text-[14px] text-[#E6EEF8]"
-                    >
-                      <option value="">Авто (рандом)</option>
-                      {options!.lighting!.map((opt) => (
-                        <option key={opt} value={opt}>{labelFor('lighting', opt)}</option>
-                      ))}
-                    </select>
+                      placeholder="Авто (рандом)"
+                      onChange={(v) => setHints((h) => ({ ...h, lighting: v }))}
+                      options={[
+                        { value: '', label: 'Авто (рандом)' },
+                        ...options!.lighting!.map((opt) => ({
+                          value: opt,
+                          label: labelFor('lighting', opt),
+                        })),
+                      ]}
+                    />
                   </div>
                 )}
 
@@ -546,7 +649,7 @@ export default function StyleSettingsModal({ open, onClose, styleId, onApply }: 
                       placeholder="Например: на фоне гор"
                       value={hints.scene_override ?? ''}
                       onChange={(e) => setHints((h) => ({ ...h, scene_override: e.target.value }))}
-                      className="w-full bg-[rgba(255,255,255,0.05)] border border-[rgba(255,255,255,0.1)] rounded-[var(--radius-8)] px-3 py-2 text-[14px] text-[#E6EEF8]"
+                      className="w-full bg-surface-2 border border-border-base rounded-[var(--radius-8)] px-3 py-2 text-[14px] text-text-primary placeholder:text-[var(--color-text-muted)]"
                     />
                     {(options!.sceneOverrides?.length ?? 0) > 0 && (
                       <div className="flex flex-wrap gap-[var(--space-4)]">
@@ -575,7 +678,7 @@ export default function StyleSettingsModal({ open, onClose, styleId, onApply }: 
                       placeholder="Например: красный костюм"
                       value={hints.clothing_override ?? ''}
                       onChange={(e) => setHints((h) => ({ ...h, clothing_override: e.target.value }))}
-                      className="w-full bg-[rgba(255,255,255,0.05)] border border-[rgba(255,255,255,0.1)] rounded-[var(--radius-8)] px-3 py-2 text-[14px] text-[#E6EEF8]"
+                      className="w-full bg-surface-2 border border-border-base rounded-[var(--radius-8)] px-3 py-2 text-[14px] text-text-primary placeholder:text-[var(--color-text-muted)]"
                     />
                     {(options!.clothing?.length ?? 0) > 0 && (
                       <div className="flex flex-wrap gap-[var(--space-4)]">

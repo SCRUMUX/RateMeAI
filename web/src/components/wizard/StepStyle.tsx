@@ -87,8 +87,8 @@ export default function StepStyle({ onNext }: Props) {
   );
 
   return (
-    <div className="flex flex-col h-full w-full max-w-[520px] mx-auto">
-      <div className="shrink-0 flex flex-col items-center gap-[var(--space-4)] text-center pb-[var(--space-16)]">
+    <div className="flex flex-col w-full max-w-[520px] mx-auto gap-[var(--space-24)]">
+      <div className="flex flex-col items-center gap-[var(--space-4)] text-center">
         <h2 className="text-[20px] tablet:text-[24px] leading-[1.2] font-semibold text-[#E6EEF8]">Выберите стиль</h2>
         <p className="text-[12px] tablet:text-[13px] leading-[16px] tablet:leading-[18px] text-[var(--color-text-secondary)] max-w-[440px]">
           Каждый стиль улучшает метрики восприятия под конкретный контекст
@@ -98,7 +98,7 @@ export default function StepStyle({ onNext }: Props) {
       {isComingSoon ? (
         comingSoonBlock
       ) : hasStyles ? (
-        <div className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-[var(--space-16)] pb-[var(--space-8)]">
+        <div className="flex flex-col gap-[var(--space-24)]">
           {/* 1. Selected style — recap + future long description slot */}
           {selectedStyle && (
             <div className="gradient-border-card glass-card rounded-[var(--radius-12)] p-[var(--space-16)] flex flex-col gap-[var(--space-12)]">

@@ -45,19 +45,80 @@ function StepUploadBody({ onNext }: Props) {
     setDragOver(false);
   }, []);
 
+  const hasPhoto = !!app.photo;
+
   return (
-    <div className="flex flex-col items-center gap-[var(--space-16)] w-full max-w-[600px] tablet:max-w-[720px] mx-auto">
-      <div className="flex flex-col items-center gap-[var(--space-8)] text-center w-full">
+    <div className="flex flex-col gap-[var(--space-24)] w-full max-w-[800px] mx-auto">
+      <div className="flex flex-col items-center gap-[var(--space-8)] text-center">
         <h2 className="text-[20px] tablet:text-[28px] leading-[1.2] font-semibold text-[#E6EEF8]">
           Загрузите фото
         </h2>
-        {/* Requirements text: single column on mobile, two columns on tablet+ */}
-        <div className="grid grid-cols-1 tablet:grid-cols-2 gap-[var(--space-12)] tablet:gap-[var(--space-24)] w-full max-w-[420px] tablet:max-w-none">
-          <div>
-            <p className="text-left text-[12px] tablet:text-[13px] font-medium text-[#E6EEF8] mb-[var(--space-6)]">
+        <p className="text-[12px] tablet:text-[13px] leading-[16px] tablet:leading-[18px] text-[var(--color-text-secondary)] max-w-[440px]">
+          Хорошее фото — половина результата. Просто следуйте чеклисту справа.
+        </p>
+      </div>
+
+      <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleFileSelect} />
+
+      <div className="flex flex-col tablet:flex-row gap-[var(--space-16)] tablet:gap-[var(--space-24)] items-start">
+        {/* Left column — photo / dropzone + primary CTA */}
+        <div className="w-full max-w-[260px] tablet:w-[260px] tablet:max-w-[260px] mx-auto tablet:mx-0 shrink-0 flex flex-col gap-[var(--space-12)]">
+          {hasPhoto ? (
+            <>
+              <div className="gradient-border-card glass-card rounded-[var(--radius-12)] overflow-hidden w-full">
+                <div className="w-full aspect-[4/5] bg-[rgba(255,255,255,0.02)] overflow-hidden">
+                  <img src={app.photo!.preview} alt="Загруженное фото" className="w-full h-full object-cover" />
+                </div>
+              </div>
+              <button
+                onClick={onNext}
+                className="glass-btn-primary w-full py-[var(--space-12)] text-[15px] leading-[22px] rounded-[var(--radius-12)] font-medium"
+              >
+                Далее
+              </button>
+            </>
+          ) : (
+            <div
+              onDrop={handleDrop}
+              onDragOver={handleDragOver}
+              onDragLeave={handleDragLeave}
+              onClick={() => fileInputRef.current?.click()}
+              className={`gradient-border-card glass-card w-full rounded-[var(--radius-12)] cursor-pointer transition-all ${
+                dragOver ? 'scale-[1.02]' : ''
+              }`}
+              style={dragOver ? { '--gb-color': 'rgba(var(--accent-r), var(--accent-g), var(--accent-b), 0.5)' } as React.CSSProperties : undefined}
+            >
+              <div className="flex flex-col items-center justify-center gap-[var(--space-16)] aspect-[4/5] px-[var(--space-16)]">
+                <div
+                  className="w-16 h-16 rounded-full flex items-center justify-center"
+                  style={{ background: 'rgba(var(--accent-r), var(--accent-g), var(--accent-b), 0.12)' }}
+                >
+                  <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="rgb(var(--accent-r), var(--accent-g), var(--accent-b))" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                    <polyline points="17 8 12 3 7 8" />
+                    <line x1="12" y1="3" x2="12" y2="15" />
+                  </svg>
+                </div>
+                <div className="flex flex-col items-center gap-[var(--space-4)]">
+                  <span className="text-[15px] leading-[20px] font-medium text-[#E6EEF8] text-center">
+                    {dragOver ? 'Отпустите файл' : 'Нажмите или перетащите фото'}
+                  </span>
+                  <span className="text-[12px] leading-[16px] text-[var(--color-text-muted)] text-center">
+                    JPG, PNG — до 10 МБ
+                  </span>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Right column — requirements + secondary CTA */}
+        <div className="flex-1 flex flex-col gap-[var(--space-16)] w-full">
+          <div className="gradient-border-card glass-card rounded-[var(--radius-12)] p-[var(--space-16)] tablet:p-[var(--space-20)]">
+            <p className="text-left text-[13px] tablet:text-[14px] font-medium text-[#E6EEF8] mb-[var(--space-10)]">
               Требования к фото
             </p>
-            <ul className="flex flex-col gap-[var(--space-6)] text-left">
+            <ul className="flex flex-col gap-[var(--space-8)] text-left">
               {REQUIREMENTS_BULLETS.map((text) => (
                 <li
                   key={text}
@@ -85,11 +146,11 @@ function StepUploadBody({ onNext }: Props) {
             </ul>
           </div>
 
-          <div>
-            <p className="text-left text-[12px] tablet:text-[13px] font-medium text-[#FF9EAD] mb-[var(--space-6)]">
+          <div className="gradient-border-card glass-card rounded-[var(--radius-12)] p-[var(--space-16)] tablet:p-[var(--space-20)]">
+            <p className="text-left text-[13px] tablet:text-[14px] font-medium text-[#FF9EAD] mb-[var(--space-10)]">
               Не будет обработано
             </p>
-            <ul className="flex flex-col gap-[var(--space-6)] text-left">
+            <ul className="flex flex-col gap-[var(--space-8)] text-left">
               {REJECT_BULLETS.map((text) => (
                 <li
                   key={text}
@@ -115,66 +176,17 @@ function StepUploadBody({ onNext }: Props) {
               ))}
             </ul>
           </div>
-        </div>
-      </div>
 
-      <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleFileSelect} />
-
-      {app.photo ? (
-        <div className="flex flex-col items-center gap-[var(--space-12)] w-full">
-          <div className="gradient-border-card glass-card rounded-[var(--radius-12)] overflow-hidden w-full max-w-[260px]">
-            <div className="w-full aspect-[4/5] bg-[rgba(255,255,255,0.02)] overflow-hidden">
-              <img src={app.photo.preview} alt="Загруженное фото" className="w-full h-full object-cover" />
-            </div>
-          </div>
-          <div className="flex gap-[var(--space-12)]">
+          {hasPhoto && (
             <button
               onClick={() => fileInputRef.current?.click()}
-              className="glass-btn-ghost px-[var(--space-20)] py-[var(--space-8)] text-[13px] leading-[18px] text-[#E6EEF8] rounded-[var(--radius-pill)]"
+              className="glass-btn-ghost w-full py-[var(--space-12)] text-[14px] leading-[20px] text-[#E6EEF8] rounded-[var(--radius-12)]"
             >
               Заменить фото
             </button>
-            <button
-              onClick={onNext}
-              className="glass-btn-primary px-[var(--space-24)] py-[var(--space-8)] text-[13px] leading-[18px] rounded-[var(--radius-pill)]"
-            >
-              Далее
-            </button>
-          </div>
+          )}
         </div>
-      ) : (
-        <div
-          onDrop={handleDrop}
-          onDragOver={handleDragOver}
-          onDragLeave={handleDragLeave}
-          onClick={() => fileInputRef.current?.click()}
-          className={`gradient-border-card glass-card w-full max-w-[320px] rounded-[var(--radius-12)] cursor-pointer transition-all ${
-            dragOver ? 'scale-[1.02]' : ''
-          }`}
-          style={dragOver ? { '--gb-color': 'rgba(var(--accent-r), var(--accent-g), var(--accent-b), 0.5)' } as React.CSSProperties : undefined}
-        >
-          <div className="flex flex-col items-center justify-center gap-[var(--space-16)] py-[var(--space-40)] tablet:py-[var(--space-48)] px-[var(--space-24)]">
-            <div
-              className="w-16 h-16 rounded-full flex items-center justify-center"
-              style={{ background: 'rgba(var(--accent-r), var(--accent-g), var(--accent-b), 0.12)' }}
-            >
-              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="rgb(var(--accent-r), var(--accent-g), var(--accent-b))" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                <polyline points="17 8 12 3 7 8" />
-                <line x1="12" y1="3" x2="12" y2="15" />
-              </svg>
-            </div>
-            <div className="flex flex-col items-center gap-[var(--space-4)]">
-              <span className="text-[16px] leading-[24px] font-medium text-[#E6EEF8] text-center">
-                {dragOver ? 'Отпустите файл' : 'Нажмите или перетащите фото'}
-              </span>
-              <span className="text-[13px] leading-[18px] text-[var(--color-text-muted)]">
-                JPG, PNG — до 10 МБ
-              </span>
-            </div>
-          </div>
-        </div>
-      )}
+      </div>
     </div>
   );
 }

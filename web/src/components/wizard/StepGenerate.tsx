@@ -70,7 +70,6 @@ export default function StepGenerate({ onGoToStep, onOpenStorage }: Props) {
 
   const generationWarnings = readGenerationWarnings(app.currentTask?.result ?? null);
 
-  const [viewTab, setViewTab] = useState<'result' | 'original'>('result');
   const [streamedFact, setStreamedFact] = useState('');
   const [showNoCredits, setShowNoCredits] = useState(false);
   const [docPaywallOpen, setDocPaywallOpen] = useState(false);
@@ -89,8 +88,6 @@ export default function StepGenerate({ onGoToStep, onOpenStorage }: Props) {
 
   const isRunning = app.isGenerating && !hasGenResult;
   const progress = parseTaskProgress(app.currentTask?.status);
-
-  useEffect(() => { setViewTab('result'); }, [hasGenResult]);
 
   useEffect(() => {
     if (!isRunning) {
@@ -288,41 +285,33 @@ export default function StepGenerate({ onGoToStep, onOpenStorage }: Props) {
     setTimeout(() => document.getElementById('тарифы')?.scrollIntoView({ behavior: 'smooth' }), 300);
   }
 
-  const showingOriginal = viewTab === 'original' && hasGenResult;
+  const cardLabel = hasGenResult
+    ? selectedStyle.name
+    : frozenStyle
+      ? frozenStyle.name
+      : app.photo ? selectedStyle.name : 'Апгрейд';
 
-  const cardLabel = showingOriginal
-    ? 'Исходное'
-    : hasGenResult
-      ? selectedStyle.name
-      : frozenStyle
-        ? frozenStyle.name
-        : app.photo ? selectedStyle.name : 'Апгрейд';
+  const cardScore = displayAfterScore != null
+    ? displayAfterScore
+    : frozenStyle
+      ? frozenStyle.score
+      : predictedAfterScore;
 
-  const cardScore = showingOriginal
-    ? beforeScore
-    : displayAfterScore != null
-      ? displayAfterScore
-      : frozenStyle
-        ? frozenStyle.score
-        : predictedAfterScore;
-
-  const cardScoreIsApprox = showingOriginal
-    ? false
-    : displayAfterScore == null && (!!frozenStyle || predictedAfterScore != null);
+  const cardScoreIsApprox = displayAfterScore == null && (!!frozenStyle || predictedAfterScore != null);
 
   const directionLabel = CATEGORIES.find(c => c.id === activeTab)?.label ?? '';
   const showSelectionSummary = !hasGenResult && !isDocPaywall;
   const showStartGenerateCta = !isDocPaywall && !hasGenResult && !isRunning && !genFailed && !!app.photo;
 
   return (
-    <div className="h-full flex flex-col gap-[var(--space-8)] tablet:gap-[var(--space-6)] w-full max-w-[800px] mx-auto min-h-0 overflow-y-auto tablet:overflow-visible">
-      <div className="shrink-0 flex flex-col items-center gap-[2px] text-center">
-        <h2 className="text-[18px] tablet:text-[22px] leading-[1.2] font-semibold text-[#E6EEF8]">
+    <div className="flex flex-col gap-[var(--space-24)] tablet:gap-[var(--space-32)] w-full max-w-[800px] mx-auto">
+      <div className="flex flex-col items-center gap-[var(--space-4)] text-center">
+        <h2 className="text-[20px] tablet:text-[24px] leading-[1.2] font-semibold text-[#E6EEF8]">
           {hasGenResult ? 'Результат готов' : isRunning ? 'Генерация...' : genFailed ? 'Ошибка генерации' : 'Генерация'}
         </h2>
         <p className="text-[12px] tablet:text-[13px] leading-[16px] tablet:leading-[18px] text-[var(--color-text-secondary)] max-w-[440px]">
           {hasGenResult
-            ? 'Сравните с исходным и сохраните лучший вариант.'
+            ? 'Сохраните результат или попробуйте другой вариант.'
             : genFailed
               ? 'Попробуйте запустить ещё раз — фото и настройки сохранены.'
               : isRunning
@@ -333,7 +322,7 @@ export default function StepGenerate({ onGoToStep, onOpenStorage }: Props) {
 
       {/* Selection summary: "Вы выбрали" label sits in the same row as pills */}
       {showSelectionSummary && selectedStyle && (
-        <div className="shrink-0 flex flex-wrap items-center justify-center gap-x-[var(--space-8)] gap-y-[var(--space-4)] text-[13px] leading-[18px]">
+        <div className="flex flex-wrap items-center justify-center gap-x-[var(--space-8)] gap-y-[var(--space-4)] text-[13px] leading-[18px]">
           <span className="text-[12px] leading-[16px] text-[var(--color-text-muted)]">Вы выбрали</span>
           {directionLabel && (
             <button
@@ -360,7 +349,7 @@ export default function StepGenerate({ onGoToStep, onOpenStorage }: Props) {
           unrecognised user inputs were replaced by the closest
           whitelist value during prompt assembly. */}
       {hasGenResult && generationWarnings.length > 0 && (
-        <div className="shrink-0 max-w-[640px] mx-auto w-full px-[var(--space-16)]">
+        <div className="max-w-[640px] mx-auto w-full px-[var(--space-16)]">
           <div className="glass-card border border-amber-300/30 bg-amber-500/10 rounded-[var(--radius-md)] px-[var(--space-12)] py-[var(--space-8)]">
             <p className="text-[12px] leading-[16px] font-medium text-amber-200 mb-[var(--space-4)]">
               Параметры генерации скорректированы
@@ -374,219 +363,220 @@ export default function StepGenerate({ onGoToStep, onOpenStorage }: Props) {
         </div>
       )}
 
-      {/* Tab toggle (visible only when result is ready) */}
-      {hasGenResult && (
-        <div className="shrink-0 flex items-center justify-center">
-          <div className="inline-flex rounded-[var(--radius-pill)] glass-card p-1 gap-1">
-            <button
-              onClick={() => setViewTab('result')}
-              className={`px-[var(--space-16)] py-[var(--space-4)] rounded-[var(--radius-pill)] text-[13px] leading-[18px] font-medium transition-all ${
-                viewTab === 'result'
-                  ? 'glass-btn-primary text-white'
-                  : 'text-[var(--color-text-secondary)] hover:text-[#E6EEF8]'
-              }`}
-            >
-              Результат
-            </button>
-            <button
-              onClick={() => setViewTab('original')}
-              className={`px-[var(--space-16)] py-[var(--space-4)] rounded-[var(--radius-pill)] text-[13px] leading-[18px] font-medium transition-all ${
-                viewTab === 'original'
-                  ? 'glass-btn-primary text-white'
-                  : 'text-[var(--color-text-secondary)] hover:text-[#E6EEF8]'
-              }`}
-            >
-              Исходное
-            </button>
-          </div>
+      {/* Streaming fact while running (above photo) */}
+      {isRunning && (
+        <div className="flex items-start justify-center gap-[var(--space-8)] px-[var(--space-16)] max-w-[520px] mx-auto w-full">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" className="shrink-0 mt-[2px]">
+            <path d="M12 2a7 7 0 0 1 7 7c0 2.38-1.19 4.47-3 5.74V17a1 1 0 0 1-1 1H9a1 1 0 0 1-1-1v-2.26C6.19 13.47 5 11.38 5 9a7 7 0 0 1 7-7z" stroke="rgb(var(--accent-r),var(--accent-g),var(--accent-b))" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+            <path d="M9 21h6M10 17v1a2 2 0 0 0 4 0v-1" stroke="rgb(var(--accent-r),var(--accent-g),var(--accent-b))" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
+          <p className="text-[12px] tablet:text-[14px] leading-[16px] tablet:leading-[20px] text-[#E6EEF8] text-left">
+            {streamedFact}
+            <span className="inline-block w-[2px] h-[12px] bg-[var(--color-brand-primary)] ml-[2px] align-middle animate-pulse" />
+          </p>
         </div>
       )}
 
-      {/* Slot above the photo: streaming while running, download CTAs when result is ready.
-          Fixed min-height keeps the card from jumping between states. */}
-      <div className="shrink-0 flex items-center justify-center px-[var(--space-16)] min-h-[44px] max-w-[520px] mx-auto">
-        {isRunning && (
-          <div className="flex items-start gap-[var(--space-8)]">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" className="shrink-0 mt-[2px]">
-              <path d="M12 2a7 7 0 0 1 7 7c0 2.38-1.19 4.47-3 5.74V17a1 1 0 0 1-1 1H9a1 1 0 0 1-1-1v-2.26C6.19 13.47 5 11.38 5 9a7 7 0 0 1 7-7z" stroke="rgb(var(--accent-r),var(--accent-g),var(--accent-b))" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-              <path d="M9 21h6M10 17v1a2 2 0 0 0 4 0v-1" stroke="rgb(var(--accent-r),var(--accent-g),var(--accent-b))" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-            </svg>
-            <p className="text-[12px] tablet:text-[14px] leading-[16px] tablet:leading-[20px] text-[#E6EEF8] text-left">
-              {streamedFact}
-              <span className="inline-block w-[2px] h-[12px] bg-[var(--color-brand-primary)] ml-[2px] align-middle animate-pulse" />
-            </p>
-          </div>
-        )}
-        {!isRunning && hasGenResult && app.generatedImageUrl && (
-          <div className="flex flex-col items-center gap-[var(--space-4)]">
-            <div className="flex flex-wrap items-center justify-center gap-[var(--space-6)]">
-            <button
-              type="button"
-              onClick={handleDownload}
-              disabled={downloadLoading}
-              className="glass-btn-primary px-[var(--space-20)] py-[var(--space-6)] text-[13px] leading-[18px] rounded-[var(--radius-pill)] font-medium no-underline inline-flex items-center gap-[var(--space-6)] disabled:opacity-50"
-            >
-              <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M8 2v8m0 0L5 7m3 3l3-3M3 12h10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
-              {downloadLoading ? 'Скачивание...' : 'Скачать фото'}
-            </button>
-            <button
-              onClick={handleShowShare}
-              disabled={shareLoading}
-              className="glass-btn-ghost px-[var(--space-20)] py-[var(--space-6)] text-[13px] leading-[18px] rounded-[var(--radius-pill)] font-medium disabled:opacity-40 inline-flex items-center gap-[var(--space-6)]"
-            >
-              <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-                <path d="M12 5a2 2 0 1 0-1.9-1.4L5.9 6.1a2 2 0 1 0 0 3.8l4.2 2.5A2 2 0 1 0 11 11l-4.2-2.5a2 2 0 0 0 0-1L11 5c.3.3.6.4 1 .5z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
-              {shareLoading ? 'Загрузка...' : 'Поделиться'}
-            </button>
-            {app.scenarioPrimaryCtaMainApp && (
-              <Link
-                to="/app"
-                className="glass-btn-ghost px-[var(--space-20)] py-[var(--space-6)] text-[13px] leading-[18px] rounded-[var(--radius-pill)] font-medium no-underline inline-flex items-center justify-center"
-              >
-                Открыть AI Look Studio
-              </Link>
-            )}
-            </div>
-            {downloadError && (
-              <p className="text-[11px] leading-[14px] text-red-400 text-center">
-                Не удалось скачать файл. Попробуйте позже.
-              </p>
-            )}
-          </div>
-        )}
-      </div>
-
-      {/* Image card — fixed size so the card doesn't jump between states */}
-      <div className="shrink-0 flex justify-center">
-        <div className="gradient-border-card glass-card flex flex-col w-full max-w-[260px] tablet:max-w-[260px] rounded-[var(--radius-12)] overflow-hidden">
-          <div className="aspect-[4/5] bg-[rgba(255,255,255,0.02)] overflow-hidden relative">
-            {/* Original photo (when toggled) */}
-            {showingOriginal && app.photo && (
-              <img src={app.photo.preview} alt="Original" className="w-full h-full object-cover" />
-            )}
-            {showingOriginal && !app.photo && (
-              <img src="/img/placeholder-upload.png" alt="" className="w-full h-full object-cover opacity-50" />
-            )}
-
-            {/* Generated result */}
-            {!showingOriginal && hasGenResult && (
-              <>
-                <img
-                  src={app.generatedImageUrl!}
-                  alt="Generated"
-                  className="w-full h-full object-cover cursor-pointer"
-                  onClick={() => onOpenStorage?.()}
-                  onError={() => setImageLoadError(true)}
-                />
-                {/* AI transparency badge — EU AI Act Art. 50 / visible disclosure.
-                    Intentionally top-left, readable without zoom, and not removable
-                    by the user in the preview. A matching EXIF UserComment field
-                    is injected server-side (P1.5). */}
-                <div
-                  className="absolute top-[var(--space-8)] left-[var(--space-8)] z-20 pointer-events-none select-none"
-                  aria-label="Изображение сгенерировано искусственным интеллектом"
-                >
-                  <span
-                    className="inline-flex items-center gap-[4px] px-[8px] py-[3px] rounded-[var(--radius-pill)] text-[10px] leading-[12px] font-semibold tracking-[0.02em] text-white"
-                    style={{
-                      background: 'rgba(0,0,0,0.55)',
-                      backdropFilter: 'blur(6px)',
-                      WebkitBackdropFilter: 'blur(6px)',
-                      border: '1px solid rgba(255,255,255,0.18)',
-                    }}
+      {/* Photo column: photo card + result-action stacks below.
+          Width is fixed to 260px so the action buttons under the photo
+          align exactly with its width. */}
+      <div className="flex flex-col items-center gap-[var(--space-16)] w-full">
+        <div className="w-full max-w-[260px] flex flex-col gap-[var(--space-16)]">
+          {/* Image card */}
+          <div className="gradient-border-card glass-card flex flex-col w-full rounded-[var(--radius-12)] overflow-hidden">
+            <div className="aspect-[4/5] bg-[rgba(255,255,255,0.02)] overflow-hidden relative">
+              {hasGenResult && (
+                <>
+                  <img
+                    src={app.generatedImageUrl!}
+                    alt="Generated"
+                    className="w-full h-full object-cover cursor-pointer"
+                    onClick={() => onOpenStorage?.()}
+                    onError={() => setImageLoadError(true)}
+                  />
+                  {/* AI transparency badge — EU AI Act Art. 50 / visible disclosure.
+                      Intentionally top-left, readable without zoom, and not removable
+                      by the user in the preview. A matching EXIF UserComment field
+                      is injected server-side (P1.5). */}
+                  <div
+                    className="absolute top-[var(--space-8)] left-[var(--space-8)] z-20 pointer-events-none select-none"
+                    aria-label="Изображение сгенерировано искусственным интеллектом"
                   >
-                    <svg width="10" height="10" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-                      <path d="M8 2L9.5 6.5L14 8L9.5 9.5L8 14L6.5 9.5L2 8L6.5 6.5L8 2Z" fill="currentColor" />
-                    </svg>
-                    AI-generated
-                  </span>
+                    <span
+                      className="inline-flex items-center gap-[4px] px-[8px] py-[3px] rounded-[var(--radius-pill)] text-[10px] leading-[12px] font-semibold tracking-[0.02em] text-white"
+                      style={{
+                        background: 'rgba(0,0,0,0.55)',
+                        backdropFilter: 'blur(6px)',
+                        WebkitBackdropFilter: 'blur(6px)',
+                        border: '1px solid rgba(255,255,255,0.18)',
+                      }}
+                    >
+                      <svg width="10" height="10" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                        <path d="M8 2L9.5 6.5L14 8L9.5 9.5L8 14L6.5 9.5L2 8L6.5 6.5L8 2Z" fill="currentColor" />
+                      </svg>
+                      AI-generated
+                    </span>
+                  </div>
+                </>
+              )}
+              {imageLoadError && app.generatedImageUrl && (
+                <div className="w-full h-full flex flex-col items-center justify-center gap-3 text-center p-4">
+                  <p className="text-[14px] text-[var(--color-text-muted)]">Не удалось загрузить изображение</p>
+                  <button
+                    className="px-4 py-2 rounded-lg text-[13px] font-medium glass-card hover:opacity-80 transition-opacity"
+                    onClick={() => { app.clearGeneratedImage(); setImageLoadError(false); }}
+                  >
+                    Повторить генерацию
+                  </button>
                 </div>
-              </>
-            )}
-            {!showingOriginal && imageLoadError && app.generatedImageUrl && (
-              <div className="w-full h-full flex flex-col items-center justify-center gap-3 text-center p-4">
-                <p className="text-[14px] text-[var(--color-text-muted)]">Не удалось загрузить изображение</p>
-                <button
-                  className="px-4 py-2 rounded-lg text-[13px] font-medium glass-card hover:opacity-80 transition-opacity"
-                  onClick={() => { app.clearGeneratedImage(); setImageLoadError(false); }}
-                >
-                  Повторить генерацию
-                </button>
-              </div>
-            )}
-            {/* Generation in progress */}
-            {!showingOriginal && !hasGenResult && isRunning && (
-              <>
-                <img src="/img/placeholder-upgrade.png" alt="" className="w-full h-full object-cover opacity-50 gen-sim-pulse" />
-                <div className="absolute inset-0 z-10 flex flex-col items-center justify-end pb-[var(--space-16)] gap-[var(--space-8)]" style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.7) 0%, transparent 60%)' }}>
-                  <div className="w-6 h-6 border-2 border-t-transparent rounded-full animate-spin" style={{ borderColor: 'rgba(var(--accent-r),var(--accent-g),var(--accent-b),0.6)', borderTopColor: 'transparent' }} />
-                  <span className="text-[12px] leading-[16px] text-[#E6EEF8] font-medium text-center px-[var(--space-8)]">
-                    {progress?.label ?? 'Обработка...'}
-                  </span>
-                  <div className="w-[80%] h-1 rounded-full glass-progress-track overflow-hidden">
-                    <div className="h-full rounded-full glass-progress-fill transition-all duration-500" style={{ width: `${progress?.percent ?? 10}%` }} />
+              )}
+              {!hasGenResult && isRunning && (
+                <>
+                  <img src="/img/placeholder-upgrade.png" alt="" className="w-full h-full object-cover opacity-50 gen-sim-pulse" />
+                  <div className="absolute inset-0 z-10 flex flex-col items-center justify-end pb-[var(--space-16)] gap-[var(--space-8)]" style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.7) 0%, transparent 60%)' }}>
+                    <div className="w-6 h-6 border-2 border-t-transparent rounded-full animate-spin" style={{ borderColor: 'rgba(var(--accent-r),var(--accent-g),var(--accent-b),0.6)', borderTopColor: 'transparent' }} />
+                    <span className="text-[12px] leading-[16px] text-[#E6EEF8] font-medium text-center px-[var(--space-8)]">
+                      {progress?.label ?? 'Обработка...'}
+                    </span>
+                    <div className="w-[80%] h-1 rounded-full glass-progress-track overflow-hidden">
+                      <div className="h-full rounded-full glass-progress-fill transition-all duration-500" style={{ width: `${progress?.percent ?? 10}%` }} />
+                    </div>
+                  </div>
+                </>
+              )}
+              {!hasGenResult && genFailed && !isRunning && (
+                <div className="w-full h-full relative">
+                  <img src="/img/placeholder-upgrade.png" alt="" className="w-full h-full object-cover" style={{ filter: 'blur(16px) saturate(1.6) brightness(0.6)', transform: 'scale(1.1)' }} />
+                  <div className="absolute inset-0" style={{ background: 'linear-gradient(135deg, rgba(var(--accent-r),var(--accent-g),var(--accent-b),0.25) 0%, rgba(0,0,0,0.3) 100%)' }} />
+                  <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-[var(--space-8)] text-center px-[var(--space-12)]">
+                    <svg width="32" height="32" viewBox="0 0 32 32" fill="none"><circle cx="16" cy="16" r="14" stroke="rgba(255,255,255,0.3)" strokeWidth="1.5"/><path d="M16 10v8M16 22h.01" stroke="#E6EEF8" strokeWidth="2" strokeLinecap="round"/></svg>
+                    <span className="text-[13px] leading-[18px] text-[#E6EEF8] font-medium">Не удалось сгенерировать</span>
                   </div>
                 </div>
-              </>
-            )}
-            {/* Generation failed */}
-            {!showingOriginal && !hasGenResult && genFailed && !isRunning && (
-              <div className="w-full h-full relative">
-                <img src="/img/placeholder-upgrade.png" alt="" className="w-full h-full object-cover" style={{ filter: 'blur(16px) saturate(1.6) brightness(0.6)', transform: 'scale(1.1)' }} />
-                <div className="absolute inset-0" style={{ background: 'linear-gradient(135deg, rgba(var(--accent-r),var(--accent-g),var(--accent-b),0.25) 0%, rgba(0,0,0,0.3) 100%)' }} />
-                <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-[var(--space-8)] text-center px-[var(--space-12)]">
-                  <svg width="32" height="32" viewBox="0 0 32 32" fill="none"><circle cx="16" cy="16" r="14" stroke="rgba(255,255,255,0.3)" strokeWidth="1.5"/><path d="M16 10v8M16 22h.01" stroke="#E6EEF8" strokeWidth="2" strokeLinecap="round"/></svg>
-                  <span className="text-[13px] leading-[18px] text-[#E6EEF8] font-medium">Не удалось сгенерировать</span>
-                </div>
-              </div>
-            )}
-            {/* Default placeholder */}
-            {!showingOriginal && !hasGenResult && !isRunning && !genFailed && (
-              <img src="/img/placeholder-upgrade.png" alt="" className="w-full h-full object-cover opacity-50" />
-            )}
-          </div>
-
-          {/* Card footer */}
-          <div className="shrink-0 flex flex-col gap-[var(--space-4)] px-[var(--space-10)] py-[var(--space-6)]">
-            <div className="flex items-center justify-between">
-              <span className="text-[13px] leading-[18px] text-[#E6EEF8] font-medium">{cardLabel}</span>
-              {isRunning && !showingOriginal ? null : cardScore != null && (
-                <span className="flex items-center gap-1">
-                  <span className={`text-[14px] leading-[18px] font-semibold ${showingOriginal ? 'text-[var(--color-text-secondary)]' : 'text-[var(--color-brand-primary)]'}`}>
-                    {cardScoreIsApprox ? '~' : ''}{cardScore.toFixed(2)}
-                  </span>
-                  <span className="text-[11px] leading-[14px] text-[var(--color-text-muted)]">/ 10</span>
-                </span>
+              )}
+              {!hasGenResult && !isRunning && !genFailed && (
+                <img src="/img/placeholder-upgrade.png" alt="" className="w-full h-full object-cover opacity-50" />
               )}
             </div>
-            {isRunning && !showingOriginal ? (
-              <ProgressBar value={progress?.percent ?? 10} max={100} accent />
-            ) : cardScore != null ? (
-              <ProgressBar value={cardScore} accent={!showingOriginal} />
-            ) : null}
+
+            {/* Card footer */}
+            <div className="flex flex-col gap-[var(--space-4)] px-[var(--space-10)] py-[var(--space-6)]">
+              <div className="flex items-center justify-between">
+                <span className="text-[13px] leading-[18px] text-[#E6EEF8] font-medium">{cardLabel}</span>
+                {isRunning ? null : cardScore != null && (
+                  <span className="flex items-center gap-1">
+                    <span className="text-[14px] leading-[18px] font-semibold text-[var(--color-brand-primary)]">
+                      {cardScoreIsApprox ? '~' : ''}{cardScore.toFixed(2)}
+                    </span>
+                    <span className="text-[11px] leading-[14px] text-[var(--color-text-muted)]">/ 10</span>
+                  </span>
+                )}
+              </div>
+              {isRunning ? (
+                <ProgressBar value={progress?.percent ?? 10} max={100} accent />
+              ) : cardScore != null ? (
+                <ProgressBar value={cardScore} accent />
+              ) : null}
+            </div>
           </div>
+
+          {/* Result actions: Download/Share stack directly under photo */}
+          {!isRunning && hasGenResult && app.generatedImageUrl && (
+            <div className="flex flex-col gap-[var(--space-8)] w-full">
+              <button
+                type="button"
+                onClick={handleDownload}
+                disabled={downloadLoading}
+                className="glass-btn-primary w-full py-[var(--space-12)] text-[14px] leading-[20px] rounded-[var(--radius-12)] font-medium inline-flex items-center justify-center gap-[var(--space-6)] disabled:opacity-50"
+              >
+                <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M8 2v8m0 0L5 7m3 3l3-3M3 12h10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                {downloadLoading ? 'Скачивание...' : 'Скачать фото'}
+              </button>
+              <button
+                onClick={handleShowShare}
+                disabled={shareLoading}
+                className="glass-btn-ghost w-full py-[var(--space-12)] text-[14px] leading-[20px] rounded-[var(--radius-12)] font-medium disabled:opacity-40 inline-flex items-center justify-center gap-[var(--space-6)]"
+              >
+                <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                  <path d="M12 5a2 2 0 1 0-1.9-1.4L5.9 6.1a2 2 0 1 0 0 3.8l4.2 2.5A2 2 0 1 0 11 11l-4.2-2.5a2 2 0 0 0 0-1L11 5c.3.3.6.4 1 .5z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+                {shareLoading ? 'Загрузка...' : 'Поделиться'}
+              </button>
+              {downloadError && (
+                <p className="text-[11px] leading-[14px] text-red-400 text-center">
+                  Не удалось скачать файл. Попробуйте позже.
+                </p>
+              )}
+            </div>
+          )}
+
+          {/* Resolved slots badges — under primary actions */}
+          {hasGenResult && (
+            <ResolvedSlotsBadges
+              slots={
+                (app.currentTask?.result as { resolved_slots?: ResolvedSlots } | null)
+                  ?.resolved_slots ?? null
+              }
+              variant="stacked"
+            />
+          )}
+
+          {/* Result actions: secondary stack — другое фото / стиль / вариант / настройки / улучшить */}
+          {hasGenResult && (
+            <div className="flex flex-col gap-[var(--space-8)] w-full">
+              <button
+                onClick={() => {
+                  app.resetGeneration();
+                  setFrozenStyle(null);
+                  onGoToStep('upload');
+                }}
+                className="glass-btn-ghost w-full py-[var(--space-10)] text-[13px] leading-[18px] rounded-[var(--radius-12)] font-medium"
+              >
+                Другое фото
+              </button>
+              <button
+                onClick={() => {
+                  app.resetGeneration();
+                  setFrozenStyle(null);
+                  onGoToStep('style');
+                }}
+                className="glass-btn-ghost w-full py-[var(--space-10)] text-[13px] leading-[18px] rounded-[var(--radius-12)] font-medium"
+              >
+                {isDocPaywall ? 'Другой формат' : 'Другой стиль'}
+              </button>
+              <button
+                onClick={handleReroll}
+                disabled={app.isGenerating}
+                className="glass-btn-ghost w-full py-[var(--space-10)] text-[13px] leading-[18px] rounded-[var(--radius-12)] font-medium disabled:opacity-50"
+                title="Сгенерировать ещё один вариант с теми же настройками — слот-сэмплер выберет другие свет / погоду / время"
+              >
+                Другой вариант
+              </button>
+              <button
+                onClick={() => setSettingsModalOpen(true)}
+                className="glass-btn-ghost w-full py-[var(--space-10)] text-[13px] leading-[18px] rounded-[var(--radius-12)] font-medium"
+                title="Настроить освещение, погоду, время суток и другие слоты"
+              >
+                Настройки
+              </button>
+              <button
+                onClick={handleImproveGenerated}
+                className="glass-btn-ghost w-full py-[var(--space-10)] text-[13px] leading-[18px] rounded-[var(--radius-12)] font-medium"
+              >
+                Улучшить ещё
+              </button>
+              {app.scenarioPrimaryCtaMainApp && (
+                <Link
+                  to="/app"
+                  className="glass-btn-ghost w-full py-[var(--space-10)] text-[13px] leading-[18px] rounded-[var(--radius-12)] font-medium no-underline inline-flex items-center justify-center"
+                >
+                  Открыть AI Look Studio
+                </Link>
+              )}
+            </div>
+          )}
         </div>
       </div>
-
-      {/* Stage 3 (2026-05) — resolved-slots badges. The backend writes
-          ``result.resolved_slots`` for every v3 generation; the shared
-          ``ResolvedSlotsBadges`` component handles the absence /
-          shape checks (returns null when nothing to show), so we
-          render unconditionally here. Same component is reused
-          inside StorageModal cards so both surfaces speak the
-          same vocabulary. */}
-      {hasGenResult && !showingOriginal && (
-        <div className="shrink-0">
-          <ResolvedSlotsBadges
-            slots={
-              (app.currentTask?.result as { resolved_slots?: ResolvedSlots } | null)
-                ?.resolved_slots ?? null
-            }
-            variant="stacked"
-          />
-        </div>
-      )}
 
       {/* v1.26: продуктовые лейблы «Обычный режим / Премиум» + кредитный
           ценник. Внутренне это всё ещё Nano Banana 2 и GPT Image 2, но
@@ -645,53 +635,8 @@ export default function StepGenerate({ onGoToStep, onOpenStorage }: Props) {
         </div>
       )}
 
-      {/* CTA buttons */}
-      <div className="shrink-0 flex flex-col items-center gap-[var(--space-6)]">
-        {hasGenResult && (
-          <div className="flex flex-wrap gap-[var(--space-6)] justify-center">
-            <button
-              onClick={() => {
-                app.resetGeneration();
-                setFrozenStyle(null);
-                onGoToStep('upload');
-              }}
-              className="glass-btn-ghost px-[var(--space-20)] py-[var(--space-6)] text-[13px] leading-[18px] rounded-[var(--radius-pill)] font-medium"
-            >
-              Другое фото
-            </button>
-            <button
-              onClick={() => {
-                app.resetGeneration();
-                setFrozenStyle(null);
-                onGoToStep('style');
-              }}
-              className="glass-btn-ghost px-[var(--space-20)] py-[var(--space-6)] text-[13px] leading-[18px] rounded-[var(--radius-pill)] font-medium"
-            >
-              {isDocPaywall ? 'Другой формат' : 'Другой стиль'}
-            </button>
-            <button
-              onClick={handleReroll}
-              disabled={app.isGenerating}
-              className="glass-btn-ghost px-[var(--space-20)] py-[var(--space-6)] text-[13px] leading-[18px] rounded-[var(--radius-pill)] font-medium disabled:opacity-50"
-              title="Сгенерировать ещё один вариант с теми же настройками — слот-сэмплер выберет другие свет / погоду / время"
-            >
-              Другой вариант
-            </button>
-            <button
-              onClick={() => setSettingsModalOpen(true)}
-              className="glass-btn-ghost px-[var(--space-20)] py-[var(--space-6)] text-[13px] leading-[18px] rounded-[var(--radius-pill)] font-medium"
-              title="Настроить освещение, погоду, время суток и другие слоты"
-            >
-              Настройки
-            </button>
-            <button
-              onClick={handleImproveGenerated}
-              className="glass-btn-ghost px-[var(--space-20)] py-[var(--space-6)] text-[13px] leading-[18px] rounded-[var(--radius-pill)] font-medium"
-            >
-              Улучшить ещё
-            </button>
-          </div>
-        )}
+      {/* Failure recovery */}
+      <div className="flex flex-col items-center gap-[var(--space-6)]">
         {genFailed && !isRunning && !hasGenResult && (
           <div className="flex flex-col items-center gap-[var(--space-8)] w-full max-w-[520px] mx-auto px-[var(--space-8)]">
             {app.error && (

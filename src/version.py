@@ -2565,4 +2565,132 @@
 #          clean. ``tsc --noEmit`` clean. Pure data + one
 #          test-budget edit; ``git revert`` restores 1.30.1
 #          with no consumer-side migration needed.
-APP_VERSION = "1.30.2"
+# 1.31.0 — Wave 1 of the Wizard UX Polish + Theme Rollout.
+#          Pure-frontend release: backend, prompt pipeline and
+#          style catalog are untouched. The wizard now scrolls
+#          as one continuous page, the upload step matches the
+#          analysis step's two-column layout, the result step
+#          drops the Result/Original toggle in favour of a
+#          single vertical action stack, and the style-settings
+#          modal stops rendering a white native ``<select>`` in
+#          dark theme. Wave 2 (1.32.0) will add a real
+#          ``ThemeProvider``, a sun/moon toggle in the NavBar
+#          and migrate ``glass-btn-*`` use-sites onto Button /
+#          Card / Select React primitives.
+#
+#          AppPage shell (``web/src/pages/AppPage.tsx``):
+#            * Root ``h-dvh ... overflow-hidden`` →
+#              ``min-h-dvh`` (no overflow). ``<main>`` no
+#              longer constrains height; ``<motion.div>`` no
+#              longer ships its own ``overflow-y-auto``. The
+#              page now produces a single browser scrollbar
+#              that pulls header / StepBar / step content
+#              together, matching the screenshots requested.
+#            * ``NavBar`` wrapped in a ``sticky top-0 z-[100]``
+#              shell so navigation stays pinned during scroll.
+#            * ``goToStep`` calls ``window.scrollTo`` instead of
+#              the now-defunct inner ``scrollRef``; ``scrollRef``
+#              and its ``ref`` attribute removed.
+#            * Inner content padding bumped to
+#              ``var(--space-24)`` mobile / 48px tablet — more
+#              "воздуха" between StepBar and step body.
+#
+#          Step-1 / Upload (``StepUpload.tsx``):
+#            * Switched from a single 600px column to a 2-column
+#              flex (mirrors ``StepAnalysis``). Left column =
+#              260px photo / dropzone + ``Далее`` (full-width
+#              within column); right column = ``Требования к
+#              фото`` and ``Не будет обработано`` cards plus
+#              ``Заменить фото`` (full-width). Mobile collapses
+#              to single column.
+#            * Requirements / reject lists wrapped in
+#              ``glass-card`` panels for visual parity with
+#              the rest of the wizard.
+#
+#          Step-2 / Analysis (``StepAnalysis.tsx``):
+#            * One-line fix: ``items-start`` on the
+#              ``flex-col tablet:flex-row`` container so the
+#              left photo card stops stretching to the height of
+#              the right results panel. Removes the empty grey
+#              column under the photo flagged in the screenshot.
+#
+#          Step-3 / Style (``StepStyle.tsx``):
+#            * Removed ``flex-1 min-h-0 overflow-y-auto`` from
+#              the styles list — the step inherits the page
+#              scroll. Outer container gap bumped to
+#              ``var(--space-24)`` between heading / cards /
+#              CTAs.
+#
+#          Step-5 / 6 / Generate (``StepGenerate.tsx``):
+#            * Removed ``h-full ... overflow-y-auto`` from the
+#              root and ``shrink-0`` from the photo column —
+#              one page-level scroll only, more vertical
+#              spacing between sections.
+#            * Result view: dropped the ``Результат / Исходное``
+#              tab toggle and the associated ``viewTab`` /
+#              ``setViewTab`` / ``showingOriginal`` state. The
+#              user always sees the result; comparison now
+#              happens via ``StepBar`` thumbnails.
+#            * Result actions reorganised into two vertical
+#              stacks **under** the photo (matched to the
+#              260px photo column width):
+#                – Stack 1 (primary): ``Скачать фото``
+#                  (glass-btn-primary) + ``Поделиться``
+#                  (glass-btn-ghost), full-width buttons.
+#                – Stack 2 (secondary): ``Другое фото`` /
+#                  ``Другой стиль|формат`` / ``Другой вариант`` /
+#                  ``Настройки`` / ``Улучшить ещё``, plus the
+#                  document-scenario ``Открыть AI Look Studio``
+#                  link, all full-width.
+#            * ``ResolvedSlotsBadges`` now renders between the
+#              two stacks, anchored under the primary actions.
+#            * Old "CTA buttons" wrap-flex group below the
+#              start-generation CTA removed — the new vertical
+#              stack inside the photo column is the single
+#              source of truth.
+#
+#          StyleSettingsModal (``StyleSettingsModal.tsx``):
+#            * Replaced the native ``<select>`` for the
+#              "Освещение" channel with a local
+#              ``Dropdown`` component: glass-card popover,
+#              click-outside / Escape-to-close, dark-theme
+#              hover states. Fixes the white OS menu that
+#              appeared on top of the dark modal in the
+#              Windows screenshot. The component is local to
+#              this file by design — it will be extracted into
+#              ``components/ui/Select.tsx`` in Wave 2.
+#            * Replaced the four hard-coded literals
+#              (``#E6EEF8``, ``rgba(255,255,255,0.05)``,
+#              ``rgba(255,255,255,0.1)``, ``#7BA8FF``) with
+#              semantic Tailwind tokens (``text-text-primary``,
+#              ``bg-surface-2``, ``border-border-base``,
+#              ``text-brand-primary`` / ``bg-brand-primary``).
+#              The drag-handle stripe in the mobile sheet uses
+#              ``bg-border-strong`` instead of a 20%-opacity
+#              white literal. After this patch the modal has
+#              no theme-dependent literals and will follow
+#              ``data-theme`` automatically once Wave 2 ships
+#              the toggle.
+#
+#          Out-of-scope (deliberately deferred to Wave 2):
+#            * ``ThemeProvider`` + sun/moon toggle in NavBar.
+#              ``data-theme="dark"`` still hard-coded on
+#              ``<body>`` in ``web/index.html``.
+#            * React primitives (``Button``, ``Card``,
+#              ``Select``, ``Modal``) under
+#              ``web/src/components/ui/`` and progressive
+#              migration of ``glass-btn-*`` / ``glass-card``
+#              use-sites.
+#            * Full-app sweep of hardcoded ``#hex`` and
+#              ``rgba(...)`` literals in
+#              ``NavBar.tsx`` / ``Footer.tsx`` /
+#              ``AuthModal.tsx`` / ``Landing`` / ``Hero`` etc.
+#
+#          Tests: ``tsc --noEmit`` clean,
+#          ``vite build`` clean (76.62 kB CSS gzip 14.70 kB,
+#          715 kB JS gzip 210.21 kB), ``ruff check src tests``
+#          clean, ``pytest tests/test_api/
+#          tests/test_orchestrator/`` 104 passed / 54 skipped
+#          (no backend changes). Pure UI release; ``git revert``
+#          restores 1.30.2 with no consumer-side migration.
+APP_VERSION = "1.31.0"
