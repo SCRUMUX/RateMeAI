@@ -74,7 +74,7 @@ function Dropdown({ value, options, placeholder, onChange, ariaLabel }: Dropdown
       {open && (
         <div
           role="listbox"
-          className="absolute left-0 right-0 top-[calc(100%+4px)] z-10 glass-card rounded-[var(--radius-8)] border border-border-base p-[var(--space-4)] flex flex-col gap-[2px] max-h-[240px] overflow-y-auto"
+          className="absolute left-0 right-0 top-[calc(100%+4px)] z-10 bg-surface-1 shadow-[var(--effect-elevation-2)] rounded-[var(--radius-8)] border border-border-base p-[var(--space-4)] flex flex-col gap-[2px] max-h-[240px] overflow-y-auto"
         >
           {options.map((opt) => {
             const active = opt.value === value;
@@ -385,7 +385,16 @@ export default function StyleSettingsModal({ open, onClose, styleId, onApply }: 
     !!options &&
     !options.sceneLocked &&
     (isCurated ? curatedChannels.includes('scene_override') : true);
-  const hasClothing = channelOn('clothing', (options?.clothing?.length ?? 0) > 0);
+  // 1.31.1 — для curated-стилей показываем поле «Одежда» как только
+  // канал в ``available_channels``, даже если ``clothing.allowed`` пустой.
+  // У многих landmark-стилей (paris_eiffel, dubai_burj_khalifa) пул
+  // намеренно пустой, чтобы не навязывать конкретные варианты, но
+  // free-text input всё равно нужен — пользователь должен иметь
+  // возможность задать одежду (особенно при season=winter, чтобы не
+  // получить летнюю футболку посреди зимы).
+  const hasClothing = isCurated
+    ? curatedChannels.includes('clothing')
+    : (options?.clothing?.length ?? 0) > 0;
   // Framing falls back to the three default chips even with empty pool,
   // so we only hide it when the operator explicitly disabled the channel.
   const hasFraming = isCurated

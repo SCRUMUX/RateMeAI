@@ -2693,4 +2693,121 @@
 #          tests/test_orchestrator/`` 104 passed / 54 skipped
 #          (no backend changes). Pure UI release; ``git revert``
 #          restores 1.30.2 with no consumer-side migration.
-APP_VERSION = "1.31.0"
+# 1.31.1 — Wave 1.5 UX polish — фронтенд-only follow-up к 1.31.0 по
+#          обратной связи пользователя. Backend (prompt engine,
+#          slot sampler) не трогали — качественные проблемы
+#          (winter↔одежда, «вклеенное фото») вынесены в Wave 2.
+#
+#          StepGenerate (``web/src/components/wizard/StepGenerate.tsx``):
+#            * Удалена кнопка ``Другой вариант`` вместе с
+#              ``handleReroll`` и сопутствующим ``lastInputHints``
+#              state-ом + двумя effect-ами сброса. Кнопка
+#              запускала полную (платную) генерацию через
+#              ``app.generate(undefined, style, hints, freshSeed)``,
+#              что не соответствовало ожиданиям пользователя
+#              ("just another option" → новое списание кредита).
+#              Альтернативный путь к re-roll-у — открыть
+#              "Настройки", применить — это явный consent.
+#            * Вторичный стек кнопок результата перепорядочен
+#              от наименее радикального к самому радикальному:
+#              ``Улучшить ещё`` → ``Настройки`` → ``Другой стиль |
+#              формат`` → ``Другое фото`` (+ опциональный
+#              ``Открыть AI Look Studio`` для document-сценария).
+#              Прежний порядок (``Другое фото`` первым) вынуждал
+#              пользователя сбрасывать прогресс, чтобы добраться
+#              до самой частой операции — улучшения.
+#            * ``setLastInputHints(hints)`` убран из ``onApply``
+#              модалки — хинты по-прежнему долетают до текущей
+#              генерации, но больше не «помнятся» для
+#              несуществующего reroll-а.
+#
+#          StyleSettingsModal (``web/src/components/wizard/StyleSettingsModal.tsx``):
+#            * ``hasClothing`` теперь смотрит только на
+#              ``available_channels`` для curated-стилей
+#              (``isCurated ? curatedChannels.includes('clothing')
+#              : (options?.clothing?.length ?? 0) > 0``). Раньше
+#              поле скрывалось, когда ``clothing.allowed`` пуст,
+#              но channel разрешён — на ``paris_eiffel``,
+#              ``dubai_burj_khalifa`` и других landmark-стилях
+#              пользователь физически не мог задать одежду
+#              (особенно нужно при ``season=winter``, чтобы не
+#              получить летнюю футболку среди снега). Free-text
+#              input теперь виден всегда, chips-suggestions
+#              показываются только при непустом пуле.
+#            * Popover локального ``Dropdown`` сменён с
+#              ``glass-card`` (``rgba(255,255,255,0.03)`` +
+#              ``backdrop-filter: blur(...)``) на solid
+#              ``bg-surface-1`` + ``shadow-[var(--effect-elevation-2)]``.
+#              Внутри родительского ``glass-card``-модала
+#              вложенный backdrop-filter не работает (CSS spec:
+#              nested filter context создаёт новый stacking
+#              boundary, blur не наследуется), поэтому popover
+#              был почти прозрачным и наезжал на текст модалки.
+#              Solid-фон + elevation-shadow дают надёжную
+#              визуальную сепарацию слоёв.
+#
+#          StepUpload (``web/src/components/wizard/StepUpload.tsx``):
+#            * Симметричная 2x2-раскладка вместо асимметричной
+#              двухколонки 1.31.0. Top row на tablet+:
+#              ``[260px фото-карточка][flex-1 стэк из 2
+#              gradient-border-card]`` с ``items-stretch`` —
+#              высота фото подстраивается под суммарную высоту
+#              стэка, исчезает «лесенка». Bottom row:
+#              ``[260px Далее primary][flex-1 Заменить фото
+#              ghost]`` — оба CTA в той же колоночной системе
+#              координат. На mobile стекается в одну колонку,
+#              порядок сохраняется. До загрузки фото нижний ряд
+#              скрывается (нечего «Далее»).
+#
+#          AppPage (``web/src/pages/AppPage.tsx``):
+#            * Tablet+ vertical air обрезан с
+#              ``gap-[48px] / py-[48px]`` (96 + 48 = 144px) до
+#              ``gap-[var(--space-24)] / py-[var(--space-24)]``
+#              (24 + 24 = 48px). Снимает «полпустой страницы»
+#              при коротком контенте — пользователь жаловался
+#              на «скролл по пустоте». Mobile gap/py остались на
+#              ``var(--space-24)`` (без изменений).
+#            * Добавлен ``overflow-x-hidden`` на root —
+#              подстраховка от горизонтального скролла из-за
+#              popover-ов и mesh-gradient-а.
+#
+#          Theme switcher (``web/src/lib/theme.tsx`` +
+#          ``web/src/main.tsx`` + ``web/index.html`` +
+#          ``web/src/sections/NavBar.tsx``):
+#            * Новый файл ``lib/theme.tsx`` с ``ThemeProvider``
+#              (React Context) и хуком ``useTheme()``. Initial
+#              читается из ``document.documentElement.dataset.theme``
+#              (если уже выставлен FOUC-скриптом), затем из
+#              ``localStorage.getItem('theme')``, затем из
+#              ``matchMedia('(prefers-color-scheme: light)')``,
+#              fallback — ``dark``. На каждом ``setTheme``
+#              атрибут пишется на ``<html>`` и persist в
+#              localStorage.
+#            * Inline-script в ``<head>`` ``index.html``
+#              выставляет ``data-theme`` до первого paint —
+#              FOUC prevention без бандлера. ``data-theme="dark"``
+#              убран из ``<body>``: теперь источник истины —
+#              ``<html>``, что синхронно с
+#              ``document.documentElement``-логикой провайдера.
+#              ``main.tsx`` оборачивает ``<App>`` в
+#              ``<ThemeProvider>``.
+#            * NavBar получил локальный ``ThemeToggle``
+#              (sun/moon SVG), вставлен в desktop-группу перед
+#              language-switcher (mode='app' и 'landing') и в
+#              mobile-группу перед бургером.
+#              ``aria-label`` зависит от текущей темы. Wave 2
+#              проведёт полный sweep хардкодов под токены —
+#              сейчас light-режим читаем, но местами шероховатый
+#              (text-[#E6EEF8] и rgba(...)-литералы остались).
+#
+#          Tests: ``tsc --noEmit`` clean,
+#          ``vite build`` clean (76.88 kB CSS gzip 14.73 kB,
+#          717 kB JS gzip 210.64 kB), ``ruff check src tests``
+#          clean, ``pytest tests/test_api/
+#          tests/test_orchestrator/`` 104 passed / 54 skipped
+#          (no backend changes). Pure UI release; ``git revert``
+#          восстанавливает 1.31.0 без миграций. Backend
+#          quality-issues (winter↔одежда, «вклеенное фото»),
+#          full color-hardcode sweep и React-примитивы
+#          (``Button`` / ``Card`` / ``Select``) — Wave 2 (1.32.0).
+APP_VERSION = "1.31.1"

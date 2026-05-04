@@ -3,8 +3,37 @@ import { Link, useNavigate } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import { GlobeIcon, CoinIcon, ImageIcon } from '@ai-ds/core/icons';
 import { useApp } from '../context/AppContext';
+import { useTheme } from '../lib/theme';
 import LinkedAccountsPanel from '../components/LinkedAccountsPanel';
 import logoSrc from '../assets/logo.png';
+
+// 1.31.1 — переключатель тёмной/светлой темы. Иконка sun/moon, persist
+// в localStorage через ThemeProvider (см. lib/theme.tsx).
+function ThemeToggle({ size = 'desktop' }: { size?: 'desktop' | 'mobile' }) {
+  const { theme, toggle } = useTheme();
+  const isDark = theme === 'dark';
+  const dim = size === 'desktop' ? 'w-9 h-9' : 'w-11 h-11';
+  return (
+    <button
+      type="button"
+      onClick={toggle}
+      aria-label={isDark ? 'Переключить на светлую тему' : 'Переключить на тёмную тему'}
+      title={isDark ? 'Светлая тема' : 'Тёмная тема'}
+      className={`glass-btn-ghost flex items-center justify-center ${dim} rounded-[var(--radius-12)] cursor-pointer text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] transition-colors`}
+    >
+      {isDark ? (
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <circle cx="12" cy="12" r="4" />
+          <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41" />
+        </svg>
+      ) : (
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
+        </svg>
+      )}
+    </button>
+  );
+}
 
 interface Props {
   onLoginClick?: () => void;
@@ -202,6 +231,8 @@ export default function NavBar({ onLoginClick, onOpenStorage, onHomeClick, onCta
             </button>
           )}
 
+          <ThemeToggle size="desktop" />
+
           <button className="glass-btn-ghost flex items-center gap-[var(--space-4)] px-[var(--space-12)] py-[var(--space-6)] text-[14px] leading-[20px] font-medium text-[#E6EEF8] rounded-[var(--radius-12)]">
             <GlobeIcon size={20} className="text-[var(--color-text-muted)]" />
             Русский
@@ -225,7 +256,7 @@ export default function NavBar({ onLoginClick, onOpenStorage, onHomeClick, onCta
           )}
         </div>
 
-        {/* Mobile: storage + balance + burger */}
+        {/* Mobile: storage + balance + theme + burger */}
         <div className="flex tablet:hidden items-center gap-[var(--space-6)]">
           {session && mode === 'app' && onOpenStorage && (
             <button
@@ -242,6 +273,7 @@ export default function NavBar({ onLoginClick, onOpenStorage, onHomeClick, onCta
               <span>{balance}</span>
             </div>
           )}
+          <ThemeToggle size="mobile" />
           <button
             onClick={() => setMobileMenuOpen(v => !v)}
             className="glass-btn-ghost flex items-center justify-center w-11 h-11 rounded-[var(--radius-12)] cursor-pointer"
