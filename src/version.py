@@ -3504,4 +3504,71 @@
 #          Светлая тема теперь полностью функциональна, primary
 #          brand-colors идентичны в обеих темах, фон/поверхности/
 #          glass меняются как ожидается.
-APP_VERSION = "1.34.2"
+# 1.35.0 — Ambient ParticleBackground (premium subtle mode).
+#          Новый фоновой слой с 250 (desktop) / 100 (mobile) мелкими
+#          частицами на flow-field из 2D simplex-noise. Цель —
+#          ощущение «живой цифровой среды» / «AI / data system»,
+#          без визуального шума и не отвлекая от UI.
+#
+#          Что сделано:
+#            * ``web/src/components/effects/ParticleBackground.tsx`` —
+#              Canvas 2D рендерер. Inline simplex-noise (~150 строк,
+#              public domain Stefan Gustavson), wraparound-движение,
+#              theme-aware цвет/opacity через CSS-токены.
+#            * RAF-loop с rolling avg FPS-window (60 кадров). Если
+#              avg < 45 → halve density (250→125→63...) one-shot.
+#            * Scroll-input: deltaY → velocityBoost 1.0 → 1.2 (clamp),
+#              лёгкая направленность вниз пропорциональна
+#              ``scrollDirection``. Exponential decay back to 1.0
+#              ~1.5s после остановки скролла.
+#            * ``prefers-reduced-motion: reduce`` → return null
+#              (canvas вообще не создаётся).
+#            * ``MutationObserver`` на ``<html>`` data-theme attribute
+#              — palette swap происходит без re-mount: на dark
+#              ``rgba(255,255,255,0.05-0.15)``, на light
+#              ``rgba(15,23,42,0.04-0.10)``.
+#            * Particle size 1-2px, размер 3px только для 5%
+#              «акцентных» частиц.
+#            * НЕТ connections (lines между частицами), НЕТ pulse/
+#              flash, НЕТ per-particle alpha-osc — спека прямо
+#              запрещает.
+#
+#          Tokens:
+#            * ``index.css`` ``[data-theme="dark"]`` и
+#              ``[data-theme="light"]`` блоки получили
+#              ``--particle-color``, ``--particle-opacity-min``,
+#              ``--particle-opacity-max``. Композитор читает их
+#              ``getComputedStyle`` при init и при theme-change через
+#              ``MutationObserver``.
+#
+#          Mounting (важно — scope):
+#            * ``Landing.tsx`` и ``DocumentPhotoLanding.tsx`` —
+#              ``<ParticleBackground/>`` добавлен как 2-й
+#              decorative layer, между ``<MeshGradientBg/>`` и
+#              ``<EnergyField/>``.
+#            * AppPage **НЕ** трогается. Там в 1.32.0 был
+#              зафиксирован баг «scroll to nowhere» при
+#              абсолютно-позиционированных слоях в скролл-
+#              контейнере wizard-а. ParticleBackground тоже
+#              ``position: fixed`` и теоретически безопасен, но
+#              для изоляции рисков в этой итерации добавляем
+#              только на лендинги. AppPage particle-фон —
+#              отдельная итерация после A/B оценки лендингов.
+#
+#          z-stack (все ``pointer-events: none``):
+#            * mesh-gradient-bg: z:0 (статичный градиент-фон).
+#            * particle-background: z:1 fixed (мелкие частицы).
+#            * energy-field: z:1 absolute, после в DOM (крупные
+#              blob-ы, follow-mouse).
+#
+#          Sanity: ``tsc --noEmit`` clean, ``vite build`` clean
+#          (502 kB main / 82 kB CSS, +4 kB / +2 kB gzip — в пределах
+#          плана <5 kB gzip). Backend не трогался.
+#
+#          Risk: low. Particles это purely additive layer;
+#          ``git revert`` чисто восстанавливает предыдущее
+#          поведение лендингов. Возможный визуальный артефакт —
+#          частицы могут показаться слишком блёклыми на
+#          крупных мониторах в light theme; mitigation —
+#          ``--particle-opacity-*`` token tweak без re-deploy.
+APP_VERSION = "1.35.0"

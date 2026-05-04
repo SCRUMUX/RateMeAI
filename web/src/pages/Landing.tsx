@@ -9,6 +9,7 @@ import SocialProof from '../sections/SocialProof';
 import Footer from '../sections/Footer';
 import AuthModal from '../components/AuthModal';
 import MeshGradientBg from '../components/effects/MeshGradientBg';
+import ParticleBackground from '../components/effects/ParticleBackground';
 import EnergyField from '../components/effects/EnergyField';
 import { useApp } from '../context/AppContext';
 import { getLandingSocialProofPreset } from '../data/social-proof';
@@ -31,6 +32,7 @@ export default function Landing() {
       />
       <main className="relative">
         <MeshGradientBg />
+        <ParticleBackground />
         <EnergyField />
         <Hero />
         <SocialProof preset={socialProofPreset} />

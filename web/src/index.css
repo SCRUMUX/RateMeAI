@@ -191,6 +191,10 @@
   --energy-neutral-r: 60;
   --energy-neutral-g: 20;
   --energy-neutral-b: 180;
+
+  --particle-color: 255, 255, 255;
+  --particle-opacity-min: 0.05;
+  --particle-opacity-max: 0.15;
 }
 
 [data-theme="light"] {
@@ -225,6 +229,10 @@
   --energy-neutral-r: 168;
   --energy-neutral-g: 85;
   --energy-neutral-b: 247;
+
+  --particle-color: 15, 23, 42;
+  --particle-opacity-min: 0.04;
+  --particle-opacity-max: 0.10;
 }
 
 body {

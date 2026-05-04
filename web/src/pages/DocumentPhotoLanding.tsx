@@ -3,6 +3,7 @@ import NavBar from '../sections/NavBar';
 import Footer from '../sections/Footer';
 import AuthModal from '../components/AuthModal';
 import MeshGradientBg from '../components/effects/MeshGradientBg';
+import ParticleBackground from '../components/effects/ParticleBackground';
 import EnergyField from '../components/effects/EnergyField';
 import SocialProof from '../sections/SocialProof';
 import { useApp } from '../context/AppContext';
@@ -34,6 +35,7 @@ export default function DocumentPhotoLanding({ onStart, showAuth, onAuthClose }:
       <NavBar onLoginClick={() => setAuthModalOpen(true)} onCtaClick={onStart} hideNavLinks logoTo="/dokumenty" />
       <main className="relative">
         <MeshGradientBg />
+        <ParticleBackground />
         <EnergyField />
 
         {/* Hero */}
