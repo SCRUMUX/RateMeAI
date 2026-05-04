@@ -3015,4 +3015,79 @@
 #          anchors (SCENE_BLEND_PHOTO с light wrap, ambient
 #          occlusion, contact shadows; разведение
 #          QUALITY_PHOTO_GPT vs QUALITY_PHOTO_NANO).
-APP_VERSION = "1.32.1"
+# 1.32.2 — Wave 2 итерация 3: Scene integration anchors.
+#          Решает «вклеенное фото» класс жалоб: до 1.32.2
+#          ``LIGHT_INTEGRATION_PHOTO`` давал общую фразу про
+#          highlights / shadows / color cast, но не использовал
+#          film-industry термины для compositing, которые модели
+#          лучше парсят. 1.32.2 вводит новый
+#          ``SCENE_BLEND_PHOTO`` anchor — отдельный, длинный,
+#          с пятью обязательными терминами (edge light wrap,
+#          ambient occlusion, contact shadows, color grading
+#          match, atmospheric depth). Best-practices сверка:
+#            * Nano Banana 2 (Gemini) prompt guide прямо
+#              упоминает edge light / ambient occlusion / color
+#              grading match.
+#            * GPT Image 2 предпочитает narrative («key and
+#              fill lighting», «atmospheric depth»).
+#            * FLUX Kontext positive-framing only — anchor
+#              целиком positive (нет no/without/avoid/don't).
+#
+#          Anchor (``src/prompts/image_gen.py``):
+#            * Новая константа ``SCENE_BLEND_PHOTO``
+#              (~580 chars, ~140 tokens) с film-industry
+#              compositing-терминами. Размещена между
+#              LIGHT_INTEGRATION и CAMERA так, чтобы
+#              cinematography-блок был непрерывным
+#              (lights → wrap → camera → anatomy).
+#
+#          Per-model wrappers (``src/prompts/model_wrappers.py``):
+#            * ``QUALITY_PHOTO_GPT`` и ``QUALITY_PHOTO_NANO``
+#              были до 1.32.2 byte-for-byte идентичны
+#              (намеренно, ради v2 parity-теста). Теперь оба
+#              embed ``SCENE_BLEND_PHOTO``. Вариация per-model
+#              tail зарезервирована, текст идентичен
+#              (отдельные константы оставляют возможность
+#              разойтись в будущем без breaking changes).
+#            * Новый ``QUALITY_PHOTO_FLUX`` константа +
+#              ``wrap_for_flux_kontext`` функция +
+#              ``wrap_for_model("flux_kontext", ...)`` ветка.
+#              FLUX route добавлен на случай активации
+#              executor-маршрута через FAL.
+#
+#          Тесты:
+#            * ``tests/test_prompts/test_scene_blend.py`` —
+#              10 smoke-тестов:
+#                - anchor содержит все 5 compositing-терминов;
+#                - anchor positive-framed (no negative tokens);
+#                - per-model tails (GPT/Nano/FLUX) embed anchor;
+#                - per-model wrappers сохраняют термины после
+#                  compress_prompt + _truncate;
+#                - DOC styles НЕ embed anchor (DOC_PRESERVE /
+#                  DOC_QUALITY bypass);
+#                - prompt budget < 2000 chars (≈ 480 tokens),
+#                  ≤ PROMPT_MAX_LEN.
+#            * ``tests/test_prompts/test_schema_v2_parity.py``
+#              обновлён: parity-тесты ``test_v2_matches_v1_*``
+#              стрипают SCENE_BLEND_PHOTO из v2 output перед
+#              сравнением с v1 (v1 — frozen legacy fallback,
+#              его не апдейтим).
+#
+#          Sanity: ``ruff check src tests`` clean,
+#          ``vite build`` clean, ``pytest tests/test_api/
+#          tests/test_orchestrator/ tests/test_prompts/
+#          tests/test_services/`` 1724 passed / 54 skipped
+#          (10 новых scene_blend + старые v3/coherence
+#          регрессии).
+#
+#          Risk: SCENE_BLEND ~140 токенов добавляет к prompt
+#          ≈ 40-50% длины. Замерено — типичный final prompt
+#          ~1560 chars, остаётся ~940 chars headroom до
+#          PROMPT_MAX_LEN=2500. A/B пользователя на 10+
+#          генерациях с одинаковыми seed-ами до/после
+#          подтвердит «вклеенность» лучше или хуже.
+#
+#          Следующая итерация (1.33.0) — UI primitives
+#          (Button / Card / Select / Field / Modal / Divider)
+#          и color-sweep wave 1 (миграция модалок на токены).
+APP_VERSION = "1.32.2"

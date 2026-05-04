@@ -163,9 +163,14 @@ def test_flag_on_without_v2_migration_preserves_v1_output(
     ],
 )
 def test_v2_matches_v1_for_neutral_inputs(monkeypatch, mode, style):
-    """When the v2 spec mirrors the v1 spec, and the caller does not
-    pass weather / framing / variant, ``build_image_prompt_v2`` must
-    match the direct-builder output byte-for-byte.
+    """v2 wraps v1 output with the same content PLUS the new
+    ``SCENE_BLEND_PHOTO`` anchor (1.32.2). v1 is frozen as the
+    deprecated fallback; v2 / v3 are the live path.
+
+    We assert byte-for-byte parity on the v1 substring AND that v2
+    contains the SCENE_BLEND anchor. The previous "exact equality"
+    contract was retired in 1.32.2 because v1 is now strictly a
+    legacy decommission path (see ``PROMPT_V1_FALLBACK`` metric).
     """
     v2 = _mirror_v1_as_v2(mode, style)
     STYLE_REGISTRY.register_v2(v2)
@@ -197,8 +202,16 @@ def test_v2_matches_v1_for_neutral_inputs(monkeypatch, mode, style):
         target_model="gpt_image_2",
         framing=None,
     )
-    assert via_v2 == via_v1, (
-        f"\n--- v2 ---\n{via_v2}\n--- v1 ---\n{via_v1}\n"
+    # SCENE_BLEND_PHOTO is the only diff between v1 tail and v2 tail.
+    # Stripping it from v2 must yield the v1 output verbatim.
+    assert ig.SCENE_BLEND_PHOTO in via_v2, (
+        "v2 path should embed SCENE_BLEND_PHOTO anchor (1.32.2).\n"
+        f"v2 output: {via_v2!r}"
+    )
+    via_v2_stripped = via_v2.replace(" " + ig.SCENE_BLEND_PHOTO, "")
+    assert via_v2_stripped == via_v1, (
+        f"\n--- v2 (stripped of SCENE_BLEND) ---\n{via_v2_stripped}"
+        f"\n--- v1 ---\n{via_v1}\n"
     )
 
 
@@ -209,6 +222,10 @@ def test_v2_matches_v1_for_neutral_inputs(monkeypatch, mode, style):
 
 @pytest.mark.parametrize("framing", ["portrait", "half_body", "full_body"])
 def test_v2_framing_parity(monkeypatch, framing):
+    """Framing directive must propagate identically. Same caveat as
+    :func:`test_v2_matches_v1_for_neutral_inputs` — v2 path also
+    embeds the 1.32.2 ``SCENE_BLEND_PHOTO`` anchor; we strip it
+    before comparing the v1 substring."""
     v2 = _mirror_v1_as_v2("dating", "warm_outdoor")
     STYLE_REGISTRY.register_v2(v2)
 
@@ -229,7 +246,9 @@ def test_v2_framing_parity(monkeypatch, framing):
         target_model="gpt_image_2",
         framing=framing,
     )
-    assert via_v2 == via_v1
+    assert ig.SCENE_BLEND_PHOTO in via_v2
+    via_v2_stripped = via_v2.replace(" " + ig.SCENE_BLEND_PHOTO, "")
+    assert via_v2_stripped == via_v1
 
 
 # ---------------------------------------------------------------------------

@@ -245,6 +245,45 @@ LIGHT_INTEGRATION_PHOTO = (
     "with the background."
 )
 
+# 1.32.2 — scene compositing / "embedded subject" anchor. Solves the
+# "вклеенное фото" / paste-sticker complaint where the user reads the
+# image as obvious compositing. The terms are deliberately picked from
+# what the model families have shipped in their docs:
+#
+#   * Nano Banana 2 (Gemini family) prompt guide explicitly mentions
+#     "edge light", "ambient occlusion" and "color grading match" as
+#     compositing-quality phrases the model parses well.
+#   * GPT Image 2 (OpenAI) handles narrative formulations best —
+#     "key and fill lighting", "atmospheric depth" map to its scene-
+#     understanding tokens.
+#   * FLUX Kontext (BFL) is positive-framing-only and likes concrete
+#     "rim light wraps the silhouette", "soft contact shadow at the
+#     feet".
+#
+# We bundle every term into one anchor so a single string covers all
+# three model families; per-model wrappers can append model-specific
+# tails if needed (see ``model_wrappers.QUALITY_PHOTO_*``). The block
+# is deliberately positive-framed (no "no X" / "without X" /
+# "avoid X" / "don't X") so it passes the ``_has_disallowed_negative``
+# guard in ``style_spec``.
+#
+# Order rationale: subject embedding → key/fill matching → edge/rim
+# light wrap → ambient occlusion + contact shadows (grounding) →
+# colour grading match (the giveaway for "sticker effect") →
+# atmospheric depth (the seal — passes the photoreal threshold).
+SCENE_BLEND_PHOTO = (
+    "Subject naturally inhabits the scene with seamless light "
+    "integration: the scene's key and fill lighting illuminate the "
+    "subject from the same angle and intensity as the background; "
+    "rim light and edge light wrap around the silhouette matching the "
+    "scene's light sources; ambient occlusion grounds the subject "
+    "with soft contact shadows where feet, hands and clothing meet "
+    "surfaces; color grading and white balance of the subject match "
+    "the scene's overall tone for cohesive integration; atmospheric "
+    "depth — haze, dust, light rays — passes through and around the "
+    "subject naturally."
+)
+
 # ---------------------------------------------------------------------------
 # v1.18 identity_scene (PuLID) anchors
 # ---------------------------------------------------------------------------

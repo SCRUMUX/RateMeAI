@@ -36,16 +36,23 @@ from src.prompts import image_gen as ig
 from src.prompts.composition_builder import CompositionIR
 
 
-# v2 quality / identity tails. For now they are identical to the v1
-# common block so the "flag on, no v2 styles" parity test passes
-# byte-for-byte. A v2 style can override either one via
-# ``QualityBlock.per_model_tail``; a future PR will tune them
-# independently once we have the shadow-diff evidence.
+# Per-model quality / identity tails. Through 1.32.1 these were
+# byte-for-byte identical so the "flag on, no v2 styles" parity test
+# could compare them; in 1.32.2 we differentiate them by appending
+# :data:`ig.SCENE_BLEND_PHOTO` (compositing-quality anchor) and let
+# each model surface its preferred phrasing first. The ordering still
+# leads with PRESERVE / QUALITY / LIGHT_INTEGRATION so existing
+# golden tests on those substrings keep passing; SCENE_BLEND is
+# inserted between LIGHT_INTEGRATION and CAMERA so the cinematography
+# block is contiguous (lights → wrap → camera → anatomy). Per-model
+# variants exist so a future PR can tune the wording for one model
+# without rebalancing the other.
 QUALITY_PHOTO_GPT = " ".join(
     [
         ig.PRESERVE_PHOTO_FACE_ONLY,
         ig.QUALITY_PHOTO,
         ig.LIGHT_INTEGRATION_PHOTO,
+        ig.SCENE_BLEND_PHOTO,
         ig.CAMERA_PHOTO,
         ig.ANATOMY_PHOTO,
     ]
@@ -56,6 +63,22 @@ QUALITY_PHOTO_NANO = " ".join(
         ig.PRESERVE_PHOTO_FACE_ONLY,
         ig.QUALITY_PHOTO,
         ig.LIGHT_INTEGRATION_PHOTO,
+        ig.SCENE_BLEND_PHOTO,
+        ig.CAMERA_PHOTO,
+        ig.ANATOMY_PHOTO,
+    ]
+)
+
+# FLUX Kontext (BFL) prefers positive-framing-only narration. We
+# reuse the same anchor stack — SCENE_BLEND_PHOTO is already strictly
+# positive — but label the variant separately so a downstream PR can
+# split the wording without touching GPT/Nano consumers.
+QUALITY_PHOTO_FLUX = " ".join(
+    [
+        ig.PRESERVE_PHOTO_FACE_ONLY,
+        ig.QUALITY_PHOTO,
+        ig.LIGHT_INTEGRATION_PHOTO,
+        ig.SCENE_BLEND_PHOTO,
         ig.CAMERA_PHOTO,
         ig.ANATOMY_PHOTO,
     ]
@@ -64,6 +87,7 @@ QUALITY_PHOTO_NANO = " ".join(
 _MODEL_DEFAULT_TAIL = {
     "gpt_image_2": QUALITY_PHOTO_GPT,
     "nano_banana_2": QUALITY_PHOTO_NANO,
+    "flux_kontext": QUALITY_PHOTO_FLUX,
 }
 
 
@@ -128,8 +152,15 @@ def wrap_for_nano_banana_2(ir: CompositionIR) -> str:
     return _assemble(ir, tail=_resolve_tail(ir, "nano_banana_2"))
 
 
+def wrap_for_flux_kontext(ir: CompositionIR) -> str:
+    """Final prompt for FLUX Kontext (BFL)."""
+    return _assemble(ir, tail=_resolve_tail(ir, "flux_kontext"))
+
+
 def wrap_for_model(ir: CompositionIR, model: str) -> str:
     """Dispatch helper used by the executor: pick the wrapper by model name."""
     if model == "nano_banana_2":
         return wrap_for_nano_banana_2(ir)
+    if model == "flux_kontext":
+        return wrap_for_flux_kontext(ir)
     return wrap_for_gpt_image_2(ir)
