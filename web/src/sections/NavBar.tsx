@@ -4,15 +4,19 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { GlobeIcon, CoinIcon, ImageIcon } from '@ai-ds/core/icons';
 import { useApp } from '../context/AppContext';
 import { useTheme } from '../lib/theme';
+import { useThemedLogo } from '../lib/themedAsset';
 import LinkedAccountsPanel from '../components/LinkedAccountsPanel';
-import logoSrc from '../assets/logo.png';
 
 // 1.31.1 — переключатель тёмной/светлой темы. Иконка sun/moon, persist
 // в localStorage через ThemeProvider (см. lib/theme.tsx).
+// 1.36.0 — увеличен размер до полноценной кнопки (40/48px) с
+// иконкой 20px, чтобы переключатель не «терялся» среди CTA-кнопок
+// и предлагал комфортный touch-target на mobile.
 function ThemeToggle({ size = 'desktop' }: { size?: 'desktop' | 'mobile' }) {
   const { theme, toggle } = useTheme();
   const isDark = theme === 'dark';
-  const dim = size === 'desktop' ? 'w-9 h-9' : 'w-11 h-11';
+  const dim = size === 'desktop' ? 'w-10 h-10' : 'w-12 h-12';
+  const iconSize = size === 'desktop' ? 20 : 22;
   return (
     <button
       type="button"
@@ -22,12 +26,12 @@ function ThemeToggle({ size = 'desktop' }: { size?: 'desktop' | 'mobile' }) {
       className={`glass-btn-ghost flex items-center justify-center ${dim} rounded-[var(--radius-12)] cursor-pointer text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] transition-colors`}
     >
       {isDark ? (
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <svg width={iconSize} height={iconSize} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
           <circle cx="12" cy="12" r="4" />
           <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41" />
         </svg>
       ) : (
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <svg width={iconSize} height={iconSize} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
           <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
         </svg>
       )}
@@ -50,6 +54,12 @@ interface Props {
 
 export default function NavBar({ onLoginClick, onOpenStorage, onHomeClick, onCtaClick, hideNavLinks, mode = 'landing', logoTo = '/' }: Props) {
   const { session, balance, logout, taskHistoryCount, canAccessApp } = useApp();
+  const { theme } = useTheme();
+  const logoSrc = useThemedLogo();
+  // 1.36.0 — на тёмной теме mix-blend lighten вытаскивает яркий
+  // cyan-glow поверх любой подложки; на светлой нужен darken
+  // (тёмные части лого «впечатываются» в белый фон).
+  const logoBlend = theme === 'light' ? 'darken' : 'lighten';
   const [menuOpen, setMenuOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -100,7 +110,7 @@ export default function NavBar({ onLoginClick, onOpenStorage, onHomeClick, onCta
           <button onClick={onHomeClick} className="flex items-center gap-[var(--space-8)] px-[var(--space-8)] py-[var(--space-4)] cursor-pointer">
             <div className="relative w-10 h-10 tablet:w-11 tablet:h-11 shrink-0">
               <div className="absolute inset-0 rounded-xl" style={{ background: 'rgba(var(--accent-r), var(--accent-g), var(--accent-b), 0.18)' }} />
-              <img src={logoSrc} alt="AI Look Studio" className="relative w-full h-full rounded-xl object-contain" style={{ mixBlendMode: 'lighten' }} />
+              <img src={logoSrc} alt="AI Look Studio" className="relative w-full h-full rounded-xl object-contain" style={{ mixBlendMode: logoBlend }} />
             </div>
             <span className="hidden tablet:inline text-[22px] leading-[30px] font-bold whitespace-nowrap tracking-tight">
               <span className="text-[var(--color-text-primary)]">AI</span>
@@ -121,7 +131,7 @@ export default function NavBar({ onLoginClick, onOpenStorage, onHomeClick, onCta
           >
             <div className="relative w-10 h-10 tablet:w-11 tablet:h-11 shrink-0">
               <div className="absolute inset-0 rounded-xl" style={{ background: 'rgba(var(--accent-r), var(--accent-g), var(--accent-b), 0.18)' }} />
-              <img src={logoSrc} alt="AI Look Studio" className="relative w-full h-full rounded-xl object-contain" style={{ mixBlendMode: 'lighten' }} />
+              <img src={logoSrc} alt="AI Look Studio" className="relative w-full h-full rounded-xl object-contain" style={{ mixBlendMode: logoBlend }} />
             </div>
             <span className="hidden tablet:inline text-[22px] leading-[30px] font-bold whitespace-nowrap tracking-tight">
               <span className="text-[var(--color-text-primary)]">AI</span>

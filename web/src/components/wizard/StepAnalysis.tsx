@@ -80,7 +80,7 @@ export default function StepAnalysis({ onNext }: Props) {
             {app.photo ? (
               <img src={app.photo.preview} alt="Original" className="w-full h-full object-cover" />
             ) : (
-              <img src="/img/placeholder-upload.png" alt="" className="w-full h-full object-cover opacity-50" />
+              <img src="/img/placeholder-upload.png" alt="" className="w-full h-full object-cover opacity-50 theme-adaptive-png" />
             )}
           </div>
           <div className="flex flex-col gap-[var(--space-8)] p-[var(--space-12)]">

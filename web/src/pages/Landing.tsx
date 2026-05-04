@@ -12,11 +12,15 @@ import MeshGradientBg from '../components/effects/MeshGradientBg';
 import ParticleBackground from '../components/effects/ParticleBackground';
 import EnergyField from '../components/effects/EnergyField';
 import { useApp } from '../context/AppContext';
+import { useTheme } from '../lib/theme';
+import { useThemedLogo } from '../lib/themedAsset';
 import { getLandingSocialProofPreset } from '../data/social-proof';
-import logoSrc from '../assets/logo.png';
 
 export default function Landing() {
   const app = useApp();
+  const { theme } = useTheme();
+  const logoSrc = useThemedLogo();
+  const logoBlend = theme === 'light' ? 'darken' : 'lighten';
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const canAccessApp = app.canAccessApp;
   const socialProofPreset = useMemo(
@@ -45,7 +49,7 @@ export default function Landing() {
             <div className="brand-glow-backdrop" />
             <div className="relative w-[60px] h-[60px] tablet:w-[100px] tablet:h-[100px] desktop:w-[140px] desktop:h-[140px] shrink-0 brand-glow-icon">
               <div className="absolute inset-0 rounded-[16px] tablet:rounded-[24px] desktop:rounded-[28px]" style={{ background: 'rgba(var(--accent-r), var(--accent-g), var(--accent-b), 0.4)' }} />
-              <img src={logoSrc} alt="AI Look Studio" className="relative w-full h-full object-contain rounded-[16px] tablet:rounded-[24px] desktop:rounded-[28px]" style={{ mixBlendMode: 'lighten' }} />
+              <img src={logoSrc} alt="AI Look Studio" className="relative w-full h-full object-contain rounded-[16px] tablet:rounded-[24px] desktop:rounded-[28px]" style={{ mixBlendMode: logoBlend }} />
             </div>
             <span className="brand-glow-text text-[36px] tablet:text-[72px] desktop:text-[120px] leading-[1] font-extrabold whitespace-nowrap">
               AI Look Studio

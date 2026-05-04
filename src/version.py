@@ -3571,4 +3571,55 @@
 #          частицы могут показаться слишком блёклыми на
 #          крупных мониторах в light theme; mitigation —
 #          ``--particle-opacity-*`` token tweak без re-deploy.
-APP_VERSION = "1.35.0"
+# 1.36.0 — Theme-aware PNG (hybrid: dual-asset для logo,
+#          CSS filter для placeholder-иллюстраций) + увеличенный
+#          ThemeToggle.
+#
+#          Logo (brand-critical → dual-asset):
+#            * ``web/scripts/generate-light-logo.mjs`` — одноразовый
+#              build-time скрипт (jimp 1.6.1 как devDep). Алгоритм:
+#              luminance-only inversion (Rec. 601), сохраняем
+#              chroma direction → cyan-glow остаётся cyan, но
+#              «тёмная подложка → светлая, светлый текст → тёмный».
+#              Альфа не трогается.
+#            * ``web/src/assets/logo-light.png`` (~587 kB) сгенерирован
+#              этим скриптом и закоммичен в репозиторий. Запуск
+#              ``npm run generate:light-logo`` нужен только при
+#              обновлении исходного logo.png.
+#            * ``web/src/lib/themedAsset.ts`` — хук ``useThemedLogo()``,
+#              возвращающий правильный src по активной теме.
+#            * ``NavBar.tsx`` и ``Landing.tsx`` — заменён прямой
+#              ``import logo from '../assets/logo.png'`` на
+#              ``useThemedLogo()``. Также ``mixBlendMode`` сделан
+#              theme-aware: ``lighten`` на dark, ``darken`` на
+#              light (тёмные части лого впечатываются в белый фон).
+#
+#          Placeholder illustrations (CSS filter, variant A):
+#            * ``index.css`` — новый класс ``.theme-adaptive-png``,
+#              читающий ``var(--png-filter, none)``.
+#            * ``[data-theme="light"]`` — ``--png-filter: brightness
+#              (1.05) contrast(0.92) saturate(0.9)`` (мягкий тон-
+#              матчинг, без агрессивного inversion — спека прямо
+#              запрещает).
+#            * Применено к 7 ``<img>`` в:
+#                - ``StepGenerate.tsx`` (placeholder-upgrade × 2 —
+#                  без агрессивного inline-blur loading-shimmer; тот
+#                  оставлен как есть, его inline-filter и так задаёт
+#                  собственный визуал).
+#                - ``StepAnalysis.tsx`` (placeholder-upload × 1).
+#                - ``ReviewModal.tsx`` (placeholder-upload + upgrade).
+#                - ``Simulation.tsx`` (placeholder-upload + upgrade).
+#
+#          ThemeToggle bigger:
+#            * Размер кнопки переключения темы увеличен до полно-
+#              ценного button-size: 40×40px на desktop (было 36),
+#              48×48px на mobile (было 44). Иконка 20-22px вместо
+#              18, чтобы переключатель не «терялся» среди CTA-кнопок
+#              и предлагал комфортный touch-target.
+#
+#          Sanity: ``tsc --noEmit`` clean, ``vite build`` clean (502.79
+#          kB main / 82.24 kB CSS, +0.3 kB main / +0.04 kB CSS gzip).
+#          Both logo PNGs хешируются Vite раздельно — браузер грузит
+#          фактически отображаемый, второй on-demand при theme-swap.
+#          ``ruff check`` clean. Backend нетронут.
+APP_VERSION = "1.36.0"
