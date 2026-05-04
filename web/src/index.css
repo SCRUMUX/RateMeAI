@@ -106,9 +106,21 @@
 }
 
 /*
- * AI Look Studio dark override
- * The Figma design uses a deeper black (#05050A) than the standard dark theme (#161E28).
- * We override the base surface tokens here for a richer look.
+ * AI Look Studio dark override + glass system tokens (1.34.0)
+ *
+ * Two layers of overrides per theme:
+ *   1. Base palette: deeper black (#0A0E14) than the generic dark
+ *      design-tokens default (#161E28) — this is the "AI Look Studio"
+ *      aesthetic from the Figma source.
+ *   2. Glass system tokens: surface/border/shadow values consumed by
+ *      every .glass-* class below. Before 1.34.0 these were hardcoded
+ *      rgba(255,255,255,...) on dark, which made the light theme look
+ *      muddy gray. Now both themes have explicit values so glass
+ *      visually inverts when the user toggles the theme.
+ *
+ * Brand colors (--color-brand-primary, accent-r/g/b, danger/success
+ * base) deliberately stay theme-agnostic — they live in design-tokens
+ * and ai-ds-styles.json with identical light/dark mappings.
  */
 [data-theme="dark"] {
   --color-bg-base: #0A0E14;
@@ -119,6 +131,50 @@
   --color-border-base: #1E2A3A;
   --color-border-strong: #2E3E52;
   --color-divider: #111820;
+
+  --glass-surface: rgba(255, 255, 255, 0.04);
+  --glass-surface-hover: rgba(255, 255, 255, 0.07);
+  --glass-surface-strong: rgba(255, 255, 255, 0.06);
+  --glass-surface-soft: rgba(255, 255, 255, 0.02);
+  --glass-border: rgba(255, 255, 255, 0.08);
+  --glass-border-hover: rgba(255, 255, 255, 0.14);
+  --glass-border-soft: rgba(255, 255, 255, 0.06);
+  --glass-inset-highlight: rgba(255, 255, 255, 0.06);
+  --glass-inset-highlight-soft: rgba(255, 255, 255, 0.04);
+  --glass-shadow-soft: 0 4px 16px rgba(0, 0, 0, 0.20);
+  --glass-shadow-card: 0 8px 32px rgba(0, 0, 0, 0.30);
+  --glass-shadow-nav: 0 4px 24px rgba(0, 0, 0, 0.30);
+  --glass-nav-surface: rgba(10, 14, 20, 0.65);
+  --glass-footer-surface: rgba(10, 14, 20, 0.50);
+  --glass-divider-surface: rgba(10, 14, 20, 0.35);
+  --glass-fallback-surface: rgba(17, 24, 32, 0.92);
+  --glass-fallback-nav: rgba(10, 14, 20, 0.95);
+  --glass-fallback-footer: rgba(10, 14, 20, 0.90);
+  --glass-fallback-divider: rgba(10, 14, 20, 0.85);
+  --glass-text: #E6EEF8;
+}
+
+[data-theme="light"] {
+  --glass-surface: rgba(255, 255, 255, 0.55);
+  --glass-surface-hover: rgba(255, 255, 255, 0.75);
+  --glass-surface-strong: rgba(255, 255, 255, 0.70);
+  --glass-surface-soft: rgba(255, 255, 255, 0.40);
+  --glass-border: rgba(15, 23, 42, 0.08);
+  --glass-border-hover: rgba(15, 23, 42, 0.16);
+  --glass-border-soft: rgba(15, 23, 42, 0.06);
+  --glass-inset-highlight: rgba(255, 255, 255, 0.80);
+  --glass-inset-highlight-soft: rgba(255, 255, 255, 0.60);
+  --glass-shadow-soft: 0 4px 16px rgba(15, 23, 42, 0.08);
+  --glass-shadow-card: 0 8px 28px rgba(15, 23, 42, 0.12);
+  --glass-shadow-nav: 0 4px 24px rgba(15, 23, 42, 0.06);
+  --glass-nav-surface: rgba(255, 255, 255, 0.75);
+  --glass-footer-surface: rgba(255, 255, 255, 0.65);
+  --glass-divider-surface: rgba(255, 255, 255, 0.55);
+  --glass-fallback-surface: rgba(255, 255, 255, 0.92);
+  --glass-fallback-nav: rgba(255, 255, 255, 0.95);
+  --glass-fallback-footer: rgba(255, 255, 255, 0.90);
+  --glass-fallback-divider: rgba(255, 255, 255, 0.85);
+  --glass-text: #353535;
 }
 
 body {
@@ -165,9 +221,9 @@ body {
 
 /* Semi-transparent divider strip that lets energy blobs through */
 .glass-divider {
-  background: rgba(10, 14, 20, 0.35);
-  border-top: 1px solid rgba(255, 255, 255, 0.06);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  background: var(--glass-divider-surface);
+  border-top: 1px solid var(--glass-border-soft);
+  border-bottom: 1px solid var(--glass-border-soft);
   backdrop-filter: blur(var(--blur-glass-medium)) saturate(1.15);
   -webkit-backdrop-filter: blur(var(--blur-glass-medium)) saturate(1.15);
 }
@@ -351,22 +407,25 @@ body {
 /* ========== Glass Design System ========== */
 
 .glass {
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: var(--glass-surface);
+  border: 1px solid var(--glass-border);
   backdrop-filter: blur(var(--blur-glass-medium)) saturate(1.2);
   -webkit-backdrop-filter: blur(var(--blur-glass-medium)) saturate(1.2);
   box-shadow:
-    0 4px 24px rgba(0, 0, 0, 0.25),
-    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+    var(--glass-shadow-soft),
+    inset 0 1px 0 var(--glass-inset-highlight);
   transition: background 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease;
 }
 
 .glass:hover {
-  background: rgba(255, 255, 255, 0.07);
-  border-color: rgba(255, 255, 255, 0.14);
+  background: var(--glass-surface-hover);
+  border-color: var(--glass-border-hover);
 }
 
-/* -- Primary button: filled accent -- */
+/* -- Primary button: filled accent --
+ * 1.34.0: accent gradient stays theme-agnostic (it's the brand stamp)
+ * but the shadow drop shadow uses the theme-aware glass-shadow token
+ * so light theme doesn't get an oversized dark cast. */
 .glass-btn-primary {
   background: linear-gradient(
     135deg,
@@ -378,7 +437,7 @@ body {
   -webkit-backdrop-filter: blur(var(--blur-glass-medium)) saturate(1.2);
   box-shadow:
     0 0 24px rgba(var(--accent-r), var(--accent-g), var(--accent-b), 0.30),
-    0 4px 16px rgba(0, 0, 0, 0.3),
+    var(--glass-shadow-soft),
     inset 0 1px 0 rgba(255, 255, 255, 0.18);
   color: #FFFFFF;
   font-weight: 600;
@@ -394,7 +453,7 @@ body {
   border-color: rgba(var(--accent-r), var(--accent-g), var(--accent-b), 0.70);
   box-shadow:
     0 0 36px rgba(var(--accent-r), var(--accent-g), var(--accent-b), 0.40),
-    0 4px 20px rgba(0, 0, 0, 0.35),
+    var(--glass-shadow-soft),
     inset 0 1px 0 rgba(255, 255, 255, 0.22);
   transform: translateY(-1px);
 }
@@ -407,7 +466,7 @@ body {
   );
   box-shadow:
     0 0 16px rgba(var(--accent-r), var(--accent-g), var(--accent-b), 0.20),
-    0 2px 8px rgba(0, 0, 0, 0.3),
+    var(--glass-shadow-soft),
     inset 0 1px 0 rgba(255, 255, 255, 0.10);
   transform: translateY(0);
 }
@@ -417,52 +476,52 @@ body {
   pointer-events: none;
 }
 
-/* -- Secondary button: subtle white border -- */
+/* -- Secondary button: subtle border, theme-aware fill -- */
 .glass-btn-secondary {
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: var(--glass-surface-strong);
+  border: 1px solid var(--glass-border-hover);
   backdrop-filter: blur(var(--blur-glass-medium)) saturate(1.15);
   -webkit-backdrop-filter: blur(var(--blur-glass-medium)) saturate(1.15);
   box-shadow:
-    0 4px 16px rgba(0, 0, 0, 0.2),
-    inset 0 1px 0 rgba(255, 255, 255, 0.06);
-  color: #E6EEF8;
+    var(--glass-shadow-soft),
+    inset 0 1px 0 var(--glass-inset-highlight);
+  color: var(--glass-text);
   transition: background 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease;
 }
 
 .glass-btn-secondary:hover {
-  background: rgba(255, 255, 255, 0.10);
-  border-color: rgba(255, 255, 255, 0.22);
+  background: var(--glass-surface-hover);
+  border-color: var(--glass-border-hover);
   box-shadow:
-    0 4px 20px rgba(0, 0, 0, 0.25),
-    inset 0 1px 0 rgba(255, 255, 255, 0.10);
+    var(--glass-shadow-soft),
+    inset 0 1px 0 var(--glass-inset-highlight);
 }
 
 .glass-btn-secondary:active {
-  background: rgba(255, 255, 255, 0.04);
+  background: var(--glass-surface);
 }
 
 /* -- Ghost button: minimal, border only -- */
 .glass-btn-ghost {
-  background: rgba(255, 255, 255, 0.02);
-  border: 1px solid rgba(255, 255, 255, 0.10);
+  background: var(--glass-surface-soft);
+  border: 1px solid var(--glass-border);
   backdrop-filter: blur(var(--blur-glass-light));
   -webkit-backdrop-filter: blur(var(--blur-glass-light));
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
-  color: #E6EEF8;
+  box-shadow: inset 0 1px 0 var(--glass-inset-highlight-soft);
+  color: var(--glass-text);
   transition: background 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease;
 }
 
 .glass-btn-ghost:hover {
-  background: rgba(255, 255, 255, 0.06);
-  border-color: rgba(255, 255, 255, 0.18);
+  background: var(--glass-surface);
+  border-color: var(--glass-border-hover);
   box-shadow:
-    0 2px 12px rgba(0, 0, 0, 0.15),
-    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+    var(--glass-shadow-soft),
+    inset 0 1px 0 var(--glass-inset-highlight);
 }
 
 .glass-btn-ghost:active {
-  background: rgba(255, 255, 255, 0.03);
+  background: var(--glass-surface-soft);
 }
 
 .glass-btn-ghost:disabled {
@@ -472,22 +531,23 @@ body {
 
 /* -- Card / panel -- */
 .glass-card {
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: var(--glass-surface);
+  border: 1px solid var(--glass-border);
   backdrop-filter: blur(var(--blur-glass-heavy)) saturate(1.15);
   -webkit-backdrop-filter: blur(var(--blur-glass-heavy)) saturate(1.15);
   box-shadow:
-    0 8px 32px rgba(0, 0, 0, 0.3),
-    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+    var(--glass-shadow-card),
+    inset 0 1px 0 var(--glass-inset-highlight-soft);
   transition: background 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease;
 }
 
 .glass-card:hover {
-  background: rgba(255, 255, 255, 0.05);
-  border-color: rgba(255, 255, 255, 0.12);
+  background: var(--glass-surface-hover);
+  border-color: var(--glass-border-hover);
 }
 
-/* Card with accent highlight (for featured/selected items) */
+/* Card with accent highlight (for featured/selected items) — accent
+ * tint stays theme-agnostic, drop shadow follows the theme. */
 .glass-card-highlight {
   background: rgba(var(--accent-r), var(--accent-g), var(--accent-b), 0.04);
   border: 1px solid rgba(var(--accent-r), var(--accent-g), var(--accent-b), 0.18);
@@ -495,8 +555,8 @@ body {
   -webkit-backdrop-filter: blur(var(--blur-glass-heavy)) saturate(1.2);
   box-shadow:
     0 0 30px rgba(var(--accent-r), var(--accent-g), var(--accent-b), 0.08),
-    0 8px 32px rgba(0, 0, 0, 0.3),
-    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+    var(--glass-shadow-card),
+    inset 0 1px 0 var(--glass-inset-highlight);
   transition: background 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease;
 }
 
@@ -505,11 +565,11 @@ body {
   border-color: rgba(var(--accent-r), var(--accent-g), var(--accent-b), 0.25);
   box-shadow:
     0 0 40px rgba(var(--accent-r), var(--accent-g), var(--accent-b), 0.12),
-    0 8px 32px rgba(0, 0, 0, 0.35),
-    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+    var(--glass-shadow-card),
+    inset 0 1px 0 var(--glass-inset-highlight);
 }
 
-/* -- Active tab -- */
+/* -- Active tab -- accent tint stays, text/shadow follow theme */
 .glass-tab-active {
   background: rgba(var(--accent-r), var(--accent-g), var(--accent-b), 0.12);
   border: 1px solid rgba(var(--accent-r), var(--accent-g), var(--accent-b), 0.30);
@@ -517,18 +577,18 @@ body {
   -webkit-backdrop-filter: blur(var(--blur-glass-medium)) saturate(1.2);
   box-shadow:
     0 0 16px rgba(var(--accent-r), var(--accent-g), var(--accent-b), 0.10),
-    0 2px 8px rgba(0, 0, 0, 0.2),
-    inset 0 1px 0 rgba(255, 255, 255, 0.08);
-  color: #E6EEF8;
+    var(--glass-shadow-soft),
+    inset 0 1px 0 var(--glass-inset-highlight);
+  color: var(--glass-text);
 }
 
 /* -- Badge -- */
 .glass-badge {
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: var(--glass-surface-strong);
+  border: 1px solid var(--glass-border-hover);
   backdrop-filter: blur(var(--blur-glass-light));
   -webkit-backdrop-filter: blur(var(--blur-glass-light));
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  box-shadow: inset 0 1px 0 var(--glass-inset-highlight);
 }
 
 .glass-badge-cyan {
@@ -536,7 +596,7 @@ body {
   border: 1px solid rgba(var(--accent-r), var(--accent-g), var(--accent-b), 0.22);
   box-shadow:
     0 0 12px rgba(var(--accent-r), var(--accent-g), var(--accent-b), 0.08),
-    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+    inset 0 1px 0 var(--glass-inset-highlight);
 }
 
 .glass-badge-success {
@@ -544,7 +604,7 @@ body {
   border: 1px solid rgba(34, 197, 94, 0.25);
   box-shadow:
     0 0 12px rgba(34, 197, 94, 0.08),
-    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+    inset 0 1px 0 var(--glass-inset-highlight);
 }
 
 .glass-badge-info {
@@ -552,7 +612,7 @@ body {
   border: 1px solid rgba(59, 130, 246, 0.25);
   box-shadow:
     0 0 12px rgba(59, 130, 246, 0.08),
-    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+    inset 0 1px 0 var(--glass-inset-highlight);
 }
 
 .glass-badge-danger {
@@ -560,33 +620,33 @@ body {
   border: 1px solid rgba(239, 68, 68, 0.25);
   box-shadow:
     0 0 12px rgba(239, 68, 68, 0.08),
-    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+    inset 0 1px 0 var(--glass-inset-highlight);
 }
 
 /* -- NavBar glass -- */
 .glass-nav {
-  background: rgba(10, 14, 20, 0.65);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  background: var(--glass-nav-surface);
+  border-bottom: 1px solid var(--glass-border-soft);
   backdrop-filter: blur(var(--blur-glass-heavy)) saturate(1.3);
   -webkit-backdrop-filter: blur(var(--blur-glass-heavy)) saturate(1.3);
   box-shadow:
-    0 4px 24px rgba(0, 0, 0, 0.3),
-    inset 0 -1px 0 rgba(255, 255, 255, 0.04);
+    var(--glass-shadow-nav),
+    inset 0 -1px 0 var(--glass-inset-highlight-soft);
 }
 
 /* -- Style list row (selectable items) -- */
 .glass-row {
-  background: rgba(255, 255, 255, 0.02);
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: var(--glass-surface-soft);
+  border: 1px solid var(--glass-border-soft);
   backdrop-filter: blur(var(--blur-glass-light));
   -webkit-backdrop-filter: blur(var(--blur-glass-light));
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
+  box-shadow: inset 0 1px 0 var(--glass-inset-highlight-soft);
   transition: background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
 .glass-row:hover {
-  background: rgba(255, 255, 255, 0.05);
-  border-color: rgba(255, 255, 255, 0.12);
+  background: var(--glass-surface);
+  border-color: var(--glass-border-hover);
 }
 
 .glass-row-active {
@@ -594,21 +654,22 @@ body {
   border: 1px solid rgba(var(--accent-r), var(--accent-g), var(--accent-b), 0.22);
   box-shadow:
     0 0 12px rgba(var(--accent-r), var(--accent-g), var(--accent-b), 0.06),
-    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+    inset 0 1px 0 var(--glass-inset-highlight-soft);
 }
 
 /* -- Footer glass -- */
 .glass-footer {
-  background: rgba(10, 14, 20, 0.50);
-  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  background: var(--glass-footer-surface);
+  border-top: 1px solid var(--glass-border-soft);
   backdrop-filter: blur(var(--blur-glass-medium)) saturate(1.15);
   -webkit-backdrop-filter: blur(var(--blur-glass-medium)) saturate(1.15);
 }
 
-/* -- Progress bar glass -- */
+/* -- Progress bar glass -- shadow inset stays dark for both themes
+ * because progress tracks read better with subtle interior depth. */
 .glass-progress-track {
-  background: rgba(255, 255, 255, 0.06);
-  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.3);
+  background: var(--glass-surface-strong);
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.18);
 }
 
 .glass-progress-fill {
@@ -617,7 +678,7 @@ body {
 }
 
 .glass-progress-fill-muted {
-  background: rgba(255, 255, 255, 0.20);
+  background: var(--glass-border-hover);
 }
 
 .glass-progress-fill-success {
@@ -625,7 +686,10 @@ body {
   box-shadow: 0 0 8px rgba(29, 185, 84, 0.3);
 }
 
-/* ========== Fallbacks ========== */
+/* ========== Fallbacks ==========
+ * 1.34.0: tokens substituted for hardcoded rgba values so the
+ * fallback chain (no backdrop-filter / prefers-reduced-transparency)
+ * also respects the active theme. */
 
 @supports not (backdrop-filter: blur(1px)) {
   .glass,
@@ -637,19 +701,19 @@ body {
   .glass-tab-active,
   .glass-row,
   .glass-row-active {
-    background: rgba(17, 24, 32, 0.92);
+    background: var(--glass-fallback-surface);
   }
 
   .glass-nav {
-    background: rgba(10, 14, 20, 0.95);
+    background: var(--glass-fallback-nav);
   }
 
   .glass-footer {
-    background: rgba(10, 14, 20, 0.90);
+    background: var(--glass-fallback-footer);
   }
 
   .glass-divider {
-    background: rgba(10, 14, 20, 0.85);
+    background: var(--glass-fallback-divider);
   }
 }
 
@@ -665,19 +729,19 @@ body {
   .glass-row-active {
     backdrop-filter: none;
     -webkit-backdrop-filter: none;
-    background: rgba(17, 24, 32, 0.92);
+    background: var(--glass-fallback-surface);
   }
 
   .glass-nav {
     backdrop-filter: none;
     -webkit-backdrop-filter: none;
-    background: rgba(10, 14, 20, 0.95);
+    background: var(--glass-fallback-nav);
   }
 
   .glass-divider {
     backdrop-filter: none;
     -webkit-backdrop-filter: none;
-    background: rgba(10, 14, 20, 0.85);
+    background: var(--glass-fallback-divider);
   }
 }
 
@@ -762,8 +826,8 @@ body {
   gap: 8px;
   padding: 18px 20px;
   border-radius: var(--radius-12);
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: var(--glass-surface);
+  border: 1px solid var(--glass-border);
   backdrop-filter: blur(var(--blur-glass-light)) saturate(1.05);
   -webkit-backdrop-filter: blur(var(--blur-glass-light)) saturate(1.05);
 }
@@ -772,7 +836,7 @@ body {
   font-size: 14px;
   line-height: 20px;
   font-weight: 500;
-  color: #E6EEF8;
+  color: var(--color-text-primary);
 }
 
 .social-proof-feed-message {

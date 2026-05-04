@@ -3254,4 +3254,67 @@
 #          первой отрисовки (Suspense fallback) при первом
 #          переходе — приемлемо для админов, и кэш браузера
 #          обнуляет это после первого визита.
-APP_VERSION = "1.33.1"
+# 1.34.0 — Theme System Overhaul, итерация 1: glass-tokens + light
+#          mirror. До этой версии светлая тема меняла только цвет
+#          текста — потому что .glass-* классы (15 штук) и fallback-
+#          блоки в ``web/src/index.css`` были построены на
+#          ``rgba(255,255,255,...)`` поверх dark-фона и
+#          ``rgba(0,0,0,...)`` тенях. На light это давало серую муть
+#          и инверсия не работала. Симметричного ``[data-theme=
+#          "light"]`` override-блока не было.
+#
+#          Что сделано:
+#            * Введены семантические glass-токены в
+#              ``[data-theme="dark"]`` блоке и зеркальный
+#              ``[data-theme="light"]`` блок: ``--glass-surface``,
+#              ``--glass-surface-hover``, ``--glass-surface-strong``,
+#              ``--glass-surface-soft``, ``--glass-border``,
+#              ``--glass-border-hover``, ``--glass-border-soft``,
+#              ``--glass-inset-highlight`` /
+#              ``--glass-inset-highlight-soft``,
+#              ``--glass-shadow-soft``, ``--glass-shadow-card``,
+#              ``--glass-shadow-nav``, ``--glass-nav-surface``,
+#              ``--glass-footer-surface``,
+#              ``--glass-divider-surface``,
+#              ``--glass-fallback-surface`` /
+#              ``--glass-fallback-nav`` /
+#              ``--glass-fallback-footer`` /
+#              ``--glass-fallback-divider``, ``--glass-text``.
+#            * Light-палитра: «белое матовое стекло» (вариант А по
+#              запросу) — ``rgba(255,255,255,0.55..0.75)`` поверх
+#              светлых ``--color-bg-base``, тени
+#              ``rgba(15,23,42,0.08..0.12)``.
+#            * Все .glass-* классы (.glass, .glass-btn-secondary,
+#              .glass-btn-ghost, .glass-card, .glass-card-highlight,
+#              .glass-tab-active, .glass-row, .glass-row-active,
+#              .glass-badge[-cyan/-success/-info/-danger],
+#              .glass-nav, .glass-footer, .glass-divider,
+#              .glass-progress-track / .glass-progress-fill-muted,
+#              .social-proof-feed-item) переключены с rgba-хардкодов
+#              на токены.
+#            * .glass-btn-primary сохраняет accent-градиент (он
+#              brand-mark, theme-agnostic), но drop-shadow-слой
+#              переведён на ``var(--glass-shadow-soft)``, чтобы
+#              светлая тема не получала избыточно тёмную тень.
+#            * ``color: #E6EEF8`` внутри .glass-btn-secondary и
+#              .glass-btn-ghost → ``var(--glass-text)``. White текст
+#              в .glass-btn-primary остался — primary всегда белый
+#              по дизайну.
+#            * Fallback-блоки ``@supports not (backdrop-filter)`` и
+#              ``@media (prefers-reduced-transparency: reduce)``
+#              переведены с хардкодных ``rgba(17,24,32,...)`` /
+#              ``rgba(10,14,20,...)`` на token-aware
+#              ``var(--glass-fallback-*)``.
+#
+#          Sanity: ``tsc --noEmit`` clean, ``vite build`` clean
+#          (498 kB main, 78 kB CSS, no warnings, no regressions в
+#          разделении чанков). Backend не трогался.
+#
+#          Risk: чисто CSS-переменные, ``git revert`` восстанавливает
+#          предыдущее поведение без структурных изменений. Возможный
+#          визуальный артефакт в light — недостаточно контрастные
+#          границы у .glass-row на больших серых поверхностях; A/B
+#          тюнингуется через ``--glass-border``/``--glass-border-soft``
+#          без re-deploy логики. Mesh-фон (``.mesh-gradient-layer``)
+#          ещё хардкодит ``#0A0E14`` — это сделано в 1.34.1.
+APP_VERSION = "1.34.0"
