@@ -57,6 +57,13 @@ class CompositionIR:
     # post-generation hint to the user; tests assert on it directly to
     # avoid coupling to the prompt string.
     substitutions: list[dict[str, str]] = field(default_factory=list)
+    # 1.32.0 — full resolved slots payload from the v3 sampler. Set
+    # only by :func:`build_composition_v3`; v2 builder leaves it None.
+    # The engine forwards ``resolved_slots.to_dict()`` to the executor
+    # so the UI sees ``trigger``/``time_of_day``/``season``/
+    # ``random_picks``/``user_overrides`` (the IR's flat fields lose
+    # those — trigger/time/season get baked into ``scene``).
+    resolved_slots: object | None = None
 
     def scene_line(self) -> str:
         """Compose the single-sentence scene-and-environment description.
@@ -361,6 +368,7 @@ def build_composition_v3(
         is_document=is_document,
         framing_requested=framing_requested,
         substitutions=resolved.substitutions,
+        resolved_slots=resolved,
     )
 
 

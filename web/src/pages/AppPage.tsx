@@ -4,7 +4,6 @@ import { AnimatePresence, motion } from 'framer-motion';
 import NavBar from '../sections/NavBar';
 import AuthModal from '../components/AuthModal';
 import MeshGradientBg from '../components/effects/MeshGradientBg';
-import EnergyField from '../components/effects/EnergyField';
 import StepBar from '../components/wizard/StepBar';
 import StepUpload from '../components/wizard/StepUpload';
 import StepAnalysis from '../components/wizard/StepAnalysis';
@@ -269,7 +268,6 @@ export default function AppPage({ scenarioSlugOverride, onBackToLanding }: AppPa
 
       <main className="relative flex flex-col">
         <MeshGradientBg />
-        <EnergyField />
 
         <div className="relative z-[2] flex flex-col items-center gap-[var(--space-24)] tablet:gap-[var(--space-24)] px-[var(--space-16)] tablet:px-[var(--space-24)] py-[var(--space-24)] tablet:py-[var(--space-24)]">
           {/* Error toast */}

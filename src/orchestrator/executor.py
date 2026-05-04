@@ -22,6 +22,7 @@ from src.metrics import (
     IDENTITY_SCORE,
     IMAGE_GEN_BACKEND,
     IMAGE_GEN_CALLS,
+    PROMPT_V1_FALLBACK,
     STYLE_MODE_OVERRIDE,
     estimate_image_gen_cost_usd,
 )
@@ -558,6 +559,27 @@ class ImageGenerationExecutor:
                 )
 
             if prompt is None:
+                # 1.32.0 — post-v2 cutover this branch should be
+                # unreachable for any registered style. Counter +
+                # warning let us decide whether the legacy code can be
+                # safely removed in 1.33.1. If you see this in prod
+                # logs, the style is either missing from the v2/v3
+                # registry or ``build_image_prompt_v2`` returned None
+                # for an unexpected reason — investigate before
+                # removing the fallback.
+                logger.warning(
+                    "v1_prompt_fallback_hit",
+                    extra={
+                        "mode": getattr(mode, "value", str(mode)),
+                        "style": style,
+                        "variant_id": variant_id,
+                        "ab_image_model": ab_image_model,
+                    },
+                )
+                PROMPT_V1_FALLBACK.labels(
+                    mode=getattr(mode, "value", str(mode)),
+                    style=style or "unknown",
+                ).inc()
                 prompt = self._prompt_engine.build_image_prompt(
                     mode,
                     style=style,

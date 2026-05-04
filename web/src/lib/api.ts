@@ -245,11 +245,16 @@ export function getTask(taskId: string) {
  */
 export type ResolvedSlots = Partial<{
   trigger: string;
+  scene: string;
   lighting: string;
   weather: string;
   time_of_day: string;
   season: string;
   clothing: string;
+  expression: string;
+  random_picks: Record<string, string>;
+  user_overrides: Record<string, string>;
+  substitutions: Array<{ channel: string; requested: string; applied: string }>;
 }>;
 
 export interface TaskHistoryItem {

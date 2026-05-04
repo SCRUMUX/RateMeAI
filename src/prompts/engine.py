@@ -189,20 +189,29 @@ class PromptEngine:
                 seed=seed,
             )
             if out_resolved_slots is not None:
-                # The IR already has substitutions; we synthesise a
-                # ResolvedSlots-equivalent dict from the IR's surface
-                # so the executor can persist exactly what reached
-                # the prompt.
-                out_resolved_slots.update(
-                    {
-                        "scene": ir.scene,
-                        "lighting": ir.lighting,
-                        "weather": ir.weather,
-                        "clothing": ir.clothing,
-                        "expression": ir.expression,
-                        "substitutions": [dict(s) for s in ir.substitutions],
-                    }
-                )
+                # 1.32.0 — forward the full ``ResolvedSlots`` payload
+                # from the sampler. The IR flattens trigger/time/season
+                # into ``scene``, so without this branch the UI loses
+                # those fields. We fall back to the previous IR-derived
+                # dict only if the IR somehow ends up without
+                # ``resolved_slots`` attached (defensive — should not
+                # happen for v3).
+                from src.prompts.style_schema_v3 import ResolvedSlots
+
+                if isinstance(ir.resolved_slots, ResolvedSlots):
+                    out_resolved_slots.update(ir.resolved_slots.to_dict())
+                    out_resolved_slots["expression"] = ir.expression
+                else:
+                    out_resolved_slots.update(
+                        {
+                            "scene": ir.scene,
+                            "lighting": ir.lighting,
+                            "weather": ir.weather,
+                            "clothing": ir.clothing,
+                            "expression": ir.expression,
+                            "substitutions": [dict(s) for s in ir.substitutions],
+                        }
+                    )
         else:
             ir = build_composition(
                 spec,

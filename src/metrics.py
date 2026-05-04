@@ -31,6 +31,18 @@ FAL_CALLS = Counter(
     labelnames=["mode", "step", "model"],
 )
 
+# 1.32.0 — v1 ``_build_mode_prompt`` fallback hits. Should be 0 in
+# production (every supported style is registered as v2/v3). Non-zero
+# means a style is missing from the v2/v3 registry OR the v2 builder
+# threw and we silently fell back to legacy variation logic. Used to
+# decide whether the v1 fallback can be removed in 1.33.1.
+PROMPT_V1_FALLBACK = Counter(
+    "ratemeai_prompt_v1_fallback_total",
+    "Number of times the v1 _build_mode_prompt fallback was hit "
+    "(post-v2 cutover this should be 0)",
+    labelnames=["mode", "style"],
+)
+
 
 def estimate_image_gen_cost_usd(
     provider_name: str,

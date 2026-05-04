@@ -230,3 +230,171 @@ def test_engine_returns_none_for_unknown_style(
         target_model="gpt_image_2",
     )
     assert prompt is None
+
+
+# ---------- 1.32.0 e2e: full ResolvedSlots persistence + determinism ------
+
+
+def _v3_with_full_pools(*, key: str = "e2e_test", mode: str = "social") -> StyleSpecV3:
+    """v3 spec with every ambient channel populated, used to verify
+    the engine forwards a full ResolvedSlots payload (not just the
+    IR-flat subset) into ``out_resolved_slots``."""
+    return StyleSpecV3(
+        key=key,
+        mode=mode,
+        trigger_pool=("anchor formulation A", "anchor formulation B"),
+        scene_anchor="canonical scene anchor",
+        ambient=AmbientPools(
+            lighting=("soft warm", "blue hour", "neutral overcast"),
+            weather=("clear", "light overcast"),
+            time_of_day=("morning", "evening"),
+            season=("spring", "summer", "autumn", "winter"),
+        ),
+        clothing=ClothingSlot(
+            default={"male": "smart casual", "female": "smart casual", "neutral": "smart casual"},
+            allowed=("smart casual", "business formal"),
+        ),
+        quality_identity=QualityBlock(base="", per_model_tail={}),
+    )
+
+
+def test_engine_forwards_full_resolved_slots_payload(
+    monkeypatch, _registry_isolated
+):
+    """1.32.0 — ``out_resolved_slots`` must contain the full set of
+    fields that ``ResolvedSlots.to_dict()`` produces, not only the
+    subset that the IR's flat fields preserve. UI badges depend on
+    ``trigger`` / ``time_of_day`` / ``season`` / ``random_picks`` /
+    ``user_overrides`` / ``substitutions``; before 1.32.0 those keys
+    were silently dropped because trigger/time/season got baked into
+    the flattened ``scene`` string.
+    """
+    monkeypatch.setattr(settings, "style_schema_v3_enabled", True, raising=False)
+    monkeypatch.setattr(settings, "style_schema_v2_enabled", True, raising=False)
+    monkeypatch.setattr(
+        settings, "unified_prompt_v2_enabled", True, raising=False
+    )
+
+    STYLE_REGISTRY.register_v3(_v3_with_full_pools(key="z", mode="social"))
+
+    engine = PromptEngine()
+    resolved: dict[str, object] = {}
+    prompt = engine.build_image_prompt_v2(
+        mode=AnalysisMode.SOCIAL,
+        style="z",
+        gender="male",
+        input_hints={},
+        target_model="gpt_image_2",
+        seed=42,
+        out_resolved_slots=resolved,
+    )
+
+    assert prompt
+    expected_keys = {
+        "trigger",
+        "scene",
+        "lighting",
+        "weather",
+        "time_of_day",
+        "season",
+        "clothing",
+        "expression",
+        "random_picks",
+        "user_overrides",
+        "substitutions",
+    }
+    missing = expected_keys - resolved.keys()
+    assert not missing, (
+        f"resolved_slots is missing keys: {missing}. "
+        f"Got: {sorted(resolved.keys())}"
+    )
+    # Concrete pulls from the v3 sampler — every ambient channel of
+    # the spec has a non-empty pool, so we expect non-empty values.
+    for ch in ("trigger", "lighting", "weather", "time_of_day", "season"):
+        assert resolved[ch], f"channel {ch} was rolled empty"
+    # No user input → all channels rolled randomly. random_picks
+    # should cover every ambient channel; user_overrides should be
+    # empty.
+    random_picks = resolved["random_picks"]
+    user_overrides = resolved["user_overrides"]
+    assert isinstance(random_picks, dict)
+    assert isinstance(user_overrides, dict)
+    assert {"trigger", "lighting", "weather", "time_of_day", "season"} <= set(
+        random_picks.keys()
+    )
+    assert user_overrides == {}
+
+
+def test_engine_seeded_pipeline_is_deterministic(
+    monkeypatch, _registry_isolated
+):
+    """Same ``(spec, hints, seed)`` triple must produce the same
+    final prompt + resolved_slots on repeated runs. This is the
+    contract that lets the executor replay a generation with the
+    same inputs and expect the same model-facing string.
+    """
+    monkeypatch.setattr(settings, "style_schema_v3_enabled", True, raising=False)
+    monkeypatch.setattr(settings, "style_schema_v2_enabled", True, raising=False)
+    monkeypatch.setattr(
+        settings, "unified_prompt_v2_enabled", True, raising=False
+    )
+
+    STYLE_REGISTRY.register_v3(_v3_with_full_pools(key="z", mode="social"))
+
+    def _run(seed: int) -> tuple[str, dict[str, object]]:
+        engine = PromptEngine()
+        resolved: dict[str, object] = {}
+        prompt = engine.build_image_prompt_v2(
+            mode=AnalysisMode.SOCIAL,
+            style="z",
+            gender="male",
+            input_hints={"clothing_override": "tweed jacket"},
+            target_model="gpt_image_2",
+            seed=seed,
+            out_resolved_slots=resolved,
+        )
+        return prompt or "", resolved
+
+    p1, r1 = _run(seed=99)
+    p2, r2 = _run(seed=99)
+    assert p1 == p2, "same seed produced different prompts"
+    assert r1 == r2, "same seed produced different resolved_slots"
+
+    p3, _ = _run(seed=100)
+    assert p1 != p3, "different seeds produced identical prompts (sampler stuck?)"
+
+
+def test_engine_user_overrides_partition_resolved_slots(
+    monkeypatch, _registry_isolated
+):
+    """When the user pins a channel via ``input_hints`` and the value
+    is in the pool, the sampler must put it in ``user_overrides`` and
+    NOT in ``random_picks``. UI badges read this partition to render
+    a different visual hint for "user-pinned" vs "rolled".
+    """
+    monkeypatch.setattr(settings, "style_schema_v3_enabled", True, raising=False)
+    monkeypatch.setattr(settings, "style_schema_v2_enabled", True, raising=False)
+    monkeypatch.setattr(
+        settings, "unified_prompt_v2_enabled", True, raising=False
+    )
+
+    STYLE_REGISTRY.register_v3(_v3_with_full_pools(key="z", mode="social"))
+
+    engine = PromptEngine()
+    resolved: dict[str, object] = {}
+    engine.build_image_prompt_v2(
+        mode=AnalysisMode.SOCIAL,
+        style="z",
+        gender="male",
+        input_hints={"lighting": "soft warm"},
+        target_model="gpt_image_2",
+        seed=1,
+        out_resolved_slots=resolved,
+    )
+
+    user_overrides = resolved["user_overrides"]
+    random_picks = resolved["random_picks"]
+    assert isinstance(user_overrides, dict)
+    assert isinstance(random_picks, dict)
+    assert user_overrides.get("lighting") == "soft warm"
+    assert "lighting" not in random_picks

@@ -2810,4 +2810,94 @@
 #          quality-issues (winter↔одежда, «вклеенное фото»),
 #          full color-hardcode sweep и React-примитивы
 #          (``Button`` / ``Card`` / ``Select``) — Wave 2 (1.32.0).
-APP_VERSION = "1.31.1"
+# 1.32.0 — Wave 2 итерация 1: Pipeline integrity + scroll fix.
+#          Подготовительный релиз перед coherence (1.32.1) и
+#          scene integration (1.32.2). Ни одна A/B-метрика
+#          качества не должна сместиться — проверка инвариантов.
+#
+#          AppPage scroll-в-никуда (``web/src/pages/AppPage.tsx``):
+#            * Удалён ``<EnergyField />`` из AppPage. Компонент
+#              рендерит 10 absolute-блобов с ``top: 5vh ... 340vh``
+#              внутри ``<main>`` без ``overflow: hidden``, что
+#              расширяло document.documentElement до ~3400px и
+#              давало пользователю «скролл по пустоте» на коротком
+#              wizard-шаге (видно на скриншоте после 1.31.1).
+#              Mesh gradient (``MeshGradientBg``) остаётся —
+#              он ``position: fixed`` и не растягивает документ.
+#              EnergyField по-прежнему рендерится на длинных
+#              лендингах (``Landing.tsx`` / ``DocumentPhotoLanding.tsx``),
+#              там 340vh-блобы вписаны в реальную высоту страницы.
+#
+#          Полный ResolvedSlots payload в API
+#          (``src/prompts/composition_builder.py``,
+#          ``src/prompts/engine.py``,
+#          ``web/src/lib/api.ts``):
+#            * ``CompositionIR`` получил опциональное поле
+#              ``resolved_slots: object | None`` — v3 builder
+#              кладёт туда полный ``ResolvedSlots`` инстанс,
+#              v2 builder оставляет ``None`` (чистая обратная
+#              совместимость). До 1.32.0 IR схлопывал
+#              trigger/time_of_day/season в строку ``scene``,
+#              и UI badges не видели эти каналы по отдельности
+#              даже в v3-генерациях.
+#            * ``PromptEngine.build_image_prompt_v2`` теперь
+#              форвардит ``ir.resolved_slots.to_dict()`` целиком
+#              в ``out_resolved_slots`` (если IR пришёл от v3).
+#              Поля: ``trigger`` / ``scene`` / ``lighting`` /
+#              ``weather`` / ``time_of_day`` / ``season`` /
+#              ``clothing`` / ``expression`` / ``random_picks`` /
+#              ``user_overrides`` / ``substitutions``. Defensive
+#              fallback на старую IR-derived dict, если IR без
+#              resolved_slots (на случай тестовых v2 IR-ов).
+#            * ``web/src/lib/api.ts``: ``ResolvedSlots`` тип
+#              расширен теми же полями + ``random_picks`` и
+#              ``user_overrides`` как ``Record<string, string>``,
+#              ``substitutions`` как массив. UI badges
+#              (``ResolvedSlotsBadges.tsx``) уже умели рендерить
+#              trigger/time_of_day/season — теперь они реально
+#              получают эти данные.
+#
+#          v1 fallback decommission (``src/orchestrator/executor.py``,
+#          ``src/metrics.py``):
+#            * Новый Prometheus counter
+#              ``ratemeai_prompt_v1_fallback_total`` с label-ами
+#              ``mode`` и ``style``. После v2-cutover эта ветка
+#              должна давать 0 hits в проде.
+#            * При попадании в legacy ``_build_mode_prompt``
+#              executor пишет ``logger.warning("v1_prompt_fallback_hit")``
+#              с контекстом (mode, style, variant_id, ab_image_model)
+#              и инкрементит счётчик. Если за неделю Grafana
+#              покажет 0 hits — ветка удаляется в 1.33.1.
+#
+#          Тесты (``tests/test_prompts/test_v3_composition.py``):
+#            * ``test_engine_forwards_full_resolved_slots_payload``
+#              — все 11 ключей ``ResolvedSlots.to_dict()``
+#              присутствуют в ``out_resolved_slots``; ambient
+#              channels с непустыми пулами раскатываются;
+#              random_picks покрывает все каналы при пустых
+#              hints; user_overrides пуст.
+#            * ``test_engine_seeded_pipeline_is_deterministic`` —
+#              same ``(spec, hints, seed)`` → same prompt + same
+#              resolved_slots на повторных запусках; разные seed
+#              → разные prompt-ы (контракт антирепита).
+#            * ``test_engine_user_overrides_partition_resolved_slots``
+#              — пин канала через ``input_hints`` падает в
+#              ``user_overrides``, не в ``random_picks``.
+#
+#          Sanity: ``tsc --noEmit`` clean, ``vite build`` clean
+#          (76.88 kB CSS gzip 14.73 kB, 717 kB JS gzip 210.65 kB),
+#          ``ruff check src tests`` clean, ``pytest tests/test_api/
+#          tests/test_orchestrator/ tests/test_prompts/``
+#          1568 passed / 54 skipped (3 новых теста). ``git revert``
+#          восстанавливает 1.31.1 без миграций — изменения
+#          обратно-совместимы (новые поля resolved_slots
+#          опциональны для UI, EnergyField возвращается одной
+#          строкой).
+#
+#          Следующая итерация (1.32.1) — cross-channel coherence
+#          (``CoherenceRule`` в StyleSpecV3, правила
+#          season→clothing/lighting/weather; ревизия
+#          ``data/styles.json`` под winter-стили). После неё
+#          1.32.2 — scene integration anchors (light wrap,
+#          ambient occlusion, contact shadows, per-model tails).
+APP_VERSION = "1.32.0"
