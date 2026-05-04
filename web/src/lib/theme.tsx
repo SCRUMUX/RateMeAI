@@ -1,5 +1,5 @@
 /**
- * Theme switcher (1.31.1).
+ * Theme switcher.
  *
  * Минимальный ThemeProvider, который пишет ``data-theme`` на
  * ``<html>``. Дефолт — пользовательский localStorage, далее
@@ -8,8 +8,14 @@
  * FOUC prevention делается inline-script-ом в ``index.html`` — этот
  * хук синхронизирует React-state с уже выставленным DOM-атрибутом.
  *
- * Wave 2 (1.32.0) проведёт полный sweep хардкодов под токены — пока
- * light-режим читаем, но местами шероховатый.
+ * Полный sweep хардкодов под токены и переключаемые glass-токены
+ * сделан в Theme System Overhaul 1.34.0 → 1.34.2. Светлая и тёмная
+ * темы используют общий дизайн-токен набор (см. ``design-tokens.css``,
+ * ``index.css`` и AICADS spec ``AICADS-/packages/core/ai-ds-styles.json``).
+ *
+ * 1.34.2: подписка на ``storage`` event для sync между вкладками —
+ * если пользователь переключает тему в одной вкладке, остальные
+ * автоматически отражают изменение.
  */
 import { createContext, useContext, useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
@@ -56,6 +62,22 @@ export function ThemeProvider({ children }: ThemeProviderProps) {
       /* ignore quota / disabled storage */
     }
   }, [theme]);
+
+  // 1.34.2: cross-tab sync. If the user switches theme in another tab,
+  // the storage event fires here with the new value — we update React
+  // state, which in turn re-applies the data-theme attribute via the
+  // effect above. Skip if newValue is null (storage cleared).
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const onStorage = (e: StorageEvent) => {
+      if (e.key !== STORAGE_KEY) return;
+      if (e.newValue === 'dark' || e.newValue === 'light') {
+        setThemeState(e.newValue);
+      }
+    };
+    window.addEventListener('storage', onStorage);
+    return () => window.removeEventListener('storage', onStorage);
+  }, []);
 
   const value: ThemeContextValue = {
     theme,

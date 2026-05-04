@@ -139,19 +139,19 @@ export default function StepAnalysis({ onNext }: Props) {
           {app.preAnalysis?.input_quality?.soft_warnings?.length ? (
             <div
               className="gradient-border-card glass-card rounded-[var(--radius-12)] p-[var(--space-12)]"
-              style={{ '--gb-color': 'rgba(255, 190, 120, 0.35)' } as React.CSSProperties}
+              style={{ '--gb-color': 'color-mix(in srgb, var(--color-warning-base) 35%, transparent)' } as React.CSSProperties}
             >
               <div className="flex items-start gap-[var(--space-10)]">
                 <svg
                   width="18" height="18" viewBox="0 0 24 24" fill="none"
-                  className="shrink-0 mt-[2px]" aria-hidden="true"
+                  className="shrink-0 mt-[2px] text-[var(--color-warning-base)]" aria-hidden="true"
                 >
-                  <path d="M12 3L2 21h20L12 3z" stroke="#FFC27A" strokeWidth="1.6" strokeLinejoin="round" />
-                  <path d="M12 10v5" stroke="#FFC27A" strokeWidth="1.6" strokeLinecap="round" />
-                  <circle cx="12" cy="18" r="0.9" fill="#FFC27A" />
+                  <path d="M12 3L2 21h20L12 3z" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" />
+                  <path d="M12 10v5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+                  <circle cx="12" cy="18" r="0.9" fill="currentColor" />
                 </svg>
                 <div className="flex flex-col gap-[var(--space-6)]">
-                  <span className="text-[13px] leading-[18px] font-medium text-[#FFD6A8]">
+                  <span className="text-[13px] leading-[18px] font-medium text-[var(--color-warning-base)]">
                     Качество фото может повлиять на результат
                   </span>
                   <ul className="flex flex-col gap-[var(--space-4)]">

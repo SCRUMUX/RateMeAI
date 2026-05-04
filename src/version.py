@@ -3426,4 +3426,82 @@
 #          крупных мониторах; mitigation — opacity-токены
 #          (``--mesh-blob-*-opacity``) подкручиваются без re-deploy.
 #          Для аб-теста легко переключить значения.
-APP_VERSION = "1.34.1"
+# 1.34.2 — Theme System Overhaul, итерация 3: AICADS sync, dead-
+#          hardcodes verification, ThemeProvider cross-tab sync,
+#          docs.
+#
+#          Что сделано:
+#            * Сверка ``web/src/design-tokens.css`` против
+#              ``AICADS-/packages/core/ai-ds-styles.json`` — все
+#              light-токены mirror AICADS spec 1:1
+#              (``color_bg_base.light = core_white``,
+#              ``color_text_primary.light = core_gray_95 = #353535``,
+#              ``color_surface_2.light = core_gray_5_alt = #F7F8FA``,
+#              ``color_border_base.light = core_gray_15 = #E5E7EB``,
+#              brand ``core_brand_50 = #00F0FF`` идентичен в обеих
+#              темах). Dark-токены в ``design-tokens.css`` тоже
+#              соответствуют AICADS, но в ``index.css``
+#              ``[data-theme="dark"]`` есть документированный
+#              «AI Look Studio» override (``#0A0E14`` вместо AICADS
+#              ``#161E28``) — это интенционально, более глубокий
+#              эстетический выбор продукта.
+#            * Финальный grep хардкодов в ``web/src/`` — 0 цветовых
+#              хардкодов вне:
+#                - admin pages (``StylesAdminPage.tsx`` /
+#                  ``ConflictsAdminPage.tsx``) — out of scope, lazy
+#                  ``admin`` chunk;
+#                - brand-OAuth кнопки и иконки провайдеров (Yandex,
+#                  VK, Telegram, Google, OK, WhatsApp, Zalo, Line)
+#                  — by design (brand identity);
+#                - photo overlays (``bg-black/...`` над
+#                  фотографиями) — by design;
+#                - accent-градиенты (``glass-btn-primary``,
+#                  ``gradient-text``, ``gradient-border-*``) — by
+#                  design.
+#            * StepAnalysis.tsx — soft-warnings panel (warning
+#              triangle) ``stroke="#FFC27A"``,
+#              ``text-[#FFD6A8]`` → ``text-[var(--color-warning-base)]``,
+#              ``stroke="currentColor"``.
+#              ``--gb-color: rgba(255,190,120,0.35)`` →
+#              ``color-mix(in srgb, var(--color-warning-base) 35%,
+#              transparent)``.
+#            * PrivacyPolicy.tsx — 3 ссылки ``text-[#60A5FA]`` →
+#              ``text-[var(--color-link-default)]``.
+#            * ThemeProvider (``web/src/lib/theme.tsx``) — добавлен
+#              ``window.addEventListener('storage', ...)`` listener.
+#              Если пользователь переключает тему в одной вкладке,
+#              остальные синхронизируются автоматически. JSDoc
+#              обновлён (Wave 2 sweep уже сделан в 1.33.x).
+#            * ``index.css`` — добавлен заголовок-комментарий
+#              «Theme tokens (1.34.2)» с правилами для новых
+#              компонентов: «only ``var(--color-*)`` /
+#              ``var(--glass-*)``, no hardcoded ``#...`` /
+#              ``rgba(255,255,255,...)`` outside accent-градиентов
+#              и documented theme-agnostic exceptions».
+#            * Удалён избыточный JSDoc «Wave 2 (1.32.0) проведёт
+#              полный sweep» в theme.tsx — sweep уже сделан в
+#              1.33.0/1.33.1/1.34.0.
+#
+#          Sanity:
+#            * ``tsc --noEmit`` clean.
+#            * ``vite build`` clean (498 kB main / 81 kB CSS,
+#              splitting chunks intact).
+#            * ``ruff check src tests`` clean.
+#            * ``pytest tests/test_api/ tests/test_orchestrator/
+#              tests/test_prompts/`` — 1587 passed, 54 skipped
+#              (backend нетронут).
+#
+#          Risk: low. Чистый verification + единичные точечные
+#          fix-ы (StepAnalysis warnings, PrivacyPolicy links,
+#          theme cross-tab sync). ``git revert`` чисто откатывает
+#          ThemeProvider listener при подозрении на гонки.
+#
+#          Theme System Overhaul завершён. Глобально:
+#            * v1.34.0 — glass-tokens + light mirror
+#              ([data-theme="light"] block).
+#            * v1.34.1 — mesh-фон + декоративные слои + TSX sweep.
+#            * v1.34.2 — verification + cross-tab sync + docs.
+#          Светлая тема теперь полностью функциональна, primary
+#          brand-colors идентичны в обеих темах, фон/поверхности/
+#          glass меняются как ожидается.
+APP_VERSION = "1.34.2"

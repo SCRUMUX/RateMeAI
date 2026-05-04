@@ -39,7 +39,7 @@ export default function PrivacyPolicy() {
               пользователей сервиса <strong>AI Look Studio</strong> (далее — «Сервис»),
               принадлежащего оператору <strong>[НАИМЕНОВАНИЕ ОПЕРАТОРА]</strong>
               {' '}(далее — «Оператор»), адрес: [АДРЕС ОПЕРАТОРА], ИНН [ИНН],
-              e-mail: <a className="text-[#60A5FA] underline" href="mailto:privacy@ailookstudio.ru">privacy@ailookstudio.ru</a>.
+              e-mail: <a className="text-[var(--color-link-default)] underline" href="mailto:privacy@ailookstudio.ru">privacy@ailookstudio.ru</a>.
             </p>
             <p>
               Политика составлена в соответствии с требованиями Федерального закона
@@ -277,7 +277,7 @@ export default function PrivacyPolicy() {
             <h2 className="text-[22px] font-semibold mt-6 mb-3">12. Контакты</h2>
             <p>
               Вопросы, запросы на удаление, отзыв согласия:{' '}
-              <a className="text-[#60A5FA] underline" href="mailto:privacy@ailookstudio.ru">
+              <a className="text-[var(--color-link-default)] underline" href="mailto:privacy@ailookstudio.ru">
                 privacy@ailookstudio.ru
               </a>
             </p>
@@ -292,7 +292,7 @@ export default function PrivacyPolicy() {
             <p>
               Оператор вправе обновить Политику. Актуальная версия всегда доступна
               по адресу{' '}
-              <a className="text-[#60A5FA] underline" href="https://ailookstudio.ru/privacy">
+              <a className="text-[var(--color-link-default)] underline" href="https://ailookstudio.ru/privacy">
                 https://ailookstudio.ru/privacy
               </a>
               . При существенных изменениях мы повторно запрашиваем согласие.
