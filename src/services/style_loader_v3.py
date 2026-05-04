@@ -60,6 +60,7 @@ from src.prompts.style_schema_v2 import (
 from src.prompts.style_schema_v3 import (
     AmbientPools,
     CONFIGURABLE_CHANNELS,
+    CoherenceRule,
     LOCATION_TYPES,
     LOCATION_TYPE_DOCUMENT,
     LOCATION_TYPE_INDOOR,
@@ -238,6 +239,60 @@ def _lock_level(raw: Any, fallback: str = "semi") -> BackgroundLockLevel:
     return mapping.get(candidate, BackgroundLockLevel.SEMI)
 
 
+def _coherence_rules(raw: Any, *, key: str) -> tuple[CoherenceRule, ...]:
+    """Parse the optional ``coherence`` array from a v3 style entry.
+
+    Tolerant of malformed entries — bad rules are logged and dropped
+    rather than crashing the loader. Duplicate seasons are caught at
+    construction time by :class:`StyleSpecV3.__post_init__`; here we
+    only validate per-rule shape.
+    """
+    if not raw:
+        return ()
+    if not isinstance(raw, list):
+        logger.warning(
+            "style_loader_v3: %s coherence must be a list, got %s — ignored",
+            key,
+            type(raw).__name__,
+        )
+        return ()
+    rules: list[CoherenceRule] = []
+    for idx, entry in enumerate(raw):
+        if not isinstance(entry, dict):
+            logger.warning(
+                "style_loader_v3: %s coherence[%d] is not a dict — skipped",
+                key,
+                idx,
+            )
+            continue
+        season = str(entry.get("season") or "").strip()
+        if not season:
+            logger.warning(
+                "style_loader_v3: %s coherence[%d] has empty season — skipped",
+                key,
+                idx,
+            )
+            continue
+        clothing_raw = entry.get("clothing_override") or {}
+        if not isinstance(clothing_raw, dict):
+            clothing_raw = {}
+        clothing_override = {
+            str(k): str(v).strip()
+            for k, v in clothing_raw.items()
+            if isinstance(k, str) and isinstance(v, str) and v.strip()
+        }
+        rules.append(
+            CoherenceRule(
+                season=season,
+                clothing_override=clothing_override,
+                lighting_filter=_tuple(entry.get("lighting_filter")),
+                weather_filter=_tuple(entry.get("weather_filter")),
+                time_of_day_filter=_tuple(entry.get("time_of_day_filter")),
+            )
+        )
+    return tuple(rules)
+
+
 def _ambient_pools(raw: Any) -> AmbientPools:
     if not isinstance(raw, dict):
         return AmbientPools()
@@ -358,6 +413,7 @@ def _to_v3(raw: dict[str, Any]) -> StyleSpecV3 | None:
             generation_mode=gen_mode,  # type: ignore[arg-type]
             available_channels=available_channels,
             location_type=location_type,
+            coherence=_coherence_rules(raw.get("coherence"), key=key),
         )
     except ValueError as exc:
         logger.error("style_loader_v3: rejected %s — %s", key, exc)

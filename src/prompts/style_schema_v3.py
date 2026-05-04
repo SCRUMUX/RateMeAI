@@ -138,6 +138,56 @@ class AmbientPools:
 
 
 @dataclass(frozen=True)
+class CoherenceRule:
+    """Cross-channel coherence rule applied after independent sampling.
+
+    1.32.1 — by design v3 samples ambient channels independently
+    (see the docstring on :class:`StyleSpecV3.ambient`). That gives
+    maximum first-roll diversity, but it also lets the sampler emit
+    semantically incoherent combinations like ``season=winter`` +
+    ``clothing="white linen blouse"`` on a yacht. Coherence rules let
+    a style author pin a season-aware clothing default and constrain
+    ambient channels to season-appropriate subsets — without giving
+    up the per-channel pool model the rest of the pipeline depends on.
+
+    Application contract:
+
+    1. The rule fires when :attr:`season` matches the rolled
+       ``ResolvedSlots.season`` (case-insensitive). Empty ``season``
+       in the rolled slots → no rule fires (indoor styles).
+    2. ``clothing_override``: when the user did NOT pin
+       ``clothing_override`` (i.e. the resolved clothing came from
+       :attr:`StyleSpecV3.clothing.default`), the rule swaps it with
+       the season-aware variant for the active gender. User pins
+       always win — the rule is skipped if the rolled clothing matches
+       a user override.
+    3. ``lighting_filter`` / ``weather_filter`` / ``time_of_day_filter``:
+       a non-empty filter restricts the rolled value of the channel to
+       its members. If the originally-rolled value is in the filter
+       (or the user pinned the channel), it stays. Otherwise the
+       sampler re-rolls from the filter using the same RNG so seeded
+       reproducibility is preserved. The substitution is recorded in
+       :attr:`ResolvedSlots.substitutions` with channel
+       ``"coherence_lighting"`` / ``"coherence_weather"`` etc. so the
+       executor can surface a transparency notice.
+
+    Empty filters mean "no constraint" — the channel keeps the
+    independently-sampled value.
+    """
+
+    season: str
+    clothing_override: dict[str, str] = field(default_factory=dict)
+    """Per-gender clothing override applied when this season is rolled
+    AND the user did not pin clothing. Maps ``"male" | "female" |
+    "neutral"`` → clothing phrase. Missing genders fall through to the
+    style's default clothing for that gender (no swap happens)."""
+
+    lighting_filter: tuple[str, ...] = ()
+    weather_filter: tuple[str, ...] = ()
+    time_of_day_filter: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True)
 class StyleSpecV3:
     """Slot-based, version-tagged style specification with random pools.
 
@@ -203,6 +253,13 @@ class StyleSpecV3:
     ``season`` enabled in :attr:`available_channels` triggers an
     ``INDOOR_SEASON`` lint error)."""
 
+    coherence: tuple[CoherenceRule, ...] = ()
+    """Optional cross-channel coherence rules — see
+    :class:`CoherenceRule`. Empty tuple keeps the v3 default of fully
+    independent sampling. Authors only need to declare rules where the
+    semantics demand it (e.g. winter outdoor styles that should not
+    suggest summer clothing)."""
+
     schema_version: int = SCHEMA_VERSION_V3
 
     def __post_init__(self) -> None:  # noqa: D401 — dataclass hook
@@ -226,6 +283,21 @@ class StyleSpecV3:
                 f"{self.location_type!r}. Allowed: {list(LOCATION_TYPES)!r} "
                 "or the empty string for 'not classified'."
             )
+        if self.coherence:
+            seen_seasons: set[str] = set()
+            for rule in self.coherence:
+                if not rule.season:
+                    raise ValueError(
+                        f"StyleSpecV3 {self.key!r}: coherence rule has empty "
+                        "season — every rule must target a specific season."
+                    )
+                norm = rule.season.strip().lower()
+                if norm in seen_seasons:
+                    raise ValueError(
+                        f"StyleSpecV3 {self.key!r}: duplicate coherence rule "
+                        f"for season {rule.season!r}."
+                    )
+                seen_seasons.add(norm)
 
     def is_channel_enabled(self, channel: str) -> bool:
         """Whether ``channel`` should be sampled / shown to the user.

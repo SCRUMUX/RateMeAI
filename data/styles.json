@@ -116,6 +116,16 @@
       "framing",
       "clothing",
       "scene_override"
+    ],
+    "coherence": [
+      {
+        "season": "winter",
+        "clothing_override": {
+          "male": "tailored wool coat over fitted sweater, dark trousers, leather boots, refined Parisian winter style",
+          "female": "tailored wool coat over knit top or dress, dark tights, leather ankle boots, refined Parisian winter style",
+          "neutral": "tailored wool coat, knit layers, dark trousers, leather boots, refined Parisian winter style"
+        }
+      }
     ]
   },
   {
@@ -234,6 +244,16 @@
       "framing",
       "clothing",
       "scene_override"
+    ],
+    "coherence": [
+      {
+        "season": "winter",
+        "clothing_override": {
+          "male": "smart light wool jacket over fitted shirt, dark chinos, polished leather shoes, mild Dubai winter style",
+          "female": "smart light wool jacket over fitted top or dress, dark trousers or skirt, polished leather flats, mild Dubai winter style",
+          "neutral": "smart light wool jacket, fitted shirt, dark chinos, polished leather shoes, mild Dubai winter style"
+        }
+      }
     ]
   },
   {
@@ -343,6 +363,16 @@
       "framing",
       "clothing",
       "scene_override"
+    ],
+    "coherence": [
+      {
+        "season": "winter",
+        "clothing_override": {
+          "male": "warm wool coat over knit sweater, dark jeans, leather boots, urban NYC winter style",
+          "female": "warm wool coat over knit top, dark jeans or thick tights, leather boots, urban NYC winter style",
+          "neutral": "warm wool coat, knit layers, dark jeans, leather boots, urban NYC winter style"
+        }
+      }
     ]
   },
   {
@@ -460,6 +490,16 @@
       "framing",
       "clothing",
       "scene_override"
+    ],
+    "coherence": [
+      {
+        "season": "winter",
+        "clothing_override": {
+          "male": "wool overcoat over fitted sweater, dark trousers, leather boots, refined Italian winter style",
+          "female": "wool overcoat over knit dress or sweater with skirt, dark tights, leather boots, refined Italian winter style",
+          "neutral": "wool overcoat, knitwear layers, dark trousers, leather boots, refined Italian winter style"
+        }
+      }
     ]
   },
   {
@@ -595,6 +635,16 @@
       "framing",
       "clothing",
       "scene_override"
+    ],
+    "coherence": [
+      {
+        "season": "winter",
+        "clothing_override": {
+          "male": "tailored wool overcoat, fitted scarf, dark trousers, leather boots, refined Italian winter elegance",
+          "female": "tailored wool overcoat, fitted scarf over knit dress, dark tights, leather boots, refined Italian winter elegance",
+          "neutral": "tailored wool overcoat, scarf, dark trousers, leather boots, refined Italian winter elegance"
+        }
+      }
     ]
   },
   {
@@ -701,6 +751,16 @@
       "framing",
       "clothing",
       "scene_override"
+    ],
+    "coherence": [
+      {
+        "season": "winter",
+        "clothing_override": {
+          "male": "tailored wool coat over knit sweater, dark chinos, leather boots, Mediterranean winter elegance",
+          "female": "tailored wool coat over knit dress or layered top, dark trousers or thick tights, leather boots, Mediterranean winter elegance",
+          "neutral": "tailored wool coat, knit layers, dark trousers, leather boots, Mediterranean winter elegance"
+        }
+      }
     ]
   },
   {
@@ -828,6 +888,16 @@
       "framing",
       "clothing",
       "scene_override"
+    ],
+    "coherence": [
+      {
+        "season": "summer",
+        "clothing_override": {
+          "male": "light tailored shirt, fitted chinos, clean leather shoes, smart British summer casual",
+          "female": "light blouse or fitted summer dress, tailored trousers or skirt, clean leather flats, smart British summer casual",
+          "neutral": "light tailored shirt, fitted trousers, clean leather shoes, smart British summer casual"
+        }
+      }
     ]
   },
   {
@@ -934,6 +1004,16 @@
       "framing",
       "clothing",
       "scene_override"
+    ],
+    "coherence": [
+      {
+        "season": "winter",
+        "clothing_override": {
+          "male": "tailored wool coat over knit sweater, dark trousers, urban leather boots, Tokyo winter street style",
+          "female": "tailored wool coat over knit top or dress, dark tights, urban leather boots, Tokyo winter street style",
+          "neutral": "tailored wool coat, knit layers, dark trousers, urban leather boots, Tokyo winter street style"
+        }
+      }
     ]
   },
   {
@@ -1049,8 +1129,7 @@
       "season": [
         "spring",
         "summer",
-        "autumn",
-        "winter"
+        "autumn"
       ]
     },
     "location_type": "outdoor",
@@ -1170,6 +1249,16 @@
       "framing",
       "clothing",
       "scene_override"
+    ],
+    "coherence": [
+      {
+        "season": "winter",
+        "clothing_override": {
+          "male": "warm wool jacket over knit sweater, dark jeans, leather boots, San Francisco winter casual",
+          "female": "warm wool jacket over knit top, dark jeans or tights, leather boots, San Francisco winter casual",
+          "neutral": "warm wool jacket, knit layers, dark jeans, leather boots, San Francisco winter casual"
+        }
+      }
     ]
   },
   {
@@ -1279,6 +1368,16 @@
       "framing",
       "clothing",
       "scene_override"
+    ],
+    "coherence": [
+      {
+        "season": "winter",
+        "clothing_override": {
+          "male": "fitted wool coat over light sweater, dark trousers, leather boots, classic Mediterranean winter style",
+          "female": "fitted wool coat over knit top or dress, dark trousers or tights, leather boots, classic Mediterranean winter style",
+          "neutral": "fitted wool coat, knit layers, dark trousers, leather boots, classic Mediterranean winter style"
+        }
+      }
     ]
   },
   {
@@ -1389,6 +1488,16 @@
       "framing",
       "clothing",
       "scene_override"
+    ],
+    "coherence": [
+      {
+        "season": "winter",
+        "clothing_override": {
+          "male": "smart wool jacket over knit sweater, dark chinos, clean leather shoes, mild winter coastal style",
+          "female": "smart wool jacket over knit top or dress, dark trousers or thick tights, clean leather flats, mild winter coastal style",
+          "neutral": "smart wool jacket, knit layers, dark trousers, leather shoes, mild winter coastal style"
+        }
+      }
     ]
   },
   {
@@ -1524,6 +1633,16 @@
       "framing",
       "clothing",
       "scene_override"
+    ],
+    "coherence": [
+      {
+        "season": "winter",
+        "clothing_override": {
+          "male": "warm puffer or wool coat, knit sweater, dark jeans, urban boots, NYC winter street style",
+          "female": "warm puffer or wool coat, knit top or sweater dress, dark jeans or tights, urban boots, NYC winter street style",
+          "neutral": "warm puffer or wool coat, knit layers, dark jeans, urban boots, NYC winter street style"
+        }
+      }
     ]
   },
   {
@@ -1650,6 +1769,16 @@
       "framing",
       "clothing",
       "scene_override"
+    ],
+    "coherence": [
+      {
+        "season": "winter",
+        "clothing_override": {
+          "male": "warm wool coat or down jacket, knit scarf, dark jeans, leather boots, NYC winter park style",
+          "female": "warm wool coat or down jacket, knit scarf, dark jeans or tights, leather boots, NYC winter park style",
+          "neutral": "warm wool coat, knit scarf, dark jeans, leather boots, NYC winter park style"
+        }
+      }
     ]
   },
   {
@@ -1761,6 +1890,16 @@
       "framing",
       "clothing",
       "scene_override"
+    ],
+    "coherence": [
+      {
+        "season": "summer",
+        "clothing_override": {
+          "male": "light cotton shirt, fitted trousers, clean leather shoes, smart British summer casual",
+          "female": "light blouse or summer dress, tailored trousers or skirt, clean leather flats, smart British summer casual",
+          "neutral": "light cotton shirt, fitted trousers, clean leather shoes, smart British summer casual"
+        }
+      }
     ]
   },
   {
@@ -2008,6 +2147,16 @@
       "framing",
       "clothing",
       "scene_override"
+    ],
+    "coherence": [
+      {
+        "season": "winter",
+        "clothing_override": {
+          "male": "smart layered look, fitted knit sweater over collared shirt, dark trousers, leather shoes",
+          "female": "smart layered look, fitted knit top or sweater dress, dark trousers or tights, leather flats",
+          "neutral": "smart layered look, fitted knit over collared shirt, dark trousers, leather shoes"
+        }
+      }
     ]
   },
   {
@@ -2121,8 +2270,7 @@
       "season": [
         "spring",
         "summer",
-        "autumn",
-        "winter"
+        "autumn"
       ]
     },
     "location_type": "outdoor",
@@ -3085,8 +3233,7 @@
       "season": [
         "spring",
         "summer",
-        "autumn",
-        "winter"
+        "autumn"
       ]
     },
     "location_type": "outdoor",
@@ -3339,8 +3486,7 @@
       "season": [
         "spring",
         "summer",
-        "autumn",
-        "winter"
+        "autumn"
       ]
     },
     "location_type": "outdoor",
@@ -3845,6 +3991,16 @@
       "framing",
       "clothing",
       "scene_override"
+    ],
+    "coherence": [
+      {
+        "season": "winter",
+        "clothing_override": {
+          "male": "thermal long-sleeve running top, fitted running tights, lightweight winter running jacket, running shoes",
+          "female": "thermal long-sleeve running top, fitted running leggings, lightweight winter running jacket, running shoes",
+          "neutral": "thermal long-sleeve running top, fitted running tights, lightweight winter running jacket, running shoes"
+        }
+      }
     ]
   },
   {
@@ -3960,8 +4116,7 @@
       "season": [
         "spring",
         "summer",
-        "autumn",
-        "winter"
+        "autumn"
       ]
     },
     "location_type": "outdoor",
@@ -4098,6 +4253,16 @@
       "framing",
       "clothing",
       "scene_override"
+    ],
+    "coherence": [
+      {
+        "season": "winter",
+        "clothing_override": {
+          "male": "winter hiking shell over fleece, insulated trousers, sturdy hiking boots, beanie",
+          "female": "winter hiking shell over fleece, insulated trousers, sturdy hiking boots, beanie",
+          "neutral": "winter hiking shell over fleece, insulated trousers, sturdy hiking boots, beanie"
+        }
+      }
     ]
   },
   {
@@ -4353,6 +4518,16 @@
       "framing",
       "clothing",
       "scene_override"
+    ],
+    "coherence": [
+      {
+        "season": "winter",
+        "clothing_override": {
+          "male": "thermal cycling jersey, fitted winter bib tights, cycling jacket, cycling shoes, gloves",
+          "female": "thermal cycling jersey, fitted winter bib tights, cycling jacket, cycling shoes, gloves",
+          "neutral": "thermal cycling jersey, fitted winter bib tights, cycling jacket, cycling shoes, gloves"
+        }
+      }
     ]
   },
   {
@@ -4478,6 +4653,16 @@
       "framing",
       "clothing",
       "scene_override"
+    ],
+    "coherence": [
+      {
+        "season": "winter",
+        "clothing_override": {
+          "male": "fitted long-sleeve thermal top, training pants, athletic jacket, court trainers",
+          "female": "fitted long-sleeve thermal top, training leggings, athletic jacket, court trainers",
+          "neutral": "fitted long-sleeve thermal top, training pants, athletic jacket, court trainers"
+        }
+      }
     ]
   },
   {
@@ -5297,6 +5482,16 @@
       "framing",
       "clothing",
       "scene_override"
+    ],
+    "coherence": [
+      {
+        "season": "winter",
+        "clothing_override": {
+          "male": "thermal layers under leather riding jacket, riding pants, leather boots, gloves, helmet in hand",
+          "female": "thermal layers under leather riding jacket, riding pants, leather boots, gloves, helmet in hand",
+          "neutral": "thermal layers under leather riding jacket, riding pants, leather boots, gloves, helmet in hand"
+        }
+      }
     ]
   },
   {
@@ -14433,6 +14628,16 @@
       "framing",
       "clothing",
       "scene_override"
+    ],
+    "coherence": [
+      {
+        "season": "winter",
+        "clothing_override": {
+          "male": "winter travel jacket over fitted sweater, dark jeans, sturdy boots, beanie or scarf, travel pack accessories",
+          "female": "winter travel jacket over fitted sweater, dark jeans or thick tights, sturdy boots, beanie or scarf, travel pack accessories",
+          "neutral": "winter travel jacket, knit layers, dark jeans, sturdy boots, beanie or scarf, travel pack accessories"
+        }
+      }
     ]
   },
   {

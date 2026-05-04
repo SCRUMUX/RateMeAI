@@ -2900,4 +2900,119 @@
 #          ``data/styles.json`` под winter-стили). После неё
 #          1.32.2 — scene integration anchors (light wrap,
 #          ambient occlusion, contact shadows, per-model tails).
-APP_VERSION = "1.32.0"
+# 1.32.1 — Wave 2 итерация 2: Cross-channel coherence.
+#          Решает «winter↔linen» класс конфликтов: до 1.32.1 v3
+#          schema по дизайну сэмплировал каналы независимо
+#          (``ambient`` каналы — это «по дизайну отсутствует
+#          coherence»). Это давало максимальное first-roll
+#          разнообразие, но допускало сочетания вида
+#          ``season=winter`` + ``clothing="white linen"`` на
+#          яхте. 1.32.1 вводит **opt-in** coherence слой,
+#          сохраняя независимость как default.
+#
+#          Schema (``src/prompts/style_schema_v3.py``):
+#            * Новый ``@dataclass(frozen=True) CoherenceRule``
+#              с полями:
+#               - ``season: str`` — целевой сезон, который
+#                 триггерит правило (case-insensitive match
+#                 на rolled ``season``).
+#               - ``clothing_override: dict[str, str]`` —
+#                 per-gender замена дефолтной одежды.
+#                 Применяется только если пользователь не
+#                 пинал ``clothing_override``.
+#               - ``lighting_filter`` / ``weather_filter`` /
+#                 ``time_of_day_filter`` — opt-in whitelist
+#                 для канала. Если original roll вне whitelist
+#                 (и пользователь не пинал) — re-roll из
+#                 whitelist той же RNG (детерминизм seed
+#                 сохраняется).
+#            * ``StyleSpecV3.coherence: tuple[CoherenceRule, ...]``
+#              — пустой tuple = legacy behavior (все каналы
+#              независимы). ``__post_init__`` валидирует
+#              non-empty season и unique seasons на правило.
+#
+#          SlotSampler (``src/prompts/slot_sampler.py``):
+#            * Новый ``_apply_coherence`` post-processing шаг
+#              после независимого сэмплинга. Применяется
+#              только когда ``spec.coherence`` непуст И
+#              ``ambient.season`` rolled.
+#            * Precedence (вшита в логику):
+#               user_override > coherence > random_pool > default
+#            * Все coherence-патчи логируются в
+#              ``ResolvedSlots.substitutions`` с channel-именами
+#              ``coherence_clothing`` / ``coherence_lighting`` /
+#              ``coherence_weather`` / ``coherence_time_of_day``,
+#              чтобы executor мог отрисовать UI-уведомление с
+#              другим тоном, чем при out-of-pool soft-substitute.
+#
+#          JSON loader (``src/services/style_loader_v3.py``):
+#            * Новый ``_coherence_rules`` парсер для массива
+#              ``coherence`` в JSON-стиле. Толерантен к
+#              malformed entries (логирует и дропает).
+#            * Wired в ``_to_v3`` builder.
+#
+#          Data (``data/styles.json`` — 21 стиль обновлён):
+#            * Скрипт-ревизия
+#              ``scripts/migrations/2026_05_coherence/audit_seasonal_clothing.py``
+#              нашёл 15 v3-стилей с конфликтом winter↔summer-coded
+#              clothing.
+#            * ``migrate.py`` (idempotent) применил два класса
+#              правок:
+#               1) Удалил ``winter`` из ``ambient.season`` для
+#                  5 семантически невозможных winter-сценариев:
+#                  yacht, beach_sunset, swimming_pool,
+#                  sea_balcony, singapore_marina_bay (тропики).
+#               2) Добавил ``coherence`` правила для 21 outdoor
+#                  стиля под winter-генерации:
+#                  paris_eiffel, dubai_burj_khalifa, nyc_*
+#                  (3 шт), tokyo_tower, sf_golden_gate,
+#                  rome_colosseum, venice_san_marco,
+#                  barcelona_sagrada, athens_acropolis,
+#                  sydney_opera + summer-rule для
+#                  london_eye / london_big_ben +
+#                  4 outdoor-активности (running, tennis,
+#                  cycling, motorcycle, hiking) + travel_blogger,
+#                  hotel_breakfast.
+#               Каждое правило содержит per-gender (male/
+#               female/neutral) clothing_override (wool coat /
+#               winter parka / thermal kit) — модель получает
+#               сезонно-корректную фразу.
+#
+#          Тесты (``tests/test_prompts/test_coherence.py``):
+#            * 9 unit-тестов покрывают:
+#               - winter-rule replaces summer linen на yacht
+#               - summer-rule replaces snow boots на ski
+#               - substitution log получает channel
+#                 ``coherence_clothing``
+#               - user pin на ``clothing_override`` побеждает
+#                 coherence (override > coherence)
+#               - season не совпал с правилом → fallback на
+#                 default (без coherence-логов)
+#               - lighting_filter re-rolls off-filter value
+#               - lighting_filter оставляет уже-в-фильтре
+#                 значение нетронутым
+#               - lighting_filter уважает user pin
+#               - seeded determinism сохраняется
+#
+#          Sanity: ``tsc --noEmit`` clean, ``vite build`` clean
+#          (76.88 kB CSS gzip 14.73, 717 kB JS gzip 210.65),
+#          ``ruff check src tests`` clean,
+#          ``pytest tests/test_api/ tests/test_orchestrator/
+#          tests/test_prompts/ tests/test_services/``
+#          1714 passed / 54 skipped (9 новых coherence + старые
+#          v3 регрессии). ``git revert`` чисто восстанавливает
+#          1.32.0; ``data/styles.json`` ревёрнется через тот же
+#          revert (поля coherence просто перестанут читаться
+#          loader-ом, но он их толерирует).
+#
+#          Risk: правила coherence могут переопределить
+#          пользовательский clothing_override — UNIT-тесты
+#          подтверждают precedence override > coherence >
+#          default. A/B пользователя на winter-генерациях
+#          подтвердит, что одежда теперь сезонная.
+#
+#          Следующая итерация (1.32.2) — scene integration
+#          anchors (SCENE_BLEND_PHOTO с light wrap, ambient
+#          occlusion, contact shadows; разведение
+#          QUALITY_PHOTO_GPT vs QUALITY_PHOTO_NANO).
+APP_VERSION = "1.32.1"

@@ -1,0 +1,434 @@
+{
+  "total_v3": 126,
+  "season_buckets": {
+    "winter": [
+      "paris_eiffel",
+      "dubai_burj_khalifa",
+      "nyc_brooklyn_bridge",
+      "rome_colosseum",
+      "venice_san_marco",
+      "barcelona_sagrada",
+      "london_eye",
+      "tokyo_tower",
+      "singapore_marina_bay",
+      "sf_golden_gate",
+      "athens_acropolis",
+      "sydney_opera",
+      "nyc_times_square",
+      "nyc_central_park",
+      "london_big_ben",
+      "airplane_window",
+      "hotel_breakfast",
+      "sea_balcony",
+      "old_town_walk",
+      "street_market",
+      "near_car",
+      "yacht",
+      "beach_sunset",
+      "dog_lover",
+      "rooftop_city",
+      "running",
+      "swimming_pool",
+      "hiking",
+      "yoga_outdoor",
+      "cycling",
+      "tennis",
+      "rainy_day",
+      "motorcycle",
+      "street_urban",
+      "warm_outdoor",
+      "tinder_pack_rooftop_golden",
+      "candid_street",
+      "influencer_urban",
+      "golden_hour",
+      "neon_night",
+      "tinder_top",
+      "cycling_social",
+      "panoramic_window",
+      "in_motion",
+      "achievement_moment",
+      "light_irony",
+      "travel_blogger"
+    ],
+    "summer": [
+      "paris_eiffel",
+      "dubai_burj_khalifa",
+      "nyc_brooklyn_bridge",
+      "rome_colosseum",
+      "venice_san_marco",
+      "barcelona_sagrada",
+      "london_eye",
+      "tokyo_tower",
+      "singapore_marina_bay",
+      "sf_golden_gate",
+      "athens_acropolis",
+      "sydney_opera",
+      "nyc_times_square",
+      "nyc_central_park",
+      "london_big_ben",
+      "airplane_window",
+      "hotel_breakfast",
+      "sea_balcony",
+      "old_town_walk",
+      "street_market",
+      "near_car",
+      "yacht",
+      "beach_sunset",
+      "dog_lover",
+      "rooftop_city",
+      "running",
+      "swimming_pool",
+      "hiking",
+      "yoga_outdoor",
+      "cycling",
+      "tennis",
+      "rainy_day",
+      "motorcycle",
+      "street_urban",
+      "warm_outdoor",
+      "tinder_pack_rooftop_golden",
+      "candid_street",
+      "influencer_urban",
+      "golden_hour",
+      "neon_night",
+      "tinder_top",
+      "cycling_social",
+      "panoramic_window",
+      "in_motion",
+      "achievement_moment",
+      "light_irony",
+      "instagram_aesthetic",
+      "travel_blogger"
+    ],
+    "spring": [
+      "paris_eiffel",
+      "dubai_burj_khalifa",
+      "nyc_brooklyn_bridge",
+      "rome_colosseum",
+      "venice_san_marco",
+      "barcelona_sagrada",
+      "london_eye",
+      "tokyo_tower",
+      "singapore_marina_bay",
+      "sf_golden_gate",
+      "athens_acropolis",
+      "sydney_opera",
+      "nyc_times_square",
+      "nyc_central_park",
+      "london_big_ben",
+      "airplane_window",
+      "hotel_breakfast",
+      "sea_balcony",
+      "old_town_walk",
+      "street_market",
+      "near_car",
+      "yacht",
+      "beach_sunset",
+      "dog_lover",
+      "rooftop_city",
+      "running",
+      "swimming_pool",
+      "hiking",
+      "yoga_outdoor",
+      "cycling",
+      "tennis",
+      "rainy_day",
+      "motorcycle",
+      "street_urban",
+      "warm_outdoor",
+      "tinder_pack_rooftop_golden",
+      "candid_street",
+      "influencer_urban",
+      "golden_hour",
+      "neon_night",
+      "tinder_top",
+      "cycling_social",
+      "panoramic_window",
+      "in_motion",
+      "achievement_moment",
+      "light_irony",
+      "instagram_aesthetic",
+      "travel_blogger"
+    ],
+    "autumn": [
+      "paris_eiffel",
+      "dubai_burj_khalifa",
+      "nyc_brooklyn_bridge",
+      "rome_colosseum",
+      "venice_san_marco",
+      "barcelona_sagrada",
+      "london_eye",
+      "tokyo_tower",
+      "singapore_marina_bay",
+      "sf_golden_gate",
+      "athens_acropolis",
+      "sydney_opera",
+      "nyc_times_square",
+      "nyc_central_park",
+      "london_big_ben",
+      "airplane_window",
+      "hotel_breakfast",
+      "sea_balcony",
+      "old_town_walk",
+      "street_market",
+      "near_car",
+      "yacht",
+      "beach_sunset",
+      "dog_lover",
+      "rooftop_city",
+      "running",
+      "swimming_pool",
+      "hiking",
+      "yoga_outdoor",
+      "cycling",
+      "tennis",
+      "rainy_day",
+      "motorcycle",
+      "street_urban",
+      "warm_outdoor",
+      "tinder_pack_rooftop_golden",
+      "candid_street",
+      "influencer_urban",
+      "golden_hour",
+      "neon_night",
+      "tinder_top",
+      "cycling_social",
+      "panoramic_window",
+      "in_motion",
+      "achievement_moment",
+      "light_irony",
+      "instagram_aesthetic",
+      "travel_blogger"
+    ]
+  },
+  "flagged": [
+    {
+      "id": "rome_colosseum",
+      "mode": "dating",
+      "location_type": "outdoor",
+      "seasons": [
+        "spring",
+        "summer",
+        "autumn",
+        "winter"
+      ],
+      "clothing_default": "linen shirt, light chinos, leather loafers, relaxed Italian style | linen blouse, light trousers or midi skirt, leather sandals, relaxed Italian style | linen shirt, light chinos, leather loafers, relaxed Italian style",
+      "flags": [
+        "WINTER_SEASON_SUMMER_CLOTHING"
+      ]
+    },
+    {
+      "id": "venice_san_marco",
+      "mode": "dating",
+      "location_type": "outdoor",
+      "seasons": [
+        "spring",
+        "summer",
+        "autumn",
+        "winter"
+      ],
+      "clothing_default": "elegant smart-casual, fitted blazer, quality leather shoes, refined style | elegant smart-casual dress or fitted blazer with skirt, quality leather flats, refined style | elegant smart-casual, fitted blazer, quality leather shoes, refined style",
+      "flags": [
+        "WINTER_BIASED_KEY_WITH_SUMMER"
+      ]
+    },
+    {
+      "id": "barcelona_sagrada",
+      "mode": "dating",
+      "location_type": "outdoor",
+      "seasons": [
+        "spring",
+        "summer",
+        "autumn",
+        "winter"
+      ],
+      "clothing_default": "relaxed summer shirt, light chinos, straw hat, Mediterranean casual | relaxed summer blouse or sundress, light trousers, straw hat, Mediterranean casual | relaxed summer shirt, light chinos, straw hat, Mediterranean casual",
+      "flags": [
+        "WINTER_SEASON_SUMMER_CLOTHING"
+      ]
+    },
+    {
+      "id": "london_eye",
+      "mode": "dating",
+      "location_type": "outdoor",
+      "seasons": [
+        "spring",
+        "summer",
+        "autumn",
+        "winter"
+      ],
+      "clothing_default": "tailored overcoat or trench, dark scarf, smart casual British layers | tailored overcoat or trench, dark scarf, smart casual British layers | tailored overcoat or trench, dark scarf, smart casual British layers",
+      "flags": [
+        "SUMMER_SEASON_WINTER_CLOTHING"
+      ]
+    },
+    {
+      "id": "singapore_marina_bay",
+      "mode": "dating",
+      "location_type": "outdoor",
+      "seasons": [
+        "spring",
+        "summer",
+        "autumn",
+        "winter"
+      ],
+      "clothing_default": "smart fitted shirt, tailored dark trousers, polished modern shoes | smart fitted blouse, tailored dark trousers or skirt, polished modern flats | smart fitted shirt, tailored dark trousers, polished modern shoes",
+      "flags": [
+        "SUMMER_BIASED_KEY_WITH_WINTER"
+      ]
+    },
+    {
+      "id": "athens_acropolis",
+      "mode": "dating",
+      "location_type": "outdoor",
+      "seasons": [
+        "spring",
+        "summer",
+        "autumn",
+        "winter"
+      ],
+      "clothing_default": "relaxed white linen shirt, light trousers, leather sandals | relaxed white linen blouse or dress, light trousers, leather sandals | relaxed white linen shirt, light trousers, leather sandals",
+      "flags": [
+        "WINTER_SEASON_SUMMER_CLOTHING"
+      ]
+    },
+    {
+      "id": "sydney_opera",
+      "mode": "dating",
+      "location_type": "outdoor",
+      "seasons": [
+        "spring",
+        "summer",
+        "autumn",
+        "winter"
+      ],
+      "clothing_default": "casual smart outfit, fitted polo or button-down, clean summer style | casual smart outfit, fitted blouse or summer dress, clean summer style | casual smart outfit, fitted polo or button-down, clean summer style",
+      "flags": [
+        "WINTER_SEASON_SUMMER_CLOTHING"
+      ]
+    },
+    {
+      "id": "hotel_breakfast",
+      "mode": "dating",
+      "location_type": "outdoor",
+      "seasons": [
+        "spring",
+        "summer",
+        "autumn",
+        "winter"
+      ],
+      "clothing_default": "clean casual morning outfit, quality polo or light linen shirt | clean casual morning outfit, quality polo or light linen shirt | clean casual morning outfit, quality polo or light linen shirt",
+      "flags": [
+        "WINTER_SEASON_SUMMER_CLOTHING"
+      ]
+    },
+    {
+      "id": "sea_balcony",
+      "mode": "dating",
+      "location_type": "outdoor",
+      "seasons": [
+        "spring",
+        "summer",
+        "autumn",
+        "winter"
+      ],
+      "clothing_default": "relaxed morning linen outfit, light cotton, fresh natural look | relaxed morning linen outfit, light cotton, fresh natural look | relaxed morning linen outfit, light cotton, fresh natural look",
+      "flags": [
+        "WINTER_SEASON_SUMMER_CLOTHING"
+      ]
+    },
+    {
+      "id": "yacht",
+      "mode": "dating",
+      "location_type": "outdoor",
+      "seasons": [
+        "spring",
+        "summer",
+        "autumn",
+        "winter"
+      ],
+      "clothing_default": "white linen shirt unbuttoned at top, navy shorts or chinos, deck shoes | white linen blouse or summer dress, navy shorts or wide-leg trousers, deck shoes | white linen shirt unbuttoned at top, navy shorts or chinos, deck shoes",
+      "flags": [
+        "WINTER_SEASON_SUMMER_CLOTHING",
+        "SUMMER_BIASED_KEY_WITH_WINTER"
+      ]
+    },
+    {
+      "id": "beach_sunset",
+      "mode": "dating",
+      "location_type": "outdoor",
+      "seasons": [
+        "spring",
+        "summer",
+        "autumn",
+        "winter"
+      ],
+      "clothing_default": "unbuttoned linen shirt over tee, rolled chinos or shorts, bare feet | flowy linen blouse or beach dress, rolled trousers or shorts, bare feet | unbuttoned linen shirt over tee, rolled chinos or shorts, bare feet",
+      "flags": [
+        "WINTER_SEASON_SUMMER_CLOTHING",
+        "SUMMER_BIASED_KEY_WITH_WINTER"
+      ]
+    },
+    {
+      "id": "running",
+      "mode": "dating",
+      "location_type": "outdoor",
+      "seasons": [
+        "spring",
+        "summer",
+        "autumn",
+        "winter"
+      ],
+      "clothing_default": "lightweight running shirt, athletic shorts, running shoes, sport watch | lightweight running top, athletic shorts or leggings, running shoes, sport watch | lightweight running shirt, athletic shorts, running shoes, sport watch",
+      "flags": [
+        "WINTER_SEASON_SUMMER_CLOTHING"
+      ]
+    },
+    {
+      "id": "swimming_pool",
+      "mode": "dating",
+      "location_type": "outdoor",
+      "seasons": [
+        "spring",
+        "summer",
+        "autumn",
+        "winter"
+      ],
+      "clothing_default": "fitted swim trunks, athletic build, optional sunglasses in hand | fitted one-piece or sporty swimsuit, optional sunglasses in hand | fitted swim trunks, athletic build, optional sunglasses in hand",
+      "flags": [
+        "WINTER_SEASON_SUMMER_CLOTHING",
+        "SUMMER_BIASED_KEY_WITH_WINTER"
+      ]
+    },
+    {
+      "id": "tennis",
+      "mode": "dating",
+      "location_type": "outdoor",
+      "seasons": [
+        "spring",
+        "summer",
+        "autumn",
+        "winter"
+      ],
+      "clothing_default": "fitted polo shirt, tennis shorts, wristband, clean white sneakers | fitted polo or tennis dress, tennis skirt, wristband, clean white sneakers | fitted polo shirt, tennis shorts, wristband, clean white sneakers",
+      "flags": [
+        "WINTER_SEASON_SUMMER_CLOTHING"
+      ]
+    },
+    {
+      "id": "travel_blogger",
+      "mode": "social",
+      "location_type": "outdoor",
+      "seasons": [
+        "spring",
+        "summer",
+        "autumn",
+        "winter"
+      ],
+      "clothing_default": "travel outfit, linen shirt, hat or sunglasses, adventure accessories | travel outfit, linen shirt, hat or sunglasses, adventure accessories | travel outfit, linen shirt, hat or sunglasses, adventure accessories",
+      "flags": [
+        "WINTER_SEASON_SUMMER_CLOTHING"
+      ]
+    }
+  ]
+}

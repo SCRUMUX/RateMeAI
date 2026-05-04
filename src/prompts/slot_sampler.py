@@ -45,12 +45,14 @@ from typing import Any
 
 from src.prompts.style_schema_v3 import (
     AmbientPools,
+    CoherenceRule,
     ResolvedSlots,
     StyleSpecV3,
 )
 
 
 _AMBIENT_CHANNELS: tuple[str, ...] = ("lighting", "weather", "time_of_day", "season")
+_COHERENCE_FILTERED_CHANNELS: tuple[str, ...] = ("lighting", "weather", "time_of_day")
 
 
 def _norm(value: Any) -> str:
@@ -297,6 +299,23 @@ def sample(
         substitutions=substitutions,
     )
 
+    # 1.32.1 — apply cross-channel coherence rules. The independent
+    # sampling above gives maximum first-roll diversity; coherence
+    # patches the few combinations that would be semantically
+    # incoherent (e.g. winter + summer dress on a yacht).
+    if spec.coherence and ambient["season"]:
+        clothing, ambient = _apply_coherence(
+            spec=spec,
+            rolled_season=ambient["season"],
+            ambient=ambient,
+            clothing=clothing,
+            gender=gender,
+            user_overrides=user_overrides,
+            random_picks=random_picks,
+            substitutions=substitutions,
+            rng=chooser,
+        )
+
     return ResolvedSlots(
         trigger=trigger,
         scene=scene,
@@ -310,3 +329,99 @@ def sample(
         user_overrides=user_overrides,
         substitutions=substitutions,
     )
+
+
+def _find_coherence_rule(
+    rules: tuple[CoherenceRule, ...], season: str
+) -> CoherenceRule | None:
+    """Return the first rule whose season matches ``season`` (case-
+    insensitive). Empty / None inputs return None."""
+    if not season or not rules:
+        return None
+    target = season.strip().lower()
+    if not target:
+        return None
+    for rule in rules:
+        if rule.season.strip().lower() == target:
+            return rule
+    return None
+
+
+def _apply_coherence(
+    *,
+    spec: StyleSpecV3,
+    rolled_season: str,
+    ambient: dict[str, str],
+    clothing: str,
+    gender: str,
+    user_overrides: dict[str, str],
+    random_picks: dict[str, str],
+    substitutions: list[dict[str, str]],
+    rng: random.Random,
+) -> tuple[str, dict[str, str]]:
+    """Patch the independently-sampled slots to enforce coherence.
+
+    Mutates ``ambient`` / ``random_picks`` / ``substitutions`` in-place
+    and returns ``(clothing, ambient)``. Returns the ambient dict so
+    the caller can keep using a single reference; the dict is also the
+    same instance it received.
+
+    User pins (registered in ``user_overrides``) are inviolable: the
+    rule never overwrites a channel the user explicitly set. The
+    substitution log uses ``"coherence_<channel>"`` channel names so
+    the executor can render a different transparency notice than the
+    out-of-pool soft-substitute case.
+    """
+    rule = _find_coherence_rule(spec.coherence, rolled_season)
+    if rule is None:
+        return clothing, ambient
+
+    # Clothing: only apply when user did NOT pin it. The override is
+    # gender-aware; missing genders fall through to the default
+    # clothing for that gender (no swap happens).
+    if "clothing" not in user_overrides:
+        gender_norm = gender if gender in rule.clothing_override else "neutral"
+        new_clothing = rule.clothing_override.get(gender_norm, "")
+        if new_clothing and new_clothing != clothing:
+            substitutions.append(
+                {
+                    "channel": "coherence_clothing",
+                    "requested": clothing,
+                    "applied": new_clothing,
+                }
+            )
+            clothing = new_clothing
+
+    # Ambient filters: re-roll when the current value is not in the
+    # filter AND the user did not pin the channel.
+    filter_map: dict[str, tuple[str, ...]] = {
+        "lighting": rule.lighting_filter,
+        "weather": rule.weather_filter,
+        "time_of_day": rule.time_of_day_filter,
+    }
+    for channel in _COHERENCE_FILTERED_CHANNELS:
+        whitelist = filter_map[channel]
+        if not whitelist:
+            continue  # no constraint for this channel
+        if channel in user_overrides:
+            continue  # user explicitly pinned — never override
+        current = ambient.get(channel, "")
+        if current and current in whitelist:
+            continue  # already coherent
+        if not whitelist:
+            continue
+        # Re-roll using the same RNG to stay deterministic for a given
+        # ``(spec, hints, seed)``.
+        replacement = rng.choice(whitelist)
+        if current != replacement:
+            substitutions.append(
+                {
+                    "channel": f"coherence_{channel}",
+                    "requested": current,
+                    "applied": replacement,
+                }
+            )
+            ambient[channel] = replacement
+            random_picks[channel] = replacement
+
+    return clothing, ambient
