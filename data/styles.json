@@ -5150,7 +5150,7 @@
     "trigger_pool": [
       "modern apartment with warm ambient lamp lighting, city view through large window, comfortable interior, book or drink nearby"
     ],
-    "scene_anchor": "modern apartment with warm ambient lamp lighting, city view through large window, comfortable interior, book or drink nearby",
+    "scene_anchor": "modern apartment with warm ambient lamp glow, city view through large window, comfortable interior, book or drink nearby",
     "scene_overrides": [
       "cozy living room with soft sofa and plants",
       "modern loft kitchen at evening",
@@ -6101,7 +6101,7 @@
     "trigger_pool": [
       "studio with smooth gradient lighting, charcoal-to-warm-grey backdrop, clean even studio falloff"
     ],
-    "scene_anchor": "studio with smooth gradient lighting, charcoal-to-warm-grey backdrop, clean even studio falloff",
+    "scene_anchor": "studio with smooth gradient backdrop falloff, charcoal-to-warm-grey backdrop, clean even studio setup",
     "scene_overrides": [
       "seamless charcoal-to-warm-grey studio backdrop",
       "deep burgundy painted studio wall",
@@ -6921,7 +6921,7 @@
     "trigger_pool": [
       "neutral gradient studio backdrop charcoal-to-grey, classic Rembrandt lighting with gentle fill"
     ],
-    "scene_anchor": "neutral gradient studio backdrop charcoal-to-grey, classic Rembrandt lighting with gentle fill",
+    "scene_anchor": "neutral gradient studio backdrop charcoal-to-grey, classic Rembrandt sidelight with gentle fill",
     "scene_overrides": [
       "classic Rembrandt key with gentle fill",
       "deep blue studio backdrop",
@@ -8225,7 +8225,7 @@
       "time_of_day": [],
       "season": []
     },
-    "location_type": "mixed",
+    "location_type": "indoor",
     "available_channels": [
       "lighting",
       "framing",
@@ -9837,7 +9837,7 @@
     "trigger_pool": [
       "light-grey studio backdrop, even lighting from both sides, clean and distraction-free"
     ],
-    "scene_anchor": "light-grey studio backdrop, even lighting from both sides, clean and distraction-free",
+    "scene_anchor": "light-grey studio backdrop, even illumination from both sides, clean and distraction-free",
     "scene_overrides": [
       "even diffused key light from both sides",
       "light-grey studio backdrop, distraction-free",

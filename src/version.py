@@ -2504,4 +2504,65 @@
 #          ``ruff`` clean for src/ + tests/. ``tsc --noEmit``
 #          clean. ``audit.py`` reports the catalog as fully
 #          green for the first time since the 1.28.0 migration.
-APP_VERSION = "1.30.1"
+# 1.30.2 — Style-curation wrap-up patch. Closes the residual
+#          items left after 1.30.1 so the next release cycle
+#          can move on to scaling work without the catalog
+#          carrying half-finished hygiene debt.
+#
+#          ``scene_anchor`` cosmetic cleanups (4 styles):
+#            * ``evening_home`` — "warm ambient lamp lighting"
+#              → "warm ambient lamp glow".
+#            * ``studio`` (smooth gradient backdrop) —
+#              "smooth gradient lighting" → "smooth gradient
+#              backdrop falloff".
+#            * ``formal_portrait`` — "classic Rembrandt
+#              lighting with gentle fill" → "classic Rembrandt
+#              sidelight with gentle fill" (Rembrandt sidelight
+#              is the same photographic term, just without the
+#              "lighting" word that tripped the regex).
+#            * ``neutral_bg`` — "even lighting from both sides"
+#              → "even illumination from both sides".
+#
+#          Lint regression budget tightened
+#          (``tests/test_styles_v3_data.py``):
+#            * ``MAX_DIRTY_SCENE_ANCHORS = 45 → 4``. The
+#              remaining four are inherent to the style
+#              identity and intentionally retained:
+#              ``nyc_brooklyn_bridge`` (golden sunset),
+#              ``sf_golden_gate`` (fog), ``sunset_beach``
+#              (golden sunset), ``rain`` (in light rain).
+#              Touching them would change the visual concept,
+#              not just the wording.
+#
+#          Location reclassification (1 style):
+#            * ``decision_moment`` — ``location_type``
+#              ``mixed → indoor``. The pose is "standing at a
+#              large window overlooking the cityscape", which
+#              is structurally indoor (person is inside, looking
+#              out). The ``available_channels`` set is identical
+#              for ``mixed`` and ``indoor`` so behaviour is
+#              unchanged; this is a metadata correction so the
+#              admin lint / conflict reports stay accurate.
+#
+#          Deliberately deferred:
+#            * ``quality_identity.base`` coverage — 0 / 100 v3
+#              styles have a non-empty value. The model wrapper
+#              falls back to ``_MODEL_DEFAULT_TAIL`` when empty
+#              (see ``src/prompts/model_wrappers.py:75-77``)
+#              and that fallback is correct for every model
+#              currently wired up. Filling per-style tails
+#              requires A/B generation tests, not a batch
+#              script — punted to a separate QA-driven effort.
+#
+#          Catalog state after this release:
+#            * Lint: 0 dirty styles, 0 issues (unchanged).
+#            * Conflicts: 0 / 0 / 0 (unchanged).
+#            * Dirty scene anchors: 8 → 4 (50% reduction).
+#            * Locations: 72 indoor, 47 outdoor, 5 document,
+#              2 mixed (was 71 / 47 / 5 / 3 in 1.30.1).
+#
+#          Tests: 2002 backend pytest pass (unchanged). Ruff
+#          clean. ``tsc --noEmit`` clean. Pure data + one
+#          test-budget edit; ``git revert`` restores 1.30.1
+#          with no consumer-side migration needed.
+APP_VERSION = "1.30.2"

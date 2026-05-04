@@ -77,9 +77,12 @@ _FORBIDDEN_WORDS = re.compile(
     r"midnight|dawn|dusk|rain|snow|fog)\b",
     re.I,
 )
-# Allowed remaining "dirty" scene_anchors — tighten this number as
-# manual curation eats into the ~38 entries left after the first pass.
-MAX_DIRTY_SCENE_ANCHORS = 45
+# Allowed remaining "dirty" scene_anchors. Down to 4 after the
+# 1.30.2 hygiene pass — these are intentional (the weather / time
+# token IS the scene identity): brooklyn_bridge "golden sunset",
+# golden_gate "fog", sunset_beach "golden sunset", rain "in light
+# rain". Tighten further only if you also rewrite those anchors.
+MAX_DIRTY_SCENE_ANCHORS = 4
 
 
 @pytest.fixture(scope="module")
