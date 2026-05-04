@@ -100,6 +100,11 @@ module.exports = {
         'danger-surface': 'var(--color-danger-surface)',
         'danger-text': 'var(--color-danger-text)',
         'danger-hover-bg': 'var(--color-danger-hover-bg)',
+        // 1.33.0 aliases — shorter names that match the design
+        // spec wording. Both resolve to the same CSS variable so
+        // theme switching works identically.
+        'danger': 'var(--color-danger)',
+        'danger-soft': 'var(--color-danger-soft)',
         
         'info-base': 'var(--color-info-base)',
         'info-surface': 'var(--color-info-surface)',

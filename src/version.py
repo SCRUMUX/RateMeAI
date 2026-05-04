@@ -3090,4 +3090,69 @@
 #          Следующая итерация (1.33.0) — UI primitives
 #          (Button / Card / Select / Field / Modal / Divider)
 #          и color-sweep wave 1 (миграция модалок на токены).
-APP_VERSION = "1.32.2"
+# 1.33.0 — Wave 2 итерация 4: UI primitives + color sweep wave 1.
+#          Frontend-only релиз (backend пайплайн не трогается).
+#          Закладывает design-system fundament для последующих
+#          sweep-волн в 1.33.1+.
+#
+#          UI primitives (``web/src/components/ui/``):
+#            * ``Button.tsx`` — варианты ``primary | secondary |
+#              ghost | danger | success | glass``, размеры
+#              ``sm | md | lg``. Все классы через токены
+#              (``--color-brand-primary``, ``--color-text-primary``,
+#              ``--color-danger``) — никаких хардкодных хексов.
+#            * ``Card.tsx`` — варианты ``glass | solid |
+#              gradient-border``, наследует ``glass-card`` для
+#              совместимости.
+#            * ``Select.tsx`` — обобщённый popover-dropdown,
+#              извлечён из локального ``Dropdown`` в
+#              ``StyleSettingsModal`` (1.31.0). Surface через
+#              ``bg-[var(--color-surface-1)]`` +
+#              ``shadow-[var(--effect-elevation-2)]`` —
+#              решает 1.31.0 жалобу на полупрозрачный popover.
+#            * ``Field.tsx`` — лейбл + control + helper/error
+#              (layout-only, не дублирует input-стили).
+#            * ``Modal.tsx`` — единая основа для AuthModal /
+#              StorageModal / ReviewModal / ShareModal /
+#              StyleSettingsModal: backdrop, framer-motion,
+#              portal, esc-to-close, body-scroll-lock.
+#            * ``Divider.tsx`` — горизонтальный/вертикальный
+#              разделитель, замена inline-style ``rgba(...)`` в
+#              5+ местах NavBar.
+#            * ``index.ts`` — barrel export.
+#
+#          Color tokens:
+#            * ``--color-danger`` / ``--color-danger-soft`` —
+#              алиасы для существующих ``danger-base`` /
+#              ``danger-surface`` (упрощают import в Tailwind).
+#            * ``web/tailwind-core.config.cjs`` —
+#              ``danger`` / ``danger-soft`` маппинг.
+#
+#          Modal sweep wave 1:
+#            * ``AuthModal.tsx`` — ``text-[#E6EEF8]`` →
+#              ``text-[var(--color-text-primary)]``,
+#              ``text-[#FF4D6A]`` → ``text-[var(--color-danger)]``.
+#            * ``StorageModal.tsx`` — text-токены.
+#            * ``ReviewModal.tsx`` — text-токены.
+#            * ``ShareModal.tsx`` — text-токены.
+#            * ``StyleSettingsModal.tsx`` — локальный ``Dropdown``
+#              удалён, используется ``<Select>`` из ``ui/``.
+#
+#          Sanity: ``tsc --noEmit`` clean, ``vite build`` clean
+#          (717 kB main, оптимизация — итерация 5),
+#          ``ruff check src tests`` clean,
+#          ``pytest tests/test_api/ tests/test_orchestrator/
+#          tests/test_prompts/`` 1587 passed / 54 skipped
+#          (backend не трогали — никаких регрессий).
+#
+#          Risk: чисто JSX/CSS изменения, ``git revert`` чисто
+#          восстанавливает. Light-mode читабельность модалок
+#          улучшилась (text-token инвертируется через
+#          ThemeProvider).
+#
+#          Следующая итерация (1.33.1) — sweep wave 2:
+#          NavBar / Hero / Pricing / Footer / wizard-шаги
+#          + bundle code-splitting (admin chunk + framer-motion
+#          chunk, цель <500 kB main) + удаление v1 fallback
+#          если PROMPT_V1_FALLBACK метрика подтвердила 0 hits.
+APP_VERSION = "1.33.0"

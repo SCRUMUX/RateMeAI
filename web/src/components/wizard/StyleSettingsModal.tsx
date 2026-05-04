@@ -1,108 +1,9 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import * as api from '../../lib/api';
 import { useApp } from '../../context/AppContext';
-
-// 1.31.0 — local popover-dropdown to replace the native <select>.
-// The native control inherits the OS menu styling, which on Windows
-// renders as a white opaque list on top of our dark theme. This
-// component reuses the existing `glass-card` / `glass-btn-*` classes
-// so it stays consistent with the rest of the wizard, and respects
-// `data-theme` automatically. We keep it local here for now; in
-// Wave 2 (1.32.0) it will be extracted into `components/ui/Select.tsx`.
-interface DropdownOption {
-  value: string;
-  label: string;
-}
-
-interface DropdownProps {
-  value: string;
-  options: DropdownOption[];
-  placeholder: string;
-  onChange: (value: string) => void;
-  ariaLabel?: string;
-}
-
-function Dropdown({ value, options, placeholder, onChange, ariaLabel }: DropdownProps) {
-  const [open, setOpen] = useState(false);
-  const containerRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!open) return;
-    function handleMouseDown(e: MouseEvent) {
-      if (!containerRef.current) return;
-      if (!containerRef.current.contains(e.target as Node)) setOpen(false);
-    }
-    function handleKey(e: KeyboardEvent) {
-      if (e.key === 'Escape') setOpen(false);
-    }
-    document.addEventListener('mousedown', handleMouseDown);
-    document.addEventListener('keydown', handleKey);
-    return () => {
-      document.removeEventListener('mousedown', handleMouseDown);
-      document.removeEventListener('keydown', handleKey);
-    };
-  }, [open]);
-
-  const currentLabel = options.find((o) => o.value === value)?.label ?? placeholder;
-
-  return (
-    <div ref={containerRef} className="relative w-full">
-      <button
-        type="button"
-        aria-label={ariaLabel}
-        aria-haspopup="listbox"
-        aria-expanded={open}
-        onClick={() => setOpen((v) => !v)}
-        className="w-full bg-surface-2 border border-border-base rounded-[var(--radius-8)] px-3 py-2 text-[14px] text-text-primary text-left flex items-center justify-between gap-[var(--space-8)]"
-      >
-        <span className={`truncate ${value ? '' : 'text-[var(--color-text-muted)]'}`}>
-          {currentLabel}
-        </span>
-        <svg
-          width="14"
-          height="14"
-          viewBox="0 0 16 16"
-          fill="none"
-          aria-hidden="true"
-          className={`shrink-0 transition-transform ${open ? 'rotate-180' : ''}`}
-        >
-          <path d="M4 6l4 4 4-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-        </svg>
-      </button>
-      {open && (
-        <div
-          role="listbox"
-          className="absolute left-0 right-0 top-[calc(100%+4px)] z-10 bg-surface-1 shadow-[var(--effect-elevation-2)] rounded-[var(--radius-8)] border border-border-base p-[var(--space-4)] flex flex-col gap-[2px] max-h-[240px] overflow-y-auto"
-        >
-          {options.map((opt) => {
-            const active = opt.value === value;
-            return (
-              <button
-                key={opt.value || '__placeholder__'}
-                type="button"
-                role="option"
-                aria-selected={active}
-                onClick={() => {
-                  onChange(opt.value);
-                  setOpen(false);
-                }}
-                className={`w-full text-left px-[var(--space-12)] py-[var(--space-8)] rounded-[var(--radius-md)] text-[14px] leading-[20px] transition-colors ${
-                  active
-                    ? 'bg-surface-3 text-text-primary'
-                    : 'text-text-primary hover:bg-surface-2'
-                }`}
-              >
-                {opt.label}
-              </button>
-            );
-          })}
-        </div>
-      )}
-    </div>
-  );
-}
+import { Select } from '../ui';
 
 interface Props {
   open: boolean;
@@ -505,7 +406,7 @@ export default function StyleSettingsModal({ open, onClose, styleId, onApply }: 
                     <span className="text-[13px] font-medium text-[var(--color-text-muted)]">
                       {CATEGORY_LABELS_RU.lighting}
                     </span>
-                    <Dropdown
+                    <Select
                       ariaLabel={CATEGORY_LABELS_RU.lighting}
                       value={hints.lighting ?? ''}
                       placeholder="Авто (рандом)"

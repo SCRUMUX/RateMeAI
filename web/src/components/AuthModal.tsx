@@ -82,7 +82,7 @@ export default function AuthModal({ open, onClose, onOAuth, required }: Props) {
             {!required && (
               <button
                 onClick={onClose}
-                className="absolute top-[var(--space-16)] right-[var(--space-16)] w-8 h-8 flex items-center justify-center rounded-full glass-btn-ghost text-[var(--color-text-muted)] hover:text-[#E6EEF8] transition-colors"
+                className="absolute top-[var(--space-16)] right-[var(--space-16)] w-8 h-8 flex items-center justify-center rounded-full glass-btn-ghost text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] transition-colors"
               >
                 <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
                   <path d="M4 4L12 12M12 4L4 12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
@@ -92,7 +92,7 @@ export default function AuthModal({ open, onClose, onOAuth, required }: Props) {
 
             {/* Header */}
             <div className="flex flex-col gap-[var(--space-8)] text-center">
-              <h3 className="text-[24px] leading-[32px] font-semibold text-[#E6EEF8]">
+              <h3 className="text-[24px] leading-[32px] font-semibold text-[var(--color-text-primary)]">
                 {required ? 'Авторизация' : 'Получить доступ'}
               </h3>
               <p className="text-[14px] leading-[20px] text-[var(--color-text-secondary)]">
@@ -166,7 +166,7 @@ export default function AuthModal({ open, onClose, onOAuth, required }: Props) {
             </div>
 
             {error && (
-              <span className="text-[12px] leading-[16px] text-[#FF4D6A] text-center">{error}</span>
+              <span className="text-[12px] leading-[16px] text-[var(--color-danger)] text-center">{error}</span>
             )}
 
             <p className="text-[12px] leading-[16px] text-[var(--color-text-muted)] text-center">
@@ -176,7 +176,7 @@ export default function AuthModal({ open, onClose, onOAuth, required }: Props) {
             {required && (
               <Link
                 to="/"
-                className="flex items-center justify-center gap-[var(--space-6)] text-[14px] leading-[20px] text-[var(--color-text-secondary)] hover:text-[#E6EEF8] transition-colors no-underline"
+                className="flex items-center justify-center gap-[var(--space-6)] text-[14px] leading-[20px] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] transition-colors no-underline"
               >
                 <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
                   <path d="M10 12L6 8L10 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>

@@ -4,6 +4,20 @@
 @tailwind components;
 @tailwind utilities;
 
+/* 1.33.0 — convenience aliases for the danger family. The
+   auto-generated design-tokens.css ships ``--color-danger-base``,
+   ``--color-danger-surface``, ``--color-danger-text`` etc. but the
+   plan / new ``Button variant="danger"`` and ``Field error`` consume
+   the shorter ``--color-danger`` / ``--color-danger-soft`` names.
+   Aliasing here keeps single-source-of-truth on the upstream tokens
+   while letting components stay in lock-step with the design spec
+   wording. The aliases ride along the theme switch automatically
+   because ``--color-danger-base`` already does. */
+:root {
+  --color-danger: var(--color-danger-base);
+  --color-danger-soft: var(--color-danger-surface);
+}
+
 /* ========== Dynamic Accent Color System ========== */
 
 @property --accent-r { syntax: '<number>'; inherits: true; initial-value: 0; }

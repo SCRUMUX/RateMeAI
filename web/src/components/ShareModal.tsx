@@ -37,14 +37,14 @@ export default function ShareModal({ open, onClose, url, text, imageUrl }: Props
           >
             <button
               onClick={onClose}
-              className="absolute top-[var(--space-12)] right-[var(--space-12)] w-8 h-8 flex items-center justify-center rounded-full glass-btn-ghost text-[var(--color-text-muted)] hover:text-[#E6EEF8] transition-colors"
+              className="absolute top-[var(--space-12)] right-[var(--space-12)] w-8 h-8 flex items-center justify-center rounded-full glass-btn-ghost text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] transition-colors"
             >
               <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
                 <path d="M4 4L12 12M12 4L4 12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
               </svg>
             </button>
 
-            <h3 className="text-[18px] leading-[26px] font-semibold text-[#E6EEF8] text-center">
+            <h3 className="text-[18px] leading-[26px] font-semibold text-[var(--color-text-primary)] text-center">
               Поделиться результатом
             </h3>
 
