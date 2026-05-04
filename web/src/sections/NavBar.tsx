@@ -103,7 +103,7 @@ export default function NavBar({ onLoginClick, onOpenStorage, onHomeClick, onCta
               <img src={logoSrc} alt="AI Look Studio" className="relative w-full h-full rounded-xl object-contain" style={{ mixBlendMode: 'lighten' }} />
             </div>
             <span className="hidden tablet:inline text-[22px] leading-[30px] font-bold whitespace-nowrap tracking-tight">
-              <span className="text-[#E6EEF8]">AI</span>
+              <span className="text-[var(--color-text-primary)]">AI</span>
               <span className="text-[var(--color-text-primary)]"> Look Studio</span>
             </span>
           </button>
@@ -124,7 +124,7 @@ export default function NavBar({ onLoginClick, onOpenStorage, onHomeClick, onCta
               <img src={logoSrc} alt="AI Look Studio" className="relative w-full h-full rounded-xl object-contain" style={{ mixBlendMode: 'lighten' }} />
             </div>
             <span className="hidden tablet:inline text-[22px] leading-[30px] font-bold whitespace-nowrap tracking-tight">
-              <span className="text-[#E6EEF8]">AI</span>
+              <span className="text-[var(--color-text-primary)]">AI</span>
               <span className="text-[var(--color-text-primary)]"> Look Studio</span>
             </span>
           </Link>
@@ -136,7 +136,7 @@ export default function NavBar({ onLoginClick, onOpenStorage, onHomeClick, onCta
             onHomeClick ? (
               <button
                 onClick={onHomeClick}
-                className="flex items-center gap-[var(--space-6)] px-[var(--space-12)] py-[var(--space-6)] text-[14px] leading-[20px] font-medium text-[var(--color-text-secondary)] hover:text-[#E6EEF8] transition-colors cursor-pointer"
+                className="flex items-center gap-[var(--space-6)] px-[var(--space-12)] py-[var(--space-6)] text-[14px] leading-[20px] font-medium text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] transition-colors cursor-pointer"
               >
                 <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
                   <path d="M10 12L6 8L10 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
@@ -146,7 +146,7 @@ export default function NavBar({ onLoginClick, onOpenStorage, onHomeClick, onCta
             ) : (
               <Link
                 to={logoTo}
-                className="flex items-center gap-[var(--space-6)] px-[var(--space-12)] py-[var(--space-6)] text-[14px] leading-[20px] font-medium text-[var(--color-text-secondary)] hover:text-[#E6EEF8] transition-colors no-underline"
+                className="flex items-center gap-[var(--space-6)] px-[var(--space-12)] py-[var(--space-6)] text-[14px] leading-[20px] font-medium text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] transition-colors no-underline"
               >
                 <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
                   <path d="M10 12L6 8L10 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
@@ -158,7 +158,7 @@ export default function NavBar({ onLoginClick, onOpenStorage, onHomeClick, onCta
             [{label: 'Стили', href: '#стили'}, {label: 'Тарифы', href: '#тарифы'}, {label: 'API', href: '/api/v1/docs', external: true}].map((item) => (
               <a key={item.label} href={item.href}
                 {...(item.external ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
-                className="px-[var(--space-12)] py-[var(--space-6)] text-[14px] leading-[20px] font-medium text-[var(--color-text-secondary)] hover:text-[#E6EEF8] transition-colors cursor-pointer"
+                className="px-[var(--space-12)] py-[var(--space-6)] text-[14px] leading-[20px] font-medium text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] transition-colors cursor-pointer"
               >
                 {item.label}
               </a>
@@ -170,7 +170,7 @@ export default function NavBar({ onLoginClick, onOpenStorage, onHomeClick, onCta
               {mode === 'app' && onOpenStorage && (
                 <button
                   onClick={onOpenStorage}
-                  className="glass-btn-ghost flex items-center gap-[var(--space-4)] px-[var(--space-10)] py-[var(--space-6)] text-[13px] leading-[18px] font-medium text-[#E6EEF8] rounded-[var(--radius-12)] cursor-pointer"
+                  className="glass-btn-ghost flex items-center gap-[var(--space-4)] px-[var(--space-10)] py-[var(--space-6)] text-[13px] leading-[18px] font-medium text-[var(--color-text-primary)] rounded-[var(--radius-12)] cursor-pointer"
                 >
                   <ImageIcon size={15} className="text-[var(--color-brand-primary)]" />
                   <span>{taskHistoryCount}</span>
@@ -178,7 +178,7 @@ export default function NavBar({ onLoginClick, onOpenStorage, onHomeClick, onCta
               )}
               <button
                 onClick={() => setMenuOpen(v => !v)}
-                className="glass-btn-ghost flex items-center gap-[var(--space-4)] px-[var(--space-10)] py-[var(--space-6)] text-[13px] leading-[18px] font-medium text-[#E6EEF8] rounded-[var(--radius-12)] cursor-pointer"
+                className="glass-btn-ghost flex items-center gap-[var(--space-4)] px-[var(--space-10)] py-[var(--space-6)] text-[13px] leading-[18px] font-medium text-[var(--color-text-primary)] rounded-[var(--radius-12)] cursor-pointer"
               >
                 <CoinIcon size={15} className="text-[var(--color-brand-primary)]" />
                 <span>Баланс {balance}</span>
@@ -189,31 +189,30 @@ export default function NavBar({ onLoginClick, onOpenStorage, onHomeClick, onCta
 
               {menuOpen && (
                 <div
-                  className="absolute top-full right-0 mt-2 w-[340px] rounded-[var(--radius-12)] p-[var(--space-20)] flex flex-col gap-[var(--space-16)]"
-                  style={{ background: 'rgba(12, 16, 24, 0.95)', border: '1px solid rgba(255,255,255,0.10)', backdropFilter: 'blur(20px)' }}
+                  className="absolute top-full right-0 mt-2 w-[340px] rounded-[var(--radius-12)] p-[var(--space-20)] flex flex-col gap-[var(--space-16)] bg-[var(--color-surface-1)] border border-[var(--color-border-base)] shadow-[var(--effect-elevation-2)]"
                 >
                   <button
                     type="button"
                     onClick={scrollToPricing}
-                    className="flex items-center gap-[var(--space-6)] px-[var(--space-12)] py-[var(--space-8)] text-[14px] leading-[20px] font-medium text-[var(--color-brand-primary)] rounded-[var(--radius-8)] hover:bg-[rgba(255,255,255,0.06)] transition-all cursor-pointer bg-transparent border-0 w-full text-left"
+                    className="flex items-center gap-[var(--space-6)] px-[var(--space-12)] py-[var(--space-8)] text-[14px] leading-[20px] font-medium text-[var(--color-brand-primary)] rounded-[var(--radius-8)] hover:bg-[var(--color-surface-hover)] transition-all cursor-pointer bg-transparent border-0 w-full text-left"
                   >
                     <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6" stroke="currentColor" strokeWidth="1.2"/><path d="M8 5v6M5 8h6" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/></svg>
                     Пополнить баланс
                   </button>
-                  <div className="h-px" style={{ background: 'rgba(255,255,255,0.08)' }} />
+                  <div className="h-px bg-[var(--color-border-base)]" />
                   <LinkedAccountsPanel />
                   <a
                     href="/link"
                     onClick={() => setMenuOpen(false)}
-                    className="flex items-center gap-[var(--space-6)] px-[var(--space-12)] py-[var(--space-8)] text-[14px] leading-[20px] font-medium text-[#E6EEF8] rounded-[var(--radius-8)] hover:bg-[rgba(255,255,255,0.06)] transition-all cursor-pointer no-underline"
+                    className="flex items-center gap-[var(--space-6)] px-[var(--space-12)] py-[var(--space-8)] text-[14px] leading-[20px] font-medium text-[var(--color-text-primary)] rounded-[var(--radius-8)] hover:bg-[var(--color-surface-hover)] transition-all cursor-pointer no-underline"
                   >
                     <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M6.667 8.667a3.333 3.333 0 005.026.36l2-2a3.334 3.334 0 00-4.714-4.714L8.053 3.24" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/><path d="M9.333 7.333a3.333 3.333 0 00-5.026-.36l-2 2a3.334 3.334 0 004.714 4.714l.927-.926" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/></svg>
                     Привязать аккаунт
                   </a>
-                  <div className="h-px" style={{ background: 'rgba(255,255,255,0.08)' }} />
+                  <div className="h-px bg-[var(--color-border-base)]" />
                   <button
                     onClick={() => { setMenuOpen(false); logout(); }}
-                    className="flex items-center gap-[var(--space-6)] px-[var(--space-12)] py-[var(--space-8)] text-[14px] leading-[20px] font-medium text-[#FF4D6A] rounded-[var(--radius-8)] hover:bg-[rgba(255,77,106,0.08)] transition-all cursor-pointer"
+                    className="flex items-center gap-[var(--space-6)] px-[var(--space-12)] py-[var(--space-8)] text-[14px] leading-[20px] font-medium text-[var(--color-danger)] rounded-[var(--radius-8)] hover:bg-[var(--color-danger-soft)] transition-all cursor-pointer"
                   >
                     <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M6 14H3.333A1.333 1.333 0 012 12.667V3.333A1.333 1.333 0 013.333 2H6M10.667 11.333L14 8m0 0l-3.333-3.333M14 8H6" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/></svg>
                     Выйти
@@ -224,7 +223,7 @@ export default function NavBar({ onLoginClick, onOpenStorage, onHomeClick, onCta
           ) : (
             <button
               onClick={onLoginClick}
-              className="glass-btn-ghost flex items-center gap-[var(--space-6)] px-[var(--space-12)] py-[var(--space-6)] text-[14px] leading-[20px] font-medium text-[#E6EEF8] rounded-[var(--radius-12)] border border-[rgba(255,255,255,0.15)] cursor-pointer"
+              className="glass-btn-ghost flex items-center gap-[var(--space-6)] px-[var(--space-12)] py-[var(--space-6)] text-[14px] leading-[20px] font-medium text-[var(--color-text-primary)] rounded-[var(--radius-12)] border border-[var(--color-border-base)] cursor-pointer"
             >
               <svg width="16" height="16" viewBox="0 0 16 16" fill="none" className="text-[var(--color-brand-primary)]"><path d="M10 2h2.667A1.333 1.333 0 0114 3.333v9.334A1.333 1.333 0 0112.667 14H10M6.667 11.333L10 8m0 0L6.667 4.667M10 8H2" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/></svg>
               Войти
@@ -233,7 +232,7 @@ export default function NavBar({ onLoginClick, onOpenStorage, onHomeClick, onCta
 
           <ThemeToggle size="desktop" />
 
-          <button className="glass-btn-ghost flex items-center gap-[var(--space-4)] px-[var(--space-12)] py-[var(--space-6)] text-[14px] leading-[20px] font-medium text-[#E6EEF8] rounded-[var(--radius-12)]">
+          <button className="glass-btn-ghost flex items-center gap-[var(--space-4)] px-[var(--space-12)] py-[var(--space-6)] text-[14px] leading-[20px] font-medium text-[var(--color-text-primary)] rounded-[var(--radius-12)]">
             <GlobeIcon size={20} className="text-[var(--color-text-muted)]" />
             Русский
           </button>
@@ -261,14 +260,14 @@ export default function NavBar({ onLoginClick, onOpenStorage, onHomeClick, onCta
           {session && mode === 'app' && onOpenStorage && (
             <button
               onClick={onOpenStorage}
-              className="glass-btn-ghost flex items-center gap-[var(--space-4)] px-[var(--space-8)] py-[var(--space-4)] text-[13px] leading-[18px] font-medium text-[#E6EEF8] rounded-[var(--radius-12)] cursor-pointer"
+              className="glass-btn-ghost flex items-center gap-[var(--space-4)] px-[var(--space-8)] py-[var(--space-4)] text-[13px] leading-[18px] font-medium text-[var(--color-text-primary)] rounded-[var(--radius-12)] cursor-pointer"
             >
               <ImageIcon size={15} className="text-[var(--color-brand-primary)]" />
               <span>{taskHistoryCount}</span>
             </button>
           )}
           {session && (
-            <div className="glass-btn-ghost flex items-center gap-[var(--space-4)] px-[var(--space-8)] py-[var(--space-4)] text-[13px] leading-[18px] font-medium text-[#E6EEF8] rounded-[var(--radius-12)]">
+            <div className="glass-btn-ghost flex items-center gap-[var(--space-4)] px-[var(--space-8)] py-[var(--space-4)] text-[13px] leading-[18px] font-medium text-[var(--color-text-primary)] rounded-[var(--radius-12)]">
               <CoinIcon size={15} className="text-[var(--color-brand-primary)]" />
               <span>{balance}</span>
             </div>
@@ -304,8 +303,7 @@ export default function NavBar({ onLoginClick, onOpenStorage, onHomeClick, onCta
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           transition={{ duration: 0.2 }}
-          className="tablet:hidden fixed inset-0 top-[52px] z-[100] flex flex-col gap-[var(--space-8)] p-[var(--space-20)] overflow-y-auto"
-          style={{ background: 'rgb(8, 12, 18)' }}
+          className="tablet:hidden fixed inset-0 top-[52px] z-[100] flex flex-col gap-[var(--space-8)] p-[var(--space-20)] overflow-y-auto bg-[var(--color-bg-base)]"
         >
           {/* Navigation links */}
           <div className="flex flex-col gap-[var(--space-4)]">
@@ -313,7 +311,7 @@ export default function NavBar({ onLoginClick, onOpenStorage, onHomeClick, onCta
               onHomeClick ? (
                 <button
                   onClick={() => { setMobileMenuOpen(false); onHomeClick(); }}
-                  className="flex items-center gap-[var(--space-8)] px-[var(--space-12)] py-[var(--space-12)] text-[16px] leading-[24px] font-medium text-[var(--color-text-secondary)] hover:text-[#E6EEF8] transition-colors cursor-pointer rounded-[var(--radius-12)] hover:bg-[rgba(255,255,255,0.06)]"
+                  className="flex items-center gap-[var(--space-8)] px-[var(--space-12)] py-[var(--space-12)] text-[16px] leading-[24px] font-medium text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] transition-colors cursor-pointer rounded-[var(--radius-12)] hover:bg-[var(--color-surface-hover)]"
                 >
                   <svg width="18" height="18" viewBox="0 0 16 16" fill="none">
                     <path d="M10 12L6 8L10 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
@@ -324,7 +322,7 @@ export default function NavBar({ onLoginClick, onOpenStorage, onHomeClick, onCta
                 <Link
                   to={logoTo}
                   onClick={() => setMobileMenuOpen(false)}
-                  className="flex items-center gap-[var(--space-8)] px-[var(--space-12)] py-[var(--space-12)] text-[16px] leading-[24px] font-medium text-[var(--color-text-secondary)] hover:text-[#E6EEF8] transition-colors cursor-pointer rounded-[var(--radius-12)] hover:bg-[rgba(255,255,255,0.06)] no-underline"
+                  className="flex items-center gap-[var(--space-8)] px-[var(--space-12)] py-[var(--space-12)] text-[16px] leading-[24px] font-medium text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] transition-colors cursor-pointer rounded-[var(--radius-12)] hover:bg-[var(--color-surface-hover)] no-underline"
                 >
                   <svg width="18" height="18" viewBox="0 0 16 16" fill="none">
                     <path d="M10 12L6 8L10 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
@@ -337,7 +335,7 @@ export default function NavBar({ onLoginClick, onOpenStorage, onHomeClick, onCta
                 <a key={item.label} href={item.href}
                   onClick={() => setMobileMenuOpen(false)}
                   {...(item.external ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
-                  className="px-[var(--space-12)] py-[var(--space-12)] text-[16px] leading-[24px] font-medium text-[var(--color-text-secondary)] hover:text-[#E6EEF8] transition-colors cursor-pointer rounded-[var(--radius-12)] hover:bg-[rgba(255,255,255,0.06)]"
+                  className="px-[var(--space-12)] py-[var(--space-12)] text-[16px] leading-[24px] font-medium text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] transition-colors cursor-pointer rounded-[var(--radius-12)] hover:bg-[var(--color-surface-hover)]"
                 >
                   {item.label}
                 </a>
@@ -345,39 +343,39 @@ export default function NavBar({ onLoginClick, onOpenStorage, onHomeClick, onCta
             ) : null}
           </div>
 
-          <div className="h-px" style={{ background: 'rgba(255,255,255,0.08)' }} />
+          <div className="h-px bg-[var(--color-border-base)]" />
 
           {session ? (
             <div className="flex flex-col gap-[var(--space-8)]">
               <button
                 type="button"
                 onClick={scrollToPricing}
-                className="flex items-center gap-[var(--space-10)] px-[var(--space-12)] py-[var(--space-12)] text-[16px] leading-[24px] font-medium text-[var(--color-brand-primary)] rounded-[var(--radius-12)] hover:bg-[rgba(255,255,255,0.06)] transition-all cursor-pointer bg-transparent border-0 w-full text-left"
+                className="flex items-center gap-[var(--space-10)] px-[var(--space-12)] py-[var(--space-12)] text-[16px] leading-[24px] font-medium text-[var(--color-brand-primary)] rounded-[var(--radius-12)] hover:bg-[var(--color-surface-hover)] transition-all cursor-pointer bg-transparent border-0 w-full text-left"
               >
                 <svg width="18" height="18" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6" stroke="currentColor" strokeWidth="1.2"/><path d="M8 5v6M5 8h6" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/></svg>
                 Пополнить баланс
               </button>
 
-              <div className="h-px" style={{ background: 'rgba(255,255,255,0.08)' }} />
+              <div className="h-px bg-[var(--color-border-base)]" />
 
               <LinkedAccountsPanel />
 
-              <div className="h-px" style={{ background: 'rgba(255,255,255,0.08)' }} />
+              <div className="h-px bg-[var(--color-border-base)]" />
 
               <a
                 href="/link"
                 onClick={() => setMobileMenuOpen(false)}
-                className="flex items-center gap-[var(--space-10)] px-[var(--space-12)] py-[var(--space-12)] text-[16px] leading-[24px] font-medium text-[#E6EEF8] rounded-[var(--radius-12)] hover:bg-[rgba(255,255,255,0.06)] transition-all cursor-pointer no-underline"
+                className="flex items-center gap-[var(--space-10)] px-[var(--space-12)] py-[var(--space-12)] text-[16px] leading-[24px] font-medium text-[var(--color-text-primary)] rounded-[var(--radius-12)] hover:bg-[var(--color-surface-hover)] transition-all cursor-pointer no-underline"
               >
                 <svg width="18" height="18" viewBox="0 0 16 16" fill="none"><path d="M6.667 8.667a3.333 3.333 0 005.026.36l2-2a3.334 3.334 0 00-4.714-4.714L8.053 3.24" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/><path d="M9.333 7.333a3.333 3.333 0 00-5.026-.36l-2 2a3.334 3.334 0 004.714 4.714l.927-.926" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/></svg>
                 Привязать аккаунт
               </a>
 
-              <div className="h-px" style={{ background: 'rgba(255,255,255,0.08)' }} />
+              <div className="h-px bg-[var(--color-border-base)]" />
 
               <button
                 onClick={() => { setMobileMenuOpen(false); logout(); }}
-                className="flex items-center gap-[var(--space-10)] px-[var(--space-12)] py-[var(--space-12)] text-[16px] leading-[24px] font-medium text-[#FF4D6A] rounded-[var(--radius-12)] hover:bg-[rgba(255,77,106,0.08)] transition-all cursor-pointer"
+                className="flex items-center gap-[var(--space-10)] px-[var(--space-12)] py-[var(--space-12)] text-[16px] leading-[24px] font-medium text-[var(--color-danger)] rounded-[var(--radius-12)] hover:bg-[var(--color-danger-soft)] transition-all cursor-pointer"
               >
                 <svg width="18" height="18" viewBox="0 0 16 16" fill="none"><path d="M6 14H3.333A1.333 1.333 0 012 12.667V3.333A1.333 1.333 0 013.333 2H6M10.667 11.333L14 8m0 0l-3.333-3.333M14 8H6" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/></svg>
                 Выйти
@@ -406,7 +404,7 @@ export default function NavBar({ onLoginClick, onOpenStorage, onHomeClick, onCta
             <div className="flex flex-col gap-[var(--space-8)]">
               <button
                 onClick={() => { setMobileMenuOpen(false); onLoginClick?.(); }}
-                className="flex items-center gap-[var(--space-10)] px-[var(--space-12)] py-[var(--space-12)] text-[16px] leading-[24px] font-medium text-[#E6EEF8] rounded-[var(--radius-12)] hover:bg-[rgba(255,255,255,0.06)] transition-all cursor-pointer"
+                className="flex items-center gap-[var(--space-10)] px-[var(--space-12)] py-[var(--space-12)] text-[16px] leading-[24px] font-medium text-[var(--color-text-primary)] rounded-[var(--radius-12)] hover:bg-[var(--color-surface-hover)] transition-all cursor-pointer"
               >
                 <svg width="18" height="18" viewBox="0 0 16 16" fill="none" className="text-[var(--color-brand-primary)]"><path d="M10 2h2.667A1.333 1.333 0 0114 3.333v9.334A1.333 1.333 0 0112.667 14H10M6.667 11.333L10 8m0 0L6.667 4.667M10 8H2" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/></svg>
                 Войти
@@ -432,9 +430,9 @@ export default function NavBar({ onLoginClick, onOpenStorage, onHomeClick, onCta
             </div>
           )}
 
-          <div className="h-px" style={{ background: 'rgba(255,255,255,0.08)' }} />
+          <div className="h-px bg-[var(--color-border-base)]" />
 
-          <button className="glass-btn-ghost flex items-center gap-[var(--space-10)] px-[var(--space-12)] py-[var(--space-12)] text-[16px] leading-[24px] font-medium text-[#E6EEF8] rounded-[var(--radius-12)]">
+          <button className="glass-btn-ghost flex items-center gap-[var(--space-10)] px-[var(--space-12)] py-[var(--space-12)] text-[16px] leading-[24px] font-medium text-[var(--color-text-primary)] rounded-[var(--radius-12)]">
             <GlobeIcon size={20} className="text-[var(--color-text-muted)]" />
             Русский
           </button>

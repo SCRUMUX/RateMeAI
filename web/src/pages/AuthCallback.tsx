@@ -42,7 +42,7 @@ export default function AuthCallback() {
     return (
       <div className="min-h-screen flex items-center justify-center p-6">
         <div className="glass-card rounded-[var(--radius-12)] p-8 max-w-md w-full flex flex-col gap-4 text-center">
-          <p className="text-[#FF4D6A] text-lg font-medium">{error}</p>
+          <p className="text-[var(--color-danger)] text-lg font-medium">{error}</p>
           <button
             onClick={() => navigate('/', { replace: true })}
             className="glass-btn-primary px-6 py-3 rounded-[var(--radius-12)] text-[15px]"

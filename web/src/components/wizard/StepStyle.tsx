@@ -89,7 +89,7 @@ export default function StepStyle({ onNext }: Props) {
   return (
     <div className="flex flex-col w-full max-w-[520px] mx-auto gap-[var(--space-24)]">
       <div className="flex flex-col items-center gap-[var(--space-4)] text-center">
-        <h2 className="text-[20px] tablet:text-[24px] leading-[1.2] font-semibold text-[#E6EEF8]">Выберите стиль</h2>
+        <h2 className="text-[20px] tablet:text-[24px] leading-[1.2] font-semibold text-[var(--color-text-primary)]">Выберите стиль</h2>
         <p className="text-[12px] tablet:text-[13px] leading-[16px] tablet:leading-[18px] text-[var(--color-text-secondary)] max-w-[440px]">
           Каждый стиль улучшает метрики восприятия под конкретный контекст
         </p>
@@ -105,7 +105,7 @@ export default function StepStyle({ onNext }: Props) {
               <div className="flex items-center gap-[var(--space-10)]">
                 <span className="text-[28px] leading-none">{selectedStyle.icon}</span>
                 <div className="flex flex-col min-w-0">
-                  <span className="text-[16px] leading-[22px] font-semibold text-[#E6EEF8] truncate">{selectedStyle.name}</span>
+                  <span className="text-[16px] leading-[22px] font-semibold text-[var(--color-text-primary)] truncate">{selectedStyle.name}</span>
                   <span className="text-[12px] leading-[16px] text-[var(--color-text-muted)] truncate">Выбранный стиль</span>
                 </div>
               </div>
@@ -124,7 +124,7 @@ export default function StepStyle({ onNext }: Props) {
                       onClick={() => app.setFraming(opt.id)}
                       className={`flex-1 py-[var(--space-6)] text-[13px] leading-[18px] font-medium rounded-[var(--radius-6)] transition-all ${
                         app.framing === opt.id
-                          ? 'bg-[rgba(255,255,255,0.1)] text-[#E6EEF8] shadow-sm'
+                          ? 'bg-[var(--color-surface-2)] text-[var(--color-text-primary)] shadow-sm'
                           : 'text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)]'
                       }`}
                     >
@@ -141,7 +141,7 @@ export default function StepStyle({ onNext }: Props) {
             {displayParams ? displayParams.map((p) => (
               <div key={p.key} className="flex flex-col gap-[var(--space-6)]">
                 <div className="flex items-center justify-between">
-                  <span className="text-[13px] leading-[18px] text-[#E6EEF8]">{p.label}</span>
+                  <span className="text-[13px] leading-[18px] text-[var(--color-text-primary)]">{p.label}</span>
                   <span className="flex items-center gap-[var(--space-6)] text-[13px] leading-[18px] tabular-nums">
                     <span className="text-[var(--color-text-secondary)]">{p.value.toFixed(2)}</span>
                     {p.delta > 0 && <span className="text-[var(--color-success-base)] text-[11px] font-medium">+{p.delta.toFixed(2)}</span>}
@@ -171,7 +171,7 @@ export default function StepStyle({ onNext }: Props) {
                 >
                   <div className="flex items-center justify-center w-5 h-5 shrink-0 text-[18px] leading-none">{s.icon}</div>
                   <div className="flex flex-col flex-1 min-w-0 gap-[2px]">
-                    <span className="text-[15px] leading-[20px] text-[#E6EEF8] font-medium truncate">{s.name}</span>
+                    <span className="text-[15px] leading-[20px] text-[var(--color-text-primary)] font-medium truncate">{s.name}</span>
                     <span className="text-[11px] leading-[14px] text-[var(--color-text-muted)] truncate">{s.desc}</span>
                   </div>
                   <span className="px-[var(--space-8)] py-[var(--space-4)] rounded-[var(--radius-pill)] text-[13px] leading-[18px] text-[var(--color-success-base)] font-medium tabular-nums shrink-0">
@@ -194,7 +194,7 @@ export default function StepStyle({ onNext }: Props) {
           <button
             type="button"
             onClick={() => setSheetOpen(true)}
-            className="glass-btn-ghost w-full py-[var(--space-10)] text-[13px] leading-[18px] rounded-[var(--radius-pill)] font-medium text-[#E6EEF8] inline-flex items-center justify-center gap-[var(--space-6)]"
+            className="glass-btn-ghost w-full py-[var(--space-10)] text-[13px] leading-[18px] rounded-[var(--radius-pill)] font-medium text-[var(--color-text-primary)] inline-flex items-center justify-center gap-[var(--space-6)]"
           >
             <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
               <path d="M3 5h10M3 8h10M3 11h6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />

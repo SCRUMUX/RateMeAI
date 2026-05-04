@@ -45,7 +45,7 @@ export default function Simulation() {
     >
       {/* Heading */}
       <div className="relative flex flex-col items-center gap-[var(--space-12)] text-center">
-        <h2 className="text-[32px] tablet:text-[48px] desktop:text-[64px] font-semibold leading-[1] text-[#E6EEF8]">
+        <h2 className="text-[32px] tablet:text-[48px] desktop:text-[64px] font-semibold leading-[1] text-[var(--color-text-primary)]">
           6 категорий
         </h2>
         <h2 className="text-[32px] tablet:text-[48px] desktop:text-[64px] font-semibold leading-[1]"
@@ -77,7 +77,7 @@ export default function Simulation() {
         <div className="flex flex-col items-center gap-[var(--space-24)] w-full max-w-[600px] py-[var(--space-32)]">
           <div className="gradient-border-card glass-card flex flex-col items-center justify-center gap-[var(--space-16)] rounded-[var(--radius-12)] p-[var(--space-32)] w-full">
             <span className="text-[48px]">🚧</span>
-            <h3 className="text-[24px] tablet:text-[32px] font-semibold text-[#E6EEF8]">{categoryLabel}</h3>
+            <h3 className="text-[24px] tablet:text-[32px] font-semibold text-[var(--color-text-primary)]">{categoryLabel}</h3>
             <p className="text-[16px] leading-[24px] text-[var(--color-text-secondary)] text-center max-w-[400px]">
               Генерация для этого направления появится в ближайшем обновлении. Следите за новостями!
             </p>
@@ -110,7 +110,7 @@ export default function Simulation() {
                   {t.style.icon}
                 </div>
                 <div className="flex flex-col flex-1 min-w-0 gap-[2px]">
-                  <span className="text-[16px] leading-[24px] text-[#E6EEF8] font-medium truncate">
+                  <span className="text-[16px] leading-[24px] text-[var(--color-text-primary)] font-medium truncate">
                     {t.style.name}
                   </span>
                   <span className="text-[11px] leading-[14px] text-[var(--color-text-muted)] truncate">
@@ -143,7 +143,7 @@ export default function Simulation() {
               <div className="flex flex-col justify-between flex-1 pt-[var(--space-12)] pb-[var(--space-16)] px-[var(--space-12)]">
                 <div className="flex flex-col gap-[var(--space-8)]">
                   <div className="flex items-center justify-between">
-                    <span className="text-[14px] tablet:text-[16px] leading-[20px] tablet:leading-[24px] text-[#E6EEF8] font-medium">Исходное</span>
+                    <span className="text-[14px] tablet:text-[16px] leading-[20px] tablet:leading-[24px] text-[var(--color-text-primary)] font-medium">Исходное</span>
                     <span className="flex items-center gap-1">
                       <span className="text-[13px] tablet:text-[14px] leading-[18px] tablet:leading-[20px] text-[var(--color-text-secondary)]">{selected.beforeScore.toFixed(2)}</span>
                       <span className="text-[11px] leading-[14px] text-[var(--color-text-muted)]">/ 10</span>
@@ -167,7 +167,7 @@ export default function Simulation() {
               <div className="flex flex-col justify-between flex-1 pt-[var(--space-12)] pb-[var(--space-16)] px-[var(--space-12)]">
                 <div className="flex flex-col gap-[var(--space-8)]">
                   <div className="flex items-center justify-between">
-                    <span className="text-[14px] tablet:text-[16px] leading-[20px] tablet:leading-[24px] text-[#E6EEF8] font-medium">{selected.style.name}</span>
+                    <span className="text-[14px] tablet:text-[16px] leading-[20px] tablet:leading-[24px] text-[var(--color-text-primary)] font-medium">{selected.style.name}</span>
                     <span className="flex items-center gap-1">
                       <span className="text-[13px] tablet:text-[14px] leading-[18px] tablet:leading-[20px] text-[var(--color-brand-primary)] font-semibold">{selected.afterScore.toFixed(2)}</span>
                       <span className="text-[11px] leading-[14px] text-[var(--color-text-muted)]">/ 10</span>

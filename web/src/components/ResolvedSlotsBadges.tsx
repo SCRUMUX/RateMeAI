@@ -93,7 +93,7 @@ export default function ResolvedSlotsBadges({
             className="inline-flex items-center gap-[3px] px-[var(--space-8)] py-[1px] rounded-[var(--radius-pill)] text-[10px] leading-[14px] font-medium glass-btn-ghost text-[var(--color-text-secondary)] max-w-full"
           >
             <span className="text-[var(--color-text-muted)] truncate">{it.label}:</span>{' '}
-            <span className="text-[#E6EEF8] truncate">{ellipsise(it.value, maxLen)}</span>
+            <span className="text-[var(--color-text-primary)] truncate">{ellipsise(it.value, maxLen)}</span>
           </span>
         ))}
         {overflow > 0 && (
@@ -122,7 +122,7 @@ export default function ResolvedSlotsBadges({
             title={it.value}
           >
             <span className="text-[var(--color-text-muted)]">{it.label}:</span>{' '}
-            <span className="text-[#E6EEF8]">{ellipsise(it.value, maxLen)}</span>
+            <span className="text-[var(--color-text-primary)]">{ellipsise(it.value, maxLen)}</span>
           </span>
         ))}
       </div>

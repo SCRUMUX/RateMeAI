@@ -45,7 +45,7 @@ export default function LinkedAccountsPanel() {
 
   return (
     <div className="flex flex-col gap-[var(--space-16)]">
-      <h4 className="text-[16px] font-semibold text-[#E6EEF8]">Привязанные аккаунты</h4>
+      <h4 className="text-[16px] font-semibold text-[var(--color-text-primary)]">Привязанные аккаунты</h4>
 
       <div className="flex flex-col gap-[var(--space-8)]">
         {identities.map((id) => {
@@ -70,7 +70,7 @@ export default function LinkedAccountsPanel() {
                 {meta.icon}
               </span>
               <div className="flex flex-col min-w-0">
-                <span className="text-[14px] text-[#E6EEF8] font-medium truncate">{meta.label}</span>
+                <span className="text-[14px] text-[var(--color-text-primary)] font-medium truncate">{meta.label}</span>
                 <span className="text-[12px] text-[var(--color-text-muted)] truncate">{displayId}</span>
               </div>
             </div>
@@ -83,8 +83,7 @@ export default function LinkedAccountsPanel() {
           <button
             disabled={loading}
             onClick={handleGetCode}
-            className="w-full flex items-center justify-center gap-2 px-[var(--space-16)] py-[var(--space-10)] text-[14px] rounded-[var(--radius-8)] font-medium transition-all disabled:opacity-50"
-            style={{ background: 'rgba(255,255,255,0.08)', color: '#E6EEF8', border: '1px solid rgba(255,255,255,0.12)' }}
+            className="w-full flex items-center justify-center gap-2 px-[var(--space-16)] py-[var(--space-10)] text-[14px] rounded-[var(--radius-8)] font-medium transition-all disabled:opacity-50 bg-[var(--color-surface-2)] text-[var(--color-text-primary)] border border-[var(--color-border-base)]"
           >
             {loading ? 'Генерация...' : 'Получить код привязки'}
           </button>
@@ -95,8 +94,7 @@ export default function LinkedAccountsPanel() {
             </p>
             <button
               onClick={handleCopy}
-              className="px-6 py-3 rounded-[var(--radius-8)] text-[22px] font-mono tracking-[0.3em] font-bold transition-all"
-              style={{ background: 'rgba(255,255,255,0.08)', color: '#E6EEF8', border: '1px solid rgba(255,255,255,0.15)' }}
+              className="px-6 py-3 rounded-[var(--radius-8)] text-[22px] font-mono tracking-[0.3em] font-bold transition-all bg-[var(--color-surface-2)] text-[var(--color-text-primary)] border border-[var(--color-border-base)]"
               title="Нажмите, чтобы скопировать"
             >
               {linkCode}

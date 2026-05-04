@@ -63,7 +63,7 @@ export default function StepAnalysis({ onNext }: Props) {
   return (
     <div className="flex flex-col gap-[var(--space-12)] w-full max-w-[800px] mx-auto">
       <div className="flex flex-col items-center gap-[var(--space-4)] text-center">
-        <h2 className="text-[20px] tablet:text-[28px] leading-[1.2] font-semibold text-[#E6EEF8]">
+        <h2 className="text-[20px] tablet:text-[28px] leading-[1.2] font-semibold text-[var(--color-text-primary)]">
           {isSimplified ? 'Анализ фото' : 'Анализ восприятия'}
         </h2>
         <p className="text-[12px] tablet:text-[13px] leading-[16px] tablet:leading-[18px] text-[var(--color-text-secondary)] max-w-[440px]">
@@ -85,7 +85,7 @@ export default function StepAnalysis({ onNext }: Props) {
           </div>
           <div className="flex flex-col gap-[var(--space-8)] p-[var(--space-12)]">
             <div className="flex items-center justify-between">
-              <span className="text-[16px] leading-[24px] text-[#E6EEF8] font-medium">Исходное</span>
+              <span className="text-[16px] leading-[24px] text-[var(--color-text-primary)] font-medium">Исходное</span>
               {beforeScore != null && (
                 <span className="flex items-center gap-1">
                   <span className="text-[14px] leading-[20px] text-[var(--color-text-secondary)]">{beforeScore.toFixed(2)}</span>
@@ -119,7 +119,7 @@ export default function StepAnalysis({ onNext }: Props) {
             <div className="gradient-border-card glass-card flex flex-col gap-[var(--space-16)] rounded-[var(--radius-12)] p-[var(--space-20)]">
               <div className="flex items-center gap-[var(--space-12)]">
                 <div className="w-[18px] h-[18px] border-2 border-t-transparent rounded-full animate-spin shrink-0" style={{ borderColor: 'rgba(var(--accent-r),var(--accent-g),var(--accent-b),0.5)', borderTopColor: 'transparent' }} />
-                <span className="text-[14px] leading-[20px] text-[#E6EEF8]">Анализ фото...</span>
+                <span className="text-[14px] leading-[20px] text-[var(--color-text-primary)]">Анализ фото...</span>
               </div>
               <div className="flex items-center gap-[var(--space-12)] opacity-50">
                 <div className="w-[18px] h-[18px] rounded-full border border-[rgba(255,255,255,0.1)]" />
@@ -160,7 +160,7 @@ export default function StepAnalysis({ onNext }: Props) {
                         key={w.code}
                         className="text-[12px] leading-[16px] text-[var(--color-text-secondary)]"
                       >
-                        <span className="text-[#E6EEF8]">{w.message}</span>{' '}
+                        <span className="text-[var(--color-text-primary)]">{w.message}</span>{' '}
                         <span className="text-[var(--color-text-muted)]">{w.suggestion}</span>
                       </li>
                     ))}
@@ -177,7 +177,7 @@ export default function StepAnalysis({ onNext }: Props) {
                 {displayParams ? displayParams.map((p) => (
                   <div key={p.key} className="flex flex-col gap-[var(--space-8)]">
                     <div className="flex items-center justify-between">
-                      <span className="text-[14px] leading-[20px] text-[#E6EEF8]">{p.label}</span>
+                      <span className="text-[14px] leading-[20px] text-[var(--color-text-primary)]">{p.label}</span>
                       <span className="flex items-center gap-[var(--space-4)] text-[14px] leading-[20px] tabular-nums">
                         <span className="text-[var(--color-text-secondary)]">{p.value.toFixed(2)}</span>
                         <span className="text-[11px] leading-[14px] text-[var(--color-text-muted)]">/ 10</span>
@@ -192,7 +192,7 @@ export default function StepAnalysis({ onNext }: Props) {
                         <span className="text-[14px] text-[var(--color-text-muted)]">Не удалось загрузить анализ</span>
                         <button
                           onClick={() => { setAnalysisRequested(true); app.runPreAnalyze(); }}
-                          className="glass-btn-ghost px-[var(--space-16)] py-[var(--space-6)] text-[13px] text-[#E6EEF8] rounded-[var(--radius-pill)]"
+                          className="glass-btn-ghost px-[var(--space-16)] py-[var(--space-6)] text-[13px] text-[var(--color-text-primary)] rounded-[var(--radius-pill)]"
                         >
                           Повторить
                         </button>
@@ -207,7 +207,7 @@ export default function StepAnalysis({ onNext }: Props) {
               {/* Direction picker — обычный сценарий */}
               {hasRealScores && !isSimplified && (
                 <div className="flex flex-col gap-[var(--space-10)]">
-                  <span className="text-[14px] leading-[20px] font-medium text-[#E6EEF8]">Для чего улучшаем фото?</span>
+                  <span className="text-[14px] leading-[20px] font-medium text-[var(--color-text-primary)]">Для чего улучшаем фото?</span>
                   {!app.scenarioHideCategoryTabs && (
                     <CategoryTabs active={activeTab} onChange={handleDirectionChange} />
                   )}

@@ -118,7 +118,7 @@ export default function SocialProof({ preset }: SocialProofProps) {
     <section className="relative z-[2] px-[var(--space-16)] tablet:px-[var(--space-24)] py-[60px] tablet:py-[88px]">
       <div className="mx-auto grid max-w-[1200px] grid-cols-1 gap-[var(--space-24)] tablet:gap-[var(--space-32)] desktop:grid-cols-[minmax(0,1fr)_minmax(380px,0.92fr)] desktop:items-start">
         <div className="flex flex-col justify-center gap-[var(--space-16)] py-[var(--space-8)]">
-          <h2 className="text-[32px] tablet:text-[46px] desktop:text-[56px] font-semibold leading-[1.02] text-[#E6EEF8]">
+          <h2 className="text-[32px] tablet:text-[46px] desktop:text-[56px] font-semibold leading-[1.02] text-[var(--color-text-primary)]">
             {preset.title}
           </h2>
           <div className="social-proof-counter-value text-[56px] tablet:text-[88px] desktop:text-[112px] font-semibold leading-none text-[var(--color-brand-primary)] tabular-nums">
@@ -127,7 +127,7 @@ export default function SocialProof({ preset }: SocialProofProps) {
         </div>
 
         <div className="flex flex-col gap-[var(--space-16)]">
-          <h3 className="text-[22px] tablet:text-[28px] font-semibold leading-[1.1] text-[#E6EEF8]">
+          <h3 className="text-[22px] tablet:text-[28px] font-semibold leading-[1.1] text-[var(--color-text-primary)]">
             Впечатления пользователей
           </h3>
 

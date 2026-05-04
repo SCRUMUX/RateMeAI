@@ -72,7 +72,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
                 className={`pointer-events-auto flex items-center gap-2 px-4 py-2.5 rounded-xl border backdrop-blur-md shadow-lg ${BG_CLASSES[t.type]}`}
               >
                 <span className={`text-sm font-bold ${ICON_CLASSES[t.type]}`}>{ICONS[t.type]}</span>
-                <span className="text-sm text-[#E6EEF8]">{t.message}</span>
+                <span className="text-sm text-[var(--color-text-primary)]">{t.message}</span>
               </motion.div>
             ))}
           </AnimatePresence>

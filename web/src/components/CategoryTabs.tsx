@@ -20,7 +20,7 @@ export default function CategoryTabs({ active, onChange }: CategoryTabsProps) {
                   ? 'opacity-40 cursor-not-allowed text-[var(--color-text-muted)]'
                   : active === cat.id
                     ? 'glass-tab-active'
-                    : 'glass-btn-ghost text-[var(--color-text-secondary)] hover:text-[#E6EEF8]'
+                    : 'glass-btn-ghost text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]'
               }`}
             >
               <span className="text-[14px] tablet:text-[16px]">{cat.icon}</span>

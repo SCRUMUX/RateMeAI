@@ -140,7 +140,7 @@ export default function ShareButtons({ url, text, imageUrl }: Props) {
             onClick={handleNativeShare}
             disabled={sharing}
             title={sharing ? 'Отправка...' : 'Отправить фото'}
-            className="w-11 h-11 rounded-full flex items-center justify-center text-[#E6EEF8] transition-all hover:scale-110 cursor-pointer disabled:opacity-50"
+            className="w-11 h-11 rounded-full flex items-center justify-center text-[var(--color-text-primary)] transition-all hover:scale-110 cursor-pointer disabled:opacity-50"
             style={{ background: 'rgba(var(--accent-r),var(--accent-g),var(--accent-b),0.25)', border: '1px solid rgba(var(--accent-r),var(--accent-g),var(--accent-b),0.4)' }}
           >
             {sharing ? (
@@ -157,7 +157,7 @@ export default function ShareButtons({ url, text, imageUrl }: Props) {
             key={p.id}
             onClick={() => handlePlatformClick(p)}
             title={p.id === 'instagram' ? (copied ? 'Скопировано!' : 'Скопировать ссылку') : p.label}
-            className="w-11 h-11 rounded-full flex items-center justify-center text-[#E6EEF8] transition-all hover:scale-110 cursor-pointer"
+            className="w-11 h-11 rounded-full flex items-center justify-center text-[var(--color-text-primary)] transition-all hover:scale-110 cursor-pointer"
             style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.10)' }}
           >
             {p.icon}

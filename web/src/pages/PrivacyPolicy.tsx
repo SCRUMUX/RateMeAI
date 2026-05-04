@@ -15,7 +15,7 @@ export default function PrivacyPolicy() {
   const lastUpdated = '2026-04-20';
 
   return (
-    <div className="min-h-screen w-full bg-[#0B0F1A] text-[#E6EEF8]">
+    <div className="min-h-screen w-full bg-[var(--color-bg-base)] text-[var(--color-text-primary)]">
       <div className="max-w-[860px] mx-auto px-6 py-12">
         <div className="mb-8">
           <Link

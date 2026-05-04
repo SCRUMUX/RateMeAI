@@ -278,7 +278,7 @@ export default function StepGenerate({ onGoToStep, onOpenStorage }: Props) {
   return (
     <div className="flex flex-col gap-[var(--space-24)] tablet:gap-[var(--space-32)] w-full max-w-[800px] mx-auto">
       <div className="flex flex-col items-center gap-[var(--space-4)] text-center">
-        <h2 className="text-[20px] tablet:text-[24px] leading-[1.2] font-semibold text-[#E6EEF8]">
+        <h2 className="text-[20px] tablet:text-[24px] leading-[1.2] font-semibold text-[var(--color-text-primary)]">
           {hasGenResult ? 'Результат готов' : isRunning ? 'Генерация...' : genFailed ? 'Ошибка генерации' : 'Генерация'}
         </h2>
         <p className="text-[12px] tablet:text-[13px] leading-[16px] tablet:leading-[18px] text-[var(--color-text-secondary)] max-w-[440px]">
@@ -300,7 +300,7 @@ export default function StepGenerate({ onGoToStep, onOpenStorage }: Props) {
             <button
               type="button"
               onClick={() => onGoToStep('analysis')}
-              className="glass-btn-ghost px-[var(--space-12)] py-[var(--space-4)] rounded-[var(--radius-pill)] text-[#E6EEF8] inline-flex items-center gap-[var(--space-6)]"
+              className="glass-btn-ghost px-[var(--space-12)] py-[var(--space-4)] rounded-[var(--radius-pill)] text-[var(--color-text-primary)] inline-flex items-center gap-[var(--space-6)]"
             >
               <span className="text-[var(--color-text-muted)]">Направление:</span>
               <span className="font-medium">«{directionLabel}»</span>
@@ -309,7 +309,7 @@ export default function StepGenerate({ onGoToStep, onOpenStorage }: Props) {
           <button
             type="button"
             onClick={() => onGoToStep('style')}
-            className="glass-btn-ghost px-[var(--space-12)] py-[var(--space-4)] rounded-[var(--radius-pill)] text-[#E6EEF8] inline-flex items-center gap-[var(--space-6)]"
+            className="glass-btn-ghost px-[var(--space-12)] py-[var(--space-4)] rounded-[var(--radius-pill)] text-[var(--color-text-primary)] inline-flex items-center gap-[var(--space-6)]"
           >
             <span className="text-[var(--color-text-muted)]">Стиль:</span>
             <span className="font-medium">«{selectedStyle.name}»</span>
@@ -326,7 +326,7 @@ export default function StepGenerate({ onGoToStep, onOpenStorage }: Props) {
             <p className="text-[12px] leading-[16px] font-medium text-amber-200 mb-[var(--space-4)]">
               Параметры генерации скорректированы
             </p>
-            <ul className="text-[12px] leading-[16px] text-[#E6EEF8] list-disc pl-[var(--space-16)] space-y-[2px]">
+            <ul className="text-[12px] leading-[16px] text-[var(--color-text-primary)] list-disc pl-[var(--space-16)] space-y-[2px]">
               {generationWarnings.map((msg, idx) => (
                 <li key={idx}>{msg}</li>
               ))}
@@ -342,7 +342,7 @@ export default function StepGenerate({ onGoToStep, onOpenStorage }: Props) {
             <path d="M12 2a7 7 0 0 1 7 7c0 2.38-1.19 4.47-3 5.74V17a1 1 0 0 1-1 1H9a1 1 0 0 1-1-1v-2.26C6.19 13.47 5 11.38 5 9a7 7 0 0 1 7-7z" stroke="rgb(var(--accent-r),var(--accent-g),var(--accent-b))" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
             <path d="M9 21h6M10 17v1a2 2 0 0 0 4 0v-1" stroke="rgb(var(--accent-r),var(--accent-g),var(--accent-b))" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
           </svg>
-          <p className="text-[12px] tablet:text-[14px] leading-[16px] tablet:leading-[20px] text-[#E6EEF8] text-left">
+          <p className="text-[12px] tablet:text-[14px] leading-[16px] tablet:leading-[20px] text-[var(--color-text-primary)] text-left">
             {streamedFact}
             <span className="inline-block w-[2px] h-[12px] bg-[var(--color-brand-primary)] ml-[2px] align-middle animate-pulse" />
           </p>
@@ -407,7 +407,7 @@ export default function StepGenerate({ onGoToStep, onOpenStorage }: Props) {
                   <img src="/img/placeholder-upgrade.png" alt="" className="w-full h-full object-cover opacity-50 gen-sim-pulse" />
                   <div className="absolute inset-0 z-10 flex flex-col items-center justify-end pb-[var(--space-16)] gap-[var(--space-8)]" style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.7) 0%, transparent 60%)' }}>
                     <div className="w-6 h-6 border-2 border-t-transparent rounded-full animate-spin" style={{ borderColor: 'rgba(var(--accent-r),var(--accent-g),var(--accent-b),0.6)', borderTopColor: 'transparent' }} />
-                    <span className="text-[12px] leading-[16px] text-[#E6EEF8] font-medium text-center px-[var(--space-8)]">
+                    <span className="text-[12px] leading-[16px] text-[var(--color-text-primary)] font-medium text-center px-[var(--space-8)]">
                       {progress?.label ?? 'Обработка...'}
                     </span>
                     <div className="w-[80%] h-1 rounded-full glass-progress-track overflow-hidden">
@@ -421,8 +421,8 @@ export default function StepGenerate({ onGoToStep, onOpenStorage }: Props) {
                   <img src="/img/placeholder-upgrade.png" alt="" className="w-full h-full object-cover" style={{ filter: 'blur(16px) saturate(1.6) brightness(0.6)', transform: 'scale(1.1)' }} />
                   <div className="absolute inset-0" style={{ background: 'linear-gradient(135deg, rgba(var(--accent-r),var(--accent-g),var(--accent-b),0.25) 0%, rgba(0,0,0,0.3) 100%)' }} />
                   <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-[var(--space-8)] text-center px-[var(--space-12)]">
-                    <svg width="32" height="32" viewBox="0 0 32 32" fill="none"><circle cx="16" cy="16" r="14" stroke="rgba(255,255,255,0.3)" strokeWidth="1.5"/><path d="M16 10v8M16 22h.01" stroke="#E6EEF8" strokeWidth="2" strokeLinecap="round"/></svg>
-                    <span className="text-[13px] leading-[18px] text-[#E6EEF8] font-medium">Не удалось сгенерировать</span>
+                    <svg width="32" height="32" viewBox="0 0 32 32" fill="none" className="text-[var(--color-text-primary)]"><circle cx="16" cy="16" r="14" stroke="rgba(255,255,255,0.3)" strokeWidth="1.5"/><path d="M16 10v8M16 22h.01" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg>
+                    <span className="text-[13px] leading-[18px] text-[var(--color-text-primary)] font-medium">Не удалось сгенерировать</span>
                   </div>
                 </div>
               )}
@@ -434,7 +434,7 @@ export default function StepGenerate({ onGoToStep, onOpenStorage }: Props) {
             {/* Card footer */}
             <div className="flex flex-col gap-[var(--space-4)] px-[var(--space-10)] py-[var(--space-6)]">
               <div className="flex items-center justify-between">
-                <span className="text-[13px] leading-[18px] text-[#E6EEF8] font-medium">{cardLabel}</span>
+                <span className="text-[13px] leading-[18px] text-[var(--color-text-primary)] font-medium">{cardLabel}</span>
                 {isRunning ? null : cardScore != null && (
                   <span className="flex items-center gap-1">
                     <span className="text-[14px] leading-[18px] font-semibold text-[var(--color-brand-primary)]">
@@ -647,13 +647,13 @@ export default function StepGenerate({ onGoToStep, onOpenStorage }: Props) {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
           <div className="glass-card rounded-[var(--radius-16)] p-[var(--space-24)] max-w-sm w-full mx-4 flex flex-col items-center gap-[var(--space-16)] text-center">
             <CoinIcon size={40} className="text-[var(--color-brand-primary)]" />
-            <h3 className="text-[18px] font-semibold text-[#E6EEF8]">Пополните баланс</h3>
+            <h3 className="text-[18px] font-semibold text-[var(--color-text-primary)]">Пополните баланс</h3>
             <p className="text-[14px] text-[var(--color-text-secondary)]">
               Чтобы сгенерировать фото на документы, купите пакет — фото и настройки сохранятся.
             </p>
             <div className="flex gap-[var(--space-12)] w-full">
               <button
-                className="flex-1 glass-btn-ghost rounded-[var(--radius-12)] py-[var(--space-10)] text-[14px] font-medium text-[#E6EEF8]"
+                className="flex-1 glass-btn-ghost rounded-[var(--radius-12)] py-[var(--space-10)] text-[14px] font-medium text-[var(--color-text-primary)]"
                 onClick={() => setDocPaywallOpen(false)}
                 disabled={paymentLoading}
               >
@@ -675,13 +675,13 @@ export default function StepGenerate({ onGoToStep, onOpenStorage }: Props) {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
           <div className="glass-card rounded-[var(--radius-16)] p-[var(--space-24)] max-w-sm w-full mx-4 flex flex-col items-center gap-[var(--space-16)] text-center">
             <CoinIcon size={40} className="text-[var(--color-brand-primary)]" />
-            <h3 className="text-[18px] font-semibold text-[#E6EEF8]">Кредиты закончились</h3>
+            <h3 className="text-[18px] font-semibold text-[var(--color-text-primary)]">Кредиты закончились</h3>
             <p className="text-[14px] text-[var(--color-text-secondary)]">
               Для генерации изображений необходимо пополнить баланс.
             </p>
             <div className="flex gap-[var(--space-12)] w-full">
               <button
-                className="flex-1 glass-btn-ghost rounded-[var(--radius-12)] py-[var(--space-10)] text-[14px] font-medium text-[#E6EEF8]"
+                className="flex-1 glass-btn-ghost rounded-[var(--radius-12)] py-[var(--space-10)] text-[14px] font-medium text-[var(--color-text-primary)]"
                 onClick={() => { setShowNoCredits(false); app.clearNoCreditsError(); }}
               >
                 Закрыть

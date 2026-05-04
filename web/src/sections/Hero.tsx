@@ -30,7 +30,7 @@ export default function Hero() {
     >
       {/* Text block */}
       <div className="relative z-[2] flex flex-col items-center gap-[var(--space-12)] text-center">
-        <h1 className="text-[32px] tablet:text-[48px] desktop:text-[64px] font-bold leading-[1] text-[#E6EEF8]">
+        <h1 className="text-[32px] tablet:text-[48px] desktop:text-[64px] font-bold leading-[1] text-[var(--color-text-primary)]">
           Адаптируй фото
         </h1>
         <h1 className="text-[32px] tablet:text-[48px] desktop:text-[64px] font-bold leading-[1]"
@@ -65,7 +65,7 @@ export default function Hero() {
                 <div className="flex items-center gap-[6px]">
                   <p.Icon size={20} style={{ color: p.iconColor }} />
                   <div className="flex flex-col gap-[2px]">
-                    <span className="text-[11px] tablet:text-[12px] leading-[14px] tablet:leading-[16px] text-[#E6EEF8]">{p.name}</span>
+                    <span className="text-[11px] tablet:text-[12px] leading-[14px] tablet:leading-[16px] text-[var(--color-text-primary)]">{p.name}</span>
                     <span className="text-[10px] tablet:text-[11px] leading-[12px] tablet:leading-[14px]"
                       style={{ color: p.sub === 'Скоро' ? 'var(--color-text-muted)' : 'var(--color-brand-primary)' }}
                     >

@@ -58,11 +58,11 @@ export default function StylesSheet({ open, onClose, styles, selectedKey, locked
               <div className="w-10 h-1 rounded-full bg-[rgba(255,255,255,0.2)]" />
             </div>
             <div className="shrink-0 flex items-center justify-between px-[var(--space-16)] py-[var(--space-8)]">
-              <span className="text-[16px] leading-[24px] font-semibold text-[#E6EEF8]">Все образы</span>
+              <span className="text-[16px] leading-[24px] font-semibold text-[var(--color-text-primary)]">Все образы</span>
               <button
                 onClick={onClose}
                 aria-label="Закрыть"
-                className="w-9 h-9 flex items-center justify-center rounded-full glass-btn-ghost text-[var(--color-text-muted)] hover:text-[#E6EEF8] transition-colors"
+                className="w-9 h-9 flex items-center justify-center rounded-full glass-btn-ghost text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] transition-colors"
               >
                 <svg width="18" height="18" viewBox="0 0 16 16" fill="none">
                   <path d="M4 4L12 12M12 4L4 12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
@@ -102,7 +102,7 @@ export default function StylesSheet({ open, onClose, styles, selectedKey, locked
                       ) : s.icon}
                     </div>
                     <div className="flex flex-col flex-1 min-w-0 gap-[2px]">
-                      <span className="text-[15px] leading-[20px] text-[#E6EEF8] font-medium truncate">{s.name}</span>
+                      <span className="text-[15px] leading-[20px] text-[var(--color-text-primary)] font-medium truncate">{s.name}</span>
                       <span className="text-[11px] leading-[14px] text-[var(--color-text-muted)] truncate">
                         {locked ? lockBadge : s.desc}
                       </span>

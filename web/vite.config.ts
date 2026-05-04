@@ -50,5 +50,29 @@ export default defineConfig({
   },
   build: {
     outDir: 'dist',
+    rollupOptions: {
+      output: {
+        // 1.33.1 — split heavy/admin code into dedicated chunks.
+        //
+        // Why: the 1.33.0 main bundle was 717 kB. ``framer-motion``
+        // alone is ~140 kB and is used everywhere on the user path,
+        // but admin pages add another ~120 kB that 99% of users
+        // never load. Pull both into separate chunks so the main
+        // bundle drops below the Vite 500 kB warning threshold and
+        // first paint pulls less JavaScript.
+        manualChunks(id) {
+          if (id.includes('node_modules')) {
+            if (id.includes('framer-motion')) return 'framer-motion';
+            if (id.includes('react-router-dom') || id.includes('@remix-run')) {
+              return 'router';
+            }
+          }
+          // Admin pages are already lazy-loaded in App.tsx; this
+          // keeps any shared admin-only utilities together.
+          if (id.includes('/src/pages/admin/')) return 'admin';
+          return undefined;
+        },
+      },
+    },
   },
 });

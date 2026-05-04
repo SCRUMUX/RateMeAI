@@ -495,65 +495,11 @@
   --color-surface-active: var(--color-surface-3);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) {
-    --color-bg-base: #161E28;
-    --color-bg-muted: #1B2B47;
-    --color-surface-1: #1A2330;
-    --color-surface-2: #243041;
-    --color-surface-3: #2A3547;
-    --color-bg-disabled: #1B2B47;
-    --color-text-primary: #E6EEF8;
-    --color-text-secondary: #9AA6B2;
-    --color-text-muted: #9AA6B2;
-    --color-text-disabled: #9AA6B2;
-    --color-text-on-brand: #353535;
-    --color-tooltip-text: #161E28;
-    --color-tooltip-bg: #E6EEF8;
-    --color-brand-primary: #00F0FF;
-    --color-brand-hover: #00CCD9;
-    --color-brand-pressed: #00ADB8;
-    --color-brand-muted: #002426;
-    --color-brand-hover-bg: #002426;
-    --color-link-default: #00F0FF;
-    --color-link-hover: #00CCD9;
-    --color-link-visited: #6B5BFF;
-    --color-focus-outline: #00F0FF;
-    --color-active: #00F0FF;
-    --color-border-base: #243041;
-    --color-border-strong: #485B76;
-    --color-border-disabled: #485B76;
-    --color-divider: #1A2330;
-    --color-success-base: #1DB954;
-    --color-success-surface: #11261B;
-    --color-success-hover-bg: #11261B;
-    --color-success-text: #E6EEF8;
-    --color-warning-base: #FFB020;
-    --color-warning-surface: #2A210E;
-    --color-warning-hover-bg: #2A210E;
-    --color-warning-text: #E6EEF8;
-    --color-danger-base: #FF4D4F;
-    --color-danger-surface: #2A1314;
-    --color-danger-hover-bg: #2A1314;
-    --color-danger-text: #E6EEF8;
-    --color-info-base: #06B6D4;
-    --color-info-surface: #161E28;
-    --color-info-text: #E6EEF8;
-    --color-info-hover-bg: #161E28;
-    --color-icon-on-brand: #FFFFFF;
-    --color-icon-on-base: #E6EEF8;
-    --color-icon-on-ghost: #E6EEF8;
-    --color-icon-on-outline: #00F0FF;
-    --color-icon-on-success: #FFFFFF;
-    --color-icon-on-warning: #E6EEF8;
-    --color-icon-on-danger: #FFFFFF;
-    --color-viz-categorical-1: #00F0FF;
-    --color-viz-categorical-2: #06B6D4;
-    --color-viz-categorical-3: #FF4D4F;
-    --color-viz-categorical-4: #FFB020;
-    --color-viz-categorical-5: #1DB954;
-    --color-viz-categorical-6: #6B5BFF;
-    --color-viz-categorical-7: #14B8A6;
-    --color-viz-categorical-8: #E11D48;
-  }
-}
+/* 1.33.1 — removed redundant @media (prefers-color-scheme: dark) block.
+ *
+ * The FOUC inline script in index.html always sets data-theme on <html>
+ * (storage → media query → 'dark' fallback), and ThemeProvider keeps it
+ * synced. The @media :not([data-theme="light"]) override therefore never
+ * applied any value not already covered by [data-theme="dark"] above.
+ * Kept the file identical to ai-ds-spec.json output — the auto-gen
+ * banner stays accurate for the primitives section. */

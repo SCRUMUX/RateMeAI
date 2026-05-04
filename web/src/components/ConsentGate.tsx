@@ -78,7 +78,7 @@ export default function ConsentGate({ children }: Props) {
   return (
     <div className="flex flex-col items-center gap-[var(--space-16)] w-full max-w-[560px] mx-auto py-[var(--space-24)]">
       <div className="gradient-border-card glass-card rounded-[var(--radius-16)] p-[var(--space-20)] w-full">
-        <h2 className="text-[18px] tablet:text-[22px] font-semibold text-[#E6EEF8] mb-[var(--space-12)]">
+        <h2 className="text-[18px] tablet:text-[22px] font-semibold text-[var(--color-text-primary)] mb-[var(--space-12)]">
           Согласия на обработку данных
         </h2>
         <p className="text-[13px] leading-[18px] text-[var(--color-text-secondary)] mb-[var(--space-16)]">
@@ -101,7 +101,7 @@ export default function ConsentGate({ children }: Props) {
                 className="mt-[3px] w-4 h-4 accent-current"
               />
               <span className="flex flex-col gap-[var(--space-4)]">
-                <span className="text-[13px] leading-[18px] text-[#E6EEF8]">
+                <span className="text-[13px] leading-[18px] text-[var(--color-text-primary)]">
                   {LABELS[kind]}
                 </span>
                 <span className="text-[11px] leading-[16px] text-[var(--color-text-muted)]">
@@ -122,7 +122,7 @@ export default function ConsentGate({ children }: Props) {
             Политика обработки персональных данных
           </a>
           {error ? (
-            <span className="text-[12px] text-[#FF9EAD]">{error}</span>
+            <span className="text-[12px] text-[var(--color-danger)]">{error}</span>
           ) : null}
           <button
             onClick={submit}

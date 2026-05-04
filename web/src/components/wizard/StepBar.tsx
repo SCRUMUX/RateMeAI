@@ -107,7 +107,7 @@ export default function StepBar({ currentStep, completedSteps, onStepClick, phot
               </div>
               <div className="flex flex-col items-center gap-[2px]">
                 <span className={`text-[12px] leading-[16px] font-medium transition-colors whitespace-nowrap ${
-                  isCurrent ? 'text-[#E6EEF8]' : isCompleted ? 'text-[var(--color-text-secondary)]' : 'text-[var(--color-text-muted)]'
+                  isCurrent ? 'text-[var(--color-text-primary)]' : isCompleted ? 'text-[var(--color-text-secondary)]' : 'text-[var(--color-text-muted)]'
                 }`}>
                   {step.title}
                 </span>
@@ -125,7 +125,7 @@ export default function StepBar({ currentStep, completedSteps, onStepClick, phot
       {/* Mobile — segmented progress bar */}
       <div className="flex tablet:hidden flex-col gap-[var(--space-8)] px-[var(--space-4)]">
         <div className="flex items-center justify-between">
-          <span className="text-[14px] leading-[20px] font-semibold text-[#E6EEF8]">
+          <span className="text-[14px] leading-[20px] font-semibold text-[var(--color-text-primary)]">
             {steps[currentIdx]?.title}
           </span>
           <span className="text-[12px] leading-[16px] text-[var(--color-text-muted)] tabular-nums">
@@ -165,7 +165,7 @@ export default function StepBar({ currentStep, completedSteps, onStepClick, phot
                   <img src={photoPreview!} alt="" className="w-5 h-5 rounded-full object-cover" />
                 ) : label ? (
                   <span className={`text-[10px] leading-[14px] tabular-nums font-medium ${
-                    isCurrent ? 'text-[#E6EEF8]' : 'text-[var(--color-text-muted)]'
+                    isCurrent ? 'text-[var(--color-text-primary)]' : 'text-[var(--color-text-muted)]'
                   }`}>{label}</span>
                 ) : (
                   <span className={`text-[10px] leading-[14px] tabular-nums ${

@@ -57,7 +57,7 @@ function StepUploadBody({ onNext }: Props) {
   const RequirementsCards = (
     <>
       <div className="gradient-border-card glass-card rounded-[var(--radius-12)] p-[var(--space-16)] tablet:p-[var(--space-20)] flex-1">
-        <p className="text-left text-[13px] tablet:text-[14px] font-medium text-[#E6EEF8] mb-[var(--space-10)]">
+        <p className="text-left text-[13px] tablet:text-[14px] font-medium text-[var(--color-text-primary)] mb-[var(--space-10)]">
           Требования к фото
         </p>
         <ul className="flex flex-col gap-[var(--space-8)] text-left">
@@ -89,7 +89,7 @@ function StepUploadBody({ onNext }: Props) {
       </div>
 
       <div className="gradient-border-card glass-card rounded-[var(--radius-12)] p-[var(--space-16)] tablet:p-[var(--space-20)] flex-1">
-        <p className="text-left text-[13px] tablet:text-[14px] font-medium text-[#FF9EAD] mb-[var(--space-10)]">
+        <p className="text-left text-[13px] tablet:text-[14px] font-medium text-[var(--color-danger)] mb-[var(--space-10)]">
           Не будет обработано
         </p>
         <ul className="flex flex-col gap-[var(--space-8)] text-left">
@@ -103,12 +103,12 @@ function StepUploadBody({ onNext }: Props) {
                 height="14"
                 viewBox="0 0 18 18"
                 fill="none"
-                className="shrink-0 mt-[2px]"
+                className="shrink-0 mt-[2px] text-[var(--color-danger)]"
                 aria-hidden="true"
               >
                 <path
                   d="M6 6L12 12M12 6L6 12"
-                  stroke="#FF9EAD"
+                  stroke="currentColor"
                   strokeWidth="2"
                   strokeLinecap="round"
                 />
@@ -124,7 +124,7 @@ function StepUploadBody({ onNext }: Props) {
   return (
     <div className="flex flex-col gap-[var(--space-24)] w-full max-w-[800px] mx-auto">
       <div className="flex flex-col items-center gap-[var(--space-8)] text-center">
-        <h2 className="text-[20px] tablet:text-[28px] leading-[1.2] font-semibold text-[#E6EEF8]">
+        <h2 className="text-[20px] tablet:text-[28px] leading-[1.2] font-semibold text-[var(--color-text-primary)]">
           Загрузите фото
         </h2>
         <p className="text-[12px] tablet:text-[13px] leading-[16px] tablet:leading-[18px] text-[var(--color-text-secondary)] max-w-[440px]">
@@ -166,7 +166,7 @@ function StepUploadBody({ onNext }: Props) {
                   </svg>
                 </div>
                 <div className="flex flex-col items-center gap-[var(--space-4)]">
-                  <span className="text-[15px] leading-[20px] font-medium text-[#E6EEF8] text-center">
+                  <span className="text-[15px] leading-[20px] font-medium text-[var(--color-text-primary)] text-center">
                     {dragOver ? 'Отпустите файл' : 'Нажмите или перетащите фото'}
                   </span>
                   <span className="text-[12px] leading-[16px] text-[var(--color-text-muted)] text-center">
@@ -194,7 +194,7 @@ function StepUploadBody({ onNext }: Props) {
           </button>
           <button
             onClick={() => fileInputRef.current?.click()}
-            className="flex-1 glass-btn-ghost py-[var(--space-12)] text-[14px] leading-[20px] text-[#E6EEF8] rounded-[var(--radius-12)]"
+            className="flex-1 glass-btn-ghost py-[var(--space-12)] text-[14px] leading-[20px] text-[var(--color-text-primary)] rounded-[var(--radius-12)]"
           >
             Заменить фото
           </button>

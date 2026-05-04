@@ -22,7 +22,7 @@ export default function HowItWorks() {
               >
                 <span className="text-[16px] leading-[24px] text-[var(--color-brand-primary)]">{s.num}</span>
               </div>
-              <h3 className="text-style-h1 text-[#E6EEF8] text-center">
+              <h3 className="text-style-h1 text-[var(--color-text-primary)] text-center">
                 {s.title}
               </h3>
               <p className="text-[14px] tablet:text-[16px] leading-[20px] tablet:leading-[24px] text-[var(--color-text-secondary)] text-center">

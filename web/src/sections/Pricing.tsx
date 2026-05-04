@@ -56,7 +56,7 @@ export default function Pricing() {
     >
       {/* Heading */}
       <div className="relative flex flex-col items-center gap-[var(--space-12)] text-center">
-        <h2 className="text-[32px] tablet:text-[48px] desktop:text-[64px] font-semibold leading-[1] text-[#E6EEF8]">Тарифы</h2>
+        <h2 className="text-[32px] tablet:text-[48px] desktop:text-[64px] font-semibold leading-[1] text-[var(--color-text-primary)]">Тарифы</h2>
         <h2 className="text-[32px] tablet:text-[48px] desktop:text-[64px] font-semibold leading-[1]"
           style={{ background: 'linear-gradient(105deg, rgb(var(--accent-r), var(--accent-g), var(--accent-b)) 4%, rgb(var(--accent-sec-r), var(--accent-sec-g), var(--accent-sec-b)) 103%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}
         >
@@ -87,22 +87,22 @@ export default function Pricing() {
               }`}
             >
               <div className="flex items-center gap-[var(--space-6)] px-[var(--space-8)] py-[var(--space-4)]">
-                <span className="text-style-h1 text-[#E6EEF8]">{plan.title}</span>
+                <span className="text-style-h1 text-[var(--color-text-primary)]">{plan.title}</span>
                 {plan.badge && (
-                  <span className="glass-badge-info px-[var(--space-6)] py-[2px] text-[12px] font-medium leading-[16px] text-[#E6EEF8] rounded-full">{plan.badge}</span>
+                  <span className="glass-badge-info px-[var(--space-6)] py-[2px] text-[12px] font-medium leading-[16px] text-[var(--color-text-primary)] rounded-full">{plan.badge}</span>
                 )}
               </div>
 
               <div className="flex items-center gap-[var(--space-8)] px-[var(--space-8)] py-[var(--space-4)]">
                 <CoinIcon size={24} className={plan.highlighted ? 'text-[var(--color-brand-primary)]' : 'text-[var(--color-text-muted)]'} />
-                <span className={`text-[20px] tablet:text-[24px] leading-[28px] tablet:leading-[32px] font-medium ${plan.highlighted ? 'text-[var(--color-brand-primary)]' : 'text-[#E6EEF8]'}`}>{plan.price}</span>
+                <span className={`text-[20px] tablet:text-[24px] leading-[28px] tablet:leading-[32px] font-medium ${plan.highlighted ? 'text-[var(--color-brand-primary)]' : 'text-[var(--color-text-primary)]'}`}>{plan.price}</span>
               </div>
 
               <div className="flex items-center gap-[var(--space-8)] px-[var(--space-4)] py-[2px]">
                 <ImageIcon size={16} className="text-[var(--color-text-muted)]" />
                 <span className="text-[16px] leading-[24px] text-[var(--color-text-secondary)]">{plan.photos}</span>
                 {plan.savingBadge && (
-                  <span className="glass-badge-danger px-[var(--space-6)] py-[2px] text-[12px] font-medium leading-[16px] text-[#E6EEF8] rounded-full">{plan.savingBadge}</span>
+                  <span className="glass-badge-danger px-[var(--space-6)] py-[2px] text-[12px] font-medium leading-[16px] text-[var(--color-text-primary)] rounded-full">{plan.savingBadge}</span>
                 )}
               </div>
 

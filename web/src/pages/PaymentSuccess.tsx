@@ -39,7 +39,7 @@ export default function PaymentSuccess() {
           <AicaIcon size={36} className="text-[var(--color-success-base)] -rotate-45" />
         </div>
 
-        <h1 className="text-[32px] font-semibold leading-[1.2] text-[#E6EEF8]">
+        <h1 className="text-[32px] font-semibold leading-[1.2] text-[var(--color-text-primary)]">
           Оплата прошла успешно!
         </h1>
 

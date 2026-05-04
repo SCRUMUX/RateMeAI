@@ -40,7 +40,7 @@ export default function DocumentPhotoLanding({ onStart, showAuth, onAuthClose }:
         <section className="relative z-[2] flex flex-col items-center gap-[var(--space-24)] px-[var(--space-16)] tablet:px-[var(--space-24)] pt-[120px] tablet:pt-[160px] pb-[60px] tablet:pb-[80px] text-center">
           <div className="flex flex-col items-center gap-[var(--space-12)]">
             <span className="text-[48px]">📋</span>
-            <h1 className="text-[32px] tablet:text-[48px] desktop:text-[56px] font-semibold leading-[1.1] text-[#E6EEF8] max-w-[700px]">
+            <h1 className="text-[32px] tablet:text-[48px] desktop:text-[56px] font-semibold leading-[1.1] text-[var(--color-text-primary)] max-w-[700px]">
               Фото на документы
               <br />
               <span style={{
@@ -71,12 +71,12 @@ export default function DocumentPhotoLanding({ onStart, showAuth, onAuthClose }:
 
         {/* How it works */}
         <section className="relative z-[2] flex flex-col items-center gap-[var(--space-32)] px-[var(--space-16)] tablet:px-[var(--space-24)] py-[60px] tablet:py-[80px]">
-          <h2 className="text-[24px] tablet:text-[36px] font-semibold leading-[1.2] text-[#E6EEF8]">Как это работает</h2>
+          <h2 className="text-[24px] tablet:text-[36px] font-semibold leading-[1.2] text-[var(--color-text-primary)]">Как это работает</h2>
           <div className="grid grid-cols-2 tablet:grid-cols-4 gap-[var(--space-16)] tablet:gap-[var(--space-24)] max-w-[900px]">
             {STEPS.map((s) => (
               <div key={s.num} className="gradient-border-card glass-card flex flex-col items-center gap-[var(--space-8)] p-[var(--space-16)] rounded-[var(--radius-12)] text-center">
                 <span className="text-[24px] font-bold" style={{ color: 'rgb(var(--accent-r),var(--accent-g),var(--accent-b))' }}>{s.num}</span>
-                <span className="text-[14px] font-medium text-[#E6EEF8]">{s.title}</span>
+                <span className="text-[14px] font-medium text-[var(--color-text-primary)]">{s.title}</span>
                 <span className="text-[12px] text-[var(--color-text-muted)]">{s.desc}</span>
               </div>
             ))}
@@ -85,7 +85,7 @@ export default function DocumentPhotoLanding({ onStart, showAuth, onAuthClose }:
 
         {/* Supported formats */}
         <section className="relative z-[2] flex flex-col items-center gap-[var(--space-32)] px-[var(--space-16)] tablet:px-[var(--space-24)] py-[60px] tablet:py-[80px]">
-          <h2 className="text-[24px] tablet:text-[36px] font-semibold leading-[1.2] text-[#E6EEF8]">Поддерживаемые форматы</h2>
+          <h2 className="text-[24px] tablet:text-[36px] font-semibold leading-[1.2] text-[var(--color-text-primary)]">Поддерживаемые форматы</h2>
           <div className="grid grid-cols-1 tablet:grid-cols-2 desktop:grid-cols-3 gap-[var(--space-12)] max-w-[900px] w-full">
             {DOCUMENT_LANDING_ITEMS.map((f) => (
               <div key={f.key} className="gradient-border-item glass-row flex items-center gap-[var(--space-12)] px-[var(--space-16)] py-[var(--space-12)] rounded-[var(--radius-12)]"
@@ -93,7 +93,7 @@ export default function DocumentPhotoLanding({ onStart, showAuth, onAuthClose }:
               >
                 <span className="text-[24px] shrink-0">{f.icon}</span>
                 <div className="flex flex-col min-w-0">
-                  <span className="text-[15px] font-medium text-[#E6EEF8]">{f.name}</span>
+                  <span className="text-[15px] font-medium text-[var(--color-text-primary)]">{f.name}</span>
                   <span className="text-[12px] text-[var(--color-text-muted)]">{f.usage}</span>
                 </div>
               </div>
@@ -103,7 +103,7 @@ export default function DocumentPhotoLanding({ onStart, showAuth, onAuthClose }:
 
         {/* Final CTA */}
         <section className="relative z-[2] flex flex-col items-center gap-[var(--space-16)] px-[var(--space-16)] tablet:px-[var(--space-24)] py-[60px] tablet:py-[80px] text-center">
-          <h2 className="text-[24px] tablet:text-[36px] font-semibold leading-[1.2] text-[#E6EEF8]">
+          <h2 className="text-[24px] tablet:text-[36px] font-semibold leading-[1.2] text-[var(--color-text-primary)]">
             Готовы создать фото?
           </h2>
           <p className="text-[16px] text-[var(--color-text-secondary)] max-w-[400px]">
@@ -112,7 +112,7 @@ export default function DocumentPhotoLanding({ onStart, showAuth, onAuthClose }:
 
           <div className="flex flex-col tablet:flex-row gap-[var(--space-12)] w-full max-w-[640px] text-left">
             <div className="flex-1 gradient-border-card glass-card rounded-[var(--radius-12)] p-[var(--space-12)]">
-              <p className="text-[13px] font-medium text-[#E6EEF8] mb-[var(--space-6)]">Подходит</p>
+              <p className="text-[13px] font-medium text-[var(--color-text-primary)] mb-[var(--space-6)]">Подходит</p>
               <ul className="flex flex-col gap-[var(--space-4)] text-[12px] leading-[16px] text-[var(--color-text-secondary)]">
                 {REQUIREMENTS_SHORT.map((t) => (
                   <li key={t}>• {t}</li>
@@ -120,7 +120,7 @@ export default function DocumentPhotoLanding({ onStart, showAuth, onAuthClose }:
               </ul>
             </div>
             <div className="flex-1 gradient-border-card glass-card rounded-[var(--radius-12)] p-[var(--space-12)]">
-              <p className="text-[13px] font-medium text-[#FF9EAD] mb-[var(--space-6)]">Не будет обработано</p>
+              <p className="text-[13px] font-medium text-[var(--color-danger)] mb-[var(--space-6)]">Не будет обработано</p>
               <ul className="flex flex-col gap-[var(--space-4)] text-[12px] leading-[16px] text-[var(--color-text-muted)]">
                 {REJECT_BULLETS.slice(0, 4).map((t) => (
                   <li key={t}>• {t}</li>

@@ -99,7 +99,7 @@ export default function LinkPage() {
     <div className="min-h-screen flex items-center justify-center p-6">
       <div className="glass-card rounded-[var(--radius-12)] p-8 max-w-md w-full flex flex-col gap-6">
         <div className="text-center">
-          <h1 className="text-[22px] font-bold text-[#E6EEF8]">Привязка аккаунта</h1>
+          <h1 className="text-[22px] font-bold text-[var(--color-text-primary)]">Привязка аккаунта</h1>
           <p className="text-[14px] text-[var(--color-text-secondary)] mt-2">
             Введите код из бота или веб-приложения, затем выберите способ привязки
           </p>
@@ -113,7 +113,7 @@ export default function LinkPage() {
             onChange={(e) => { setCode(e.target.value); setError(null); }}
             placeholder="ABC123"
             maxLength={8}
-            className="w-full px-4 py-3 rounded-[var(--radius-8)] text-[18px] text-center text-[#E6EEF8] font-mono tracking-[0.3em] placeholder:text-[var(--color-text-muted)] outline-none uppercase"
+            className="w-full px-4 py-3 rounded-[var(--radius-8)] text-[18px] text-center text-[var(--color-text-primary)] font-mono tracking-[0.3em] placeholder:text-[var(--color-text-muted)] outline-none uppercase"
             style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)' }}
           />
           <p className="text-[11px] text-[var(--color-text-muted)] text-center mt-1">
@@ -154,7 +154,7 @@ export default function LinkPage() {
                   value={phoneInput}
                   onChange={(e) => { setPhoneInput(e.target.value); setError(null); }}
                   placeholder="+7 (999) 123-45-67"
-                  className="flex-1 px-3 py-3 rounded-[var(--radius-8)] text-[14px] text-[#E6EEF8] placeholder:text-[var(--color-text-muted)] outline-none"
+                  className="flex-1 px-3 py-3 rounded-[var(--radius-8)] text-[14px] text-[var(--color-text-primary)] placeholder:text-[var(--color-text-muted)] outline-none"
                   style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.10)' }}
                 />
                 <button
@@ -175,7 +175,7 @@ export default function LinkPage() {
                   onChange={(e) => { setOtpCode(e.target.value); setError(null); }}
                   placeholder="Код из SMS"
                   maxLength={6}
-                  className="flex-1 px-3 py-3 rounded-[var(--radius-8)] text-[14px] text-[#E6EEF8] placeholder:text-[var(--color-text-muted)] outline-none"
+                  className="flex-1 px-3 py-3 rounded-[var(--radius-8)] text-[14px] text-[var(--color-text-primary)] placeholder:text-[var(--color-text-muted)] outline-none"
                   style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.10)' }}
                 />
                 <button
@@ -191,7 +191,7 @@ export default function LinkPage() {
           </div>
         </div>
 
-        {error && <p className="text-[12px] text-[#FF4D6A] text-center">{error}</p>}
+        {error && <p className="text-[12px] text-[var(--color-danger)] text-center">{error}</p>}
 
         <button
           onClick={() => navigate('/', { replace: true })}

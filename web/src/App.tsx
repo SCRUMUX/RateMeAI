@@ -1,3 +1,4 @@
+import { lazy, Suspense } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AppProvider } from './context/AppContext';
 import { ToastProvider } from './components/Toast';
@@ -8,8 +9,21 @@ import PaymentSuccess from './pages/PaymentSuccess';
 import AuthCallback from './pages/AuthCallback';
 import LinkPage from './pages/LinkPage';
 import PrivacyPolicy from './pages/PrivacyPolicy';
-import StylesAdminPage from './pages/admin/StylesAdminPage';
-import ConflictsAdminPage from './pages/admin/ConflictsAdminPage';
+
+// 1.33.1 — admin pages lazy-loaded to keep them out of the main bundle.
+// End-users almost never hit /admin/*, so adding ~120 kB to first paint
+// for them is wasteful. Combined with manualChunks in vite.config.ts the
+// admin chunk lands in a separate file fetched only on /admin/*.
+const StylesAdminPage = lazy(() => import('./pages/admin/StylesAdminPage'));
+const ConflictsAdminPage = lazy(() => import('./pages/admin/ConflictsAdminPage'));
+
+function AdminFallback() {
+  return (
+    <div className="min-h-screen flex items-center justify-center text-[var(--color-text-secondary)]">
+      Загрузка админ-панели…
+    </div>
+  );
+}
 
 export default function App() {
   return (
@@ -26,8 +40,22 @@ export default function App() {
             <Route path="/auth/callback" element={<AuthCallback />} />
             <Route path="/link" element={<LinkPage />} />
             <Route path="/privacy" element={<PrivacyPolicy />} />
-            <Route path="/admin/styles" element={<StylesAdminPage />} />
-            <Route path="/admin/conflicts" element={<ConflictsAdminPage />} />
+            <Route
+              path="/admin/styles"
+              element={
+                <Suspense fallback={<AdminFallback />}>
+                  <StylesAdminPage />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/admin/conflicts"
+              element={
+                <Suspense fallback={<AdminFallback />}>
+                  <ConflictsAdminPage />
+                </Suspense>
+              }
+            />
           </Routes>
         </AppProvider>
       </ToastProvider>

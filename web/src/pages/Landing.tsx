@@ -51,7 +51,7 @@ export default function Landing() {
           </div>
 
           <div className="flex flex-col items-center gap-[var(--space-16)] text-center max-w-[600px]">
-            <h2 className="text-[32px] tablet:text-[48px] font-semibold leading-[1] text-[#E6EEF8]">
+            <h2 className="text-[32px] tablet:text-[48px] font-semibold leading-[1] text-[var(--color-text-primary)]">
               Попробуйте прямо сейчас
             </h2>
             <p className="text-[16px] tablet:text-[20px] leading-[24px] tablet:leading-[28px] text-[var(--color-text-secondary)]">

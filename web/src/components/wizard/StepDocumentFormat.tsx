@@ -32,7 +32,7 @@ export default function StepDocumentFormat({ onNext }: Props) {
   return (
     <div className="flex flex-col h-full w-full max-w-[520px] mx-auto">
       <div className="shrink-0 flex flex-col gap-[var(--space-4)] text-center pb-[var(--space-12)]">
-        <h2 className="text-[20px] tablet:text-[24px] leading-[1.2] font-semibold text-[#E6EEF8]">
+        <h2 className="text-[20px] tablet:text-[24px] leading-[1.2] font-semibold text-[var(--color-text-primary)]">
           Выберите формат
         </h2>
         <p className="text-[12px] tablet:text-[13px] leading-[16px] tablet:leading-[18px] text-[var(--color-text-secondary)]">
@@ -61,7 +61,7 @@ export default function StepDocumentFormat({ onNext }: Props) {
                 {fmt.icon}
               </div>
               <div className="flex flex-col flex-1 min-w-0 gap-[2px]">
-                <span className="text-[15px] leading-[20px] text-[#E6EEF8] font-medium truncate">
+                <span className="text-[15px] leading-[20px] text-[var(--color-text-primary)] font-medium truncate">
                   {fmt.name}
                 </span>
                 <span className="text-[11px] leading-[14px] text-[var(--color-text-muted)] truncate">

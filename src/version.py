@@ -3155,4 +3155,103 @@
 #          + bundle code-splitting (admin chunk + framer-motion
 #          chunk, цель <500 kB main) + удаление v1 fallback
 #          если PROMPT_V1_FALLBACK метрика подтвердила 0 hits.
-APP_VERSION = "1.33.0"
+# 1.33.1 — Wave 2 итерация 5: Sweep wave 2 + hygiene + bundle split.
+#          Закрывает Wave 2: оставшиеся хардкоды → токены, очистка
+#          theme CSS, code-splitting в Vite. Frontend-only
+#          (backend пайплайн не трогается).
+#
+#          Color sweep wave 2:
+#            * NavBar.tsx — 18× ``text-[#E6EEF8]`` →
+#              ``text-[var(--color-text-primary)]``, 8×
+#              ``hover:bg-[rgba(255,255,255,0.06)]`` →
+#              ``hover:bg-[var(--color-surface-hover)]``,
+#              2× ``text-[#FF4D6A]`` →
+#              ``text-[var(--color-danger)]``, dropdown menu
+#              surface ``rgba(12, 16, 24, 0.95)`` →
+#              ``bg-[var(--color-surface-1)]`` + elevation,
+#              6 inline-divider ``rgba(255,255,255,0.08)`` →
+#              ``bg-[var(--color-border-base)]``,
+#              mobile-drawer ``rgb(8, 12, 18)`` →
+#              ``bg-[var(--color-bg-base)]``.
+#            * Sections (Hero / Pricing / Footer / Simulation /
+#              SocialProof / HowItWorks) — text-token sweep.
+#            * Wizard (StepUpload / StepGenerate / StepStyle /
+#              StepAnalysis / StepDocumentFormat / StylesSheet /
+#              StepBar) — 12+6+6+7+2+3+3 ``#E6EEF8`` →
+#              ``var(--color-text-primary)``,
+#              ``#FF9EAD`` (Не будет обработано) →
+#              ``var(--color-danger)``.
+#            * Pages / components (Landing / Toast / AuthCallback /
+#              ConsentGate / LinkPage / CategoryTabs /
+#              ResolvedSlotsBadges / PaymentSuccess /
+#              PrivacyPolicy / DocumentPhotoLanding /
+#              ShareButtons / LinkedAccountsPanel) — text-token
+#              sweep + LinkedAccountsPanel inline-style buttons →
+#              ``bg-[var(--color-surface-2)]`` +
+#              ``border-[var(--color-border-base)]``.
+#            * Admin pages (StylesAdminPage /
+#              ConflictsAdminPage) — преднамеренно не тронуты,
+#              они lazy-loaded и идут в ``admin`` chunk
+#              (см. §5.3).
+#
+#          Theme CSS hygiene:
+#            * Удалён избыточный ``@media (prefers-color-scheme:
+#              dark) :root:not([data-theme="light"])`` в
+#              ``design-tokens.css``. FOUC-script в
+#              ``index.html`` всегда выставляет ``data-theme``,
+#              поэтому media-query никогда не активировался.
+#              Заменён на короткий комментарий о причине удаления.
+#
+#          Bundle code-splitting:
+#            * ``vite.config.ts`` — ``manualChunks(id)``:
+#                - ``framer-motion`` отдельным chunk-ом
+#                  (~138 kB / 46 kB gzip) — загружается всегда,
+#                  но кэшируется отдельно и не пересобирается
+#                  при правке любого React-кода.
+#                - ``react-router-dom`` + ``@remix-run`` →
+#                  ``router`` chunk (~50 kB / 18 kB gzip).
+#                - ``/src/pages/admin/*`` → ``admin`` chunk
+#                  (~35 kB / 10 kB gzip), пользователи не
+#                  скачивают.
+#            * ``App.tsx`` — ``StylesAdminPage`` и
+#              ``ConflictsAdminPage`` обёрнуты в
+#              ``React.lazy() + Suspense`` с локальным
+#              ``AdminFallback`` спиннером. До этого они шли в
+#              main bundle и тянулись на каждую загрузку.
+#
+#          Bundle size (до → после):
+#            * main:    717 kB → 498 kB (-30%)
+#              gzip 211 kB → 140 kB (-34%)
+#            * framer-motion: split → 138 kB / 46 kB gzip
+#            * router: split → 50 kB / 18 kB gzip
+#            * admin: split → 35 kB / 10 kB gzip
+#            * total served на user-path: ~140 kB + 46 kB +
+#              18 kB = 204 kB gzip (vs 211 kB до). Admin chunk
+#              теперь грузится только админами.
+#            * Vite chunk-size warning (>500 kB) больше не
+#              срабатывает.
+#
+#          V1 prompt fallback (defer):
+#            * ``_build_mode_prompt`` остаётся на месте.
+#              ``PROMPT_V1_FALLBACK`` метрика добавлена только в
+#              1.32.0 (этот же session), нужна минимум неделя
+#              прод-данных для подтверждения 0 hits перед
+#              удалением. Решение: следить за метрикой; если
+#              через неделю в Prometheus 0 — удалить в патч-релизе
+#              1.33.2.
+#
+#          Sanity: ``tsc --noEmit`` clean,
+#          ``vite build`` clean (498 kB main, no warnings),
+#          ``ruff check src tests`` clean,
+#          ``pytest tests/test_api/ tests/test_orchestrator/
+#          tests/test_prompts/`` 1587 passed, 54 skipped
+#          (backend не трогался — никаких регрессий).
+#
+#          Risk: чисто frontend изменения, ``git revert`` чисто
+#          восстанавливает. Light-mode легибильность по всему
+#          консумерскому пути (NavBar / wizard / sections)
+#          улучшилась. Admin-роуты теперь имеют 100ms задержку
+#          первой отрисовки (Suspense fallback) при первом
+#          переходе — приемлемо для админов, и кэш браузера
+#          обнуляет это после первого визита.
+APP_VERSION = "1.33.1"
