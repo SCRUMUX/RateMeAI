@@ -2435,4 +2435,73 @@
 #          Test counts: 2002 backend pytest pass (unchanged —
 #          the migration is data, not behaviour). ``ruff`` /
 #          ``tsc --noEmit`` clean.
-APP_VERSION = "1.30.0"
+# 1.30.1 — Catalog hygiene patch. Cleans up the residue 1.30.0
+#          deliberately left for the operator: 8 single-phrase
+#          ``TRIGGER_DIRTY`` warnings + the 3 naming conflicts
+#          surfaced by ``find_conflicts``. Pure content edit;
+#          no Python / TS code touched, no schema change.
+#
+#          Trigger-pool rewrites — each of the 8 styles below
+#          had its trigger pool collapsed to a single phrase
+#          that copied the whole ``scene_anchor`` (including
+#          lighting / framing tokens). This release replaces
+#          each one with three clean paraphrases of the
+#          inviolable motif so the sampler still has variety
+#          and the lint engine no longer warns. Lighting /
+#          backlight prose is preserved in ``ambient.lighting``
+#          where it belongs:
+#            * athens_acropolis  — Acropolis-on-hilltop variants
+#              without "warm light".
+#            * decision_moment   — large-window pose without
+#              "warm rim light".
+#            * panoramic_window  — floor-to-ceiling window
+#              variants without "rim light".
+#            * rooftop_city      — rooftop+skyline variants
+#              without "warm lights".
+#            * speaker_stage     — podium+screen variants
+#              without "from above".
+#            * tinder_pack_rooftop_golden — open-air rooftop
+#              variants without "rim light".
+#            * tinder_top        — uncluttered outdoor framing
+#              variants without "backlight".
+#            * warm_outdoor      — foliage+water variants
+#              without "backlight" / "rim light".
+#
+#          Display-label deduplication:
+#            * ``cycling`` (mode=dating) renamed
+#              ``🚴 Велопрогулка → 🚴 Велосвидание`` so it no
+#              longer collides with ``cycling_social``
+#              (mode=social), which keeps the original label.
+#            * ``near_car`` "🚗 У машины" → "🚗 Возле авто"
+#              and ``in_car`` "🚘 В машине" → "🚘 За рулём".
+#              Levenshtein distance jumps from 2 to >5; the
+#              two scenes (рядом с авто / за рулём) read
+#              clearly distinct in the modal.
+#            * ``podcast_host`` (mode=social) "🎧 Подкаст" →
+#              "🎙 За микрофоном"; the cv-mode ``podcast``
+#              "🎧 Подкастер" stays untouched. Different
+#              emoji family + different focus removes the
+#              similarity warning.
+#
+#          Catalog state after this release:
+#            * Lint: 0 dirty styles, 0 issues
+#              (was 8 / 8 in 1.30.0).
+#            * Conflicts: 0 duplicate labels, 0 similar labels,
+#              0 duplicate IDs (was 1 / 2 / 0).
+#            * ``available_channels`` / ``location_type``
+#              coverage unchanged at 121 / 126 and 126 / 126.
+#
+#          Rollback:
+#            * Pure JSON edit + a one-line APP_VERSION bump.
+#              ``git revert`` restores 1.30.0 instantly with no
+#              consumer-side migration needed.
+#            * The renamed labels are referenced by id
+#              everywhere (the ``display_label`` is purely
+#              cosmetic), so no analytics / billing / share
+#              link breaks.
+#
+#          Test counts: 2002 backend pytest pass (unchanged).
+#          ``ruff`` clean for src/ + tests/. ``tsc --noEmit``
+#          clean. ``audit.py`` reports the catalog as fully
+#          green for the first time since the 1.28.0 migration.
+APP_VERSION = "1.30.1"

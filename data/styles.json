@@ -1248,7 +1248,9 @@
       "per_model_tail": {}
     },
     "trigger_pool": [
-      "narrow Athens street with Acropolis landmark on hilltop in warm light, whitewashed walls, Mediterranean plants and bougainvillea"
+      "narrow Athens street with the Acropolis on the hilltop",
+      "Plaka neighborhood alley with the Acropolis silhouette above",
+      "Athens whitewashed lane framing the Acropolis"
     ],
     "scene_anchor": "narrow Athens street with Acropolis landmark on hilltop in warm light, whitewashed walls, Mediterranean plants and bougainvillea",
     "scene_overrides": [
@@ -2881,7 +2883,7 @@
     },
     "unlock_after_generations": 0,
     "is_scenario_only": false,
-    "display_label": "🚗 У машины",
+    "display_label": "🚗 Возле авто",
     "hook_text": "Уверенная поза у авто добавит мужественности",
     "meta": {
       "param": "presence",
@@ -3566,7 +3568,9 @@
       "per_model_tail": {}
     },
     "trigger_pool": [
-      "rooftop terrace, city skyline rendered in sharp legible detail with warm lights, modern glass railing"
+      "rooftop terrace with the city skyline behind",
+      "open-air rooftop deck with the city panorama",
+      "modern rooftop balcony with skyline view"
     ],
     "scene_anchor": "rooftop terrace, city skyline rendered in sharp legible detail with warm lights, modern glass railing",
     "scene_overrides": [
@@ -4255,7 +4259,7 @@
     },
     "unlock_after_generations": 0,
     "is_scenario_only": false,
-    "display_label": "🚴 Велопрогулка",
+    "display_label": "🚴 Велосвидание",
     "hook_text": "Активный кадр добавит лёгкости и динамики",
     "meta": {
       "param": "presence",
@@ -5326,7 +5330,7 @@
     },
     "unlock_after_generations": 0,
     "is_scenario_only": false,
-    "display_label": "🚘 В машине",
+    "display_label": "🚘 За рулём",
     "hook_text": "Кадр за рулём добавит уверенности и стиля",
     "meta": {
       "param": "presence",
@@ -5966,7 +5970,9 @@
       "per_model_tail": {}
     },
     "trigger_pool": [
-      "warm backlight with subtle rim light, natural green and water textures visible in background"
+      "outdoor scene with natural green foliage and water textures",
+      "open-air composition with greenery and reflective water",
+      "natural outdoor setting with foliage and water surface"
     ],
     "scene_anchor": "warm backlight with subtle rim light, natural green and water textures visible in background",
     "scene_overrides": [
@@ -6327,7 +6333,9 @@
     },
     "scenario": "tinder-pack",
     "trigger_pool": [
-      "urban rooftop terrace, warm rim light on skyline, distant city lights clearly visible across skyline, romantic open-air atmosphere"
+      "urban rooftop terrace with the city skyline behind",
+      "open-air rooftop with distant city lights across the panorama",
+      "rooftop deck framing the romantic skyline"
     ],
     "scene_anchor": "urban rooftop terrace, warm rim light on skyline, distant city lights clearly visible across skyline, romantic open-air atmosphere",
     "scene_overrides": [
@@ -8196,7 +8204,9 @@
       "per_model_tail": {}
     },
     "trigger_pool": [
-      "standing at large window overlooking cityscape, contemplative atmosphere, warm rim light from window, cityscape in sharp focus through the window"
+      "standing at a large window overlooking the cityscape",
+      "executive corner-window with the city panorama in focus",
+      "contemplative pose at floor-to-ceiling window with the city beyond"
     ],
     "scene_anchor": "standing at large window overlooking cityscape, contemplative atmosphere, warm rim light from window, cityscape in sharp focus through the window",
     "scene_overrides": [
@@ -8427,7 +8437,9 @@
       "per_model_tail": {}
     },
     "trigger_pool": [
-      "conference stage, podium with microphone, presentation screen clearly visible behind, warm stage key light from above keeping both speaker and screen readable"
+      "conference stage with podium and microphone",
+      "keynote stage with presentation screen behind",
+      "speaker podium framed by the conference screen"
     ],
     "scene_anchor": "conference stage, podium with microphone, presentation screen clearly visible behind, warm stage key light from above keeping both speaker and screen readable",
     "scene_overrides": [
@@ -11392,7 +11404,9 @@
       "per_model_tail": {}
     },
     "trigger_pool": [
-      "natural outdoor setting with warm golden-hour backlight, simple uncluttered composition"
+      "natural outdoor setting with simple uncluttered composition",
+      "open-air scene with clean uncluttered framing",
+      "outdoor portrait with minimal background clutter"
     ],
     "scene_anchor": "natural outdoor setting with warm golden-hour backlight, simple uncluttered composition",
     "scene_overrides": [
@@ -12474,7 +12488,9 @@
       "per_model_tail": {}
     },
     "trigger_pool": [
-      "standing before massive floor-to-ceiling window with dramatic city panorama, soft rim light from the window, face clearly lit from front, dramatic scale"
+      "massive floor-to-ceiling window with dramatic city panorama",
+      "panoramic-window apartment with the city skyline behind",
+      "wall-to-wall window facing the cityscape"
     ],
     "scene_anchor": "standing before massive floor-to-ceiling window with dramatic city panorama, soft rim light from the window, face clearly lit from front, dramatic scale",
     "scene_overrides": [
@@ -13994,7 +14010,7 @@
     },
     "unlock_after_generations": 0,
     "is_scenario_only": false,
-    "display_label": "🎧 Подкаст",
+    "display_label": "🎙 За микрофоном",
     "hook_text": "Медийный образ подчеркнёт экспертность и голос",
     "meta": {
       "param": "warmth",
