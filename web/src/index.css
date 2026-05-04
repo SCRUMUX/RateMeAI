@@ -152,6 +152,17 @@
   --glass-fallback-footer: rgba(10, 14, 20, 0.90);
   --glass-fallback-divider: rgba(10, 14, 20, 0.85);
   --glass-text: #E6EEF8;
+
+  --mesh-blob-violet: rgba(60, 20, 180, 0.06);
+  --mesh-blob-magenta: rgba(255, 0, 200, 0.04);
+  --mesh-blob-accent-opacity: 0.08;
+  --mesh-blob-accent-sec-opacity: 0.07;
+  --mesh-base: var(--color-bg-base);
+  --section-noise-stop-final: rgba(22, 30, 40, 1);
+  --howworks-blob-magenta: rgba(255, 0, 200, 0.06);
+  --energy-neutral-r: 60;
+  --energy-neutral-g: 20;
+  --energy-neutral-b: 180;
 }
 
 [data-theme="light"] {
@@ -175,6 +186,17 @@
   --glass-fallback-footer: rgba(255, 255, 255, 0.90);
   --glass-fallback-divider: rgba(255, 255, 255, 0.85);
   --glass-text: #353535;
+
+  --mesh-blob-violet: rgba(168, 85, 247, 0.05);
+  --mesh-blob-magenta: rgba(236, 72, 153, 0.04);
+  --mesh-blob-accent-opacity: 0.05;
+  --mesh-blob-accent-sec-opacity: 0.04;
+  --mesh-base: var(--color-bg-base);
+  --section-noise-stop-final: rgba(247, 248, 250, 1);
+  --howworks-blob-magenta: rgba(168, 85, 247, 0.05);
+  --energy-neutral-r: 168;
+  --energy-neutral-g: 85;
+  --energy-neutral-b: 247;
 }
 
 body {
@@ -203,13 +225,23 @@ body {
   background-clip: text;
 }
 
-/* Figma SVG noise background patterns (cyan + purple) */
+/* Figma SVG noise background patterns (cyan + purple).
+ * 1.34.1: dark theme — final stop fades into rgba(22,30,40,1)
+ * (matches dark surface). Light theme uses an inverted variant
+ * below where the final stop fades into the light surface so the
+ * SVG corners don't appear as dark blocks on white. */
 .section-noise-bg {
   background-image:
     url("data:image/svg+xml,%3Csvg viewBox='0 0 1920 1080' xmlns='http://www.w3.org/2000/svg' preserveAspectRatio='none'%3E%3Cg transform='matrix(-35.7 45.95 -81.689 -63.467 1971 1150.5)' opacity='0.1'%3E%3Crect height='188.75' width='197.27' fill='url(%23cyanGrad)' id='cq' shape-rendering='crispEdges'/%3E%3Cuse href='%23cq' transform='scale(1 -1)'/%3E%3Cuse href='%23cq' transform='scale(-1 1)'/%3E%3Cuse href='%23cq' transform='scale(-1 -1)'/%3E%3C/g%3E%3Cdefs%3E%3ClinearGradient id='cyanGrad' gradientUnits='userSpaceOnUse' x2='5' y2='5'%3E%3Cstop stop-color='rgba(0,240,255,0)' offset='0'/%3E%3Cstop stop-color='rgba(11,135,148,0.5)' offset='0.5'/%3E%3Cstop stop-color='rgba(17,83,94,0.75)' offset='0.75'/%3E%3Cstop stop-color='rgba(19,56,67,0.875)' offset='0.875'/%3E%3Cstop stop-color='rgba(22,30,40,1)' offset='1'/%3E%3C/linearGradient%3E%3C/defs%3E%3C/svg%3E"),
     url("data:image/svg+xml,%3Csvg viewBox='0 0 1920 1080' xmlns='http://www.w3.org/2000/svg' preserveAspectRatio='none'%3E%3Cg transform='matrix(-29.15 41.3 -73.422 -51.822 -0.000029296 26)' opacity='0.1'%3E%3Crect height='243.68' width='219.44' fill='url(%23purpGrad)' id='pq' shape-rendering='crispEdges'/%3E%3Cuse href='%23pq' transform='scale(1 -1)'/%3E%3Cuse href='%23pq' transform='scale(-1 1)'/%3E%3Cuse href='%23pq' transform='scale(-1 -1)'/%3E%3C/g%3E%3Cdefs%3E%3ClinearGradient id='purpGrad' gradientUnits='userSpaceOnUse' x2='5' y2='5'%3E%3Cstop stop-color='rgba(164,4,204,0.26)' offset='0'/%3E%3Cstop stop-color='rgba(93,17,122,0.63)' offset='0.5'/%3E%3Cstop stop-color='rgba(57,23,81,0.815)' offset='0.75'/%3E%3Cstop stop-color='rgba(40,27,60,0.9075)' offset='0.875'/%3E%3Cstop stop-color='rgba(22,30,40,1)' offset='1'/%3E%3C/linearGradient%3E%3C/defs%3E%3C/svg%3E");
   background-size: 100% 100%;
   background-repeat: no-repeat;
+}
+
+[data-theme="light"] .section-noise-bg {
+  background-image:
+    url("data:image/svg+xml,%3Csvg viewBox='0 0 1920 1080' xmlns='http://www.w3.org/2000/svg' preserveAspectRatio='none'%3E%3Cg transform='matrix(-35.7 45.95 -81.689 -63.467 1971 1150.5)' opacity='0.06'%3E%3Crect height='188.75' width='197.27' fill='url(%23cyanGradLight)' id='cqLight' shape-rendering='crispEdges'/%3E%3Cuse href='%23cqLight' transform='scale(1 -1)'/%3E%3Cuse href='%23cqLight' transform='scale(-1 1)'/%3E%3Cuse href='%23cqLight' transform='scale(-1 -1)'/%3E%3C/g%3E%3Cdefs%3E%3ClinearGradient id='cyanGradLight' gradientUnits='userSpaceOnUse' x2='5' y2='5'%3E%3Cstop stop-color='rgba(0,240,255,0)' offset='0'/%3E%3Cstop stop-color='rgba(0,200,220,0.35)' offset='0.5'/%3E%3Cstop stop-color='rgba(180,210,225,0.6)' offset='0.75'/%3E%3Cstop stop-color='rgba(225,232,240,0.85)' offset='0.875'/%3E%3Cstop stop-color='rgba(247,248,250,1)' offset='1'/%3E%3C/linearGradient%3E%3C/defs%3E%3C/svg%3E"),
+    url("data:image/svg+xml,%3Csvg viewBox='0 0 1920 1080' xmlns='http://www.w3.org/2000/svg' preserveAspectRatio='none'%3E%3Cg transform='matrix(-29.15 41.3 -73.422 -51.822 -0.000029296 26)' opacity='0.06'%3E%3Crect height='243.68' width='219.44' fill='url(%23purpGradLight)' id='pqLight' shape-rendering='crispEdges'/%3E%3Cuse href='%23pqLight' transform='scale(1 -1)'/%3E%3Cuse href='%23pqLight' transform='scale(-1 1)'/%3E%3Cuse href='%23pqLight' transform='scale(-1 -1)'/%3E%3C/g%3E%3Cdefs%3E%3ClinearGradient id='purpGradLight' gradientUnits='userSpaceOnUse' x2='5' y2='5'%3E%3Cstop stop-color='rgba(168,85,247,0.18)' offset='0'/%3E%3Cstop stop-color='rgba(190,140,235,0.4)' offset='0.5'/%3E%3Cstop stop-color='rgba(220,200,235,0.65)' offset='0.75'/%3E%3Cstop stop-color='rgba(235,225,240,0.85)' offset='0.875'/%3E%3Cstop stop-color='rgba(247,248,250,1)' offset='1'/%3E%3C/linearGradient%3E%3C/defs%3E%3C/svg%3E");
 }
 
 /* HowItWorks — full-width gradient backdrop with parallax */
@@ -235,7 +267,7 @@ body {
   background:
     radial-gradient(ellipse 60% 80% at 20% 50%, rgba(var(--accent-r), var(--accent-g), var(--accent-b), 0.12) 0%, transparent 70%),
     radial-gradient(ellipse 50% 70% at 80% 50%, rgba(var(--accent-sec-r), var(--accent-sec-g), var(--accent-sec-b), 0.10) 0%, transparent 70%),
-    radial-gradient(ellipse 40% 60% at 50% 80%, rgba(255, 0, 200, 0.06) 0%, transparent 70%);
+    radial-gradient(ellipse 40% 60% at 50% 80%, var(--howworks-blob-magenta) 0%, transparent 70%);
   background-attachment: fixed;
   animation: float-gradient 10s ease-in-out infinite alternate;
   pointer-events: none;
@@ -297,15 +329,20 @@ body {
   pointer-events: none;
 }
 
+/* 1.34.1: theme-aware mesh layer.
+ * - Final radial-gradient uses var(--mesh-base) → matches the active
+ *   --color-bg-base (white in light, deep blue/black in dark).
+ * - Blob opacities live in tokens so light theme can fade them out
+ *   without making the gradient disappear entirely. */
 .mesh-gradient-layer {
   position: absolute;
   inset: -30%;
   background:
-    radial-gradient(ellipse 50% 50% at 25% 30%, rgba(var(--accent-r), var(--accent-g), var(--accent-b), 0.08) 0%, transparent 70%),
-    radial-gradient(ellipse 55% 45% at 75% 60%, rgba(var(--accent-sec-r), var(--accent-sec-g), var(--accent-sec-b), 0.07) 0%, transparent 70%),
-    radial-gradient(ellipse 40% 55% at 50% 80%, rgba(60, 20, 180, 0.06) 0%, transparent 70%),
-    radial-gradient(ellipse 45% 40% at 80% 20%, rgba(255, 0, 200, 0.04) 0%, transparent 70%),
-    radial-gradient(ellipse 100% 100% at 50% 50%, #0A0E14 0%, #0A0E14 100%);
+    radial-gradient(ellipse 50% 50% at 25% 30%, rgba(var(--accent-r), var(--accent-g), var(--accent-b), var(--mesh-blob-accent-opacity)) 0%, transparent 70%),
+    radial-gradient(ellipse 55% 45% at 75% 60%, rgba(var(--accent-sec-r), var(--accent-sec-g), var(--accent-sec-b), var(--mesh-blob-accent-sec-opacity)) 0%, transparent 70%),
+    radial-gradient(ellipse 40% 55% at 50% 80%, var(--mesh-blob-violet) 0%, transparent 70%),
+    radial-gradient(ellipse 45% 40% at 80% 20%, var(--mesh-blob-magenta) 0%, transparent 70%),
+    radial-gradient(ellipse 100% 100% at 50% 50%, var(--mesh-base) 0%, var(--mesh-base) 100%);
   animation: mesh-shift 25s ease-in-out infinite alternate;
   will-change: transform;
 }

@@ -113,8 +113,7 @@ export default function LinkPage() {
             onChange={(e) => { setCode(e.target.value); setError(null); }}
             placeholder="ABC123"
             maxLength={8}
-            className="w-full px-4 py-3 rounded-[var(--radius-8)] text-[18px] text-center text-[var(--color-text-primary)] font-mono tracking-[0.3em] placeholder:text-[var(--color-text-muted)] outline-none uppercase"
-            style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)' }}
+            className="w-full px-4 py-3 rounded-[var(--radius-8)] text-[18px] text-center text-[var(--color-text-primary)] font-mono tracking-[0.3em] placeholder:text-[var(--color-text-muted)] outline-none uppercase bg-[var(--glass-surface-strong)] border border-[var(--glass-border-hover)]"
           />
           <p className="text-[11px] text-[var(--color-text-muted)] text-center mt-1">
             Откуда взять код? В Telegram-боте{' '}
@@ -154,8 +153,7 @@ export default function LinkPage() {
                   value={phoneInput}
                   onChange={(e) => { setPhoneInput(e.target.value); setError(null); }}
                   placeholder="+7 (999) 123-45-67"
-                  className="flex-1 px-3 py-3 rounded-[var(--radius-8)] text-[14px] text-[var(--color-text-primary)] placeholder:text-[var(--color-text-muted)] outline-none"
-                  style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.10)' }}
+                  className="flex-1 px-3 py-3 rounded-[var(--radius-8)] text-[14px] text-[var(--color-text-primary)] placeholder:text-[var(--color-text-muted)] outline-none bg-[var(--glass-surface)] border border-[var(--glass-border)]"
                 />
                 <button
                   disabled={loading !== null}
@@ -175,8 +173,7 @@ export default function LinkPage() {
                   onChange={(e) => { setOtpCode(e.target.value); setError(null); }}
                   placeholder="Код из SMS"
                   maxLength={6}
-                  className="flex-1 px-3 py-3 rounded-[var(--radius-8)] text-[14px] text-[var(--color-text-primary)] placeholder:text-[var(--color-text-muted)] outline-none"
-                  style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.10)' }}
+                  className="flex-1 px-3 py-3 rounded-[var(--radius-8)] text-[14px] text-[var(--color-text-primary)] placeholder:text-[var(--color-text-muted)] outline-none bg-[var(--glass-surface)] border border-[var(--glass-border)]"
                 />
                 <button
                   disabled={!isCodeValid || loading !== null || otpCode.length < 4}

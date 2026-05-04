@@ -89,7 +89,7 @@ export default function DocumentPhotoLanding({ onStart, showAuth, onAuthClose }:
           <div className="grid grid-cols-1 tablet:grid-cols-2 desktop:grid-cols-3 gap-[var(--space-12)] max-w-[900px] w-full">
             {DOCUMENT_LANDING_ITEMS.map((f) => (
               <div key={f.key} className="gradient-border-item glass-row flex items-center gap-[var(--space-12)] px-[var(--space-16)] py-[var(--space-12)] rounded-[var(--radius-12)]"
-                style={{ '--gb-color': 'rgba(255, 255, 255, 0.10)' } as React.CSSProperties}
+                style={{ '--gb-color': 'var(--glass-border-hover)' } as React.CSSProperties}
               >
                 <span className="text-[24px] shrink-0">{f.icon}</span>
                 <div className="flex flex-col min-w-0">

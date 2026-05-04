@@ -55,7 +55,7 @@ export default function StylesSheet({ open, onClose, styles, selectedKey, locked
           >
             {/* Drag handle + header */}
             <div className="shrink-0 flex flex-col items-center pt-[var(--space-8)] pb-[var(--space-4)]">
-              <div className="w-10 h-1 rounded-full bg-[rgba(255,255,255,0.2)]" />
+              <div className="w-10 h-1 rounded-full bg-[var(--glass-border-hover)]" />
             </div>
             <div className="shrink-0 flex items-center justify-between px-[var(--space-16)] py-[var(--space-8)]">
               <span className="text-[16px] leading-[24px] font-semibold text-[var(--color-text-primary)]">Все образы</span>
@@ -90,7 +90,7 @@ export default function StylesSheet({ open, onClose, styles, selectedKey, locked
                     style={{
                       '--gb-color': selected
                         ? 'rgba(var(--accent-r), var(--accent-g), var(--accent-b), 0.30)'
-                        : 'rgba(255, 255, 255, 0.10)',
+                        : 'var(--glass-border-hover)',
                     } as React.CSSProperties}
                   >
                     <div className="flex items-center justify-center w-6 h-6 shrink-0 text-[20px] leading-none relative">
@@ -113,7 +113,7 @@ export default function StylesSheet({ open, onClose, styles, selectedKey, locked
                       </span>
                     )}
                     {locked && (
-                      <span className="px-[var(--space-8)] py-[var(--space-4)] rounded-[var(--radius-pill)] text-[11px] leading-[14px] text-[var(--color-text-muted)] font-medium bg-[rgba(255,255,255,0.06)] shrink-0">
+                      <span className="px-[var(--space-8)] py-[var(--space-4)] rounded-[var(--radius-pill)] text-[11px] leading-[14px] text-[var(--color-text-muted)] font-medium bg-[var(--glass-surface-strong)] shrink-0">
                         Скоро
                       </span>
                     )}

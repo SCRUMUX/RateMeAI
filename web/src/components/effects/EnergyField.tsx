@@ -23,7 +23,7 @@ function blobColor(type: BlobType, opacity: number): string {
   switch (type) {
     case 'accent':    return `rgba(var(--accent-r), var(--accent-g), var(--accent-b), ${opacity})`;
     case 'secondary': return `rgba(var(--accent-sec-r), var(--accent-sec-g), var(--accent-sec-b), ${opacity})`;
-    case 'neutral':   return `rgba(60, 20, 180, ${opacity})`;
+    case 'neutral':   return `rgba(var(--energy-neutral-r), var(--energy-neutral-g), var(--energy-neutral-b), ${opacity})`;
   }
 }
 

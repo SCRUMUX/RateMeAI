@@ -76,7 +76,7 @@ export default function StepAnalysis({ onNext }: Props) {
       <div className="flex flex-col tablet:flex-row gap-[var(--space-16)] tablet:gap-[var(--space-24)] items-start">
         {/* Photo card with score — fixed compact size on desktop, aspect on mobile */}
         <div className="gradient-border-card glass-card flex flex-col w-full max-w-[260px] tablet:w-[260px] tablet:max-w-[260px] mx-auto tablet:mx-0 shrink-0 rounded-[var(--radius-12)] overflow-hidden">
-          <div className="w-full aspect-[4/5] shrink-0 bg-[rgba(255,255,255,0.02)] overflow-hidden">
+          <div className="w-full aspect-[4/5] shrink-0 bg-[var(--glass-surface-soft)] overflow-hidden">
             {app.photo ? (
               <img src={app.photo.preview} alt="Original" className="w-full h-full object-cover" />
             ) : (
@@ -122,11 +122,11 @@ export default function StepAnalysis({ onNext }: Props) {
                 <span className="text-[14px] leading-[20px] text-[var(--color-text-primary)]">Анализ фото...</span>
               </div>
               <div className="flex items-center gap-[var(--space-12)] opacity-50">
-                <div className="w-[18px] h-[18px] rounded-full border border-[rgba(255,255,255,0.1)]" />
+                <div className="w-[18px] h-[18px] rounded-full border border-[var(--glass-border)]" />
                 <span className="text-[14px] leading-[20px] text-[var(--color-text-muted)]">Оценка параметров...</span>
               </div>
               <div className="flex items-center gap-[var(--space-12)] opacity-50">
-                <div className="w-[18px] h-[18px] rounded-full border border-[rgba(255,255,255,0.1)]" />
+                <div className="w-[18px] h-[18px] rounded-full border border-[var(--glass-border)]" />
                 <span className="text-[14px] leading-[20px] text-[var(--color-text-muted)]">Формирование результата...</span>
               </div>
               <div className="h-1.5 rounded-full glass-progress-track overflow-hidden mt-[var(--space-4)]">

@@ -60,8 +60,7 @@ export default function LinkedAccountsPanel() {
           return (
             <div
               key={`${id.provider}-${id.external_id}`}
-              className="flex items-center gap-3 px-[var(--space-12)] py-[var(--space-8)] rounded-[var(--radius-8)]"
-              style={{ background: 'rgba(255,255,255,0.04)' }}
+              className="flex items-center gap-3 px-[var(--space-12)] py-[var(--space-8)] rounded-[var(--radius-8)] bg-[var(--glass-surface)]"
             >
               <span
                 className="w-8 h-8 rounded-full flex items-center justify-center text-[12px] font-bold text-white shrink-0"

@@ -356,7 +356,7 @@ export default function StepGenerate({ onGoToStep, onOpenStorage }: Props) {
         <div className="w-full max-w-[260px] flex flex-col gap-[var(--space-16)]">
           {/* Image card */}
           <div className="gradient-border-card glass-card flex flex-col w-full rounded-[var(--radius-12)] overflow-hidden">
-            <div className="aspect-[4/5] bg-[rgba(255,255,255,0.02)] overflow-hidden relative">
+            <div className="aspect-[4/5] bg-[var(--glass-surface-soft)] overflow-hidden relative">
               {hasGenResult && (
                 <>
                   <img
@@ -405,7 +405,7 @@ export default function StepGenerate({ onGoToStep, onOpenStorage }: Props) {
               {!hasGenResult && isRunning && (
                 <>
                   <img src="/img/placeholder-upgrade.png" alt="" className="w-full h-full object-cover opacity-50 gen-sim-pulse" />
-                  <div className="absolute inset-0 z-10 flex flex-col items-center justify-end pb-[var(--space-16)] gap-[var(--space-8)]" style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.7) 0%, transparent 60%)' }}>
+                  <div className="absolute inset-0 z-10 flex flex-col items-center justify-end pb-[var(--space-16)] gap-[var(--space-8)] bg-gradient-to-t from-black/70 via-transparent to-transparent">
                     <div className="w-6 h-6 border-2 border-t-transparent rounded-full animate-spin" style={{ borderColor: 'rgba(var(--accent-r),var(--accent-g),var(--accent-b),0.6)', borderTopColor: 'transparent' }} />
                     <span className="text-[12px] leading-[16px] text-[var(--color-text-primary)] font-medium text-center px-[var(--space-8)]">
                       {progress?.label ?? 'Обработка...'}
@@ -419,9 +419,15 @@ export default function StepGenerate({ onGoToStep, onOpenStorage }: Props) {
               {!hasGenResult && genFailed && !isRunning && (
                 <div className="w-full h-full relative">
                   <img src="/img/placeholder-upgrade.png" alt="" className="w-full h-full object-cover" style={{ filter: 'blur(16px) saturate(1.6) brightness(0.6)', transform: 'scale(1.1)' }} />
-                  <div className="absolute inset-0" style={{ background: 'linear-gradient(135deg, rgba(var(--accent-r),var(--accent-g),var(--accent-b),0.25) 0%, rgba(0,0,0,0.3) 100%)' }} />
+                  <div
+                    className="absolute inset-0"
+                    style={{
+                      background:
+                        'linear-gradient(135deg, rgba(var(--accent-r),var(--accent-g),var(--accent-b),0.25) 0%, rgba(0,0,0,0.3) 100%)',
+                    }}
+                  />
                   <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-[var(--space-8)] text-center px-[var(--space-12)]">
-                    <svg width="32" height="32" viewBox="0 0 32 32" fill="none" className="text-[var(--color-text-primary)]"><circle cx="16" cy="16" r="14" stroke="rgba(255,255,255,0.3)" strokeWidth="1.5"/><path d="M16 10v8M16 22h.01" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg>
+                    <svg width="32" height="32" viewBox="0 0 32 32" fill="none" className="text-[var(--color-text-primary)]"><circle cx="16" cy="16" r="14" stroke="currentColor" strokeOpacity="0.3" strokeWidth="1.5"/><path d="M16 10v8M16 22h.01" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg>
                     <span className="text-[13px] leading-[18px] text-[var(--color-text-primary)] font-medium">Не удалось сгенерировать</span>
                   </div>
                 </div>

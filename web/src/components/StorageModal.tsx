@@ -206,7 +206,7 @@ export default function StorageModal({ items, open, onClose, onImprove }: Props)
               </div>
 
               {/* Photo with swipe — fixed aspect keeps the card stable between slide transitions */}
-              <div className="shrink-0 relative w-full max-w-[380px] mx-auto aspect-[4/5] rounded-[var(--radius-12)] overflow-hidden bg-[rgba(255,255,255,0.02)]">
+              <div className="shrink-0 relative w-full max-w-[380px] mx-auto aspect-[4/5] rounded-[var(--radius-12)] overflow-hidden bg-[var(--glass-surface-soft)]">
                 <AnimatePresence mode="wait" custom={dir} initial={false}>
                   <motion.div
                     key={item.task_id}
@@ -277,7 +277,7 @@ export default function StorageModal({ items, open, onClose, onImprove }: Props)
                       className={`rounded-full transition-all ${
                         i === idx
                           ? 'w-5 h-1.5 bg-[rgb(var(--accent-r),var(--accent-g),var(--accent-b))]'
-                          : 'w-1.5 h-1.5 bg-[rgba(255,255,255,0.25)] hover:bg-[rgba(255,255,255,0.4)]'
+                          : 'w-1.5 h-1.5 bg-[var(--glass-border-hover)] hover:bg-[var(--glass-border-strong,var(--glass-border-hover))]'
                       }`}
                     />
                   ))}

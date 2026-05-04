@@ -3317,4 +3317,113 @@
 #          тюнингуется через ``--glass-border``/``--glass-border-soft``
 #          без re-deploy логики. Mesh-фон (``.mesh-gradient-layer``)
 #          ещё хардкодит ``#0A0E14`` — это сделано в 1.34.1.
-APP_VERSION = "1.34.0"
+# 1.34.1 — Theme System Overhaul, итерация 2: mesh-фон + декоративные
+#          слои + sweep оставшихся TSX-хардкодов. После 1.34.0 светлая
+#          тема корректно меняла ``.glass-*`` поверхности, но
+#          фиксированный mesh-слой и SVG-noise все ещё хардкодили
+#          dark-палитру и затемняли всё, что под ними.
+#
+#          Что сделано:
+#            * ``.mesh-gradient-layer`` (web/src/index.css) — финальный
+#              radial-gradient теперь использует ``var(--mesh-base)``
+#              вместо ``#0A0E14``. Каждая тема задаёт свою базу
+#              (``--color-bg-base``) и opacity blob-ов:
+#              ``--mesh-blob-accent-opacity`` (0.08 dark / 0.05 light),
+#              ``--mesh-blob-accent-sec-opacity``,
+#              ``--mesh-blob-violet`` и ``--mesh-blob-magenta``.
+#              Light-вариант использует более яркие но менее насыщенные
+#              blob-цвета (rgba(168,85,247,0.05) violet,
+#              rgba(236,72,153,0.04) magenta) — это даёт деликатные
+#              акценты вместо «грязных пятен» от хардкодного
+#              dark-фиолетового.
+#            * ``EnergyField.tsx`` — нейтральные blob-ы используют
+#              theme-aware ``--energy-neutral-r/g/b`` (60,20,180 в dark
+#              и 168,85,247 в light) вместо хардкода ``rgba(60,20,180,
+#              opacity)``. Per-blob opacity по-прежнему задаётся в TS
+#              (нужно для разных blob-ов), но base RGB меняется с темой.
+#            * ``.section-noise-bg`` — добавлен симметричный
+#              ``[data-theme="light"] .section-noise-bg`` блок с
+#              инвертированной SVG noise-палитрой: финальный stop
+#              ``rgba(247,248,250,1)`` вместо ``rgba(22,30,40,1)``,
+#              opacity 0.06 вместо 0.1. Без этого SVG-углы выглядели
+#              чёрными квадратами на светлом фоне.
+#            * ``.howworks-gradient-backdrop`` — magenta-blob теперь
+#              ``var(--howworks-blob-magenta)`` (тот же violet в light
+#              для гармонии с mesh).
+#
+#          TSX sweep (доделано из плана §2.5):
+#            * StepGenerate.tsx — placeholder bg
+#              ``rgba(255,255,255,0.02)`` → ``var(--glass-surface-soft)``;
+#              SVG circle stroke в error-overlay
+#              ``stroke="rgba(255,255,255,0.3)"`` →
+#              ``stroke="currentColor" strokeOpacity="0.3"``;
+#              gradient overlay ``linear-gradient(to top, rgba(0,0,0,0.7))``
+#              → Tailwind utility ``bg-gradient-to-t from-black/70``.
+#              Чёрные overlay-градиенты над фотографиями оставлены
+#              theme-agnostic (это photo-darkening для читаемости).
+#            * StepBar.tsx — circle border
+#              ``border-[rgba(255,255,255,0.12)]`` →
+#              ``border-[var(--color-border-base)]``;
+#              text-white активного шага → ``text-[var(--color-text-on-brand)]``
+#              (тёмный текст на cyan brand-bg, AA-контраст);
+#              line-fill ``rgba(255,255,255,0.04..0.08)`` → токены.
+#            * Simulation.tsx — 2 placeholder ``rgba(255,255,255,0.02)``
+#              → ``var(--glass-surface-soft)``;
+#              ``--gb-color`` для unselected gradient-border-card →
+#              ``var(--glass-border-hover)``.
+#            * StylesSheet.tsx — drag handle ``rgba(255,255,255,0.2)``
+#              → ``var(--glass-border-hover)``;
+#              ``--gb-color`` для unselected style → token;
+#              «Скоро» badge bg → ``var(--glass-surface-strong)``.
+#            * StepUpload / StepAnalysis — photo-card placeholder bg
+#              → ``var(--glass-surface-soft)``;
+#              StepAnalysis loading state circles
+#              ``border-[rgba(255,255,255,0.1)]`` →
+#              ``border-[var(--glass-border)]``.
+#            * StepStyle.tsx — framing selector container
+#              ``bg-[rgba(255,255,255,0.03)]`` →
+#              ``bg-[var(--glass-surface-soft)]``;
+#              border-t ``rgba(255,255,255,0.05)`` →
+#              ``var(--glass-border-soft)``.
+#            * StepDocumentFormat.tsx, DocumentPhotoLanding.tsx —
+#              ``--gb-color`` для unselected → ``var(--glass-border-hover)``.
+#            * ReviewModal.tsx — 2 photo placeholder bg → token.
+#            * StorageModal.tsx — photo placeholder bg + pagination
+#              dots non-active state → tokens.
+#            * LinkPage.tsx — 3 input field bg/border → ``--glass-*``
+#              tokens. Brand-OAuth кнопки (Yandex/VK/phone) оставлены
+#              с фиксированными цветами — они brand-identity.
+#            * LinkedAccountsPanel.tsx — provider-row bg →
+#              ``var(--glass-surface)``.
+#            * ShareButtons.tsx — circle button bg + border → tokens.
+#            * Toast.tsx — ``rgba(34,197,94,0.15)`` (success) /
+#              ``rgba(59,130,246,0.15)`` (info) /
+#              ``rgba(234,179,8,0.15)`` (warning) bg-классы переведены
+#              на ``var(--glass-surface-strong)`` + border через
+#              ``color-mix(in srgb, var(--color-success-base) 30%,
+#              transparent)``. Иконки ``#22c55e/#3b82f6/#eab308`` →
+#              ``var(--color-success-base)/info-base/warning-base``.
+#
+#          Что осталось theme-agnostic (by design):
+#            * Photo overlays (StepGenerate AI badge, StorageModal
+#              nav arrows ``bg-black/55``, failed-tile gradient) —
+#              чёрное затемнение над фотографиями работает в обеих
+#              темах.
+#            * Brand-OAuth кнопки (Google #fff, Yandex #FC3F1D,
+#              VK #0077FF, phone #4ADE80) — фиксированные brand-
+#              identity цвета по гайдлайнам провайдеров.
+#            * ``.glass-btn-primary`` accent-градиент (cyan→magenta).
+#            * ``.gradient-text``, ``.gradient-border-*``.
+#            * Admin pages (StylesAdminPage / ConflictsAdminPage)
+#              в lazy ``admin`` chunk — out of scope этой итерации.
+#
+#          Sanity: ``tsc --noEmit`` clean, ``vite build`` clean
+#          (498 kB main, 82 kB CSS — +3 kB от новых токенов и
+#          light-варианта section-noise SVG, gzip 15 kB → 15.5 kB,
+#          приемлемо). Backend не трогался.
+#
+#          Risk: light-mode mesh может казаться слишком блёклым на
+#          крупных мониторах; mitigation — opacity-токены
+#          (``--mesh-blob-*-opacity``) подкручиваются без re-deploy.
+#          Для аб-теста легко переключить значения.
+APP_VERSION = "1.34.1"

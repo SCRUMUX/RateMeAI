@@ -114,9 +114,9 @@ export default function StepStyle({ onNext }: Props) {
               </p>
               
               {/* Framing selector */}
-              <div className="flex flex-col gap-[var(--space-8)] pt-[var(--space-4)] border-t border-[rgba(255,255,255,0.05)]">
+              <div className="flex flex-col gap-[var(--space-8)] pt-[var(--space-4)] border-t border-[var(--glass-border-soft)]">
                 <span className="text-[12px] leading-[16px] text-[var(--color-text-muted)]">Формат кадра</span>
-                <div className="flex bg-[rgba(255,255,255,0.03)] p-1 rounded-[var(--radius-8)]">
+                <div className="flex bg-[var(--glass-surface-soft)] p-1 rounded-[var(--radius-8)]">
                   {FRAMING_OPTIONS.map((opt) => (
                     <button
                       key={opt.id}

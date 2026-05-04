@@ -128,7 +128,7 @@ export default function ReviewModal({ testimonials, initialIndex, open, onClose 
               <div className="flex gap-[var(--space-12)] tablet:gap-[var(--space-24)] mt-[var(--space-8)]">
                 {/* Before */}
                 <div className="flex-1 flex flex-col gap-[var(--space-12)]">
-                  <div className="relative rounded-[var(--radius-12)] overflow-hidden aspect-[3/4] bg-[rgba(255,255,255,0.02)]">
+                  <div className="relative rounded-[var(--radius-12)] overflow-hidden aspect-[3/4] bg-[var(--glass-surface-soft)]">
                     <img src="/img/placeholder-upload.png" alt="" className="w-full h-full object-cover opacity-50" />
                     <span className="absolute top-[var(--space-8)] left-[var(--space-8)] glass-badge-cyan px-[var(--space-8)] py-[2px] rounded-[var(--radius-pill)] text-[11px] leading-[14px] font-medium text-[var(--color-text-primary)]">
                       До
@@ -148,7 +148,7 @@ export default function ReviewModal({ testimonials, initialIndex, open, onClose 
 
                 {/* After */}
                 <div className="flex-1 flex flex-col gap-[var(--space-12)]">
-                  <div className="relative rounded-[var(--radius-12)] overflow-hidden aspect-[3/4] bg-[rgba(255,255,255,0.02)]">
+                  <div className="relative rounded-[var(--radius-12)] overflow-hidden aspect-[3/4] bg-[var(--glass-surface-soft)]">
                     <img src="/img/placeholder-upgrade.png" alt="" className="w-full h-full object-cover opacity-50" />
                     <span className="absolute top-[var(--space-8)] left-[var(--space-8)] glass-badge-success px-[var(--space-8)] py-[2px] rounded-[var(--radius-pill)] text-[11px] leading-[14px] font-medium text-[var(--color-text-primary)]">
                       После

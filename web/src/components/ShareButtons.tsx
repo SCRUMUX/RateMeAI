@@ -157,8 +157,7 @@ export default function ShareButtons({ url, text, imageUrl }: Props) {
             key={p.id}
             onClick={() => handlePlatformClick(p)}
             title={p.id === 'instagram' ? (copied ? 'Скопировано!' : 'Скопировать ссылку') : p.label}
-            className="w-11 h-11 rounded-full flex items-center justify-center text-[var(--color-text-primary)] transition-all hover:scale-110 cursor-pointer"
-            style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.10)' }}
+            className="w-11 h-11 rounded-full flex items-center justify-center text-[var(--color-text-primary)] transition-all hover:scale-110 cursor-pointer bg-[var(--glass-surface-strong)] border border-[var(--glass-border)]"
           >
             {p.icon}
           </button>

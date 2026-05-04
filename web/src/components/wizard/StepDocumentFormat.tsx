@@ -54,7 +54,7 @@ export default function StepDocumentFormat({ onNext }: Props) {
               style={{
                 '--gb-color': isActive
                   ? 'rgba(var(--accent-r), var(--accent-g), var(--accent-b), 0.30)'
-                  : 'rgba(255, 255, 255, 0.10)',
+                  : 'var(--glass-border-hover)',
               } as React.CSSProperties}
             >
               <div className="flex items-center justify-center w-5 h-5 shrink-0 text-[18px] leading-none">

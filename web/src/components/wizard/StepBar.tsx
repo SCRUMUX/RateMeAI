@@ -87,10 +87,10 @@ export default function StepBar({ currentStep, completedSteps, onStepClick, phot
                   showAvatar ? 'overflow-hidden p-0' : 'text-[14px]'
                 } ${
                   isCurrent
-                    ? 'text-white shadow-lg'
+                    ? 'text-[var(--color-text-on-brand)] shadow-lg'
                     : isCompleted
-                      ? 'text-white'
-                      : 'text-[var(--color-text-muted)] border border-[rgba(255,255,255,0.12)]'
+                      ? 'text-[var(--color-text-on-brand)]'
+                      : 'text-[var(--color-text-muted)] border border-[var(--color-border-base)]'
                 }`}
                 style={
                   isCurrent
@@ -100,7 +100,7 @@ export default function StepBar({ currentStep, completedSteps, onStepClick, phot
                       }
                     : isCompleted
                       ? { background: `rgba(var(--accent-r), var(--accent-g), var(--accent-b), 0.6)` }
-                      : { background: 'rgba(255,255,255,0.04)' }
+                      : { background: 'var(--color-surface-2)' }
                 }
               >
                 {getCircleContent(step.id, isCompleted, isCurrent, step.number, contextProps, false)}
@@ -158,7 +158,7 @@ export default function StepBar({ currentStep, completedSteps, onStepClick, phot
                         }
                       : isCompleted
                         ? { background: `rgba(var(--accent-r), var(--accent-g), var(--accent-b), 0.6)` }
-                        : { background: 'rgba(255,255,255,0.08)' }
+                        : { background: 'var(--glass-border-hover)' }
                   }
                 />
                 {showThumb ? (

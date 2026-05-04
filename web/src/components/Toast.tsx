@@ -32,15 +32,15 @@ const ICONS: Record<ToastType, string> = {
 };
 
 const BG_CLASSES: Record<ToastType, string> = {
-  success: 'bg-[rgba(34,197,94,0.15)] border-[rgba(34,197,94,0.3)]',
-  info: 'bg-[rgba(59,130,246,0.15)] border-[rgba(59,130,246,0.3)]',
-  warning: 'bg-[rgba(234,179,8,0.15)] border-[rgba(234,179,8,0.3)]',
+  success: 'bg-[var(--glass-surface-strong)] border-[color:color-mix(in_srgb,var(--color-success-base)_30%,transparent)]',
+  info: 'bg-[var(--glass-surface-strong)] border-[color:color-mix(in_srgb,var(--color-info-base)_30%,transparent)]',
+  warning: 'bg-[var(--glass-surface-strong)] border-[color:color-mix(in_srgb,var(--color-warning-base)_30%,transparent)]',
 };
 
 const ICON_CLASSES: Record<ToastType, string> = {
-  success: 'text-[#22c55e]',
-  info: 'text-[#3b82f6]',
-  warning: 'text-[#eab308]',
+  success: 'text-[var(--color-success-base)]',
+  info: 'text-[var(--color-info-base)]',
+  warning: 'text-[var(--color-warning-base)]',
 };
 
 const AUTO_DISMISS_MS = 3500;

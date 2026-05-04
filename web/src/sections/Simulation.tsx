@@ -104,7 +104,7 @@ export default function Simulation() {
                     ? 'glass-row-active'
                     : 'glass-row'
                 }`}
-                style={{ '--gb-color': selectedIdx === i ? 'rgba(var(--accent-r), var(--accent-g), var(--accent-b), 0.30)' : 'rgba(255, 255, 255, 0.10)' } as React.CSSProperties}
+                style={{ '--gb-color': selectedIdx === i ? 'rgba(var(--accent-r), var(--accent-g), var(--accent-b), 0.30)' : 'var(--glass-border-hover)' } as React.CSSProperties}
               >
                 <div className="flex items-center justify-center w-5 h-5 shrink-0 text-[18px] leading-none">
                   {t.style.icon}
@@ -137,7 +137,7 @@ export default function Simulation() {
           >
             {/* Original photo */}
             <div className="gradient-border-card glass-card flex flex-col w-[calc(50%-var(--space-8))] tablet:w-[236px] rounded-[var(--radius-12)] overflow-hidden transition-transform group-hover:scale-[1.02]">
-              <div className="w-full aspect-[3/4] shrink-0 bg-[rgba(255,255,255,0.02)] overflow-hidden">
+              <div className="w-full aspect-[3/4] shrink-0 bg-[var(--glass-surface-soft)] overflow-hidden">
                 <img src="/img/placeholder-upload.png" alt="" className="w-full h-full object-cover opacity-50" />
               </div>
               <div className="flex flex-col justify-between flex-1 pt-[var(--space-12)] pb-[var(--space-16)] px-[var(--space-12)]">
@@ -161,7 +161,7 @@ export default function Simulation() {
 
             {/* Generated photo */}
             <div className="gradient-border-card glass-card flex flex-col w-[calc(50%-var(--space-8))] tablet:w-[236px] rounded-[var(--radius-12)] overflow-hidden transition-transform group-hover:scale-[1.02]">
-              <div className="w-full aspect-[3/4] shrink-0 bg-[rgba(255,255,255,0.02)] overflow-hidden">
+              <div className="w-full aspect-[3/4] shrink-0 bg-[var(--glass-surface-soft)] overflow-hidden">
                 <img src="/img/placeholder-upgrade.png" alt="" className="w-full h-full object-cover opacity-50" />
               </div>
               <div className="flex flex-col justify-between flex-1 pt-[var(--space-12)] pb-[var(--space-16)] px-[var(--space-12)]">
