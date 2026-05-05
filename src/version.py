@@ -4378,4 +4378,71 @@
 #                  оборачиваем — иначе transform-контекст ломает
 #                  letящие сердечки.
 #          Sanity: tsc --noEmit clean; ruff clean; vite build OK.
-APP_VERSION = "1.50.3"
+# 1.50.4 — Liquid-Glass-уровень для тела лендингов + 3-картовый
+#          ScenarioPricing.
+#          (1) Унификация glass-токенов с шапкой (.glass-nav).
+#              Раньше карточки и кнопки в теле имели surface-alpha
+#              0.04 / 0.02 — на фоне «толстого» nav-стекла (alpha
+#              0.65) тело смотрелось «куце». Подняли:
+#                - --glass-surface 0.04 → 0.07 (dark), 0.55 → 0.62 (light)
+#                - --glass-surface-strong 0.06 → 0.10 / 0.70 → 0.78
+#                - --glass-surface-soft 0.02 → 0.04 / 0.40 → 0.48
+#                - --glass-border 0.08 → 0.12 / 0.08 → 0.12
+#                - --glass-border-hover 0.14 → 0.18 / 0.16 → 0.20
+#                - --glass-inset-highlight 0.06 → 0.14 (dark) / 0.80 → 0.85 (light)
+#                - --glass-shadow-card → двухслойная тень
+#                  (0 16px 48px / 0.40 + 0 2px 8px / 0.20 contact-shadow
+#                  для dark; 0 16px 40px / 0.16 + 0 2px 6px / 0.08 для light).
+#              Saturate в .glass-card 1.15 → 1.25,
+#              .glass-card-highlight 1.20 → 1.30. Inset highlight
+#              переведён с 1px на 1.5px — заметнее верхняя «грань линзы».
+#          (2) Sheen — диагональный specular через ::before на
+#              .glass-card / .glass-card-highlight (mix-blend-mode:
+#              screen в dark, normal в light с opacity 0.55). Имитация
+#              скользящего по линзе света — основной фактор «дороже»
+#              ощущения. На :hover sheen разгорается до opacity 1.
+#              isolation: isolate на родителе изолирует ::before в
+#              собственном stacking context, контент-потомки рисуются
+#              поверх; pointer-events:none — клики пробрасываются вниз.
+#              ::before и .gradient-border-card::after не конфликтуют
+#              (разные псевдоэлементы), поэтому glass-карточки могут
+#              остаться gradient-bordered.
+#          (3) Hover-lift на .glass-card / .glass-card-highlight /
+#              .glass-card-premium: translateY(-2px ÷ -3px) +
+#              усиление glow и тени; 250 ms cubic-bezier(.16,.84,.44,1).
+#              На prefers-reduced-motion transform:none, остальное
+#              остаётся (тень/border меняются мягко).
+#          (4) Новый класс .glass-card-premium — расширение
+#              .glass-card-highlight для самых «продающих» карточек:
+#                - двухслойный sheen (linear + radial bottom-right
+#                  glow в тон активной категории);
+#                - inset accent-glow по нижней грани
+#                  (0 -1px 30px rgba(accent,0.04));
+#                - saturate 1.35;
+#                - усиленный hover (-3px translate, glow до 0.20 alpha).
+#              Применён в Pricing (highlighted plan на main) и в
+#              средней карточке ScenarioPricing.
+#          (5) ScenarioPricing — переписан на 3 позиции в одном ряду
+#              (раньше была одна карточка по центру; user feedback —
+#              «куе»):
+#                a) «Попробовать» — 199 ₽ · 5 фото · glass-card,
+#                   CTA «Купить 5 за 199 ₽» → createPayment(5);
+#                b) «Прокачать образ» — 499 ₽ · 15 фото ·
+#                   glass-card-premium · BEST badge ·
+#                   savingBadge «Экономия 40%» · features 4 шт ·
+#                   CTA «Купить 15 за 499 ₽» → createPayment(15)
+#                   (packQty=15 уже отлажен на основном Pricing);
+#                c) «Корпоративный тариф» — B2B-карточка, без цены
+#                   и без покупки. Features: «✦ Свой бренд / стили
+#                   · ✦ Webhook-интеграция · ✦ Договор и счёт».
+#                   CTA «Узнать про API» → /#api (scrollIntoView к
+#                   <ApiSection /> на главной; на сценарном
+#                   делает navigate('/') + setTimeout 120 ms +
+#                   scrollIntoView, как NavBar.scrollToPricing).
+#              Mobile: горизонтальный snap-scroll, как в основном
+#              Pricing. Desktop: 3-up flex, центральная чуть шире
+#              (flex-[1.15]), B2B чуть уже (flex-[0.95]) — даёт
+#              визуальный фокус на «BEST». Под рядом — мягкая
+#              подпись «Все пакеты идут на один баланс».
+#          Sanity: tsc --noEmit clean; ruff clean; vite build OK.
+APP_VERSION = "1.50.4"

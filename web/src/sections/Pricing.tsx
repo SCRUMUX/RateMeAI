@@ -137,7 +137,7 @@ export default function Pricing({ cmsPage }: { cmsPage?: LandingPage | null } = 
             <div key={i}
               className={`snap-center gradient-border-card flex flex-col gap-[var(--space-20)] tablet:gap-[var(--space-32)] p-[var(--space-16)] tablet:p-[var(--space-32)] w-[calc(100vw-56px)] tablet:w-auto min-w-0 tablet:min-w-0 h-auto tablet:h-[480px] rounded-[var(--radius-12)] ${
                 plan.highlighted
-                  ? 'glass-card-highlight flex-none tablet:flex-[1.15]'
+                  ? 'glass-card-premium flex-none tablet:flex-[1.15]'
                   : 'glass-card flex-none tablet:flex-1'
               }`}
             >

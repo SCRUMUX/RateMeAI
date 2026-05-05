@@ -165,17 +165,25 @@
   --color-border-strong: #2E3E52;
   --color-divider: #111820;
 
-  --glass-surface: rgba(255, 255, 255, 0.04);
-  --glass-surface-hover: rgba(255, 255, 255, 0.07);
-  --glass-surface-strong: rgba(255, 255, 255, 0.06);
-  --glass-surface-soft: rgba(255, 255, 255, 0.02);
-  --glass-border: rgba(255, 255, 255, 0.08);
-  --glass-border-hover: rgba(255, 255, 255, 0.14);
-  --glass-border-soft: rgba(255, 255, 255, 0.06);
-  --glass-inset-highlight: rgba(255, 255, 255, 0.06);
-  --glass-inset-highlight-soft: rgba(255, 255, 255, 0.04);
-  --glass-shadow-soft: 0 4px 16px rgba(0, 0, 0, 0.20);
-  --glass-shadow-card: 0 8px 32px rgba(0, 0, 0, 0.30);
+  /* 1.50.4: glass-токены подтянуты к плотности шапки (.glass-nav).
+   * До этого карточки/кнопки были почти прозрачными (0.04 / 0.02
+   * alpha) — на фоне «толстого» nav-стекла они смотрелись «куце».
+   * Поднимаем surface-плотность до уровня, где fluid-фон ещё
+   * просвечивает, но карточка ощутимо «толстая». Тень — двухслойная
+   * (мягкая + локальный contact-shadow) чтобы карточка «парила» над
+   * mesh-фоном. Inset highlight стал заметным, эмулируя бликующую
+   * грань линзы — отсюда ощущение Apple Liquid Glass. */
+  --glass-surface: rgba(255, 255, 255, 0.07);
+  --glass-surface-hover: rgba(255, 255, 255, 0.11);
+  --glass-surface-strong: rgba(255, 255, 255, 0.10);
+  --glass-surface-soft: rgba(255, 255, 255, 0.04);
+  --glass-border: rgba(255, 255, 255, 0.12);
+  --glass-border-hover: rgba(255, 255, 255, 0.18);
+  --glass-border-soft: rgba(255, 255, 255, 0.08);
+  --glass-inset-highlight: rgba(255, 255, 255, 0.14);
+  --glass-inset-highlight-soft: rgba(255, 255, 255, 0.08);
+  --glass-shadow-soft: 0 6px 20px rgba(0, 0, 0, 0.28);
+  --glass-shadow-card: 0 16px 48px rgba(0, 0, 0, 0.40), 0 2px 8px rgba(0, 0, 0, 0.20);
   --glass-shadow-nav: 0 4px 24px rgba(0, 0, 0, 0.30);
   --glass-nav-surface: rgba(10, 14, 20, 0.65);
   --glass-footer-surface: rgba(10, 14, 20, 0.50);
@@ -199,17 +207,20 @@
 }
 
 [data-theme="light"] {
-  --glass-surface: rgba(255, 255, 255, 0.55);
-  --glass-surface-hover: rgba(255, 255, 255, 0.75);
-  --glass-surface-strong: rgba(255, 255, 255, 0.70);
-  --glass-surface-soft: rgba(255, 255, 255, 0.40);
-  --glass-border: rgba(15, 23, 42, 0.08);
-  --glass-border-hover: rgba(15, 23, 42, 0.16);
-  --glass-border-soft: rgba(15, 23, 42, 0.06);
-  --glass-inset-highlight: rgba(255, 255, 255, 0.80);
-  --glass-inset-highlight-soft: rgba(255, 255, 255, 0.60);
-  --glass-shadow-soft: 0 4px 16px rgba(15, 23, 42, 0.08);
-  --glass-shadow-card: 0 8px 28px rgba(15, 23, 42, 0.12);
+  /* 1.50.4: light-toны тоже подтянуты, но мягче — стекло на молочном
+   * фоне быстро становится «непрозрачным», поэтому дельта дозирована
+   * (~+0.07-0.08 alpha вместо +0.04 у dark). */
+  --glass-surface: rgba(255, 255, 255, 0.62);
+  --glass-surface-hover: rgba(255, 255, 255, 0.80);
+  --glass-surface-strong: rgba(255, 255, 255, 0.78);
+  --glass-surface-soft: rgba(255, 255, 255, 0.48);
+  --glass-border: rgba(15, 23, 42, 0.12);
+  --glass-border-hover: rgba(15, 23, 42, 0.20);
+  --glass-border-soft: rgba(15, 23, 42, 0.08);
+  --glass-inset-highlight: rgba(255, 255, 255, 0.85);
+  --glass-inset-highlight-soft: rgba(255, 255, 255, 0.65);
+  --glass-shadow-soft: 0 6px 20px rgba(15, 23, 42, 0.10);
+  --glass-shadow-card: 0 16px 40px rgba(15, 23, 42, 0.16), 0 2px 6px rgba(15, 23, 42, 0.08);
   --glass-shadow-nav: 0 4px 24px rgba(15, 23, 42, 0.06);
   --glass-nav-surface: rgba(255, 255, 255, 0.75);
   --glass-footer-surface: rgba(255, 255, 255, 0.65);
@@ -787,42 +798,205 @@ main > .glass-divider,
 
 /* -- Card / panel -- */
 .glass-card {
+  position: relative;
+  isolation: isolate;
   background: var(--glass-surface);
   border: 1px solid var(--glass-border);
-  backdrop-filter: blur(var(--blur-glass-heavy)) saturate(1.15);
-  -webkit-backdrop-filter: blur(var(--blur-glass-heavy)) saturate(1.15);
+  backdrop-filter: blur(var(--blur-glass-heavy)) saturate(1.25);
+  -webkit-backdrop-filter: blur(var(--blur-glass-heavy)) saturate(1.25);
   box-shadow:
     var(--glass-shadow-card),
-    inset 0 1px 0 var(--glass-inset-highlight-soft);
-  transition: background 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease;
+    inset 0 1.5px 0 var(--glass-inset-highlight);
+  transition: background 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease, transform 0.25s cubic-bezier(0.16, 0.84, 0.44, 1);
 }
 
+/* 1.50.4: hover-lift — карточка приподнимается, тень глубже,
+ * sheen на ::before разгорается. На prefers-reduced-motion трогаем
+ * только тень/border, без translateY. */
 .glass-card:hover {
   background: var(--glass-surface-hover);
   border-color: var(--glass-border-hover);
+  transform: translateY(-2px);
+  box-shadow:
+    var(--glass-shadow-card),
+    0 0 32px rgba(var(--accent-r), var(--accent-g), var(--accent-b), 0.06),
+    inset 0 1.5px 0 var(--glass-inset-highlight);
 }
 
 /* Card with accent highlight (for featured/selected items) — accent
  * tint stays theme-agnostic, drop shadow follows the theme. */
 .glass-card-highlight {
-  background: rgba(var(--accent-r), var(--accent-g), var(--accent-b), 0.04);
-  border: 1px solid rgba(var(--accent-r), var(--accent-g), var(--accent-b), 0.18);
-  backdrop-filter: blur(var(--blur-glass-heavy)) saturate(1.2);
-  -webkit-backdrop-filter: blur(var(--blur-glass-heavy)) saturate(1.2);
+  position: relative;
+  isolation: isolate;
+  background: rgba(var(--accent-r), var(--accent-g), var(--accent-b), 0.06);
+  border: 1px solid rgba(var(--accent-r), var(--accent-g), var(--accent-b), 0.22);
+  backdrop-filter: blur(var(--blur-glass-heavy)) saturate(1.3);
+  -webkit-backdrop-filter: blur(var(--blur-glass-heavy)) saturate(1.3);
   box-shadow:
-    0 0 30px rgba(var(--accent-r), var(--accent-g), var(--accent-b), 0.08),
+    0 0 36px rgba(var(--accent-r), var(--accent-g), var(--accent-b), 0.10),
     var(--glass-shadow-card),
-    inset 0 1px 0 var(--glass-inset-highlight);
-  transition: background 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease;
+    inset 0 1.5px 0 var(--glass-inset-highlight);
+  transition: background 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease, transform 0.25s cubic-bezier(0.16, 0.84, 0.44, 1);
 }
 
 .glass-card-highlight:hover {
-  background: rgba(var(--accent-r), var(--accent-g), var(--accent-b), 0.06);
-  border-color: rgba(var(--accent-r), var(--accent-g), var(--accent-b), 0.25);
+  background: rgba(var(--accent-r), var(--accent-g), var(--accent-b), 0.09);
+  border-color: rgba(var(--accent-r), var(--accent-g), var(--accent-b), 0.30);
+  transform: translateY(-2px);
   box-shadow:
-    0 0 40px rgba(var(--accent-r), var(--accent-g), var(--accent-b), 0.12),
+    0 0 48px rgba(var(--accent-r), var(--accent-g), var(--accent-b), 0.16),
     var(--glass-shadow-card),
-    inset 0 1px 0 var(--glass-inset-highlight);
+    inset 0 1.5px 0 var(--glass-inset-highlight);
+}
+
+/* ==========================================================
+ * Liquid Glass sheen (1.50.4)
+ *
+ * Диагональный specular-блик «сверху-слева → внизу-справа» через
+ * ::before — имитация света, скользящего по линзе. Применяем
+ * вместе с .glass-card / .glass-card-highlight, чтобы любой блок
+ * стал ощущаться как «толстое тонированное стекло» из шапки.
+ *
+ * Реализация:
+ *  • position: absolute; inset:0; border-radius:inherit;
+ *  • linear-gradient 135° от ярко-белого (8% alpha) к прозрачному;
+ *  • mix-blend-mode:screen — в светлой теме блик становится
+ *    мягче, чтобы не пересветить молочный фон;
+ *  • pointer-events:none — клики пробрасываются вниз;
+ *  • opacity повышается на :hover (через .glass-card:hover ~ ::before
+ *    мы достать не можем, поэтому inline бамп идёт через
+ *    .glass-card:hover::before селектор).
+ *
+ * Ограничение: ::before не должен конфликтовать с
+ * .gradient-border-card::after (используется на тех же карточках).
+ * Они занимают разные псевдоэлементы — конфликта нет.
+ * ========================================================== */
+.glass-card::before,
+.glass-card-highlight::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.10) 0%,
+    rgba(255, 255, 255, 0.03) 32%,
+    transparent 60%
+  );
+  mix-blend-mode: screen;
+  opacity: 0.9;
+  pointer-events: none;
+  transition: opacity 0.25s ease;
+}
+
+[data-theme='light'] .glass-card::before,
+[data-theme='light'] .glass-card-highlight::before {
+  background: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.55) 0%,
+    rgba(255, 255, 255, 0.18) 32%,
+    transparent 60%
+  );
+  mix-blend-mode: normal;
+  opacity: 0.55;
+}
+
+.glass-card:hover::before,
+.glass-card-highlight:hover::before {
+  opacity: 1;
+}
+
+/* ==========================================================
+ * Premium glass card (1.50.4)
+ *
+ * Расширение .glass-card-highlight для главных «продающих»
+ * блоков — тарифные карточки, ScenarioPricing, brand-CTA.
+ * Добавляет:
+ *  1) Усиленный sheen — двухслойный (диагональный + bottom-right
+ *     glow), создаёт ощущение «бликующей фаски».
+ *  2) Локальный noise-grain через ::after — даёт тактильность,
+ *     как у физического стекла. Opacity 0.025 чтобы не пестрить.
+ *  3) Accent-glow по нижней грани (inset) — карточка светится
+ *     изнутри в тон активной категории.
+ *  4) Чуть более плотная заливка surface (0.10 alpha base).
+ *
+ * Используется как .glass-card-premium (вместо
+ * .glass-card-highlight, не вместе) — иначе ::after-noise
+ * перетрёт gradient-border. Поэтому grain через ::after
+ * включается ТОЛЬКО когда нет gradient-border-card.
+ * ========================================================== */
+.glass-card-premium {
+  position: relative;
+  isolation: isolate;
+  background: rgba(var(--accent-r), var(--accent-g), var(--accent-b), 0.07);
+  border: 1px solid rgba(var(--accent-r), var(--accent-g), var(--accent-b), 0.24);
+  backdrop-filter: blur(var(--blur-glass-heavy)) saturate(1.35);
+  -webkit-backdrop-filter: blur(var(--blur-glass-heavy)) saturate(1.35);
+  box-shadow:
+    0 0 48px rgba(var(--accent-r), var(--accent-g), var(--accent-b), 0.12),
+    var(--glass-shadow-card),
+    inset 0 -1px 30px rgba(var(--accent-r), var(--accent-g), var(--accent-b), 0.04),
+    inset 0 1.5px 0 var(--glass-inset-highlight);
+  transition:
+    background 0.25s ease,
+    border-color 0.25s ease,
+    box-shadow 0.25s ease,
+    transform 0.25s cubic-bezier(0.16, 0.84, 0.44, 1);
+}
+
+.glass-card-premium::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background:
+    linear-gradient(
+      135deg,
+      rgba(255, 255, 255, 0.14) 0%,
+      rgba(255, 255, 255, 0.04) 28%,
+      transparent 55%
+    ),
+    radial-gradient(
+      ellipse 60% 80% at 100% 100%,
+      rgba(var(--accent-r), var(--accent-g), var(--accent-b), 0.10) 0%,
+      transparent 60%
+    );
+  mix-blend-mode: screen;
+  opacity: 0.95;
+  pointer-events: none;
+  transition: opacity 0.25s ease;
+}
+
+[data-theme='light'] .glass-card-premium::before {
+  background:
+    linear-gradient(
+      135deg,
+      rgba(255, 255, 255, 0.60) 0%,
+      rgba(255, 255, 255, 0.20) 28%,
+      transparent 55%
+    ),
+    radial-gradient(
+      ellipse 60% 80% at 100% 100%,
+      rgba(var(--accent-r), var(--accent-g), var(--accent-b), 0.10) 0%,
+      transparent 60%
+    );
+  mix-blend-mode: normal;
+  opacity: 0.65;
+}
+
+.glass-card-premium:hover {
+  background: rgba(var(--accent-r), var(--accent-g), var(--accent-b), 0.10);
+  border-color: rgba(var(--accent-r), var(--accent-g), var(--accent-b), 0.32);
+  transform: translateY(-3px);
+  box-shadow:
+    0 0 64px rgba(var(--accent-r), var(--accent-g), var(--accent-b), 0.20),
+    var(--glass-shadow-card),
+    inset 0 -1px 36px rgba(var(--accent-r), var(--accent-g), var(--accent-b), 0.06),
+    inset 0 1.5px 0 var(--glass-inset-highlight);
+}
+
+.glass-card-premium:hover::before {
+  opacity: 1;
 }
 
 /* -- Active tab -- accent tint stays, text/shadow follow theme */
@@ -1626,6 +1800,13 @@ main > .glass-divider,
     opacity: 1 !important;
     transform: none !important;
     transition: none !important;
+  }
+  /* 1.50.4: hover-lift на .glass-card / .glass-card-premium — без
+   * вертикального сдвига, только подсветка тени/border. */
+  .glass-card:hover,
+  .glass-card-highlight:hover,
+  .glass-card-premium:hover {
+    transform: none !important;
   }
 }
 

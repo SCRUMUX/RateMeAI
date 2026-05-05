@@ -7,25 +7,74 @@ import { normalizePostPaymentPath, getPostPaymentReturnPath } from '../scenarios
 import { rememberFlowReturnPath } from '../lib/flow-resume';
 
 /**
- * ScenarioPricing — single-tariff variant of the pricing block used
- * on scenario landings (Dating / Resume / Documents). The main
- * landing keeps the 4-card matrix in {@link Pricing}; here we strip
- * down to the "Обновить фото" pack (5 photos, 199 ₽) and present it
- * as a single hero-card centered on the screen.
+ * ScenarioPricing — финальный экран сценарных лендингов
+ * (Dating / Resume / Documents). На основном лендинге используется
+ * полноразмерный Pricing с 4 карточками; здесь — три позиции,
+ * заточенные под сценарный конверт-flow:
  *
- * Heading copy mirrors the main Pricing block on purpose so the
- * brand voice stays consistent across all 4 landing pages.
+ *   1. «Попробовать»     — 199 ₽ · 5 фото           (glass-card)
+ *   2. «Прокачать образ» — 499 ₽ · 15 фото · BEST   (glass-card-premium)
+ *   3. «Корпоративный»   — B2B-карточка без цены    (glass-card)
+ *
+ * Карточка #3 ведёт на главный лендинг к секции <ApiSection /> —
+ * аналогично NavBar.scrollToPricing: если мы уже на «/», просто
+ * scrollIntoView; если на сценарном — navigate('/') + setTimeout
+ * 100 ms + scrollIntoView (пока React успевает отрисовать раздел).
+ *
+ * 1.50.4: visual-язык унифицирован с шапкой через .glass-card-premium
+ * + sheen (см. index.css). Hover-lift включён глобально.
  */
 
-const PACK_QTY = 5;
-const PACK_PRICE_LABEL = '199 ₽';
-const PACK_PHOTOS_LABEL = '5 AI-фото';
+type PackQty = 5 | 15;
 
-const FEATURES: { icon: string; label: string }[] = [
-  { icon: '✦', label: '5 AI-фото в одном пакете' },
-  { icon: '✦', label: 'Доступ ко всем стилям категории' },
-  { icon: '✦', label: 'Без водяных знаков' },
-  { icon: '✦', label: 'Подбор за 2 минуты' },
+interface PaidPlan {
+  id: 'try' | 'pro';
+  packQty: PackQty;
+  title: string;
+  priceLabel: string;
+  photosLabel: string;
+  perPhotoLabel: string;
+  desc: string;
+  features: string[];
+  highlighted: boolean;
+  badge?: string;
+  savingBadge?: string;
+  ctaLabel: string;
+}
+
+const PAID_PLANS: PaidPlan[] = [
+  {
+    id: 'try',
+    packQty: 5,
+    title: 'Попробовать',
+    priceLabel: '199 ₽',
+    photosLabel: '5 AI-фото',
+    perPhotoLabel: '40 ₽ за фото',
+    desc: 'Стартовый пакет — оцени, как AI работает с твоим лицом.',
+    features: ['Доступ ко всем стилям категории', 'Без водяных знаков', 'Подбор за 2 минуты'],
+    highlighted: false,
+    ctaLabel: 'Купить 5 за 199 ₽',
+  },
+  {
+    id: 'pro',
+    packQty: 15,
+    title: 'Прокачать образ',
+    priceLabel: '499 ₽',
+    photosLabel: '15 AI-фото',
+    perPhotoLabel: '33 ₽ за фото',
+    desc: 'Полный сет под анкету, резюме или документы — хватит на все ситуации.',
+    features: ['15 фото в одном пакете', 'Все стили + эксклюзивы', 'Приоритетная очередь генерации', 'Без водяных знаков'],
+    highlighted: true,
+    badge: 'BEST',
+    savingBadge: 'Экономия 40%',
+    ctaLabel: 'Купить 15 за 499 ₽',
+  },
+];
+
+const CORPORATE_FEATURES = [
+  '✦ Свой бренд и кастомные стили',
+  '✦ Webhook-интеграция и SDK',
+  '✦ SLA, договор и счёт',
 ];
 
 interface ScenarioPricingProps {
@@ -40,24 +89,40 @@ interface ScenarioPricingProps {
 export default function ScenarioPricing({ tagline }: ScenarioPricingProps) {
   const { canAccessApp } = useApp();
   const navigate = useNavigate();
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState<PackQty | null>(null);
   const resumePath = getPostPaymentReturnPath() ?? '/app';
 
-  async function handleBuy() {
+  async function handleBuy(packQty: PackQty) {
     if (!canAccessApp) {
       navigate(resumePath);
       return;
     }
-    setLoading(true);
+    setLoading(packQty);
     try {
       const next = getPostPaymentReturnPath() ?? normalizePostPaymentPath(window.location.pathname) ?? '/app';
       rememberFlowReturnPath(next);
-      const res = await createPayment(PACK_QTY);
+      const res = await createPayment(packQty);
       window.location.href = res.confirmation_url;
     } catch (e) {
       alert(handleCreatePaymentError(e));
-      setLoading(false);
+      setLoading(null);
     }
+  }
+
+  /**
+   * Переход на /#api с гарантированным scroll-to-anchor: если мы
+   * уже на главной — scrollIntoView; иначе — navigate + setTimeout
+   * (как в NavBar.scrollToPricing).
+   */
+  function handleCorporate() {
+    if (typeof window !== 'undefined' && window.location.pathname === '/') {
+      document.getElementById('api')?.scrollIntoView({ behavior: 'smooth' });
+      return;
+    }
+    navigate('/');
+    setTimeout(() => {
+      document.getElementById('api')?.scrollIntoView({ behavior: 'smooth' });
+    }, 120);
   }
 
   return (
@@ -88,65 +153,156 @@ export default function ScenarioPricing({ tagline }: ScenarioPricingProps) {
         </Link>
       </div>
 
-      {/* Single highlighted tariff card */}
-      <div className="reveal w-full flex justify-center">
-        <article
-          className="gradient-border-card glass-card-highlight relative flex flex-col gap-[var(--space-24)] p-[var(--space-24)] tablet:p-[var(--space-32)] w-full max-w-[440px] rounded-[var(--radius-16)]"
-        >
-          <div className="flex items-center justify-between gap-[var(--space-12)]">
-            <span className="text-[20px] tablet:text-[22px] leading-[28px] tablet:leading-[30px] font-semibold text-[var(--color-text-primary)]">
-              Обновить фото
-            </span>
-            <span className="glass-badge-info px-[var(--space-8)] py-[2px] text-[12px] font-medium leading-[16px] text-[var(--color-text-primary)] rounded-full">
-              5 фото
-            </span>
-          </div>
+      {/* Cards row: 2 paid + 1 corporate.
+          Mobile: horizontal snap-scroll (как в основном Pricing).
+          Desktop: 3-up grid, центральная карточка чуть шире. */}
+      <div
+        className="reveal-stagger relative w-full max-w-[1200px] overflow-x-auto tablet:overflow-x-visible snap-x snap-mandatory tablet:snap-none scrollbar-hide"
+        style={{ scrollPaddingInline: '20px' }}
+      >
+        <div className="flex items-stretch gap-[var(--space-12)] tablet:gap-[var(--space-16)] tablet:justify-between px-[20px] tablet:px-0 w-max tablet:w-full">
+          {/* Paid plans */}
+          {PAID_PLANS.map((plan) => (
+            <article
+              key={plan.id}
+              className={`snap-center gradient-border-card flex flex-col gap-[var(--space-20)] tablet:gap-[var(--space-24)] p-[var(--space-20)] tablet:p-[var(--space-28)] w-[calc(100vw-56px)] tablet:w-auto min-w-0 tablet:min-w-0 h-auto tablet:min-h-[520px] rounded-[var(--radius-16)] ${
+                plan.highlighted
+                  ? 'glass-card-premium flex-none tablet:flex-[1.15]'
+                  : 'glass-card flex-none tablet:flex-1'
+              }`}
+            >
+              {/* Title + BEST badge */}
+              <div className="flex items-center justify-between gap-[var(--space-12)]">
+                <span className="text-[20px] tablet:text-[22px] leading-[28px] tablet:leading-[30px] font-semibold text-[var(--color-text-primary)]">
+                  {plan.title}
+                </span>
+                {plan.badge && (
+                  <span className="glass-badge-info px-[var(--space-8)] py-[2px] text-[12px] font-medium leading-[16px] text-[var(--color-text-primary)] rounded-full">
+                    {plan.badge}
+                  </span>
+                )}
+              </div>
 
-          <div className="flex flex-col gap-[var(--space-8)]">
-            <div className="flex items-baseline gap-[var(--space-8)]">
-              <CoinIcon size={28} className="text-[var(--color-brand-primary)]" />
-              <span className="text-[40px] tablet:text-[48px] leading-[1] font-bold text-[var(--color-brand-primary)]">
-                {PACK_PRICE_LABEL}
+              {/* Price block */}
+              <div className="flex flex-col gap-[var(--space-8)]">
+                <div className="flex items-baseline gap-[var(--space-8)]">
+                  <CoinIcon size={28} className="text-[var(--color-brand-primary)]" />
+                  <span className="text-[36px] tablet:text-[44px] leading-[1] font-bold text-[var(--color-brand-primary)]">
+                    {plan.priceLabel}
+                  </span>
+                </div>
+                <span className="flex items-center gap-[var(--space-6)] text-[14px] leading-[20px] text-[var(--color-text-muted)]">
+                  <ImageIcon size={14} className="text-[var(--color-text-muted)]" />
+                  {plan.photosLabel} · {plan.perPhotoLabel}
+                  {plan.savingBadge && (
+                    <span className="glass-badge-danger ml-[var(--space-4)] px-[var(--space-6)] py-[2px] text-[11px] font-medium leading-[14px] text-[var(--color-text-primary)] rounded-full">
+                      {plan.savingBadge}
+                    </span>
+                  )}
+                </span>
+              </div>
+
+              {/* Short desc */}
+              <p className="text-[14px] tablet:text-[15px] leading-[20px] tablet:leading-[22px] text-[var(--color-text-secondary)]">
+                {plan.desc}
+              </p>
+
+              {/* Features */}
+              <ul className="flex flex-col gap-[var(--space-10)] m-0 p-0 list-none flex-1">
+                {plan.features.map((f) => (
+                  <li
+                    key={f}
+                    className="flex items-start gap-[var(--space-10)] text-[13px] tablet:text-[14px] leading-[18px] tablet:leading-[20px] text-[var(--color-text-secondary)]"
+                  >
+                    <span
+                      aria-hidden
+                      className="flex items-center justify-center w-[20px] h-[20px] rounded-full text-[12px] leading-[1] shrink-0"
+                      style={{
+                        background:
+                          'rgba(var(--accent-r), var(--accent-g), var(--accent-b), 0.12)',
+                        color: 'rgb(var(--accent-r), var(--accent-g), var(--accent-b))',
+                      }}
+                    >
+                      ✓
+                    </span>
+                    <span>{f}</span>
+                  </li>
+                ))}
+              </ul>
+
+              <button
+                type="button"
+                onClick={() => handleBuy(plan.packQty)}
+                disabled={loading === plan.packQty}
+                className={`w-full px-[var(--space-20)] py-[var(--space-12)] text-[15px] tablet:text-[16px] leading-[22px] tablet:leading-[24px] rounded-[var(--radius-12)] font-medium ${
+                  plan.highlighted ? 'glass-btn-primary' : 'glass-btn-secondary text-[var(--color-brand-primary)]'
+                }`}
+              >
+                {loading === plan.packQty ? 'Загрузка…' : plan.ctaLabel}
+              </button>
+            </article>
+          ))}
+
+          {/* Corporate / B2B card — другая семантика, без покупки */}
+          <article
+            className="snap-center gradient-border-card glass-card flex flex-col gap-[var(--space-20)] tablet:gap-[var(--space-24)] p-[var(--space-20)] tablet:p-[var(--space-28)] w-[calc(100vw-56px)] tablet:w-auto min-w-0 tablet:flex-[0.95] h-auto tablet:min-h-[520px] rounded-[var(--radius-16)]"
+          >
+            <div className="flex items-center justify-between gap-[var(--space-12)]">
+              <span className="text-[20px] tablet:text-[22px] leading-[28px] tablet:leading-[30px] font-semibold text-[var(--color-text-primary)]">
+                Корпоративный тариф
+              </span>
+              <span
+                className="px-[var(--space-8)] py-[2px] text-[12px] font-medium leading-[16px] rounded-full"
+                style={{
+                  background:
+                    'rgba(var(--accent-sec-r), var(--accent-sec-g), var(--accent-sec-b), 0.12)',
+                  border:
+                    '1px solid rgba(var(--accent-sec-r), var(--accent-sec-g), var(--accent-sec-b), 0.30)',
+                  color: 'var(--color-text-primary)',
+                }}
+              >
+                B2B
               </span>
             </div>
-            <span className="flex items-center gap-[var(--space-6)] text-[14px] leading-[20px] text-[var(--color-text-muted)]">
-              <ImageIcon size={14} className="text-[var(--color-text-muted)]" />
-              {PACK_PHOTOS_LABEL} · {Math.round(199 / PACK_QTY)} ₽ за фото
-            </span>
-          </div>
 
-          <ul className="flex flex-col gap-[var(--space-12)] m-0 p-0 list-none">
-            {FEATURES.map((f) => (
-              <li
-                key={f.label}
-                className="flex items-start gap-[var(--space-12)] text-[14px] tablet:text-[16px] leading-[20px] tablet:leading-[24px] text-[var(--color-text-secondary)]"
-              >
-                <span
-                  aria-hidden
-                  className="flex items-center justify-center w-[24px] h-[24px] rounded-full text-[14px] leading-[1] shrink-0"
-                  style={{
-                    background:
-                      'rgba(var(--accent-r), var(--accent-g), var(--accent-b), 0.12)',
-                    color: 'rgb(var(--accent-r), var(--accent-g), var(--accent-b))',
-                  }}
+            <div className="flex flex-col gap-[var(--space-8)]">
+              <span className="text-[28px] tablet:text-[32px] leading-[1.1] font-bold text-[var(--color-text-primary)]">
+                По объёму
+              </span>
+              <span className="text-[14px] leading-[20px] text-[var(--color-text-muted)]">
+                Договор, счёт, безналичный расчёт
+              </span>
+            </div>
+
+            <p className="text-[14px] tablet:text-[15px] leading-[20px] tablet:leading-[22px] text-[var(--color-text-secondary)]">
+              AI-генерация в брендовом фотобанке, маркетплейсе или мобильном приложении. Подключаем по API под ваш объём.
+            </p>
+
+            <ul className="flex flex-col gap-[var(--space-10)] m-0 p-0 list-none flex-1">
+              {CORPORATE_FEATURES.map((f) => (
+                <li
+                  key={f}
+                  className="flex items-start gap-[var(--space-10)] text-[13px] tablet:text-[14px] leading-[18px] tablet:leading-[20px] text-[var(--color-text-secondary)]"
                 >
-                  {f.icon}
-                </span>
-                <span>{f.label}</span>
-              </li>
-            ))}
-          </ul>
+                  <span>{f}</span>
+                </li>
+              ))}
+            </ul>
 
-          <button
-            type="button"
-            onClick={handleBuy}
-            disabled={loading}
-            className="glass-btn-primary w-full px-[var(--space-20)] py-[var(--space-14)] text-[16px] tablet:text-[18px] leading-[24px] rounded-[var(--radius-12)] font-medium"
-          >
-            {loading ? 'Загрузка…' : `Купить 5 фото за ${PACK_PRICE_LABEL}`}
-          </button>
-        </article>
+            <button
+              type="button"
+              onClick={handleCorporate}
+              className="glass-btn-secondary w-full px-[var(--space-20)] py-[var(--space-12)] text-[15px] tablet:text-[16px] leading-[22px] tablet:leading-[24px] rounded-[var(--radius-12)] font-medium text-[var(--color-brand-primary)]"
+            >
+              Узнать про API
+            </button>
+          </article>
+        </div>
       </div>
+
+      <p className="text-center text-[13px] tablet:text-[14px] leading-[20px] text-[var(--color-text-muted)] max-w-[600px]">
+        Все пакеты идут на один баланс — фото можно потратить на любую категорию.
+      </p>
     </section>
   );
 }
