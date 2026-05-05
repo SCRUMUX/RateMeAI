@@ -1238,18 +1238,19 @@ main > .glass-divider,
 .testimonial-track {
   position: relative;
   width: 100%;
-  /* 1.49.2: трек согласован с aspect-[3/4] (iPhone-selfie) и
-     header/chips/review/padding контентом карточки. Если высота
-     меньше реальной — карточка прорывает трек и вылезает на
-     следующую секцию ("Как это работает"). */
-  min-height: 1000px;
+  /* 1.50.1: карточка ужата (slot 420px, padding 16/20, font-size
+     review 15-17). Высоты пересчитаны под реальную сборку
+     header (54px) + emoji-review (~3 строки 22px = 66px) + slider
+     (420 * 4/3 = 560px) + 2 × gap-16 + padding 16-20 — итого
+     ~720px. Запас в 40px на случай длинного отзыва. */
+  min-height: 760px;
   perspective: 1200px;
   isolation: isolate;
 }
 
 @media (max-width: 767px) {
   .testimonial-track {
-    min-height: 860px;
+    min-height: 720px;
   }
 }
 
@@ -1257,7 +1258,10 @@ main > .glass-divider,
   position: absolute;
   inset: 0;
   margin: 0 auto;
-  width: min(560px, 100%);
+  /* 1.50.1: slot 560 → 420px — карточка стала компактнее, не
+     «висит» над соседними блоками и левая колонка Simulation
+     наконец совпадает по высоте с правой. */
+  width: min(420px, 100%);
   display: flex;
   justify-content: center;
   align-items: flex-start;
@@ -1276,16 +1280,18 @@ main > .glass-divider,
 
 /* 1.49.0: prev/next ушли в более фоновое состояние (opacity 0.30,
    blur 5px, lighter saturation) — не конкурируют с центральной
-   карточкой и не «просвечивают» сквозь её фон. */
+   карточкой и не «просвечивают» сквозь её фон.
+   1.50.1: translate ±82% (было ±72%) — компенсируем уменьшение
+   slot до 420px, иначе боковые карточки наезжают на центральную. */
 .testimonial-slot.is-prev {
-  transform: translate3d(-72%, 16px, 0) scale(0.86);
+  transform: translate3d(-82%, 16px, 0) scale(0.86);
   opacity: 0.30;
   filter: blur(5px) saturate(0.7);
   z-index: 2;
 }
 
 .testimonial-slot.is-next {
-  transform: translate3d(72%, 16px, 0) scale(0.86);
+  transform: translate3d(82%, 16px, 0) scale(0.86);
   opacity: 0.30;
   filter: blur(5px) saturate(0.7);
   z-index: 2;
@@ -1300,7 +1306,7 @@ main > .glass-divider,
 }
 
 .testimonial-carousel.is-compact .testimonial-slot {
-  width: min(520px, 100%);
+  width: min(400px, 100%);
 }
 .testimonial-carousel.is-compact .testimonial-slot.is-prev,
 .testimonial-carousel.is-compact .testimonial-slot.is-next,
@@ -1332,8 +1338,10 @@ main > .glass-divider,
   width: 100%;
   display: flex;
   flex-direction: column;
-  gap: var(--space-16);
-  padding: var(--space-20);
+  /* 1.50.1: gap 16 → 12, padding 20/24 → 16/20 — карточка плотнее
+     при том же составе (avatar / chips / review / slider). */
+  gap: var(--space-12);
+  padding: var(--space-16);
   background: rgba(17, 24, 32, 0.78);
   backdrop-filter: blur(18px) saturate(140%);
   -webkit-backdrop-filter: blur(18px) saturate(140%);
@@ -1351,22 +1359,25 @@ main > .glass-divider,
 
 @media (min-width: 768px) {
   .testimonial-card {
-    padding: var(--space-24);
+    padding: var(--space-20);
   }
 }
 
 .testimonial-emoji-review {
   margin: 0;
-  font-size: 16px;
-  line-height: 24px;
+  /* 1.50.1: 16/24 → 15/22 (моб), 18/28 → 16/24 (десктоп) — текст
+     остаётся читабельным, но карточка держит компактные пропорции
+     и не выезжает в Simulation за уровень левой колонки. */
+  font-size: 15px;
+  line-height: 22px;
   font-weight: 500;
   letter-spacing: 0;
 }
 
 @media (min-width: 768px) {
   .testimonial-emoji-review {
-    font-size: 18px;
-    line-height: 28px;
+    font-size: 16px;
+    line-height: 24px;
   }
 }
 

@@ -1,13 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import BeforeAfterSlider from '../components/BeforeAfterSlider';
-import {
-  PlaceholderUpload,
-  PlaceholderUpgrade,
-  type PlaceholderTone,
-} from '../components/effects/PlaceholderArt';
-import { CATEGORIES } from '../data/styles';
-import { FULL_LANDING_STYLES_BY_CATEGORY } from '../data/landingStyles';
-import type { Testimonial, TestimonialTier } from '../data/testimonials';
+import TestimonialShowcaseCard from '../components/TestimonialShowcaseCard';
+import { type PlaceholderTone } from '../components/effects/PlaceholderArt';
+import type { Testimonial } from '../data/testimonials';
 
 export type { Testimonial } from '../data/testimonials';
 
@@ -58,95 +52,6 @@ function usePrefersReducedMotion(): boolean {
   return reduced;
 }
 
-function getDirectionLabel(item: Testimonial): string {
-  const categoryLabel =
-    item.category === 'documents'
-      ? 'Документы'
-      : CATEGORIES.find((c) => c.id === item.category)?.label ?? item.category;
-  const styleName =
-    item.category === 'documents'
-      ? ''
-      : FULL_LANDING_STYLES_BY_CATEGORY[item.category]?.find((s) => s.key === item.styleKey)?.name ?? '';
-  return styleName ? `${categoryLabel} · «${styleName}»` : categoryLabel;
-}
-
-function avatarUrl(item: Testimonial): string {
-  const seed = encodeURIComponent(item.avatarSeed ?? item.nickname.replace(/^@/, ''));
-  return `https://api.dicebear.com/9.x/notionists/svg?seed=${seed}&radius=50&backgroundType=gradientLinear`;
-}
-
-function getInitial(nickname: string): string {
-  const cleaned = nickname.replace(/^@/, '');
-  return (cleaned[0] ?? '?').toUpperCase();
-}
-
-interface CardProps {
-  item: Testimonial;
-  isActive: boolean;
-  withSlider: boolean;
-  reducedMotion: boolean;
-  tone?: PlaceholderTone;
-}
-
-function TestimonialCard({ item, isActive, withSlider, reducedMotion, tone }: CardProps) {
-  const direction = getDirectionLabel(item);
-  const tier: TestimonialTier = item.tier ?? 'Обычный';
-
-  return (
-    <article className={`testimonial-card ${isActive ? 'is-active' : ''} gradient-border-card rounded-[var(--radius-12)]`}>
-      <header className="flex items-center gap-[var(--space-12)]">
-        <div className="testimonial-avatar shrink-0">
-          <img
-            src={avatarUrl(item)}
-            alt=""
-            loading="lazy"
-            decoding="async"
-            referrerPolicy="no-referrer"
-            onError={(e) => {
-              (e.currentTarget as HTMLImageElement).style.display = 'none';
-            }}
-          />
-          <span aria-hidden="true" className="testimonial-avatar-fallback">
-            {getInitial(item.nickname)}
-          </span>
-        </div>
-        <div className="flex flex-col gap-[var(--space-4)] min-w-0">
-          <div className="text-[15px] tablet:text-[16px] leading-[20px] tablet:leading-[22px] font-semibold text-[var(--color-text-primary)] truncate">
-            {item.nickname}
-          </div>
-          <div className="flex flex-wrap items-center gap-[6px]">
-            <span className="testimonial-chip testimonial-chip--direction">{direction}</span>
-            <span className={`testimonial-chip testimonial-chip--tier ${tier === 'Премиум' ? 'is-premium' : 'is-regular'}`}>
-              {tier === 'Премиум' && <span aria-hidden="true" className="testimonial-chip-spark">✦</span>}
-              {tier}
-            </span>
-          </div>
-        </div>
-      </header>
-
-      <p className="testimonial-emoji-review landing-body text-[var(--color-text-primary)]">
-        {item.emojiReview ?? item.shortReview}
-      </p>
-
-      {withSlider && (
-        <div className="testimonial-slider-wrap rounded-[var(--radius-12)] overflow-hidden aspect-[3/4]">
-          <BeforeAfterSlider
-            // Re-mount on item change so the cross-fade restarts
-            // cleanly when the carousel advances.
-            key={item.id}
-            before={<PlaceholderUpload tone={tone} className="w-full h-full opacity-90 text-[var(--color-text-secondary)]" />}
-            after={<PlaceholderUpgrade tone={tone} className="w-full h-full opacity-100 text-[var(--color-brand-primary)]" />}
-            autoCycle={isActive && !reducedMotion}
-            autoCycleMs={3000}
-            autoHoldMs={3000}
-            hideHandle
-            hideLabels
-          />
-        </div>
-      )}
-    </article>
-  );
-}
 
 /**
  * Carousel of social-proof reviews used on the home landing and the
@@ -257,12 +162,14 @@ export default function Testimonials({
                   aria-hidden={!isActive}
                   style={{ pointerEvents: isActive ? 'auto' : 'none', opacity: visible ? undefined : 0 }}
                 >
-                  <TestimonialCard
+                  <TestimonialShowcaseCard
+                    key={item.id}
                     item={item}
                     isActive={isActive}
                     withSlider={withSlider}
                     reducedMotion={reducedMotion}
                     tone={tone}
+                    playMode="autoCycle"
                   />
                 </div>
               );

@@ -4225,4 +4225,48 @@
 #              на DocumentPhotoLanding по-прежнему рендерятся в
 #              карусели через legacy category='cv').
 #          Sanity: tsc --noEmit clean; ruff clean; vite build OK.
-APP_VERSION = "1.50.0"
+# 1.50.1 — Unified showcase card + tighter Simulation/Testimonials.
+#          (1) Extracted TestimonialShowcaseCard
+#              (web/src/components/TestimonialShowcaseCard.tsx) —
+#              shared by both the carousel (`Testimonials`) and the
+#              right column of `Simulation`. The card carries
+#              avatar + nickname + direction/style chip + tier
+#              badge + emoji review + before/after slider, with two
+#              animation modes:
+#                - `autoCycle`: legacy carousel behaviour (one
+#                   cross-fade per active slot, re-mount on advance);
+#                - `playKey`: new manual trigger — the cross-fade
+#                   replays whenever `playKey` changes (Simulation
+#                   uses it for the «click on style» interaction).
+#          (2) Shrunk the carousel card across the board:
+#                - testimonial-slot width 560 → 420 px (compact 520
+#                   → 400 px) so the card no longer floats massively
+#                   over neighbouring sections;
+#                - is-prev/is-next translate ±72% → ±82% to keep the
+#                   side cards from creeping under the centred one
+#                   after the width reduction;
+#                - testimonial-card padding 20/24 → 16/20 + gap 16
+#                   → 12 — denser layout at the same content;
+#                - testimonial-emoji-review font 16/24+18/28 →
+#                   15/22+16/24, still readable but proportionate;
+#                - testimonial-track min-height 1000/860 → 760/720
+#                   px — matches the actual contents, no longer
+#                   bleeds into «Как это работает».
+#          (3) Simulation: right column reuses the new card
+#              instead of slider+score-row+local review block. The
+#              score-row (5.42 / 6.79) was removed for visual
+#              consistency with the main carousel — the same review
+#              card appears in both places. Right column max-width
+#              440 → 420 px.
+#          (4) Simulation left column: 5 styles → 8 (ITEMS_PER_PAGE),
+#              gap-12 → gap-20. Heights of left/right columns now
+#              match within ~50 px on desktop, fixing the «red
+#              lines» misalignment the user reported.
+#          (5) Documents landing: 5 formats → 8. Added medical_form
+#              (Медкомиссия), driver_license (Водительские права)
+#              and student_id (Студенческий ID) to
+#              DOCUMENT_LANDING_ITEMS, with a matching
+#              `style-showcase` testimonial each so the slider has
+#              a per-format quote.
+#          Sanity: tsc --noEmit clean; ruff clean; vite build OK.
+APP_VERSION = "1.50.1"

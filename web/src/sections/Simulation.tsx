@@ -5,12 +5,14 @@ import { DOCUMENT_LANDING_ITEMS, FULL_LANDING_STYLES_BY_CATEGORY } from '../data
 import { getStyleShowcaseReview, type ReviewCategory } from '../data/testimonials';
 import type { StyleItem } from '../data/styles';
 import CategoryTabs from '../components/CategoryTabs';
-import BeforeAfterSlider from '../components/BeforeAfterSlider';
-import { PlaceholderUpload, PlaceholderUpgrade } from '../components/effects/PlaceholderArt';
+import TestimonialShowcaseCard from '../components/TestimonialShowcaseCard';
 import { useApp } from '../context/AppContext';
 import { findBlock, type LandingPage } from '../lib/landing-cms';
 
-const ITEMS_PER_PAGE = 5;
+// 1.50.1: 8 строк под высоту правой колонки (карточка
+// TestimonialShowcaseCard ~660 px на десктопе с aspect-[3/4]
+// слайдером 420 → 560 px). 8 × 52 + 7 × 20 + 12 + 44 = 612 px.
+const ITEMS_PER_PAGE = 8;
 const PLACEHOLDER_TONE_BY_CATEGORY: Record<ReviewCategory, 'home' | 'dating' | 'cv' | 'documents'> = {
   social: 'home',
   cv: 'cv',
@@ -56,16 +58,16 @@ export default function Simulation({
   const remaining = Math.max(0, styles.length - ITEMS_PER_PAGE);
   const selectedStyle = visibleStyles[selectedIdx] ?? visibleStyles[0];
 
-  // 1.50.0: правая часть теперь — слайдер до/после + отзыв под ним.
-  // Отзыв берём из `style-showcase` пула (не пересекается с
-  // основной каруселью Testimonials).
+  // 1.50.1: правая часть — общая карточка TestimonialShowcaseCard
+  // (тот же layout, что у карусели Testimonials). При клике по
+  // стилю меняется playKey → внутри слайдер делает один cross-fade.
+  // Отзыв подбирается из `style-showcase` пула — он не пересекается
+  // с carousel-отзывами.
   const showcaseReview = useMemo(
     () => (selectedStyle ? getStyleShowcaseReview(category, selectedStyle.key) : undefined),
     [category, selectedStyle],
   );
 
-  const beforeScore = showcaseReview?.beforeScore ?? 5.6;
-  const afterScore = showcaseReview?.afterScore ?? 6.7;
   const tone = PLACEHOLDER_TONE_BY_CATEGORY[category] ?? 'home';
 
   // Только для главного лендинга: подсказка «скоро» внутри секции.
@@ -151,11 +153,11 @@ export default function Simulation({
         </div>
       )}
 
-      {/* Style list + slider with showcase review */}
+      {/* Style list + showcase card */}
       {!isComingSoon && selectedStyle && (
         <div className="relative flex flex-col desktop:flex-row items-stretch desktop:items-start desktop:justify-between w-full max-w-[1200px] gap-[var(--space-24)] desktop:gap-[70px]">
           {/* Style list (left) */}
-          <div className="flex flex-col gap-[var(--space-12)] w-full desktop:flex-1 desktop:max-w-[588px] order-last desktop:order-first">
+          <div className="flex flex-col gap-[var(--space-20)] w-full desktop:flex-1 desktop:max-w-[560px] order-last desktop:order-first">
             {visibleStyles.map((style, i) => (
               <button
                 key={style.key}
@@ -193,78 +195,26 @@ export default function Simulation({
             {remaining > 0 && (
               <Link
                 to="/app"
-                className="glass-btn-secondary flex items-center justify-center w-full mt-[var(--space-12)] px-[var(--space-20)] py-[var(--space-10)] rounded-[var(--radius-12)] text-[var(--color-brand-primary)] text-[16px] leading-[24px] font-medium no-underline"
+                className="glass-btn-secondary flex items-center justify-center w-full px-[var(--space-20)] py-[var(--space-10)] rounded-[var(--radius-12)] text-[var(--color-brand-primary)] text-[16px] leading-[24px] font-medium no-underline"
               >
                 Ещё {remaining} образов
               </Link>
             )}
           </div>
 
-          {/* Slider + review (right) */}
-          <div className="flex flex-col gap-[var(--space-16)] w-full desktop:max-w-[440px] order-first desktop:order-last">
-            <div className="gradient-border-card glass-card rounded-[var(--radius-12)] overflow-hidden aspect-[3/4]">
-              <BeforeAfterSlider
+          {/* Showcase card (right): тот же визуальный язык, что в
+              карусели Testimonials. На клик по стилю слева слайдер
+              внутри карточки делает один кросс-фейд. */}
+          <div className="flex flex-col w-full desktop:max-w-[420px] order-first desktop:order-last">
+            {showcaseReview ? (
+              <TestimonialShowcaseCard
+                item={showcaseReview}
+                tone={tone}
+                playMode="playKey"
                 playKey={selectedStyle.key}
-                autoCycleMs={3000}
-                hideHandle
-                hideLabels={false}
-                labelBefore="Исходное"
-                labelAfter={selectedStyle.name}
-                before={
-                  <div className="w-full h-full flex items-center justify-center bg-[var(--glass-surface-soft)]">
-                    <PlaceholderUpload
-                      tone={tone}
-                      className="w-full h-full opacity-50 text-[var(--color-text-secondary)]"
-                    />
-                  </div>
-                }
-                after={
-                  <div className="w-full h-full flex items-center justify-center bg-[var(--glass-surface-soft)]">
-                    <PlaceholderUpgrade
-                      tone={tone}
-                      className="w-full h-full opacity-70 text-[var(--color-text-secondary)]"
-                    />
-                  </div>
-                }
+                withSlider
               />
-            </div>
-
-            {/* Score row */}
-            <div className="flex items-center gap-[var(--space-12)]">
-              <div className="flex flex-col flex-1 gap-[var(--space-4)] glass-card rounded-[var(--radius-8)] px-[var(--space-12)] py-[var(--space-10)]">
-                <span className="text-[12px] leading-[14px] text-[var(--color-text-muted)]">Исходное</span>
-                <span className="text-[16px] leading-[20px] text-[var(--color-text-secondary)] font-medium tabular-nums">
-                  {beforeScore.toFixed(2)}
-                  <span className="text-[11px] text-[var(--color-text-muted)]"> / 10</span>
-                </span>
-              </div>
-              <div className="flex flex-col flex-1 gap-[var(--space-4)] glass-card rounded-[var(--radius-8)] px-[var(--space-12)] py-[var(--space-10)]">
-                <span className="text-[12px] leading-[14px] text-[var(--color-text-muted)]">{selectedStyle.name}</span>
-                <span className="text-[16px] leading-[20px] text-[var(--color-brand-primary)] font-semibold tabular-nums">
-                  {afterScore.toFixed(2)}
-                  <span className="text-[11px] text-[var(--color-text-muted)]"> / 10</span>
-                </span>
-              </div>
-            </div>
-
-            {/* Showcase review under the slider */}
-            {showcaseReview && (
-              <div className="glass-card rounded-[var(--radius-12)] px-[var(--space-16)] py-[var(--space-14)] flex flex-col gap-[var(--space-8)]">
-                <div className="flex items-center gap-[var(--space-8)]">
-                  <span className="text-[14px] leading-[18px] text-[var(--color-text-primary)] font-medium truncate">
-                    {showcaseReview.nickname}
-                  </span>
-                  {showcaseReview.tier && (
-                    <span className="px-[var(--space-6)] py-[1px] rounded-[var(--radius-pill)] text-[10px] leading-[14px] uppercase tracking-wide text-[var(--color-text-secondary)] glass-badge-cyan">
-                      {showcaseReview.tier}
-                    </span>
-                  )}
-                </div>
-                <p className="text-[13px] leading-[18px] text-[var(--color-text-secondary)] italic">
-                  «{showcaseReview.shortReview}»
-                </p>
-              </div>
-            )}
+            ) : null}
           </div>
         </div>
       )}

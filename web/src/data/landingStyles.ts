@@ -63,6 +63,33 @@ export const DOCUMENT_LANDING_ITEMS: DocumentFormatItem[] = [
     param: 'trust',
     deltaRange: [0.02, 0.05],
   },
+  {
+    key: 'medical_form',
+    icon: '🩺',
+    name: 'Медкомиссия',
+    desc: '35×45 мм, нейтральное выражение, без эмоций',
+    usage: 'Форма 086/у, медкнижка',
+    param: 'trust',
+    deltaRange: [0.02, 0.05],
+  },
+  {
+    key: 'driver_license',
+    icon: '🚗',
+    name: 'Водительские права',
+    desc: '30×40 мм, светло-серый фон, лицо чётко по центру',
+    usage: 'Замена / получение прав',
+    param: 'trust',
+    deltaRange: [0.02, 0.05],
+  },
+  {
+    key: 'student_id',
+    icon: '🎓',
+    name: 'Студенческий ID',
+    desc: '30×40 мм, нейтральный фон, аккуратный кадр',
+    usage: 'Студенческий, корпоративный пропуск',
+    param: 'trust',
+    deltaRange: [0.02, 0.05],
+  },
 ];
 
 export function isDocumentFormatItem(item: StyleItem): item is DocumentFormatItem {
