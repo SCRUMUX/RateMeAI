@@ -5,6 +5,7 @@ import { FULL_LANDING_STYLES_BY_CATEGORY } from '../data/landingStyles';
 import { getTestimonialsByCategory } from '../data/testimonials';
 import CategoryTabs from '../components/CategoryTabs';
 import ReviewModal from '../components/ReviewModal';
+import { PlaceholderUpload, PlaceholderUpgrade } from '../components/effects/PlaceholderArt';
 import { useApp } from '../context/AppContext';
 
 const ITEMS_PER_PAGE = 5;
@@ -138,7 +139,7 @@ export default function Simulation() {
             {/* Original photo */}
             <div className="gradient-border-card glass-card flex flex-col w-[calc(50%-var(--space-8))] tablet:w-[236px] rounded-[var(--radius-12)] overflow-hidden transition-transform group-hover:scale-[1.02]">
               <div className="w-full aspect-[3/4] shrink-0 bg-[var(--glass-surface-soft)] overflow-hidden">
-                <img src="/img/placeholder-upload.png" alt="" className="w-full h-full object-cover opacity-50" />
+                <PlaceholderUpload className="w-full h-full opacity-50 text-[var(--color-text-secondary)]" />
               </div>
               <div className="flex flex-col justify-between flex-1 pt-[var(--space-12)] pb-[var(--space-16)] px-[var(--space-12)]">
                 <div className="flex flex-col gap-[var(--space-8)]">
@@ -162,7 +163,7 @@ export default function Simulation() {
             {/* Generated photo */}
             <div className="gradient-border-card glass-card flex flex-col w-[calc(50%-var(--space-8))] tablet:w-[236px] rounded-[var(--radius-12)] overflow-hidden transition-transform group-hover:scale-[1.02]">
               <div className="w-full aspect-[3/4] shrink-0 bg-[var(--glass-surface-soft)] overflow-hidden">
-                <img src="/img/placeholder-upgrade.png" alt="" className="w-full h-full object-cover opacity-50" />
+                <PlaceholderUpgrade className="w-full h-full opacity-50 text-[var(--color-text-secondary)]" />
               </div>
               <div className="flex flex-col justify-between flex-1 pt-[var(--space-12)] pb-[var(--space-16)] px-[var(--space-12)]">
                 <div className="flex flex-col gap-[var(--space-8)]">

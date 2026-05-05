@@ -5,6 +5,7 @@ import CategoryTabs from '../CategoryTabs';
 import { PARAM_LABELS } from './shared';
 import { COMING_SOON_CATEGORIES, type CategoryId } from '../../data/styles';
 import { sanitizeLLMText } from '../../lib/sanitize';
+import { PlaceholderUpload } from '../effects/PlaceholderArt';
 
 interface Props {
   onNext: () => void;
@@ -80,7 +81,7 @@ export default function StepAnalysis({ onNext }: Props) {
             {app.photo ? (
               <img src={app.photo.preview} alt="Original" className="w-full h-full object-cover" />
             ) : (
-              <img src="/img/placeholder-upload.png" alt="" className="w-full h-full object-cover opacity-50" />
+              <PlaceholderUpload className="w-full h-full opacity-50 text-[var(--color-text-secondary)]" />
             )}
           </div>
           <div className="flex flex-col gap-[var(--space-8)] p-[var(--space-12)]">

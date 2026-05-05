@@ -3721,4 +3721,70 @@
 #          через CSS-токены или config-pull можно сделать в
 #          следующей итерации, если поведение в проде потребует
 #          fine-tune.
-APP_VERSION = "1.38.0"
+# 1.39.0 — SVG vectorization: logo + placeholders.
+#          Замена 3 PNG-ассетов на inline SVG-компоненты, которые
+#          рендерятся идеально в обеих темах без mixBlendMode-хаков
+#          и алгоритмических фильтров.
+#
+#          Bundle:
+#            * ``logo.png`` (582 kB) удалён.
+#            * ``placeholder-upload.png`` (839 kB) удалён.
+#            * ``placeholder-upgrade.png`` (908 kB) удалён.
+#            * Итого -2.37 MB raster-ассетов; +4.5 kB main JS /
+#              +0.9 kB gzip за inline SVG (LogoEmblem + 2
+#              Placeholder-art компонента).
+#
+#          Что сделано:
+#            * ``web/src/assets/LogoEmblem.tsx`` — геометрический
+#              monogram «AI» в двойном кольце с soft Gaussian-glow.
+#              ``stroke="currentColor"`` для буквенной части
+#              (наследует ``color: var(--color-text-primary)``
+#              родителя — автоматически тёмный на light и светлый
+#              на dark) + ``stroke="var(--color-brand-primary)"``
+#              для accent-rings (category-aware: cyan/purple/
+#              pink/orange).
+#            * ``web/src/components/effects/PlaceholderArt.tsx`` —
+#              два минималистичных line-art SVG: ``PlaceholderUpload``
+#              (фоторамка с dashed «drop zone» + portrait silhouette)
+#              и ``PlaceholderUpgrade`` (та же рамка с radial-glow
+#              backdrop + sparkles + accentированный силуэт).
+#              Тоже ``currentColor`` + ``var(--color-brand-primary)``.
+#
+#          Замены:
+#            * ``NavBar.tsx`` (×2: button-логотип и Link-логотип) и
+#              ``Landing.tsx`` (×1 hero-логотип) — ``<img src=
+#              {logoSrc}>`` с ``mixBlendMode: 'lighten'`` заменён на
+#              ``<LogoEmblem className="w-full h-full"/>``.
+#              Glow-backdrop за emblem-ом смягчён (0.18 → 0.10
+#              alpha для NavBar, 0.4 → 0.18 для Hero) — emblem уже
+#              имеет встроенный Gaussian-glow.
+#            * ``StepGenerate.tsx`` (×3 placeholder-upgrade,
+#              включая animated blur-shimmer для error state),
+#              ``StepAnalysis.tsx`` (×1 placeholder-upload),
+#              ``ReviewModal.tsx`` (×2),
+#              ``Simulation.tsx`` (×2). Все 8 ``<img>`` заменены
+#              на соответствующие React-компоненты с
+#              ``text-[var(--color-text-secondary)]`` для
+#              currentColor-наследования.
+#
+#          Удалены файлы:
+#            * ``web/src/assets/logo.png``.
+#            * ``web/public/img/placeholder-upload.png``.
+#            * ``web/public/img/placeholder-upgrade.png``.
+#
+#          Эффекты для пользователя:
+#            * Logo и иллюстрации идеально вписываются в обе темы
+#              без «бледного» mixBlendMode-эффекта или
+#              «грязного» CSS-инверта.
+#            * Иллюстрации category-aware: при переключении
+#              сценария (social → business → dating) accent в
+#              placeholder-ах меняется с cyan на purple/pink/orange.
+#            * Page load на лендинге быстрее: ~1.7 MB меньше
+#              raster-ассетов в начальной загрузке. SVG inline =
+#              нет network-roundtrip за placeholder.
+#
+#          Sanity: ``tsc --noEmit`` clean, ``vite build`` clean
+#          (521.28 kB main / 82.01 kB CSS, +4.5 kB main /
+#          +0.25 kB CSS / +0.9 kB gzip — в пределах ожиданий по
+#          плану). Backend нетронут.
+APP_VERSION = "1.39.0"

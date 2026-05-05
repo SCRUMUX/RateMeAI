@@ -4,6 +4,7 @@ import { AnimatePresence, motion } from 'framer-motion';
 import type { Testimonial } from '../data/testimonials';
 import { FULL_LANDING_STYLES_BY_CATEGORY } from '../data/landingStyles';
 import { useApp } from '../context/AppContext';
+import { PlaceholderUpload, PlaceholderUpgrade } from './effects/PlaceholderArt';
 
 interface Props {
   testimonials: Testimonial[];
@@ -129,7 +130,7 @@ export default function ReviewModal({ testimonials, initialIndex, open, onClose 
                 {/* Before */}
                 <div className="flex-1 flex flex-col gap-[var(--space-12)]">
                   <div className="relative rounded-[var(--radius-12)] overflow-hidden aspect-[3/4] bg-[var(--glass-surface-soft)]">
-                    <img src="/img/placeholder-upload.png" alt="" className="w-full h-full object-cover opacity-50" />
+                    <PlaceholderUpload className="w-full h-full opacity-50 text-[var(--color-text-secondary)]" />
                     <span className="absolute top-[var(--space-8)] left-[var(--space-8)] glass-badge-cyan px-[var(--space-8)] py-[2px] rounded-[var(--radius-pill)] text-[11px] leading-[14px] font-medium text-[var(--color-text-primary)]">
                       До
                     </span>
@@ -149,7 +150,7 @@ export default function ReviewModal({ testimonials, initialIndex, open, onClose 
                 {/* After */}
                 <div className="flex-1 flex flex-col gap-[var(--space-12)]">
                   <div className="relative rounded-[var(--radius-12)] overflow-hidden aspect-[3/4] bg-[var(--glass-surface-soft)]">
-                    <img src="/img/placeholder-upgrade.png" alt="" className="w-full h-full object-cover opacity-50" />
+                    <PlaceholderUpgrade className="w-full h-full opacity-50 text-[var(--color-text-secondary)]" />
                     <span className="absolute top-[var(--space-8)] left-[var(--space-8)] glass-badge-success px-[var(--space-8)] py-[2px] rounded-[var(--radius-pill)] text-[11px] leading-[14px] font-medium text-[var(--color-text-primary)]">
                       После
                     </span>

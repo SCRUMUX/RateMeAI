@@ -16,6 +16,7 @@ import ProgressBar from './ProgressBar';
 import ShareModal from '../ShareModal';
 import StyleSettingsModal from './StyleSettingsModal';
 import ResolvedSlotsBadges from '../ResolvedSlotsBadges';
+import { PlaceholderUpgrade } from '../effects/PlaceholderArt';
 import type { ResolvedSlots } from '../../lib/api';
 
 interface Props {
@@ -404,7 +405,7 @@ export default function StepGenerate({ onGoToStep, onOpenStorage }: Props) {
               )}
               {!hasGenResult && isRunning && (
                 <>
-                  <img src="/img/placeholder-upgrade.png" alt="" className="w-full h-full object-cover opacity-50 gen-sim-pulse" />
+                  <PlaceholderUpgrade className="w-full h-full opacity-50 gen-sim-pulse text-[var(--color-text-secondary)]" />
                   <div className="absolute inset-0 z-10 flex flex-col items-center justify-end pb-[var(--space-16)] gap-[var(--space-8)] bg-gradient-to-t from-black/70 via-transparent to-transparent">
                     <div className="w-6 h-6 border-2 border-t-transparent rounded-full animate-spin" style={{ borderColor: 'rgba(var(--accent-r),var(--accent-g),var(--accent-b),0.6)', borderTopColor: 'transparent' }} />
                     <span className="text-[12px] leading-[16px] text-[var(--color-text-primary)] font-medium text-center px-[var(--space-8)]">
@@ -418,7 +419,10 @@ export default function StepGenerate({ onGoToStep, onOpenStorage }: Props) {
               )}
               {!hasGenResult && genFailed && !isRunning && (
                 <div className="w-full h-full relative">
-                  <img src="/img/placeholder-upgrade.png" alt="" className="w-full h-full object-cover" style={{ filter: 'blur(16px) saturate(1.6) brightness(0.6)', transform: 'scale(1.1)' }} />
+                  <PlaceholderUpgrade
+                    className="w-full h-full text-[var(--color-text-secondary)]"
+                    style={{ filter: 'blur(16px) saturate(1.6) brightness(0.6)', transform: 'scale(1.1)' }}
+                  />
                   <div
                     className="absolute inset-0"
                     style={{
@@ -433,7 +437,7 @@ export default function StepGenerate({ onGoToStep, onOpenStorage }: Props) {
                 </div>
               )}
               {!hasGenResult && !isRunning && !genFailed && (
-                <img src="/img/placeholder-upgrade.png" alt="" className="w-full h-full object-cover opacity-50" />
+                <PlaceholderUpgrade className="w-full h-full opacity-50 text-[var(--color-text-secondary)]" />
               )}
             </div>
 

@@ -5,7 +5,7 @@ import { GlobeIcon, CoinIcon, ImageIcon } from '@ai-ds/core/icons';
 import { useApp } from '../context/AppContext';
 import { useTheme } from '../lib/theme';
 import LinkedAccountsPanel from '../components/LinkedAccountsPanel';
-import logoSrc from '../assets/logo.png';
+import LogoEmblem from '../assets/LogoEmblem';
 
 // 1.31.1 — переключатель тёмной/светлой темы. Иконка sun/moon, persist
 // в localStorage через ThemeProvider (см. lib/theme.tsx).
@@ -102,9 +102,9 @@ export default function NavBar({ onLoginClick, onOpenStorage, onHomeClick, onCta
         {/* Logo */}
         {onHomeClick ? (
           <button onClick={onHomeClick} className="flex items-center gap-[var(--space-8)] px-[var(--space-8)] py-[var(--space-4)] cursor-pointer">
-            <div className="relative w-10 h-10 tablet:w-11 tablet:h-11 shrink-0">
-              <div className="absolute inset-0 rounded-xl" style={{ background: 'rgba(var(--accent-r), var(--accent-g), var(--accent-b), 0.18)' }} />
-              <img src={logoSrc} alt="AI Look Studio" className="relative w-full h-full rounded-xl object-contain" style={{ mixBlendMode: 'lighten' }} />
+            <div className="relative w-10 h-10 tablet:w-11 tablet:h-11 shrink-0 text-[var(--color-text-primary)]">
+              <div className="absolute inset-0 rounded-xl" style={{ background: 'rgba(var(--accent-r), var(--accent-g), var(--accent-b), 0.10)' }} />
+              <LogoEmblem className="relative w-full h-full" />
             </div>
             <span className="hidden tablet:inline text-[22px] leading-[30px] font-bold whitespace-nowrap tracking-tight">
               <span className="text-[var(--color-text-primary)]">AI</span>
@@ -123,9 +123,9 @@ export default function NavBar({ onLoginClick, onOpenStorage, onHomeClick, onCta
             }}
             className="flex items-center gap-[var(--space-8)] px-[var(--space-8)] py-[var(--space-4)] no-underline"
           >
-            <div className="relative w-10 h-10 tablet:w-11 tablet:h-11 shrink-0">
-              <div className="absolute inset-0 rounded-xl" style={{ background: 'rgba(var(--accent-r), var(--accent-g), var(--accent-b), 0.18)' }} />
-              <img src={logoSrc} alt="AI Look Studio" className="relative w-full h-full rounded-xl object-contain" style={{ mixBlendMode: 'lighten' }} />
+            <div className="relative w-10 h-10 tablet:w-11 tablet:h-11 shrink-0 text-[var(--color-text-primary)]">
+              <div className="absolute inset-0 rounded-xl" style={{ background: 'rgba(var(--accent-r), var(--accent-g), var(--accent-b), 0.10)' }} />
+              <LogoEmblem className="relative w-full h-full" />
             </div>
             <span className="hidden tablet:inline text-[22px] leading-[30px] font-bold whitespace-nowrap tracking-tight">
               <span className="text-[var(--color-text-primary)]">AI</span>
