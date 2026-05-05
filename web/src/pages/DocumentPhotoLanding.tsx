@@ -7,10 +7,10 @@ import FluidBackground from '../components/effects/FluidBackground';
 import EnergyField from '../components/effects/EnergyField';
 import ProofCounter from '../sections/ProofCounter';
 import Testimonials from '../sections/Testimonials';
+import Simulation from '../sections/Simulation';
 import HowItWorks, { type HowItWorksStep } from '../sections/HowItWorks';
 import { useApp } from '../context/AppContext';
 import { DOCUMENT_SOCIAL_PROOF_PRESET } from '../data/social-proof';
-import { DOCUMENT_LANDING_ITEMS } from '../data/landingStyles';
 import { REQUIREMENTS_SHORT, REJECT_BULLETS } from '../data/photo-requirements';
 import type { Testimonial } from '../data/testimonials';
 import useDocumentMeta from '../lib/useDocumentMeta';
@@ -158,25 +158,9 @@ export default function DocumentPhotoLanding({ onStart, showAuth, onAuthClose }:
           tone="documents"
         />
 
-        <HowItWorks steps={STEPS} title="Как это работает" />
+        <Simulation forceCategory="documents" showCategoryTabs={false} />
 
-        {/* Supported formats */}
-        <section className="relative z-[2] flex flex-col items-center gap-[var(--space-32)] px-[var(--space-16)] tablet:px-[var(--space-24)] py-[60px] tablet:py-[80px]">
-          <h2 className="landing-h2 text-[var(--color-text-primary)]">Поддерживаемые форматы</h2>
-          <div className="grid grid-cols-1 tablet:grid-cols-2 desktop:grid-cols-3 gap-[var(--space-12)] max-w-[900px] w-full">
-            {DOCUMENT_LANDING_ITEMS.map((f) => (
-              <div key={f.key} className="gradient-border-item glass-row flex items-center gap-[var(--space-12)] px-[var(--space-16)] py-[var(--space-12)] rounded-[var(--radius-12)]"
-                style={{ '--gb-color': 'var(--glass-border-hover)' } as React.CSSProperties}
-              >
-                <span className="text-[24px] shrink-0">{f.icon}</span>
-                <div className="flex flex-col min-w-0">
-                  <span className="text-[15px] font-medium text-[var(--color-text-primary)]">{f.name}</span>
-                  <span className="text-[12px] text-[var(--color-text-muted)]">{f.usage}</span>
-                </div>
-              </div>
-            ))}
-          </div>
-        </section>
+        <HowItWorks steps={STEPS} title="Как это работает" />
 
         {/* Final CTA */}
         <section className="relative z-[2] flex flex-col items-center gap-[var(--space-16)] px-[var(--space-16)] tablet:px-[var(--space-24)] py-[60px] tablet:py-[80px] text-center">

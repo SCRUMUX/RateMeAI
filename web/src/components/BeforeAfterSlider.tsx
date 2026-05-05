@@ -38,6 +38,17 @@ export interface BeforeAfterSliderProps {
   autoCycleMs?: number;
   autoHoldMs?: number;
   /**
+   * Manual one-shot trigger for the same opacity cross-fade as
+   * ``autoCycle``. The component renders the ``after`` frame at
+   * mount (so the section never opens on a "before"-only photo);
+   * every time ``playKey`` changes the slider replays a single
+   * ``before → after`` dissolve over ``autoCycleMs``. Intended for
+   * the Simulation block where a click on the left-side style row
+   * should swap the right-side photo with a clean cross-fade,
+   * without a draggable handle, shutter or reverse sweep.
+   */
+  playKey?: string | number;
+  /**
    * Hide the visible drag handle. Ignored in ``autoCycle`` mode
    * (autopilot has no handle by design).
    */
@@ -65,43 +76,50 @@ export default function BeforeAfterSlider({
   autoCycle = false,
   autoCycleMs = 3000,
   autoHoldMs = 3000,
+  playKey,
   hideHandle = false,
   hideLabels = false,
 }: BeforeAfterSliderProps) {
   const prefersReducedMotion = usePrefersReducedMotion();
   const id = useId();
 
-  // Interactive divider position (only used when !autoCycle).
+  const usesFade = autoCycle || playKey !== undefined;
+
+  // Interactive divider position (only used in drag mode).
   const [ratio, setRatio] = useState(() => clamp01(initial));
   const containerRef = useRef<HTMLDivElement>(null);
 
-  // Auto-cycle cross-fade progress (0..1). Starts at 0 (only `before`
-  // visible), animates to 1 (only `after` visible) and stays there.
+  // Cross-fade progress (0..1). For ``autoCycle`` we start at 0
+  // (the carousel re-mounts on advance, so a fresh card animates
+  // ``before → after``). For ``playKey`` mode we start already at
+  // 1 — the section first opens on the «after» photo and only
+  // replays the dissolve when the user picks a different style.
   const [fade, setFade] = useState(() => (autoCycle ? 0 : 1));
+  const prevPlayKey = useRef<string | number | undefined>(playKey);
 
   const setFromClientX = useCallback((clientX: number) => {
-    if (autoCycle) return;
+    if (usesFade) return;
     const el = containerRef.current;
     if (!el) return;
     const rect = el.getBoundingClientRect();
     const next = (clientX - rect.left) / Math.max(1, rect.width);
     setRatio(clamp01(next));
-  }, [autoCycle]);
+  }, [usesFade]);
 
   const handlePointerDown = useCallback((e: React.PointerEvent) => {
-    if (autoCycle) return;
+    if (usesFade) return;
     (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId);
     setFromClientX(e.clientX);
-  }, [autoCycle, setFromClientX]);
+  }, [usesFade, setFromClientX]);
 
   const handlePointerMove = useCallback((e: React.PointerEvent) => {
-    if (autoCycle) return;
+    if (usesFade) return;
     if (!(e.buttons & 1)) return;
     setFromClientX(e.clientX);
-  }, [autoCycle, setFromClientX]);
+  }, [usesFade, setFromClientX]);
 
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
-    if (autoCycle) return;
+    if (usesFade) return;
     if (e.key === 'ArrowLeft') {
       e.preventDefault();
       setRatio((r) => clamp01(r - 0.04));
@@ -115,11 +133,11 @@ export default function BeforeAfterSlider({
       e.preventDefault();
       setRatio(1);
     }
-  }, [autoCycle]);
+  }, [usesFade]);
 
-  // One-shot cross-fade: `fade` 0→1 over `autoCycleMs`, then hold at
-  // 1 for `autoHoldMs` and stop. No reverse, no loop. Component is
-  // re-mounted by the carousel via `key={item.id}` to replay.
+  // ``autoCycle`` cross-fade: linear 0→1 over ``autoCycleMs``, hold
+  // at 1 for ``autoHoldMs``, stop. The carousel re-mounts on
+  // advance so this rAF restarts each card cleanly.
   useEffect(() => {
     if (!autoCycle) return;
     if (prefersReducedMotion) {
@@ -157,7 +175,48 @@ export default function BeforeAfterSlider({
     };
   }, [autoCycle, autoCycleMs, autoHoldMs, prefersReducedMotion]);
 
-  const showDivider = !autoCycle;
+  // ``playKey`` cross-fade: a new key triggers one ``before →
+  // after`` dissolve in ``autoCycleMs``. First render keeps fade
+  // at 1 (no entrance animation) so the section opens already on
+  // ``after``.
+  useEffect(() => {
+    if (autoCycle) return;
+    if (playKey === undefined) return;
+    if (prevPlayKey.current === playKey) return;
+    const isFirst = prevPlayKey.current === undefined;
+    prevPlayKey.current = playKey;
+    if (isFirst) return;
+
+    if (prefersReducedMotion) {
+      setFade(1);
+      return;
+    }
+
+    setFade(0);
+    let rafId = 0;
+    let cancelled = false;
+    const start = performance.now();
+    const sweepMs = Math.max(200, autoCycleMs);
+
+    const tick = (now: number) => {
+      if (cancelled) return;
+      const elapsed = now - start;
+      if (elapsed >= sweepMs) {
+        setFade(1);
+        return;
+      }
+      setFade(elapsed / sweepMs);
+      rafId = requestAnimationFrame(tick);
+    };
+
+    rafId = requestAnimationFrame(tick);
+    return () => {
+      cancelled = true;
+      cancelAnimationFrame(rafId);
+    };
+  }, [autoCycle, playKey, autoCycleMs, prefersReducedMotion]);
+
+  const showDivider = !usesFade;
 
   return (
     <div
@@ -173,11 +232,12 @@ export default function BeforeAfterSlider({
       </div>
 
       {/* After frame — full size on top, blended via opacity in
-          autoCycle mode and via clip-path in interactive mode. */}
+          fade mode (autoCycle / playKey) and via clip-path in
+          interactive drag mode. */}
       <div
         className="absolute inset-0"
         style={
-          autoCycle
+          usesFade
             ? {
                 opacity: fade,
                 transition: prefersReducedMotion ? 'none' : 'opacity 80ms linear',

@@ -26,6 +26,7 @@ interface BurstParticle {
   size: number;
   delay: number;
   rotate: number;
+  duration: number;
   hue: 'primary' | 'secondary';
 }
 
@@ -144,6 +145,10 @@ export default function ProofCounter({
             size: randomFloat(0.6, 1.5),
             delay: randomInt(0, 280),
             rotate: randomInt(-20, 20),
+            // 1.50.0: per-particle duration jitter 1100..1350ms —
+            // частицы из одного тика расходятся по времени и не
+            // выглядят «строем».
+            duration: randomInt(1100, 1350),
             hue: id % 2 === 0 ? 'primary' : 'secondary',
           });
         }
@@ -193,6 +198,7 @@ export default function ProofCounter({
                       '--y': `${p.y}px`,
                       '--scale': `${p.size}`,
                       '--rot': `${p.rotate}deg`,
+                      '--dur': `${p.duration}ms`,
                       animationDelay: `${p.delay}ms`,
                     } as React.CSSProperties
                   }

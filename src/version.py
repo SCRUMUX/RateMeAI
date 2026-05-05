@@ -4167,4 +4167,62 @@
 #              the active card has room for the taller frame
 #              without overlapping "Как это работает".
 #          Sanity: tsc --noEmit clean; ruff clean; vite build OK.
-APP_VERSION = "1.49.2"
+# 1.50.0 — Style showcase + improved hearts/landings.
+#          (1) ProofCounter — анимация сердец переписана: 1200 ms
+#              (было 1800), 3 keyframe-стопа вместо 4 (убран
+#              «излом» на 60% времени), per-particle --dur jitter
+#              1100..1350 ms (частицы из одного тика расходятся
+#              по времени), translate3d + statichный filter
+#              (composite-only, без перерасчёта drop-shadow на
+#              каждый кадр). Easing cubic-bezier(0.16, 0.84, 0.44,
+#              1) — мгновенный старт + длинный плавный шлейф.
+#          (2) Simulation — глобальная переработка блока.
+#              • Заголовок: «6 категорий — под любую задачу» →
+#                «Улучшаем фото — под любую задачу» (CMS поле
+#                title по-прежнему уважается).
+#              • CategoryTabs: убрана внешняя плашка
+#                gradient-border-card glass; кнопки направлений
+#                теперь рендерятся на прозрачном фоне. Coming-soon
+#                направления (model/brand/memes) скрыты на
+#                лендинге через флаг hideComingSoon (в wizard
+#                логика «скоро» сохранена).
+#              • Правая часть: вместо двух статичных карточек
+#                Исходное / Стилизованное теперь
+#                BeforeAfterSlider в режиме playKey — один
+#                кросс-фейд before → after при выборе стиля,
+#                aspect-[3/4] (iPhone selfie). Под слайдером —
+#                отзыв из «style-showcase» пула, привязанный к
+#                выбранному стилю; никнейм + tier-бэйдж + цитата.
+#              • Score-row пересобран: до/после рядом,
+#                tabular-nums, без heavy progress-bars.
+#              • Pros: showCategoryTabs (default true),
+#                forceCategory: ReviewCategory (CategoryId | 'documents').
+#          (3) BeforeAfterSlider — добавлен режим playKey: при
+#              изменении ключа компонент проигрывает один
+#              кросс-фейд 0→1 за autoCycleMs без шторки и
+#              реверса. На первом mount fade=1 (показываем сразу
+#              «после»). Существующий autoCycle режим для
+#              Testimonials не изменился.
+#          (4) Сценарные лендинги — Simulation добавлен на
+#              DatingPhotoLanding (forceCategory='dating'),
+#              ResumePhotoLanding (forceCategory='cv') и
+#              DocumentPhotoLanding (forceCategory='documents');
+#              на DocumentPhotoLanding убран статичный grid
+#              «Поддерживаемые форматы» — Simulation полностью
+#              его заменяет с интерактивным выбором формата.
+#          (5) Testimonials data — расширены тип Testimonial:
+#              category: ReviewCategory (добавлен 'documents'),
+#              usage?: 'carousel' | 'style-showcase'. Добавлены
+#              ~30 коротких style-showcase отзывов (по
+#              направлениям) — не пересекаются по тексту с
+#              carousel-отзывами в основной карусели. Новая
+#              утилита getStyleShowcaseReview(category, styleKey)
+#              возвращает «отзыв под слайдером» по детерминисти-
+#              чному hash'у styleKey'а (повторный клик на тот же
+#              стиль не перетасовывает отзыв).
+#          (6) ReviewModal/Testimonials: type-narrow для
+#              category === 'documents' (документ-тестимониалы
+#              на DocumentPhotoLanding по-прежнему рендерятся в
+#              карусели через legacy category='cv').
+#          Sanity: tsc --noEmit clean; ruff clean; vite build OK.
+APP_VERSION = "1.50.0"

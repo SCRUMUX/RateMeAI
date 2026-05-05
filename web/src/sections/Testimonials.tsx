@@ -59,9 +59,14 @@ function usePrefersReducedMotion(): boolean {
 }
 
 function getDirectionLabel(item: Testimonial): string {
-  const categoryLabel = CATEGORIES.find((c) => c.id === item.category)?.label ?? item.category;
+  const categoryLabel =
+    item.category === 'documents'
+      ? 'Документы'
+      : CATEGORIES.find((c) => c.id === item.category)?.label ?? item.category;
   const styleName =
-    FULL_LANDING_STYLES_BY_CATEGORY[item.category]?.find((s) => s.key === item.styleKey)?.name ?? '';
+    item.category === 'documents'
+      ? ''
+      : FULL_LANDING_STYLES_BY_CATEGORY[item.category]?.find((s) => s.key === item.styleKey)?.name ?? '';
   return styleName ? `${categoryLabel} · «${styleName}»` : categoryLabel;
 }
 

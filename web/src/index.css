@@ -1101,16 +1101,18 @@ main > .glass-divider,
   margin-right: -20px;
   margin-top: -20px;
   pointer-events: none;
-  will-change: transform, opacity, filter;
+  /* 1.50.0: composite-only animation. Filter — статичный
+     drop-shadow (не в keyframes), GPU считает только transform +
+     opacity. Per-particle --dur jitter (1100..1350ms из JS)
+     убирает «строй» — даже если частицы вылетели одновременно,
+     каждая идёт со своей длительностью. */
+  will-change: transform, opacity;
   --x: 24px;
   --y: -16px;
   --scale: 1;
   --rot: 0deg;
-  /* 1.49.2: 1800ms — быстрый вход (8% времени), бодрый полёт,
-     долгое плавное растворение в последние 40%. Никакого blur'а
-     в начале (раньше «тормознуто» — heavy blur 5px на 14% времени
-     заставлял сердце «висеть» прежде чем полететь). */
-  animation: proof-heart-fly 1800ms cubic-bezier(0.22, 0.61, 0.36, 1) forwards;
+  --dur: 1200ms;
+  animation: proof-heart-fly var(--dur) cubic-bezier(0.16, 0.84, 0.44, 1) forwards;
   filter: drop-shadow(0 0 12px rgba(var(--accent-r), var(--accent-g), var(--accent-b), 0.45));
 }
 
@@ -1131,26 +1133,22 @@ main > .glass-divider,
   color: rgb(var(--accent-sec-r), var(--accent-sec-g), var(--accent-sec-b));
 }
 
+/* 1.50.0: keyframes урезаны до 0/8/100. Раньше промежуточный стоп
+   на 60% (translate ×1.1) делал «излом» — за 50% времени проходило
+   90% дистанции, и мозг читал это как рывок. Сейчас один длинный
+   плавный шлейф от 8% до 100% с одним easing'ом. */
 @keyframes proof-heart-fly {
   0% {
     opacity: 0;
-    transform: translate(0, 0) scale(calc(var(--scale) * 0.55)) rotate(0deg);
-    filter: drop-shadow(0 0 12px rgba(var(--accent-r), var(--accent-g), var(--accent-b), 0.4));
+    transform: translate3d(0, 0, 0) scale(calc(var(--scale) * 0.7)) rotate(0deg);
   }
-  10% {
+  8% {
     opacity: 1;
-    transform: translate(calc(var(--x) * 0.18), calc(var(--y) * 0.22)) scale(var(--scale)) rotate(calc(var(--rot) * 0.4));
-    filter: drop-shadow(0 0 16px rgba(var(--accent-r), var(--accent-g), var(--accent-b), 0.55));
-  }
-  60% {
-    opacity: 1;
-    transform: translate(calc(var(--x) * 1.1), calc(var(--y) * 2.6)) scale(calc(var(--scale) * 1.05)) rotate(var(--rot));
-    filter: drop-shadow(0 0 14px rgba(var(--accent-r), var(--accent-g), var(--accent-b), 0.45));
+    transform: translate3d(calc(var(--x) * 0.18), calc(var(--y) * 0.22), 0) scale(var(--scale)) rotate(calc(var(--rot) * 0.3));
   }
   100% {
     opacity: 0;
-    transform: translate(calc(var(--x) * 1.9), calc(var(--y) * 5.0)) scale(calc(var(--scale) * 0.85)) rotate(calc(var(--rot) * 1.15));
-    filter: blur(2px) drop-shadow(0 0 8px rgba(var(--accent-r), var(--accent-g), var(--accent-b), 0.2));
+    transform: translate3d(calc(var(--x) * 2.0), calc(var(--y) * 5.2), 0) scale(calc(var(--scale) * 0.85)) rotate(var(--rot));
   }
 }
 

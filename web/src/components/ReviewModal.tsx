@@ -31,7 +31,9 @@ export default function ReviewModal({ testimonials, initialIndex, open, onClose 
 
   const testimonial = testimonials[idx];
   const style = testimonial
-    ? FULL_LANDING_STYLES_BY_CATEGORY[testimonial.category].find(s => s.key === testimonial.styleKey)
+    ? testimonial.category === 'documents'
+      ? null
+      : FULL_LANDING_STYLES_BY_CATEGORY[testimonial.category].find((s) => s.key === testimonial.styleKey)
     : null;
 
   const canPrev = idx > 0;

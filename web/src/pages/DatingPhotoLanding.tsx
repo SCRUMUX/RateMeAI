@@ -7,6 +7,7 @@ import FluidBackground from '../components/effects/FluidBackground';
 import EnergyField from '../components/effects/EnergyField';
 import ProofCounter from '../sections/ProofCounter';
 import Testimonials from '../sections/Testimonials';
+import Simulation from '../sections/Simulation';
 import HowItWorks, { type HowItWorksStep } from '../sections/HowItWorks';
 import { useApp } from '../context/AppContext';
 import { getLandingSocialProofPreset } from '../data/social-proof';
@@ -88,6 +89,8 @@ export default function DatingPhotoLanding({ onStart, showAuth, onAuthClose }: L
           items={getTestimonialsByCategory('dating').slice(0, 4)}
           tone="dating"
         />
+
+        <Simulation forceCategory="dating" showCategoryTabs={false} />
 
         <HowItWorks steps={DATING_STEPS} title="Как это работает" />
       </main>
