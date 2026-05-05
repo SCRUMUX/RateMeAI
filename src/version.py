@@ -3662,4 +3662,63 @@
 #          итерация по light theme, лучше идти через прямой re-export
 #          логотипа в Figma / SVG-версию вместо алгоритмического
 #          inversion.
-APP_VERSION = "1.37.0"
+# 1.38.0 — Interactive WebGL Fluid Background (premium subtle).
+#          Тонкий cursor-driven «след» поверх mesh-gradient на
+#          лендингах, быстро тает, цвета — наши brand primary
+#          через ``--accent-r/g/b`` (category-aware).
+#
+#          Что сделано:
+#            * ``web/src/components/effects/FluidBackground.tsx`` —
+#              TS-порт Stam-style stable fluids на основе кода
+#              Pavel DoGreat (MIT), без bloom/sunrays/capture.
+#              ~700 строк, 9 fragment-шейдеров (advection, divergence,
+#              curl, vorticity, pressure, gradient-subtract, splat,
+#              copy/clear, display).
+#            * WebGL2 с фоллбэком на WebGL1 (через
+#              ``OES_texture_half_float`` +
+#              ``OES_texture_half_float_linear``). Manual-bilinear
+#              fallback в advection-шейдере если linear filtering
+#              на half-float не поддерживается (iOS Safari).
+#            * Конфиг для «не ляписто, органично»:
+#              ``DENSITY_DISSIPATION 4.5`` (волна тает ~0.6s),
+#              ``VELOCITY_DISSIPATION 2.0`` (движение затухает),
+#              ``CURL 8`` (менее «вихревой»),
+#              ``SPLAT_FORCE 1500`` (мягкие, не «бьющие»),
+#              ``TRANSPARENT true`` (фон прозрачный поверх mesh),
+#              ``BLOOM/SUNRAYS false`` (отключены — оба дают
+#              «ляписто»).
+#            * ``pickSplatColor()`` — кастом вместо random HSV:
+#              читает ``--accent-r/g/b`` из computed style → +/-12%
+#              jitter → ``themeAlpha = 0.55`` на light (cyan на
+#              белом «давит» иначе). Палитра автоматически меняется
+#              при смене категории (social=cyan, business=purple,
+#              dating=pink, ...).
+#            * Interaction model: only pointer-move/down/touch.
+#              Никаких auto-splat, никаких scroll-triggered волн.
+#              На idle экран чистый — поверх него виден только
+#              MeshGradient + EnergyField.
+#            * Performance/safety: ``prefers-reduced-motion: reduce``
+#              → return null; mobile (``innerWidth<768``) →
+#              ``SIM_RESOLUTION=64, DYE_RESOLUTION=512``; FPS-guard
+#              one-shot халвит ``DYE_RESOLUTION`` если avg<45 за
+#              60 кадров; battery saver — отключает RAF при level<0.2
+#              без зарядки (через ``navigator.getBattery()``).
+#
+#          Mounting:
+#            * ``Landing.tsx`` и ``DocumentPhotoLanding.tsx`` —
+#              ``<FluidBackground/>`` добавлен между
+#              ``<MeshGradientBg/>`` (z:0) и ``<EnergyField/>`` (z:2).
+#            * AppPage не трогается — regression risk «scroll to
+#              nowhere» из 1.32.0.
+#
+#          Sanity: ``tsc --noEmit`` clean, ``vite build`` clean
+#          (516.75 kB main / 81.76 kB CSS, +18 kB main / +6.2 kB
+#          gzip — в пределах плана <12 kB gzip). Backend нетронут.
+#
+#          Risk: low. Pure additive layer на лендингах,
+#          ``git revert`` чисто восстанавливает baseline.
+#          Подкрутка ``themeAlpha``/``SPLAT_FORCE`` без redeploy —
+#          через CSS-токены или config-pull можно сделать в
+#          следующей итерации, если поведение в проде потребует
+#          fine-tune.
+APP_VERSION = "1.38.0"
