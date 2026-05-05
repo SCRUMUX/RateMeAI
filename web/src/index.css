@@ -348,6 +348,36 @@ body {
   pointer-events: none;
 }
 
+/* 1.40.0: Fluid background — same backdrop layer as mesh.
+ * Blend-mode подобран по теме:
+ *   - dark:  lighten — наш bright cyan/purple вытягивается поверх
+ *            тёмной подложки → насыщенный «след» курсора.
+ *   - light: multiply — cyan(0,240,255) * white = cyan; multiply
+ *            не вводит intermediate серость, поэтому хвост на
+ *            белом фоне выглядит чистым цветным мазком, а не
+ *            «грязно-тёмным».
+ * z-index 0 совпадает с .mesh-gradient-bg; внутри одного stacking-
+ * контекста DOM-order решает paint-order, fluid идёт после mesh →
+ * fluid поверх mesh, оба под UI (см. isolation guard ниже). */
+.fluid-background {
+  z-index: 0;
+  mix-blend-mode: lighten;
+}
+[data-theme="light"] .fluid-background {
+  mix-blend-mode: multiply;
+}
+
+/* 1.40.0: stacking guard — у любого <main> > section / nav /
+ * .glass-divider создаём собственный stacking context, чтобы
+ * UI-элементы с implicit ``z-auto`` не оказывались под fluid (z:0).
+ * Альтернатива (массово выставить z-index на каждый wizard-блок)
+ * хрупкая. ``isolation: isolate`` — single declarative фикс. */
+main > section,
+main > .glass-divider,
+.glass-nav {
+  isolation: isolate;
+}
+
 /* Energy field — absolute blobs spread across full page height */
 .energy-field {
   position: absolute;

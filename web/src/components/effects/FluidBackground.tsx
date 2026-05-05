@@ -307,15 +307,18 @@ void main () {
   gl_FragColor = vec4(c, a);
 }`;
 
+// 1.40.0: пониженный baseline по spec'у (-45% fillrate vs 1.38.0).
+// SHADING остаётся true для dark, на light выключается перекомпиляцией
+// displayProg (см. ниже двойную компиляцию).
 const DEFAULT_CONFIG: FluidConfig = {
-  SIM_RESOLUTION: 128,
-  DYE_RESOLUTION: 1024,
+  SIM_RESOLUTION: 96,
+  DYE_RESOLUTION: 768,
   DENSITY_DISSIPATION: 4.5,
-  VELOCITY_DISSIPATION: 2.0,
+  VELOCITY_DISSIPATION: 2.5,
   PRESSURE: 0.8,
-  PRESSURE_ITERATIONS: 20,
-  CURL: 8,
-  SPLAT_RADIUS: 0.20,
+  PRESSURE_ITERATIONS: 12,
+  CURL: 6,
+  SPLAT_RADIUS: 0.18,
   SPLAT_FORCE: 1500,
   SHADING: true,
 };
@@ -460,29 +463,71 @@ function createProgram(
   return { program, uniforms };
 }
 
-function readAccent(): RGB {
-  if (typeof document === 'undefined') return { r: 0, g: 0.94, b: 1 };
-  const root = getComputedStyle(document.documentElement);
-  const r = +(root.getPropertyValue('--accent-r').trim() || 0) / 255;
-  const g = +(root.getPropertyValue('--accent-g').trim() || 240) / 255;
-  const b = +(root.getPropertyValue('--accent-b').trim() || 255) / 255;
+// 1.40.0: theme/category-aware кэш. ``getComputedStyle`` вызывается
+// только при init и при MutationObserver-event на data-theme/data-category
+// — не на каждом pointermove. ``pickSplatColor`` теперь синхронно
+// читает кэш.
+const themeCache: {
+  primary: RGB;
+  secondary: RGB;
+  isLight: boolean;
+} = {
+  primary: { r: 0, g: 0.94, b: 1.0 },
+  secondary: { r: 0.64, g: 0.02, b: 0.80 },
+  isLight: false,
+};
+
+function parseAccent(root: CSSStyleDeclaration, prefix: string, fallback: RGB): RGB {
+  const r = +(root.getPropertyValue(`${prefix}-r`).trim() || fallback.r * 255) / 255;
+  const g = +(root.getPropertyValue(`${prefix}-g`).trim() || fallback.g * 255) / 255;
+  const b = +(root.getPropertyValue(`${prefix}-b`).trim() || fallback.b * 255) / 255;
   return { r, g, b };
 }
 
-function isLightTheme(): boolean {
+function refreshThemeCache(): boolean {
   if (typeof document === 'undefined') return false;
-  return document.documentElement.dataset.theme === 'light';
+  // Active accent живёт на элементе с data-category (root <div> в Landing/AppPage).
+  // Если он есть — берём computed style оттуда, иначе fallback на <html>.
+  const sourceEl =
+    (document.querySelector('[data-category]') as HTMLElement | null) ??
+    document.documentElement;
+  const root = getComputedStyle(sourceEl);
+  const primary = parseAccent(root, '--accent', { r: 0, g: 0.94, b: 1.0 });
+  const secondary = parseAccent(root, '--accent-sec', { r: 0.64, g: 0.02, b: 0.80 });
+  const isLight = document.documentElement.dataset.theme === 'light';
+  const themeChanged = isLight !== themeCache.isLight;
+  themeCache.primary = primary;
+  themeCache.secondary = secondary;
+  themeCache.isLight = isLight;
+  return themeChanged;
 }
 
-function pickSplatColor(): RGB {
-  const a = readAccent();
-  const jitter = () => 0.88 + Math.random() * 0.24;
-  const themeAlpha = isLightTheme() ? 0.55 : 1.0;
-  return {
-    r: a.r * jitter() * themeAlpha,
-    g: a.g * jitter() * themeAlpha,
-    b: a.b * jitter() * themeAlpha,
-  };
+/**
+ * Gradient-aware splat color. Каждый splat — случайная точка на нашем
+ * brand-gradient ``linear-gradient(103deg, primary 4%, secondary 103%)``
+ * (см. index.css, --accent vs --accent-sec). Подряд несколько splat-ов
+ * визуально дают «градиентный хвост» вместо одноцветной кляксы.
+ *
+ * ``speedScale`` гасит цвет на медленном движении — медленный курсор
+ * не оставляет яркой клякcы (см. spec problem 3). Параметр ``speed``
+ * — это ``sqrt(deltaX² + deltaY²)`` в normalised viewport-units
+ * (см. correctDelta*). На быстрых жестах ~0.2-0.4, на медленных
+ * ~0.005-0.02. ``min(1, speed * 12)`` даёт linear ramp от полного
+ * gating ниже 0.005 до full intensity на 0.083+.
+ *
+ * NB: theme-alpha убран — на light theme dim'inг делает blend-mode
+ * multiply (см. CSS), который сохраняет цвета насыщенными без
+ * «грязного» затемнения.
+ */
+function pickSplatColor(speed: number): RGB {
+  const a = themeCache.primary;
+  const s = themeCache.secondary;
+  const t = Math.random();
+  const r = a.r * (1 - t) + s.r * t;
+  const g = a.g * (1 - t) + s.g * t;
+  const b = a.b * (1 - t) + s.b * t;
+  const speedScale = Math.min(1, speed * 12);
+  return { r: r * speedScale, g: g * speedScale, b: b * speedScale };
 }
 
 function prefersReducedMotion(): boolean {
@@ -510,9 +555,11 @@ export default function FluidBackground() {
 
     const config: FluidConfig = {
       ...DEFAULT_CONFIG,
-      SIM_RESOLUTION: isMobile() ? 64 : DEFAULT_CONFIG.SIM_RESOLUTION,
-      DYE_RESOLUTION: isMobile() ? 512 : DEFAULT_CONFIG.DYE_RESOLUTION,
+      SIM_RESOLUTION: isMobile() ? 48 : DEFAULT_CONFIG.SIM_RESOLUTION,
+      DYE_RESOLUTION: isMobile() ? 384 : DEFAULT_CONFIG.DYE_RESOLUTION,
     };
+
+    refreshThemeCache();
 
     const blitVbo = gl.createBuffer();
     gl.bindBuffer(gl.ARRAY_BUFFER, blitVbo);
@@ -551,11 +598,18 @@ export default function FluidBackground() {
     const fragVorticity = compileShader(gl, gl.FRAGMENT_SHADER, VORTICITY_SHADER);
     const fragPressure = compileShader(gl, gl.FRAGMENT_SHADER, PRESSURE_SHADER);
     const fragGradSub = compileShader(gl, gl.FRAGMENT_SHADER, GRADIENT_SUBTRACT_SHADER);
-    const fragDisplay = compileShader(gl, gl.FRAGMENT_SHADER, DISPLAY_SHADER_SOURCE, config.SHADING ? ['SHADING'] : []);
+    // 1.40.0: компилируем оба варианта display-шейдера сразу. SHADING-версия
+    // даёт fake-3D diffuse-кромки (красивые на dark), plain — без них (на
+    // light кромки выглядят «грязно», см. plan §2). Перекомпиляция при
+    // каждом theme-switch вызывала бы ~5-10 ms freeze; при init же оба
+    // варианта почти бесплатны (~1 ms).
+    const fragDisplayShaded = compileShader(gl, gl.FRAGMENT_SHADER, DISPLAY_SHADER_SOURCE, ['SHADING']);
+    const fragDisplayPlain = compileShader(gl, gl.FRAGMENT_SHADER, DISPLAY_SHADER_SOURCE, []);
 
     if (
       !fragCopy || !fragClear || !fragSplat || !fragAdvection || !fragDivergence ||
-      !fragCurl || !fragVorticity || !fragPressure || !fragGradSub || !fragDisplay
+      !fragCurl || !fragVorticity || !fragPressure || !fragGradSub ||
+      !fragDisplayShaded || !fragDisplayPlain
     ) return;
 
     const copyProg = createProgram(gl, vertShader, fragCopy);
@@ -567,11 +621,13 @@ export default function FluidBackground() {
     const vorticityProg = createProgram(gl, vertShader, fragVorticity);
     const pressureProg = createProgram(gl, vertShader, fragPressure);
     const gradSubProg = createProgram(gl, vertShader, fragGradSub);
-    const displayProg = createProgram(gl, vertShader, fragDisplay);
+    const displayProgShaded = createProgram(gl, vertShader, fragDisplayShaded);
+    const displayProgPlain = createProgram(gl, vertShader, fragDisplayPlain);
 
     if (
       !copyProg || !clearProg || !splatProg || !advectionProg || !divergenceProg ||
-      !curlProg || !vorticityProg || !pressureProg || !gradSubProg || !displayProg
+      !curlProg || !vorticityProg || !pressureProg || !gradSubProg ||
+      !displayProgShaded || !displayProgPlain
     ) return;
 
     function createFBO(w: number, h: number, internalFormat: number, format: number, type: number, param: number): FBO {
@@ -693,10 +749,14 @@ export default function FluidBackground() {
       return radius;
     }
 
-    function splatPointer(p: PointerState) {
+    function splatPointer(p: PointerState, speed: number) {
       const dx = p.deltaX * config.SPLAT_FORCE;
       const dy = p.deltaY * config.SPLAT_FORCE;
-      splat(p.texcoordX, p.texcoordY, dx, dy, p.color);
+      // 1.40.0: цвет рассчитывается на момент splat'а (а не заранее на
+      // pointermove), используя текущий speed → бледнее на медленных
+      // движениях; цвет — random mix primary↔secondary (см. pickSplatColor).
+      const color = pickSplatColor(speed);
+      splat(p.texcoordX, p.texcoordY, dx, dy, color);
     }
 
     const pointers: PointerState[] = [{
@@ -709,7 +769,7 @@ export default function FluidBackground() {
       deltaY: 0,
       down: false,
       moved: false,
-      color: pickSplatColor(),
+      color: pickSplatColor(0),
     }];
 
     function correctDeltaX(d: number): number {
@@ -742,29 +802,44 @@ export default function FluidBackground() {
       p.prevTexcoordY = p.texcoordY;
       p.deltaX = 0;
       p.deltaY = 0;
-      p.color = pickSplatColor();
+      // p.color заполняем при splat'е (см. splatPointer); здесь
+      // ставим placeholder чтобы не нарушать тип.
+      p.color = pickSplatColor(0);
     }
 
-    function applyInputs() {
+    // Threshold по квадрату delta'ы (нормализованной к viewport):
+    // ниже этого порога медленный курсор не оставляет splat-а вовсе
+    // (problem 3 в plan'е). Значение подобрано так, чтобы обычное
+    // прокручивание мышью с типичной скоростью давало уверенный splat,
+    // а «дрейф» курсора за чтением — нет.
+    const SPLAT_SPEED_THRESHOLD_SQ = 0.0001;
+
+    function applyInputs(): boolean {
+      let didSplat = false;
       for (const p of pointers) {
-        if (p.moved) {
-          p.moved = false;
-          splatPointer(p);
-        }
+        if (!p.moved) continue;
+        p.moved = false;
+        const speedSq = p.deltaX * p.deltaX + p.deltaY * p.deltaY;
+        if (speedSq < SPLAT_SPEED_THRESHOLD_SQ) continue;
+        splatPointer(p, Math.sqrt(speedSq));
+        didSplat = true;
       }
+      return didSplat;
     }
 
     function onPointerMove(e: PointerEvent) {
       const p = pointers[0];
       const dpr = Math.min(window.devicePixelRatio || 1, 2);
       updatePointerMoveData(p, e.clientX * dpr, e.clientY * dpr);
-      // Refresh color на каждом move чтобы отражать category-switch.
-      p.color = pickSplatColor();
+      lastSplatAt = performance.now();
+      if (!raf) raf = requestAnimationFrame(frame);
     }
     function onPointerDown(e: PointerEvent) {
       const p = pointers[0];
       const dpr = Math.min(window.devicePixelRatio || 1, 2);
       updatePointerDownData(p, e.clientX * dpr, e.clientY * dpr);
+      lastSplatAt = performance.now();
+      if (!raf) raf = requestAnimationFrame(frame);
     }
     function onTouchMove(e: TouchEvent) {
       const t = e.touches[0];
@@ -772,7 +847,8 @@ export default function FluidBackground() {
       const p = pointers[0];
       const dpr = Math.min(window.devicePixelRatio || 1, 2);
       updatePointerMoveData(p, t.clientX * dpr, t.clientY * dpr);
-      p.color = pickSplatColor();
+      lastSplatAt = performance.now();
+      if (!raf) raf = requestAnimationFrame(frame);
     }
     function onTouchStart(e: TouchEvent) {
       const t = e.touches[0];
@@ -780,6 +856,8 @@ export default function FluidBackground() {
       const p = pointers[0];
       const dpr = Math.min(window.devicePixelRatio || 1, 2);
       updatePointerDownData(p, t.clientX * dpr, t.clientY * dpr);
+      lastSplatAt = performance.now();
+      if (!raf) raf = requestAnimationFrame(frame);
     }
 
     window.addEventListener('pointermove', onPointerMove, { passive: true });
@@ -866,9 +944,12 @@ export default function FluidBackground() {
     function render() {
       gl.enable(gl.BLEND);
       gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
-      gl.useProgram(displayProg!.program);
-      gl.uniform2f(displayProg!.uniforms['texelSize'], 1.0 / gl.drawingBufferWidth, 1.0 / gl.drawingBufferHeight);
-      gl.uniform1i(displayProg!.uniforms['uTexture'], dye.read.attach(0));
+      // 1.40.0: на light выбираем plain-display (без SHADING) —
+      // diffuse-кромки на белом фоне выглядят как «грязный» серый налёт.
+      const prog = themeCache.isLight ? displayProgPlain! : displayProgShaded!;
+      gl.useProgram(prog.program);
+      gl.uniform2f(prog.uniforms['texelSize'], 1.0 / gl.drawingBufferWidth, 1.0 / gl.drawingBufferHeight);
+      gl.uniform1i(prog.uniforms['uTexture'], dye.read.attach(0));
       blit(null);
     }
 
@@ -876,13 +957,27 @@ export default function FluidBackground() {
     const fpsWindow: number[] = [];
     let degradeChecked = false;
     let raf = 0;
+    // Время последнего pointer-event'а. Если оно дальше IDLE_PAUSE_MS
+    // в прошлом — RAF паузится: на статичной странице (юзер читает) CPU/GPU = 0.
+    // 2 s выбраны эмпирически: при DENSITY_DISSIPATION 4.5 dye полностью
+    // тает за ~0.5 s, и ещё ~1.5 s velocity-поле успевает затихнуть.
+    let lastSplatAt = 0;
+    const IDLE_PAUSE_MS = 2000;
+    // Resize обрабатываем deferred — синхронный initFBOs() в обработчике
+    // resize блокирует frame на ~10 ms на больших экранах.
+    let pendingResize = false;
+    function onResize() { pendingResize = true; }
+    window.addEventListener('resize', onResize, { passive: true });
 
     function frame() {
       const now = performance.now();
       const dt = Math.min((now - lastTime) / 1000, 0.016666);
       lastTime = now;
 
-      if (resizeCanvas()) initFBOs();
+      if (pendingResize) {
+        if (resizeCanvas()) initFBOs();
+        pendingResize = false;
+      }
 
       const fps = dt > 0 ? 1 / dt : 60;
       fpsWindow.push(fps);
@@ -900,9 +995,36 @@ export default function FluidBackground() {
       step(dt);
       render();
 
+      // Pause RAF после IDLE_PAUSE_MS неактивности — pointer handlers
+      // возобновят его при следующем move/touch.
+      if (now - lastSplatAt > IDLE_PAUSE_MS) {
+        raf = 0;
+        return;
+      }
       raf = requestAnimationFrame(frame);
     }
+    // Стартуем сразу, чтобы инициализационный кадр прошёл и canvas не
+    // оставался прозрачным; lastSplatAt = now даёт ровно IDLE_PAUSE_MS
+    // прогрева до auto-pause.
+    lastSplatAt = performance.now();
     raf = requestAnimationFrame(frame);
+
+    // MutationObserver на data-theme (<html>) и data-category (root <div>)
+    // освежает cached accent / theme. Это покрывает theme-toggle и
+    // wizard-driven category switch без per-frame getComputedStyle.
+    const themeObserver = new MutationObserver(() => {
+      refreshThemeCache();
+    });
+    themeObserver.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ['data-theme'],
+    });
+    document.querySelectorAll('[data-category]').forEach((el) => {
+      themeObserver.observe(el, {
+        attributes: true,
+        attributeFilter: ['data-category'],
+      });
+    });
 
     let cancelled = false;
     // Battery saver — non-blocking, returns null on iOS Safari.
@@ -921,6 +1043,8 @@ export default function FluidBackground() {
     return () => {
       cancelled = true;
       if (raf) cancelAnimationFrame(raf);
+      themeObserver.disconnect();
+      window.removeEventListener('resize', onResize);
       window.removeEventListener('pointermove', onPointerMove);
       window.removeEventListener('pointerdown', onPointerDown);
       window.removeEventListener('touchmove', onTouchMove);
@@ -941,7 +1065,10 @@ export default function FluidBackground() {
         width: '100%',
         height: '100%',
         pointerEvents: 'none',
-        zIndex: 1,
+        // 1.40.0: понижено до 0 (было 1). Все wizard/landing sections,
+        // NavBar и модалки гарантированно над фоном благодаря
+        // ``isolation: isolate`` (см. index.css guard).
+        zIndex: 0,
       }}
     />
   );

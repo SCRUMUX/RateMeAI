@@ -3787,4 +3787,85 @@
 #          (521.28 kB main / 82.01 kB CSS, +4.5 kB main /
 #          +0.25 kB CSS / +0.9 kB gzip — в пределах ожиданий по
 #          плану). Backend нетронут.
-APP_VERSION = "1.39.0"
+# 1.40.0 — Fluid Background v2: optimisation + visual polish.
+#          Точечный релиз поверх 1.38.0 по 5 проблемам обратной
+#          связи (сплошной цвет, грязный хвост на light, явный при
+#          медленном движении, перекрытие UI, тормоза). Backend и
+#          анализ-пайплайн не тронуты.
+#
+#          Что сделано в ``FluidBackground.tsx``:
+#            1. ``pickSplatColor(speed)`` теперь ремиксит каждый
+#               splat как случайную точку на нашем brand-gradient
+#               ``primary→secondary`` (читает ``--accent-{r,g,b}``
+#               и ``--accent-sec-{r,g,b}`` через cache, см. п.5).
+#               Подряд несколько splat-ов под мышью = визуально
+#               «градиентный хвост», а не одноцветная клякса.
+#            2. ``SHADING`` (fake-3D diffuse-кромки) включается
+#               только на dark — на light они выглядели «грязно-
+#               серыми» поверх белого фона. Реализовано двойной
+#               компиляцией display-шейдера (``displayProgShaded``
+#               + ``displayProgPlain``); выбор по ``themeCache``
+#               на каждом render. ``themeAlpha = 0.55`` в
+#               ``pickSplatColor`` убран — за dim'инг на light
+#               отвечает ``mix-blend-mode: multiply`` (см. CSS).
+#            3. Velocity-throttle в ``applyInputs()``:
+#               ``speedSq < 0.0001`` → splat пропускается (медленный
+#               курсор за чтением не оставляет следа). Прошедший
+#               threshold splat линейно-затемняется по
+#               ``min(1, speed * 12)`` → бледный на низких
+#               скоростях, насыщенный на жесте.
+#            4. RAF-pause idle: после 2 s с последнего pointer-event
+#               ``cancelAnimationFrame`` останавливает loop;
+#               handlers возобновляют его при следующем move/touch.
+#               На статичной странице 0% CPU/GPU вместо 100% RAF.
+#            5. Cached accent + ``MutationObserver``:
+#               ``getComputedStyle`` теперь вызывается только при
+#               init и при изменении ``data-theme`` (<html>) или
+#               ``data-category`` (root <div>). ``pickSplatColor``
+#               синхронно читает кэш — 0 ns vs ~5-15 µs на
+#               ``getComputedStyle`` в горячем пути.
+#            6. Deferred resize: ``initFBOs()`` больше не
+#               блокирует обработчик ``resize``; перенесено в
+#               следующий RAF-кадр.
+#            7. Понижен baseline render-cost:
+#               ``SIM_RESOLUTION 128 → 96`` (-45% sim fillrate),
+#               ``DYE_RESOLUTION 1024 → 768`` (-45% dye fillrate),
+#               ``PRESSURE_ITERATIONS 20 → 12`` (Pavel default 20
+#               для тяжёлых сцен; для нашего lite-эффекта 12
+#               достаточно), ``CURL 8 → 6`` (мягче curl),
+#               ``SPLAT_RADIUS 0.20 → 0.18``, ``VELOCITY_DISSIPATION
+#               2.0 → 2.5`` (волна тает чуть быстрее). Mobile:
+#               ``SIM=48, DYE=384`` (было 64/512).
+#            8. Canvas ``z-index: 0`` (было 1) → теперь живёт в
+#               одном backdrop-слое с ``.mesh-gradient-bg``.
+#               UI-плашки с implicit ``z: auto`` больше не
+#               провисают под fluid.
+#
+#          Что сделано в ``index.css``:
+#            * Блок ``.fluid-background`` с ``mix-blend-mode:
+#              lighten`` (dark — bright cyan/purple вытягивается
+#              поверх тёмной подложки); ``[data-theme="light"]
+#              .fluid-background { mix-blend-mode: multiply }``
+#              (cyan × white = cyan, без серого «налёта»).
+#            * Stacking-guard: ``main > section, main >
+#              .glass-divider, .glass-nav { isolation: isolate }``
+#              — единый декларативный фикс вместо массового
+#              z-index proliferation.
+#
+#          Эффекты для пользователя:
+#            * Цветной градиентный хвост вместо одноцветной
+#              кляксы; на light theme — чистые цветные мазки без
+#              серого налёта.
+#            * Курсор в idle = чистый фон (нет накапливающейся
+#              кляксы при медленном движении).
+#            * UI-плашки и модалки гарантированно над fluid.
+#            * Idle CPU 0% (было ~5% RAF non-stop); active perf
+#              -45% fillrate за счёт пониженных resolutions.
+#
+#          Sanity: ``tsc --noEmit`` clean; ``vite build`` clean
+#          (522.42 kB main / 82.23 kB CSS, +0.14 kB main / +0.22 kB
+#          CSS — в пределах ожиданий: +cache + observer + speed-
+#          scale logic, см. план §6). Out of scope: WebGL2
+#          transform-feedback compute pressure-iter, 0.5x canvas
+#          downsampling, AppPage-fluid (всё ещё intentionally off).
+APP_VERSION = "1.40.0"
