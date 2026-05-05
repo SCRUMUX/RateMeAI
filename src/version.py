@@ -3914,4 +3914,55 @@
 #
 #          Sanity: ``tsc --noEmit`` clean; ``vite build`` clean.
 #          Backend и анализ-пайплайн нетронуты.
-APP_VERSION = "1.41.0"
+# 1.42.0 — Fluid v3 + logo polish: точечные правки по обратной
+#          связи поверх 1.40-1.41. Backend нетронут.
+#
+#          1. Цвет fluid-эффекта строго совпадает с категорией.
+#             В 1.40.0 ``pickSplatColor`` миксил primary↔secondary
+#             с random t — это уводило оттенок в дополняющий цвет
+#             (для social: cyan→violet), и пользователь воспринимал
+#             эффект как «не тот цвет». Возвращён single-hue
+#             подход: только primary категории + ±12% jitter по
+#             каждому RGB-каналу (мягкий разброс яркости в пределах
+#             одного оттенка). Соответствие категория↔цвет
+#             эффекта теперь 1:1 (cyan для social, purple для cv,
+#             pink для dating, orange для model, и т.д.).
+#
+#          2. Light theme: убран «грязный» тёмный налёт.
+#             Корневая причина — на light theme ``mix-blend-mode:
+#             multiply`` превращает любой приглушённый RGB в
+#             видимый тёмный цвет на белом фоне (cyan*0.3 = (0,72,
+#             76) → multiply white = тёмный teal). 1.40.0
+#             ``speedScale`` снижал RGB на медленных движениях,
+#             что и давало тот «грязный» серо-teal на скрине.
+#             Фикс: на light theme ``speedScale = 1`` всегда —
+#             полная saturation цвета. Speed-modulation
+#             реализуется только через skip-threshold (медленный
+#             курсор просто не делает splat). На dark theme
+#             speedScale сохранён — приглушённый цвет на тёмной
+#             подложке = soft fade, выглядит красиво.
+#
+#          3. FluidBackground в AppPage. Раньше было intentionally
+#             off (см. 1.38.0 out-of-scope). Теперь смонтирован
+#             в ``main`` после ``MeshGradientBg`` — wizard-page
+#             получает ту же premium-атмосферу что и Landing.
+#
+#          4. LogoEmblem без accent-backdrop. Из-под лого убран
+#             тонированный квадрат (``rgba(--accent, 0.10)`` в
+#             NavBar / 0.18 в Landing) — теперь сам глиф «дышит»
+#             на любой подложке. Применено в:
+#             ``NavBar.tsx`` (×2 — onHomeClick + Link),
+#             ``Landing.tsx`` (×1 — brand heading).
+#             ``DocumentPhotoLanding`` использует общий NavBar,
+#             правится автоматически.
+#
+#          NB: Эпизод «на ru-сервере остался старый логотип» —
+#          это был кэш браузера юзера. ``ru.ailookstudio.ru``
+#          уже на 1.41.0 (verified: ``Last-Modified``, bundle
+#          hash ``index-DiJw-6w9.css``). После hard reload
+#          обновится.
+#
+#          Sanity: ``tsc --noEmit`` clean; ``vite build`` clean
+#          (524.51 kB main / 81.80 kB CSS, -0.5 kB main / -0.4 kB
+#          CSS — секондари-cache + accent-backdrop dropped).
+APP_VERSION = "1.42.0"

@@ -103,7 +103,6 @@ export default function NavBar({ onLoginClick, onOpenStorage, onHomeClick, onCta
         {onHomeClick ? (
           <button onClick={onHomeClick} className="flex items-center gap-[var(--space-8)] px-[var(--space-8)] py-[var(--space-4)] cursor-pointer">
             <div className="relative w-10 h-10 tablet:w-11 tablet:h-11 shrink-0 text-[var(--color-text-primary)]">
-              <div className="absolute inset-0 rounded-xl" style={{ background: 'rgba(var(--accent-r), var(--accent-g), var(--accent-b), 0.10)' }} />
               <LogoEmblem className="relative w-full h-full" />
             </div>
             <span className="hidden tablet:inline text-[22px] leading-[30px] font-bold whitespace-nowrap tracking-tight text-[var(--color-text-primary)]">
@@ -123,7 +122,6 @@ export default function NavBar({ onLoginClick, onOpenStorage, onHomeClick, onCta
             className="flex items-center gap-[var(--space-8)] px-[var(--space-8)] py-[var(--space-4)] no-underline"
           >
             <div className="relative w-10 h-10 tablet:w-11 tablet:h-11 shrink-0 text-[var(--color-text-primary)]">
-              <div className="absolute inset-0 rounded-xl" style={{ background: 'rgba(var(--accent-r), var(--accent-g), var(--accent-b), 0.10)' }} />
               <LogoEmblem className="relative w-full h-full" />
             </div>
             <span className="hidden tablet:inline text-[22px] leading-[30px] font-bold whitespace-nowrap tracking-tight text-[var(--color-text-primary)]">

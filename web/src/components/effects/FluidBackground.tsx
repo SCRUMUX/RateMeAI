@@ -463,17 +463,17 @@ function createProgram(
   return { program, uniforms };
 }
 
-// 1.40.0: theme/category-aware кэш. ``getComputedStyle`` вызывается
-// только при init и при MutationObserver-event на data-theme/data-category
-// — не на каждом pointermove. ``pickSplatColor`` теперь синхронно
-// читает кэш.
+// 1.42.0: theme/category-aware кэш. Только primary — secondary
+// убран, чтобы splat-color **всегда совпадал** с активной
+// категорией (cyan/purple/pink/orange). Раньше mix(primary,
+// secondary, t=random) уводил оттенок в дополняющий цвет
+// (например social: cyan→violet) — пользователь воспринимал это
+// как «не тот цвет».
 const themeCache: {
   primary: RGB;
-  secondary: RGB;
   isLight: boolean;
 } = {
   primary: { r: 0, g: 0.94, b: 1.0 },
-  secondary: { r: 0.64, g: 0.02, b: 0.80 },
   isLight: false,
 };
 
@@ -493,41 +493,40 @@ function refreshThemeCache(): boolean {
     document.documentElement;
   const root = getComputedStyle(sourceEl);
   const primary = parseAccent(root, '--accent', { r: 0, g: 0.94, b: 1.0 });
-  const secondary = parseAccent(root, '--accent-sec', { r: 0.64, g: 0.02, b: 0.80 });
   const isLight = document.documentElement.dataset.theme === 'light';
   const themeChanged = isLight !== themeCache.isLight;
   themeCache.primary = primary;
-  themeCache.secondary = secondary;
   themeCache.isLight = isLight;
   return themeChanged;
 }
 
 /**
- * Gradient-aware splat color. Каждый splat — случайная точка на нашем
- * brand-gradient ``linear-gradient(103deg, primary 4%, secondary 103%)``
- * (см. index.css, --accent vs --accent-sec). Подряд несколько splat-ов
- * визуально дают «градиентный хвост» вместо одноцветной кляксы.
+ * 1.42.0: Single-hue splat color. Каждый splat = primary категории
+ * с ±12% jitter по каналам (даёт мягкий разброс яркости в пределах
+ * того же оттенка, без ухода в дополняющий цвет).
  *
- * ``speedScale`` гасит цвет на медленном движении — медленный курсор
- * не оставляет яркой клякcы (см. spec problem 3). Параметр ``speed``
- * — это ``sqrt(deltaX² + deltaY²)`` в normalised viewport-units
- * (см. correctDelta*). На быстрых жестах ~0.2-0.4, на медленных
- * ~0.005-0.02. ``min(1, speed * 12)`` даёт linear ramp от полного
- * gating ниже 0.005 до full intensity на 0.083+.
+ * **Light theme:** ``speedScale = 1`` всегда. На белом фоне с
+ * ``mix-blend-mode: multiply`` любое снижение яркости RGB
+ * превращается в видимый «грязный» серо-теal на белом
+ * (cyan*0.3 = (0,72,76) → multiply white = тёмный teal).
+ * Поэтому скейл по скорости здесь отключён — speed-modulation
+ * реализуется только через skip-threshold в ``applyInputs()``.
  *
- * NB: theme-alpha убран — на light theme dim'inг делает blend-mode
- * multiply (см. CSS), который сохраняет цвета насыщенными без
- * «грязного» затемнения.
+ * **Dark theme:** ``speedScale = min(1, speed*12)`` сохраняется —
+ * приглушённый цвет на тёмной подложке = soft fade, выглядит
+ * красиво.
  */
 function pickSplatColor(speed: number): RGB {
   const a = themeCache.primary;
-  const s = themeCache.secondary;
-  const t = Math.random();
-  const r = a.r * (1 - t) + s.r * t;
-  const g = a.g * (1 - t) + s.g * t;
-  const b = a.b * (1 - t) + s.b * t;
-  const speedScale = Math.min(1, speed * 12);
-  return { r: r * speedScale, g: g * speedScale, b: b * speedScale };
+  const jR = 0.88 + Math.random() * 0.24;
+  const jG = 0.88 + Math.random() * 0.24;
+  const jB = 0.88 + Math.random() * 0.24;
+  const speedScale = themeCache.isLight ? 1 : Math.min(1, speed * 12);
+  return {
+    r: a.r * jR * speedScale,
+    g: a.g * jG * speedScale,
+    b: a.b * jB * speedScale,
+  };
 }
 
 function prefersReducedMotion(): boolean {

@@ -44,7 +44,6 @@ export default function Landing() {
           <div className="relative flex items-center justify-center gap-[var(--space-12)] tablet:gap-[var(--space-24)] w-full max-w-[1200px]">
             <div className="brand-glow-backdrop" />
             <div className="relative w-[60px] h-[60px] tablet:w-[100px] tablet:h-[100px] desktop:w-[140px] desktop:h-[140px] shrink-0 brand-glow-icon text-[var(--color-text-primary)]">
-              <div className="absolute inset-0 rounded-[16px] tablet:rounded-[24px] desktop:rounded-[28px]" style={{ background: 'rgba(var(--accent-r), var(--accent-g), var(--accent-b), 0.18)' }} />
               <LogoEmblem className="relative w-full h-full" />
             </div>
             <span className="brand-glow-text text-[36px] tablet:text-[72px] desktop:text-[120px] leading-[1] font-extrabold whitespace-nowrap">
