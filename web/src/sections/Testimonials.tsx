@@ -125,7 +125,7 @@ export default function Testimonials({
   return (
     <section
       className={`relative z-[2] px-[var(--space-16)] tablet:px-[var(--space-24)] ${
-        isCompact ? 'py-[40px] tablet:py-[56px]' : 'py-[60px] tablet:py-[88px]'
+        isCompact ? 'py-[40px] tablet:py-[56px]' : 'landing-section-py'
       }`}
       onMouseEnter={() => pause(2000)}
       onMouseLeave={() => pause(0)}

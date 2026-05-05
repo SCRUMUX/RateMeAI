@@ -118,13 +118,17 @@ export function getScenarioLabel(slug: string): string {
 }
 
 export function listScenariosForFooter(): Array<{ slug: string; label: string; href: string }> {
-  // Prefer standalone scenarios with their canonical landing URL; fall back to
-  // /app/<slug> for core-entry scenarios.
-  return SCENARIO_LIST.map((s) => ({
-    slug: s.slug,
-    label: getScenarioLabel(s.slug),
-    href: s.canonicalPath,
-  }));
+  // 1.50.6: only standalone landing scenarios (entryMode === 'landing')
+  // are surfaced in the footer. Core-entry scenarios (career,
+  // tinder-pack) are internal app sub-flows and don't have a public
+  // landing page worth advertising in the footer "Products" column.
+  return SCENARIO_LIST
+    .filter((s) => s.entryMode === 'landing')
+    .map((s) => ({
+      slug: s.slug,
+      label: getScenarioLabel(s.slug),
+      href: s.canonicalPath,
+    }));
 }
 
 export function getScenario(slug: string | undefined | null): ScenarioDefinition | null {

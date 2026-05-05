@@ -337,6 +337,61 @@ body {
   }
 }
 
+/* ==========================================================================
+   Unified landing vertical rhythm (1.50.6)
+   --------------------------------------------------------------------------
+   Единая шкала vertical padding для всех секций главного и сценарных
+   лендингов (Hero, Simulation, BeforeAfter, Pricing, ApiSection,
+   ProofCounter, Testimonials, Brand-CTA). До 1.50.6 секции дрейфовали
+   между py-[60px]/tablet:py-[88px] и py-[60px]/tablet:py-[96px], а
+   HowItWorks с собственным backdrop-gradient ходил на 32/64. Из-за
+   этого ритм между блоками "сужался" в одних местах и "расширялся" в
+   других — особенно заметно между HowItWorks и Simulation на десктопе.
+
+   Применяется через `.landing-section-py`. На больших экранах
+   (>=1280px) добавлен явный desktop-скейл, чтобы блоки лучше
+   "дышали" на full-HD мониторах.
+   ========================================================================== */
+.landing-section-py {
+  padding-top: 64px;
+  padding-bottom: 64px;
+}
+
+@media (min-width: 768px) {
+  .landing-section-py {
+    padding-top: 96px;
+    padding-bottom: 96px;
+  }
+}
+
+@media (min-width: 1280px) {
+  .landing-section-py {
+    padding-top: 128px;
+    padding-bottom: 128px;
+  }
+}
+
+/* Hero нуждается в дополнительном top-отступе под фиксированный
+   nav-бар (52/60 px) — оставляем как один сорс. */
+.landing-hero-py {
+  padding-top: 96px;
+  padding-bottom: 64px;
+}
+
+@media (min-width: 768px) {
+  .landing-hero-py {
+    padding-top: 144px;
+    padding-bottom: 96px;
+  }
+}
+
+@media (min-width: 1280px) {
+  .landing-hero-py {
+    padding-top: 160px;
+    padding-bottom: 128px;
+  }
+}
+
 /* Gradient text utility */
 .gradient-text {
   background: linear-gradient(103deg, rgb(var(--accent-r), var(--accent-g), var(--accent-b)) 4%, rgb(var(--accent-sec-r), var(--accent-sec-g), var(--accent-sec-b)) 103%);
@@ -1117,12 +1172,20 @@ main > .glass-divider,
   border-color: var(--glass-border-hover);
 }
 
+/* 1.50.6: native border у активной строки совпадает по толщине
+ * и интенсивности с .glass-card (alpha 0.10), а accent-цвет ушёл
+ * во внешний glow. Раньше border был alpha 0.22 — на тёмном фоне
+ * выглядел толще, чем 1px-бордер карточек тарифов / how-it-works,
+ * из-за чего активная плашка симулятора визуально "кричала"
+ * сильнее, чем карточки в соседних блоках. Теперь толщина 1px
+ * и контраст бордера во всех glass-* поверхностях совпадают,
+ * а ощущение "выбрано" даёт surface-tint + outer glow. */
 .glass-row-active {
-  background: rgba(var(--accent-r), var(--accent-g), var(--accent-b), 0.06);
-  border: 1px solid rgba(var(--accent-r), var(--accent-g), var(--accent-b), 0.22);
+  background: rgba(var(--accent-r), var(--accent-g), var(--accent-b), 0.08);
+  border: 1px solid rgba(var(--accent-r), var(--accent-g), var(--accent-b), 0.12);
   box-shadow:
-    0 0 12px rgba(var(--accent-r), var(--accent-g), var(--accent-b), 0.06),
-    inset 0 1px 0 var(--glass-inset-highlight-soft);
+    0 0 18px rgba(var(--accent-r), var(--accent-g), var(--accent-b), 0.10),
+    inset 0 1px 0 var(--glass-inset-highlight);
 }
 
 /* -- Footer glass -- */

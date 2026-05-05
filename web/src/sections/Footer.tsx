@@ -126,17 +126,6 @@ function TelegramIcon({ className }: { className?: string }) {
   );
 }
 
-function SocialIcon({ icon, className }: { icon?: string; className?: string }) {
-  if (icon === 'telegram' || !icon) return <TelegramIcon className={className} />;
-  // Fallback to a generic globe icon
-  return (
-    <svg className={className} width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-      <circle cx="12" cy="12" r="9" />
-      <path d="M3 12h18M12 3a14 14 0 010 18M12 3a14 14 0 000 18" />
-    </svg>
-  );
-}
-
 function ColumnHeading({ children }: { children: React.ReactNode }) {
   return (
     <h3 className="text-[12px] tablet:text-[13px] uppercase tracking-[0.08em] text-[var(--color-text-muted)] font-medium mb-[var(--space-12)]">
@@ -154,17 +143,22 @@ export default function Footer({ cmsPage }: FooterProps = {}) {
   const { openPolicy, openSupport } = useLandingModals();
 
   const brandTitle = asString(cmsData.brand?.title, 'Look Studio');
+  // 1.50.6: убран AI/ИИ из tagline. Раньше: "AI-фото для соцсетей,
+  // знакомств, документов и резюме." Сейчас придерживаемся
+  // продуктового тона "студия портрета", без слов AI / нейросеть.
   const brandTagline = asString(
     cmsData.brand?.tagline,
-    'AI-фото для соцсетей, знакомств, документов и резюме.',
+    'Студия портретов для соцсетей, знакомств, документов и резюме.',
   );
 
   const products: ProductItem[] = useMemo(() => {
     const fromCms = asProducts(cmsData.products);
     if (fromCms) return fromCms;
-    // Auto-generate from scenarios + main /app
+    // 1.50.6: первый пункт — "Look Studio" с ссылкой на верх главной
+    // (а не на /app). Дальше — только публичные лендинги сценариев,
+    // которые имеют свою страницу: Документы / Знакомства / Резюме.
     return [
-      { label: 'Главное приложение', href: '/app' },
+      { label: 'Look Studio', href: '/' },
       ...listScenariosForFooter(),
     ];
   }, [cmsData.products]);
@@ -240,7 +234,11 @@ export default function Footer({ cmsPage }: FooterProps = {}) {
       <div className="max-w-[1200px] mx-auto px-[var(--space-16)] tablet:px-[var(--space-24)] py-[var(--space-32)] tablet:py-[var(--space-48)] flex flex-col gap-[var(--space-32)]">
         {/* Top grid: 1col mobile, 2col tablet, 4col desktop */}
         <div className="grid grid-cols-1 tablet:grid-cols-2 desktop:grid-cols-[1.2fr_1fr_1fr_1fr] gap-[var(--space-24)] tablet:gap-[var(--space-32)]">
-          {/* Brand column */}
+          {/* Brand column.
+              1.50.6: socialItems из левой колонки убраны — ссылка на
+              UX4AI-канал теперь живёт только в правой кнопке
+              "Подписаться" внизу футера, чтобы не дублировать действие
+              в двух местах подряд. */}
           <div className="flex flex-col gap-[var(--space-12)]">
             <span className="text-[20px] leading-[28px] font-semibold text-[var(--color-text-primary)]">
               {brandTitle}
@@ -248,24 +246,6 @@ export default function Footer({ cmsPage }: FooterProps = {}) {
             <p className="text-[14px] leading-[22px] text-[var(--color-text-secondary)] max-w-[320px]">
               {brandTagline}
             </p>
-            {socialItems.length > 0 && (
-              <div className="flex flex-col gap-[var(--space-8)] mt-[var(--space-4)]">
-                {socialItems.map((s) => (
-                  <a
-                    key={s.href}
-                    href={s.href}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-[var(--space-8)] text-[14px] leading-[22px] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] transition-colors no-underline w-fit"
-                  >
-                    <span className="inline-flex items-center justify-center w-8 h-8 rounded-full glass-btn-ghost text-[var(--color-brand-primary)]">
-                      <SocialIcon icon={s.icon} />
-                    </span>
-                    {s.label}
-                  </a>
-                ))}
-              </div>
-            )}
           </div>
 
           {/* Products column */}
@@ -274,11 +254,23 @@ export default function Footer({ cmsPage }: FooterProps = {}) {
             <ul className="flex flex-col gap-[var(--space-8)]">
               {products.map((p, i) => {
                 const isInternal = p.href.startsWith('/') && !p.external;
+                // 1.50.6: для внутренних ссылок на лендинги (/, /dokumenty,
+                // /znakomstva, /rezume) добавляем scroll-to-top — если
+                // пользователь уже на этой странице, Router не
+                // перерисует её, и без принудительного scroll клик
+                // визуально не реагирует.
+                const handleInternalClick = () => {
+                  if (typeof window === 'undefined') return;
+                  if (window.location.pathname === p.href) {
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                  }
+                };
                 return (
                   <li key={`${p.href}-${i}`}>
                     {isInternal ? (
                       <Link
                         to={p.href}
+                        onClick={handleInternalClick}
                         className="text-[14px] leading-[22px] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] transition-colors no-underline"
                       >
                         {p.label}

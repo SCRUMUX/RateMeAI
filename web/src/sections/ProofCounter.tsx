@@ -170,7 +170,7 @@ export default function ProofCounter({
   };
 
   return (
-    <section className="proof-counter-section relative z-[2] px-[var(--space-16)] tablet:px-[var(--space-24)] py-[60px] tablet:py-[88px]">
+    <section className="proof-counter-section relative z-[2] px-[var(--space-16)] tablet:px-[var(--space-24)] landing-section-py">
       {!reducedMotion && (
         <div
           key={burstKey}

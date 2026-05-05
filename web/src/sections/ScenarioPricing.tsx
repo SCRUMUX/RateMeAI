@@ -128,7 +128,7 @@ export default function ScenarioPricing({ tagline }: ScenarioPricingProps) {
   return (
     <section
       id="тарифы"
-      className="relative z-[2] flex flex-col items-center gap-[var(--space-40)] tablet:gap-[var(--space-64)] px-[var(--space-16)] tablet:px-[var(--space-24)] py-[60px] tablet:py-[96px]"
+      className="relative z-[2] flex flex-col items-center gap-[var(--space-40)] tablet:gap-[var(--space-64)] px-[var(--space-16)] tablet:px-[var(--space-24)] landing-section-py"
     >
       {/* Heading — mirrors main Pricing typography for brand consistency */}
       <div className="reveal flex flex-col items-center gap-[var(--space-12)] text-center max-w-[680px]">
@@ -165,7 +165,7 @@ export default function ScenarioPricing({ tagline }: ScenarioPricingProps) {
           {PAID_PLANS.map((plan) => (
             <article
               key={plan.id}
-              className={`snap-center gradient-border-card flex flex-col gap-[var(--space-20)] tablet:gap-[var(--space-24)] p-[var(--space-20)] tablet:p-[var(--space-28)] w-[calc(100vw-56px)] tablet:w-auto min-w-0 tablet:min-w-0 h-auto tablet:min-h-[520px] rounded-[var(--radius-16)] ${
+              className={`snap-center gradient-border-card flex flex-col gap-[var(--space-20)] tablet:gap-[var(--space-24)] p-[var(--space-20)] tablet:p-[var(--space-28)] w-[calc(100vw-56px)] tablet:w-auto min-w-0 tablet:min-w-0 h-auto tablet:min-h-[520px] rounded-[var(--radius-12)] ${
                 plan.highlighted
                   ? 'glass-card-premium flex-none tablet:flex-[1.15]'
                   : 'glass-card flex-none tablet:flex-1'
@@ -245,7 +245,7 @@ export default function ScenarioPricing({ tagline }: ScenarioPricingProps) {
 
           {/* Corporate / B2B card — другая семантика, без покупки */}
           <article
-            className="snap-center gradient-border-card glass-card flex flex-col gap-[var(--space-20)] tablet:gap-[var(--space-24)] p-[var(--space-20)] tablet:p-[var(--space-28)] w-[calc(100vw-56px)] tablet:w-auto min-w-0 tablet:flex-[0.95] h-auto tablet:min-h-[520px] rounded-[var(--radius-16)]"
+            className="snap-center gradient-border-card glass-card flex flex-col gap-[var(--space-20)] tablet:gap-[var(--space-24)] p-[var(--space-20)] tablet:p-[var(--space-28)] w-[calc(100vw-56px)] tablet:w-auto min-w-0 tablet:flex-[0.95] h-auto tablet:min-h-[520px] rounded-[var(--radius-12)]"
           >
             <div className="flex items-center justify-between gap-[var(--space-12)]">
               <span className="text-[20px] tablet:text-[22px] leading-[28px] tablet:leading-[30px] font-semibold text-[var(--color-text-primary)]">

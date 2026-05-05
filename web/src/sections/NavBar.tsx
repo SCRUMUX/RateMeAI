@@ -77,6 +77,23 @@ export default function NavBar({ onLoginClick, onOpenStorage, onHomeClick, onCta
     }, 100);
   }
 
+  // 1.50.6: пункт меню "API" теперь ведёт на внутренний блок ApiSection
+  // (#api), а не на /api/v1/docs. Поведение зеркалит scrollToPricing.
+  function handleNavLinkClick(e: React.MouseEvent<HTMLAnchorElement>, href: string) {
+    if (!href.startsWith('#')) return;
+    e.preventDefault();
+    setMobileMenuOpen(false);
+    const id = href.slice(1);
+    if (window.location.pathname === '/') {
+      document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' });
+      return;
+    }
+    navigate('/');
+    setTimeout(() => {
+      document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' });
+    }, 100);
+  }
+
   useEffect(() => {
     if (!menuOpen) return;
     function handleClick(e: MouseEvent) {
@@ -155,9 +172,9 @@ export default function NavBar({ onLoginClick, onOpenStorage, onHomeClick, onCta
               </Link>
             )
           ) : !hideNavLinks && (
-            [{label: 'Стили', href: '#стили'}, {label: 'Тарифы', href: '#тарифы'}, {label: 'API', href: '/api/v1/docs', external: true}].map((item) => (
+            [{label: 'Стили', href: '#стили'}, {label: 'Тарифы', href: '#тарифы'}, {label: 'API', href: '#api'}].map((item) => (
               <a key={item.label} href={item.href}
-                {...(item.external ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
+                onClick={(e) => handleNavLinkClick(e, item.href)}
                 className="px-[var(--space-12)] py-[var(--space-6)] text-[14px] leading-[20px] font-medium text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] transition-colors cursor-pointer"
               >
                 {item.label}
@@ -331,10 +348,9 @@ export default function NavBar({ onLoginClick, onOpenStorage, onHomeClick, onCta
                 </Link>
               )
             ) : !hideNavLinks ? (
-              [{label: 'Стили', href: '#стили'}, {label: 'Тарифы', href: '#тарифы'}, {label: 'API', href: '/api/v1/docs', external: true}].map((item) => (
+              [{label: 'Стили', href: '#стили'}, {label: 'Тарифы', href: '#тарифы'}, {label: 'API', href: '#api'}].map((item) => (
                 <a key={item.label} href={item.href}
-                  onClick={() => setMobileMenuOpen(false)}
-                  {...(item.external ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
+                  onClick={(e) => handleNavLinkClick(e, item.href)}
                   className="px-[var(--space-12)] py-[var(--space-12)] text-[16px] leading-[24px] font-medium text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] transition-colors cursor-pointer rounded-[var(--radius-12)] hover:bg-[var(--color-surface-hover)]"
                 >
                   {item.label}

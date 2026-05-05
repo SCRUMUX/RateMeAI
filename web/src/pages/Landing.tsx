@@ -74,10 +74,9 @@ export default function Landing() {
         <HowItWorks title="Как это работает" />
         <Simulation cmsPage={cmsPage} />
         <BeforeAfterSection cmsPage={cmsPage} />
-        <ApiSection cmsPage={cmsPage} />
 
         {/* Brand heading + CTA */}
-        <section id="app" className="relative z-[2] flex flex-col items-center gap-[var(--space-40)] tablet:gap-[var(--space-64)] px-[var(--space-16)] tablet:px-[var(--space-24)] py-[60px] tablet:py-[96px]">
+        <section id="app" className="relative z-[2] flex flex-col items-center gap-[var(--space-40)] tablet:gap-[var(--space-64)] px-[var(--space-16)] tablet:px-[var(--space-24)] landing-section-py">
           <div className="reveal relative flex items-center justify-center gap-[var(--space-12)] tablet:gap-[var(--space-24)] w-full max-w-[1200px]">
             <div className="brand-glow-backdrop" />
             <div className="relative w-[60px] h-[60px] tablet:w-[100px] tablet:h-[100px] desktop:w-[140px] desktop:h-[140px] shrink-0 brand-glow-icon text-[var(--color-text-primary)]">
@@ -115,6 +114,8 @@ export default function Landing() {
         </section>
 
         <Pricing cmsPage={cmsPage} />
+
+        <ApiSection cmsPage={cmsPage} />
       </main>
       <Footer cmsPage={cmsPage} />
 

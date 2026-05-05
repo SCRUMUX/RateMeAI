@@ -31,7 +31,7 @@ export default function HowItWorks({ steps = DEFAULT_STEPS, title }: HowItWorksP
     <section className="relative z-[2] w-full">
       <div className="howworks-wrapper relative w-full glass-divider">
         <div className="howworks-gradient-backdrop" />
-        <div className="relative flex flex-col items-center gap-[var(--space-24)] tablet:gap-[var(--space-40)] w-full max-w-[1200px] mx-auto px-[var(--space-16)] tablet:px-[var(--space-32)] py-[var(--space-32)] tablet:py-[var(--space-64)]">
+        <div className="relative flex flex-col items-center gap-[var(--space-24)] tablet:gap-[var(--space-40)] w-full max-w-[1200px] mx-auto px-[var(--space-16)] tablet:px-[var(--space-32)] landing-section-py">
           {title && (
             <h2 className="reveal landing-h2 text-[var(--color-text-primary)] text-center">{title}</h2>
           )}

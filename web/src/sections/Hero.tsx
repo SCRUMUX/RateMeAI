@@ -25,7 +25,7 @@ const PLATFORMS: PlatformDef[] = [
 
 export default function Hero() {
   return (
-    <section className="relative z-[2] flex flex-col items-center justify-center gap-[var(--space-40)] tablet:gap-[var(--space-96)] px-[var(--space-16)] tablet:px-[var(--space-24)] pt-[80px] tablet:pt-[120px] pb-[60px] tablet:pb-[120px]"
+    <section className="relative z-[2] flex flex-col items-center justify-center gap-[var(--space-40)] tablet:gap-[var(--space-96)] px-[var(--space-16)] tablet:px-[var(--space-24)] landing-hero-py"
       style={{ minHeight: '100vh' }}
     >
       {/* Text block */}

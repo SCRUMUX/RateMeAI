@@ -106,7 +106,7 @@ export default function Pricing({ cmsPage }: { cmsPage?: LandingPage | null } = 
   }
 
   return (
-    <section id="тарифы" className="relative z-[2] flex flex-col items-center gap-[var(--space-40)] tablet:gap-[var(--space-64)] px-[var(--space-16)] tablet:px-[var(--space-24)] py-[60px] tablet:py-[96px]"
+    <section id="тарифы" className="relative z-[2] flex flex-col items-center gap-[var(--space-40)] tablet:gap-[var(--space-64)] px-[var(--space-16)] tablet:px-[var(--space-24)] landing-section-py"
       style={{ minHeight: '100vh' }}
     >
       {/* Heading */}
