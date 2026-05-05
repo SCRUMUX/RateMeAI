@@ -84,7 +84,7 @@ async function fetchImageFile(imageUrl: string): Promise<File | null> {
     const res = await fetch(imageUrl, { credentials: 'omit' });
     if (!res.ok) return null;
     const blob = await res.blob();
-    return new File([blob], 'ai-look-result.jpg', { type: blob.type || 'image/jpeg' });
+    return new File([blob], 'look-studio-result.jpg', { type: blob.type || 'image/jpeg' });
   } catch {
     return null;
   }

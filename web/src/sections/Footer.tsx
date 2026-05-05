@@ -29,7 +29,7 @@ export default function Footer() {
             UX4AI
           </a>
           <span className="text-[14px] tablet:text-[16px] leading-[20px] tablet:leading-[24px] text-[var(--color-text-secondary)]">
-            © 2026 AI Look Studio
+            © 2026 Look Studio
           </span>
         </div>
       </div>

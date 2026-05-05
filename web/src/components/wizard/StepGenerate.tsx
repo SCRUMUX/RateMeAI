@@ -221,7 +221,7 @@ export default function StepGenerate({ onGoToStep, onOpenStorage }: Props) {
       const blob = await res.blob();
       const a = document.createElement('a');
       a.href = URL.createObjectURL(blob);
-      a.download = isDocPaywall ? 'document-photo.jpg' : 'ai-look-photo.jpg';
+      a.download = isDocPaywall ? 'document-photo.jpg' : 'look-studio-photo.jpg';
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
@@ -544,7 +544,7 @@ export default function StepGenerate({ onGoToStep, onOpenStorage }: Props) {
                   to="/app"
                   className="glass-btn-ghost w-full py-[var(--space-10)] text-[13px] leading-[18px] rounded-[var(--radius-12)] font-medium no-underline inline-flex items-center justify-center"
                 >
-                  Открыть AI Look Studio
+                  Открыть Look Studio
                 </Link>
               )}
             </div>

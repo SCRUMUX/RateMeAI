@@ -31,7 +31,7 @@
  *
  * Source-of-truth: AICADS spec
  * (``AICADS-/packages/core/ai-ds-styles.json``). Light theme tokens
- * mirror that spec 1:1. Dark theme has an "AI Look Studio" override
+ * mirror that spec 1:1. Dark theme has a "Look Studio" override
  * in this file that intentionally goes deeper than the AICADS dark
  * baseline (#0A0E14 vs #161E28).
  */
@@ -134,11 +134,11 @@
 }
 
 /*
- * AI Look Studio dark override + glass system tokens (1.34.0)
+ * Look Studio dark override + glass system tokens (1.34.0)
  *
  * Two layers of overrides per theme:
  *   1. Base palette: deeper black (#0A0E14) than the generic dark
- *      design-tokens default (#161E28) — this is the "AI Look Studio"
+ *      design-tokens default (#161E28) — this is the "Look Studio"
  *      aesthetic from the Figma source.
  *   2. Glass system tokens: surface/border/shadow values consumed by
  *      every .glass-* class below. Before 1.34.0 these were hardcoded

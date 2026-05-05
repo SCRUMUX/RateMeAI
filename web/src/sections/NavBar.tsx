@@ -106,9 +106,8 @@ export default function NavBar({ onLoginClick, onOpenStorage, onHomeClick, onCta
               <div className="absolute inset-0 rounded-xl" style={{ background: 'rgba(var(--accent-r), var(--accent-g), var(--accent-b), 0.10)' }} />
               <LogoEmblem className="relative w-full h-full" />
             </div>
-            <span className="hidden tablet:inline text-[22px] leading-[30px] font-bold whitespace-nowrap tracking-tight">
-              <span className="text-[var(--color-text-primary)]">AI</span>
-              <span className="text-[var(--color-text-primary)]"> Look Studio</span>
+            <span className="hidden tablet:inline text-[22px] leading-[30px] font-bold whitespace-nowrap tracking-tight text-[var(--color-text-primary)]">
+              Look Studio
             </span>
           </button>
         ) : (
@@ -127,9 +126,8 @@ export default function NavBar({ onLoginClick, onOpenStorage, onHomeClick, onCta
               <div className="absolute inset-0 rounded-xl" style={{ background: 'rgba(var(--accent-r), var(--accent-g), var(--accent-b), 0.10)' }} />
               <LogoEmblem className="relative w-full h-full" />
             </div>
-            <span className="hidden tablet:inline text-[22px] leading-[30px] font-bold whitespace-nowrap tracking-tight">
-              <span className="text-[var(--color-text-primary)]">AI</span>
-              <span className="text-[var(--color-text-primary)]"> Look Studio</span>
+            <span className="hidden tablet:inline text-[22px] leading-[30px] font-bold whitespace-nowrap tracking-tight text-[var(--color-text-primary)]">
+              Look Studio
             </span>
           </Link>
         )}

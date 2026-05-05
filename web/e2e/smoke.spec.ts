@@ -3,7 +3,7 @@ import { test, expect } from "@playwright/test";
 test.describe("Landing page", () => {
   test("renders hero section and navigation", async ({ page }) => {
     await page.goto("/");
-    await expect(page).toHaveTitle(/AI Look/i);
+    await expect(page).toHaveTitle(/Look Studio/i);
     await expect(page.locator("nav")).toBeVisible();
     await expect(page.locator("a,button").filter({ hasText: /получить доступ|попробовать|начать|try/i }).first()).toBeVisible();
   });

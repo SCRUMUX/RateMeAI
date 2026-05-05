@@ -3868,4 +3868,50 @@
 #          scale logic, см. план §6). Out of scope: WebGL2
 #          transform-feedback compute pressure-iter, 0.5x canvas
 #          downsampling, AppPage-fluid (всё ещё intentionally off).
-APP_VERSION = "1.40.0"
+# 1.41.0 — Rebrand: «AI Look Studio» → «Look Studio» + новый
+#          фирменный logo от дизайнера.
+#
+#          Что сделано:
+#            * ``LogoEmblem.tsx`` полностью переписан на основе
+#              ``LSLOGO.svg`` (исходник дизайнера): четыре «орбиты»
+#              + центральное двойное кольцо. Геометрия inline JSX
+#              (нет дополнительного raster/svg ассета). Окрашен
+#              одним токеном ``var(--color-brand-primary)`` →
+#              category-aware (cyan / purple / pink / orange) +
+#              theme-aware. Размер 100% наследуется от родителя
+#              (``viewBox="0 0 21 21"``, ``className="w-full
+#              h-full"``) — все потребители (NavBar 40-44 px,
+#              Landing 60-140 px) рендерятся без изменений.
+#              Опциональный Gaussian-glow ``stdDeviation=0.45``
+#              для премиальности.
+#            * Удалены user-facing вхождения «AI» из бренд-нейма
+#              «AI Look Studio» → «Look Studio»:
+#              - ``index.html`` <title>;
+#              - ``Landing.tsx`` brand-heading;
+#              - ``NavBar.tsx`` (×2 logo wordmark; убран
+#                раздельный <span>AI</span>);
+#              - ``Footer.tsx`` копирайт;
+#              - ``PrivacyPolicy.tsx`` legal text;
+#              - ``StepGenerate.tsx`` CTA «Открыть Look Studio»;
+#              - ``aria-label`` логотипа в ``LogoEmblem.tsx``;
+#              - download filenames: ``ai-look-photo.jpg`` →
+#                ``look-studio-photo.jpg``, ``ai-look-result.jpg``
+#                → ``look-studio-result.jpg``;
+#              - e2e smoke-test title regex;
+#              - комментарии в ``index.css``.
+#            * Удалён ``LSLOGO.svg`` из корня репо — геометрия
+#              перенесена inline в TSX, отдельный asset не нужен.
+#
+#          Что НЕ тронуто (intentionally — это инфраструктура,
+#          не user-facing brand):
+#            * localStorage-ключи ``ailook_*`` (миграция данных
+#              сломала бы все активные сессии).
+#            * NPM package name ``@ailook/web`` (internal).
+#            * Домен ``ailookstudio.ru`` и ``api.ailookstudio.ru``
+#              (DNS / Vercel — менять отдельным релизом).
+#            * Telegram bot handle ``@RateMeAIBot`` и
+#              VK/OK app slugs (external IDs).
+#
+#          Sanity: ``tsc --noEmit`` clean; ``vite build`` clean.
+#          Backend и анализ-пайплайн нетронуты.
+APP_VERSION = "1.41.0"

@@ -48,7 +48,7 @@ export default function Landing() {
               <LogoEmblem className="relative w-full h-full" />
             </div>
             <span className="brand-glow-text text-[36px] tablet:text-[72px] desktop:text-[120px] leading-[1] font-extrabold whitespace-nowrap">
-              AI Look Studio
+              Look Studio
             </span>
           </div>
 

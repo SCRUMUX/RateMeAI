@@ -36,7 +36,7 @@ export default function PrivacyPolicy() {
             <h2 className="text-[22px] font-semibold mt-6 mb-3">1. Общие положения</h2>
             <p>
               Настоящая Политика определяет порядок обработки персональных данных
-              пользователей сервиса <strong>AI Look Studio</strong> (далее — «Сервис»),
+              пользователей сервиса <strong>Look Studio</strong> (далее — «Сервис»),
               принадлежащего оператору <strong>[НАИМЕНОВАНИЕ ОПЕРАТОРА]</strong>
               {' '}(далее — «Оператор»), адрес: [АДРЕС ОПЕРАТОРА], ИНН [ИНН],
               e-mail: <a className="text-[var(--color-link-default)] underline" href="mailto:privacy@ailookstudio.ru">privacy@ailookstudio.ru</a>.
