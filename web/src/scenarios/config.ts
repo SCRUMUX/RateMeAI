@@ -61,6 +61,7 @@ const SCENARIO_LIST: ScenarioDefinition[] = [
     scoresCategory: 'dating',
     styles: { kind: 'inherit', category: 'dating' },
     hideCategoryTabs: true,
+    primaryCtaMainApp: true,
     simplifiedAnalysis: true,
   },
   {
@@ -72,6 +73,7 @@ const SCENARIO_LIST: ScenarioDefinition[] = [
     scoresCategory: 'cv',
     styles: { kind: 'inherit', category: 'cv' },
     hideCategoryTabs: true,
+    primaryCtaMainApp: true,
     simplifiedAnalysis: true,
   },
   {

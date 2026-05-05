@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react';
 import { useApp } from '../../context/AppContext';
 import ProgressBar from './ProgressBar';
 import CategoryTabs from '../CategoryTabs';
-import { PARAM_LABELS } from './shared';
 import { COMING_SOON_CATEGORIES, type CategoryId } from '../../data/styles';
 import { sanitizeLLMText } from '../../lib/sanitize';
 import { PlaceholderUpload } from '../effects/PlaceholderArt';
@@ -23,17 +22,6 @@ export default function StepAnalysis({ onNext }: Props) {
 
   const hasRealScores = !!app.preAnalysis;
   const beforeScore = hasRealScores ? app.preAnalysis!.score : null;
-  const beforePerception = hasRealScores ? app.preAnalysis!.perception_scores : null;
-
-  const displayParams = beforePerception
-    ? Object.entries(beforePerception)
-        .filter(([k]) => k !== 'authenticity')
-        .map(([k, v]) => ({
-          key: k,
-          label: PARAM_LABELS[k] ?? k,
-          value: v as number,
-        }))
-    : null;
 
   const directionLocked = COMING_SOON_CATEGORIES.includes(activeTab);
   const canContinue = hasRealScores && !directionLocked;
@@ -74,9 +62,9 @@ export default function StepAnalysis({ onNext }: Props) {
         </p>
       </div>
 
-      <div className="flex flex-col tablet:flex-row gap-[var(--space-16)] tablet:gap-[var(--space-24)] items-start">
-        {/* Photo card with score — fixed compact size on desktop, aspect on mobile */}
-        <div className="gradient-border-card glass-card flex flex-col w-full max-w-[260px] tablet:w-[260px] tablet:max-w-[260px] mx-auto tablet:mx-0 shrink-0 rounded-[var(--radius-12)] overflow-hidden">
+      <div className="flex flex-col items-center gap-[var(--space-16)] w-full">
+        {/* Photo card with overall score — single centered column */}
+        <div className="gradient-border-card glass-card flex flex-col w-full max-w-[260px] shrink-0 rounded-[var(--radius-12)] overflow-hidden">
           <div className="w-full aspect-[4/5] shrink-0 bg-[var(--glass-surface-soft)] overflow-hidden">
             {app.photo ? (
               <img src={app.photo.preview} alt="Original" className="w-full h-full object-cover" />
@@ -98,10 +86,10 @@ export default function StepAnalysis({ onNext }: Props) {
           </div>
         </div>
 
-        {/* Analysis panel */}
-        <div className="flex-1 flex flex-col gap-[var(--space-16)]">
+        {/* Analysis panel — moved under the photo, centered, comfortable max-width */}
+        <div className="flex flex-col gap-[var(--space-16)] w-full max-w-[520px]">
           {/* Description text (plain prose — any stray HTML/markdown from the LLM is stripped) */}
-          <p className="text-[14px] leading-[20px] text-[var(--color-text-secondary)] min-h-[40px] whitespace-pre-wrap">
+          <p className="text-[14px] leading-[20px] text-[var(--color-text-secondary)] min-h-[40px] whitespace-pre-wrap text-center">
             {sanitizeLLMText(app.preAnalysis?.first_impression, 600) || (isSimplified ? DOC_DEFAULT_DESCRIPTION : DEFAULT_DESCRIPTION)}
           </p>
 
@@ -171,58 +159,34 @@ export default function StepAnalysis({ onNext }: Props) {
             </div>
           ) : null}
 
-          {/* Results — show when API resolved (success or error) */}
-          {(app.preAnalysis || app.preAnalyzeError) && (
-            <>
-              <div className="gradient-border-card glass-card flex flex-col gap-[var(--space-12)] rounded-[var(--radius-12)] p-[var(--space-12)]">
-                {displayParams ? displayParams.map((p) => (
-                  <div key={p.key} className="flex flex-col gap-[var(--space-8)]">
-                    <div className="flex items-center justify-between">
-                      <span className="text-[14px] leading-[20px] text-[var(--color-text-primary)]">{p.label}</span>
-                      <span className="flex items-center gap-[var(--space-4)] text-[14px] leading-[20px] tabular-nums">
-                        <span className="text-[var(--color-text-secondary)]">{p.value.toFixed(2)}</span>
-                        <span className="text-[11px] leading-[14px] text-[var(--color-text-muted)]">/ 10</span>
-                      </span>
-                    </div>
-                    <ProgressBar value={p.value} />
-                  </div>
-                )) : (
-                  <div className="flex flex-col items-center gap-[var(--space-8)] text-center py-[var(--space-12)]">
-                    {app.preAnalyzeError ? (
-                      <>
-                        <span className="text-[14px] text-[var(--color-text-muted)]">Не удалось загрузить анализ</span>
-                        <button
-                          onClick={() => { setAnalysisRequested(true); app.runPreAnalyze(); }}
-                          className="glass-btn-ghost px-[var(--space-16)] py-[var(--space-6)] text-[13px] text-[var(--color-text-primary)] rounded-[var(--radius-pill)]"
-                        >
-                          Повторить
-                        </button>
-                      </>
-                    ) : (
-                      <span className="text-[14px] text-[var(--color-text-muted)]">Загрузите фото для анализа</span>
-                    )}
-                  </div>
-                )}
-              </div>
+          {/* Inline error fallback — компактная замена детальной панели,
+              когда API не смог отдать ни общий, ни детальный скор. */}
+          {!hasRealScores && app.preAnalyzeError && (
+            <div className="flex flex-col items-center gap-[var(--space-8)] text-center">
+              <span className="text-[13px] text-[var(--color-text-muted)]">Не удалось загрузить анализ</span>
+              <button
+                onClick={() => { setAnalysisRequested(true); app.runPreAnalyze(); }}
+                className="glass-btn-ghost px-[var(--space-16)] py-[var(--space-6)] text-[13px] text-[var(--color-text-primary)] rounded-[var(--radius-pill)]"
+              >
+                Повторить
+              </button>
+            </div>
+          )}
 
-              {/* Direction picker — обычный сценарий */}
-              {hasRealScores && !isSimplified && (
-                <div className="flex flex-col gap-[var(--space-10)]">
-                  <span className="text-[14px] leading-[20px] font-medium text-[var(--color-text-primary)]">Для чего улучшаем фото?</span>
-                  {!app.scenarioHideCategoryTabs && (
-                    <CategoryTabs active={activeTab} onChange={handleDirectionChange} />
-                  )}
-                </div>
+          {/* Direction picker — обычный сценарий */}
+          {hasRealScores && !isSimplified && (
+            <div className="flex flex-col gap-[var(--space-10)]">
+              <span className="text-[14px] leading-[20px] font-medium text-[var(--color-text-primary)] text-center">Для чего улучшаем фото?</span>
+              {!app.scenarioHideCategoryTabs && (
+                <CategoryTabs active={activeTab} onChange={handleDirectionChange} />
               )}
-            </>
+            </div>
           )}
 
           {/* No photo */}
           {!app.photo && (
-            <div className="gradient-border-card glass-card flex flex-col gap-[var(--space-12)] rounded-[var(--radius-12)] p-[var(--space-12)]">
-              <div className="text-[14px] text-[var(--color-text-muted)] text-center py-[var(--space-12)]">
-                Загрузите фото для анализа
-              </div>
+            <div className="text-[14px] text-[var(--color-text-muted)] text-center">
+              Загрузите фото для анализа
             </div>
           )}
 

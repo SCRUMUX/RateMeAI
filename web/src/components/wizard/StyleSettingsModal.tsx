@@ -9,6 +9,10 @@ interface Props {
   open: boolean;
   onClose: () => void;
   styleId: string;
+  /** Hints to pre-select when the modal opens (e.g. resolved_slots
+   * from the last generation). Re-applied every time `open` flips
+   * to true so a closed → reopen cycle reflects the latest state. */
+  initialHints?: Record<string, any>;
   onApply: (hints: Record<string, any>) => void;
 }
 
@@ -216,11 +220,11 @@ function normaliseOptions(res: api.StyleOptionsResponse): StyleOptions {
   return fromV1((res.options ?? {}) as Record<string, string[]>);
 }
 
-export default function StyleSettingsModal({ open, onClose, styleId, onApply }: Props) {
+export default function StyleSettingsModal({ open, onClose, styleId, initialHints, onApply }: Props) {
   const app = useApp();
   const [loading, setLoading] = useState(false);
   const [options, setOptions] = useState<StyleOptions | null>(null);
-  const [hints, setHints] = useState<Record<string, any>>({});
+  const [hints, setHints] = useState<Record<string, any>>(() => ({ ...(initialHints ?? {}) }));
 
   const styleName = useMemo(() => {
     const style = app.effectiveStyleList.find((s) => s.key === styleId);
@@ -248,6 +252,11 @@ export default function StyleSettingsModal({ open, onClose, styleId, onApply }: 
       setHints({});
       return;
     }
+    // На открытие переинициализируем выбранные значения из последней
+    // генерации (resolved_slots) — чтобы пользователь видел, какие
+    // параметры реально применялись, и мог менять их относительно
+    // текущего состояния, а не «с нуля».
+    setHints({ ...(initialHints ?? {}) });
     if (!styleId) return;
     setLoading(true);
     api.getStyleOptions(styleId)
@@ -260,6 +269,10 @@ export default function StyleSettingsModal({ open, onClose, styleId, onApply }: 
         setOptions(null);
         setLoading(false);
       });
+  // initialHints подхватываем только на момент открытия (open=true).
+  // Если родитель пересчитает initialHints во время открытой модалки,
+  // мы намеренно не перезаписываем uncommitted-выбор пользователя.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, styleId]);
 
   if (!open) return null;

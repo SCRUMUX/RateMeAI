@@ -15,7 +15,6 @@ import { useApp } from '../../context/AppContext';
 import ProgressBar from './ProgressBar';
 import ShareModal from '../ShareModal';
 import StyleSettingsModal from './StyleSettingsModal';
-import ResolvedSlotsBadges from '../ResolvedSlotsBadges';
 import { PlaceholderUpgrade } from '../effects/PlaceholderArt';
 import type { ResolvedSlots } from '../../lib/api';
 
@@ -43,6 +42,25 @@ function parseTaskProgress(status: string | undefined): { label: string; percent
   const percent = tot > 0 ? Math.round((cur / tot) * 100) : 0;
   const label = STEP_LABELS[step] ?? `${step}...`;
   return { label, percent };
+}
+
+// Re-project the backend's resolved_slots payload onto the keys
+// StyleSettingsModal accepts as `hints`. Fields that the modal manages
+// 1:1 (lighting/weather/time_of_day/season) keep their names; scene
+// and clothing are renamed to *_override because that's how the modal
+// stores free-form overrides. We deliberately drop trigger (read-only
+// in the modal) and expression / random_picks / substitutions
+// (not part of the editable surface).
+function resolvedSlotsToHints(slots: ResolvedSlots | null | undefined): Record<string, string> {
+  if (!slots) return {};
+  const hints: Record<string, string> = {};
+  if (typeof slots.lighting === 'string' && slots.lighting.trim()) hints.lighting = slots.lighting;
+  if (typeof slots.weather === 'string' && slots.weather.trim()) hints.weather = slots.weather;
+  if (typeof slots.time_of_day === 'string' && slots.time_of_day.trim()) hints.time_of_day = slots.time_of_day;
+  if (typeof slots.season === 'string' && slots.season.trim()) hints.season = slots.season;
+  if (typeof slots.scene === 'string' && slots.scene.trim()) hints.scene_override = slots.scene;
+  if (typeof slots.clothing === 'string' && slots.clothing.trim()) hints.clothing_override = slots.clothing;
+  return hints;
 }
 
 export default function StepGenerate({ onGoToStep, onOpenStorage }: Props) {
@@ -336,20 +354,6 @@ export default function StepGenerate({ onGoToStep, onOpenStorage }: Props) {
         </div>
       )}
 
-      {/* Streaming fact while running (above photo) */}
-      {isRunning && (
-        <div className="flex items-start justify-center gap-[var(--space-8)] px-[var(--space-16)] max-w-[520px] mx-auto w-full">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" className="shrink-0 mt-[2px]">
-            <path d="M12 2a7 7 0 0 1 7 7c0 2.38-1.19 4.47-3 5.74V17a1 1 0 0 1-1 1H9a1 1 0 0 1-1-1v-2.26C6.19 13.47 5 11.38 5 9a7 7 0 0 1 7-7z" stroke="rgb(var(--accent-r),var(--accent-g),var(--accent-b))" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-            <path d="M9 21h6M10 17v1a2 2 0 0 0 4 0v-1" stroke="rgb(var(--accent-r),var(--accent-g),var(--accent-b))" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-          </svg>
-          <p className="text-[12px] tablet:text-[14px] leading-[16px] tablet:leading-[20px] text-[var(--color-text-primary)] text-left">
-            {streamedFact}
-            <span className="inline-block w-[2px] h-[12px] bg-[var(--color-brand-primary)] ml-[2px] align-middle animate-pulse" />
-          </p>
-        </div>
-      )}
-
       {/* Photo column: photo card + result-action stacks below.
           Width is fixed to 260px so the action buttons under the photo
           align exactly with its width. */}
@@ -462,6 +466,22 @@ export default function StepGenerate({ onGoToStep, onOpenStorage }: Props) {
             </div>
           </div>
 
+          {/* Streaming fact while running (below photo). Размещаем под
+              карточкой, чтобы не «прыгал» layout: при запуске карточка
+              остаётся на одном месте, а текст подменяется внизу. */}
+          {isRunning && (
+            <div className="flex items-start justify-center gap-[var(--space-8)] px-[var(--space-8)] w-full">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" className="shrink-0 mt-[2px]">
+                <path d="M12 2a7 7 0 0 1 7 7c0 2.38-1.19 4.47-3 5.74V17a1 1 0 0 1-1 1H9a1 1 0 0 1-1-1v-2.26C6.19 13.47 5 11.38 5 9a7 7 0 0 1 7-7z" stroke="rgb(var(--accent-r),var(--accent-g),var(--accent-b))" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                <path d="M9 21h6M10 17v1a2 2 0 0 0 4 0v-1" stroke="rgb(var(--accent-r),var(--accent-g),var(--accent-b))" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+              <p className="text-[12px] tablet:text-[14px] leading-[16px] tablet:leading-[20px] text-[var(--color-text-primary)] text-left">
+                {streamedFact}
+                <span className="inline-block w-[2px] h-[12px] bg-[var(--color-brand-primary)] ml-[2px] align-middle animate-pulse" />
+              </p>
+            </div>
+          )}
+
           {/* Result actions: Download/Share stack directly under photo */}
           {!isRunning && hasGenResult && app.generatedImageUrl && (
             <div className="flex flex-col gap-[var(--space-8)] w-full">
@@ -490,17 +510,6 @@ export default function StepGenerate({ onGoToStep, onOpenStorage }: Props) {
                 </p>
               )}
             </div>
-          )}
-
-          {/* Resolved slots badges — under primary actions */}
-          {hasGenResult && (
-            <ResolvedSlotsBadges
-              slots={
-                (app.currentTask?.result as { resolved_slots?: ResolvedSlots } | null)
-                  ?.resolved_slots ?? null
-              }
-              variant="stacked"
-            />
           )}
 
           {/* Result actions: secondary stack — улучшить → настройки → стиль → фото */}
@@ -721,6 +730,10 @@ export default function StepGenerate({ onGoToStep, onOpenStorage }: Props) {
         open={settingsModalOpen}
         onClose={() => setSettingsModalOpen(false)}
         styleId={app.selectedStyleKey}
+        initialHints={resolvedSlotsToHints(
+          (app.currentTask?.result as { resolved_slots?: ResolvedSlots } | null)
+            ?.resolved_slots,
+        )}
         onApply={(hints) => {
           app.resetGeneration();
           setFrozenStyle(null);
