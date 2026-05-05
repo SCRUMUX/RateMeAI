@@ -103,14 +103,15 @@ export default function ProofCounter({
     let cancelled = false;
     let timeoutId: number | undefined;
 
-    // 1.49.1: floor для частоты тиков. Даже если пресет в CMS
-    // вернёт большие значения, ProofCounter не должен «затихать» —
-    // густой поток лайков (TikTok-fountain) требует дельты 800..
-    // 2400ms. Делаем кэп локально, чтобы не зависеть от пресетов.
-    const FLOOR_MIN_MS = 800;
-    const FLOOR_MAX_MS = 2400;
-    const minDelay = Math.min(FLOOR_MIN_MS, counter.minDelayMs);
-    const maxDelay = Math.min(FLOOR_MAX_MS, Math.max(minDelay, counter.maxDelayMs));
+    // 1.49.2: «лайк раз в 5..10 секунд» — естественное social-proof
+    // приращение. Минимум 5s между тиками, чтобы цифра не выглядела
+    // как ботовский счётчик +1 каждую секунду. Максимум 10s, чтобы
+    // блок «жил» и пользователь видел движение в течение секунд
+    // 15..30 присутствия на странице.
+    const FLOOR_MIN_MS = 5000;
+    const FLOOR_MAX_MS = 10000;
+    const minDelay = Math.max(FLOOR_MIN_MS, counter.minDelayMs);
+    const maxDelay = Math.max(minDelay, Math.min(FLOOR_MAX_MS, counter.maxDelayMs));
 
     const scheduleTick = () => {
       const delay = randomInt(minDelay, maxDelay);
@@ -123,13 +124,12 @@ export default function ProofCounter({
         setCount((current) => current + increment);
         setBurstKey((k) => k + 1);
 
-        // 2..3 hearts on a normal tick, 3..5 on burst — combined
-        // with the 800..2400ms tick rate this gives ~1 heart per
-        // 600ms on average, a continuous TikTok-style stream
-        // instead of redko-jerky bursts.
+        // 3..4 сердечка на обычный лайк, 4..5 на редкий burst —
+        // ровно как пользователь и описал. Spread по delay 0..280ms
+        // — сердца не выскакивают синхронно, выглядит органично.
         const particleCount = burstTriggered
-          ? randomInt(3, 5)
-          : randomInt(2, 3);
+          ? randomInt(4, 5)
+          : randomInt(3, 4);
         const newOnes: BurstParticle[] = [];
         for (let i = 0; i < particleCount; i++) {
           const id = nextIdRef.current++;
@@ -138,12 +138,12 @@ export default function ProofCounter({
             // Hearts spawn from the right edge of the number and
             // fan out up-and-right at variable angles. Wider arc
             // (x: 4..72px, y: -10..-44px) + random rotation for an
-            // organic "flying like" swarm feel.
+            // organic "flying like" feel.
             x: randomInt(4, 72),
             y: randomInt(-44, -10),
-            size: randomFloat(0.55, 1.7),
-            delay: randomInt(0, 380),
-            rotate: randomInt(-25, 25),
+            size: randomFloat(0.6, 1.5),
+            delay: randomInt(0, 280),
+            rotate: randomInt(-20, 20),
             hue: id % 2 === 0 ? 'primary' : 'secondary',
           });
         }

@@ -124,7 +124,7 @@ function TestimonialCard({ item, isActive, withSlider, reducedMotion, tone }: Ca
       </p>
 
       {withSlider && (
-        <div className="testimonial-slider-wrap rounded-[var(--radius-12)] overflow-hidden aspect-[4/3]">
+        <div className="testimonial-slider-wrap rounded-[var(--radius-12)] overflow-hidden aspect-[3/4]">
           <BeforeAfterSlider
             // Re-mount on item change so the cross-fade restarts
             // cleanly when the carousel advances.

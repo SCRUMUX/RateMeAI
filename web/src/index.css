@@ -1106,10 +1106,11 @@ main > .glass-divider,
   --y: -16px;
   --scale: 1;
   --rot: 0deg;
-  /* 1.49.0: longer 2400ms easing + late opacity peak + per-particle
-     random rotation makes a "swarm" of hearts (4..7+) feel organic
-     instead of one jerky icon. */
-  animation: proof-heart-fly 2400ms cubic-bezier(0.17, 0.67, 0.3, 0.99) forwards;
+  /* 1.49.2: 1800ms — быстрый вход (8% времени), бодрый полёт,
+     долгое плавное растворение в последние 40%. Никакого blur'а
+     в начале (раньше «тормознуто» — heavy blur 5px на 14% времени
+     заставлял сердце «висеть» прежде чем полететь). */
+  animation: proof-heart-fly 1800ms cubic-bezier(0.22, 0.61, 0.36, 1) forwards;
   filter: drop-shadow(0 0 12px rgba(var(--accent-r), var(--accent-g), var(--accent-b), 0.45));
 }
 
@@ -1133,28 +1134,23 @@ main > .glass-divider,
 @keyframes proof-heart-fly {
   0% {
     opacity: 0;
-    transform: translate(0, 0) scale(calc(var(--scale) * 0.35)) rotate(0deg);
-    filter: blur(5px) drop-shadow(0 0 12px rgba(var(--accent-r), var(--accent-g), var(--accent-b), 0.45));
+    transform: translate(0, 0) scale(calc(var(--scale) * 0.55)) rotate(0deg);
+    filter: drop-shadow(0 0 12px rgba(var(--accent-r), var(--accent-g), var(--accent-b), 0.4));
   }
-  14% {
-    opacity: 0.9;
-    transform: translate(calc(var(--x) * 0.18), calc(var(--y) * 0.18)) scale(calc(var(--scale) * 0.85)) rotate(calc(var(--rot) * 0.3));
-    filter: blur(0.5px) drop-shadow(0 0 16px rgba(var(--accent-r), var(--accent-g), var(--accent-b), 0.55));
-  }
-  35% {
+  10% {
     opacity: 1;
-    transform: translate(calc(var(--x) * 0.6), calc(var(--y) * 1.4)) scale(var(--scale)) rotate(calc(var(--rot) * 0.7));
-    filter: blur(0) drop-shadow(0 0 18px rgba(var(--accent-r), var(--accent-g), var(--accent-b), 0.5));
+    transform: translate(calc(var(--x) * 0.18), calc(var(--y) * 0.22)) scale(var(--scale)) rotate(calc(var(--rot) * 0.4));
+    filter: drop-shadow(0 0 16px rgba(var(--accent-r), var(--accent-g), var(--accent-b), 0.55));
   }
-  70% {
-    opacity: 0.7;
-    transform: translate(calc(var(--x) * 1.4), calc(var(--y) * 3.2)) scale(calc(var(--scale) * 1.05)) rotate(var(--rot));
-    filter: blur(0.5px) drop-shadow(0 0 14px rgba(var(--accent-r), var(--accent-g), var(--accent-b), 0.4));
+  60% {
+    opacity: 1;
+    transform: translate(calc(var(--x) * 1.1), calc(var(--y) * 2.6)) scale(calc(var(--scale) * 1.05)) rotate(var(--rot));
+    filter: drop-shadow(0 0 14px rgba(var(--accent-r), var(--accent-g), var(--accent-b), 0.45));
   }
   100% {
     opacity: 0;
-    transform: translate(calc(var(--x) * 1.9), calc(var(--y) * 5.4)) scale(calc(var(--scale) * 0.7)) rotate(calc(var(--rot) * 1.2));
-    filter: blur(3px) drop-shadow(0 0 8px rgba(var(--accent-r), var(--accent-g), var(--accent-b), 0.25));
+    transform: translate(calc(var(--x) * 1.9), calc(var(--y) * 5.0)) scale(calc(var(--scale) * 0.85)) rotate(calc(var(--rot) * 1.15));
+    filter: blur(2px) drop-shadow(0 0 8px rgba(var(--accent-r), var(--accent-g), var(--accent-b), 0.2));
   }
 }
 
@@ -1244,19 +1240,18 @@ main > .glass-divider,
 .testimonial-track {
   position: relative;
   width: 100%;
-  /* 1.49.1: высота трека увеличена и согласована с aspect-[4/3]
-     слайдером — иначе центральная карточка вылезала на следующую
-     секцию ("Как это работает") и боковые слоты «вырывались» за
-     блок. Для default-карусели (3 слота с absolute positioning)
-     min-height обязан покрывать реальную высоту контента карточки. */
-  min-height: 780px;
+  /* 1.49.2: трек согласован с aspect-[3/4] (iPhone-selfie) и
+     header/chips/review/padding контентом карточки. Если высота
+     меньше реальной — карточка прорывает трек и вылезает на
+     следующую секцию ("Как это работает"). */
+  min-height: 1000px;
   perspective: 1200px;
   isolation: isolate;
 }
 
 @media (max-width: 767px) {
   .testimonial-track {
-    min-height: 820px;
+    min-height: 860px;
   }
 }
 

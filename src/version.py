@@ -4147,4 +4147,24 @@
 #              transitions remain) so the fluid color no longer
 #              lags one step behind on category switches.
 #          Sanity: tsc --noEmit clean; ruff clean; vite build OK.
-APP_VERSION = "1.49.1"
+# 1.49.2 — Heart pacing + selfie slider tuning per user feedback.
+#          (1) ProofCounter — back to natural social-proof pace.
+#              Tick 5..10s (was 0.8..2.4s) — counter no longer
+#              looks like a bot incrementing every second. Per
+#              tick: 3..4 hearts (4..5 on rare burst, chance 8..
+#              12%). Animation rewritten to 1800 ms with fast
+#              entry (10%) + long, gentle dissolve (last 40%);
+#              the heavy 5px blur-in that made the previous
+#              version feel "stuck/laggy" before liftoff is gone.
+#              All HOME_COPY/DOCUMENT counter presets in
+#              data/social-proof.ts retuned to 5..10 s; floor in
+#              ProofCounter.tsx clamps to the same range so future
+#              CMS edits can't bring back jerky 30-second pauses
+#              or per-second bot-like ticks.
+#          (2) Testimonials slider — aspect-[3/4] (iPhone selfie
+#              portrait), was 4:3 horizontal squarish. Track
+#              min-height bumped to 1000 px (mobile 860 px) so
+#              the active card has room for the taller frame
+#              without overlapping "Как это работает".
+#          Sanity: tsc --noEmit clean; ruff clean; vite build OK.
+APP_VERSION = "1.49.2"
