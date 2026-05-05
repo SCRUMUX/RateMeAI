@@ -5,7 +5,7 @@ import AuthModal from '../components/AuthModal';
 import MeshGradientBg from '../components/effects/MeshGradientBg';
 import FluidBackground from '../components/effects/FluidBackground';
 import EnergyField from '../components/effects/EnergyField';
-import SocialProof from '../sections/SocialProof';
+import ProofCounter from '../sections/ProofCounter';
 import { useApp } from '../context/AppContext';
 import { DOCUMENT_SOCIAL_PROOF_PRESET } from '../data/social-proof';
 import { DOCUMENT_LANDING_ITEMS } from '../data/landingStyles';
@@ -77,7 +77,13 @@ export default function DocumentPhotoLanding({ onStart, showAuth, onAuthClose }:
           </div>
         </section>
 
-        <SocialProof preset={DOCUMENT_SOCIAL_PROOF_PRESET} />
+        <ProofCounter
+          baseCount={DOCUMENT_SOCIAL_PROOF_PRESET.baseCount}
+          counter={DOCUMENT_SOCIAL_PROOF_PRESET.counter}
+          eyebrow="Фото на документы"
+          caption="фото для документов сделано пользователями не выходя из дома и дешевле, чем в студии"
+          subcaption="Паспорт, виза, права — формат подбирается автоматически."
+        />
 
         {/* How it works */}
         <section className="relative z-[2] flex flex-col items-center gap-[var(--space-32)] px-[var(--space-16)] tablet:px-[var(--space-24)] py-[60px] tablet:py-[80px]">

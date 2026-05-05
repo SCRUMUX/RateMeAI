@@ -1,11 +1,14 @@
 import { useEffect, useState } from 'react';
 import { getLandingPage } from './api';
+import type { SocialProofCounterConfig } from '../data/social-proof';
 
 export type LandingBlockType =
   | 'api'
   | 'pricing'
   | 'footer'
   | 'social_proof'
+  | 'proof_counter'
+  | 'testimonials'
   | 'six_categories'
   | 'before_after';
 
@@ -61,6 +64,66 @@ export function findBlock(page: LandingPage | null | undefined, type: string): L
 
 function asString(value: unknown): string {
   return typeof value === 'string' ? value : '';
+}
+
+function asNumber(value: unknown, fallback: number): number {
+  if (typeof value === 'number' && Number.isFinite(value)) return value;
+  if (typeof value === 'string' && value.trim() && Number.isFinite(Number(value))) return Number(value);
+  return fallback;
+}
+
+export interface ProofCounterContent {
+  caption: string;
+  eyebrow?: string;
+  subcaption?: string;
+  baseCount: number;
+  counter: SocialProofCounterConfig;
+}
+
+const DEFAULT_PROOF_COUNTER_CONFIG: SocialProofCounterConfig = {
+  minDelayMs: 8000,
+  maxDelayMs: 36000,
+  burstChance: 0.16,
+  maxBurstSize: 3,
+};
+
+/**
+ * Decode the `proof_counter` CMS block payload into the props shape
+ * `<ProofCounter />` accepts. Any missing field falls back to a
+ * sensible default so the component is never starved.
+ */
+export function parseProofCounter(
+  value: unknown,
+  fallback: ProofCounterContent,
+): ProofCounterContent {
+  if (!value || typeof value !== 'object') return fallback;
+  const obj = value as Record<string, unknown>;
+  const counterRaw = obj.counter && typeof obj.counter === 'object'
+    ? (obj.counter as Record<string, unknown>)
+    : null;
+  const counter: SocialProofCounterConfig = counterRaw
+    ? {
+        minDelayMs: asNumber(counterRaw.minDelayMs, fallback.counter.minDelayMs),
+        maxDelayMs: asNumber(counterRaw.maxDelayMs, fallback.counter.maxDelayMs),
+        burstChance: asNumber(counterRaw.burstChance, fallback.counter.burstChance),
+        maxBurstSize: asNumber(counterRaw.maxBurstSize, fallback.counter.maxBurstSize),
+      }
+    : fallback.counter;
+  return {
+    caption: asString(obj.caption).trim() || fallback.caption,
+    eyebrow: asString(obj.eyebrow).trim() || fallback.eyebrow,
+    subcaption: asString(obj.subcaption).trim() || fallback.subcaption,
+    baseCount: asNumber(obj.baseCount, fallback.baseCount),
+    counter,
+  };
+}
+
+export function defaultProofCounter(caption: string, baseCount = 2734): ProofCounterContent {
+  return {
+    caption,
+    baseCount,
+    counter: DEFAULT_PROOF_COUNTER_CONFIG,
+  };
 }
 
 export function parseSupportContacts(value: unknown): FooterSupportContacts {

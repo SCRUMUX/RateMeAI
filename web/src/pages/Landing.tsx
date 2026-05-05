@@ -5,7 +5,8 @@ import Hero from '../sections/Hero';
 import HowItWorks from '../sections/HowItWorks';
 import Simulation from '../sections/Simulation';
 import Pricing from '../sections/Pricing';
-import SocialProof from '../sections/SocialProof';
+import ProofCounter from '../sections/ProofCounter';
+import Testimonials from '../sections/Testimonials';
 import Footer from '../sections/Footer';
 import BeforeAfterSection from '../sections/BeforeAfterSection';
 import ApiSection from '../sections/ApiSection';
@@ -15,47 +16,14 @@ import FluidBackground from '../components/effects/FluidBackground';
 import EnergyField from '../components/effects/EnergyField';
 import { useApp } from '../context/AppContext';
 import { getLandingSocialProofPreset } from '../data/social-proof';
-import { findBlock, useLandingHome } from '../lib/landing-cms';
+import {
+  defaultProofCounter,
+  findBlock,
+  parseProofCounter,
+  useLandingHome,
+} from '../lib/landing-cms';
 import useDocumentMeta from '../lib/useDocumentMeta';
-import type { SocialProofCounterConfig, SocialProofFeedItem, SocialProofPreset } from '../data/social-proof';
 import LogoEmblem from '../assets/LogoEmblem';
-
-function asNumber(value: unknown, fallback: number): number {
-  if (typeof value === 'number' && Number.isFinite(value)) return value;
-  if (typeof value === 'string' && value.trim() && Number.isFinite(Number(value))) return Number(value);
-  return fallback;
-}
-
-function asString(value: unknown, fallback = ''): string {
-  return typeof value === 'string' ? value : fallback;
-}
-
-function asCounter(value: unknown): SocialProofCounterConfig | null {
-  if (!value || typeof value !== 'object') return null;
-  const obj = value as Record<string, unknown>;
-  return {
-    minDelayMs: asNumber(obj.minDelayMs, 8000),
-    maxDelayMs: asNumber(obj.maxDelayMs, 36000),
-    burstChance: asNumber(obj.burstChance, 0.16),
-    maxBurstSize: asNumber(obj.maxBurstSize, 3),
-  };
-}
-
-function asFeed(value: unknown): SocialProofFeedItem[] | null {
-  if (!Array.isArray(value)) return null;
-  const out: SocialProofFeedItem[] = [];
-  for (const item of value) {
-    if (!item || typeof item !== 'object') continue;
-    const obj = item as Record<string, unknown>;
-    const id = asString(obj.id).trim();
-    const author = asString(obj.author).trim();
-    const message = asString(obj.message).trim();
-    const context = asString(obj.context).trim();
-    if (!id || !author || !message) continue;
-    out.push({ id, author, message, context });
-  }
-  return out.length ? out : null;
-}
 
 export default function Landing() {
   const app = useApp();
@@ -69,23 +37,20 @@ export default function Landing() {
       'AI-фотостудия Look Studio: получите безупречные снимки для Tinder, LinkedIn, паспорта и соцсетей за минуты. Обучаемая модель сохраняет ваше сходство.',
     canonicalPath: '/',
   });
-  const socialProofPreset: SocialProofPreset = useMemo(() => {
-    const cmsBlock = findBlock(cmsPage ?? undefined, 'social_proof');
-    const data = (cmsBlock?.data ?? {}) as Record<string, unknown>;
-    const feed = asFeed(data.feed);
-    const counter = asCounter(data.counter);
-    if (cmsBlock && feed && counter) {
-      return {
-        id: app.activeCategory,
-        title: asString(data.title, 'Впечатления пользователей'),
-        baseCount: asNumber(data.baseCount, 2500),
-        counter,
-        tickerIntervalMs: asNumber(data.tickerIntervalMs, 4200),
-        feed,
-      };
-    }
-    return getLandingSocialProofPreset(app.activeCategory);
-  }, [app.activeCategory, cmsPage]);
+
+  const proofContent = useMemo(() => {
+    const fallback = {
+      ...defaultProofCounter('AI-фото уже сделано пользователями Look Studio', 2799),
+      eyebrow: 'Look Studio',
+      subcaption: 'Каждое — улучшено под конкретный сценарий: соцсети, знакомства, резюме или документы.',
+    };
+    const block = findBlock(cmsPage ?? undefined, 'proof_counter');
+    return parseProofCounter(block?.data, fallback);
+  }, [cmsPage]);
+
+  const testimonialsFeed = useMemo(() => {
+    return getLandingSocialProofPreset(app.activeCategory).feed;
+  }, [app.activeCategory]);
 
   return (
     <div data-category={app.activeCategory} className="min-h-screen w-full overflow-x-hidden selection:bg-brand-primary/30">
@@ -98,10 +63,17 @@ export default function Landing() {
         <FluidBackground />
         <EnergyField />
         <Hero />
-        <SocialProof preset={socialProofPreset} />
+        <ProofCounter
+          baseCount={proofContent.baseCount}
+          counter={proofContent.counter}
+          caption={proofContent.caption}
+          eyebrow={proofContent.eyebrow}
+          subcaption={proofContent.subcaption}
+        />
         <HowItWorks />
         <Simulation cmsPage={cmsPage} />
         <BeforeAfterSection cmsPage={cmsPage} />
+        <Testimonials feed={testimonialsFeed} eyebrow="Отзывы" />
         <ApiSection cmsPage={cmsPage} />
 
         {/* Brand heading + CTA */}

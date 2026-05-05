@@ -5,7 +5,7 @@ import AuthModal from '../components/AuthModal';
 import MeshGradientBg from '../components/effects/MeshGradientBg';
 import FluidBackground from '../components/effects/FluidBackground';
 import EnergyField from '../components/effects/EnergyField';
-import SocialProof from '../sections/SocialProof';
+import ProofCounter from '../sections/ProofCounter';
 import { useApp } from '../context/AppContext';
 import { getLandingSocialProofPreset } from '../data/social-proof';
 import useDocumentMeta from '../lib/useDocumentMeta';
@@ -67,7 +67,13 @@ export default function DatingPhotoLanding({ onStart, showAuth, onAuthClose }: L
           </div>
         </section>
 
-        <SocialProof preset={getLandingSocialProofPreset('dating')} />
+        <ProofCounter
+          baseCount={getLandingSocialProofPreset('dating').baseCount}
+          counter={getLandingSocialProofPreset('dating').counter}
+          eyebrow="Знакомства"
+          caption="классных AI-фото для знакомств — чтобы вы быстрее нашли свою половинку"
+          subcaption="Естественно, дружелюбно, без эффекта «перегенерировано»."
+        />
       </main>
       <Footer />
 

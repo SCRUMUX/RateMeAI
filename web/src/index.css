@@ -905,8 +905,35 @@ main > .glass-divider,
 
 /* ========== Social proof ========== */
 
-.social-proof-counter-value {
+.social-proof-counter-value,
+.proof-counter-value {
   letter-spacing: -0.04em;
+}
+
+/* ========== Proof counter heart ========== */
+/* The heart sits next to the big number and gets re-keyed by React
+   on every counter increment. Re-keying remounts the node and forces
+   the CSS animation to play from the start, even if it was still
+   running from the previous tick. The colour follows the brand
+   accent so light/dark/category gradients all look natural. */
+
+.proof-heart {
+  color: var(--color-brand-primary);
+  filter: drop-shadow(0 0 18px rgba(var(--accent-r), var(--accent-g), var(--accent-b), 0.35));
+  will-change: transform;
+}
+
+.proof-heart-beat {
+  animation: proof-heart-pop 720ms cubic-bezier(0.22, 1, 0.36, 1);
+  transform-origin: center;
+}
+
+@keyframes proof-heart-pop {
+  0%   { transform: scale(1);    }
+  18%  { transform: scale(1.32); }
+  38%  { transform: scale(0.94); }
+  60%  { transform: scale(1.12); }
+  100% { transform: scale(1);    }
 }
 
 .social-proof-ticker-window {
@@ -956,7 +983,8 @@ main > .glass-divider,
   .gradient-accent-purple,
   .brand-glow-text,
   .brand-glow-icon,
-  .gen-sim-pulse {
+  .gen-sim-pulse,
+  .proof-heart-beat {
     animation: none !important;
   }
   .social-proof-ticker-track {

@@ -5,7 +5,7 @@ import AuthModal from '../components/AuthModal';
 import MeshGradientBg from '../components/effects/MeshGradientBg';
 import FluidBackground from '../components/effects/FluidBackground';
 import EnergyField from '../components/effects/EnergyField';
-import SocialProof from '../sections/SocialProof';
+import ProofCounter from '../sections/ProofCounter';
 import { useApp } from '../context/AppContext';
 import { getLandingSocialProofPreset } from '../data/social-proof';
 import useDocumentMeta from '../lib/useDocumentMeta';
@@ -67,7 +67,13 @@ export default function ResumePhotoLanding({ onStart, showAuth, onAuthClose }: L
           </div>
         </section>
 
-        <SocialProof preset={getLandingSocialProofPreset('cv')} />
+        <ProofCounter
+          baseCount={getLandingSocialProofPreset('cv').baseCount}
+          counter={getLandingSocialProofPreset('cv').counter}
+          eyebrow="Резюме и LinkedIn"
+          caption="классных AI-фото для резюме — чтобы вы быстрее нашли работу мечты"
+          subcaption="Спокойный фон, уверенный вайб, без «пластика» и странных деталей."
+        />
       </main>
       <Footer />
 
