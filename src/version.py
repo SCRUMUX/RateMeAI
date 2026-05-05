@@ -3965,4 +3965,44 @@
 #          Sanity: ``tsc --noEmit`` clean; ``vite build`` clean
 #          (524.51 kB main / 81.80 kB CSS, -0.5 kB main / -0.4 kB
 #          CSS — секондари-cache + accent-backdrop dropped).
-APP_VERSION = "1.42.0"
+# 1.43.0 — Fluid v4: color-lag fix + ambient idle splats.
+#          Backend нетронут.
+#
+#          1. Цвет fluid-эффекта больше не запаздывает на один шаг.
+#             Корневая причина: ``MutationObserver`` срабатывает в
+#             microtask до того, как браузер пересчитал computed
+#             style для CSS-переменных, изменённых через
+#             ``data-category``. ``getComputedStyle()`` в callback'е
+#             возвращал СТАРЫЕ значения → ``themeCache.primary``
+#             обновлялся с лагом на один step. Фикс: обернули
+#             ``refreshThemeCache`` в ``requestAnimationFrame`` —
+#             RAF гарантирует, что style commit прошёл, и
+#             computed values уже отражают новый ``data-category``.
+#
+#          2. Эффект больше не «исчезает после первого шага» в
+#             AppPage. Корневая причина: RAF-pause idle 2s из 1.40.0
+#             — на длинных wizard-шагах (например, ожидание
+#             анализа фото) юзер не двигает мышью, dye полностью
+#             растворяется, RAF останавливается → визуально пустой
+#             фон. Фикс: убран RAF-pause, добавлены ambient idle
+#             splats — каждые 4 s в случайной точке viewport'а
+#             делается мягкий случайный splat (40% force от
+#             user-splat'а, велосити 0.05 = средний), фон всегда
+#             «дышит».
+#
+#             Energy budget: на скрытой вкладке браузер сам не
+#             вызывает RAF (нативный pause), так что значимого
+#             роста energy-потребления нет. Battery saver и
+#             ``prefers-reduced-motion`` из 1.38.0 продолжают
+#             корректно отключать эффект на edge-cases.
+#
+#          NB: «На ru-сервере осталась подложка у логотипа» —
+#          снова кэш браузера юзера. ``ru.ailookstudio.ru`` уже
+#          на 1.42.0 (verified: bundle hash ``index-CyXg9Pbr.css``
+#          совпадает с моим build). Hard reload (Ctrl+F5) обновит.
+#
+#          Sanity: ``tsc --noEmit`` clean; ``vite build`` clean
+#          (524.51 kB main / 81.80 kB CSS — без изменения
+#          размера: ambient-loop и rAF-обёртка в пределах
+#          minifier-noise'а).
+APP_VERSION = "1.43.0"

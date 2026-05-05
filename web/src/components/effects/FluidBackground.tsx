@@ -826,19 +826,19 @@ export default function FluidBackground() {
       return didSplat;
     }
 
+    // 1.43.0: pointer-handlers больше не управляют RAF (raf всегда
+    // running, ambient idle-splats держат «жизнь» фона). Hidden-tab
+    // pause обеспечивается самим браузером — он не вызывает RAF
+    // когда вкладка не visible.
     function onPointerMove(e: PointerEvent) {
       const p = pointers[0];
       const dpr = Math.min(window.devicePixelRatio || 1, 2);
       updatePointerMoveData(p, e.clientX * dpr, e.clientY * dpr);
-      lastSplatAt = performance.now();
-      if (!raf) raf = requestAnimationFrame(frame);
     }
     function onPointerDown(e: PointerEvent) {
       const p = pointers[0];
       const dpr = Math.min(window.devicePixelRatio || 1, 2);
       updatePointerDownData(p, e.clientX * dpr, e.clientY * dpr);
-      lastSplatAt = performance.now();
-      if (!raf) raf = requestAnimationFrame(frame);
     }
     function onTouchMove(e: TouchEvent) {
       const t = e.touches[0];
@@ -846,8 +846,6 @@ export default function FluidBackground() {
       const p = pointers[0];
       const dpr = Math.min(window.devicePixelRatio || 1, 2);
       updatePointerMoveData(p, t.clientX * dpr, t.clientY * dpr);
-      lastSplatAt = performance.now();
-      if (!raf) raf = requestAnimationFrame(frame);
     }
     function onTouchStart(e: TouchEvent) {
       const t = e.touches[0];
@@ -855,8 +853,6 @@ export default function FluidBackground() {
       const p = pointers[0];
       const dpr = Math.min(window.devicePixelRatio || 1, 2);
       updatePointerDownData(p, t.clientX * dpr, t.clientY * dpr);
-      lastSplatAt = performance.now();
-      if (!raf) raf = requestAnimationFrame(frame);
     }
 
     window.addEventListener('pointermove', onPointerMove, { passive: true });
@@ -956,12 +952,30 @@ export default function FluidBackground() {
     const fpsWindow: number[] = [];
     let degradeChecked = false;
     let raf = 0;
-    // Время последнего pointer-event'а. Если оно дальше IDLE_PAUSE_MS
-    // в прошлом — RAF паузится: на статичной странице (юзер читает) CPU/GPU = 0.
-    // 2 s выбраны эмпирически: при DENSITY_DISSIPATION 4.5 dye полностью
-    // тает за ~0.5 s, и ещё ~1.5 s velocity-поле успевает затихнуть.
-    let lastSplatAt = 0;
-    const IDLE_PAUSE_MS = 2000;
+    // 1.43.0: Ambient idle splats заменили RAF-pause из 1.40.0.
+    // Раньше RAF останавливался через 2s бездействия → на длинных
+    // wizard-шагах (ожидание анализа) фон визуально «исчезал».
+    // Теперь раз в AMBIENT_INTERVAL_MS делаем мягкий случайный
+    // splat в случайной точке viewport'а — фон всегда «дышит».
+    // На скрытой вкладке браузер сам не вызывает RAF, energy не
+    // тратится.
+    const AMBIENT_INTERVAL_MS = 4000;
+    let lastAmbientAt = performance.now();
+
+    function ambientSplat() {
+      // Случайная точка в центральной 70%-зоне — не у самых краёв,
+      // чтобы splat выглядел естественно (не «вырывался» в углу).
+      const x = 0.15 + Math.random() * 0.7;
+      const y = 0.15 + Math.random() * 0.7;
+      // Случайное направление + умеренная сила (40% от user-splat'а).
+      const angle = Math.random() * Math.PI * 2;
+      const ambientSpeed = 0.05;
+      const dx = Math.cos(angle) * ambientSpeed * config.SPLAT_FORCE;
+      const dy = Math.sin(angle) * ambientSpeed * config.SPLAT_FORCE;
+      const color = pickSplatColor(ambientSpeed);
+      splat(x, y, dx, dy, color);
+    }
+
     // Resize обрабатываем deferred — синхронный initFBOs() в обработчике
     // resize блокирует frame на ~10 ms на больших экранах.
     let pendingResize = false;
@@ -991,28 +1005,25 @@ export default function FluidBackground() {
       }
 
       applyInputs();
+      if (now - lastAmbientAt > AMBIENT_INTERVAL_MS) {
+        ambientSplat();
+        lastAmbientAt = now;
+      }
       step(dt);
       render();
 
-      // Pause RAF после IDLE_PAUSE_MS неактивности — pointer handlers
-      // возобновят его при следующем move/touch.
-      if (now - lastSplatAt > IDLE_PAUSE_MS) {
-        raf = 0;
-        return;
-      }
       raf = requestAnimationFrame(frame);
     }
-    // Стартуем сразу, чтобы инициализационный кадр прошёл и canvas не
-    // оставался прозрачным; lastSplatAt = now даёт ровно IDLE_PAUSE_MS
-    // прогрева до auto-pause.
-    lastSplatAt = performance.now();
     raf = requestAnimationFrame(frame);
 
-    // MutationObserver на data-theme (<html>) и data-category (root <div>)
-    // освежает cached accent / theme. Это покрывает theme-toggle и
-    // wizard-driven category switch без per-frame getComputedStyle.
+    // 1.43.0: refreshThemeCache в rAF — гарантирует, что browser style
+    // invalidation (CSS-переменные пересчитаны) уже произошла к моменту
+    // ``getComputedStyle``. MutationObserver fires в microtask до
+    // следующего style-commit'а, и без rAF-обёртки первый ``getComputedStyle``
+    // после mutation возвращает СТАРЫЕ values → fluid-color запаздывал
+    // на один шаг (выбрал «карьеру», но эффект окрашивался в «знакомства»).
     const themeObserver = new MutationObserver(() => {
-      refreshThemeCache();
+      requestAnimationFrame(refreshThemeCache);
     });
     themeObserver.observe(document.documentElement, {
       attributes: true,
