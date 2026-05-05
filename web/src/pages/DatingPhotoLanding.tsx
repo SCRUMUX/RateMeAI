@@ -29,6 +29,7 @@ interface LandingProps {
 
 export default function DatingPhotoLanding({ onStart, showAuth, onAuthClose }: LandingProps) {
   const app = useApp();
+  const canAccessApp = app.canAccessApp;
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const authOpen = authModalOpen || !!showAuth;
 
@@ -90,9 +91,47 @@ export default function DatingPhotoLanding({ onStart, showAuth, onAuthClose }: L
           tone="dating"
         />
 
+        <HowItWorks steps={DATING_STEPS} title="Как это работает" />
+
         <Simulation forceCategory="dating" showCategoryTabs={false} />
 
-        <HowItWorks steps={DATING_STEPS} title="Как это работает" />
+        {/* Brand heading + CTA — повторяет section#app основного
+            лендинга, но без логотипа Look Studio: вместо него крупная
+            надпись с темой сценария. */}
+        <section className="relative z-[2] flex flex-col items-center gap-[var(--space-40)] tablet:gap-[var(--space-64)] px-[var(--space-16)] tablet:px-[var(--space-24)] py-[60px] tablet:py-[120px]">
+          <div className="relative flex items-center justify-center gap-[var(--space-16)] tablet:gap-[var(--space-24)] w-full max-w-[1200px]">
+            <div className="brand-glow-backdrop" />
+            <span className="brand-glow-text text-[32px] tablet:text-[60px] desktop:text-[96px] leading-[1.05] font-extrabold text-center">
+              💘 Фото для знакомств
+            </span>
+          </div>
+
+          <div className="flex flex-col items-center gap-[var(--space-16)] text-center max-w-[600px]">
+            <h2 className="landing-h2 text-[var(--color-text-primary)]">
+              Готовы получать мэтчи?
+            </h2>
+            <p className="landing-lead">
+              Замените 1-2 фото в анкете и наблюдайте, как меняется отклик
+            </p>
+            {canAccessApp ? (
+              <button
+                type="button"
+                onClick={onStart}
+                className="glass-btn-primary inline-flex items-center justify-center px-[var(--space-32)] py-[var(--space-16)] text-[18px] leading-[24px] rounded-[var(--radius-12)] font-medium mt-[var(--space-8)] cursor-pointer"
+              >
+                Открыть приложение
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setAuthModalOpen(true)}
+                className="glass-btn-primary inline-flex items-center justify-center px-[var(--space-32)] py-[var(--space-16)] text-[18px] leading-[24px] rounded-[var(--radius-12)] font-medium mt-[var(--space-8)] cursor-pointer"
+              >
+                Получить доступ
+              </button>
+            )}
+          </div>
+        </section>
       </main>
       <Footer />
 

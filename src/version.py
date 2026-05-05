@@ -4269,4 +4269,33 @@
 #              `style-showcase` testimonial each so the slider has
 #              a per-format quote.
 #          Sanity: tsc --noEmit clean; ruff clean; vite build OK.
-APP_VERSION = "1.50.1"
+# 1.50.2 — Brand CTA on scenario landings + section reorder.
+#          (1) DatingPhotoLanding / ResumePhotoLanding /
+#              DocumentPhotoLanding: HowItWorks moved before
+#              Simulation (was after). New flow:
+#                Hero → ProofCounter → Testimonials →
+#                HowItWorks → Simulation → BrandCTA → Footer.
+#              Main Landing.tsx — без изменений (порядок там уже
+#              был правильным).
+#          (2) Brand heading + CTA section added on each scenario
+#              landing — повторяет section#app основного, но
+#              без логотипа Look Studio: вместо него крупная
+#              надпись с темой сценария:
+#                Documents → «📋 Фото на документы»
+#                Resume   → «💼 Фото для резюме»
+#                Dating   → «💘 Фото для знакомств»
+#              Размер шрифта 32 / 60 / 96 px (моб/планшет/деск)
+#              чтобы длинные русские строки не уезжали за
+#              max-w-[1200px] контейнера. H2 + lead адаптированы
+#              под сценарий («Готовы создать фото?» /
+#              «Готовы обновить резюме?» / «Готовы получать
+#              мэтчи?»). CTA: «Открыть приложение» если
+#              canAccessApp, иначе «Получить доступ» (открывает
+#              AuthModal) — синхронно с поведением на основном.
+#          (3) DocumentPhotoLanding: старый Final CTA блок
+#              («Готовы создать фото?» с двумя карточками
+#              REQUIREMENTS_SHORT / REJECT_BULLETS) удалён —
+#              его место занимает новый брендовый блок.
+#              Соответствующие импорты убраны.
+#          Sanity: tsc --noEmit clean; ruff clean; vite build OK.
+APP_VERSION = "1.50.2"
