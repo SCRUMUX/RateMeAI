@@ -127,10 +127,15 @@
   --color-brand-hover: rgb(230, 155, 20);
 }
 
+/* 1.49.0: --accent-r/g/b и --accent-sec-* переключаются мгновенно
+   (без transition). Раньше 0.4s интерполяция этих переменных
+   приводила к тому, что FluidBackground.refreshThemeCache получал
+   промежуточные значения и эффект «запаздывал на один шаг» при
+   смене категории. Плавный transition оставлен только для
+   --color-brand-primary/hover — для UI-элементов (кнопки, ссылки),
+   где плавная смена цвета визуально приятна. */
 [data-category] {
-  transition: --accent-r 0.4s ease, --accent-g 0.4s ease, --accent-b 0.4s ease,
-              --accent-sec-r 0.4s ease, --accent-sec-g 0.4s ease, --accent-sec-b 0.4s ease,
-              --color-brand-primary 0.4s ease, --color-brand-hover 0.4s ease;
+  transition: --color-brand-primary 0.4s ease, --color-brand-hover 0.4s ease;
 }
 
 /*
@@ -496,29 +501,21 @@ body {
   pointer-events: none;
 }
 
-/* 1.40.0: Fluid background — same backdrop layer as mesh.
- * Blend-mode подобран по теме:
- *   - dark:  lighten — наш bright cyan/purple вытягивается поверх
- *            тёмной подложки → насыщенный «след» курсора.
- *   - light: multiply — cyan(0,240,255) * white = cyan; multiply
- *            не вводит intermediate серость, поэтому хвост на
- *            белом фоне выглядит чистым цветным мазком, а не
- *            «грязно-тёмным».
+/* 1.49.0: Fluid background — единый рендер на dark/light без
+ * blend-mode-хаков. Раньше использовалось ``lighten`` (dark) /
+ * ``multiply`` (light), и multiply на белом превращал любой
+ * не-saturated цвет в тёмное серо-teal пятно. Теперь канвас
+ * рисуется как обычный полупрозрачный слой над mesh-фоном:
+ *   - на тёмной подложке cyan@70% выглядит насыщенным cyan-tint;
+ *   - на белой подложке cyan@70% становится мягким светло-cyan,
+ *     никаких тёмных хвостов.
  * z-index 0 совпадает с .mesh-gradient-bg; внутри одного stacking-
  * контекста DOM-order решает paint-order, fluid идёт после mesh →
  * fluid поверх mesh, оба под UI (см. isolation guard ниже). */
 .fluid-background {
   z-index: 0;
-  mix-blend-mode: lighten;
-}
-/* 1.43.1: на светлой теме multiply темнит белый фон, и при той же
- * плотности dye-текстуры хвост за курсором выглядел жирным/грязным.
- * Дополнительно к light-overrides в FluidBackground.tsx (меньше радиус,
- * быстрее dissipation, тише цвет) уводим всю канвас-плёнку под
- * opacity:0.55 — это финальный ограничитель насыщенности на белом. */
-[data-theme="light"] .fluid-background {
-  mix-blend-mode: multiply;
-  opacity: 0.55;
+  mix-blend-mode: normal;
+  opacity: 0.7;
 }
 
 /* 1.40.0: stacking guard — у любого <main> > section / nav /
@@ -1098,25 +1095,29 @@ main > .glass-divider,
   /* Anchor at the right edge of the number, vertically centered. */
   right: 0;
   top: 50%;
-  width: 44px;
-  height: 44px;
-  margin-right: -22px;
-  margin-top: -22px;
+  width: 40px;
+  height: 40px;
+  margin-right: -20px;
+  margin-top: -20px;
   pointer-events: none;
   will-change: transform, opacity, filter;
   --x: 24px;
   --y: -16px;
   --scale: 1;
-  animation: proof-heart-fly 2000ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
-  filter: drop-shadow(0 0 14px rgba(var(--accent-r), var(--accent-g), var(--accent-b), 0.5));
+  --rot: 0deg;
+  /* 1.49.0: longer 2400ms easing + late opacity peak + per-particle
+     random rotation makes a "swarm" of hearts (4..7+) feel organic
+     instead of one jerky icon. */
+  animation: proof-heart-fly 2400ms cubic-bezier(0.17, 0.67, 0.3, 0.99) forwards;
+  filter: drop-shadow(0 0 12px rgba(var(--accent-r), var(--accent-g), var(--accent-b), 0.45));
 }
 
 @media (min-width: 768px) {
   .proof-burst-particle {
-    width: 56px;
-    height: 56px;
-    margin-right: -28px;
-    margin-top: -28px;
+    width: 52px;
+    height: 52px;
+    margin-right: -26px;
+    margin-top: -26px;
   }
 }
 
@@ -1131,23 +1132,28 @@ main > .glass-divider,
 @keyframes proof-heart-fly {
   0% {
     opacity: 0;
-    transform: translate(0, 0) scale(calc(var(--scale) * 0.45));
-    filter: blur(4px) drop-shadow(0 0 14px rgba(var(--accent-r), var(--accent-g), var(--accent-b), 0.5));
+    transform: translate(0, 0) scale(calc(var(--scale) * 0.35)) rotate(0deg);
+    filter: blur(5px) drop-shadow(0 0 12px rgba(var(--accent-r), var(--accent-g), var(--accent-b), 0.45));
   }
-  18% {
+  14% {
+    opacity: 0.9;
+    transform: translate(calc(var(--x) * 0.18), calc(var(--y) * 0.18)) scale(calc(var(--scale) * 0.85)) rotate(calc(var(--rot) * 0.3));
+    filter: blur(0.5px) drop-shadow(0 0 16px rgba(var(--accent-r), var(--accent-g), var(--accent-b), 0.55));
+  }
+  35% {
     opacity: 1;
-    transform: translate(calc(var(--x) * 0.25), calc(var(--y) * 0.25)) scale(var(--scale));
-    filter: blur(0) drop-shadow(0 0 18px rgba(var(--accent-r), var(--accent-g), var(--accent-b), 0.55));
+    transform: translate(calc(var(--x) * 0.6), calc(var(--y) * 1.4)) scale(var(--scale)) rotate(calc(var(--rot) * 0.7));
+    filter: blur(0) drop-shadow(0 0 18px rgba(var(--accent-r), var(--accent-g), var(--accent-b), 0.5));
   }
   70% {
-    opacity: 0.9;
-    transform: translate(calc(var(--x) * 1.4), calc(var(--y) * 3.2)) scale(calc(var(--scale) * 1.08));
-    filter: blur(0) drop-shadow(0 0 14px rgba(var(--accent-r), var(--accent-g), var(--accent-b), 0.45));
+    opacity: 0.7;
+    transform: translate(calc(var(--x) * 1.4), calc(var(--y) * 3.2)) scale(calc(var(--scale) * 1.05)) rotate(var(--rot));
+    filter: blur(0.5px) drop-shadow(0 0 14px rgba(var(--accent-r), var(--accent-g), var(--accent-b), 0.4));
   }
   100% {
     opacity: 0;
-    transform: translate(calc(var(--x) * 1.9), calc(var(--y) * 5.5)) scale(calc(var(--scale) * 0.85));
-    filter: blur(2px) drop-shadow(0 0 10px rgba(var(--accent-r), var(--accent-g), var(--accent-b), 0.35));
+    transform: translate(calc(var(--x) * 1.9), calc(var(--y) * 5.4)) scale(calc(var(--scale) * 0.7)) rotate(calc(var(--rot) * 1.2));
+    filter: blur(3px) drop-shadow(0 0 8px rgba(var(--accent-r), var(--accent-g), var(--accent-b), 0.25));
   }
 }
 
@@ -1165,16 +1171,16 @@ main > .glass-divider,
   z-index: 0;
   background: radial-gradient(
     ellipse 40% 32% at 50% 50%,
-    rgba(var(--accent-r), var(--accent-g), var(--accent-b), 0.10) 0%,
+    rgba(var(--accent-r), var(--accent-g), var(--accent-b), 0.07) 0%,
     transparent 70%
   );
   opacity: 0;
-  animation: proof-counter-glow-flash 1200ms ease-out forwards;
+  animation: proof-counter-glow-flash 1400ms ease-out forwards;
 }
 
 @keyframes proof-counter-glow-flash {
-  0%   { opacity: 0;    transform: scale(0.9);  }
-  25%  { opacity: 0.55; transform: scale(1);    }
+  0%   { opacity: 0;    transform: scale(0.92); }
+  30%  { opacity: 0.4;  transform: scale(1);    }
   100% { opacity: 0;    transform: scale(1.08); }
 }
 
@@ -1270,17 +1276,20 @@ main > .glass-divider,
   z-index: 3;
 }
 
+/* 1.49.0: prev/next ушли в более фоновое состояние (opacity 0.30,
+   blur 5px, lighter saturation) — не конкурируют с центральной
+   карточкой и не «просвечивают» сквозь её фон. */
 .testimonial-slot.is-prev {
   transform: translate3d(-72%, 16px, 0) scale(0.86);
-  opacity: 0.42;
-  filter: blur(2px);
+  opacity: 0.30;
+  filter: blur(5px) saturate(0.7);
   z-index: 2;
 }
 
 .testimonial-slot.is-next {
   transform: translate3d(72%, 16px, 0) scale(0.86);
-  opacity: 0.42;
-  filter: blur(2px);
+  opacity: 0.30;
+  filter: blur(5px) saturate(0.7);
   z-index: 2;
 }
 
@@ -1306,20 +1315,40 @@ main > .glass-divider,
 @media (max-width: 1023px) {
   .testimonial-slot.is-prev {
     transform: translate3d(-90%, 12px, 0) scale(0.78);
-    opacity: 0.25;
+    opacity: 0.22;
+    filter: blur(6px) saturate(0.7);
   }
   .testimonial-slot.is-next {
     transform: translate3d(90%, 12px, 0) scale(0.78);
-    opacity: 0.25;
+    opacity: 0.22;
+    filter: blur(6px) saturate(0.7);
   }
 }
 
+/* 1.49.0: solid-tier фон карточки (~78% dark / 82% light) +
+   backdrop-blur — боковые слоты не «просвечивают» сквозь центр и
+   слайдер до/после читается ясно, при этом ощущение стекла
+   сохраняется. Класс .glass-card убран из JSX, чтобы не
+   накладывать поверх свой полупрозрачный фон. */
 .testimonial-card {
   width: 100%;
   display: flex;
   flex-direction: column;
   gap: var(--space-16);
   padding: var(--space-20);
+  background: rgba(17, 24, 32, 0.78);
+  backdrop-filter: blur(18px) saturate(140%);
+  -webkit-backdrop-filter: blur(18px) saturate(140%);
+}
+
+[data-theme="light"] .testimonial-card {
+  background: rgba(255, 255, 255, 0.82);
+}
+
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .testimonial-card {
+    background: var(--glass-fallback-surface);
+  }
 }
 
 @media (min-width: 768px) {
@@ -1346,7 +1375,10 @@ main > .glass-divider,
 .testimonial-slider-wrap {
   position: relative;
   width: 100%;
-  background: var(--glass-surface-soft);
+  /* 1.49.0: фон под before/after — solid surface-2, иначе через
+     полупрозрачный фон проступал mesh-эффект и плейсхолдеры
+     теряли читаемость. */
+  background: var(--color-surface-2);
 }
 
 /* --- Avatar --- */

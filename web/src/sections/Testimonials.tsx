@@ -1,6 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import BeforeAfterSlider from '../components/BeforeAfterSlider';
-import { PlaceholderUpload, PlaceholderUpgrade } from '../components/effects/PlaceholderArt';
+import {
+  PlaceholderUpload,
+  PlaceholderUpgrade,
+  type PlaceholderTone,
+} from '../components/effects/PlaceholderArt';
 import { CATEGORIES } from '../data/styles';
 import { FULL_LANDING_STYLES_BY_CATEGORY } from '../data/landingStyles';
 import type { Testimonial, TestimonialTier } from '../data/testimonials';
@@ -31,6 +35,12 @@ export interface TestimonialsProps {
    * scenario landing where there's no meaningful "after" image).
    */
   withSlider?: boolean;
+  /**
+   * Тематический tone для plaaceholder before/after (rose / violet /
+   * neutral) — позволяет визуально отличать «фото» в карточках на
+   * разных лендингах при единой реализации слайдера.
+   */
+  tone?: PlaceholderTone;
 }
 
 const DEFAULT_ROTATION_MS = 6500;
@@ -71,14 +81,15 @@ interface CardProps {
   isAdjacent: boolean;
   withSlider: boolean;
   reducedMotion: boolean;
+  tone?: PlaceholderTone;
 }
 
-function TestimonialCard({ item, isActive, isAdjacent, withSlider, reducedMotion }: CardProps) {
+function TestimonialCard({ item, isActive, isAdjacent, withSlider, reducedMotion, tone }: CardProps) {
   const direction = getDirectionLabel(item);
   const tier: TestimonialTier = item.tier ?? 'Обычный';
 
   return (
-    <article className={`testimonial-card ${isActive ? 'is-active' : ''} gradient-border-card glass-card rounded-[var(--radius-12)]`}>
+    <article className={`testimonial-card ${isActive ? 'is-active' : ''} gradient-border-card rounded-[var(--radius-12)]`}>
       <header className="flex items-center gap-[var(--space-12)]">
         <div className="testimonial-avatar shrink-0">
           <img
@@ -119,8 +130,8 @@ function TestimonialCard({ item, isActive, isAdjacent, withSlider, reducedMotion
             // Re-mount on item change so the sweep restarts cleanly
             // when the carousel advances.
             key={item.id}
-            before={<PlaceholderUpload className="w-full h-full opacity-60 text-[var(--color-text-secondary)]" />}
-            after={<PlaceholderUpgrade className="w-full h-full opacity-90 text-[var(--color-brand-primary)]" />}
+            before={<PlaceholderUpload tone={tone} className="w-full h-full opacity-90 text-[var(--color-text-secondary)]" />}
+            after={<PlaceholderUpgrade tone={tone} className="w-full h-full opacity-100 text-[var(--color-brand-primary)]" />}
             autoCycle={isActive && !reducedMotion}
             autoCycleMs={3000}
             autoHoldMs={3000}
@@ -158,6 +169,7 @@ export default function Testimonials({
   rotationMs = DEFAULT_ROTATION_MS,
   variant = 'default',
   withSlider = true,
+  tone,
 }: TestimonialsProps) {
   const reducedMotion = usePrefersReducedMotion();
   const [activeIndex, setActiveIndex] = useState(0);
@@ -249,6 +261,7 @@ export default function Testimonials({
                     isAdjacent={isAdjacent}
                     withSlider={withSlider}
                     reducedMotion={reducedMotion}
+                    tone={tone}
                   />
                 </div>
               );

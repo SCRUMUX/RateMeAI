@@ -86,8 +86,7 @@ export default function ResumePhotoLanding({ onStart, showAuth, onAuthClose }: L
 
         <Testimonials
           items={getTestimonialsByCategory('cv').slice(0, 4)}
-          eyebrow="Отзывы"
-          variant="compact"
+          tone="cv"
         />
 
         <HowItWorks steps={RESUME_STEPS} title="Как это работает" />

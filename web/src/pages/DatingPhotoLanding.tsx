@@ -86,8 +86,7 @@ export default function DatingPhotoLanding({ onStart, showAuth, onAuthClose }: L
 
         <Testimonials
           items={getTestimonialsByCategory('dating').slice(0, 4)}
-          eyebrow="Отзывы"
-          variant="compact"
+          tone="dating"
         />
 
         <HowItWorks steps={DATING_STEPS} title="Как это работает" />

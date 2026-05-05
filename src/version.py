@@ -4050,4 +4050,66 @@
 #              .env.example YOOKASSA_RETURN_URL, web Hero
 #              platform link and LinkPage instructions copy.
 #          Sanity: tsc --noEmit clean; ruff clean; vite build OK.
-APP_VERSION = "1.48.0"
+# 1.49.0 — Landing polish round 2 (heart swarm, solid testimonial
+#          cards, unified before/after slider, fluid-bg without lag
+#          and dark light-theme tail).
+#          (1) ProofCounter — каждый tick рождает 4..7 сердец (6..9
+#              на burst), размеры 0.55..1.7, веер шире (x: 4..72,
+#              y: -10..-44), лёгкий ±25° rotate, delay 0..520 ms,
+#              анимация 2400 ms с поздним пиком opacity и blur-in/
+#              out → пользователь видит «стайку» сердечек разного
+#              размера, плавно растворяющихся, вместо одного
+#              рывкового. Glow attenuated до 0.07/1400 ms,
+#              перестал «вспышить» при множественном burst.
+#          (2) Testimonials — карточка стала semi-solid: фон
+#              ``rgba(17,24,32,0.78)`` (dark) /
+#              ``rgba(255,255,255,0.82)`` (light) +
+#              ``backdrop-filter: blur(18px) saturate(140%)``,
+#              ``glass-card`` убран из className. Боковые слоты
+#              увели в фон (opacity 0.30, blur 5 px, saturate 0.7).
+#              Slider-wrap теперь solid (var(--color-surface-2)),
+#              before/after плейсхолдеры читаются ясно. Eyebrow
+#              «Отзывы» удалён со всех 4 лендингов.
+#          (3) Unified before/after slider — все 4 лендинга
+#              используют default-вариант (3 слота prev/center/
+#              next) с ``withSlider=true``. Documents больше не
+#              compact и не withSlider=false. Compact-вариант
+#              оставлен в коде ради back-compat, но нигде не
+#              используется.
+#          (4) Themed before/after mocks — PlaceholderUpload /
+#              PlaceholderUpgrade получили prop ``tone?: 'home' |
+#              'dating' | 'cv' | 'documents'``. Через CSS-
+#              переменную ``--tone-color`` accent-элементы
+#              (sparkles, glow, dots, frame) переключаются на
+#              тематический оттенок: rose ``#F46FA0`` (Dating),
+#              violet ``#7C9BFF`` (CV), neutral cream
+#              ``#D9CFB7`` (Documents). Home — без override
+#              (динамический accent). Testimonials прокидывает
+#              ``tone`` в TestimonialCard.
+#          (5) FluidBackground lag fix — ``[data-category]``
+#              CSS-transition урезан: ``--accent-r/g/b/--accent-
+#              sec-*`` переключаются мгновенно, transition
+#              оставлен только для ``--color-brand-primary/
+#              hover``. Раньше 0.4 s интерполяция RGB-каналов
+#              приводила к тому, что ``getComputedStyle`` в
+#              ``refreshThemeCache`` (даже rAF-обёрнутый) видел
+#              промежуточные значения → splat'ы рисовались
+#              «между цветами». MutationObserver теперь дополни-
+#              тельно вызывает ``clearDye()`` при смене
+#              ``data-category`` — мгновенно стирает FBO read +
+#              write, и старый «хвост» предыдущего цвета не
+#              тлеет 600 ms после переключения.
+#          (6) FluidBackground unified theme — убран
+#              ``mix-blend-mode: lighten/multiply``-разрыв между
+#              темами. Теперь ``mix-blend-mode: normal; opacity:
+#              0.7`` для обеих. Удалены ``LIGHT_OVERRIDES``
+#              (разные dissipations/radius/force для light),
+#              ``themeScale = 0.55`` в pickSplatColor, и двойная
+#              компиляция display-шейдера (SHADING+plain). Теперь
+#              на белой подложке след — мягкий светло-cyan tint,
+#              никаких тёмных «грязных» пятен; на тёмной —
+#              насыщенный cyan-tint как раньше. Контракт mount'а
+#              расширен (FluidBackground уже на всех 4 лендингах
+#              + AppPage).
+#          Sanity: tsc --noEmit clean; ruff clean; vite build OK.
+APP_VERSION = "1.49.0"

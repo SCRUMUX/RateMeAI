@@ -70,7 +70,7 @@ export default function Landing() {
           heading={proofContent.heading}
           subheading={proofContent.subheading}
         />
-        <Testimonials items={testimonialsItems} eyebrow="Отзывы" />
+        <Testimonials items={testimonialsItems} tone="home" />
         <HowItWorks title="Как это работает" />
         <Simulation cmsPage={cmsPage} />
         <BeforeAfterSection cmsPage={cmsPage} />

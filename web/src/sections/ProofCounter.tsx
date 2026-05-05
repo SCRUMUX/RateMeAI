@@ -25,6 +25,7 @@ interface BurstParticle {
   y: number;
   size: number;
   delay: number;
+  rotate: number;
   hue: 'primary' | 'secondary';
 }
 
@@ -113,21 +114,26 @@ export default function ProofCounter({
         setCount((current) => current + increment);
         setBurstKey((k) => k + 1);
 
+        // Always spawn a soft "swarm" of hearts (4..7 normally, 6..9
+        // on burst) so the user sees a genuine flock of varying-sized
+        // hearts dissolving smoothly, rather than a single jerky icon.
         const particleCount = burstTriggered
-          ? randomInt(2, Math.max(2, counter.maxBurstSize))
-          : 1;
+          ? randomInt(6, 9)
+          : randomInt(4, 7);
         const newOnes: BurstParticle[] = [];
         for (let i = 0; i < particleCount; i++) {
           const id = nextIdRef.current++;
           newOnes.push({
             id,
             // Hearts spawn from the right edge of the number and
-            // fan out up-and-right at variable angles for an organic
-            // "flying like" feel.
-            x: randomInt(8, 56),
-            y: randomInt(-32, -8),
-            size: randomFloat(0.85, 1.35),
-            delay: randomInt(0, 220),
+            // fan out up-and-right at variable angles. Wider arc
+            // (x: 4..72px, y: -10..-44px) + random rotation for an
+            // organic "flying like" swarm feel.
+            x: randomInt(4, 72),
+            y: randomInt(-44, -10),
+            size: randomFloat(0.55, 1.7),
+            delay: randomInt(0, 520),
+            rotate: randomInt(-25, 25),
             hue: id % 2 === 0 ? 'primary' : 'secondary',
           });
         }
@@ -176,6 +182,7 @@ export default function ProofCounter({
                       '--x': `${p.x}px`,
                       '--y': `${p.y}px`,
                       '--scale': `${p.size}`,
+                      '--rot': `${p.rotate}deg`,
                       animationDelay: `${p.delay}ms`,
                     } as React.CSSProperties
                   }

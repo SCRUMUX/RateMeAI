@@ -16,9 +16,11 @@ import type { Testimonial } from '../data/testimonials';
 import useDocumentMeta from '../lib/useDocumentMeta';
 
 /**
- * Synthetic, document-flavoured testimonials. The carousel runs in
- * `withSlider={false}` mode here because document photos don't have
- * a meaningful "after" image — we just want the social proof.
+ * Synthetic, document-flavoured testimonials. The carousel uses the
+ * same default 3-slot layout as on other landings; placeholder
+ * before/after gets the neutral ``documents`` tone (cream-white,
+ * passport-style) so the reader still sees a consistent slider with
+ * a thematically distinct visual.
  */
 const DOCUMENT_TESTIMONIALS: Testimonial[] = [
   {
@@ -153,9 +155,7 @@ export default function DocumentPhotoLanding({ onStart, showAuth, onAuthClose }:
 
         <Testimonials
           items={DOCUMENT_TESTIMONIALS}
-          eyebrow="Отзывы"
-          variant="compact"
-          withSlider={false}
+          tone="documents"
         />
 
         <HowItWorks steps={STEPS} title="Как это работает" />
