@@ -4445,4 +4445,56 @@
 #              визуальный фокус на «BEST». Под рядом — мягкая
 #              подпись «Все пакеты идут на один баланс».
 #          Sanity: tsc --noEmit clean; ruff clean; vite build OK.
-APP_VERSION = "1.50.4"
+# 1.50.5 — Тёмное тонированное стекло (как у шапки) + фоновые
+#          градиенты ушли в «свет из глубины».
+#          (1) Dark-токены glass-* переведены на тёмный пигмент
+#              rgba(10, 14, 20) — тот же что у .glass-nav. Раньше
+#              dark-карточки красились белым оверлеем 0.07 alpha
+#              и на тёмном фоне выглядели «молочно-матовыми», а
+#              шапка — «обсидиановой». Теперь визуальный язык один:
+#                --glass-surface           rgba(10,14,20, 0.55)
+#                --glass-surface-hover     rgba(10,14,20, 0.45)
+#                --glass-surface-strong    rgba(10,14,20, 0.70)
+#                --glass-surface-soft      rgba(10,14,20, 0.30)
+#                --glass-border            rgba(255,255,255, 0.10)
+#                --glass-border-hover      rgba(255,255,255, 0.18)
+#                --glass-inset-highlight   rgba(255,255,255, 0.16)
+#                --glass-shadow-card       0 18px 48px / 0.45,
+#                                          0 3px 10px / 0.30
+#              Light-тема не трогалась — там шапка и карточки
+#              уже в одном молочно-светлом языке.
+#          (2) .glass-card-highlight и .glass-card-premium перешли
+#              на ту же тёмную базу — accent ушёл в border + glow,
+#              а surface остался тёмным. На light-теме, где тёмная
+#              база смотрится грубо, accent-tint surface оставлен
+#              через [data-theme='light'] override. Glow, тени и
+#              hover-lift подкручены — карточка ощутимо «парит»
+#              над mesh-фоном.
+#          (3) Sheen ::before усилен под тёмный surface:
+#                base: linear-gradient(135°, white 0.14 → 0)
+#                premium: то же + radial accent corner
+#                    (rgba(accent, 0.16) at 100% 100%) и
+#                    yellow-tint diagonal up to 0.20
+#              mix-blend-mode: screen на dark гасится в нечто
+#              «бликующее как линза», на light — выключен,
+#              opacity снижен (mix:normal, 0.55-0.65).
+#          (4) Buttons / badges / rows / tabs тоже потемнели —
+#              они все используют те же --glass-surface-* токены.
+#              Получили единый язык «тёмное тонированное стекло»
+#              везде.
+#          (5) Фоновые градиенты — «свет из глубины», не «слой
+#              поверх объектов»:
+#              - .energy-field z-index 1 → 0. Раньше energy сидел
+#                в промежуточном слое между mesh (z-0) и UI-
+#                секциями (z-2), и выраженные blob'ы читались
+#                как «градиент поверх контента». Теперь energy в
+#                одном фоновом слое с mesh + fluid (DOM-order:
+#                mesh → fluid → energy → секции в isolated
+#                z-2). Свет проходит сквозь полупрозрачные
+#                тёмные карточки как фоновая подсветка, а не
+#                лежит сверху.
+#              - EnergyField BLOBS opacity ~×0.5 (0.04-0.07 →
+#                0.020-0.035) — blob'ы теперь работают на
+#                тонкое свечение, а не самостоятельный слой.
+#          Sanity: tsc --noEmit clean; ruff clean; vite build OK.
+APP_VERSION = "1.50.5"

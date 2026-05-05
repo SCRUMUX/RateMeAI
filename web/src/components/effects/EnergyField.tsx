@@ -4,17 +4,22 @@ import { useMousePosition } from '../../hooks/useMousePosition';
 
 type BlobType = 'accent' | 'secondary' | 'neutral';
 
+// 1.50.5: opacity blobs снижен ~×0.5. Раньше energy сидел на z-1
+// и blob'ы давали выраженные пятна между mesh и UI — пользователь
+// читал это как «градиент поверх объектов». Сейчас energy ушёл на
+// z-0 «в один уровень» с mesh+fluid, и blob'ы должны работать как
+// тонкое свечение из глубины, а не как самостоятельный слой.
 const BLOBS: { size: number; type: BlobType; opacity: number; x: string; y: string; factor: number; scrollFactor: number }[] = [
-  { size: 550, type: 'accent',    opacity: 0.07, x: '10%',  y: '5vh',   factor: 0.02,  scrollFactor: -0.08 },
-  { size: 450, type: 'secondary', opacity: 0.05, x: '75%',  y: '15vh',  factor: 0.035, scrollFactor: 0.06 },
-  { size: 380, type: 'neutral',   opacity: 0.04, x: '50%',  y: '45vh',  factor: 0.04,  scrollFactor: -0.12 },
-  { size: 500, type: 'accent',    opacity: 0.05, x: '80%',  y: '80vh',  factor: 0.025, scrollFactor: 0.10 },
-  { size: 420, type: 'secondary', opacity: 0.06, x: '15%',  y: '120vh', factor: 0.03,  scrollFactor: -0.07 },
-  { size: 480, type: 'accent',    opacity: 0.04, x: '60%',  y: '160vh', factor: 0.045, scrollFactor: 0.09 },
-  { size: 400, type: 'secondary', opacity: 0.05, x: '25%',  y: '200vh', factor: 0.02,  scrollFactor: -0.11 },
-  { size: 520, type: 'accent',    opacity: 0.04, x: '70%',  y: '250vh', factor: 0.035, scrollFactor: 0.08 },
-  { size: 360, type: 'secondary', opacity: 0.04, x: '40%',  y: '300vh', factor: 0.04,  scrollFactor: -0.06 },
-  { size: 440, type: 'neutral',   opacity: 0.05, x: '85%',  y: '340vh', factor: 0.03,  scrollFactor: 0.10 },
+  { size: 550, type: 'accent',    opacity: 0.035, x: '10%',  y: '5vh',   factor: 0.02,  scrollFactor: -0.08 },
+  { size: 450, type: 'secondary', opacity: 0.025, x: '75%',  y: '15vh',  factor: 0.035, scrollFactor: 0.06 },
+  { size: 380, type: 'neutral',   opacity: 0.020, x: '50%',  y: '45vh',  factor: 0.04,  scrollFactor: -0.12 },
+  { size: 500, type: 'accent',    opacity: 0.025, x: '80%',  y: '80vh',  factor: 0.025, scrollFactor: 0.10 },
+  { size: 420, type: 'secondary', opacity: 0.030, x: '15%',  y: '120vh', factor: 0.03,  scrollFactor: -0.07 },
+  { size: 480, type: 'accent',    opacity: 0.020, x: '60%',  y: '160vh', factor: 0.045, scrollFactor: 0.09 },
+  { size: 400, type: 'secondary', opacity: 0.025, x: '25%',  y: '200vh', factor: 0.02,  scrollFactor: -0.11 },
+  { size: 520, type: 'accent',    opacity: 0.020, x: '70%',  y: '250vh', factor: 0.035, scrollFactor: 0.08 },
+  { size: 360, type: 'secondary', opacity: 0.020, x: '40%',  y: '300vh', factor: 0.04,  scrollFactor: -0.06 },
+  { size: 440, type: 'neutral',   opacity: 0.025, x: '85%',  y: '340vh', factor: 0.03,  scrollFactor: 0.10 },
 ];
 
 const MOBILE_BLOBS = BLOBS.slice(0, 4).map(b => ({ ...b, size: Math.round(b.size * 0.6) }));

@@ -165,25 +165,31 @@
   --color-border-strong: #2E3E52;
   --color-divider: #111820;
 
-  /* 1.50.4: glass-токены подтянуты к плотности шапки (.glass-nav).
-   * До этого карточки/кнопки были почти прозрачными (0.04 / 0.02
-   * alpha) — на фоне «толстого» nav-стекла они смотрелись «куце».
-   * Поднимаем surface-плотность до уровня, где fluid-фон ещё
-   * просвечивает, но карточка ощутимо «толстая». Тень — двухслойная
-   * (мягкая + локальный contact-shadow) чтобы карточка «парила» над
-   * mesh-фоном. Inset highlight стал заметным, эмулируя бликующую
-   * грань линзы — отсюда ощущение Apple Liquid Glass. */
-  --glass-surface: rgba(255, 255, 255, 0.07);
-  --glass-surface-hover: rgba(255, 255, 255, 0.11);
-  --glass-surface-strong: rgba(255, 255, 255, 0.10);
-  --glass-surface-soft: rgba(255, 255, 255, 0.04);
-  --glass-border: rgba(255, 255, 255, 0.12);
+  /* 1.50.5: переход на «тёмное тонированное стекло» как у шапки
+   * (.glass-nav использует rgba(10,14,20,0.65)). До этого карточки
+   * красились белым оверлеем 0.07 alpha — на тёмном фоне получалась
+   * «молочная матовость», шапка же выглядела как тонированный
+   * обсидиан. Теперь все glass-* в dark теме используют тёмный
+   * пигмент 10/14/20: surface 0.55 (на 0.10 светлее nav, чтобы
+   * fluid-просвет ещё чувствовался под стеклом), strong 0.70,
+   * soft 0.30 (для ghost-кнопок). Border — тонкая белая фаска.
+   * Inset highlight 0.16 — заметная «грань линзы» сверху.
+   * Shadow-card двухслойная (drop 0 18px 48px / 0.45 + contact
+   * 0 3px 10px / 0.30) — карточка ощутимо «парит» над mesh-фоном.
+   *
+   * Light тема не трогается — там surface уже rgba(255,255,255,0.62)
+   * совпадает с молочной шапкой. */
+  --glass-surface: rgba(10, 14, 20, 0.55);
+  --glass-surface-hover: rgba(10, 14, 20, 0.45);
+  --glass-surface-strong: rgba(10, 14, 20, 0.70);
+  --glass-surface-soft: rgba(10, 14, 20, 0.30);
+  --glass-border: rgba(255, 255, 255, 0.10);
   --glass-border-hover: rgba(255, 255, 255, 0.18);
-  --glass-border-soft: rgba(255, 255, 255, 0.08);
-  --glass-inset-highlight: rgba(255, 255, 255, 0.14);
-  --glass-inset-highlight-soft: rgba(255, 255, 255, 0.08);
-  --glass-shadow-soft: 0 6px 20px rgba(0, 0, 0, 0.28);
-  --glass-shadow-card: 0 16px 48px rgba(0, 0, 0, 0.40), 0 2px 8px rgba(0, 0, 0, 0.20);
+  --glass-border-soft: rgba(255, 255, 255, 0.06);
+  --glass-inset-highlight: rgba(255, 255, 255, 0.16);
+  --glass-inset-highlight-soft: rgba(255, 255, 255, 0.10);
+  --glass-shadow-soft: 0 6px 20px rgba(0, 0, 0, 0.40);
+  --glass-shadow-card: 0 18px 48px rgba(0, 0, 0, 0.45), 0 3px 10px rgba(0, 0, 0, 0.30);
   --glass-shadow-nav: 0 4px 24px rgba(0, 0, 0, 0.30);
   --glass-nav-surface: rgba(10, 14, 20, 0.65);
   --glass-footer-surface: rgba(10, 14, 20, 0.50);
@@ -549,11 +555,19 @@ main > .glass-divider,
  * any more. ``clip`` is preferred over ``hidden`` because it
  * doesn't establish a new scroll container; on browsers that don't
  * support ``clip`` we fall back to ``hidden`` (still solves the
- * post-footer scroll regression). */
+ * post-footer scroll regression).
+ *
+ * 1.50.5: было z-index: 1 — это создавало промежуточный слой
+ * между mesh (z-0) и секциями (z-2). На тёмных картах blob'ы
+ * визуально казались «поверх объектов». Теперь energy сидит на
+ * z-0 в одном «фоновом» слое с mesh + fluid (DOM-order: mesh →
+ * fluid → energy → секции). UI остаётся ровно сверху, а blob'ы
+ * перешли в категорию «свет из глубины» и пробиваются сквозь
+ * полупрозрачные тёмные карточки уже как фоновая подсветка. */
 .energy-field {
   position: absolute;
   inset: 0;
-  z-index: 1;
+  z-index: 0;
   overflow: hidden;
   overflow: clip;
   pointer-events: none;
@@ -823,30 +837,45 @@ main > .glass-divider,
     inset 0 1.5px 0 var(--glass-inset-highlight);
 }
 
-/* Card with accent highlight (for featured/selected items) — accent
- * tint stays theme-agnostic, drop shadow follows the theme. */
+/* Card with accent highlight (for featured/selected items).
+ *
+ * 1.50.5: переехали на тёмный base surface (как .glass-card)
+ * + accent ушёл в border + outer glow. Раньше surface имел
+ * accent-tint (0.06 alpha) — он еле виден на тёмном фоне и
+ * не давал ощущения «выделено». Теперь карточка ощутимо тёмная,
+ * как в шапке, а accent живёт по контуру. На light теме accent
+ * tint сохраняем (там тёмная база смотрится грубо). */
 .glass-card-highlight {
   position: relative;
   isolation: isolate;
-  background: rgba(var(--accent-r), var(--accent-g), var(--accent-b), 0.06);
-  border: 1px solid rgba(var(--accent-r), var(--accent-g), var(--accent-b), 0.22);
+  background: var(--glass-surface);
+  border: 1px solid rgba(var(--accent-r), var(--accent-g), var(--accent-b), 0.34);
   backdrop-filter: blur(var(--blur-glass-heavy)) saturate(1.3);
   -webkit-backdrop-filter: blur(var(--blur-glass-heavy)) saturate(1.3);
   box-shadow:
-    0 0 36px rgba(var(--accent-r), var(--accent-g), var(--accent-b), 0.10),
+    0 0 40px rgba(var(--accent-r), var(--accent-g), var(--accent-b), 0.18),
     var(--glass-shadow-card),
     inset 0 1.5px 0 var(--glass-inset-highlight);
   transition: background 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease, transform 0.25s cubic-bezier(0.16, 0.84, 0.44, 1);
 }
 
+[data-theme='light'] .glass-card-highlight {
+  background: rgba(var(--accent-r), var(--accent-g), var(--accent-b), 0.06);
+  border: 1px solid rgba(var(--accent-r), var(--accent-g), var(--accent-b), 0.22);
+}
+
 .glass-card-highlight:hover {
-  background: rgba(var(--accent-r), var(--accent-g), var(--accent-b), 0.09);
-  border-color: rgba(var(--accent-r), var(--accent-g), var(--accent-b), 0.30);
+  border-color: rgba(var(--accent-r), var(--accent-g), var(--accent-b), 0.45);
   transform: translateY(-2px);
   box-shadow:
-    0 0 48px rgba(var(--accent-r), var(--accent-g), var(--accent-b), 0.16),
+    0 0 56px rgba(var(--accent-r), var(--accent-g), var(--accent-b), 0.26),
     var(--glass-shadow-card),
     inset 0 1.5px 0 var(--glass-inset-highlight);
+}
+
+[data-theme='light'] .glass-card-highlight:hover {
+  background: rgba(var(--accent-r), var(--accent-g), var(--accent-b), 0.09);
+  border-color: rgba(var(--accent-r), var(--accent-g), var(--accent-b), 0.30);
 }
 
 /* ==========================================================
@@ -879,12 +908,12 @@ main > .glass-divider,
   border-radius: inherit;
   background: linear-gradient(
     135deg,
-    rgba(255, 255, 255, 0.10) 0%,
-    rgba(255, 255, 255, 0.03) 32%,
+    rgba(255, 255, 255, 0.14) 0%,
+    rgba(255, 255, 255, 0.04) 32%,
     transparent 60%
   );
   mix-blend-mode: screen;
-  opacity: 0.9;
+  opacity: 1;
   pointer-events: none;
   transition: opacity 0.25s ease;
 }
@@ -928,20 +957,25 @@ main > .glass-divider,
 .glass-card-premium {
   position: relative;
   isolation: isolate;
-  background: rgba(var(--accent-r), var(--accent-g), var(--accent-b), 0.07);
-  border: 1px solid rgba(var(--accent-r), var(--accent-g), var(--accent-b), 0.24);
+  background: var(--glass-surface);
+  border: 1px solid rgba(var(--accent-r), var(--accent-g), var(--accent-b), 0.38);
   backdrop-filter: blur(var(--blur-glass-heavy)) saturate(1.35);
   -webkit-backdrop-filter: blur(var(--blur-glass-heavy)) saturate(1.35);
   box-shadow:
-    0 0 48px rgba(var(--accent-r), var(--accent-g), var(--accent-b), 0.12),
+    0 0 56px rgba(var(--accent-r), var(--accent-g), var(--accent-b), 0.22),
     var(--glass-shadow-card),
-    inset 0 -1px 30px rgba(var(--accent-r), var(--accent-g), var(--accent-b), 0.04),
+    inset 0 -1px 36px rgba(var(--accent-r), var(--accent-g), var(--accent-b), 0.06),
     inset 0 1.5px 0 var(--glass-inset-highlight);
   transition:
     background 0.25s ease,
     border-color 0.25s ease,
     box-shadow 0.25s ease,
     transform 0.25s cubic-bezier(0.16, 0.84, 0.44, 1);
+}
+
+[data-theme='light'] .glass-card-premium {
+  background: rgba(var(--accent-r), var(--accent-g), var(--accent-b), 0.07);
+  border: 1px solid rgba(var(--accent-r), var(--accent-g), var(--accent-b), 0.24);
 }
 
 .glass-card-premium::before {
@@ -952,17 +986,17 @@ main > .glass-divider,
   background:
     linear-gradient(
       135deg,
-      rgba(255, 255, 255, 0.14) 0%,
-      rgba(255, 255, 255, 0.04) 28%,
+      rgba(255, 255, 255, 0.20) 0%,
+      rgba(255, 255, 255, 0.05) 28%,
       transparent 55%
     ),
     radial-gradient(
       ellipse 60% 80% at 100% 100%,
-      rgba(var(--accent-r), var(--accent-g), var(--accent-b), 0.10) 0%,
+      rgba(var(--accent-r), var(--accent-g), var(--accent-b), 0.16) 0%,
       transparent 60%
     );
   mix-blend-mode: screen;
-  opacity: 0.95;
+  opacity: 1;
   pointer-events: none;
   transition: opacity 0.25s ease;
 }
@@ -985,14 +1019,18 @@ main > .glass-divider,
 }
 
 .glass-card-premium:hover {
-  background: rgba(var(--accent-r), var(--accent-g), var(--accent-b), 0.10);
-  border-color: rgba(var(--accent-r), var(--accent-g), var(--accent-b), 0.32);
+  border-color: rgba(var(--accent-r), var(--accent-g), var(--accent-b), 0.50);
   transform: translateY(-3px);
   box-shadow:
-    0 0 64px rgba(var(--accent-r), var(--accent-g), var(--accent-b), 0.20),
+    0 0 80px rgba(var(--accent-r), var(--accent-g), var(--accent-b), 0.30),
     var(--glass-shadow-card),
-    inset 0 -1px 36px rgba(var(--accent-r), var(--accent-g), var(--accent-b), 0.06),
+    inset 0 -1px 44px rgba(var(--accent-r), var(--accent-g), var(--accent-b), 0.08),
     inset 0 1.5px 0 var(--glass-inset-highlight);
+}
+
+[data-theme='light'] .glass-card-premium:hover {
+  background: rgba(var(--accent-r), var(--accent-g), var(--accent-b), 0.10);
+  border-color: rgba(var(--accent-r), var(--accent-g), var(--accent-b), 0.32);
 }
 
 .glass-card-premium:hover::before {
