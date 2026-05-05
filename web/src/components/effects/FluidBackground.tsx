@@ -1,19 +1,10 @@
 /**
- * FluidBackground (1.49.0).
+ * FluidBackground (1.49.1).
  *
  * Interactive WebGL fluid layer для лендингов. Тонкий «след» от
  * курсора, быстро тает, мягкий velocity, цвета — наши primary через
  * --accent-r/g/b (category-aware). На idle — мягкие ambient splat'ы
  * раз в ~4с.
- *
- * 1.49.0:
- *  - Единый рендер на dark/light: ``mix-blend-mode: normal``,
- *    ``opacity: 0.7`` (см. .fluid-background в index.css). Убраны
- *    light-overrides конфигов, themeScale в pickSplatColor, двойная
- *    компиляция display-шейдера (SHADING/plain). Теперь нет «тёмных
- *    цветов» в светлой теме.
- *  - Мгновенная очистка dye-текстуры при смене ``data-category``,
- *    чтобы старый «хвост» не тащил предыдущий цвет.
  *
  * Порт Stam-style stable fluids на основе кода
  * Pavel DoGreat (https://github.com/PavelDoGreat/WebGL-Fluid-Simulation,
@@ -21,6 +12,13 @@
  * спекой), без random-цветов (наши primary), без auto-splat
  * (interactive_only), с reduced-motion guard, FPS-fallback и
  * battery-saver.
+ *
+ * 1.49.1: revert к визуалу 1.48 — lighten (dark) / normal+opacity
+ * 0.55 (light) blend-режим, SHADING/plain двойная компиляция
+ * display-шейдера, LIGHT_OVERRIDES для dissipation/radius/force
+ * на светлой теме, themeScale в pickSplatColor. Сохраняем lag-fix
+ * (CSS-transition --accent-r/g/b отключён в index.css). clearDye
+ * по смене data-category убран — пользователь предпочёл откат.
  */
 import { useEffect, useRef } from 'react';
 
@@ -312,9 +310,9 @@ void main () {
   gl_FragColor = vec4(c, a);
 }`;
 
-// 1.49.0: единый baseline для обеих тем. Убраны LIGHT_OVERRIDES —
-// при mix-blend-mode: normal multiply-overhead на белом фоне больше
-// не нужен (тёмных хвостов нет).
+// 1.49.1: revert к 1.48. SHADING true — двойная компиляция
+// display-шейдера ниже, dark получает SHADING (красивые diffuse-
+// кромки), light — plain.
 const DEFAULT_CONFIG: FluidConfig = {
   SIM_RESOLUTION: 96,
   DYE_RESOLUTION: 768,
@@ -325,8 +323,20 @@ const DEFAULT_CONFIG: FluidConfig = {
   CURL: 6,
   SPLAT_RADIUS: 0.18,
   SPLAT_FORCE: 1500,
-  SHADING: false,
+  SHADING: true,
 };
+
+// 1.49.1: На светлой теме canvas рисуется через
+// ``mix-blend-mode: normal; opacity: 0.55`` (см. .fluid-background
+// в index.css). Чтобы след не выглядел жирным, локально
+// форсируем более тонкий радиус, ускоренный dissipation и более
+// слабый force — так на белом получается аккуратный лёгкий мазок.
+const LIGHT_OVERRIDES = {
+  DENSITY_DISSIPATION: 8.5,
+  VELOCITY_DISSIPATION: 4.5,
+  SPLAT_RADIUS: 0.1,
+  SPLAT_FORCE: 1100,
+} as const;
 
 function getWebGLContext(canvas: HTMLCanvasElement): ExtCtx | null {
   const params: WebGLContextAttributes = {
@@ -477,11 +487,9 @@ function createProgram(
 const themeCache: {
   primary: RGB;
   isLight: boolean;
-  category: string;
 } = {
   primary: { r: 0, g: 0.94, b: 1.0 },
   isLight: false,
-  category: '',
 };
 
 function parseAccent(root: CSSStyleDeclaration, prefix: string, fallback: RGB): RGB {
@@ -491,15 +499,8 @@ function parseAccent(root: CSSStyleDeclaration, prefix: string, fallback: RGB): 
   return { r, g, b };
 }
 
-interface ThemeRefreshResult {
-  themeChanged: boolean;
-  categoryChanged: boolean;
-}
-
-function refreshThemeCache(): ThemeRefreshResult {
-  if (typeof document === 'undefined') {
-    return { themeChanged: false, categoryChanged: false };
-  }
+function refreshThemeCache(): boolean {
+  if (typeof document === 'undefined') return false;
   // Active accent живёт на элементе с data-category (root <div> в Landing/AppPage).
   // Если он есть — берём computed style оттуда, иначе fallback на <html>.
   const sourceEl =
@@ -508,37 +509,32 @@ function refreshThemeCache(): ThemeRefreshResult {
   const root = getComputedStyle(sourceEl);
   const primary = parseAccent(root, '--accent', { r: 0, g: 0.94, b: 1.0 });
   const isLight = document.documentElement.dataset.theme === 'light';
-  const category = (sourceEl as HTMLElement).dataset?.category ?? '';
   const themeChanged = isLight !== themeCache.isLight;
-  const categoryChanged = category !== themeCache.category;
   themeCache.primary = primary;
   themeCache.isLight = isLight;
-  themeCache.category = category;
-  return { themeChanged, categoryChanged };
+  return themeChanged;
 }
 
 /**
- * 1.49.0: Single-hue splat color. Каждый splat = primary категории
- * с ±12% jitter по каналам (даёт мягкий разброс яркости в пределах
- * того же оттенка, без ухода в дополняющий цвет).
- *
- * Поведение единое для dark/light: ``speedScale = min(1,
- * speed*12)`` — мягкое приглушение цвета на медленных движениях.
- * Так как canvas рисуется через ``mix-blend-mode: normal;
- * opacity: 0.7`` (см. .fluid-background в index.css), на белой
- * подложке полупрозрачный full-saturation cyan = светло-cyan tint,
- * никаких тёмных пятен.
+ * 1.49.1: revert к 1.48. Single-hue splat color: primary категории
+ * с ±12% jitter по каналам.
+ *  - dark: speedScale = min(1, speed*12) — приглушённый цвет на
+ *    медленных движениях, на тёмной подложке выглядит как soft fade.
+ *  - light: speedScale = 1 (без приглушения), themeScale = 0.55
+ *    урезает общую интенсивность — на белом полупрозрачный мазок
+ *    читается как лёгкий tint, не как густое пятно.
  */
 function pickSplatColor(speed: number): RGB {
   const a = themeCache.primary;
   const jR = 0.88 + Math.random() * 0.24;
   const jG = 0.88 + Math.random() * 0.24;
   const jB = 0.88 + Math.random() * 0.24;
-  const speedScale = Math.min(1, speed * 12);
+  const speedScale = themeCache.isLight ? 1 : Math.min(1, speed * 12);
+  const themeScale = themeCache.isLight ? 0.55 : 1;
   return {
-    r: a.r * jR * speedScale,
-    g: a.g * jG * speedScale,
-    b: a.b * jB * speedScale,
+    r: a.r * jR * speedScale * themeScale,
+    g: a.g * jG * speedScale * themeScale,
+    b: a.b * jB * speedScale * themeScale,
   };
 }
 
@@ -610,16 +606,19 @@ export default function FluidBackground() {
     const fragVorticity = compileShader(gl, gl.FRAGMENT_SHADER, VORTICITY_SHADER);
     const fragPressure = compileShader(gl, gl.FRAGMENT_SHADER, PRESSURE_SHADER);
     const fragGradSub = compileShader(gl, gl.FRAGMENT_SHADER, GRADIENT_SUBTRACT_SHADER);
-    // 1.49.0: один display-шейдер без SHADING для обеих тем. Раньше
-    // компилировались два варианта (SHADING для dark, plain для
-    // light), но diffuse-кромки на белом давали тёмные «оттенки»,
-    // которые пользователь воспринимал как «другой эффект».
-    const fragDisplay = compileShader(gl, gl.FRAGMENT_SHADER, DISPLAY_SHADER_SOURCE, []);
+    // 1.49.1: revert — компилируем оба варианта display-шейдера
+    // сразу. SHADING-версия даёт fake-3D diffuse-кромки (красивые
+    // на dark), plain — без них (на light кромки выглядят как
+    // «грязный» серый налёт). Перекомпиляция при каждом theme-
+    // switch вызывала бы ~5-10 ms freeze; при init же оба варианта
+    // почти бесплатны (~1 ms).
+    const fragDisplayShaded = compileShader(gl, gl.FRAGMENT_SHADER, DISPLAY_SHADER_SOURCE, ['SHADING']);
+    const fragDisplayPlain = compileShader(gl, gl.FRAGMENT_SHADER, DISPLAY_SHADER_SOURCE, []);
 
     if (
       !fragCopy || !fragClear || !fragSplat || !fragAdvection || !fragDivergence ||
       !fragCurl || !fragVorticity || !fragPressure || !fragGradSub ||
-      !fragDisplay
+      !fragDisplayShaded || !fragDisplayPlain
     ) return;
 
     const copyProg = createProgram(gl, vertShader, fragCopy);
@@ -631,12 +630,13 @@ export default function FluidBackground() {
     const vorticityProg = createProgram(gl, vertShader, fragVorticity);
     const pressureProg = createProgram(gl, vertShader, fragPressure);
     const gradSubProg = createProgram(gl, vertShader, fragGradSub);
-    const displayProg = createProgram(gl, vertShader, fragDisplay);
+    const displayProgShaded = createProgram(gl, vertShader, fragDisplayShaded);
+    const displayProgPlain = createProgram(gl, vertShader, fragDisplayPlain);
 
     if (
       !copyProg || !clearProg || !splatProg || !advectionProg || !divergenceProg ||
       !curlProg || !vorticityProg || !pressureProg || !gradSubProg ||
-      !displayProg
+      !displayProgShaded || !displayProgPlain
     ) return;
 
     function createFBO(w: number, h: number, internalFormat: number, format: number, type: number, param: number): FBO {
@@ -736,7 +736,9 @@ export default function FluidBackground() {
     initFBOs();
 
     function splat(x: number, y: number, dx: number, dy: number, color: RGB) {
-      const radius = config.SPLAT_RADIUS;
+      const radius = themeCache.isLight
+        ? LIGHT_OVERRIDES.SPLAT_RADIUS
+        : config.SPLAT_RADIUS;
       gl.useProgram(splatProg!.program);
       gl.uniform1i(splatProg!.uniforms['uTarget'], velocity.read.attach(0));
       gl.uniform1f(splatProg!.uniforms['aspectRatio'], canvas!.width / canvas!.height);
@@ -760,12 +762,11 @@ export default function FluidBackground() {
     }
 
     function splatPointer(p: PointerState, speed: number) {
-      const force = config.SPLAT_FORCE;
+      const force = themeCache.isLight
+        ? LIGHT_OVERRIDES.SPLAT_FORCE
+        : config.SPLAT_FORCE;
       const dx = p.deltaX * force;
       const dy = p.deltaY * force;
-      // 1.49.0: цвет рассчитывается на момент splat'а с учётом speed —
-      // бледнее на медленных движениях. Единая формула для обеих тем
-      // (см. pickSplatColor).
       const color = pickSplatColor(speed);
       splat(p.texcoordX, p.texcoordY, dx, dy, color);
     }
@@ -932,7 +933,10 @@ export default function FluidBackground() {
       gl.uniform1i(advectionProg!.uniforms['uVelocity'], velId);
       gl.uniform1i(advectionProg!.uniforms['uSource'], velId);
       gl.uniform1f(advectionProg!.uniforms['dt'], dt);
-      gl.uniform1f(advectionProg!.uniforms['dissipation'], config.VELOCITY_DISSIPATION);
+      const velDiss = themeCache.isLight
+        ? LIGHT_OVERRIDES.VELOCITY_DISSIPATION
+        : config.VELOCITY_DISSIPATION;
+      gl.uniform1f(advectionProg!.uniforms['dissipation'], velDiss);
       blit(velocity.write);
       velocity.swap();
 
@@ -943,7 +947,10 @@ export default function FluidBackground() {
       }
       gl.uniform1i(advectionProg!.uniforms['uVelocity'], velocity.read.attach(0));
       gl.uniform1i(advectionProg!.uniforms['uSource'], dye.read.attach(1));
-      gl.uniform1f(advectionProg!.uniforms['dissipation'], config.DENSITY_DISSIPATION);
+      const dyeDiss = themeCache.isLight
+        ? LIGHT_OVERRIDES.DENSITY_DISSIPATION
+        : config.DENSITY_DISSIPATION;
+      gl.uniform1f(advectionProg!.uniforms['dissipation'], dyeDiss);
       blit(dye.write);
       dye.swap();
     }
@@ -951,28 +958,13 @@ export default function FluidBackground() {
     function render() {
       gl.enable(gl.BLEND);
       gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
-      gl.useProgram(displayProg!.program);
-      gl.uniform2f(displayProg!.uniforms['texelSize'], 1.0 / gl.drawingBufferWidth, 1.0 / gl.drawingBufferHeight);
-      gl.uniform1i(displayProg!.uniforms['uTexture'], dye.read.attach(0));
+      // 1.49.1: revert — на light выбираем plain (без SHADING),
+      // diffuse-кромки на белом давали «грязный» серый налёт.
+      const prog = themeCache.isLight ? displayProgPlain! : displayProgShaded!;
+      gl.useProgram(prog.program);
+      gl.uniform2f(prog.uniforms['texelSize'], 1.0 / gl.drawingBufferWidth, 1.0 / gl.drawingBufferHeight);
+      gl.uniform1i(prog.uniforms['uTexture'], dye.read.attach(0));
       blit(null);
-    }
-
-    /**
-     * 1.49.0: Полная очистка dye-текстуры (read + write FBO).
-     * Вызывается из observer'а при смене ``data-category`` —
-     * мгновенно убирает «хвост» предыдущего цвета. Без этого хвост
-     * продолжал тлеть ~600ms после смены категории, и пользователь
-     * видел старый оттенок одновременно с новым.
-     */
-    function clearDye() {
-      gl.bindFramebuffer(gl.FRAMEBUFFER, dye.read.fbo);
-      gl.viewport(0, 0, dye.width, dye.height);
-      gl.clearColor(0, 0, 0, 0);
-      gl.clear(gl.COLOR_BUFFER_BIT);
-      gl.bindFramebuffer(gl.FRAMEBUFFER, dye.write.fbo);
-      gl.viewport(0, 0, dye.width, dye.height);
-      gl.clear(gl.COLOR_BUFFER_BIT);
-      gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     }
 
     let lastTime = performance.now();
@@ -1043,17 +1035,14 @@ export default function FluidBackground() {
     }
     raf = requestAnimationFrame(frame);
 
-    // 1.49.0: refreshThemeCache в rAF + мгновенный clear dye при
-    // смене data-category. Без rAF-обёртки getComputedStyle после
-    // mutation возвращает старые CSS-переменные (style commit ещё
-    // не произошёл). При смене категории очищаем dye-текстуру
-    // полностью — иначе старый «хвост» в предыдущем цвете тлеет
-    // ~600ms и пользователь видит «запоздание на один шаг».
+    // 1.49.1: revert. refreshThemeCache в rAF — гарантирует, что
+    // browser style invalidation (CSS-переменные пересчитаны) уже
+    // произошла к моменту getComputedStyle. CSS-transition на
+    // --accent-r/g/b отключён в index.css — поэтому первая же
+    // выборка после mutation возвращает финальный цвет, без
+    // запаздывания на один шаг.
     const themeObserver = new MutationObserver(() => {
-      requestAnimationFrame(() => {
-        const { categoryChanged } = refreshThemeCache();
-        if (categoryChanged) clearDye();
-      });
+      requestAnimationFrame(refreshThemeCache);
     });
     themeObserver.observe(document.documentElement, {
       attributes: true,

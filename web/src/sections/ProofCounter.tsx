@@ -103,8 +103,17 @@ export default function ProofCounter({
     let cancelled = false;
     let timeoutId: number | undefined;
 
+    // 1.49.1: floor для частоты тиков. Даже если пресет в CMS
+    // вернёт большие значения, ProofCounter не должен «затихать» —
+    // густой поток лайков (TikTok-fountain) требует дельты 800..
+    // 2400ms. Делаем кэп локально, чтобы не зависеть от пресетов.
+    const FLOOR_MIN_MS = 800;
+    const FLOOR_MAX_MS = 2400;
+    const minDelay = Math.min(FLOOR_MIN_MS, counter.minDelayMs);
+    const maxDelay = Math.min(FLOOR_MAX_MS, Math.max(minDelay, counter.maxDelayMs));
+
     const scheduleTick = () => {
-      const delay = randomInt(counter.minDelayMs, counter.maxDelayMs);
+      const delay = randomInt(minDelay, maxDelay);
       timeoutId = window.setTimeout(() => {
         if (cancelled) return;
         const burstTriggered = Math.random() < counter.burstChance;
@@ -114,12 +123,13 @@ export default function ProofCounter({
         setCount((current) => current + increment);
         setBurstKey((k) => k + 1);
 
-        // Always spawn a soft "swarm" of hearts (4..7 normally, 6..9
-        // on burst) so the user sees a genuine flock of varying-sized
-        // hearts dissolving smoothly, rather than a single jerky icon.
+        // 2..3 hearts on a normal tick, 3..5 on burst — combined
+        // with the 800..2400ms tick rate this gives ~1 heart per
+        // 600ms on average, a continuous TikTok-style stream
+        // instead of redko-jerky bursts.
         const particleCount = burstTriggered
-          ? randomInt(6, 9)
-          : randomInt(4, 7);
+          ? randomInt(3, 5)
+          : randomInt(2, 3);
         const newOnes: BurstParticle[] = [];
         for (let i = 0; i < particleCount; i++) {
           const id = nextIdRef.current++;
@@ -132,7 +142,7 @@ export default function ProofCounter({
             x: randomInt(4, 72),
             y: randomInt(-44, -10),
             size: randomFloat(0.55, 1.7),
-            delay: randomInt(0, 520),
+            delay: randomInt(0, 380),
             rotate: randomInt(-25, 25),
             hue: id % 2 === 0 ? 'primary' : 'secondary',
           });

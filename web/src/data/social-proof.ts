@@ -26,14 +26,19 @@ export interface SocialProofPreset {
   feed: SocialProofFeedItem[];
 }
 
+// 1.49.1: ProofCounter теперь рисует плотный, непрерывный поток
+// сердец-лайков (TikTok-стиль). Раньше maxDelayMs=30..52s давал
+// «один большой залп раз в полминуты», что воспринималось как
+// «рывками». Сжимаем интервал до 800..2000ms по всем категориям —
+// поток сам по себе плотный, burst остаётся как редкий акцент.
 const HOME_COPY: Record<CategoryId, Omit<SocialProofPreset, 'id' | 'feed'>> = {
   social: {
     title: 'Люди уже улучшили свои фото для соцсетей',
     baseCount: 2734,
     counter: {
-      minDelayMs: 8000,
-      maxDelayMs: 36000,
-      burstChance: 0.16,
+      minDelayMs: 800,
+      maxDelayMs: 2000,
+      burstChance: 0.18,
       maxBurstSize: 3,
     },
     tickerIntervalMs: 4200,
@@ -42,10 +47,10 @@ const HOME_COPY: Record<CategoryId, Omit<SocialProofPreset, 'id' | 'feed'>> = {
     title: 'Люди уже улучшили свои фото для карьеры',
     baseCount: 2481,
     counter: {
-      minDelayMs: 10000,
-      maxDelayMs: 42000,
-      burstChance: 0.14,
-      maxBurstSize: 2,
+      minDelayMs: 900,
+      maxDelayMs: 2200,
+      burstChance: 0.16,
+      maxBurstSize: 3,
     },
     tickerIntervalMs: 4300,
   },
@@ -53,9 +58,9 @@ const HOME_COPY: Record<CategoryId, Omit<SocialProofPreset, 'id' | 'feed'>> = {
     title: 'Люди уже улучшили свои фото для знакомств',
     baseCount: 2916,
     counter: {
-      minDelayMs: 7000,
-      maxDelayMs: 30000,
-      burstChance: 0.2,
+      minDelayMs: 800,
+      maxDelayMs: 1800,
+      burstChance: 0.22,
       maxBurstSize: 3,
     },
     tickerIntervalMs: 3900,
@@ -64,10 +69,10 @@ const HOME_COPY: Record<CategoryId, Omit<SocialProofPreset, 'id' | 'feed'>> = {
     title: 'Люди уже следят за новыми фотосет-сценариями',
     baseCount: 1864,
     counter: {
-      minDelayMs: 14000,
-      maxDelayMs: 52000,
-      burstChance: 0.12,
-      maxBurstSize: 2,
+      minDelayMs: 1000,
+      maxDelayMs: 2400,
+      burstChance: 0.14,
+      maxBurstSize: 3,
     },
     tickerIntervalMs: 4500,
   },
@@ -75,10 +80,10 @@ const HOME_COPY: Record<CategoryId, Omit<SocialProofPreset, 'id' | 'feed'>> = {
     title: 'Люди уже готовят новые фото для личного бренда',
     baseCount: 2017,
     counter: {
-      minDelayMs: 12000,
-      maxDelayMs: 46000,
+      minDelayMs: 900,
+      maxDelayMs: 2200,
       burstChance: 0.14,
-      maxBurstSize: 2,
+      maxBurstSize: 3,
     },
     tickerIntervalMs: 4400,
   },
@@ -86,9 +91,9 @@ const HOME_COPY: Record<CategoryId, Omit<SocialProofPreset, 'id' | 'feed'>> = {
     title: 'Люди уже ждут запуск новых мем-сценариев',
     baseCount: 1679,
     counter: {
-      minDelayMs: 9000,
-      maxDelayMs: 32000,
-      burstChance: 0.18,
+      minDelayMs: 800,
+      maxDelayMs: 1900,
+      burstChance: 0.2,
       maxBurstSize: 3,
     },
     tickerIntervalMs: 4000,
@@ -292,10 +297,10 @@ export const DOCUMENT_SOCIAL_PROOF_PRESET: SocialProofPreset = {
   title: 'Люди уже подготовили свои фото для документов',
   baseCount: 3186,
   counter: {
-    minDelayMs: 11000,
-    maxDelayMs: 42000,
-    burstChance: 0.12,
-    maxBurstSize: 2,
+    minDelayMs: 900,
+    maxDelayMs: 2200,
+    burstChance: 0.14,
+    maxBurstSize: 3,
   },
   tickerIntervalMs: 4300,
   feed: buildDocumentFeed(),

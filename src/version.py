@@ -4112,4 +4112,39 @@
 #              расширен (FluidBackground уже на всех 4 лендингах
 #              + AppPage).
 #          Sanity: tsc --noEmit clean; ruff clean; vite build OK.
-APP_VERSION = "1.49.0"
+# 1.49.1 — Hotfix follow-up to user feedback on 1.49.0:
+#          (1) BeforeAfterSlider in autoCycle mode rewritten as a
+#              one-shot opacity cross-fade (3 s fade → 3 s hold,
+#              no clip-path, no reverse, no shutter). Carousel re-
+#              mounts each card via key={item.id} so the dissolve
+#              restarts cleanly on advance — the visual now matches
+#              beforeafterly.com that was originally referenced.
+#              Interactive (drag) mode keeps the clip-path divider
+#              for ReviewModal and BeforeAfterSection.
+#          (2) Testimonials slider compressed: aspect-[4/5] →
+#              aspect-[4/3]. Track min-height bumped to 780/820 px
+#              so the active card no longer overlaps the next
+#              "Как это работает" section.
+#          (3) ProofCounter — dense TikTok-style heart stream.
+#              Tick interval 800-2400 ms (was 8000-36000 ms),
+#              2-3 hearts per tick (3-5 on burst, was 4-7/6-9).
+#              All HOME_COPY/DOCUMENT counter presets in
+#              data/social-proof.ts retuned to the same range, plus
+#              a hard floor in ProofCounter.tsx so future preset
+#              edits can't return jerky long pauses.
+#          (4) FluidBackground full revert to 1.48 visuals:
+#              ``mix-blend-mode: lighten`` (dark) /
+#              ``mix-blend-mode: normal; opacity: 0.55`` (light) —
+#              dark theme regains the bright "lighten" glow,
+#              light theme renders as a soft cyan tint without
+#              dark multiply pixels. SHADING + plain dual display
+#              shaders, LIGHT_OVERRIDES (faster dissipation,
+#              thinner radius, lower force on white) and
+#              themeScale = 0.55 in pickSplatColor restored.
+#              clearDye() on data-category change removed.
+#          (5) Lag-fix preserved: CSS-transition on --accent-r/g/b
+#              stays disabled (only --color-brand-primary/hover
+#              transitions remain) so the fluid color no longer
+#              lags one step behind on category switches.
+#          Sanity: tsc --noEmit clean; ruff clean; vite build OK.
+APP_VERSION = "1.49.1"

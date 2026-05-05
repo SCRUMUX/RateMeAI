@@ -501,21 +501,22 @@ body {
   pointer-events: none;
 }
 
-/* 1.49.0: Fluid background — единый рендер на dark/light без
- * blend-mode-хаков. Раньше использовалось ``lighten`` (dark) /
- * ``multiply`` (light), и multiply на белом превращал любой
- * не-saturated цвет в тёмное серо-teal пятно. Теперь канвас
- * рисуется как обычный полупрозрачный слой над mesh-фоном:
- *   - на тёмной подложке cyan@70% выглядит насыщенным cyan-tint;
- *   - на белой подложке cyan@70% становится мягким светло-cyan,
- *     никаких тёмных хвостов.
+/* 1.49.1: revert to 1.48 visuals. На dark — ``lighten`` (наш
+ * bright cyan/purple вытягивается поверх тёмной подложки, красивое
+ * свечение). На light — ``mix-blend-mode: normal`` + сниженный
+ * opacity, чтобы полупрозрачный цветной слой над белым давал
+ * мягкий светло-cyan tint без тёмных пятен (multiply на белом
+ * темнит любой не-saturated цвет — отказались).
  * z-index 0 совпадает с .mesh-gradient-bg; внутри одного stacking-
  * контекста DOM-order решает paint-order, fluid идёт после mesh →
  * fluid поверх mesh, оба под UI (см. isolation guard ниже). */
 .fluid-background {
   z-index: 0;
+  mix-blend-mode: lighten;
+}
+[data-theme="light"] .fluid-background {
   mix-blend-mode: normal;
-  opacity: 0.7;
+  opacity: 0.55;
 }
 
 /* 1.40.0: stacking guard — у любого <main> > section / nav /
@@ -1243,15 +1244,19 @@ main > .glass-divider,
 .testimonial-track {
   position: relative;
   width: 100%;
-  /* Provide enough room for active card + side previews. */
-  min-height: 640px;
+  /* 1.49.1: высота трека увеличена и согласована с aspect-[4/3]
+     слайдером — иначе центральная карточка вылезала на следующую
+     секцию ("Как это работает") и боковые слоты «вырывались» за
+     блок. Для default-карусели (3 слота с absolute positioning)
+     min-height обязан покрывать реальную высоту контента карточки. */
+  min-height: 780px;
   perspective: 1200px;
   isolation: isolate;
 }
 
 @media (max-width: 767px) {
   .testimonial-track {
-    min-height: 580px;
+    min-height: 820px;
   }
 }
 

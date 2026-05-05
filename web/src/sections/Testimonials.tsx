@@ -78,13 +78,12 @@ function getInitial(nickname: string): string {
 interface CardProps {
   item: Testimonial;
   isActive: boolean;
-  isAdjacent: boolean;
   withSlider: boolean;
   reducedMotion: boolean;
   tone?: PlaceholderTone;
 }
 
-function TestimonialCard({ item, isActive, isAdjacent, withSlider, reducedMotion, tone }: CardProps) {
+function TestimonialCard({ item, isActive, withSlider, reducedMotion, tone }: CardProps) {
   const direction = getDirectionLabel(item);
   const tier: TestimonialTier = item.tier ?? 'Обычный';
 
@@ -125,19 +124,18 @@ function TestimonialCard({ item, isActive, isAdjacent, withSlider, reducedMotion
       </p>
 
       {withSlider && (
-        <div className="testimonial-slider-wrap rounded-[var(--radius-12)] overflow-hidden aspect-[4/5]">
+        <div className="testimonial-slider-wrap rounded-[var(--radius-12)] overflow-hidden aspect-[4/3]">
           <BeforeAfterSlider
-            // Re-mount on item change so the sweep restarts cleanly
-            // when the carousel advances.
+            // Re-mount on item change so the cross-fade restarts
+            // cleanly when the carousel advances.
             key={item.id}
             before={<PlaceholderUpload tone={tone} className="w-full h-full opacity-90 text-[var(--color-text-secondary)]" />}
             after={<PlaceholderUpgrade tone={tone} className="w-full h-full opacity-100 text-[var(--color-brand-primary)]" />}
             autoCycle={isActive && !reducedMotion}
             autoCycleMs={3000}
             autoHoldMs={3000}
-            autoFrom={0.05}
-            autoTo={0.95}
-            initial={isAdjacent ? 0.5 : 0.05}
+            hideHandle
+            hideLabels
           />
         </div>
       )}
@@ -237,7 +235,6 @@ export default function Testimonials({
             {slots.map(({ item, offset }) => {
               const abs = Math.abs(offset);
               const isActive = offset === 0;
-              const isAdjacent = abs === 1;
               const visible = isCompact ? isActive : abs <= 1;
               const slotClass = isActive
                 ? 'is-active'
@@ -258,7 +255,6 @@ export default function Testimonials({
                   <TestimonialCard
                     item={item}
                     isActive={isActive}
-                    isAdjacent={isAdjacent}
                     withSlider={withSlider}
                     reducedMotion={reducedMotion}
                     tone={tone}
