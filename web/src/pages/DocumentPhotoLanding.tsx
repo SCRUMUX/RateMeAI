@@ -10,6 +10,7 @@ import { useApp } from '../context/AppContext';
 import { DOCUMENT_SOCIAL_PROOF_PRESET } from '../data/social-proof';
 import { DOCUMENT_LANDING_ITEMS } from '../data/landingStyles';
 import { REQUIREMENTS_SHORT, REJECT_BULLETS } from '../data/photo-requirements';
+import useDocumentMeta from '../lib/useDocumentMeta';
 
 const STEPS = [
   { num: '1', title: 'Загрузите фото', desc: 'Любое фото с чётким лицом' },
@@ -29,6 +30,13 @@ export default function DocumentPhotoLanding({ onStart, showAuth, onAuthClose }:
   const [authModalOpen, setAuthModalOpen] = useState(false);
 
   const authOpen = authModalOpen || !!showAuth;
+
+  useDocumentMeta({
+    title: 'Фото на документы AI · Look Studio',
+    description:
+      'AI-фото на паспорт, визу и любые документы за 2 минуты: ровный фон, правильный размер, нейтральная мимика — без похода в фотостудию.',
+    canonicalPath: '/dokumenty',
+  });
 
   return (
     <div data-category="cv" className="min-h-screen w-full overflow-x-hidden selection:bg-brand-primary/30">

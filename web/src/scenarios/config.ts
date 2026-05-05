@@ -53,6 +53,28 @@ const SCENARIO_LIST: ScenarioDefinition[] = [
     simplifiedAnalysis: true,
   },
   {
+    slug: 'dating-photo',
+    type: 'standalone',
+    entryMode: 'landing',
+    canonicalPath: '/znakomstva',
+    apiMode: 'dating',
+    scoresCategory: 'dating',
+    styles: { kind: 'inherit', category: 'dating' },
+    hideCategoryTabs: true,
+    simplifiedAnalysis: true,
+  },
+  {
+    slug: 'resume-photo',
+    type: 'standalone',
+    entryMode: 'landing',
+    canonicalPath: '/rezume',
+    apiMode: 'cv',
+    scoresCategory: 'cv',
+    styles: { kind: 'inherit', category: 'cv' },
+    hideCategoryTabs: true,
+    simplifiedAnalysis: true,
+  },
+  {
     slug: 'career',
     type: 'core-entry',
     entryMode: 'app',
@@ -78,6 +100,30 @@ const SCENARIO_LIST: ScenarioDefinition[] = [
 export const SCENARIOS_BY_SLUG: Record<string, ScenarioDefinition> = Object.fromEntries(
   SCENARIO_LIST.map(s => [s.slug, s]),
 );
+
+// Human-readable labels for scenarios — used by Footer/Products column,
+// SEO links, etc. Falls back to the slug if a label is missing.
+export const SCENARIO_LABELS: Record<string, string> = {
+  'document-photo': 'Фото на документы',
+  'dating-photo': 'Фото для знакомств',
+  'resume-photo': 'Фото на резюме',
+  'tinder-pack': 'Tinder Pack',
+  career: 'Карьера',
+};
+
+export function getScenarioLabel(slug: string): string {
+  return SCENARIO_LABELS[slug] ?? slug;
+}
+
+export function listScenariosForFooter(): Array<{ slug: string; label: string; href: string }> {
+  // Prefer standalone scenarios with their canonical landing URL; fall back to
+  // /app/<slug> for core-entry scenarios.
+  return SCENARIO_LIST.map((s) => ({
+    slug: s.slug,
+    label: getScenarioLabel(s.slug),
+    href: s.canonicalPath,
+  }));
+}
 
 export function getScenario(slug: string | undefined | null): ScenarioDefinition | null {
   if (!slug) return null;

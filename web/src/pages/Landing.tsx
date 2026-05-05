@@ -7,22 +7,85 @@ import Simulation from '../sections/Simulation';
 import Pricing from '../sections/Pricing';
 import SocialProof from '../sections/SocialProof';
 import Footer from '../sections/Footer';
+import BeforeAfterSection from '../sections/BeforeAfterSection';
+import ApiSection from '../sections/ApiSection';
 import AuthModal from '../components/AuthModal';
 import MeshGradientBg from '../components/effects/MeshGradientBg';
 import FluidBackground from '../components/effects/FluidBackground';
 import EnergyField from '../components/effects/EnergyField';
 import { useApp } from '../context/AppContext';
 import { getLandingSocialProofPreset } from '../data/social-proof';
+import { findBlock, useLandingHome } from '../lib/landing-cms';
+import useDocumentMeta from '../lib/useDocumentMeta';
+import type { SocialProofCounterConfig, SocialProofFeedItem, SocialProofPreset } from '../data/social-proof';
 import LogoEmblem from '../assets/LogoEmblem';
+
+function asNumber(value: unknown, fallback: number): number {
+  if (typeof value === 'number' && Number.isFinite(value)) return value;
+  if (typeof value === 'string' && value.trim() && Number.isFinite(Number(value))) return Number(value);
+  return fallback;
+}
+
+function asString(value: unknown, fallback = ''): string {
+  return typeof value === 'string' ? value : fallback;
+}
+
+function asCounter(value: unknown): SocialProofCounterConfig | null {
+  if (!value || typeof value !== 'object') return null;
+  const obj = value as Record<string, unknown>;
+  return {
+    minDelayMs: asNumber(obj.minDelayMs, 8000),
+    maxDelayMs: asNumber(obj.maxDelayMs, 36000),
+    burstChance: asNumber(obj.burstChance, 0.16),
+    maxBurstSize: asNumber(obj.maxBurstSize, 3),
+  };
+}
+
+function asFeed(value: unknown): SocialProofFeedItem[] | null {
+  if (!Array.isArray(value)) return null;
+  const out: SocialProofFeedItem[] = [];
+  for (const item of value) {
+    if (!item || typeof item !== 'object') continue;
+    const obj = item as Record<string, unknown>;
+    const id = asString(obj.id).trim();
+    const author = asString(obj.author).trim();
+    const message = asString(obj.message).trim();
+    const context = asString(obj.context).trim();
+    if (!id || !author || !message) continue;
+    out.push({ id, author, message, context });
+  }
+  return out.length ? out : null;
+}
 
 export default function Landing() {
   const app = useApp();
   const [authModalOpen, setAuthModalOpen] = useState(false);
+  const cmsPage = useLandingHome();
   const canAccessApp = app.canAccessApp;
-  const socialProofPreset = useMemo(
-    () => getLandingSocialProofPreset(app.activeCategory),
-    [app.activeCategory],
-  );
+
+  useDocumentMeta({
+    title: 'Look Studio — AI-фото для соцсетей, знакомств, документов и резюме',
+    description:
+      'AI-фотостудия Look Studio: получите безупречные снимки для Tinder, LinkedIn, паспорта и соцсетей за минуты. Обучаемая модель сохраняет ваше сходство.',
+    canonicalPath: '/',
+  });
+  const socialProofPreset: SocialProofPreset = useMemo(() => {
+    const cmsBlock = findBlock(cmsPage ?? undefined, 'social_proof');
+    const data = (cmsBlock?.data ?? {}) as Record<string, unknown>;
+    const feed = asFeed(data.feed);
+    const counter = asCounter(data.counter);
+    if (cmsBlock && feed && counter) {
+      return {
+        id: app.activeCategory,
+        title: asString(data.title, 'Впечатления пользователей'),
+        baseCount: asNumber(data.baseCount, 2500),
+        counter,
+        tickerIntervalMs: asNumber(data.tickerIntervalMs, 4200),
+        feed,
+      };
+    }
+    return getLandingSocialProofPreset(app.activeCategory);
+  }, [app.activeCategory, cmsPage]);
 
   return (
     <div data-category={app.activeCategory} className="min-h-screen w-full overflow-x-hidden selection:bg-brand-primary/30">
@@ -37,7 +100,9 @@ export default function Landing() {
         <Hero />
         <SocialProof preset={socialProofPreset} />
         <HowItWorks />
-        <Simulation />
+        <Simulation cmsPage={cmsPage} />
+        <BeforeAfterSection cmsPage={cmsPage} />
+        <ApiSection cmsPage={cmsPage} />
 
         {/* Brand heading + CTA */}
         <section id="app" className="relative z-[2] flex flex-col items-center gap-[var(--space-40)] tablet:gap-[var(--space-64)] px-[var(--space-16)] tablet:px-[var(--space-24)] py-[60px] tablet:py-[120px]">
@@ -77,9 +142,9 @@ export default function Landing() {
           </div>
         </section>
 
-        <Pricing />
+        <Pricing cmsPage={cmsPage} />
       </main>
-      <Footer />
+      <Footer cmsPage={cmsPage} />
 
       <AuthModal
         open={authModalOpen}

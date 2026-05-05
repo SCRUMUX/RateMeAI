@@ -7,10 +7,11 @@ import CategoryTabs from '../components/CategoryTabs';
 import ReviewModal from '../components/ReviewModal';
 import { PlaceholderUpload, PlaceholderUpgrade } from '../components/effects/PlaceholderArt';
 import { useApp } from '../context/AppContext';
+import { findBlock, type LandingPage } from '../lib/landing-cms';
 
 const ITEMS_PER_PAGE = 5;
 
-export default function Simulation() {
+export default function Simulation({ cmsPage }: { cmsPage?: LandingPage | null } = {}) {
   const { activeCategory, setActiveCategory } = useApp();
   const [selectedIdx, setSelectedIdx] = useState(0);
   const [modalOpen, setModalOpen] = useState(false);
@@ -30,6 +31,17 @@ export default function Simulation() {
   const selected = visible[selectedIdx] ?? visible[0];
   const categoryLabel = CATEGORIES.find(c => c.id === activeCategory)?.label ?? activeCategory;
 
+  const cmsBlock = findBlock(cmsPage ?? undefined, 'six_categories');
+  const cmsData = (cmsBlock?.data ?? {}) as Record<string, unknown>;
+  const title = typeof cmsData.title === 'string' ? cmsData.title : '6 категорий';
+  const subtitle = typeof cmsData.subtitle === 'string' ? cmsData.subtitle : '— под любую задачу';
+  const lead = typeof cmsData.lead === 'string'
+    ? cmsData.lead
+    : 'В каждой категории — более 100 уникальных стилей. Каждая генерация улучшает психологию восприятия';
+  const sublead = typeof cmsData.sublead === 'string'
+    ? cmsData.sublead
+    : 'Каждый стиль генерирует новое фото и улучшает психологию восприятия для конкретной жизненной ситуации';
+
   function handleCategoryChange(id: CategoryId) {
     setActiveCategory(id);
     setSelectedIdx(0);
@@ -47,7 +59,7 @@ export default function Simulation() {
       {/* Heading */}
       <div className="relative flex flex-col items-center gap-[var(--space-12)] text-center">
         <h2 className="text-[32px] tablet:text-[48px] desktop:text-[64px] font-semibold leading-[1] text-[var(--color-text-primary)]">
-          6 категорий
+          {title}
         </h2>
         <h2 className="text-[32px] tablet:text-[48px] desktop:text-[64px] font-semibold leading-[1]"
           style={{
@@ -56,15 +68,13 @@ export default function Simulation() {
             WebkitTextFillColor: 'transparent',
           }}
         >
-          — под любую задачу
+          {subtitle}
         </h2>
         <p className="text-[16px] tablet:text-[20px] leading-[24px] tablet:leading-[28px] text-[var(--color-text-secondary)] max-w-[696px]">
-          В каждой категории — более 100 уникальных стилей.
-          Каждая генерация улучшает психологию восприятия
+          {lead}
         </p>
         <p className="text-[15px] tablet:text-[18px] leading-[22px] tablet:leading-[28px] text-[var(--color-text-secondary)] max-w-[660px]">
-          Каждый стиль генерирует новое фото и улучшает психологию
-          восприятия для конкретной жизненной ситуации
+          {sublead}
         </p>
       </div>
 

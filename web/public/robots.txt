@@ -1,0 +1,7 @@
+User-agent: *
+Allow: /
+Disallow: /admin/
+Disallow: /auth/callback
+Disallow: /payment-success
+
+Sitemap: https://ailookstudio.ru/sitemap.xml

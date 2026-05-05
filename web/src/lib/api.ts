@@ -38,6 +38,38 @@ export class ApiError extends Error {
   }
 }
 
+// -- Landing CMS (public) --
+
+export interface LandingPageResponse {
+  slug: string;
+  page: Record<string, unknown>;
+}
+
+export function getLandingPage(slug: string) {
+  return request<LandingPageResponse>(`/api/v1/landing/pages/${encodeURIComponent(slug)}`);
+}
+
+// -- Landing CMS (admin) --
+
+export interface AdminLandingPagesList {
+  slugs: string[];
+}
+
+export function listAdminLandingPages() {
+  return request<AdminLandingPagesList>('/api/v1/admin/landing/pages');
+}
+
+export function getAdminLandingPage(slug: string) {
+  return request<LandingPageResponse>(`/api/v1/admin/landing/pages/${encodeURIComponent(slug)}`);
+}
+
+export function putAdminLandingPage(slug: string, page: Record<string, unknown>) {
+  return request<{ status: string; slug: string }>(`/api/v1/admin/landing/pages/${encodeURIComponent(slug)}`, {
+    method: 'PUT',
+    body: JSON.stringify({ page }),
+  });
+}
+
 export interface ConsentState {
   required: string[];
   granted: Record<string, { version: string; granted_at: string; source: string }>;

@@ -363,8 +363,14 @@ body {
   z-index: 0;
   mix-blend-mode: lighten;
 }
+/* 1.43.1: на светлой теме multiply темнит белый фон, и при той же
+ * плотности dye-текстуры хвост за курсором выглядел жирным/грязным.
+ * Дополнительно к light-overrides в FluidBackground.tsx (меньше радиус,
+ * быстрее dissipation, тише цвет) уводим всю канвас-плёнку под
+ * opacity:0.55 — это финальный ограничитель насыщенности на белом. */
 [data-theme="light"] .fluid-background {
   mix-blend-mode: multiply;
+  opacity: 0.55;
 }
 
 /* 1.40.0: stacking guard — у любого <main> > section / nav /

@@ -5,6 +5,7 @@ import type { Testimonial } from '../data/testimonials';
 import { FULL_LANDING_STYLES_BY_CATEGORY } from '../data/landingStyles';
 import { useApp } from '../context/AppContext';
 import { PlaceholderUpload, PlaceholderUpgrade } from './effects/PlaceholderArt';
+import BeforeAfterSlider from './BeforeAfterSlider';
 
 interface Props {
   testimonials: Testimonial[];
@@ -125,46 +126,13 @@ export default function ReviewModal({ testimonials, initialIndex, open, onClose 
                 {idx + 1} / {testimonials.length}
               </div>
 
-              {/* Photos row */}
-              <div className="flex gap-[var(--space-12)] tablet:gap-[var(--space-24)] mt-[var(--space-8)]">
-                {/* Before */}
-                <div className="flex-1 flex flex-col gap-[var(--space-12)]">
-                  <div className="relative rounded-[var(--radius-12)] overflow-hidden aspect-[3/4] bg-[var(--glass-surface-soft)]">
-                    <PlaceholderUpload className="w-full h-full opacity-50 text-[var(--color-text-secondary)]" />
-                    <span className="absolute top-[var(--space-8)] left-[var(--space-8)] glass-badge-cyan px-[var(--space-8)] py-[2px] rounded-[var(--radius-pill)] text-[11px] leading-[14px] font-medium text-[var(--color-text-primary)]">
-                      До
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-[14px] leading-[20px] text-[var(--color-text-primary)] font-medium">Исходное</span>
-                    <span className="flex items-center gap-1">
-                      <span className="text-[14px] leading-[20px] text-[var(--color-text-secondary)] tabular-nums">{testimonial.beforeScore.toFixed(2)}</span>
-                      <span className="text-[11px] leading-[14px] text-[var(--color-text-muted)]">/ 10</span>
-                    </span>
-                  </div>
-                  <div className="h-1.5 rounded-full glass-progress-track overflow-hidden">
-                    <div className="h-full rounded-full glass-progress-fill-muted" style={{ width: `${(testimonial.beforeScore / 10) * 100}%` }} />
-                  </div>
-                </div>
-
-                {/* After */}
-                <div className="flex-1 flex flex-col gap-[var(--space-12)]">
-                  <div className="relative rounded-[var(--radius-12)] overflow-hidden aspect-[3/4] bg-[var(--glass-surface-soft)]">
-                    <PlaceholderUpgrade className="w-full h-full opacity-50 text-[var(--color-text-secondary)]" />
-                    <span className="absolute top-[var(--space-8)] left-[var(--space-8)] glass-badge-success px-[var(--space-8)] py-[2px] rounded-[var(--radius-pill)] text-[11px] leading-[14px] font-medium text-[var(--color-text-primary)]">
-                      После
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-[14px] leading-[20px] text-[var(--color-text-primary)] font-medium">{style?.name ?? 'Стиль'}</span>
-                    <span className="flex items-center gap-1">
-                      <span className="text-[14px] leading-[20px] text-[var(--color-brand-primary)] font-semibold tabular-nums">{testimonial.afterScore.toFixed(2)}</span>
-                      <span className="text-[11px] leading-[14px] text-[var(--color-text-muted)]">/ 10</span>
-                    </span>
-                  </div>
-                  <div className="h-1.5 rounded-full glass-progress-track overflow-hidden">
-                    <div className="h-full rounded-full glass-progress-fill" style={{ width: `${(testimonial.afterScore / 10) * 100}%` }} />
-                  </div>
+              {/* Before / After slider */}
+              <div className="mt-[var(--space-8)]">
+                <div className="rounded-[var(--radius-12)] overflow-hidden aspect-[3/4]">
+                  <BeforeAfterSlider
+                    before={<PlaceholderUpload className="w-full h-full opacity-50 text-[var(--color-text-secondary)]" />}
+                    after={<PlaceholderUpgrade className="w-full h-full opacity-50 text-[var(--color-text-secondary)]" />}
+                  />
                 </div>
               </div>
 

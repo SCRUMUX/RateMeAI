@@ -323,6 +323,21 @@ const DEFAULT_CONFIG: FluidConfig = {
   SHADING: true,
 };
 
+// 1.43.1: На светлой теме используется ``mix-blend-mode: multiply``,
+// поэтому любая высокая «плотность» dye-текстуры темнит белый фон —
+// получался жирный, грязный, медленно тающий хвост. Здесь:
+//  - SPLAT_RADIUS меньше → ширина следа тоньше;
+//  - DENSITY_DISSIPATION выше → след тает почти вдвое быстрее;
+//  - VELOCITY_DISSIPATION выше → меньше «инерционных» вихрей;
+//  - SPLAT_FORCE ниже → splat не «выстреливает» в стороны.
+// На тёмной теме ничего не меняем, оставляя тот же визуал.
+const LIGHT_OVERRIDES = {
+  DENSITY_DISSIPATION: 8.5,
+  VELOCITY_DISSIPATION: 4.5,
+  SPLAT_RADIUS: 0.1,
+  SPLAT_FORCE: 1100,
+} as const;
+
 function getWebGLContext(canvas: HTMLCanvasElement): ExtCtx | null {
   const params: WebGLContextAttributes = {
     alpha: true,
@@ -522,10 +537,15 @@ function pickSplatColor(speed: number): RGB {
   const jG = 0.88 + Math.random() * 0.24;
   const jB = 0.88 + Math.random() * 0.24;
   const speedScale = themeCache.isLight ? 1 : Math.min(1, speed * 12);
+  // 1.43.1: На светлой теме mix-blend-mode=multiply, поэтому даже
+  // частичное затемнение белого даёт грязный налёт. Урезаем общую
+  // интенсивность канала, чтобы splat-цвет читался как лёгкий
+  // акцент, а не густое пятно. На тёмной теме коэффициент = 1.
+  const themeScale = themeCache.isLight ? 0.55 : 1;
   return {
-    r: a.r * jR * speedScale,
-    g: a.g * jG * speedScale,
-    b: a.b * jB * speedScale,
+    r: a.r * jR * speedScale * themeScale,
+    g: a.g * jG * speedScale * themeScale,
+    b: a.b * jB * speedScale * themeScale,
   };
 }
 
@@ -726,12 +746,15 @@ export default function FluidBackground() {
     initFBOs();
 
     function splat(x: number, y: number, dx: number, dy: number, color: RGB) {
+      const radius = themeCache.isLight
+        ? LIGHT_OVERRIDES.SPLAT_RADIUS
+        : config.SPLAT_RADIUS;
       gl.useProgram(splatProg!.program);
       gl.uniform1i(splatProg!.uniforms['uTarget'], velocity.read.attach(0));
       gl.uniform1f(splatProg!.uniforms['aspectRatio'], canvas!.width / canvas!.height);
       gl.uniform2f(splatProg!.uniforms['point'], x, y);
       gl.uniform3f(splatProg!.uniforms['color'], dx, dy, 0);
-      gl.uniform1f(splatProg!.uniforms['radius'], correctRadius(config.SPLAT_RADIUS / 100));
+      gl.uniform1f(splatProg!.uniforms['radius'], correctRadius(radius / 100));
       blit(velocity.write);
       velocity.swap();
 
@@ -749,8 +772,11 @@ export default function FluidBackground() {
     }
 
     function splatPointer(p: PointerState, speed: number) {
-      const dx = p.deltaX * config.SPLAT_FORCE;
-      const dy = p.deltaY * config.SPLAT_FORCE;
+      const force = themeCache.isLight
+        ? LIGHT_OVERRIDES.SPLAT_FORCE
+        : config.SPLAT_FORCE;
+      const dx = p.deltaX * force;
+      const dy = p.deltaY * force;
       // 1.40.0: цвет рассчитывается на момент splat'а (а не заранее на
       // pointermove), используя текущий speed → бледнее на медленных
       // движениях; цвет — random mix primary↔secondary (см. pickSplatColor).
@@ -920,7 +946,10 @@ export default function FluidBackground() {
       gl.uniform1i(advectionProg!.uniforms['uVelocity'], velId);
       gl.uniform1i(advectionProg!.uniforms['uSource'], velId);
       gl.uniform1f(advectionProg!.uniforms['dt'], dt);
-      gl.uniform1f(advectionProg!.uniforms['dissipation'], config.VELOCITY_DISSIPATION);
+      const velDiss = themeCache.isLight
+        ? LIGHT_OVERRIDES.VELOCITY_DISSIPATION
+        : config.VELOCITY_DISSIPATION;
+      gl.uniform1f(advectionProg!.uniforms['dissipation'], velDiss);
       blit(velocity.write);
       velocity.swap();
 
@@ -931,7 +960,10 @@ export default function FluidBackground() {
       }
       gl.uniform1i(advectionProg!.uniforms['uVelocity'], velocity.read.attach(0));
       gl.uniform1i(advectionProg!.uniforms['uSource'], dye.read.attach(1));
-      gl.uniform1f(advectionProg!.uniforms['dissipation'], config.DENSITY_DISSIPATION);
+      const dyeDiss = themeCache.isLight
+        ? LIGHT_OVERRIDES.DENSITY_DISSIPATION
+        : config.DENSITY_DISSIPATION;
+      gl.uniform1f(advectionProg!.uniforms['dissipation'], dyeDiss);
       blit(dye.write);
       dye.swap();
     }

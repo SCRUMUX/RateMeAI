@@ -138,9 +138,18 @@ export default function SocialProof({ preset }: SocialProofProps) {
             {reducedMotion || preset.feed.length <= VISIBLE_FEED_ITEMS ? (
               <div className="flex flex-col gap-[12px]">
                 {staticFeed.map((item) => (
-                  <article key={item.id} className="social-proof-feed-item">
-                    <div className="social-proof-feed-author">{item.author}</div>
-                    <p className="social-proof-feed-message">{item.message}</p>
+                  <article
+                    key={item.id}
+                    className="social-proof-feed-item overflow-hidden"
+                    style={{ height: `${FEED_ITEM_HEIGHT}px` }}
+                  >
+                    <div className="social-proof-feed-author truncate">{item.author}</div>
+                    {item.context && (
+                      <div className="text-[11px] leading-[14px] text-[var(--color-text-muted)] mb-[2px] truncate">
+                        {item.context}
+                      </div>
+                    )}
+                    <p className="social-proof-feed-message line-clamp-2">{item.message}</p>
                   </article>
                 ))}
               </div>
@@ -156,11 +165,16 @@ export default function SocialProof({ preset }: SocialProofProps) {
                 {tickerFeed.map((item, index) => (
                   <article
                     key={`${item.id}-${index}`}
-                    className="social-proof-feed-item"
-                    style={{ minHeight: `${FEED_ITEM_HEIGHT}px` }}
+                    className="social-proof-feed-item overflow-hidden"
+                    style={{ height: `${FEED_ITEM_HEIGHT}px` }}
                   >
-                    <div className="social-proof-feed-author">{item.author}</div>
-                    <p className="social-proof-feed-message">{item.message}</p>
+                    <div className="social-proof-feed-author truncate">{item.author}</div>
+                    {item.context && (
+                      <div className="text-[11px] leading-[14px] text-[var(--color-text-muted)] mb-[2px] truncate">
+                        {item.context}
+                      </div>
+                    )}
+                    <p className="social-proof-feed-message line-clamp-2">{item.message}</p>
                   </article>
                 ))}
               </div>

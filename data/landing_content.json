@@ -1,0 +1,157 @@
+{
+  "pages": {
+    "home": {
+      "blocks": [
+        {
+          "id": "social-proof",
+          "type": "social_proof",
+          "enabled": false,
+          "data": {
+            "title": "Впечатления пользователей",
+            "baseCount": 2734,
+            "counter": { "minDelayMs": 8000, "maxDelayMs": 36000, "burstChance": 0.16, "maxBurstSize": 3 },
+            "tickerIntervalMs": 4200,
+            "feed": [
+              { "id": "sp-1", "author": "@look.user", "message": "Стало выглядеть дороже и естественнее.", "context": "Общий · отзыв" },
+              { "id": "sp-2", "author": "@look.user2", "message": "С первого взгляда другое впечатление.", "context": "Общий · отзыв" },
+              { "id": "sp-3", "author": "@look.user3", "message": "Очень быстро и без лишнего «ИИ-эффекта».", "context": "Общий · отзыв" }
+            ]
+          }
+        },
+        {
+          "id": "before-after",
+          "type": "before_after",
+          "enabled": false,
+          "data": {
+            "title": "До и после",
+            "subtitle": "Сравните одним движением",
+            "caption": "Перетаскивайте ползунок — результат всегда выглядит естественно."
+          }
+        },
+        {
+          "id": "six-categories",
+          "type": "six_categories",
+          "enabled": false,
+          "data": {
+            "title": "6 категорий",
+            "subtitle": "— под любую задачу",
+            "lead": "В каждой категории — более 100 уникальных стилей. Каждая генерация улучшает психологию восприятия.",
+            "sublead": "Каждый стиль генерирует новое фото и усиливает впечатление для конкретной жизненной ситуации."
+          }
+        },
+        {
+          "id": "api",
+          "type": "api",
+          "enabled": false,
+          "data": {
+            "title": "API для интеграций",
+            "subtitle": "Подключайте AI-анализ и генерацию в свои продукты",
+            "primaryCtaLabel": "Открыть документацию",
+            "primaryCtaUrl": "/api/v1/docs",
+            "secondaryCtaLabel": "Написать нам",
+            "secondaryCtaUrl": "mailto:support@ailookstudio.ru"
+          }
+        },
+        {
+          "id": "pricing",
+          "type": "pricing",
+          "enabled": true,
+          "data": {
+            "title": "Тарифы",
+            "subtitle": "— попробуй бесплатно",
+            "caption": "И продолжай если понравится",
+            "tryFreeLabel": "Попробовать бесплатное улучшение",
+            "plans": [
+              {
+                "title": "Попробовать",
+                "price": "59 рублей",
+                "photos": "1 фото",
+                "packQty": 1,
+                "desc": "Посмотри, как AI улучшит твоё фото за секунды. Идеально, чтобы оценить результат перед полной прокачкой.",
+                "highlighted": false,
+                "badge": null,
+                "savingBadge": null
+              },
+              {
+                "title": "Обновить фото",
+                "price": "199 рублей",
+                "photos": "5 фото",
+                "packQty": 5,
+                "desc": "Освежи свои лучшие снимки и выбери идеальный вариант для соцсетей или профиля.",
+                "highlighted": false,
+                "badge": null,
+                "savingBadge": null
+              },
+              {
+                "title": "Прокачать образ",
+                "price": "499 рублей",
+                "photos": "15 фото",
+                "packQty": 15,
+                "desc": "Полная прокачка твоего образа под разные ситуации: соцсети, знакомства, работа. Найди фото, которое реально работает.",
+                "highlighted": true,
+                "badge": "BEST",
+                "savingBadge": "Экономия 40%"
+              },
+              {
+                "title": "Полная трансформация",
+                "price": "899 рублей",
+                "photos": "30 фото",
+                "packQty": 30,
+                "desc": "Максимум вариантов и стилей. Подходит, если хочешь полностью обновить свой визуальный образ и выделяться в любой ситуации.",
+                "highlighted": false,
+                "badge": null,
+                "savingBadge": null
+              }
+            ]
+          }
+        },
+        {
+          "id": "footer",
+          "type": "footer",
+          "enabled": true,
+          "data": {
+            "brand": {
+              "title": "Look Studio",
+              "tagline": "AI-фото для соцсетей, знакомств, документов и резюме."
+            },
+            "products": null,
+            "support": [
+              { "label": "Связаться с поддержкой", "action": "support" },
+              { "label": "FAQ", "action": "support" }
+            ],
+            "documents": [
+              { "label": "Политика конфиденциальности", "action": "policy", "policyId": "privacy" },
+              { "label": "Условия использования",       "action": "policy", "policyId": "terms" },
+              { "label": "Согласия на обработку",       "action": "policy", "policyId": "consents" },
+              { "label": "Использование cookies",       "action": "policy", "policyId": "cookie" },
+              { "label": "Возврат и оплата",            "action": "policy", "policyId": "refund" }
+            ],
+            "social": [
+              { "label": "UX4AI · канал в Telegram", "href": "https://t.me/ux4ai", "icon": "telegram" }
+            ],
+            "support_contacts": {
+              "telegram_url": "https://t.me/ailookstudio_support",
+              "email": "support@ailookstudio.ru",
+              "faq": [
+                { "q": "Где найти заказ?", "a": "Все ваши генерации доступны в личном кабинете /app сразу после оплаты. Письмо приходит на почту в течение 1 минуты." },
+                { "q": "Как получить возврат?", "a": "Если что-то пошло не так — напишите нам в Telegram или на email с номером заказа. Ответим в течение 24 часов." },
+                { "q": "Где скачать обработанные фото?", "a": "Каждая генерация даёт ссылку на скачивание в полном разрешении. Ссылка активна 72 часа." },
+                { "q": "Не приходит письмо или Telegram-уведомление?", "a": "Проверьте папку «Спам». Если не нашли — обновите страницу /app, генерации появятся там." },
+                { "q": "Что значит «AI-генерация»?", "a": "Мы используем AI-модели, которые улучшают ваше фото с сохранением сходства. Все изображения помечены как сгенерированные AI." }
+              ]
+            },
+            "creditsText": "Сделано",
+            "creditsLinkLabel": "UX4AI",
+            "creditsLinkHref": "https://ux4ai.pro",
+            "copyright": "© 2026 Look Studio",
+            "links": [
+              { "label": "Конфиденциальность", "href": "/privacy", "external": false },
+              { "label": "API Docs", "href": "/api/v1/docs", "external": true }
+            ]
+          }
+        }
+      ]
+    }
+  }
+}
+
