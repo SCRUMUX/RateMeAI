@@ -130,8 +130,8 @@ export default function Testimonials({
       onMouseEnter={() => pause(2000)}
       onMouseLeave={() => pause(0)}
     >
-      <div className="mx-auto flex w-full max-w-[1200px] flex-col items-center gap-[var(--space-24)]">
-        <div className="flex flex-col items-center gap-[var(--space-8)] text-center">
+      <div className="mx-auto flex w-full max-w-[1200px] flex-col items-center gap-[var(--space-32)] tablet:gap-[var(--space-48)]">
+        <div className="reveal flex flex-col items-center gap-[var(--space-8)] text-center">
           {eyebrow && (
             <span className="text-[12px] tablet:text-[13px] uppercase tracking-[0.18em] text-[var(--color-text-muted)]">
               {eyebrow}

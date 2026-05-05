@@ -70,9 +70,9 @@ export default function Pricing({ cmsPage }: { cmsPage?: LandingPage | null } = 
   const cmsData = (cmsBlock?.data ?? {}) as PricingCms;
   const cmsPlans = asPlans((cmsData as any).plans);
   const effectivePlans = cmsPlans ?? PLANS;
-  const headingTitle = asString(cmsData.title, 'Тарифы');
+  const headingTitle = asString(cmsData.title, 'Первое улучшение');
   const headingSubtitle = asString(cmsData.subtitle, '— попробуй бесплатно');
-  const headingCaption = asString(cmsData.caption, 'И продолжай если понравится');
+  const headingCaption = asString(cmsData.caption, 'Разблокируй эксклюзивные стили');
   const tryFreeLabel = asString(cmsData.tryFreeLabel, 'Попробовать бесплатное улучшение');
 
   useEffect(() => {
@@ -106,11 +106,11 @@ export default function Pricing({ cmsPage }: { cmsPage?: LandingPage | null } = 
   }
 
   return (
-    <section id="тарифы" className="relative z-[2] flex flex-col items-center gap-[var(--space-40)] tablet:gap-[var(--space-96)] px-[var(--space-16)] tablet:px-[var(--space-24)] py-[60px] tablet:py-[120px]"
+    <section id="тарифы" className="relative z-[2] flex flex-col items-center gap-[var(--space-40)] tablet:gap-[var(--space-64)] px-[var(--space-16)] tablet:px-[var(--space-24)] py-[60px] tablet:py-[96px]"
       style={{ minHeight: '100vh' }}
     >
       {/* Heading */}
-      <div className="relative flex flex-col items-center gap-[var(--space-12)] text-center">
+      <div className="reveal relative flex flex-col items-center gap-[var(--space-12)] text-center">
         <h2 className="landing-h2 text-[var(--color-text-primary)]">{headingTitle}</h2>
         <h2 className="landing-h2"
           style={{ background: 'linear-gradient(105deg, rgb(var(--accent-r), var(--accent-g), var(--accent-b)) 4%, rgb(var(--accent-sec-r), var(--accent-sec-g), var(--accent-sec-b)) 103%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}
@@ -132,7 +132,7 @@ export default function Pricing({ cmsPage }: { cmsPage?: LandingPage | null } = 
         className="relative w-full max-w-[1386px] overflow-x-auto tablet:overflow-x-visible snap-x snap-mandatory tablet:snap-none scrollbar-hide"
         style={{ scrollPaddingInline: '20px' }}
       >
-        <div className="flex items-stretch gap-[var(--space-12)] tablet:gap-[10px] tablet:justify-between px-[20px] tablet:px-0 w-max tablet:w-full">
+        <div className="reveal-stagger flex items-stretch gap-[var(--space-12)] tablet:gap-[10px] tablet:justify-between px-[20px] tablet:px-0 w-max tablet:w-full">
           {effectivePlans.map((plan, i) => (
             <div key={i}
               className={`snap-center gradient-border-card flex flex-col gap-[var(--space-20)] tablet:gap-[var(--space-32)] p-[var(--space-16)] tablet:p-[var(--space-32)] w-[calc(100vw-56px)] tablet:w-auto min-w-0 tablet:min-w-0 h-auto tablet:h-[480px] rounded-[var(--radius-12)] ${

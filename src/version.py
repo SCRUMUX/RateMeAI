@@ -4298,4 +4298,84 @@
 #              его место занимает новый брендовый блок.
 #              Соответствующие импорты убраны.
 #          Sanity: tsc --noEmit clean; ruff clean; vite build OK.
-APP_VERSION = "1.50.2"
+# 1.50.3 — Финальный экран лендингов: тарифы + ритм + scroll-reveal.
+#          (1) Pricing (основной): убрали слово «Тарифы» из шапки.
+#              Дефолты + CMS-сидер landing_content.json: title теперь
+#              «Первое улучшение», caption — «Разблокируй
+#              эксклюзивные стили». Subtitle (градиентный
+#              «— попробуй бесплатно») и список из 4 планов оставлены
+#              без изменений. CMS-админка может перезаписать тексты;
+#              для свежих установок и любого окружения, где CMS
+#              запись пуста, теперь показываются новые формулировки.
+#          (2) ScenarioPricing — новый компонент
+#              (web/src/sections/ScenarioPricing.tsx). Одиночная
+#              «прикольная» карточка по центру экрана, glass-card-
+#              highlight, max-w 440 px:
+#                - бейдж «5 фото» в шапке;
+#                - крупная цена 199 ₽ + подпись «5 AI-фото · 40 ₽
+#                  за фото»;
+#                - feature-list (4 пункта): «5 AI-фото в одном
+#                  пакете / Доступ ко всем стилям категории /
+#                  Без водяных знаков / Подбор за 2 минуты». Без
+#                  «гарантии возврата» — её нет в продукте,
+#                  не обещаем то, чего не делаем.
+#                - CTA «Купить 5 фото за 199 ₽» вызывает тот же
+#                  createPayment(5) flow, что и main Pricing.
+#                - заголовок секции зеркалит main Pricing
+#                  (тот же шаблон title + gradient subtitle +
+#                  caption), tagline настраивается per-scenario.
+#              Подключён последним блоком (после BrandCTA, перед
+#              Footer) на DatingPhotoLanding, ResumePhotoLanding,
+#              DocumentPhotoLanding. Итоговый порядок секций
+#              сценарных лендингов теперь:
+#                Hero → ProofCounter → Testimonials → HowItWorks
+#                → Simulation → BrandCTA → ScenarioPricing → Footer.
+#          (3) Ритм / воздух между блоками:
+#                - Testimonials: gap heading↔слайдер 24 → 32/48 px
+#                  («Впечатления пользователей» больше не «лип» к
+#                  карусели);
+#                - HowItWorks: внутренний padding 16/24 → 32/64 px
+#                  и gap 16/24 → 24/40 px — блок воспринимается
+#                  как «отдельная сцена», а не зажатая полоса;
+#                - Simulation: десктопный py 120 → 88, gap heading
+#                  ↔ контент 96 → 64 — секция выровнялась с
+#                  соседями (между HowItWorks и Simulation
+#                  больше нет «провала» в 144 px);
+#                - Pricing (main): py 120 → 96, gap 96 → 64 —
+#                  единая концовка с section#app;
+#                - section#app (Landing) и BrandCTA на сценарных:
+#                  py 120 → 96/88 — финал не «утопает» в нижнем
+#                  margin'е страницы;
+#                - BeforeAfterSection: gap 24 → 32/48 — заголовок
+#                  отлип от слайдера на десктопе.
+#          (4) Scroll-reveal анимации первого появления:
+#                - Новый хук web/src/lib/useReveal.ts — глобальный
+#                  singleton: один IntersectionObserver наблюдает
+#                  за всеми `.reveal` / `.reveal-stagger` нодами,
+#                  при пересечении viewport на 15% выставляет
+#                  data-revealed="true" — CSS transition догоняет
+#                  до финального состояния (opacity 0→1, translateY
+#                  16px→0, scale 0.985→1; 600 ms cubic-bezier).
+#                  MutationObserver подписывает новые ноды,
+#                  появляющиеся после React-рендера. Уже видимые
+#                  при загрузке элементы помечаются сразу — без
+#                  блика «пустого экрана». Хук вызывается в App.tsx
+#                  один раз; повторные вызовы no-op.
+#                - На `prefers-reduced-motion: reduce` контроллер
+#                  пропускает IO и мгновенно проставляет атрибут
+#                  всем; CSS-правила сбрасывают transform/opacity.
+#                - `.reveal-stagger > *` с задержками 0/80/.../560
+#                  ms по nth-child(N) — для карточек тарифов и
+#                  шагов «Как это работает».
+#                - Покрытие: heading-блоки в Pricing /
+#                  ScenarioPricing / Testimonials / HowItWorks /
+#                  Simulation / BeforeAfterSection / ApiSection /
+#                  BrandCTA, плюс stagger на howworks-grid и
+#                  Pricing PLANS row. Hero намеренно без reveal
+#                  (он первый, виден сразу — мерцание лишнее).
+#                  ProofCounter: reveal только на heading +
+#                  subheading, сама цифра и burst-частицы не
+#                  оборачиваем — иначе transform-контекст ломает
+#                  letящие сердечки.
+#          Sanity: tsc --noEmit clean; ruff clean; vite build OK.
+APP_VERSION = "1.50.3"

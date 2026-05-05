@@ -12,8 +12,8 @@ export default function BeforeAfterSection({ cmsPage }: { cmsPage?: LandingPage 
   const data = (block.data ?? {}) as Record<string, unknown>;
 
   return (
-    <section className="relative z-[2] flex flex-col items-center gap-[var(--space-24)] px-[var(--space-16)] tablet:px-[var(--space-24)] py-[60px] tablet:py-[88px]">
-      <div className="mx-auto flex w-full max-w-[1200px] flex-col items-center gap-[var(--space-12)] text-center">
+    <section className="relative z-[2] flex flex-col items-center gap-[var(--space-32)] tablet:gap-[var(--space-48)] px-[var(--space-16)] tablet:px-[var(--space-24)] py-[60px] tablet:py-[88px]">
+      <div className="reveal mx-auto flex w-full max-w-[1200px] flex-col items-center gap-[var(--space-12)] text-center">
         <h2 className="landing-h2 text-[var(--color-text-primary)]">
           {asString(data.title, 'До и после')}
         </h2>
@@ -22,7 +22,7 @@ export default function BeforeAfterSection({ cmsPage }: { cmsPage?: LandingPage 
         </p>
       </div>
 
-      <div className="w-full max-w-[820px]">
+      <div className="reveal w-full max-w-[820px]">
         <div className="rounded-[var(--radius-12)] overflow-hidden aspect-[3/4]">
           <BeforeAfterSlider
             before={<PlaceholderUpload className="w-full h-full opacity-50 text-[var(--color-text-secondary)]" />}

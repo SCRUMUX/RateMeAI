@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AppProvider } from './context/AppContext';
 import { LandingModalsProvider } from './context/LandingModalsContext';
 import { ToastProvider } from './components/Toast';
+import { useReveal } from './lib/useReveal';
 import Landing from './pages/Landing';
 import AppPage from './pages/AppPage';
 import DocumentPhotoPage from './pages/DocumentPhotoPage';
@@ -31,6 +32,10 @@ function AdminFallback() {
 }
 
 export default function App() {
+  // 1.50.3: scroll-reveal singleton — один IntersectionObserver
+  // активирует .reveal/.reveal-stagger ноды по всему приложению.
+  useReveal();
+
   return (
     <BrowserRouter>
       <ToastProvider>

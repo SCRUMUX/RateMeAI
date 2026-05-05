@@ -31,11 +31,11 @@ export default function HowItWorks({ steps = DEFAULT_STEPS, title }: HowItWorksP
     <section className="relative z-[2] w-full">
       <div className="howworks-wrapper relative w-full glass-divider">
         <div className="howworks-gradient-backdrop" />
-        <div className="relative flex flex-col items-center gap-[var(--space-16)] tablet:gap-[var(--space-24)] w-full max-w-[1200px] mx-auto p-[var(--space-16)] tablet:p-[var(--space-24)]">
+        <div className="relative flex flex-col items-center gap-[var(--space-24)] tablet:gap-[var(--space-40)] w-full max-w-[1200px] mx-auto px-[var(--space-16)] tablet:px-[var(--space-32)] py-[var(--space-32)] tablet:py-[var(--space-64)]">
           {title && (
-            <h2 className="landing-h2 text-[var(--color-text-primary)] text-center">{title}</h2>
+            <h2 className="reveal landing-h2 text-[var(--color-text-primary)] text-center">{title}</h2>
           )}
-          <div className="howworks-grid w-full">
+          <div className="reveal-stagger howworks-grid w-full">
             {steps.map((s) => (
               <article
                 key={s.num}

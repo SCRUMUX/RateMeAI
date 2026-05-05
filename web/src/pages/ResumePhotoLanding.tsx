@@ -9,6 +9,7 @@ import ProofCounter from '../sections/ProofCounter';
 import Testimonials from '../sections/Testimonials';
 import Simulation from '../sections/Simulation';
 import HowItWorks, { type HowItWorksStep } from '../sections/HowItWorks';
+import ScenarioPricing from '../sections/ScenarioPricing';
 import { useApp } from '../context/AppContext';
 import { getLandingSocialProofPreset } from '../data/social-proof';
 import { getTestimonialsByCategory } from '../data/testimonials';
@@ -96,15 +97,15 @@ export default function ResumePhotoLanding({ onStart, showAuth, onAuthClose }: L
         <Simulation forceCategory="cv" showCategoryTabs={false} />
 
         {/* Brand heading + CTA */}
-        <section className="relative z-[2] flex flex-col items-center gap-[var(--space-40)] tablet:gap-[var(--space-64)] px-[var(--space-16)] tablet:px-[var(--space-24)] py-[60px] tablet:py-[120px]">
-          <div className="relative flex items-center justify-center gap-[var(--space-16)] tablet:gap-[var(--space-24)] w-full max-w-[1200px]">
+        <section className="relative z-[2] flex flex-col items-center gap-[var(--space-40)] tablet:gap-[var(--space-64)] px-[var(--space-16)] tablet:px-[var(--space-24)] py-[60px] tablet:py-[88px]">
+          <div className="reveal relative flex items-center justify-center gap-[var(--space-16)] tablet:gap-[var(--space-24)] w-full max-w-[1200px]">
             <div className="brand-glow-backdrop" />
             <span className="brand-glow-text text-[32px] tablet:text-[60px] desktop:text-[96px] leading-[1.05] font-extrabold text-center">
               💼 Фото для резюме
             </span>
           </div>
 
-          <div className="flex flex-col items-center gap-[var(--space-16)] text-center max-w-[600px]">
+          <div className="reveal flex flex-col items-center gap-[var(--space-16)] text-center max-w-[600px]">
             <h2 className="landing-h2 text-[var(--color-text-primary)]">
               Готовы обновить резюме?
             </h2>
@@ -130,6 +131,8 @@ export default function ResumePhotoLanding({ onStart, showAuth, onAuthClose }: L
             )}
           </div>
         </section>
+
+        <ScenarioPricing tagline="Обнови портрет на LinkedIn и hh.ru за один пакет" />
       </main>
       <Footer />
 

@@ -98,11 +98,11 @@ export default function Simulation({
   return (
     <section
       id="стили"
-      className="relative z-[2] flex flex-col items-center gap-[var(--space-40)] tablet:gap-[var(--space-96)] px-[var(--space-16)] tablet:px-[var(--space-24)] py-[60px] tablet:py-[120px]"
+      className="relative z-[2] flex flex-col items-center gap-[var(--space-40)] tablet:gap-[var(--space-64)] px-[var(--space-16)] tablet:px-[var(--space-24)] py-[60px] tablet:py-[88px]"
       style={{ minHeight: '100vh' }}
     >
       {/* Heading */}
-      <div className="relative flex flex-col items-center gap-[var(--space-12)] text-center">
+      <div className="reveal relative flex flex-col items-center gap-[var(--space-12)] text-center">
         <h2 className="landing-h2 text-[var(--color-text-primary)]">{title}</h2>
         <h2
           className="landing-h2"

@@ -25,7 +25,7 @@ export default function ApiSection({ cmsPage }: { cmsPage?: LandingPage | null }
 
   return (
     <section id="api" className="relative z-[2] flex flex-col items-center gap-[var(--space-24)] px-[var(--space-16)] tablet:px-[var(--space-24)] py-[60px] tablet:py-[88px]">
-      <div className="mx-auto w-full max-w-[1200px]">
+      <div className="reveal mx-auto w-full max-w-[1200px]">
         <div className="gradient-border-card glass-card rounded-[var(--radius-12)] p-[var(--space-16)] tablet:p-[var(--space-24)] flex flex-col tablet:flex-row items-start tablet:items-center justify-between gap-[var(--space-16)]">
           <div className="flex flex-col gap-[var(--space-8)]">
             <h2 className="landing-h2 text-[var(--color-text-primary)]">

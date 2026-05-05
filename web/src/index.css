@@ -1547,6 +1547,55 @@ main > .glass-divider,
   }
 }
 
+/* ========== Scroll reveal (1.50.3) ==========
+ *
+ * Лёгкая мягкая анимация появления секций при скролле. Контроллер
+ * сидит в `web/src/lib/useReveal.ts` — один IntersectionObserver на
+ * все ноды с классами `.reveal` / `.reveal-stagger`. Когда нода
+ * пересекает viewport на ~15%, контроллер выставляет атрибут
+ * `data-revealed="true"` и transition догоняет до финального
+ * состояния. Stagger — задержка по nth-child для дочерних элементов
+ * (карточек тарифов, шагов «как это работает» и т.п.).
+ *
+ * Намеренно не трогаем сами `<section>` — внутри них могут жить
+ * летающие сердечки ProofCounter, FluidBackground и absolute-блоки,
+ * которым transform-контекст ломает рендер. Поэтому reveal вешается
+ * на внутренние «контентные» обёртки.
+ */
+.reveal {
+  opacity: 0;
+  transform: translate3d(0, 16px, 0) scale(0.985);
+  transition:
+    opacity 600ms cubic-bezier(0.16, 0.84, 0.44, 1),
+    transform 600ms cubic-bezier(0.16, 0.84, 0.44, 1);
+  will-change: opacity, transform;
+}
+.reveal[data-revealed='true'] {
+  opacity: 1;
+  transform: none;
+}
+
+.reveal-stagger > * {
+  opacity: 0;
+  transform: translate3d(0, 12px, 0);
+  transition:
+    opacity 500ms cubic-bezier(0.16, 0.84, 0.44, 1),
+    transform 500ms cubic-bezier(0.16, 0.84, 0.44, 1);
+  will-change: opacity, transform;
+}
+.reveal-stagger[data-revealed='true'] > * {
+  opacity: 1;
+  transform: none;
+}
+.reveal-stagger[data-revealed='true'] > *:nth-child(1) { transition-delay: 0ms; }
+.reveal-stagger[data-revealed='true'] > *:nth-child(2) { transition-delay: 80ms; }
+.reveal-stagger[data-revealed='true'] > *:nth-child(3) { transition-delay: 160ms; }
+.reveal-stagger[data-revealed='true'] > *:nth-child(4) { transition-delay: 240ms; }
+.reveal-stagger[data-revealed='true'] > *:nth-child(5) { transition-delay: 320ms; }
+.reveal-stagger[data-revealed='true'] > *:nth-child(6) { transition-delay: 400ms; }
+.reveal-stagger[data-revealed='true'] > *:nth-child(7) { transition-delay: 480ms; }
+.reveal-stagger[data-revealed='true'] > *:nth-child(8) { transition-delay: 560ms; }
+
 /* ========== Reduced motion ========== */
 
 @media (prefers-reduced-motion: reduce) {
@@ -1570,6 +1619,13 @@ main > .glass-divider,
   }
   .brand-glow-text {
     background-position: 50% 0;
+  }
+  /* Reveal-классы — все элементы сразу видимы, без transition. */
+  .reveal,
+  .reveal-stagger > * {
+    opacity: 1 !important;
+    transform: none !important;
+    transition: none !important;
   }
 }
 

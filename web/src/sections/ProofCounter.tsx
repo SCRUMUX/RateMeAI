@@ -213,12 +213,12 @@ export default function ProofCounter({
           )}
         </div>
 
-        <h2 className="landing-h2 text-[var(--color-text-primary)] mt-[var(--space-16)] tablet:mt-[var(--space-24)] max-w-[640px]">
+        <h2 className="reveal landing-h2 text-[var(--color-text-primary)] mt-[var(--space-16)] tablet:mt-[var(--space-24)] max-w-[640px]">
           {heading}
         </h2>
 
         {subheading && (
-          <p className="landing-lead max-w-[640px] mt-[var(--space-12)]">
+          <p className="reveal landing-lead max-w-[640px] mt-[var(--space-12)]">
             {subheading}
           </p>
         )}
