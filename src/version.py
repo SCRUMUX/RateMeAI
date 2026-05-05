@@ -3622,4 +3622,44 @@
 #          Both logo PNGs хешируются Vite раздельно — браузер грузит
 #          фактически отображаемый, второй on-demand при theme-swap.
 #          ``ruff check`` clean. Backend нетронут.
-APP_VERSION = "1.36.0"
+# 1.37.0 — Revert 1.35.0 + 1.36.0: убран Ambient ParticleBackground
+#          и theme-aware PNG hybrid system по обратной связи
+#          пользователя — оба эффекта «выглядят ужасно» в проде.
+#          Сохранён только увеличенный ThemeToggle (40/48 px) — он
+#          жалоб не получал.
+#
+#          Что откачено:
+#            * ``ParticleBackground.tsx`` удалён, импорт + использо-
+#              вание убраны из ``Landing.tsx`` и
+#              ``DocumentPhotoLanding.tsx``.
+#            * ``--particle-color``, ``--particle-opacity-min``,
+#              ``--particle-opacity-max`` токены удалены из обоих
+#              ``[data-theme="*"]`` блоков ``index.css``.
+#            * ``useThemedLogo`` хук, ``themedAsset.ts``,
+#              ``logo-light.png`` (~587 kB), ``scripts/generate-
+#              light-logo.mjs``, ``npm run generate:light-logo``
+#              скрипт и devDep ``jimp`` удалены.
+#            * ``NavBar.tsx`` и ``Landing.tsx`` вернулись к прямому
+#              ``import logoSrc from '../assets/logo.png'`` с
+#              ``mixBlendMode: 'lighten'`` (как было до 1.36.0).
+#            * Класс ``.theme-adaptive-png`` и ``--png-filter``
+#              токен удалены из ``index.css``. Класс снят с 7
+#              placeholder-img в StepGenerate / StepAnalysis /
+#              ReviewModal / Simulation.
+#
+#          Что сохранено:
+#            * ``ThemeToggle`` 40×40 desktop / 48×48 mobile,
+#              иконка 20-22 px (1.36.0 part). Жалоб не было.
+#
+#          Sanity: ``tsc --noEmit`` clean, ``vite build`` clean
+#          (498.61 kB main / 81.76 kB CSS / 140.18 kB main gzip —
+#          точно совпадает с post-1.34.2 baseline). Backend
+#          нетронут.
+#
+#          Note: light theme сейчас остаётся как в 1.34.2 — logo с
+#          ``mixBlendMode: 'lighten'`` на белом фоне может выглядеть
+#          бледно, но это исходное поведение. Если нужна следующая
+#          итерация по light theme, лучше идти через прямой re-export
+#          логотипа в Figma / SVG-версию вместо алгоритмического
+#          inversion.
+APP_VERSION = "1.37.0"

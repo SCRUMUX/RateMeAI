@@ -404,7 +404,7 @@ export default function StepGenerate({ onGoToStep, onOpenStorage }: Props) {
               )}
               {!hasGenResult && isRunning && (
                 <>
-                  <img src="/img/placeholder-upgrade.png" alt="" className="w-full h-full object-cover opacity-50 gen-sim-pulse theme-adaptive-png" />
+                  <img src="/img/placeholder-upgrade.png" alt="" className="w-full h-full object-cover opacity-50 gen-sim-pulse" />
                   <div className="absolute inset-0 z-10 flex flex-col items-center justify-end pb-[var(--space-16)] gap-[var(--space-8)] bg-gradient-to-t from-black/70 via-transparent to-transparent">
                     <div className="w-6 h-6 border-2 border-t-transparent rounded-full animate-spin" style={{ borderColor: 'rgba(var(--accent-r),var(--accent-g),var(--accent-b),0.6)', borderTopColor: 'transparent' }} />
                     <span className="text-[12px] leading-[16px] text-[var(--color-text-primary)] font-medium text-center px-[var(--space-8)]">
@@ -433,7 +433,7 @@ export default function StepGenerate({ onGoToStep, onOpenStorage }: Props) {
                 </div>
               )}
               {!hasGenResult && !isRunning && !genFailed && (
-                <img src="/img/placeholder-upgrade.png" alt="" className="w-full h-full object-cover opacity-50 theme-adaptive-png" />
+                <img src="/img/placeholder-upgrade.png" alt="" className="w-full h-full object-cover opacity-50" />
               )}
             </div>
 
