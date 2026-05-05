@@ -73,9 +73,8 @@ function asNumber(value: unknown, fallback: number): number {
 }
 
 export interface ProofCounterContent {
-  caption: string;
-  eyebrow?: string;
-  subcaption?: string;
+  heading: string;
+  subheading?: string;
   baseCount: number;
   counter: SocialProofCounterConfig;
 }
@@ -91,6 +90,11 @@ const DEFAULT_PROOF_COUNTER_CONFIG: SocialProofCounterConfig = {
  * Decode the `proof_counter` CMS block payload into the props shape
  * `<ProofCounter />` accepts. Any missing field falls back to a
  * sensible default so the component is never starved.
+ *
+ * For one rollout cycle we also accept the legacy
+ * `caption`/`subcaption` field names as a fallback so an existing
+ * production JSON file doesn't suddenly render with empty copy
+ * during the deploy window.
  */
 export function parseProofCounter(
   value: unknown,
@@ -109,18 +113,32 @@ export function parseProofCounter(
         maxBurstSize: asNumber(counterRaw.maxBurstSize, fallback.counter.maxBurstSize),
       }
     : fallback.counter;
+  const heading = (
+    asString(obj.heading).trim()
+    || asString(obj.caption).trim()
+    || fallback.heading
+  );
+  const subheading = (
+    asString(obj.subheading).trim()
+    || asString(obj.subcaption).trim()
+    || fallback.subheading
+  );
   return {
-    caption: asString(obj.caption).trim() || fallback.caption,
-    eyebrow: asString(obj.eyebrow).trim() || fallback.eyebrow,
-    subcaption: asString(obj.subcaption).trim() || fallback.subcaption,
+    heading,
+    subheading: subheading || undefined,
     baseCount: asNumber(obj.baseCount, fallback.baseCount),
     counter,
   };
 }
 
-export function defaultProofCounter(caption: string, baseCount = 2734): ProofCounterContent {
+export function defaultProofCounter(
+  heading: string,
+  subheading?: string,
+  baseCount = 2734,
+): ProofCounterContent {
   return {
-    caption,
+    heading,
+    subheading,
     baseCount,
     counter: DEFAULT_PROOF_COUNTER_CONFIG,
   };

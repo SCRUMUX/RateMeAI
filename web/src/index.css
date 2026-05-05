@@ -905,18 +905,32 @@ main > .glass-divider,
 
 /* ========== Social proof ========== */
 
-.social-proof-counter-value,
-.proof-counter-value {
+.social-proof-counter-value {
   letter-spacing: -0.04em;
 }
 
-/* ========== Proof counter heart ========== */
-/* The heart sits next to the big number and gets re-keyed by React
-   on every counter increment. Re-keying remounts the node and forces
-   the CSS animation to play from the start, even if it was still
-   running from the previous tick. The colour follows the brand
-   accent so light/dark/category gradients all look natural. */
+/* ========== Proof counter — number, heart, burst, glow ========== */
 
+/* The big number always renders with the primary→secondary brand
+   gradient instead of a flat colour. Falling back to the brand
+   primary if `background-clip: text` is unsupported by the browser. */
+.proof-counter-value {
+  letter-spacing: -0.04em;
+  color: var(--color-brand-primary);
+  background: linear-gradient(
+    105deg,
+    rgb(var(--accent-r), var(--accent-g), var(--accent-b)) 4%,
+    rgb(var(--accent-sec-r), var(--accent-sec-g), var(--accent-sec-b)) 103%
+  );
+  -webkit-background-clip: text;
+          background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+/* The static heart sits next to the big number and gets re-keyed by
+   React on every counter increment. Re-keying remounts the node and
+   forces the CSS animation to play from the start, even if it was
+   still running from the previous tick. */
 .proof-heart {
   color: var(--color-brand-primary);
   filter: drop-shadow(0 0 18px rgba(var(--accent-r), var(--accent-g), var(--accent-b), 0.35));
@@ -934,6 +948,72 @@ main > .glass-divider,
   38%  { transform: scale(0.94); }
   60%  { transform: scale(1.12); }
   100% { transform: scale(1);    }
+}
+
+/* TikTok-style like-burst: small hearts spawn under the number on
+   every tick and float upward while fading out. The container is
+   absolute over the number row and never clipped (overflow: visible),
+   particles are removed from React state on animationend so the
+   array can never grow unbounded. */
+.proof-burst-layer {
+  z-index: 1;
+}
+
+.proof-burst-particle {
+  position: absolute;
+  left: 50%;
+  bottom: 8%;
+  width: 28px;
+  height: 28px;
+  margin-left: -14px;
+  pointer-events: none;
+  will-change: transform, opacity;
+  --x: 0px;
+  --scale: 1;
+  animation: proof-heart-fly 1300ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  filter: drop-shadow(0 0 12px rgba(var(--accent-r), var(--accent-g), var(--accent-b), 0.45));
+}
+
+.proof-burst-particle.primary {
+  color: var(--color-brand-primary);
+}
+
+.proof-burst-particle.secondary {
+  color: rgb(var(--accent-sec-r), var(--accent-sec-g), var(--accent-sec-b));
+}
+
+@keyframes proof-heart-fly {
+  0%   { opacity: 0;    transform: translate(var(--x), 0)      scale(calc(var(--scale) * 0.55)); }
+  12%  { opacity: 1;    transform: translate(var(--x), -8px)   scale(var(--scale));              }
+  60%  { opacity: 0.85; transform: translate(var(--x), -90px)  scale(calc(var(--scale) * 1.06)); }
+  100% { opacity: 0;    transform: translate(var(--x), -160px) scale(calc(var(--scale) * 0.85)); }
+}
+
+/* Optional radial glow inside the proof section. `isolation: isolate`
+   on .proof-counter-section keeps any blend / stacking effects from
+   leaking into the page-wide Fluid/Energy/Mesh backgrounds. */
+.proof-counter-section {
+  isolation: isolate;
+}
+
+.proof-counter-glow {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background: radial-gradient(
+    ellipse 40% 32% at 50% 50%,
+    rgba(var(--accent-r), var(--accent-g), var(--accent-b), 0.18) 0%,
+    transparent 70%
+  );
+  opacity: 0;
+  animation: proof-counter-glow-flash 900ms ease-out forwards;
+}
+
+@keyframes proof-counter-glow-flash {
+  0%   { opacity: 0;    transform: scale(0.85); }
+  20%  { opacity: 0.9;  transform: scale(1);    }
+  100% { opacity: 0;    transform: scale(1.1);  }
 }
 
 .social-proof-ticker-window {
@@ -984,8 +1064,14 @@ main > .glass-divider,
   .brand-glow-text,
   .brand-glow-icon,
   .gen-sim-pulse,
-  .proof-heart-beat {
+  .proof-heart-beat,
+  .proof-burst-particle,
+  .proof-counter-glow {
     animation: none !important;
+  }
+  .proof-burst-particle,
+  .proof-counter-glow {
+    opacity: 0 !important;
   }
   .social-proof-ticker-track {
     transition: none !important;

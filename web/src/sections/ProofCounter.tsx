@@ -10,16 +10,21 @@ export interface ProofCounterProps {
   /** Параметры псевдослучайного тика — те же, что в SocialProof. */
   counter: SocialProofCounterConfig;
   /**
-   * Основная подпись под цифрой. Должна звучать грамотно с любой
-   * цифрой — то есть писать после числительного только
-   * несклоняемые («фото», «AI-фото») и нейтральные хвосты.
-   * Пример: "AI-фото уже сделано пользователями Look Studio".
+   * Крупный белый заголовок под цифрой (H2). Должен звучать
+   * грамотно с любой цифрой — несклоняемое «фото» + «уже создано/
+   * сделано» работают для всех чисел.
    */
-  caption: string;
-  /** Опциональный подзаголовок над цифрой (eyebrow). */
-  eyebrow?: string;
-  /** Опциональный мелкий хвост под caption. */
-  subcaption?: string;
+  heading: string;
+  /** Опциональный обычный абзац под H2. */
+  subheading?: string;
+}
+
+interface BurstParticle {
+  id: number;
+  x: number;
+  size: number;
+  delay: number;
+  hue: 'primary' | 'secondary';
 }
 
 const DEFAULT_COUNTER: SocialProofCounterConfig = {
@@ -31,6 +36,10 @@ const DEFAULT_COUNTER: SocialProofCounterConfig = {
 
 function randomInt(min: number, max: number): number {
   return Math.floor(Math.random() * (max - min + 1)) + min;
+}
+
+function randomFloat(min: number, max: number): number {
+  return Math.random() * (max - min) + min;
 }
 
 function formatCounter(value: number): string {
@@ -50,25 +59,36 @@ function usePrefersReducedMotion(): boolean {
   return reduced;
 }
 
+const HEART_PATH =
+  'M12 21s-7-4.35-9.33-9.04C1.32 9.13 2.66 5.6 6.07 5.05c2.05-.33 3.94.74 4.93 2.4.99-1.66 2.88-2.73 4.93-2.4 3.41.55 4.75 4.08 3.4 6.91C19 16.65 12 21 12 21Z';
+
 /**
  * Standalone proof block: heart icon (which beats on every counter
- * tick) → big number → grammatical caption underneath. Splits
- * the old combined SocialProof into a pure proof part and a
- * separate testimonials feed.
+ * tick) → big number with primary gradient → bold heading → optional
+ * paragraph. On every tick we additionally spawn a small burst of
+ * hearts that fly upward and dissolve, TikTok-style.
+ *
+ * The optional radial glow inside the section (also keyed off every
+ * tick) provides a subtle background reaction without touching the
+ * page-wide Fluid/Energy/Mesh effects — `isolation: isolate` keeps
+ * the flash contained.
  */
 export default function ProofCounter({
   baseCount,
   counter = DEFAULT_COUNTER,
-  caption,
-  eyebrow,
-  subcaption,
+  heading,
+  subheading,
 }: ProofCounterProps) {
   const reducedMotion = usePrefersReducedMotion();
   const [count, setCount] = useState(baseCount);
-  // Re-mount key for the heart node — bumping this restarts the CSS
-  // pop animation on every counter increment, regardless of whether
-  // the previous animation had finished.
+  // Re-mount key for the static heart node — bumping this restarts
+  // the CSS pop animation on every counter increment, regardless of
+  // whether the previous animation had finished.
   const [beatKey, setBeatKey] = useState(0);
+  // Re-mount key for the section glow flash.
+  const [burstKey, setBurstKey] = useState(0);
+  const [particles, setParticles] = useState<BurstParticle[]>([]);
+  const nextIdRef = useRef(0);
   const lastBaseRef = useRef(baseCount);
 
   // External baseCount changes (e.g. CMS reload) reset the counter
@@ -95,6 +115,24 @@ export default function ProofCounter({
           : 1;
         setCount((current) => current + increment);
         setBeatKey((k) => k + 1);
+        setBurstKey((k) => k + 1);
+
+        const particleCount = burstTriggered
+          ? randomInt(2, Math.max(2, counter.maxBurstSize))
+          : 1;
+        const newOnes: BurstParticle[] = [];
+        for (let i = 0; i < particleCount; i++) {
+          const id = nextIdRef.current++;
+          newOnes.push({
+            id,
+            x: randomInt(-26, 26),
+            size: randomFloat(0.7, 1.15),
+            delay: randomInt(0, 140),
+            hue: id % 2 === 0 ? 'primary' : 'secondary',
+          });
+        }
+        setParticles((arr) => [...arr, ...newOnes]);
+
         scheduleTick();
       }, delay);
     };
@@ -106,18 +144,22 @@ export default function ProofCounter({
     };
   }, [counter, reducedMotion]);
 
-  return (
-    <section className="relative z-[2] px-[var(--space-16)] tablet:px-[var(--space-24)] py-[60px] tablet:py-[88px]">
-      <div className="mx-auto flex max-w-[760px] flex-col items-center gap-[var(--space-16)] text-center">
-        {eyebrow && (
-          <span className="text-[12px] tablet:text-[13px] uppercase tracking-[0.18em] text-[var(--color-text-muted)]">
-            {eyebrow}
-          </span>
-        )}
+  const removeParticle = (id: number) => {
+    setParticles((arr) => arr.filter((p) => p.id !== id));
+  };
 
-        <div className="relative flex items-center justify-center">
-          {/* Heart pulses on every increment. We re-key the wrapper so
-              the CSS animation restarts even if it was mid-flight. */}
+  return (
+    <section className="proof-counter-section relative z-[2] px-[var(--space-16)] tablet:px-[var(--space-24)] py-[60px] tablet:py-[88px]">
+      {!reducedMotion && (
+        <div
+          key={burstKey}
+          aria-hidden="true"
+          className="proof-counter-glow"
+        />
+      )}
+
+      <div className="relative z-[1] mx-auto flex max-w-[760px] flex-col items-center text-center">
+        <div className="proof-counter-row relative flex items-center justify-center">
           <span
             key={beatKey}
             aria-hidden="true"
@@ -128,22 +170,46 @@ export default function ProofCounter({
               fill="currentColor"
               className="w-[40px] h-[40px] tablet:w-[56px] tablet:h-[56px] desktop:w-[64px] desktop:h-[64px]"
             >
-              <path d="M12 21s-7-4.35-9.33-9.04C1.32 9.13 2.66 5.6 6.07 5.05c2.05-.33 3.94.74 4.93 2.4.99-1.66 2.88-2.73 4.93-2.4 3.41.55 4.75 4.08 3.4 6.91C19 16.65 12 21 12 21Z" />
+              <path d={HEART_PATH} />
             </svg>
           </span>
 
-          <span className="proof-counter-value text-[64px] tablet:text-[112px] desktop:text-[140px] font-semibold leading-none text-[var(--color-brand-primary)] tabular-nums">
+          <span className="proof-counter-value text-[64px] tablet:text-[112px] desktop:text-[140px] font-semibold leading-none tabular-nums">
             {formatCounter(count)}
           </span>
+
+          {!reducedMotion && (
+            <div className="proof-burst-layer pointer-events-none absolute inset-0 overflow-visible">
+              {particles.map((p) => (
+                <span
+                  key={p.id}
+                  aria-hidden="true"
+                  className={`proof-burst-particle ${p.hue}`}
+                  style={
+                    {
+                      '--x': `${p.x}px`,
+                      '--scale': `${p.size}`,
+                      animationDelay: `${p.delay}ms`,
+                    } as React.CSSProperties
+                  }
+                  onAnimationEnd={() => removeParticle(p.id)}
+                >
+                  <svg viewBox="0 0 24 24" fill="currentColor" className="w-full h-full">
+                    <path d={HEART_PATH} />
+                  </svg>
+                </span>
+              ))}
+            </div>
+          )}
         </div>
 
-        <p className="text-[16px] tablet:text-[20px] desktop:text-[22px] leading-[1.45] text-[var(--color-text-secondary)] max-w-[640px]">
-          {caption}
-        </p>
+        <h2 className="text-[28px] tablet:text-[40px] desktop:text-[48px] font-semibold leading-[1.1] text-[var(--color-text-primary)] mt-[var(--space-16)] tablet:mt-[var(--space-24)] max-w-[640px]">
+          {heading}
+        </h2>
 
-        {subcaption && (
-          <p className="text-[13px] tablet:text-[14px] leading-[1.45] text-[var(--color-text-muted)] max-w-[560px]">
-            {subcaption}
+        {subheading && (
+          <p className="text-[16px] tablet:text-[20px] desktop:text-[22px] leading-[1.45] text-[var(--color-text-secondary)] max-w-[640px] mt-[var(--space-12)]">
+            {subheading}
           </p>
         )}
       </div>

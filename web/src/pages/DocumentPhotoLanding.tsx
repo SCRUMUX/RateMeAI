@@ -80,9 +80,8 @@ export default function DocumentPhotoLanding({ onStart, showAuth, onAuthClose }:
         <ProofCounter
           baseCount={DOCUMENT_SOCIAL_PROOF_PRESET.baseCount}
           counter={DOCUMENT_SOCIAL_PROOF_PRESET.counter}
-          eyebrow="Фото на документы"
-          caption="фото для документов сделано пользователями не выходя из дома и дешевле, чем в студии"
-          subcaption="Паспорт, виза, права — формат подбирается автоматически."
+          heading="Фото для документов уже сделано"
+          subheading="Пользователи делают их не выходя из дома и дешевле, чем в студии."
         />
 
         {/* How it works */}

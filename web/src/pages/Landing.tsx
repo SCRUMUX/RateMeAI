@@ -39,11 +39,11 @@ export default function Landing() {
   });
 
   const proofContent = useMemo(() => {
-    const fallback = {
-      ...defaultProofCounter('AI-фото уже сделано пользователями Look Studio', 2799),
-      eyebrow: 'Look Studio',
-      subcaption: 'Каждое — улучшено под конкретный сценарий: соцсети, знакомства, резюме или документы.',
-    };
+    const fallback = defaultProofCounter(
+      'Классных фото уже создано',
+      'В каждой категории — более 100 уникальных стилей под любую задачу.',
+      2799,
+    );
     const block = findBlock(cmsPage ?? undefined, 'proof_counter');
     return parseProofCounter(block?.data, fallback);
   }, [cmsPage]);
@@ -66,9 +66,8 @@ export default function Landing() {
         <ProofCounter
           baseCount={proofContent.baseCount}
           counter={proofContent.counter}
-          caption={proofContent.caption}
-          eyebrow={proofContent.eyebrow}
-          subcaption={proofContent.subcaption}
+          heading={proofContent.heading}
+          subheading={proofContent.subheading}
         />
         <HowItWorks />
         <Simulation cmsPage={cmsPage} />

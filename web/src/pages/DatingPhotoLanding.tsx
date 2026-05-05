@@ -70,9 +70,8 @@ export default function DatingPhotoLanding({ onStart, showAuth, onAuthClose }: L
         <ProofCounter
           baseCount={getLandingSocialProofPreset('dating').baseCount}
           counter={getLandingSocialProofPreset('dating').counter}
-          eyebrow="Знакомства"
-          caption="классных AI-фото для знакомств — чтобы вы быстрее нашли свою половинку"
-          subcaption="Естественно, дружелюбно, без эффекта «перегенерировано»."
+          heading="Фото для знакомств уже создано"
+          subheading="Чтобы вы быстрее нашли свою половинку."
         />
       </main>
       <Footer />

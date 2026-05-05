@@ -70,9 +70,8 @@ export default function ResumePhotoLanding({ onStart, showAuth, onAuthClose }: L
         <ProofCounter
           baseCount={getLandingSocialProofPreset('cv').baseCount}
           counter={getLandingSocialProofPreset('cv').counter}
-          eyebrow="Резюме и LinkedIn"
-          caption="классных AI-фото для резюме — чтобы вы быстрее нашли работу мечты"
-          subcaption="Спокойный фон, уверенный вайб, без «пластика» и странных деталей."
+          heading="Фото для резюме уже создано"
+          subheading="Чтобы вы быстрее нашли работу мечты."
         />
       </main>
       <Footer />

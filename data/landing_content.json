@@ -7,9 +7,8 @@
           "type": "proof_counter",
           "enabled": true,
           "data": {
-            "eyebrow": "Look Studio",
-            "caption": "AI-фото уже сделано пользователями Look Studio",
-            "subcaption": "Каждое — улучшено под конкретный сценарий: соцсети, знакомства, резюме или документы.",
+            "heading": "Классных фото уже создано",
+            "subheading": "В каждой категории — более 100 уникальных стилей под любую задачу.",
             "baseCount": 2799,
             "counter": { "minDelayMs": 8000, "maxDelayMs": 36000, "burstChance": 0.16, "maxBurstSize": 3 }
           }
