@@ -4005,4 +4005,49 @@
 #          (524.51 kB main / 81.80 kB CSS — без изменения
 #          размера: ambient-loop и rAF-обёртка в пределах
 #          minifier-noise'а).
-APP_VERSION = "1.43.0"
+# 1.48.0 — Landing rebuild + bot handle update.
+#          (1) Proof counter — removed the static heart icon next to
+#              the number; flying like-particles repositioned to the
+#              right edge, larger (44/56 px), softer easing
+#              (cubic-bezier(0.16, 1, 0.3, 1)), 2 s flight with a
+#              gentle blur-in/out. Section glow attenuated.
+#          (2) Unified landing typography — added .landing-h1 / -h2
+#              / -lead / -body classes (Inter family preserved) and
+#              applied them across Hero, ProofCounter, Testimonials,
+#              Simulation, BeforeAfter, ApiSection, HowItWorks,
+#              Pricing, scenario heroes (Dating, Resume, Documents)
+#              and the brand+CTA block on the home landing.
+#          (3) Testimonials block fully rewritten as a 3-slot
+#              carousel: DiceBear avatar (notionists, gradient bg)
+#              + nickname + direction chip + tier chip (Премиум
+#              accent gradient / Обычный neutral) + emoji-rich short
+#              review + auto-cycling before/after slider with a
+#              live drag handle. Sweep 3 s, hold 3 s, soft cross-
+#              fade to next card.
+#          (4) BeforeAfterSlider — added autoCycle / autoCycleMs /
+#              autoHoldMs / autoFrom / autoTo / hideHandle props;
+#              user drag pauses the autopilot for 1.5 s.
+#          (5) Landing.tsx — Testimonials moved up directly under
+#              ProofCounter (Hero → ProofCounter → Testimonials →
+#              HowItWorks → Simulation → BeforeAfter → API → CTA →
+#              Pricing).
+#          (6) HowItWorks made reusable: optional ``steps`` and
+#              ``title`` props, CSS grid (``repeat(4, 1fr)``) with
+#              equal-height cards (``min-height`` floor +
+#              ``flex: 1 1 auto`` on the description) so plates
+#              align symmetrically across the row. Connected on all
+#              four landings (home, Dating, Resume, Documents) with
+#              identical visuals; Documents replaced its custom
+#              4-card grid with the shared component.
+#          (7) Scroll regression fix on scenario landings — root
+#              divs switched to ``min-h-screen flex flex-col`` +
+#              ``main flex-1`` so the footer pins to the bottom on
+#              short pages; ``.energy-field`` clipped (``overflow:
+#              clip``) so deep blobs (top: 200vh+) no longer leak
+#              past short main heights.
+#          (8) Telegram bot handle rebrand: ``RateMeAIBot`` →
+#              ``RateMeAI_bot`` in src/config.py default username,
+#              .env.example YOOKASSA_RETURN_URL, web Hero
+#              platform link and LinkPage instructions copy.
+#          Sanity: tsc --noEmit clean; ruff clean; vite build OK.
+APP_VERSION = "1.48.0"

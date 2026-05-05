@@ -15,7 +15,7 @@ interface PlatformDef {
 
 const PLATFORMS: PlatformDef[] = [
   { name: 'WEB APP', sub: 'Прямо здесь', border: 'var(--color-brand-primary)', opacity: 1, iconColor: 'var(--color-brand-primary)', Icon: ({ size, className }) => <AicaIcon size={size} className={`${className ?? ''} -rotate-45`} />, href: '/app', internal: true },
-  { name: 'Telegram', sub: 'Уже запущен', border: '#229ED9', opacity: 1, iconColor: '#229ED9', Icon: TelegramIcon, href: 'https://t.me/RateMeAIBot' },
+  { name: 'Telegram', sub: 'Уже запущен', border: '#229ED9', opacity: 1, iconColor: '#229ED9', Icon: TelegramIcon, href: 'https://t.me/RateMeAI_bot' },
   { name: 'Одноклассники', sub: 'Мини-приложение', border: '#EE8208', opacity: 1, iconColor: '#EE8208', Icon: OkIcon, href: 'https://ok.ru/app/ratemeai' },
   { name: 'Вконтакте', sub: 'Мини-приложение', border: '#0077FF', opacity: 1, iconColor: '#0077FF', Icon: VkIcon, href: 'https://vk.com/app_ratemeai' },
   { name: 'WhatsApp', sub: 'Скоро', border: '#25D366', opacity: 0.5, iconColor: '#25D366', Icon: WhatsappIcon },
@@ -30,22 +30,22 @@ export default function Hero() {
     >
       {/* Text block */}
       <div className="relative z-[2] flex flex-col items-center gap-[var(--space-12)] text-center">
-        <h1 className="text-[32px] tablet:text-[48px] desktop:text-[64px] font-bold leading-[1] text-[var(--color-text-primary)]">
-          Адаптируй фото
+        <h1 className="landing-h1 text-[var(--color-text-primary)] flex flex-col gap-[var(--space-4)]">
+          <span>Адаптируй фото</span>
+          <span
+            style={{
+              background: 'linear-gradient(103deg, rgb(var(--accent-r), var(--accent-g), var(--accent-b)) 4%, rgb(var(--accent-sec-r), var(--accent-sec-g), var(--accent-sec-b)) 103%)',
+              WebkitBackgroundClip: 'text',
+              WebkitTextFillColor: 'transparent',
+            }}
+          >
+            под любой контекст.
+          </span>
         </h1>
-        <h1 className="text-[32px] tablet:text-[48px] desktop:text-[64px] font-bold leading-[1]"
-          style={{
-            background: 'linear-gradient(103deg, rgb(var(--accent-r), var(--accent-g), var(--accent-b)) 4%, rgb(var(--accent-sec-r), var(--accent-sec-g), var(--accent-sec-b)) 103%)',
-            WebkitBackgroundClip: 'text',
-            WebkitTextFillColor: 'transparent',
-          }}
-        >
-          под любой контекст.
-        </h1>
-        <p className="text-[16px] tablet:text-[20px] leading-[24px] tablet:leading-[28px] text-[var(--color-text-secondary)] mt-1">
+        <p className="landing-lead mt-1">
           Одна загрузка — множество вариантов
         </p>
-        <p className="text-[15px] tablet:text-[18px] leading-[22px] tablet:leading-[28px] text-[var(--color-text-secondary)] max-w-[660px]">
+        <p className="landing-lead max-w-[660px]">
           Выбери категорию, выбери стиль — система адаптирует твоё фото и покажет скор восприятия.
           Улучшай результат с каждой генерацией. Работает в браузере и в мессенджерах.
         </p>

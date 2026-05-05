@@ -28,10 +28,10 @@ export default function ApiSection({ cmsPage }: { cmsPage?: LandingPage | null }
       <div className="mx-auto w-full max-w-[1200px]">
         <div className="gradient-border-card glass-card rounded-[var(--radius-12)] p-[var(--space-16)] tablet:p-[var(--space-24)] flex flex-col tablet:flex-row items-start tablet:items-center justify-between gap-[var(--space-16)]">
           <div className="flex flex-col gap-[var(--space-8)]">
-            <h2 className="text-[24px] tablet:text-[32px] font-semibold leading-[1.1] text-[var(--color-text-primary)]">
+            <h2 className="landing-h2 text-[var(--color-text-primary)]">
               {title}
             </h2>
-            <p className="text-[14px] tablet:text-[16px] leading-[22px] text-[var(--color-text-secondary)] max-w-[720px]">
+            <p className="landing-lead max-w-[720px]">
               {subtitle}
             </p>
           </div>

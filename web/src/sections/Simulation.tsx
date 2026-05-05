@@ -58,10 +58,10 @@ export default function Simulation({ cmsPage }: { cmsPage?: LandingPage | null }
     >
       {/* Heading */}
       <div className="relative flex flex-col items-center gap-[var(--space-12)] text-center">
-        <h2 className="text-[32px] tablet:text-[48px] desktop:text-[64px] font-semibold leading-[1] text-[var(--color-text-primary)]">
+        <h2 className="landing-h2 text-[var(--color-text-primary)]">
           {title}
         </h2>
-        <h2 className="text-[32px] tablet:text-[48px] desktop:text-[64px] font-semibold leading-[1]"
+        <h2 className="landing-h2"
           style={{
             background: 'linear-gradient(103deg, rgb(var(--accent-r), var(--accent-g), var(--accent-b)) 4%, rgb(var(--accent-sec-r), var(--accent-sec-g), var(--accent-sec-b)) 103%)',
             WebkitBackgroundClip: 'text',
@@ -70,10 +70,10 @@ export default function Simulation({ cmsPage }: { cmsPage?: LandingPage | null }
         >
           {subtitle}
         </h2>
-        <p className="text-[16px] tablet:text-[20px] leading-[24px] tablet:leading-[28px] text-[var(--color-text-secondary)] max-w-[696px]">
+        <p className="landing-lead max-w-[696px]">
           {lead}
         </p>
-        <p className="text-[15px] tablet:text-[18px] leading-[22px] tablet:leading-[28px] text-[var(--color-text-secondary)] max-w-[660px]">
+        <p className="landing-lead max-w-[660px]">
           {sublead}
         </p>
       </div>

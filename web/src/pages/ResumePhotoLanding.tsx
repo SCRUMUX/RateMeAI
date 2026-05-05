@@ -6,9 +6,19 @@ import MeshGradientBg from '../components/effects/MeshGradientBg';
 import FluidBackground from '../components/effects/FluidBackground';
 import EnergyField from '../components/effects/EnergyField';
 import ProofCounter from '../sections/ProofCounter';
+import Testimonials from '../sections/Testimonials';
+import HowItWorks, { type HowItWorksStep } from '../sections/HowItWorks';
 import { useApp } from '../context/AppContext';
 import { getLandingSocialProofPreset } from '../data/social-proof';
+import { getTestimonialsByCategory } from '../data/testimonials';
 import useDocumentMeta from '../lib/useDocumentMeta';
+
+const RESUME_STEPS: HowItWorksStep[] = [
+  { num: '1', title: 'Загрузи фото', desc: 'Подойдёт любой портрет — даже домашнее селфи. Главное, чтобы лицо было крупно.' },
+  { num: '2', title: 'Выбери стиль', desc: 'Корпоративный, стартап, IT, ментор — подберём под твою сферу.' },
+  { num: '3', title: 'Получи результат', desc: 'Профессиональный портрет: спокойный фон, уверенный вайб, без «пластика».' },
+  { num: '4', title: 'Усиль профиль', desc: 'Поставь на LinkedIn, hh.ru или резюме — отклики становятся заметнее.' },
+];
 
 interface LandingProps {
   onStart?: () => void;
@@ -29,9 +39,9 @@ export default function ResumePhotoLanding({ onStart, showAuth, onAuthClose }: L
   });
 
   return (
-    <div data-category="cv" className="min-h-screen w-full overflow-x-hidden selection:bg-brand-primary/30">
+    <div data-category="cv" className="min-h-screen w-full flex flex-col overflow-x-hidden selection:bg-brand-primary/30">
       <NavBar onLoginClick={() => setAuthModalOpen(true)} onCtaClick={onStart} hideNavLinks logoTo="/rezume" />
-      <main className="relative">
+      <main className="relative flex-1">
         <MeshGradientBg />
         <FluidBackground />
         <EnergyField />
@@ -40,7 +50,7 @@ export default function ResumePhotoLanding({ onStart, showAuth, onAuthClose }: L
         <section className="relative z-[2] flex flex-col items-center gap-[var(--space-24)] px-[var(--space-16)] tablet:px-[var(--space-24)] pt-[120px] tablet:pt-[160px] pb-[60px] tablet:pb-[80px] text-center">
           <div className="flex flex-col items-center gap-[var(--space-12)]">
             <span className="text-[48px]">💼</span>
-            <h1 className="text-[32px] tablet:text-[48px] desktop:text-[56px] font-semibold leading-[1.1] text-[var(--color-text-primary)] max-w-[820px]">
+            <h1 className="landing-h1 text-[var(--color-text-primary)] max-w-[820px]">
               Фото для резюме
               <br />
               <span style={{
@@ -51,7 +61,7 @@ export default function ResumePhotoLanding({ onStart, showAuth, onAuthClose }: L
                 и профиля
               </span>
             </h1>
-            <p className="text-[16px] tablet:text-[20px] leading-[24px] tablet:leading-[28px] text-[var(--color-text-secondary)] max-w-[600px]">
+            <p className="landing-lead max-w-[600px]">
               Сделаем фото собранным и профессиональным: спокойный фон, уверенный вайб, без «пластика» и странных деталей.
             </p>
           </div>
@@ -63,7 +73,7 @@ export default function ResumePhotoLanding({ onStart, showAuth, onAuthClose }: L
             >
               Начать
             </button>
-            <span className="text-[14px] text-[var(--color-text-muted)]">Результат за несколько минут</span>
+            <span className="landing-body text-[var(--color-text-muted)]">Результат за несколько минут</span>
           </div>
         </section>
 
@@ -73,6 +83,14 @@ export default function ResumePhotoLanding({ onStart, showAuth, onAuthClose }: L
           heading="Фото для резюме уже создано"
           subheading="Чтобы вы быстрее нашли работу мечты."
         />
+
+        <Testimonials
+          items={getTestimonialsByCategory('cv').slice(0, 4)}
+          eyebrow="Отзывы"
+          variant="compact"
+        />
+
+        <HowItWorks steps={RESUME_STEPS} title="Как это работает" />
       </main>
       <Footer />
 

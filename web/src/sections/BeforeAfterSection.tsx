@@ -14,10 +14,10 @@ export default function BeforeAfterSection({ cmsPage }: { cmsPage?: LandingPage 
   return (
     <section className="relative z-[2] flex flex-col items-center gap-[var(--space-24)] px-[var(--space-16)] tablet:px-[var(--space-24)] py-[60px] tablet:py-[88px]">
       <div className="mx-auto flex w-full max-w-[1200px] flex-col items-center gap-[var(--space-12)] text-center">
-        <h2 className="text-[28px] tablet:text-[40px] font-semibold leading-[1.1] text-[var(--color-text-primary)]">
+        <h2 className="landing-h2 text-[var(--color-text-primary)]">
           {asString(data.title, 'До и после')}
         </h2>
-        <p className="text-[16px] tablet:text-[18px] leading-[24px] text-[var(--color-text-secondary)] max-w-[720px]">
+        <p className="landing-lead max-w-[720px]">
           {asString(data.caption, 'Перетаскивайте ползунок — результат всегда выглядит естественно.')}
         </p>
       </div>

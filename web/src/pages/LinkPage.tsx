@@ -117,8 +117,8 @@ export default function LinkPage() {
           />
           <p className="text-[11px] text-[var(--color-text-muted)] text-center mt-1">
             Откуда взять код? В Telegram-боте{' '}
-            <a href="https://t.me/RateMeAIBot" target="_blank" rel="noopener noreferrer" className="underline hover:text-[var(--color-text-secondary)]">
-              @RateMeAIBot
+            <a href="https://t.me/RateMeAI_bot" target="_blank" rel="noopener noreferrer" className="underline hover:text-[var(--color-text-secondary)]">
+              @RateMeAI_bot
             </a>
             {' '}нажми &laquo;Привязать аккаунт&raquo; &rarr; &laquo;Хочу войти на сайт через бот&raquo;
           </p>

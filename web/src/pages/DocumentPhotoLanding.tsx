@@ -6,17 +6,84 @@ import MeshGradientBg from '../components/effects/MeshGradientBg';
 import FluidBackground from '../components/effects/FluidBackground';
 import EnergyField from '../components/effects/EnergyField';
 import ProofCounter from '../sections/ProofCounter';
+import Testimonials from '../sections/Testimonials';
+import HowItWorks, { type HowItWorksStep } from '../sections/HowItWorks';
 import { useApp } from '../context/AppContext';
 import { DOCUMENT_SOCIAL_PROOF_PRESET } from '../data/social-proof';
 import { DOCUMENT_LANDING_ITEMS } from '../data/landingStyles';
 import { REQUIREMENTS_SHORT, REJECT_BULLETS } from '../data/photo-requirements';
+import type { Testimonial } from '../data/testimonials';
 import useDocumentMeta from '../lib/useDocumentMeta';
 
-const STEPS = [
-  { num: '1', title: 'Загрузите фото', desc: 'Любое фото с чётким лицом' },
-  { num: '2', title: 'AI-анализ', desc: 'Проверка пригодности за секунды' },
-  { num: '3', title: 'Выберите формат', desc: 'Паспорт, виза или другой документ' },
-  { num: '4', title: 'Получите результат', desc: 'Скачайте готовое фото' },
+/**
+ * Synthetic, document-flavoured testimonials. The carousel runs in
+ * `withSlider={false}` mode here because document photos don't have
+ * a meaningful "after" image — we just want the social proof.
+ */
+const DOCUMENT_TESTIMONIALS: Testimonial[] = [
+  {
+    id: 'doc-1',
+    styleKey: 'passport',
+    category: 'cv',
+    nickname: '@anna_paperwork',
+    shortReview: 'Сделала фото на загран дома — приняли с первого раза.',
+    fullReview: '',
+    emojiReview: 'Сделала фото на загран дома 🛂 приняли в МФЦ с первого раза 👌 не тратила время на фотосалон 🙌',
+    beforeScore: 0,
+    afterScore: 0,
+    deltaRange: [0, 0],
+    avatarSeed: 'anna_paperwork',
+    tier: 'Обычный',
+  },
+  {
+    id: 'doc-2',
+    styleKey: 'visa',
+    category: 'cv',
+    nickname: '@kirill_visa',
+    shortReview: 'Виза одобрена, фото прошло проверку требований.',
+    fullReview: '',
+    emojiReview: 'Виза одобрена ✅ фото прошло проверку с первого раза 📑 спокойный фон и нужные размеры 🎯',
+    beforeScore: 0,
+    afterScore: 0,
+    deltaRange: [0, 0],
+    avatarSeed: 'kirill_visa',
+    tier: 'Премиум',
+  },
+  {
+    id: 'doc-3',
+    styleKey: 'driver_license',
+    category: 'cv',
+    nickname: '@masha_docs',
+    shortReview: 'Удобно, что не надо ехать в фотостудию.',
+    fullReview: '',
+    emojiReview: 'Не надо ехать в фотостудию 🚗 загрузила селфи — получила фото для прав 📸 быстро и аккуратно 💼',
+    beforeScore: 0,
+    afterScore: 0,
+    deltaRange: [0, 0],
+    avatarSeed: 'masha_docs',
+    tier: 'Обычный',
+  },
+  {
+    id: 'doc-4',
+    styleKey: 'medical',
+    category: 'cv',
+    nickname: '@oleg_form',
+    shortReview: 'Медкомиссия приняла без вопросов.',
+    fullReview: '',
+    emojiReview: 'Медкомиссия приняла без вопросов 🩺 нейтральный фон и правильные пропорции 📐 экономия времени 🕒',
+    beforeScore: 0,
+    afterScore: 0,
+    deltaRange: [0, 0],
+    avatarSeed: 'oleg_form',
+    tier: 'Обычный',
+  },
+];
+
+const STEPS: HowItWorksStep[] = [
+  { num: '1', title: 'Загрузите фото', desc: 'Любое фото с чётким лицом, без фильтров и крупным планом — мы проверим автоматически.' },
+  { num: '2', title: 'AI-анализ', desc: 'Проверим пригодность фото для документа за несколько секунд.' },
+  { num: '3', title: 'Выберите формат', desc: 'Паспорт, виза, права или другой документ — настроим размеры и фон.' },
+  { num: '4', title: 'Получите результат', desc: 'Скачайте готовое фото в нужном формате — экономия похода в фотосалон.' },
 ];
 
 interface LandingProps {
@@ -39,9 +106,9 @@ export default function DocumentPhotoLanding({ onStart, showAuth, onAuthClose }:
   });
 
   return (
-    <div data-category="cv" className="min-h-screen w-full overflow-x-hidden selection:bg-brand-primary/30">
+    <div data-category="cv" className="min-h-screen w-full flex flex-col overflow-x-hidden selection:bg-brand-primary/30">
       <NavBar onLoginClick={() => setAuthModalOpen(true)} onCtaClick={onStart} hideNavLinks logoTo="/dokumenty" />
-      <main className="relative">
+      <main className="relative flex-1">
         <MeshGradientBg />
         <FluidBackground />
         <EnergyField />
@@ -50,7 +117,7 @@ export default function DocumentPhotoLanding({ onStart, showAuth, onAuthClose }:
         <section className="relative z-[2] flex flex-col items-center gap-[var(--space-24)] px-[var(--space-16)] tablet:px-[var(--space-24)] pt-[120px] tablet:pt-[160px] pb-[60px] tablet:pb-[80px] text-center">
           <div className="flex flex-col items-center gap-[var(--space-12)]">
             <span className="text-[48px]">📋</span>
-            <h1 className="text-[32px] tablet:text-[48px] desktop:text-[56px] font-semibold leading-[1.1] text-[var(--color-text-primary)] max-w-[700px]">
+            <h1 className="landing-h1 text-[var(--color-text-primary)] max-w-[700px]">
               Фото на документы
               <br />
               <span style={{
@@ -61,7 +128,7 @@ export default function DocumentPhotoLanding({ onStart, showAuth, onAuthClose }:
                 за 2 минуты
               </span>
             </h1>
-            <p className="text-[16px] tablet:text-[20px] leading-[24px] tablet:leading-[28px] text-[var(--color-text-secondary)] max-w-[520px]">
+            <p className="landing-lead max-w-[520px]">
               AI создаст идеальное фото для паспорта, визы или любого документа. Максимальная фотореалистичность, без лишних эффектов.
             </p>
           </div>
@@ -73,7 +140,7 @@ export default function DocumentPhotoLanding({ onStart, showAuth, onAuthClose }:
             >
               Создать фото — 199 ₽
             </button>
-            <span className="text-[14px] text-[var(--color-text-muted)]">5 фото в пакете</span>
+            <span className="landing-body text-[var(--color-text-muted)]">5 фото в пакете</span>
           </div>
         </section>
 
@@ -84,23 +151,18 @@ export default function DocumentPhotoLanding({ onStart, showAuth, onAuthClose }:
           subheading="Пользователи делают их не выходя из дома и дешевле, чем в студии."
         />
 
-        {/* How it works */}
-        <section className="relative z-[2] flex flex-col items-center gap-[var(--space-32)] px-[var(--space-16)] tablet:px-[var(--space-24)] py-[60px] tablet:py-[80px]">
-          <h2 className="text-[24px] tablet:text-[36px] font-semibold leading-[1.2] text-[var(--color-text-primary)]">Как это работает</h2>
-          <div className="grid grid-cols-2 tablet:grid-cols-4 gap-[var(--space-16)] tablet:gap-[var(--space-24)] max-w-[900px]">
-            {STEPS.map((s) => (
-              <div key={s.num} className="gradient-border-card glass-card flex flex-col items-center gap-[var(--space-8)] p-[var(--space-16)] rounded-[var(--radius-12)] text-center">
-                <span className="text-[24px] font-bold" style={{ color: 'rgb(var(--accent-r),var(--accent-g),var(--accent-b))' }}>{s.num}</span>
-                <span className="text-[14px] font-medium text-[var(--color-text-primary)]">{s.title}</span>
-                <span className="text-[12px] text-[var(--color-text-muted)]">{s.desc}</span>
-              </div>
-            ))}
-          </div>
-        </section>
+        <Testimonials
+          items={DOCUMENT_TESTIMONIALS}
+          eyebrow="Отзывы"
+          variant="compact"
+          withSlider={false}
+        />
+
+        <HowItWorks steps={STEPS} title="Как это работает" />
 
         {/* Supported formats */}
         <section className="relative z-[2] flex flex-col items-center gap-[var(--space-32)] px-[var(--space-16)] tablet:px-[var(--space-24)] py-[60px] tablet:py-[80px]">
-          <h2 className="text-[24px] tablet:text-[36px] font-semibold leading-[1.2] text-[var(--color-text-primary)]">Поддерживаемые форматы</h2>
+          <h2 className="landing-h2 text-[var(--color-text-primary)]">Поддерживаемые форматы</h2>
           <div className="grid grid-cols-1 tablet:grid-cols-2 desktop:grid-cols-3 gap-[var(--space-12)] max-w-[900px] w-full">
             {DOCUMENT_LANDING_ITEMS.map((f) => (
               <div key={f.key} className="gradient-border-item glass-row flex items-center gap-[var(--space-12)] px-[var(--space-16)] py-[var(--space-12)] rounded-[var(--radius-12)]"
@@ -118,10 +180,10 @@ export default function DocumentPhotoLanding({ onStart, showAuth, onAuthClose }:
 
         {/* Final CTA */}
         <section className="relative z-[2] flex flex-col items-center gap-[var(--space-16)] px-[var(--space-16)] tablet:px-[var(--space-24)] py-[60px] tablet:py-[80px] text-center">
-          <h2 className="text-[24px] tablet:text-[36px] font-semibold leading-[1.2] text-[var(--color-text-primary)]">
+          <h2 className="landing-h2 text-[var(--color-text-primary)]">
             Готовы создать фото?
           </h2>
-          <p className="text-[16px] text-[var(--color-text-secondary)] max-w-[400px]">
+          <p className="landing-lead max-w-[400px]">
             Загрузите любое фото и получите результат, соответствующий требованиям документов
           </p>
 

@@ -111,13 +111,13 @@ export default function Pricing({ cmsPage }: { cmsPage?: LandingPage | null } = 
     >
       {/* Heading */}
       <div className="relative flex flex-col items-center gap-[var(--space-12)] text-center">
-        <h2 className="text-[32px] tablet:text-[48px] desktop:text-[64px] font-semibold leading-[1] text-[var(--color-text-primary)]">{headingTitle}</h2>
-        <h2 className="text-[32px] tablet:text-[48px] desktop:text-[64px] font-semibold leading-[1]"
+        <h2 className="landing-h2 text-[var(--color-text-primary)]">{headingTitle}</h2>
+        <h2 className="landing-h2"
           style={{ background: 'linear-gradient(105deg, rgb(var(--accent-r), var(--accent-g), var(--accent-b)) 4%, rgb(var(--accent-sec-r), var(--accent-sec-g), var(--accent-sec-b)) 103%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}
         >
           {headingSubtitle}
         </h2>
-        <p className="text-[16px] tablet:text-[20px] leading-[24px] tablet:leading-[28px] text-[var(--color-text-secondary)]">{headingCaption}</p>
+        <p className="landing-lead">{headingCaption}</p>
         <Link
           to={resumePath}
           className="glass-btn-secondary mt-[var(--space-8)] px-[var(--space-16)] tablet:px-[var(--space-20)] py-[var(--space-10)] text-[14px] tablet:text-[16px] leading-[20px] tablet:leading-[24px] text-[var(--color-brand-primary)] rounded-[var(--radius-12)] no-underline inline-flex items-center justify-center"
@@ -142,7 +142,7 @@ export default function Pricing({ cmsPage }: { cmsPage?: LandingPage | null } = 
               }`}
             >
               <div className="flex items-center gap-[var(--space-6)] px-[var(--space-8)] py-[var(--space-4)]">
-                <span className="text-style-h1 text-[var(--color-text-primary)]">{plan.title}</span>
+                <span className="text-[18px] tablet:text-[20px] leading-[24px] tablet:leading-[28px] font-semibold text-[var(--color-text-primary)]">{plan.title}</span>
                 {plan.badge && (
                   <span className="glass-badge-info px-[var(--space-6)] py-[2px] text-[12px] font-medium leading-[16px] text-[var(--color-text-primary)] rounded-full">{plan.badge}</span>
                 )}

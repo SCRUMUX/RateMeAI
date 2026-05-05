@@ -8,7 +8,7 @@ class Settings(BaseSettings):
 
     # Telegram
     telegram_bot_token: str = ""
-    telegram_bot_username: str = "RateMeAIBot"
+    telegram_bot_username: str = "RateMeAI_bot"
 
     # OpenRouter (LLM)
     openrouter_api_key: str = ""

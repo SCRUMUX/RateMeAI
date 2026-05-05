@@ -15,7 +15,7 @@ import MeshGradientBg from '../components/effects/MeshGradientBg';
 import FluidBackground from '../components/effects/FluidBackground';
 import EnergyField from '../components/effects/EnergyField';
 import { useApp } from '../context/AppContext';
-import { getLandingSocialProofPreset } from '../data/social-proof';
+import { TESTIMONIALS, getTestimonialsByCategory } from '../data/testimonials';
 import {
   defaultProofCounter,
   findBlock,
@@ -48,17 +48,18 @@ export default function Landing() {
     return parseProofCounter(block?.data, fallback);
   }, [cmsPage]);
 
-  const testimonialsFeed = useMemo(() => {
-    return getLandingSocialProofPreset(app.activeCategory).feed;
+  const testimonialsItems = useMemo(() => {
+    const forCategory = getTestimonialsByCategory(app.activeCategory);
+    return forCategory.length >= 3 ? forCategory : TESTIMONIALS;
   }, [app.activeCategory]);
 
   return (
-    <div data-category={app.activeCategory} className="min-h-screen w-full overflow-x-hidden selection:bg-brand-primary/30">
+    <div data-category={app.activeCategory} className="min-h-screen w-full flex flex-col overflow-x-hidden selection:bg-brand-primary/30">
       <NavBar
         onLoginClick={() => setAuthModalOpen(true)}
         onCtaClick={canAccessApp ? undefined : () => setAuthModalOpen(true)}
       />
-      <main className="relative">
+      <main className="relative flex-1">
         <MeshGradientBg />
         <FluidBackground />
         <EnergyField />
@@ -69,10 +70,10 @@ export default function Landing() {
           heading={proofContent.heading}
           subheading={proofContent.subheading}
         />
-        <HowItWorks />
+        <Testimonials items={testimonialsItems} eyebrow="Отзывы" />
+        <HowItWorks title="Как это работает" />
         <Simulation cmsPage={cmsPage} />
         <BeforeAfterSection cmsPage={cmsPage} />
-        <Testimonials feed={testimonialsFeed} eyebrow="Отзывы" />
         <ApiSection cmsPage={cmsPage} />
 
         {/* Brand heading + CTA */}
@@ -88,10 +89,10 @@ export default function Landing() {
           </div>
 
           <div className="flex flex-col items-center gap-[var(--space-16)] text-center max-w-[600px]">
-            <h2 className="text-[32px] tablet:text-[48px] font-semibold leading-[1] text-[var(--color-text-primary)]">
+            <h2 className="landing-h2 text-[var(--color-text-primary)]">
               Попробуйте прямо сейчас
             </h2>
-            <p className="text-[16px] tablet:text-[20px] leading-[24px] tablet:leading-[28px] text-[var(--color-text-secondary)]">
+            <p className="landing-lead">
               Загрузите фото, получите AI-анализ восприятия и улучшите образ за несколько секунд
             </p>
             {canAccessApp ? (

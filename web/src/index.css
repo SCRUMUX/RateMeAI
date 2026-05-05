@@ -245,6 +245,76 @@ body {
   letter-spacing: 0px;
 }
 
+/* ==========================================================================
+   Unified landing typography (1.48.0)
+   --------------------------------------------------------------------------
+   Single source of truth for landing-page section headings and body copy.
+   Apply across both the main landing (`Landing.tsx`) and scenario landings
+   (Dating, Resume, Documents) so headings/leads look identical block-to-block.
+
+   The "h2" baseline matches the original "Впечатления пользователей"
+   heading; the "lead" baseline matches the original "В каждой категории
+   — более 100 уникальных стилей" intro. Use ``.landing-h1`` only for
+   page heroes (32 → 48 → 64), ``.landing-h2`` for every section heading
+   inside a landing, ``.landing-lead`` for the supporting paragraph
+   directly under a heading, and ``.landing-body`` for everything smaller
+   (e.g. card descriptions). All four respect prefers-reduced-motion
+   automatically because they don't carry any animation.
+   ========================================================================== */
+.landing-h1 {
+  font-size: 32px;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: -0.01em;
+}
+
+.landing-h2 {
+  font-size: 28px;
+  font-weight: 600;
+  line-height: 1.1;
+  letter-spacing: -0.005em;
+}
+
+.landing-lead {
+  font-size: 16px;
+  font-weight: 400;
+  line-height: 24px;
+  color: var(--color-text-secondary);
+}
+
+.landing-body {
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 20px;
+  color: var(--color-text-secondary);
+}
+
+@media (min-width: 768px) {
+  .landing-h1 {
+    font-size: 48px;
+  }
+  .landing-h2 {
+    font-size: 40px;
+  }
+  .landing-lead {
+    font-size: 20px;
+    line-height: 28px;
+  }
+  .landing-body {
+    font-size: 16px;
+    line-height: 24px;
+  }
+}
+
+@media (min-width: 1280px) {
+  .landing-h1 {
+    font-size: 64px;
+  }
+  .landing-h2 {
+    font-size: 48px;
+  }
+}
+
 /* Gradient text utility */
 .gradient-text {
   background: linear-gradient(103deg, rgb(var(--accent-r), var(--accent-g), var(--accent-b)) 4%, rgb(var(--accent-sec-r), var(--accent-sec-g), var(--accent-sec-b)) 103%);
@@ -277,6 +347,84 @@ body {
   overflow: hidden;
   position: relative;
   z-index: 0;
+}
+
+/* HowItWorks step grid — symmetric cards.
+   ----------------------------------------
+   Using CSS grid with ``auto-fit + 1fr`` instead of a flex row
+   guarantees every card occupies an identical column width AND
+   stretches to the tallest card's height (default ``align-items:
+   stretch``). Inside the card we lay out [number → title → desc] as
+   another flex column with ``description`` taking the remaining
+   space — so titles align across cards even when one wraps to two
+   lines and another stays on one line. */
+.howworks-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--space-12);
+}
+
+@media (min-width: 768px) {
+  .howworks-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: var(--space-16);
+  }
+}
+
+.howworks-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-12);
+  padding: var(--space-20) var(--space-16);
+  text-align: center;
+  height: 100%;
+  min-height: 220px;
+}
+
+@media (min-width: 768px) {
+  .howworks-card {
+    padding: var(--space-24) var(--space-16);
+    min-height: 240px;
+  }
+}
+
+.howworks-card-num {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: rgba(var(--accent-r), var(--accent-g), var(--accent-b), 0.06);
+  border: 1px solid rgba(var(--accent-r), var(--accent-g), var(--accent-b), 0.25);
+  box-shadow: 0 0 12px rgba(var(--accent-r), var(--accent-g), var(--accent-b), 0.08);
+  flex-shrink: 0;
+}
+
+.howworks-card-title {
+  font-size: 18px;
+  line-height: 24px;
+  font-weight: 600;
+  /* Reserve room for the longest title (two lines on desktop) so
+     numeric circles + descriptions still align across cards. */
+  min-height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+@media (min-width: 768px) {
+  .howworks-card-title {
+    font-size: 20px;
+    line-height: 28px;
+    min-height: 56px;
+  }
+}
+
+.howworks-card-desc {
+  margin: 0;
+  flex: 1 1 auto;
 }
 
 /* Semi-transparent divider strip that lets energy blobs through */
@@ -384,12 +532,21 @@ main > .glass-divider,
   isolation: isolate;
 }
 
-/* Energy field — absolute blobs spread across full page height */
+/* Energy field — absolute blobs spread across full page height.
+ *
+ * 1.48.0: ``overflow: clip`` keeps the deeper blobs (top: 200vh+)
+ * inside the main element on short scenario landings (Dating /
+ * Resume / Documents) — they don't grow the page past the footer
+ * any more. ``clip`` is preferred over ``hidden`` because it
+ * doesn't establish a new scroll container; on browsers that don't
+ * support ``clip`` we fall back to ``hidden`` (still solves the
+ * post-footer scroll regression). */
 .energy-field {
   position: absolute;
   inset: 0;
   z-index: 1;
-  overflow: visible;
+  overflow: hidden;
+  overflow: clip;
   pointer-events: none;
 }
 
@@ -927,51 +1084,40 @@ main > .glass-divider,
   -webkit-text-fill-color: transparent;
 }
 
-/* The static heart sits next to the big number and gets re-keyed by
-   React on every counter increment. Re-keying remounts the node and
-   forces the CSS animation to play from the start, even if it was
-   still running from the previous tick. */
-.proof-heart {
-  color: var(--color-brand-primary);
-  filter: drop-shadow(0 0 18px rgba(var(--accent-r), var(--accent-g), var(--accent-b), 0.35));
-  will-change: transform;
-}
-
-.proof-heart-beat {
-  animation: proof-heart-pop 720ms cubic-bezier(0.22, 1, 0.36, 1);
-  transform-origin: center;
-}
-
-@keyframes proof-heart-pop {
-  0%   { transform: scale(1);    }
-  18%  { transform: scale(1.32); }
-  38%  { transform: scale(0.94); }
-  60%  { transform: scale(1.12); }
-  100% { transform: scale(1);    }
-}
-
-/* TikTok-style like-burst: small hearts spawn under the number on
-   every tick and float upward while fading out. The container is
-   absolute over the number row and never clipped (overflow: visible),
-   particles are removed from React state on animationend so the
-   array can never grow unbounded. */
+/* TikTok-style like-burst: hearts spawn at the right edge of the
+   number on every tick, fan out up-and-right at variable angles,
+   then dissolve. The container is absolute over the number row and
+   never clipped (overflow: visible); particles are removed from React
+   state on animationend so the array can never grow unbounded. */
 .proof-burst-layer {
   z-index: 1;
 }
 
 .proof-burst-particle {
   position: absolute;
-  left: 50%;
-  bottom: 8%;
-  width: 28px;
-  height: 28px;
-  margin-left: -14px;
+  /* Anchor at the right edge of the number, vertically centered. */
+  right: 0;
+  top: 50%;
+  width: 44px;
+  height: 44px;
+  margin-right: -22px;
+  margin-top: -22px;
   pointer-events: none;
-  will-change: transform, opacity;
-  --x: 0px;
+  will-change: transform, opacity, filter;
+  --x: 24px;
+  --y: -16px;
   --scale: 1;
-  animation: proof-heart-fly 1300ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
-  filter: drop-shadow(0 0 12px rgba(var(--accent-r), var(--accent-g), var(--accent-b), 0.45));
+  animation: proof-heart-fly 2000ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  filter: drop-shadow(0 0 14px rgba(var(--accent-r), var(--accent-g), var(--accent-b), 0.5));
+}
+
+@media (min-width: 768px) {
+  .proof-burst-particle {
+    width: 56px;
+    height: 56px;
+    margin-right: -28px;
+    margin-top: -28px;
+  }
 }
 
 .proof-burst-particle.primary {
@@ -983,10 +1129,26 @@ main > .glass-divider,
 }
 
 @keyframes proof-heart-fly {
-  0%   { opacity: 0;    transform: translate(var(--x), 0)      scale(calc(var(--scale) * 0.55)); }
-  12%  { opacity: 1;    transform: translate(var(--x), -8px)   scale(var(--scale));              }
-  60%  { opacity: 0.85; transform: translate(var(--x), -90px)  scale(calc(var(--scale) * 1.06)); }
-  100% { opacity: 0;    transform: translate(var(--x), -160px) scale(calc(var(--scale) * 0.85)); }
+  0% {
+    opacity: 0;
+    transform: translate(0, 0) scale(calc(var(--scale) * 0.45));
+    filter: blur(4px) drop-shadow(0 0 14px rgba(var(--accent-r), var(--accent-g), var(--accent-b), 0.5));
+  }
+  18% {
+    opacity: 1;
+    transform: translate(calc(var(--x) * 0.25), calc(var(--y) * 0.25)) scale(var(--scale));
+    filter: blur(0) drop-shadow(0 0 18px rgba(var(--accent-r), var(--accent-g), var(--accent-b), 0.55));
+  }
+  70% {
+    opacity: 0.9;
+    transform: translate(calc(var(--x) * 1.4), calc(var(--y) * 3.2)) scale(calc(var(--scale) * 1.08));
+    filter: blur(0) drop-shadow(0 0 14px rgba(var(--accent-r), var(--accent-g), var(--accent-b), 0.45));
+  }
+  100% {
+    opacity: 0;
+    transform: translate(calc(var(--x) * 1.9), calc(var(--y) * 5.5)) scale(calc(var(--scale) * 0.85));
+    filter: blur(2px) drop-shadow(0 0 10px rgba(var(--accent-r), var(--accent-g), var(--accent-b), 0.35));
+  }
 }
 
 /* Optional radial glow inside the proof section. `isolation: isolate`
@@ -1003,17 +1165,17 @@ main > .glass-divider,
   z-index: 0;
   background: radial-gradient(
     ellipse 40% 32% at 50% 50%,
-    rgba(var(--accent-r), var(--accent-g), var(--accent-b), 0.18) 0%,
+    rgba(var(--accent-r), var(--accent-g), var(--accent-b), 0.10) 0%,
     transparent 70%
   );
   opacity: 0;
-  animation: proof-counter-glow-flash 900ms ease-out forwards;
+  animation: proof-counter-glow-flash 1200ms ease-out forwards;
 }
 
 @keyframes proof-counter-glow-flash {
-  0%   { opacity: 0;    transform: scale(0.85); }
-  20%  { opacity: 0.9;  transform: scale(1);    }
-  100% { opacity: 0;    transform: scale(1.1);  }
+  0%   { opacity: 0;    transform: scale(0.9);  }
+  25%  { opacity: 0.55; transform: scale(1);    }
+  100% { opacity: 0;    transform: scale(1.08); }
 }
 
 .social-proof-ticker-window {
@@ -1054,6 +1216,296 @@ main > .glass-divider,
   color: var(--color-text-secondary);
 }
 
+/* ==========================================================================
+   Testimonials carousel (1.48.0)
+   --------------------------------------------------------------------------
+   3-slot carousel: prev (faded, scaled down) → active (large, full
+   opacity, hosts the auto-cycling before/after slider) → next. On
+   compact variants only the active card is visible. Cards live in
+   absolute slots so we can transition transform/opacity in lockstep
+   for a soft cross-fade-and-slide effect when the rotation advances.
+   ========================================================================== */
+.testimonial-carousel {
+  position: relative;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-20);
+}
+
+.testimonial-track {
+  position: relative;
+  width: 100%;
+  /* Provide enough room for active card + side previews. */
+  min-height: 640px;
+  perspective: 1200px;
+  isolation: isolate;
+}
+
+@media (max-width: 767px) {
+  .testimonial-track {
+    min-height: 580px;
+  }
+}
+
+.testimonial-slot {
+  position: absolute;
+  inset: 0;
+  margin: 0 auto;
+  width: min(560px, 100%);
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  transition: transform 600ms cubic-bezier(0.16, 1, 0.3, 1),
+              opacity 600ms cubic-bezier(0.16, 1, 0.3, 1),
+              filter 600ms cubic-bezier(0.16, 1, 0.3, 1);
+  will-change: transform, opacity, filter;
+}
+
+.testimonial-slot.is-active {
+  transform: translate3d(0, 0, 0) scale(1);
+  opacity: 1;
+  filter: blur(0);
+  z-index: 3;
+}
+
+.testimonial-slot.is-prev {
+  transform: translate3d(-72%, 16px, 0) scale(0.86);
+  opacity: 0.42;
+  filter: blur(2px);
+  z-index: 2;
+}
+
+.testimonial-slot.is-next {
+  transform: translate3d(72%, 16px, 0) scale(0.86);
+  opacity: 0.42;
+  filter: blur(2px);
+  z-index: 2;
+}
+
+.testimonial-slot.is-far-prev,
+.testimonial-slot.is-far-next {
+  transform: translate3d(0, 0, 0) scale(0.7);
+  opacity: 0;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.testimonial-carousel.is-compact .testimonial-slot {
+  width: min(520px, 100%);
+}
+.testimonial-carousel.is-compact .testimonial-slot.is-prev,
+.testimonial-carousel.is-compact .testimonial-slot.is-next,
+.testimonial-carousel.is-compact .testimonial-slot.is-far-prev,
+.testimonial-carousel.is-compact .testimonial-slot.is-far-next {
+  opacity: 0;
+  pointer-events: none;
+}
+
+@media (max-width: 1023px) {
+  .testimonial-slot.is-prev {
+    transform: translate3d(-90%, 12px, 0) scale(0.78);
+    opacity: 0.25;
+  }
+  .testimonial-slot.is-next {
+    transform: translate3d(90%, 12px, 0) scale(0.78);
+    opacity: 0.25;
+  }
+}
+
+.testimonial-card {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-16);
+  padding: var(--space-20);
+}
+
+@media (min-width: 768px) {
+  .testimonial-card {
+    padding: var(--space-24);
+  }
+}
+
+.testimonial-emoji-review {
+  margin: 0;
+  font-size: 16px;
+  line-height: 24px;
+  font-weight: 500;
+  letter-spacing: 0;
+}
+
+@media (min-width: 768px) {
+  .testimonial-emoji-review {
+    font-size: 18px;
+    line-height: 28px;
+  }
+}
+
+.testimonial-slider-wrap {
+  position: relative;
+  width: 100%;
+  background: var(--glass-surface-soft);
+}
+
+/* --- Avatar --- */
+.testimonial-avatar {
+  position: relative;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  overflow: hidden;
+  background: linear-gradient(
+    135deg,
+    rgba(var(--accent-r), var(--accent-g), var(--accent-b), 0.55),
+    rgba(var(--accent-sec-r), var(--accent-sec-g), var(--accent-sec-b), 0.55)
+  );
+  border: 1px solid var(--glass-border);
+  box-shadow: 0 0 0 2px rgba(var(--accent-r), var(--accent-g), var(--accent-b), 0.18);
+  isolation: isolate;
+}
+
+@media (min-width: 768px) {
+  .testimonial-avatar {
+    width: 56px;
+    height: 56px;
+  }
+}
+
+.testimonial-avatar img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  z-index: 2;
+}
+
+.testimonial-avatar-fallback {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  font-weight: 700;
+  color: #fff;
+  z-index: 1;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+}
+
+/* --- Chips --- */
+.testimonial-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 10px;
+  border-radius: var(--radius-pill);
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 500;
+  white-space: nowrap;
+  letter-spacing: 0;
+}
+
+.testimonial-chip--direction {
+  background: var(--glass-surface);
+  border: 1px solid var(--glass-border);
+  color: var(--color-text-secondary);
+}
+
+.testimonial-chip--tier.is-regular {
+  background: var(--glass-surface-strong);
+  border: 1px solid var(--glass-border-hover);
+  color: var(--color-text-secondary);
+}
+
+.testimonial-chip--tier.is-premium {
+  /* Brand-tier badge: accent gradient with subtle inner highlight,
+     sparkle prefix, slightly heavier weight. Stays readable on both
+     themes because it relies on accent-rgb tokens, not hex colors. */
+  background: linear-gradient(
+    105deg,
+    rgba(var(--accent-r), var(--accent-g), var(--accent-b), 0.85) 0%,
+    rgba(var(--accent-sec-r), var(--accent-sec-g), var(--accent-sec-b), 0.85) 100%
+  );
+  border: 1px solid rgba(var(--accent-r), var(--accent-g), var(--accent-b), 0.55);
+  color: #fff;
+  font-weight: 600;
+  box-shadow:
+    0 0 12px rgba(var(--accent-r), var(--accent-g), var(--accent-b), 0.25),
+    inset 0 1px 0 rgba(255, 255, 255, 0.22);
+}
+
+.testimonial-chip-spark {
+  font-size: 11px;
+  opacity: 0.9;
+  transform: translateY(-0.5px);
+}
+
+/* --- Pagination dots --- */
+.testimonial-dots {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.testimonial-dot {
+  appearance: none;
+  border: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--glass-border-hover);
+  cursor: pointer;
+  padding: 0;
+  transition: background 0.25s ease, transform 0.25s ease;
+}
+
+.testimonial-dot:hover {
+  background: var(--glass-border-hover);
+  transform: scale(1.15);
+}
+
+.testimonial-dot.is-active {
+  width: 24px;
+  border-radius: var(--radius-pill);
+  background: linear-gradient(
+    105deg,
+    rgb(var(--accent-r), var(--accent-g), var(--accent-b)),
+    rgb(var(--accent-sec-r), var(--accent-sec-g), var(--accent-sec-b))
+  );
+  box-shadow: 0 0 10px rgba(var(--accent-r), var(--accent-g), var(--accent-b), 0.35);
+}
+
+.testimonial-dots-compact {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.testimonial-dots-compact-count {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 12px;
+  border-radius: var(--radius-pill);
+  background: var(--glass-surface);
+  border: 1px solid var(--glass-border);
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 500;
+  color: var(--color-text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .testimonial-slot {
+    transition: none !important;
+  }
+}
+
 /* ========== Reduced motion ========== */
 
 @media (prefers-reduced-motion: reduce) {
@@ -1064,7 +1516,6 @@ main > .glass-divider,
   .brand-glow-text,
   .brand-glow-icon,
   .gen-sim-pulse,
-  .proof-heart-beat,
   .proof-burst-particle,
   .proof-counter-glow {
     animation: none !important;
