@@ -4567,4 +4567,12 @@
 #          раньше); при разблокировке через unlock_after_generations
 #          стиль автоматически попадает в recommendedStyles.
 #          Backend не тронут.
-APP_VERSION = "1.50.8"
+# 1.50.9 — Admin whitelist by email: ``require_admin`` теперь
+#          принимает либо UUID в ``ADMIN_USER_IDS`` (legacy), либо
+#          email в новой переменной ``ADMIN_EMAILS``. Email-матч
+#          идёт по ``user_identities.profile_data->>'email'`` для
+#          любого провайдера (google/yandex/vk_id/apple/yandex).
+#          Onboarding нового админа теперь = одна env-переменная,
+#          без поиска UUID в БД. Оба whitelist-а опциональны и
+#          работают параллельно (OR).
+APP_VERSION = "1.50.9"

@@ -97,6 +97,12 @@ class Settings(BaseSettings):
     # ``ADMIN_USER_IDS=uuid1,uuid2,uuid3`` for the operators who manage
     # the style catalog through the admin panel.
     admin_user_ids: str = ""
+    # 1.50.9 — alternative whitelist by email. Easier to onboard new
+    # admins: drop ``ADMIN_EMAILS=alice@x.com,bob@y.com`` and the gate
+    # accepts any user whose google/yandex/vk-id identity carries one
+    # of the listed emails in ``profile_data.email``. Either env var
+    # alone is enough; both can be combined.
+    admin_emails: str = ""
 
     # Identity preservation gate thresholds.
     # Identity check is a VLM-based 1:1 photo comparison at quality-gate time;
