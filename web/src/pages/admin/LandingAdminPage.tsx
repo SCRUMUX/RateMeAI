@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import * as api from '../../lib/api';
 import { ApiError } from '../../lib/api';
+import AdminLayout from './AdminLayout';
 
 function pretty(value: unknown): string {
   try {
@@ -68,7 +69,7 @@ export default function LandingAdminPage() {
     let parsed: unknown;
     try {
       parsed = JSON.parse(jsonText);
-    } catch (e) {
+    } catch {
       setError('JSON невалиден — исправьте и попробуйте снова.');
       return;
     }
@@ -90,22 +91,24 @@ export default function LandingAdminPage() {
   }, [activeSlug, jsonText, fetchSlugs]);
 
   return (
-    <div className="min-h-screen bg-[#0E1216] text-[#E6EEF8] p-6">
-      <header className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-2xl font-semibold">Landing CMS Admin</h1>
-          <p className="text-sm text-[#8b95a3] mt-1">
-            Source of truth: <code>data/landing_content.json</code>. Сохраняем страницу целиком.
+    <AdminLayout>
+      <div className="flex flex-col tablet:flex-row tablet:items-start tablet:justify-between gap-[var(--space-16)] mb-[var(--space-32)]">
+        <div className="flex flex-col gap-[var(--space-6)]">
+          <h2 className="text-[24px] leading-[32px] font-semibold text-white">
+            Landing CMS
+          </h2>
+          <p className="text-[13px] leading-[18px] text-[#8b95a3]">
+            Источник данных: <code className="text-[#a8b1bf]">data/landing_content.json</code>. Сохраняем страницу целиком.
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-[var(--space-8)]">
           <select
             value={activeSlug}
             onChange={(e) => {
               if (dirty && !window.confirm('Изменения не сохранены. Переключить страницу?')) return;
               setActiveSlug(e.target.value);
             }}
-            className="px-3 py-2 rounded-lg border border-white/10 bg-transparent text-sm focus:outline-none focus:border-blue-400"
+            className="px-[var(--space-12)] h-[36px] rounded-[var(--radius-pill)] border border-white/10 bg-transparent text-[13px] leading-[18px] focus:outline-none focus:border-blue-400"
           >
             {(slugs ?? ['home']).map((s) => (
               <option key={s} value={s}>{s}</option>
@@ -113,44 +116,41 @@ export default function LandingAdminPage() {
           </select>
           <button
             onClick={() => fetchPage(activeSlug)}
-            className="px-4 py-2 rounded-lg border border-white/10 hover:bg-white/5 text-sm"
+            className="px-[var(--space-16)] h-[36px] rounded-[var(--radius-pill)] border border-white/10 hover:bg-white/5 text-[13px] leading-[18px]"
             disabled={loading}
           >
-            Reload
+            Обновить
           </button>
           <button
             onClick={handleSave}
-            className={`px-4 py-2 rounded-lg text-sm font-medium ${canSave ? 'bg-blue-600 hover:bg-blue-500' : 'bg-white/10 text-[#8b95a3]'}`}
+            className={`px-[var(--space-16)] h-[36px] rounded-[var(--radius-pill)] text-[13px] leading-[18px] font-medium ${canSave ? 'bg-blue-600 hover:bg-blue-500' : 'bg-white/10 text-[#8b95a3] cursor-not-allowed'}`}
             disabled={!canSave}
           >
-            Save
+            Сохранить
           </button>
         </div>
-      </header>
+      </div>
 
       {error && (
-        <div className="mb-4 px-4 py-3 bg-red-500/10 border border-red-500/30 rounded-lg text-sm text-red-300">
+        <div className="mb-[var(--space-16)] px-[var(--space-16)] py-[var(--space-12)] bg-red-500/10 border border-red-500/30 rounded-[var(--radius-12)] text-[13px] leading-[18px] text-red-300">
           {error}
         </div>
       )}
 
-      <div className="grid grid-cols-1 gap-4">
-        <label className="block">
-          <div className="flex items-baseline justify-between mb-2">
-            <span className="text-xs text-[#8b95a3] uppercase tracking-wide">Page JSON</span>
-            <span className="text-[11px] text-[#5a6470]">
-              {loading ? 'Loading…' : dirty ? 'unsaved changes' : 'saved'}
-            </span>
-          </div>
-          <textarea
-            value={jsonText}
-            onChange={(e) => { setJsonText(e.target.value); setDirty(true); }}
-            className="w-full min-h-[70vh] p-3 rounded-lg border border-white/10 bg-black/30 text-xs font-mono focus:outline-none focus:border-blue-400"
-            spellCheck={false}
-          />
-        </label>
+      <div className="rounded-[var(--radius-12)] border border-white/10 bg-white/[0.02] p-[var(--space-16)]">
+        <div className="flex items-baseline justify-between mb-[var(--space-12)]">
+          <span className="text-[11px] text-[#8b95a3] uppercase tracking-wide">Page JSON</span>
+          <span className="text-[11px] text-[#5a6470]">
+            {loading ? 'Загрузка…' : dirty ? 'не сохранено' : 'сохранено'}
+          </span>
+        </div>
+        <textarea
+          value={jsonText}
+          onChange={(e) => { setJsonText(e.target.value); setDirty(true); }}
+          className="w-full min-h-[60vh] p-[var(--space-16)] rounded-[var(--radius-8)] border border-white/10 bg-black/30 text-[12px] leading-[18px] font-mono focus:outline-none focus:border-blue-400"
+          spellCheck={false}
+        />
       </div>
-    </div>
+    </AdminLayout>
   );
 }
-

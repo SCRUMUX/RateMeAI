@@ -200,9 +200,9 @@ export default function StepStyle({ onNext }: Props) {
               <path d="M3 5h10M3 8h10M3 11h6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
             </svg>
             Хочу другой образ
-            {lockedKeys.size > 0 && (
+            {styles.length - lockedKeys.size > 0 && (
               <span className="text-[11px] leading-[14px] text-[var(--color-text-muted)]">
-                · {styles.length} стилей
+                · {styles.length - lockedKeys.size} доступно
               </span>
             )}
           </button>

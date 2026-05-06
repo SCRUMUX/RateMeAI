@@ -4537,4 +4537,34 @@
 #              LinkedAccountsPanel. Брендовые цвета провайдеров
 #              (Telegram/Yandex/VK/Google/OK) намеренно оставлены
 #              как корпоративные.
-APP_VERSION = "1.50.7"
+# 1.50.8 — Admin UX cleanup: (1) Общий AdminLayout с табами вверху
+#          (Landing CMS / Каталог стилей / Конфликты названий) —
+#          навигация между админ-страницами больше не через ad-hoc
+#          ссылки, единый sticky-хедер с активной подсветкой.
+#          (2) Каталог стилей: убран selector schema_version и таб
+#          «Slots v2» — каталог 100% v3, эти контролы редактировали
+#          мёртвые поля. EMPTY_V2_TEMPLATE заменён на
+#          EMPTY_V3_TEMPLATE (schema_version=3, trigger_pool,
+#          scene_anchor, ambient.*, available_channels, location_type,
+#          background_lock). Теперь две вкладки: «Базовое» и «Поля
+#          стиля» (последняя объединяет старые v3 channels + те v2
+#          поля, что движок ещё читает: clothing.default,
+#          quality_identity.base/per_model_tail). validateV2Draft
+#          заменён validateV3Draft (trigger_pool ≥ 1, scene_anchor
+#          непустой, clothing.default ≥ 1, quality_identity.base
+#          непустой). v2-поля в JSON НЕ удаляются, потому что
+#          style_loader_v2._to_v2 читает их и для schema_version=3.
+#          (3) Отступы: все три страницы теперь под max-w-1240 +
+#          px-16/32/48 + py-32/40 (было p-6 = 6px). Ячейки таблицы
+#          px-16 py-12 (было px-3 py-2). Заголовки колонок и кнопки
+#          фильтров переведены на русский (ID/Режим/Название/Линт/
+#          Разблокировка/Сценарий/Действия). Колонка «v» удалена,
+#          legacy-версия отображается как inline-бейдж рядом с id.
+#          (4) StepStyle.tsx: «· {styles.length} стилей» рядом с CTA
+#          «Хочу другой образ» заменено на «· {N} доступно» —
+#          основной экран больше не упоминает заблокированные
+#          стили. Locked видны только в шторке StylesSheet (как и
+#          раньше); при разблокировке через unlock_after_generations
+#          стиль автоматически попадает в recommendedStyles.
+#          Backend не тронут.
+APP_VERSION = "1.50.8"

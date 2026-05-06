@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
 import * as api from '../../lib/api';
 import type {
   AdminLintIssue,
@@ -8,10 +7,17 @@ import type {
   AdminStyleSummary,
 } from '../../lib/api';
 import { ApiError } from '../../lib/api';
+import AdminLayout from './AdminLayout';
 
 type ModeFilter = 'all' | 'cv' | 'social' | 'dating' | string;
 
 const MODES: ModeFilter[] = ['all', 'cv', 'social', 'dating'];
+const MODE_LABELS: Record<string, string> = {
+  all: 'Все',
+  cv: 'Резюме',
+  social: 'Соц.сети',
+  dating: 'Знакомства',
+};
 const SCENARIO_OPTIONS = ['', 'document-photo', 'tinder-pack'];
 
 const ALL_CHANNELS: readonly string[] = [
@@ -48,7 +54,12 @@ function severityCounts(issues: AdminLintIssue[] | undefined): {
   return { errors, warnings };
 }
 
-const EMPTY_V2_TEMPLATE: AdminStyleEntry = {
+// 2026-05: schema_version v1/v2 retired from the editor UI. The catalog
+// is now 100% v3 — see data/styles.json. Legacy v2 fields (background,
+// weather, context_slots) stay in JSON because style_loader_v2 still
+// reads them in parallel for prompt assembly, but the editor doesn't
+// expose them.
+const EMPTY_V3_TEMPLATE: AdminStyleEntry = {
   id: '',
   mode: 'social',
   display_label: '',
@@ -56,19 +67,22 @@ const EMPTY_V2_TEMPLATE: AdminStyleEntry = {
   scenario: null,
   unlock_after_generations: 0,
   is_scenario_only: false,
-  schema_version: 2,
+  schema_version: 3,
   meta: { param: 'appeal', delta_range: [0.1, 0.3] },
-  background: { base: '', lock: 'flexible', overrides_allowed: [] },
+  trigger_pool: [''],
+  scene_anchor: '',
+  scene_overrides: [],
+  background_lock: 'semi',
+  ambient: { lighting: [], weather: [], time_of_day: [], season: [] },
+  available_channels: [],
+  location_type: '',
   clothing: {
     default: { male: '', female: '', neutral: '' },
     allowed: [],
     gender_neutral: true,
   },
-  weather: { enabled: false, allowed: [], default_na: true },
-  context_slots: { lighting: [], framing: ['portrait', 'half_body', 'full_body'] },
   quality_identity: { base: '', per_model_tail: {} },
   expression: '',
-  trigger: '',
 };
 
 function asString(value: unknown, fallback = ''): string {
@@ -121,8 +135,6 @@ export default function StylesAdminPage() {
     try {
       const list = await api.listAdminStyles();
       setItems(list);
-      // Lint report is best-effort; the catalog table renders even if
-      // the lint endpoint is unreachable (older deploy, etc.).
       try {
         setLintReport(await api.lintAllAdminStyles());
       } catch {
@@ -182,7 +194,7 @@ export default function StylesAdminPage() {
   }, []);
 
   const openCreate = useCallback(() => {
-    setEditing({ entry: { ...EMPTY_V2_TEMPLATE }, isNew: true });
+    setEditing({ entry: structuredClone(EMPTY_V3_TEMPLATE), isNew: true });
   }, []);
 
   const closeEdit = useCallback((dirty: boolean) => {
@@ -227,7 +239,7 @@ export default function StylesAdminPage() {
   const handleReload = useCallback(async () => {
     try {
       const res = await api.reloadAdminStyles();
-      setError(`Cache reloaded — ${res.count} styles`);
+      setError(`Кэш перезагружен — ${res.count} стилей`);
       await fetchList();
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Не удалось обновить кэш');
@@ -235,61 +247,67 @@ export default function StylesAdminPage() {
   }, [fetchList]);
 
   return (
-    <div className="min-h-screen bg-[#0E1216] text-[#E6EEF8] p-6">
-      <header className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-2xl font-semibold">Style Catalog Admin</h1>
-          <p className="text-sm text-[#8b95a3] mt-1">
-            Source of truth: <code>data/styles.json</code>. Saves are atomic and refresh in-memory caches.
+    <AdminLayout>
+      <div className="flex flex-col tablet:flex-row tablet:items-start tablet:justify-between gap-[var(--space-16)] mb-[var(--space-32)]">
+        <div className="flex flex-col gap-[var(--space-6)]">
+          <h2 className="text-[24px] leading-[32px] font-semibold text-white">
+            Каталог стилей
+          </h2>
+          <p className="text-[13px] leading-[18px] text-[#8b95a3]">
+            Источник данных: <code className="text-[#a8b1bf]">data/styles.json</code>. Изменения сохраняются атомарно и обновляют кэш.
           </p>
         </div>
-        <div className="flex gap-2">
-          <Link
-            to="/admin/conflicts"
-            className="px-4 py-2 rounded-lg border border-white/10 hover:bg-white/5 text-sm"
+        <div className="flex flex-wrap gap-[var(--space-8)]">
+          <button
+            onClick={handleReload}
+            className="px-[var(--space-16)] h-[36px] rounded-[var(--radius-pill)] border border-white/10 hover:bg-white/5 text-[13px] leading-[18px]"
           >
-            Conflicts report
-          </Link>
-          <button onClick={handleReload} className="px-4 py-2 rounded-lg border border-white/10 hover:bg-white/5">
-            Reload cache
+            Перезагрузить кэш
           </button>
-          <button onClick={openCreate} className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 font-medium">
-            + New style
+          <button
+            onClick={openCreate}
+            className="px-[var(--space-16)] h-[36px] rounded-[var(--radius-pill)] bg-blue-600 hover:bg-blue-500 font-medium text-[13px] leading-[18px]"
+          >
+            + Новый стиль
           </button>
         </div>
-      </header>
+      </div>
 
       {totalIssues.dirtyStyles > 0 && (
-        <div className="mb-4 px-4 py-3 bg-amber-500/10 border border-amber-500/30 rounded-lg text-sm text-amber-200 flex items-center gap-3">
+        <div className="mb-[var(--space-16)] px-[var(--space-16)] py-[var(--space-12)] bg-amber-500/10 border border-amber-500/30 rounded-[var(--radius-12)] text-[13px] leading-[18px] text-amber-200 flex flex-wrap items-center gap-[var(--space-12)]">
           <span>
-            Lint: <strong>{totalIssues.errors}</strong> errors,{' '}
-            <strong>{totalIssues.warnings}</strong> warnings across{' '}
-            <strong>{totalIssues.dirtyStyles}</strong> styles.
+            Линт: <strong>{totalIssues.errors}</strong> ошибок,{' '}
+            <strong>{totalIssues.warnings}</strong> предупреждений в{' '}
+            <strong>{totalIssues.dirtyStyles}</strong> стилях.
           </span>
           <button
             onClick={() => setIssuesOnly(!issuesOnly)}
-            className={`ml-auto px-3 py-1 rounded border text-xs ${issuesOnly ? 'bg-amber-500/20 border-amber-500/50' : 'border-amber-500/30 hover:bg-amber-500/10'}`}
+            className={`ml-auto px-[var(--space-12)] py-[var(--space-4)] rounded-[var(--radius-pill)] border text-[12px] ${issuesOnly ? 'bg-amber-500/20 border-amber-500/50' : 'border-amber-500/30 hover:bg-amber-500/10'}`}
           >
-            {issuesOnly ? 'Show all' : 'Show only with issues'}
+            {issuesOnly ? 'Показать все' : 'Только с замечаниями'}
           </button>
         </div>
       )}
 
       {error && (
-        <div className="mb-4 px-4 py-3 bg-red-500/10 border border-red-500/30 rounded-lg text-sm text-red-300">
+        <div className="mb-[var(--space-16)] px-[var(--space-16)] py-[var(--space-12)] bg-red-500/10 border border-red-500/30 rounded-[var(--radius-12)] text-[13px] leading-[18px] text-red-300">
           {error}
         </div>
       )}
 
-      <div className="flex gap-3 mb-4">
-        <div className="flex gap-1 rounded-lg border border-white/10 overflow-hidden">
+      <div className="flex flex-col tablet:flex-row gap-[var(--space-12)] mb-[var(--space-24)]">
+        <div className="flex gap-[2px] rounded-[var(--radius-pill)] border border-white/10 overflow-hidden h-[40px] p-[2px]">
           {MODES.map((m) => (
             <button
               key={m}
               onClick={() => setModeFilter(m)}
-              className={`px-3 py-1.5 text-sm ${modeFilter === m ? 'bg-blue-600 text-white' : 'text-[#8b95a3] hover:bg-white/5'}`}
+              className={`px-[var(--space-16)] text-[13px] leading-[18px] rounded-[var(--radius-pill)] transition-colors ${
+                modeFilter === m
+                  ? 'bg-blue-600 text-white'
+                  : 'text-[#8b95a3] hover:bg-white/5 hover:text-white'
+              }`}
             >
-              {m}
+              {MODE_LABELS[m] ?? m}
             </button>
           ))}
         </div>
@@ -297,63 +315,80 @@ export default function StylesAdminPage() {
           type="text"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          placeholder="Search by id, label, hook…"
-          className="flex-1 px-3 py-1.5 rounded-lg border border-white/10 bg-transparent text-sm focus:outline-none focus:border-blue-400"
+          placeholder="Поиск по id, названию, hook…"
+          className="flex-1 h-[40px] px-[var(--space-16)] rounded-[var(--radius-pill)] border border-white/10 bg-transparent text-[13px] leading-[18px] focus:outline-none focus:border-blue-400"
         />
-        <span className="text-sm text-[#8b95a3] self-center whitespace-nowrap">
-          {loading ? 'Loading…' : `${filtered.length} / ${items?.length ?? 0}`}
+        <span className="text-[12px] text-[#8b95a3] self-center whitespace-nowrap">
+          {loading ? 'Загрузка…' : `${filtered.length} / ${items?.length ?? 0}`}
         </span>
       </div>
 
-      <div className="overflow-x-auto rounded-lg border border-white/10">
-        <table className="w-full text-sm">
-          <thead className="bg-white/5 text-[#8b95a3]">
+      <div className="overflow-x-auto rounded-[var(--radius-12)] border border-white/10 bg-white/[0.02]">
+        <table className="w-full text-[13px] leading-[18px]">
+          <thead className="bg-white/[0.04] text-[#8b95a3] border-b border-white/10">
             <tr>
-              <th className="text-left px-3 py-2 font-medium">id</th>
-              <th className="text-left px-3 py-2 font-medium">mode</th>
-              <th className="text-left px-3 py-2 font-medium">label</th>
-              <th className="text-left px-3 py-2 font-medium">lint</th>
-              <th className="text-left px-3 py-2 font-medium">unlock</th>
-              <th className="text-left px-3 py-2 font-medium">scenario</th>
-              <th className="text-left px-3 py-2 font-medium">v</th>
-              <th className="text-right px-3 py-2 font-medium">actions</th>
+              <th className="text-left px-[var(--space-16)] py-[var(--space-12)] font-medium uppercase tracking-wide text-[11px]">ID</th>
+              <th className="text-left px-[var(--space-16)] py-[var(--space-12)] font-medium uppercase tracking-wide text-[11px]">Режим</th>
+              <th className="text-left px-[var(--space-16)] py-[var(--space-12)] font-medium uppercase tracking-wide text-[11px]">Название</th>
+              <th className="text-left px-[var(--space-16)] py-[var(--space-12)] font-medium uppercase tracking-wide text-[11px]">Линт</th>
+              <th className="text-left px-[var(--space-16)] py-[var(--space-12)] font-medium uppercase tracking-wide text-[11px]">Разблокировка</th>
+              <th className="text-left px-[var(--space-16)] py-[var(--space-12)] font-medium uppercase tracking-wide text-[11px]">Сценарий</th>
+              <th className="text-right px-[var(--space-16)] py-[var(--space-12)] font-medium uppercase tracking-wide text-[11px]">Действия</th>
             </tr>
           </thead>
           <tbody>
             {filtered.map((s) => {
               const counts = severityCounts(lintReport[s.id]);
+              const legacyVersion = s.schema_version !== 3;
               return (
-                <tr key={s.id} className="border-t border-white/5 hover:bg-white/5">
-                  <td className="px-3 py-2 font-mono text-xs">{s.id}</td>
-                  <td className="px-3 py-2">{s.mode}</td>
-                  <td className="px-3 py-2 truncate max-w-[280px]">{s.display_label}</td>
-                  <td className="px-3 py-2">
+                <tr key={s.id} className="border-t border-white/5 hover:bg-white/[0.03]">
+                  <td className="px-[var(--space-16)] py-[var(--space-12)] font-mono text-[12px]">
+                    <div className="flex items-center gap-[var(--space-8)]">
+                      <span>{s.id}</span>
+                      {legacyVersion && (
+                        <span
+                          title={`Стиль v${s.schema_version} — каталог уже на v3`}
+                          className="px-[var(--space-6)] py-[1px] rounded text-[10px] bg-amber-500/15 border border-amber-500/30 text-amber-300"
+                        >
+                          v{s.schema_version}
+                        </span>
+                      )}
+                    </div>
+                  </td>
+                  <td className="px-[var(--space-16)] py-[var(--space-12)]">{s.mode}</td>
+                  <td className="px-[var(--space-16)] py-[var(--space-12)] truncate max-w-[280px]">{s.display_label}</td>
+                  <td className="px-[var(--space-16)] py-[var(--space-12)]">
                     {counts.errors === 0 && counts.warnings === 0 ? (
-                      <span className="px-2 py-0.5 rounded text-[10px] bg-emerald-500/15 border border-emerald-500/30 text-emerald-300">clean</span>
+                      <span className="px-[var(--space-8)] py-[2px] rounded text-[10px] bg-emerald-500/15 border border-emerald-500/30 text-emerald-300">чисто</span>
                     ) : (
-                      <span className="flex gap-1">
+                      <span className="flex gap-[var(--space-4)]">
                         {counts.errors > 0 && (
-                          <span className="px-2 py-0.5 rounded text-[10px] bg-red-500/15 border border-red-500/30 text-red-300">
-                            {counts.errors}E
+                          <span className="px-[var(--space-8)] py-[2px] rounded text-[10px] bg-red-500/15 border border-red-500/30 text-red-300">
+                            {counts.errors} ошиб.
                           </span>
                         )}
                         {counts.warnings > 0 && (
-                          <span className="px-2 py-0.5 rounded text-[10px] bg-amber-500/15 border border-amber-500/30 text-amber-300">
-                            {counts.warnings}W
+                          <span className="px-[var(--space-8)] py-[2px] rounded text-[10px] bg-amber-500/15 border border-amber-500/30 text-amber-300">
+                            {counts.warnings} прдпр.
                           </span>
                         )}
                       </span>
                     )}
                   </td>
-                  <td className="px-3 py-2">{s.unlock_after_generations || '—'}</td>
-                  <td className="px-3 py-2">{s.scenario ?? '—'}</td>
-                  <td className="px-3 py-2">{s.schema_version}</td>
-                  <td className="px-3 py-2 text-right">
-                    <button onClick={() => openEdit(s.id)} className="px-2 py-1 text-xs rounded border border-white/10 hover:bg-white/10 mr-2">
-                      Edit
+                  <td className="px-[var(--space-16)] py-[var(--space-12)]">{s.unlock_after_generations || '—'}</td>
+                  <td className="px-[var(--space-16)] py-[var(--space-12)]">{s.scenario ?? '—'}</td>
+                  <td className="px-[var(--space-16)] py-[var(--space-12)] text-right whitespace-nowrap">
+                    <button
+                      onClick={() => openEdit(s.id)}
+                      className="px-[var(--space-12)] py-[var(--space-6)] text-[12px] rounded-[var(--radius-pill)] border border-white/10 hover:bg-white/10 mr-[var(--space-8)]"
+                    >
+                      Изменить
                     </button>
-                    <button onClick={() => handleDelete(s.id)} className="px-2 py-1 text-xs rounded border border-red-500/30 text-red-300 hover:bg-red-500/10">
-                      Delete
+                    <button
+                      onClick={() => handleDelete(s.id)}
+                      className="px-[var(--space-12)] py-[var(--space-6)] text-[12px] rounded-[var(--radius-pill)] border border-red-500/30 text-red-300 hover:bg-red-500/10"
+                    >
+                      Удалить
                     </button>
                   </td>
                 </tr>
@@ -361,8 +396,11 @@ export default function StylesAdminPage() {
             })}
             {!loading && filtered.length === 0 && (
               <tr>
-                <td colSpan={8} className="px-3 py-8 text-center text-[#8b95a3]">
-                  Ничего не найдено
+                <td colSpan={7} className="px-[var(--space-16)] py-[var(--space-32)] text-center text-[#8b95a3]">
+                  <div className="flex flex-col gap-[var(--space-4)]">
+                    <span className="text-[14px]">Ничего не найдено</span>
+                    <span className="text-[12px] text-[#5a6470]">Попробуйте сбросить фильтры или поиск</span>
+                  </div>
                 </td>
               </tr>
             )}
@@ -378,29 +416,35 @@ export default function StylesAdminPage() {
           onSave={(updated) => handleSave(updated, editing.isNew)}
         />
       )}
-    </div>
+    </AdminLayout>
   );
 }
 
-type V2FieldErrors = Partial<{
-  background_base: string;
+type V3FieldErrors = Partial<{
+  trigger_pool: string;
+  scene_anchor: string;
   clothing_default: string;
   quality_base: string;
 }>;
 
-function validateV2Draft(draft: AdminStyleEntry): V2FieldErrors {
-  const errors: V2FieldErrors = {};
-  if (asNumber(draft.schema_version, 1) !== 2) return errors;
-  const background = asObject(draft.background);
-  const clothing = asObject(draft.clothing);
-  const quality = asObject(draft.quality_identity);
-  if (!asString(background.base).trim()) {
-    errors.background_base = 'background.base обязателен для v2';
+function validateV3Draft(draft: AdminStyleEntry): V3FieldErrors {
+  const errors: V3FieldErrors = {};
+  const triggerPool = Array.isArray(draft.trigger_pool)
+    ? (draft.trigger_pool as unknown[]).filter(
+        (v) => typeof v === 'string' && (v as string).trim() !== '',
+      )
+    : [];
+  if (triggerPool.length === 0) {
+    errors.trigger_pool = 'Нужна хотя бы одна формулировка trigger_pool';
   }
+  if (!asString(draft.scene_anchor).trim()) {
+    errors.scene_anchor = 'scene_anchor обязателен';
+  }
+  const clothing = asObject(draft.clothing);
   const clothingDefault = clothing.default;
   if (typeof clothingDefault === 'string') {
     if (!clothingDefault.trim()) {
-      errors.clothing_default = 'clothing.default обязателен для v2';
+      errors.clothing_default = 'clothing.default не может быть пустым';
     }
   } else if (clothingDefault && typeof clothingDefault === 'object') {
     const dict = clothingDefault as Record<string, unknown>;
@@ -408,13 +452,14 @@ function validateV2Draft(draft: AdminStyleEntry): V2FieldErrors {
       (k) => typeof dict[k] === 'string' && (dict[k] as string).trim() !== '',
     );
     if (!hasAny) {
-      errors.clothing_default = 'clothing.default: заполните хотя бы одно поле (male / female / neutral)';
+      errors.clothing_default = 'Заполните хотя бы одно из полей male / female / neutral';
     }
   } else {
-    errors.clothing_default = 'clothing.default обязателен для v2';
+    errors.clothing_default = 'clothing.default обязателен';
   }
+  const quality = asObject(draft.quality_identity);
   if (!asString(quality.base).trim()) {
-    errors.quality_base = 'quality_identity.base обязателен для v2';
+    errors.quality_base = 'quality_identity.base обязателен';
   }
   return errors;
 }
@@ -430,35 +475,20 @@ function StyleEditModal({
   onClose: (dirty: boolean) => void;
   onSave: (entry: AdminStyleEntry) => void;
 }) {
-  const [tab, setTab] = useState<'basic' | 'slots' | 'v3'>('basic');
+  const [tab, setTab] = useState<'basic' | 'fields'>('basic');
   const initialJson = useMemo(() => JSON.stringify(entry), [entry]);
   const [draft, setDraft] = useState<AdminStyleEntry>(() => structuredClone(entry));
-  const [fieldErrors, setFieldErrors] = useState<V2FieldErrors>({});
+  const [fieldErrors, setFieldErrors] = useState<V3FieldErrors>({});
   const [liveIssues, setLiveIssues] = useState<AdminLintIssue[]>([]);
 
   const update = useCallback(<K extends string>(key: K, value: unknown) => {
     setDraft((prev) => ({ ...prev, [key]: value }));
   }, []);
 
-  const updateNested = useCallback(
-    (parent: string, child: string, value: unknown) => {
-      setDraft((prev) => {
-        const block = asObject(prev[parent]);
-        return { ...prev, [parent]: { ...block, [child]: value } };
-      });
-    },
-    [],
-  );
-
   const meta = asObject(draft.meta);
-  const background = asObject(draft.background);
   const clothing = asObject(draft.clothing);
-  const weather = asObject(draft.weather);
-  const contextSlots = asObject(draft.context_slots);
   const quality = asObject(draft.quality_identity);
   const ambient = asObject(draft.ambient);
-  const isV2 = asNumber(draft.schema_version, 1) === 2;
-  const isV3 = asNumber(draft.schema_version, 1) === 3;
   const deltaRange = Array.isArray(meta.delta_range) ? (meta.delta_range as number[]) : [0.1, 0.3];
   const isDirty = JSON.stringify(draft) !== initialJson;
 
@@ -477,9 +507,9 @@ function StyleEditModal({
     [draft.available_channels],
   );
 
-  // Live lint via the backend — debounced. Only runs for existing
-  // styles (we need an id to GET); for new styles we still surface
-  // structural validation via the inline trigger-pool check.
+  // Live lint via the backend, debounced. Only runs for existing
+  // styles since we need an id to GET; for new styles we still
+  // surface structural validation on submit.
   useEffect(() => {
     if (isNew) {
       setLiveIssues([]);
@@ -569,60 +599,124 @@ function StyleEditModal({
     setDraft((prev) => ({ ...prev, scene_overrides: arrayFromCsv(csv) }));
   }, []);
 
+  const updateClothingDefault = useCallback(
+    (key: 'male' | 'female' | 'neutral', value: string) => {
+      setDraft((prev) => {
+        const block = asObject(prev.clothing);
+        const prevDefault =
+          typeof block.default === 'object' && block.default !== null && !Array.isArray(block.default)
+            ? (block.default as Record<string, unknown>)
+            : {};
+        return {
+          ...prev,
+          clothing: {
+            ...block,
+            default: {
+              male: asString(prevDefault.male),
+              female: asString(prevDefault.female),
+              neutral: asString(prevDefault.neutral),
+              [key]: value,
+            },
+          },
+        };
+      });
+    },
+    [],
+  );
+
+  const updateClothingArray = useCallback((key: 'allowed', csv: string) => {
+    setDraft((prev) => {
+      const block = asObject(prev.clothing);
+      return { ...prev, clothing: { ...block, [key]: arrayFromCsv(csv) } };
+    });
+  }, []);
+
+  const updateClothingFlag = useCallback((key: 'gender_neutral', value: boolean) => {
+    setDraft((prev) => {
+      const block = asObject(prev.clothing);
+      return { ...prev, clothing: { ...block, [key]: value } };
+    });
+  }, []);
+
+  const updateQualityBase = useCallback((value: string) => {
+    setDraft((prev) => {
+      const block = asObject(prev.quality_identity);
+      return { ...prev, quality_identity: { ...block, base: value } };
+    });
+  }, []);
+
+  const updateQualityTail = useCallback((raw: string) => {
+    try {
+      const parsed = JSON.parse(raw || '{}');
+      setDraft((prev) => {
+        const block = asObject(prev.quality_identity);
+        return { ...prev, quality_identity: { ...block, per_model_tail: parsed } };
+      });
+    } catch {
+      // keep last good value if JSON malformed; user can retry
+    }
+  }, []);
+
   const onSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const errors = validateV2Draft(draft);
+    const errors = validateV3Draft(draft);
     setFieldErrors(errors);
     if (Object.keys(errors).length > 0) {
-      // Surface the slot-tab so users see the offending field immediately.
-      setTab('slots');
+      // Surface the fields-tab so users see the offending field immediately.
+      setTab('fields');
       return;
     }
     onSave(draft);
   };
 
+  const rawDefault = clothing.default;
+  const defaultDict =
+    typeof rawDefault === 'object' && rawDefault !== null && !Array.isArray(rawDefault)
+      ? (rawDefault as Record<string, unknown>)
+      : {
+          male: typeof rawDefault === 'string' ? rawDefault : '',
+          female: typeof rawDefault === 'string' ? rawDefault : '',
+          neutral: typeof rawDefault === 'string' ? rawDefault : '',
+        };
+
   return (
-    <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
+    <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-[var(--space-16)]">
       <form
         onSubmit={onSubmit}
-        className="bg-[#161B22] border border-white/10 rounded-xl w-full max-w-3xl max-h-[90vh] flex flex-col"
+        className="bg-[#161B22] border border-white/10 rounded-[var(--radius-12)] w-full max-w-3xl max-h-[90vh] flex flex-col"
       >
-        <header className="flex items-center justify-between px-5 py-3 border-b border-white/10">
-          <h2 className="text-lg font-semibold">
-            {isNew ? 'New style' : `Edit ${draft.id}`}
-            {isDirty && <span className="ml-2 text-xs font-normal text-yellow-300">• unsaved</span>}
+        <header className="flex items-center justify-between px-[var(--space-24)] py-[var(--space-16)] border-b border-white/10">
+          <h2 className="text-[16px] leading-[24px] font-semibold">
+            {isNew ? 'Новый стиль' : `Изменить ${draft.id}`}
+            {isDirty && <span className="ml-[var(--space-8)] text-[12px] font-normal text-yellow-300">• не сохранено</span>}
           </h2>
-          <button type="button" onClick={() => onClose(isDirty)} className="text-[#8b95a3] hover:text-white text-2xl leading-none">
+          <button type="button" onClick={() => onClose(isDirty)} className="text-[#8b95a3] hover:text-white text-[24px] leading-none">
             ×
           </button>
         </header>
 
         <div className="flex border-b border-white/10">
-          {(['basic', 'slots', 'v3'] as const).map((t) => (
+          {(['basic', 'fields'] as const).map((t) => (
             <button
               key={t}
               type="button"
               onClick={() => setTab(t)}
-              className={`px-4 py-2 text-sm ${tab === t ? 'border-b-2 border-blue-400 text-white' : 'text-[#8b95a3]'}`}
+              className={`px-[var(--space-20)] py-[var(--space-12)] text-[13px] leading-[18px] ${tab === t ? 'border-b-2 border-blue-400 text-white' : 'text-[#8b95a3] hover:text-white'}`}
             >
-              {t === 'basic'
-                ? 'Базовое'
-                : t === 'slots'
-                  ? 'Слоты v2'
-                  : 'v3 / channels'}
+              {t === 'basic' ? 'Базовое' : 'Поля стиля'}
             </button>
           ))}
         </div>
 
         {liveIssues.length > 0 && (
-          <div className="px-5 py-3 border-b border-white/10 bg-amber-500/5 text-xs text-amber-200 space-y-1">
+          <div className="px-[var(--space-24)] py-[var(--space-12)] border-b border-white/10 bg-amber-500/5 text-[12px] leading-[16px] text-amber-200 space-y-[var(--space-4)]">
             <div className="font-medium uppercase tracking-wide text-amber-300">
-              Lint ({liveIssues.length})
+              Линт ({liveIssues.length})
             </div>
-            <ul className="space-y-0.5 max-h-32 overflow-y-auto">
+            <ul className="space-y-[2px] max-h-32 overflow-y-auto">
               {liveIssues.map((issue, i) => (
-                <li key={i} className="flex gap-2">
-                  <span className={`shrink-0 px-1.5 py-0.5 rounded text-[10px] ${issue.severity === 'error' ? 'bg-red-500/20 text-red-200' : 'bg-amber-500/20 text-amber-200'}`}>
+                <li key={i} className="flex gap-[var(--space-8)]">
+                  <span className={`shrink-0 px-[var(--space-6)] py-[1px] rounded text-[10px] ${issue.severity === 'error' ? 'bg-red-500/20 text-red-200' : 'bg-amber-500/20 text-amber-200'}`}>
                     {issue.code}
                   </span>
                   <span className="text-amber-100/80">{issue.message}</span>
@@ -632,7 +726,7 @@ function StyleEditModal({
           </div>
         )}
 
-        <div className="flex-1 overflow-y-auto p-5 space-y-4">
+        <div className="flex-1 overflow-y-auto p-[var(--space-24)] space-y-[var(--space-16)]">
           {tab === 'basic' && (
             <>
               <Field label="ID" hint={isNew ? 'Только латиница, цифры, _' : 'ID нельзя менять'}>
@@ -646,29 +740,17 @@ function StyleEditModal({
                 />
               </Field>
 
-              <div className="grid grid-cols-2 gap-3">
-                <Field label="Mode">
-                  <select
-                    value={asString(draft.mode, 'social')}
-                    onChange={(e) => update('mode', e.target.value)}
-                    className="input"
-                  >
-                    <option value="cv">cv</option>
-                    <option value="social">social</option>
-                    <option value="dating">dating</option>
-                  </select>
-                </Field>
-                <Field label="Schema version">
-                  <select
-                    value={asNumber(draft.schema_version, 1)}
-                    onChange={(e) => update('schema_version', Number(e.target.value))}
-                    className="input"
-                  >
-                    <option value={1}>v1</option>
-                    <option value={2}>v2</option>
-                  </select>
-                </Field>
-              </div>
+              <Field label="Режим (mode)">
+                <select
+                  value={asString(draft.mode, 'social')}
+                  onChange={(e) => update('mode', e.target.value)}
+                  className="input"
+                >
+                  <option value="cv">cv (резюме)</option>
+                  <option value="social">social (соц.сети)</option>
+                  <option value="dating">dating (знакомства)</option>
+                </select>
+              </Field>
 
               <Field label="Display label" hint="Формат: emoji + название (напр. «🎨 Креативный директор»)">
                 <input
@@ -687,19 +769,19 @@ function StyleEditModal({
                 />
               </Field>
 
-              <div className="grid grid-cols-2 gap-3">
-                <Field label="Scenario">
+              <div className="grid grid-cols-2 gap-[var(--space-12)]">
+                <Field label="Сценарий">
                   <select
                     value={asString(draft.scenario, '')}
                     onChange={(e) => update('scenario', e.target.value || null)}
                     className="input"
                   >
                     {SCENARIO_OPTIONS.map((opt) => (
-                      <option key={opt} value={opt}>{opt || '— main catalog —'}</option>
+                      <option key={opt} value={opt}>{opt || '— основной каталог —'}</option>
                     ))}
                   </select>
                 </Field>
-                <Field label="Unlock after generations" hint="0 = доступен сразу">
+                <Field label="Разблокировка после N генераций" hint="0 = доступен сразу">
                   <input
                     type="number"
                     min={0}
@@ -710,7 +792,7 @@ function StyleEditModal({
                 </Field>
               </div>
 
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-3 gap-[var(--space-12)]">
                 <Field label="meta.param">
                   <select
                     value={asString(meta.param, 'appeal')}
@@ -741,205 +823,11 @@ function StyleEditModal({
                   />
                 </Field>
               </div>
-            </>
-          )}
 
-          {tab === 'slots' && (
-            <>
-              {!isV2 && (
-                <div className="px-3 py-2 bg-yellow-500/10 border border-yellow-500/30 rounded text-sm text-yellow-300">
-                  Стиль v1 — поля ниже сохранятся, но движок их не использует, пока schema_version не = 2.
-                </div>
-              )}
-
-              <Field label="trigger">
-                <input
-                  value={asString(draft.trigger)}
-                  onChange={(e) => update('trigger', e.target.value)}
-                  className="input"
-                />
-              </Field>
-
-              <Fieldset legend="background">
-                <Field label="base" error={fieldErrors.background_base}>
-                  <textarea
-                    rows={2}
-                    value={asString(background.base)}
-                    onChange={(e) => updateNested('background', 'base', e.target.value)}
-                    className="input"
-                  />
-                </Field>
-                <div className="grid grid-cols-2 gap-3">
-                  <Field label="lock">
-                    <select
-                      value={asString(background.lock, 'flexible')}
-                      onChange={(e) => updateNested('background', 'lock', e.target.value)}
-                      className="input"
-                    >
-                      <option value="flexible">flexible</option>
-                      <option value="semi">semi</option>
-                      <option value="locked">locked</option>
-                    </select>
-                  </Field>
-                  <Field label="overrides_allowed (csv)">
-                    <input
-                      value={csvFromArray(background.overrides_allowed)}
-                      onChange={(e) => updateNested('background', 'overrides_allowed', arrayFromCsv(e.target.value))}
-                      className="input"
-                    />
-                  </Field>
-                </div>
-              </Fieldset>
-
-              <Fieldset legend="clothing">
-                {(() => {
-                  const rawDefault = clothing.default;
-                  const defaultDict =
-                    typeof rawDefault === 'object' && rawDefault !== null && !Array.isArray(rawDefault)
-                      ? (rawDefault as Record<string, unknown>)
-                      : {
-                          male: typeof rawDefault === 'string' ? rawDefault : '',
-                          female: typeof rawDefault === 'string' ? rawDefault : '',
-                          neutral: typeof rawDefault === 'string' ? rawDefault : '',
-                        };
-                  const updateDefaultKey = (key: 'male' | 'female' | 'neutral', value: string) => {
-                    setDraft((prev) => {
-                      const block = asObject(prev.clothing);
-                      const prevDefault =
-                        typeof block.default === 'object' && block.default !== null && !Array.isArray(block.default)
-                          ? (block.default as Record<string, unknown>)
-                          : {};
-                      return {
-                        ...prev,
-                        clothing: {
-                          ...block,
-                          default: {
-                            male: asString(prevDefault.male),
-                            female: asString(prevDefault.female),
-                            neutral: asString(prevDefault.neutral),
-                            [key]: value,
-                          },
-                        },
-                      };
-                    });
-                  };
-                  return (
-                    <>
-                      <Field label="default.male" error={fieldErrors.clothing_default}>
-                        <input
-                          value={asString(defaultDict.male)}
-                          onChange={(e) => updateDefaultKey('male', e.target.value)}
-                          className="input"
-                          placeholder="мужской вариант, можно оставить пустым"
-                        />
-                      </Field>
-                      <Field label="default.female">
-                        <input
-                          value={asString(defaultDict.female)}
-                          onChange={(e) => updateDefaultKey('female', e.target.value)}
-                          className="input"
-                          placeholder="женский вариант, можно оставить пустым"
-                        />
-                      </Field>
-                      <Field label="default.neutral">
-                        <input
-                          value={asString(defaultDict.neutral)}
-                          onChange={(e) => updateDefaultKey('neutral', e.target.value)}
-                          className="input"
-                          placeholder="нейтральный fallback (используется, если male/female пустой)"
-                        />
-                      </Field>
-                    </>
-                  );
-                })()}
-                <Field label="allowed (csv)">
-                  <input
-                    value={csvFromArray(clothing.allowed)}
-                    onChange={(e) => updateNested('clothing', 'allowed', arrayFromCsv(e.target.value))}
-                    className="input"
-                  />
-                </Field>
-                <label className="flex items-center gap-2 text-sm">
-                  <input
-                    type="checkbox"
-                    checked={asBool(clothing.gender_neutral, true)}
-                    onChange={(e) => updateNested('clothing', 'gender_neutral', e.target.checked)}
-                  />
-                  gender_neutral
-                </label>
-              </Fieldset>
-
-              <Fieldset legend="weather">
-                <label className="flex items-center gap-2 text-sm">
-                  <input
-                    type="checkbox"
-                    checked={asBool(weather.enabled)}
-                    onChange={(e) => updateNested('weather', 'enabled', e.target.checked)}
-                  />
-                  enabled
-                </label>
-                <Field label="allowed (csv)">
-                  <input
-                    value={csvFromArray(weather.allowed)}
-                    onChange={(e) => updateNested('weather', 'allowed', arrayFromCsv(e.target.value))}
-                    className="input"
-                  />
-                </Field>
-              </Fieldset>
-
-              <Fieldset legend="context_slots">
-                {(['lighting', 'framing', 'time_of_day', 'season'] as const).map((slot) => (
-                  <Field key={slot} label={`${slot} (csv)`}>
-                    <input
-                      value={csvFromArray(contextSlots[slot])}
-                      onChange={(e) => updateNested('context_slots', slot, arrayFromCsv(e.target.value))}
-                      className="input"
-                    />
-                  </Field>
-                ))}
-              </Fieldset>
-
-              <Fieldset legend="quality_identity">
-                <Field label="base" error={fieldErrors.quality_base}>
-                  <textarea
-                    rows={2}
-                    value={asString(quality.base)}
-                    onChange={(e) => updateNested('quality_identity', 'base', e.target.value)}
-                    className="input"
-                  />
-                </Field>
-                <Field label="per_model_tail (JSON)">
-                  <textarea
-                    rows={2}
-                    defaultValue={JSON.stringify(quality.per_model_tail ?? {}, null, 2)}
-                    onBlur={(e) => {
-                      try {
-                        const parsed = JSON.parse(e.target.value || '{}');
-                        updateNested('quality_identity', 'per_model_tail', parsed);
-                      } catch {
-                        // keep last good value if JSON malformed; user can retry
-                      }
-                    }}
-                    className="input font-mono text-xs"
-                  />
-                </Field>
-              </Fieldset>
-            </>
-          )}
-
-          {tab === 'v3' && (
-            <>
-              {!isV3 && (
-                <div className="px-3 py-2 bg-blue-500/10 border border-blue-500/30 rounded text-sm text-blue-200">
-                  Стиль не v3 — поля ниже сохранятся, но сэмплер их использует только когда{' '}
-                  <code>schema_version = 3</code>.
-                </div>
-              )}
-
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-2 gap-[var(--space-12)]">
                 <Field
                   label="location_type"
-                  hint="indoor скрывает season + weather, document скрывает все ambient-каналы"
+                  hint="indoor скрывает season + weather, document — все ambient-каналы"
                 >
                   <select
                     value={asString(draft.location_type, '')}
@@ -965,29 +853,34 @@ function StyleEditModal({
                   </select>
                 </Field>
               </div>
+            </>
+          )}
 
-              <Fieldset legend="trigger_pool">
-                <p className="text-xs text-[#8b95a3]">
-                  Иммутабельный мотив стиля. Сэмплер выбирает одну формулировку каждую генерацию.
-                  Не должен содержать ракурс/освещение/погоду — это отдельные каналы.
+          {tab === 'fields' && (
+            <>
+              <Fieldset legend="trigger_pool" error={fieldErrors.trigger_pool}>
+                <p className="text-[12px] leading-[16px] text-[#8b95a3]">
+                  Иммутабельный мотив стиля. Сэмплер выбирает одну формулировку
+                  каждую генерацию. Не должен содержать ракурс/освещение/погоду —
+                  это отдельные каналы.
                 </p>
                 {triggerPool.length === 0 && (
-                  <div className="px-3 py-2 bg-red-500/10 border border-red-500/30 rounded text-xs text-red-300">
-                    v3 styles must contain at least one trigger formulation.
+                  <div className="px-[var(--space-12)] py-[var(--space-6)] bg-red-500/10 border border-red-500/30 rounded text-[11px] text-red-300">
+                    Нужна минимум одна формулировка trigger_pool.
                   </div>
                 )}
                 {triggerPool.map((t, i) => (
-                  <div key={i} className="flex gap-2 items-start">
+                  <div key={i} className="flex gap-[var(--space-8)] items-start">
                     <input
                       value={t}
                       onChange={(e) => updateTrigger(i, e.target.value)}
                       className="input flex-1"
-                      placeholder='e.g. "round wall mirror in frame"'
+                      placeholder='напр. "round wall mirror in frame"'
                     />
                     <button
                       type="button"
                       onClick={() => removeTrigger(i)}
-                      className="px-2 py-1.5 text-xs rounded border border-white/10 hover:bg-red-500/10 hover:border-red-500/30 hover:text-red-300"
+                      className="px-[var(--space-12)] py-[var(--space-6)] text-[12px] rounded border border-white/10 hover:bg-red-500/10 hover:border-red-500/30 hover:text-red-300"
                     >
                       −
                     </button>
@@ -996,21 +889,21 @@ function StyleEditModal({
                 <button
                   type="button"
                   onClick={addTrigger}
-                  className="px-3 py-1.5 text-xs rounded border border-white/10 hover:bg-white/5"
+                  className="px-[var(--space-12)] py-[var(--space-6)] text-[12px] rounded border border-white/10 hover:bg-white/5 self-start"
                 >
-                  + add formulation
+                  + добавить формулировку
                 </button>
                 {triggerIssues.map((issue, i) => (
                   <div
                     key={i}
-                    className="text-[11px] text-amber-300 px-2 py-1 bg-amber-500/10 border border-amber-500/30 rounded"
+                    className="text-[11px] text-amber-300 px-[var(--space-8)] py-[var(--space-4)] bg-amber-500/10 border border-amber-500/30 rounded"
                   >
                     {issue.message}
                   </div>
                 ))}
               </Fieldset>
 
-              <Field label="scene_anchor" hint="Базовая сцена БЕЗ описаний света / погоды / времени суток">
+              <Field label="scene_anchor" hint="Базовая сцена БЕЗ описаний света / погоды / времени суток" error={fieldErrors.scene_anchor}>
                 <textarea
                   rows={2}
                   value={asString(draft.scene_anchor)}
@@ -1028,15 +921,15 @@ function StyleEditModal({
               </Field>
 
               <Fieldset legend="available_channels">
-                <p className="text-xs text-[#8b95a3]">
+                <p className="text-[12px] leading-[16px] text-[#8b95a3]">
                   Чекбоксы определяют, какие настройки видит пользователь в StyleSettingsModal.
-                  Пустой список = «не курировано», UI показывает каналы по непустым пулам (старое поведение).
+                  Пустой список = «не курировано», UI показывает каналы по непустым пулам.
                 </p>
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-2 gap-[var(--space-4)]">
                   {ALL_CHANNELS.map((ch) => (
                     <label
                       key={ch}
-                      className="flex items-center gap-2 text-sm px-2 py-1 rounded hover:bg-white/5"
+                      className="flex items-center gap-[var(--space-8)] text-[13px] leading-[18px] px-[var(--space-8)] py-[var(--space-4)] rounded hover:bg-white/5"
                     >
                       <input
                         type="checkbox"
@@ -1050,7 +943,7 @@ function StyleEditModal({
                 {channelIssues.map((issue, i) => (
                   <div
                     key={i}
-                    className="text-[11px] text-red-300 px-2 py-1 bg-red-500/10 border border-red-500/30 rounded"
+                    className="text-[11px] text-red-300 px-[var(--space-8)] py-[var(--space-4)] bg-red-500/10 border border-red-500/30 rounded"
                   >
                     {issue.message}
                   </div>
@@ -1079,19 +972,80 @@ function StyleEditModal({
                   <button
                     type="button"
                     onClick={fillFourSeasons}
-                    className="px-3 py-1.5 text-xs rounded border border-white/10 hover:bg-white/5 self-start"
+                    className="px-[var(--space-12)] py-[var(--space-6)] text-[12px] rounded border border-white/10 hover:bg-white/5 self-start"
                   >
-                    Fill 4 seasons (spring, summer, autumn, winter)
+                    Заполнить 4 сезона
                   </button>
                 )}
                 {seasonPoolIssues.map((issue, i) => (
                   <div
                     key={i}
-                    className="text-[11px] text-amber-300 px-2 py-1 bg-amber-500/10 border border-amber-500/30 rounded"
+                    className="text-[11px] text-amber-300 px-[var(--space-8)] py-[var(--space-4)] bg-amber-500/10 border border-amber-500/30 rounded"
                   >
                     {issue.message}
                   </div>
                 ))}
+              </Fieldset>
+
+              <Fieldset legend="clothing" error={fieldErrors.clothing_default}>
+                <Field label="default.male">
+                  <input
+                    value={asString(defaultDict.male)}
+                    onChange={(e) => updateClothingDefault('male', e.target.value)}
+                    className="input"
+                    placeholder="мужской вариант, можно оставить пустым"
+                  />
+                </Field>
+                <Field label="default.female">
+                  <input
+                    value={asString(defaultDict.female)}
+                    onChange={(e) => updateClothingDefault('female', e.target.value)}
+                    className="input"
+                    placeholder="женский вариант, можно оставить пустым"
+                  />
+                </Field>
+                <Field label="default.neutral">
+                  <input
+                    value={asString(defaultDict.neutral)}
+                    onChange={(e) => updateClothingDefault('neutral', e.target.value)}
+                    className="input"
+                    placeholder="нейтральный fallback (если male/female пустые)"
+                  />
+                </Field>
+                <Field label="allowed (csv)">
+                  <input
+                    value={csvFromArray(clothing.allowed)}
+                    onChange={(e) => updateClothingArray('allowed', e.target.value)}
+                    className="input"
+                  />
+                </Field>
+                <label className="flex items-center gap-[var(--space-8)] text-[13px] leading-[18px]">
+                  <input
+                    type="checkbox"
+                    checked={asBool(clothing.gender_neutral, true)}
+                    onChange={(e) => updateClothingFlag('gender_neutral', e.target.checked)}
+                  />
+                  gender_neutral
+                </label>
+              </Fieldset>
+
+              <Fieldset legend="quality_identity" error={fieldErrors.quality_base}>
+                <Field label="base">
+                  <textarea
+                    rows={2}
+                    value={asString(quality.base)}
+                    onChange={(e) => updateQualityBase(e.target.value)}
+                    className="input"
+                  />
+                </Field>
+                <Field label="per_model_tail (JSON)">
+                  <textarea
+                    rows={2}
+                    defaultValue={JSON.stringify(quality.per_model_tail ?? {}, null, 2)}
+                    onBlur={(e) => updateQualityTail(e.target.value)}
+                    className="input font-mono text-[12px]"
+                  />
+                </Field>
               </Fieldset>
 
               <Field label="expression">
@@ -1105,26 +1059,35 @@ function StyleEditModal({
           )}
         </div>
 
-        <footer className="flex justify-end gap-2 px-5 py-3 border-t border-white/10">
-          <button type="button" onClick={() => onClose(isDirty)} className="px-4 py-2 rounded-lg border border-white/10 hover:bg-white/5">
-            Cancel
+        <footer className="flex justify-end gap-[var(--space-8)] px-[var(--space-24)] py-[var(--space-16)] border-t border-white/10">
+          <button
+            type="button"
+            onClick={() => onClose(isDirty)}
+            className="px-[var(--space-16)] h-[36px] rounded-[var(--radius-pill)] border border-white/10 hover:bg-white/5 text-[13px] leading-[18px]"
+          >
+            Отмена
           </button>
-          <button type="submit" className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 font-medium">
-            Save
+          <button
+            type="submit"
+            className="px-[var(--space-16)] h-[36px] rounded-[var(--radius-pill)] bg-blue-600 hover:bg-blue-500 font-medium text-[13px] leading-[18px]"
+          >
+            Сохранить
           </button>
         </footer>
 
         <style>{`
           .input {
             width: 100%;
-            padding: 6px 10px;
+            padding: 8px 12px;
             background: rgba(255,255,255,0.04);
             border: 1px solid rgba(255,255,255,0.10);
-            border-radius: 6px;
+            border-radius: 8px;
             color: #E6EEF8;
             font-size: 13px;
+            line-height: 18px;
           }
           .input:focus { outline: none; border-color: #60a5fa; }
+          .input:disabled { opacity: 0.6; cursor: not-allowed; }
         `}</style>
       </form>
     </div>
@@ -1144,8 +1107,8 @@ function Field({
 }) {
   return (
     <label className="block">
-      <div className="flex items-baseline justify-between mb-1">
-        <span className="text-xs text-[#8b95a3] uppercase tracking-wide">{label}</span>
+      <div className="flex items-baseline justify-between mb-[var(--space-6)] gap-[var(--space-8)]">
+        <span className="text-[11px] text-[#8b95a3] uppercase tracking-wide">{label}</span>
         {hint && !error && <span className="text-[10px] text-[#5a6470]">{hint}</span>}
         {error && <span className="text-[10px] text-red-300">{error}</span>}
       </div>
@@ -1154,10 +1117,21 @@ function Field({
   );
 }
 
-function Fieldset({ legend, children }: { legend: string; children: React.ReactNode }) {
+function Fieldset({
+  legend,
+  error,
+  children,
+}: {
+  legend: string;
+  error?: string;
+  children: React.ReactNode;
+}) {
   return (
-    <fieldset className="border border-white/10 rounded-lg p-3 space-y-3">
-      <legend className="px-2 text-xs uppercase tracking-wide text-[#8b95a3]">{legend}</legend>
+    <fieldset className="border border-white/10 rounded-[var(--radius-12)] p-[var(--space-16)] space-y-[var(--space-12)]">
+      <legend className="px-[var(--space-8)] text-[11px] uppercase tracking-wide text-[#8b95a3]">
+        {legend}
+        {error && <span className="ml-[var(--space-8)] text-red-300 normal-case tracking-normal">{error}</span>}
+      </legend>
       {children}
     </fieldset>
   );
