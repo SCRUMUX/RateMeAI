@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { AicaIcon } from '@ai-ds/core/icons';
+import LogoEmblem from '../assets/LogoEmblem';
 import {
   findBlock,
   useLandingHome,
@@ -143,13 +144,17 @@ export default function Footer({ cmsPage }: FooterProps = {}) {
   const { openPolicy, openSupport } = useLandingModals();
 
   const brandTitle = asString(cmsData.brand?.title, 'Look Studio');
-  // 1.50.6: убран AI/ИИ из tagline. Раньше: "AI-фото для соцсетей,
-  // знакомств, документов и резюме." Сейчас придерживаемся
-  // продуктового тона "студия портрета", без слов AI / нейросеть.
-  const brandTagline = asString(
-    cmsData.brand?.tagline,
-    'Студия портретов для соцсетей, знакомств, документов и резюме.',
-  );
+  // 1.50.7: tagline без слов AI / ИИ / нейросеть. Если CMS возвращает
+  // legacy-tagline с "AI-фото..." — переписываем на новый дефолт,
+  // чтобы сайт не рендерил AI-формулировку, пока не задеплоится
+  // обновлённый landing_content.json.
+  const cmsTagline = asString(cmsData.brand?.tagline, '').trim();
+  const DEFAULT_TAGLINE =
+    'Портреты, которые работают: знакомства, профили, документы и резюме — за пару минут.';
+  const brandTagline =
+    cmsTagline && !/\bAI\b|\bИИ\b|нейросет/i.test(cmsTagline)
+      ? cmsTagline
+      : DEFAULT_TAGLINE;
 
   const products: ProductItem[] = useMemo(() => {
     const fromCms = asProducts(cmsData.products);
@@ -238,11 +243,18 @@ export default function Footer({ cmsPage }: FooterProps = {}) {
               1.50.6: socialItems из левой колонки убраны — ссылка на
               UX4AI-канал теперь живёт только в правой кнопке
               "Подписаться" внизу футера, чтобы не дублировать действие
-              в двух местах подряд. */}
+              в двух местах подряд.
+              1.50.7: к названию добавлен LogoEmblem — повторяет шапку
+              и закрывает визуальный пробел. */}
           <div className="flex flex-col gap-[var(--space-12)]">
-            <span className="text-[20px] leading-[28px] font-semibold text-[var(--color-text-primary)]">
-              {brandTitle}
-            </span>
+            <div className="flex items-center gap-[var(--space-10)]">
+              <div className="relative w-9 h-9 shrink-0 text-[var(--color-text-primary)]">
+                <LogoEmblem className="relative w-full h-full" />
+              </div>
+              <span className="text-[20px] leading-[28px] font-semibold text-[var(--color-text-primary)] tracking-tight">
+                {brandTitle}
+              </span>
+            </div>
             <p className="text-[14px] leading-[22px] text-[var(--color-text-secondary)] max-w-[320px]">
               {brandTagline}
             </p>

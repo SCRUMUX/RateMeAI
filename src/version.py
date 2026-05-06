@@ -4497,4 +4497,44 @@
 #                0.020-0.035) — blob'ы теперь работают на
 #                тонкое свечение, а не самостоятельный слой.
 #          Sanity: tsc --noEmit clean; ruff clean; vite build OK.
-APP_VERSION = "1.50.5"
+# 1.50.7 — Footer / стилевая консистентность / стабильный скролл.
+#          (1) <ScrollToTop> внутри BrowserRouter: при PUSH/REPLACE
+#              навигации насильно прокручиваем страницу к началу;
+#              POP оставлен браузеру (back/forward сохраняют свой
+#              scroll-restore). Чинит «иногда лендинг открывается
+#              на тарифах» при кликах по ссылкам в футере.
+#          (2) ApiSection — колонки поменяли местами: на десктопе
+#              слева список API-сценариев, справа описание +
+#              преимущества + CTA. На мобиле порядок прежний
+#              (список → описание).
+#          (3) Тематика модалок (data-category) — порталы
+#              монтируются в document.body и не наследовали
+#              data-category страницы. Добавили проброс
+#              app.activeCategory в Policy/Support/UI Modal/
+#              StyleSettings/StylesSheet. Тем самым акценты
+#              (--color-brand-primary / --accent-r/g/b) теперь
+#              правильно меняются в модалках на /znakomstva
+#              (pink), /dokumenty и /rezume (purple).
+#          (4) Лендинги Dating/Document/Resume теперь
+#              синхронизируют app.activeCategory под свою
+#              категорию через useEffect на mount — иначе модалки
+#              видели дефолтное 'social' (cyan).
+#          (5) Чистка «AI» из видимых пользователю текстов:
+#              titles/meta всех лендингов, hero-subtitle,
+#              ScenarioPricing, Pricing, ApiSection, SupportModal
+#              FAQ, StepAnalysis, StepGenerate label. Сохранены:
+#              transparency-badge "AI-generated" (EU AI Act
+#              Art. 50), ConsentGate (юридический терм
+#              «AI-сервисы»), EXIF UserComment-метка.
+#              landing_content.json: tagline, api.subtitle и
+#              FAQ-вопрос обновлены.
+#          (6) Footer: добавлен LogoEmblem рядом с brandTitle,
+#              новый дефолтный tagline («Портреты, которые
+#              работают…»). Если CMS вернёт legacy-tagline c
+#              "AI/ИИ/нейросеть" — клиент перетирает его новым
+#              дефолтом, чтобы AI не вылез до деплоя.
+#          (7) #4ADE80 → var(--color-success-base) в LinkPage и
+#              LinkedAccountsPanel. Брендовые цвета провайдеров
+#              (Telegram/Yandex/VK/Google/OK) намеренно оставлены
+#              как корпоративные.
+APP_VERSION = "1.50.7"

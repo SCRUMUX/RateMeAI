@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import NavBar from '../sections/NavBar';
 import Footer from '../sections/Footer';
 import AuthModal from '../components/AuthModal';
@@ -34,10 +34,16 @@ export default function ResumePhotoLanding({ onStart, showAuth, onAuthClose }: L
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const authOpen = authModalOpen || !!showAuth;
 
+  // 1.50.7: sync AppContext.activeCategory so portal-mounted modals
+  // inherit the correct themed --color-brand-primary token.
+  useEffect(() => {
+    app.setActiveCategory('cv');
+  }, [app]);
+
   useDocumentMeta({
-    title: 'Фото на резюме AI · Look Studio',
+    title: 'Фото на резюме · Look Studio',
     description:
-      'AI-фото для LinkedIn, hh.ru и корпоративных профилей: бизнес-кадрирование, нейтральный фон, естественный костюм. Готово за пару минут.',
+      'Фото для LinkedIn, hh.ru и корпоративных профилей: бизнес-кадрирование, нейтральный фон, естественный костюм. Готово за пару минут.',
     canonicalPath: '/rezume',
   });
 

@@ -35,7 +35,7 @@ const DEFAULT_OPTIONS: ApiOption[] = [
     name: 'API для сайтов знакомств',
     tagline: 'Анкеты, на которые отвечают',
     description:
-      'Подключаем фото-улучшение прямо в onboarding и редактор анкеты. AI адаптирует свет, фон, мимику и кадрирование, не теряя сходство с человеком — пользователь получает несколько сильных вариантов вместо одного среднего.',
+      'Подключаем фото-улучшение прямо в onboarding и редактор анкеты. Сервис адаптирует свет, фон, мимику и кадрирование, не теряя сходство с человеком — пользователь получает несколько сильных вариантов вместо одного среднего.',
     benefits: [
       'Рост CTR анкет и количества мэтчей за счёт фотографий, прошедших проверку фотореализма',
       'Готовый сценарий «загрузил → выбрал стиль → опубликовал» — без отдельных приложений и фотостудий',
@@ -94,7 +94,7 @@ export default function ApiSection({ cmsPage }: { cmsPage?: LandingPage | null }
   const title = asString(data.title, 'API для интеграций');
   const subtitle = asString(
     data.subtitle,
-    'Подключите AI-фото и анализ восприятия в свой продукт. Выберите сценарий — мы покажем, что и как умеем делать.',
+    'Подключите фото-улучшение и анализ восприятия в свой продукт. Выберите сценарий — мы покажем, что и как умеем делать.',
   );
   const ctaLabel = asString(data.primaryCtaLabel, 'Написать по сотрудничеству');
 
@@ -112,14 +112,14 @@ export default function ApiSection({ cmsPage }: { cmsPage?: LandingPage | null }
         <p className="landing-lead">{subtitle}</p>
       </div>
 
-      {/* Two-column layout: left — описание + преимущества + CTA,
-          right — выбор сценария API. На mobile колонки складываются:
-          сначала список (правая колонка), потом описание (левая) — так
-          пользователь сразу видит, что переключается, а не пролистывает
-          описание раньше списка. */}
+      {/* Two-column layout: на десктопе слева — выбор сценария API,
+          справа — описание + преимущества + CTA. На mobile колонки
+          складываются: сначала список, потом описание — пользователь
+          сразу видит, что переключается, а не пролистывает описание
+          раньше списка. */}
       <div className="relative flex flex-col desktop:flex-row items-stretch desktop:items-start desktop:justify-between w-full max-w-[1200px] gap-[var(--space-24)] desktop:gap-[70px]">
-        {/* Left: описание + преимущества */}
-        <div className="flex flex-col w-full desktop:flex-1 desktop:max-w-[560px] order-last desktop:order-first">
+        {/* Right (на десктопе): описание + преимущества */}
+        <div className="flex flex-col w-full desktop:flex-1 desktop:max-w-[560px] order-last desktop:order-last">
           <div className="gradient-border-card glass-card flex flex-col gap-[var(--space-20)] p-[var(--space-24)] tablet:p-[var(--space-32)] rounded-[var(--radius-12)] h-full">
             <div className="flex items-center gap-[var(--space-12)]">
               <span
@@ -181,8 +181,8 @@ export default function ApiSection({ cmsPage }: { cmsPage?: LandingPage | null }
           </div>
         </div>
 
-        {/* Right: список плашек API */}
-        <div className="flex flex-col gap-[var(--space-20)] w-full desktop:max-w-[480px] order-first desktop:order-last">
+        {/* Left (на десктопе): список плашек API */}
+        <div className="flex flex-col gap-[var(--space-20)] w-full desktop:max-w-[480px] order-first desktop:order-first">
           {DEFAULT_OPTIONS.map((option, i) => (
             <button
               key={option.key}

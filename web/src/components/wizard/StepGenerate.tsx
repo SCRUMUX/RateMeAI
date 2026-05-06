@@ -26,7 +26,7 @@ interface Props {
 const STEP_LABELS: Record<string, string> = {
   upload: 'Загрузка фото...',
   validate: 'Проверка изображения...',
-  analyze: 'AI анализ...',
+  analyze: 'Анализ фото...',
   generate: 'Генерация образа...',
   finalize: 'Финализация...',
   complete: 'Готово',

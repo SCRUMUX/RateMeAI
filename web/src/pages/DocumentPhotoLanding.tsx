@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import NavBar from '../sections/NavBar';
 import Footer from '../sections/Footer';
 import AuthModal from '../components/AuthModal';
@@ -83,7 +83,7 @@ const DOCUMENT_TESTIMONIALS: Testimonial[] = [
 
 const STEPS: HowItWorksStep[] = [
   { num: '1', title: 'Загрузите фото', desc: 'Любое фото с чётким лицом, без фильтров и крупным планом — мы проверим автоматически.' },
-  { num: '2', title: 'AI-анализ', desc: 'Проверим пригодность фото для документа за несколько секунд.' },
+  { num: '2', title: 'Проверка фото', desc: 'Проверим пригодность фото для документа за несколько секунд.' },
   { num: '3', title: 'Выберите формат', desc: 'Паспорт, виза, права или другой документ — настроим размеры и фон.' },
   { num: '4', title: 'Получите результат', desc: 'Скачайте готовое фото в нужном формате — экономия похода в фотосалон.' },
 ];
@@ -101,10 +101,16 @@ export default function DocumentPhotoLanding({ onStart, showAuth, onAuthClose }:
 
   const authOpen = authModalOpen || !!showAuth;
 
+  // 1.50.7: sync AppContext.activeCategory so portal-mounted modals
+  // inherit the correct themed --color-brand-primary token.
+  useEffect(() => {
+    app.setActiveCategory('cv');
+  }, [app]);
+
   useDocumentMeta({
-    title: 'Фото на документы AI · Look Studio',
+    title: 'Фото на документы · Look Studio',
     description:
-      'AI-фото на паспорт, визу и любые документы за 2 минуты: ровный фон, правильный размер, нейтральная мимика — без похода в фотостудию.',
+      'Фото на паспорт, визу и любые документы за 2 минуты: ровный фон, правильный размер, нейтральная мимика — без похода в фотостудию.',
     canonicalPath: '/dokumenty',
   });
 
@@ -132,7 +138,7 @@ export default function DocumentPhotoLanding({ onStart, showAuth, onAuthClose }:
               </span>
             </h1>
             <p className="landing-lead max-w-[520px]">
-              AI создаст идеальное фото для паспорта, визы или любого документа. Максимальная фотореалистичность, без лишних эффектов.
+              Создадим идеальное фото для паспорта, визы или любого документа. Максимальная фотореалистичность, без лишних эффектов.
             </p>
           </div>
 

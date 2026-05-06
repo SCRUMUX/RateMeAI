@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import { getMockDelta, type StyleItem } from '../../data/styles';
 import { orderStylesByLock } from './lockedStyles';
+import { useApp } from '../../context/AppContext';
 
 interface Props {
   open: boolean;
@@ -14,6 +15,8 @@ interface Props {
 }
 
 export default function StylesSheet({ open, onClose, styles, selectedKey, lockedKeys, onPick }: Props) {
+  const { activeCategory } = useApp();
+
   useEffect(() => {
     if (!open) return;
     const prev = document.body.style.overflow;
@@ -37,6 +40,7 @@ export default function StylesSheet({ open, onClose, styles, selectedKey, locked
       {open && (
         <motion.div
           key="styles-sheet"
+          data-category={activeCategory}
           className="fixed inset-0 z-[9999] flex items-end justify-center"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}

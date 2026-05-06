@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import useFocusTrap from '../lib/useFocusTrap';
+import { useApp } from '../context/AppContext';
 
 interface FaqItem {
   q: string;
@@ -34,8 +35,8 @@ const DEFAULT_FAQ: FaqItem[] = [
     a: 'Проверьте папку «Спам». Если не нашли — обновите страницу /app, генерации появятся там.',
   },
   {
-    q: 'Что значит «AI-генерация»?',
-    a: 'Мы используем AI-модели, которые улучшают ваше фото с сохранением сходства. Все изображения помечены как сгенерированные AI.',
+    q: 'Как мы улучшаем фото?',
+    a: 'Сервис улучшает ваше фото с сохранением сходства. Все обработанные изображения помечены как сгенерированные — в EXIF и водяным знаком.',
   },
 ];
 
@@ -55,6 +56,7 @@ export default function SupportModal({
   const mail = (email && email.trim()) || DEFAULT_EMAIL;
   const dialogRef = useRef<HTMLDivElement | null>(null);
   useFocusTrap(open, dialogRef);
+  const { activeCategory } = useApp();
 
   useEffect(() => {
     if (!open) return;
@@ -73,6 +75,7 @@ export default function SupportModal({
     <AnimatePresence>
       {open && (
         <motion.div
+          data-category={activeCategory}
           className="fixed inset-0 z-[9999] flex items-center justify-center p-[var(--space-16)] tablet:p-[var(--space-24)]"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}

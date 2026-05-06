@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import type { ReactNode } from 'react';
 import Card from './Card';
+import { useApp } from '../../context/AppContext';
 
 /**
  * 1.33.0 — token-driven Modal primitive.
@@ -58,6 +59,8 @@ export default function Modal({
   variant = 'gradient-border',
   className = '',
 }: ModalProps) {
+  const { activeCategory } = useApp();
+
   useEffect(() => {
     if (!open) return;
     function handleKey(e: KeyboardEvent) {
@@ -75,6 +78,7 @@ export default function Modal({
     <AnimatePresence>
       {open && (
         <motion.div
+          data-category={activeCategory}
           className="fixed inset-0 z-[9999] flex items-center justify-center p-[var(--space-24)]"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}

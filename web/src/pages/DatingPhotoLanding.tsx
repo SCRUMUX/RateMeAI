@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import NavBar from '../sections/NavBar';
 import Footer from '../sections/Footer';
 import AuthModal from '../components/AuthModal';
@@ -34,10 +34,17 @@ export default function DatingPhotoLanding({ onStart, showAuth, onAuthClose }: L
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const authOpen = authModalOpen || !!showAuth;
 
+  // 1.50.7: sync AppContext.activeCategory with the page's themed
+  // category so portal-mounted modals (Policy/Support/Auth/Storage)
+  // inherit the right --color-brand-primary token.
+  useEffect(() => {
+    app.setActiveCategory('dating');
+  }, [app]);
+
   useDocumentMeta({
-    title: 'Фото для знакомств AI · Look Studio',
+    title: 'Фото для знакомств · Look Studio',
     description:
-      'AI-фото для Tinder, Hinge и Bumble: естественные снимки, которые увеличивают мэтчи. Сохраняем сходство, добавляем свет, мимику и кадрирование.',
+      'Фото для Tinder, Hinge и Bumble: естественные снимки, которые увеличивают мэтчи. Сохраняем сходство, добавляем свет, мимику и кадрирование.',
     canonicalPath: '/znakomstva',
   });
 

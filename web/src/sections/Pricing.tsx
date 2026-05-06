@@ -8,7 +8,7 @@ import { rememberFlowReturnPath } from '../lib/flow-resume';
 import { findBlock, type LandingPage } from '../lib/landing-cms';
 
 const PLANS = [
-  { title: 'Попробовать', price: '59 рублей', photos: '1 фото', packQty: 1, desc: 'Посмотри, как AI улучшит твоё фото за секунды. Идеально, чтобы оценить результат перед полной прокачкой.', highlighted: false, badge: null, savingBadge: null },
+  { title: 'Попробовать', price: '59 рублей', photos: '1 фото', packQty: 1, desc: 'Посмотри, как сервис улучшит твоё фото за секунды. Идеально, чтобы оценить результат перед полной прокачкой.', highlighted: false, badge: null, savingBadge: null },
   { title: 'Обновить фото', price: '199 рублей', photos: '5 фото', packQty: 5, desc: 'Освежи свои лучшие снимки и выбери идеальный вариант для соцсетей или профиля.', highlighted: false, badge: null, savingBadge: null },
   { title: 'Прокачать образ', price: '499 рублей', photos: '15 фото', packQty: 15, desc: 'Полная прокачка твоего образа под разные ситуации: соцсети, знакомства, работа. Найди фото, которое реально работает.', highlighted: true, badge: 'BEST', savingBadge: 'Экономия 40%' },
   { title: 'Полная трансформация', price: '899 рублей', photos: '30 фото', packQty: 30, desc: 'Максимум вариантов и стилей. Подходит, если хочешь полностью обновить свой визуальный образ и выделяться в любой ситуации.', highlighted: false, badge: null, savingBadge: null },

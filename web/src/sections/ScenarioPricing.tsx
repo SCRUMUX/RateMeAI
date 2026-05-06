@@ -48,9 +48,9 @@ const PAID_PLANS: PaidPlan[] = [
     packQty: 5,
     title: 'Попробовать',
     priceLabel: '199 ₽',
-    photosLabel: '5 AI-фото',
+    photosLabel: '5 фото',
     perPhotoLabel: '40 ₽ за фото',
-    desc: 'Стартовый пакет — оцени, как AI работает с твоим лицом.',
+    desc: 'Стартовый пакет — оцени, как сервис работает с твоим лицом.',
     features: ['Доступ ко всем стилям категории', 'Без водяных знаков', 'Подбор за 2 минуты'],
     highlighted: false,
     ctaLabel: 'Купить 5 за 199 ₽',
@@ -60,7 +60,7 @@ const PAID_PLANS: PaidPlan[] = [
     packQty: 15,
     title: 'Прокачать образ',
     priceLabel: '499 ₽',
-    photosLabel: '15 AI-фото',
+    photosLabel: '15 фото',
     perPhotoLabel: '33 ₽ за фото',
     desc: 'Полный сет под анкету, резюме или документы — хватит на все ситуации.',
     features: ['15 фото в одном пакете', 'Все стили + эксклюзивы', 'Приоритетная очередь генерации', 'Без водяных знаков'],
@@ -275,7 +275,7 @@ export default function ScenarioPricing({ tagline }: ScenarioPricingProps) {
             </div>
 
             <p className="text-[14px] tablet:text-[15px] leading-[20px] tablet:leading-[22px] text-[var(--color-text-secondary)]">
-              AI-генерация в брендовом фотобанке, маркетплейсе или мобильном приложении. Подключаем по API под ваш объём.
+              Брендовый фотобанк, маркетплейс или мобильное приложение. Подключаем по API под ваш объём.
             </p>
 
             <ul className="flex flex-col gap-[var(--space-10)] m-0 p-0 list-none flex-1">

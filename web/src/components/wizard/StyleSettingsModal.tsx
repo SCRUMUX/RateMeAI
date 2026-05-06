@@ -327,6 +327,7 @@ export default function StyleSettingsModal({ open, onClose, styleId, initialHint
   return createPortal(
     <AnimatePresence>
       <motion.div
+        data-category={app.activeCategory}
         className="fixed inset-0 z-[9999] flex items-end tablet:items-center justify-center"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}

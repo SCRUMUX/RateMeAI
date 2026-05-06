@@ -4,6 +4,7 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import { getPolicy, type PolicyId } from '../data/policies';
 import useFocusTrap from '../lib/useFocusTrap';
+import { useApp } from '../context/AppContext';
 
 interface Props {
   open: boolean;
@@ -15,6 +16,7 @@ export default function PolicyModal({ open, policyId, onClose }: Props) {
   const entry = getPolicy(policyId ?? null);
   const dialogRef = useRef<HTMLDivElement | null>(null);
   useFocusTrap(open && entry !== null, dialogRef);
+  const { activeCategory } = useApp();
 
   useEffect(() => {
     if (!open) return;
@@ -33,6 +35,7 @@ export default function PolicyModal({ open, policyId, onClose }: Props) {
     <AnimatePresence>
       {open && entry && (
         <motion.div
+          data-category={activeCategory}
           className="fixed inset-0 z-[9999] flex items-center justify-center p-[var(--space-16)] tablet:p-[var(--space-24)]"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}

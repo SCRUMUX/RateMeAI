@@ -87,7 +87,7 @@ export default function LinkPage() {
     return (
       <div className="min-h-screen flex items-center justify-center p-6">
         <div className="glass-card rounded-[var(--radius-12)] p-8 max-w-md w-full text-center">
-          <p className="text-lg font-medium text-[#4ADE80]">
+          <p className="text-lg font-medium text-[var(--color-success-base)]">
             Аккаунт успешно привязан!
           </p>
         </div>
@@ -159,7 +159,7 @@ export default function LinkPage() {
                   disabled={loading !== null}
                   onClick={handleSendOtp}
                   className="px-4 py-3 text-[14px] rounded-[var(--radius-8)] font-medium shrink-0 disabled:opacity-50"
-                  style={{ background: '#4ADE80', color: '#000', border: 'none' }}
+                  style={{ background: 'var(--color-success-base)', color: '#000', border: 'none' }}
                 >
                   {loading === 'phone' ? '...' : 'Код'}
                 </button>
@@ -179,7 +179,7 @@ export default function LinkPage() {
                   disabled={!isCodeValid || loading !== null || otpCode.length < 4}
                   onClick={handlePhoneVerify}
                   className="px-5 py-3 text-[14px] rounded-[var(--radius-8)] font-medium shrink-0 disabled:opacity-50"
-                  style={{ background: '#4ADE80', color: '#000', border: 'none' }}
+                  style={{ background: 'var(--color-success-base)', color: '#000', border: 'none' }}
                 >
                   {loading === 'phone-verify' ? '...' : 'OK'}
                 </button>

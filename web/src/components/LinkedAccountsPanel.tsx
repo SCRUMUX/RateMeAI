@@ -98,7 +98,7 @@ export default function LinkedAccountsPanel() {
             >
               {linkCode}
             </button>
-            {copied && <span className="text-[12px] text-[#4ADE80]">Скопировано!</span>}
+            {copied && <span className="text-[12px] text-[var(--color-success-base)]">Скопировано!</span>}
             {linkUrl && (
               <p className="text-[11px] text-[var(--color-text-muted)] break-all text-center">
                 Или откройте: {linkUrl}

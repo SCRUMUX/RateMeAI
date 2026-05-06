@@ -1,5 +1,5 @@
-import { lazy, Suspense } from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { lazy, Suspense, useEffect } from 'react';
+import { BrowserRouter, Routes, Route, Navigate, useLocation, useNavigationType } from 'react-router-dom';
 import { AppProvider } from './context/AppContext';
 import { LandingModalsProvider } from './context/LandingModalsContext';
 import { ToastProvider } from './components/Toast';
@@ -31,6 +31,24 @@ function AdminFallback() {
   );
 }
 
+/**
+ * 1.50.7 — Force scroll-to-top on every router PUSH/REPLACE so that
+ * cross-page navigation (e.g. Footer "Products" links) reliably lands
+ * at the top of the next page's hero. POP (browser back/forward) is
+ * left untouched so the browser's native scroll-restoration keeps
+ * working.
+ */
+function ScrollToTop() {
+  const { pathname } = useLocation();
+  const navType = useNavigationType();
+  useEffect(() => {
+    if (navType !== 'POP') {
+      window.scrollTo({ top: 0, left: 0, behavior: 'instant' as ScrollBehavior });
+    }
+  }, [pathname, navType]);
+  return null;
+}
+
 export default function App() {
   // 1.50.3: scroll-reveal singleton — один IntersectionObserver
   // активирует .reveal/.reveal-stagger ноды по всему приложению.
@@ -38,6 +56,7 @@ export default function App() {
 
   return (
     <BrowserRouter>
+      <ScrollToTop />
       <ToastProvider>
         <AppProvider>
           <LandingModalsProvider>

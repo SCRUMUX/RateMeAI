@@ -32,9 +32,9 @@ export default function Landing() {
   const canAccessApp = app.canAccessApp;
 
   useDocumentMeta({
-    title: 'Look Studio — AI-фото для соцсетей, знакомств, документов и резюме',
+    title: 'Look Studio — фото для соцсетей, знакомств, документов и резюме',
     description:
-      'AI-фотостудия Look Studio: получите безупречные снимки для Tinder, LinkedIn, паспорта и соцсетей за минуты. Обучаемая модель сохраняет ваше сходство.',
+      'Студия портретов Look Studio: безупречные снимки для Tinder, LinkedIn, паспорта и соцсетей за минуты. Сохраняем сходство, добавляем свет и кадрирование.',
     canonicalPath: '/',
   });
 
@@ -92,7 +92,7 @@ export default function Landing() {
               Попробуйте прямо сейчас
             </h2>
             <p className="landing-lead">
-              Загрузите фото, получите AI-анализ восприятия и улучшите образ за несколько секунд
+              Загрузите фото, получите анализ восприятия и улучшите образ за несколько секунд
             </p>
             {canAccessApp ? (
               <Link
