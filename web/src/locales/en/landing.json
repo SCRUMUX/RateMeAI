@@ -1,0 +1,35 @@
+{
+  "documentPhoto": {
+    "fallbackHero": {
+      "title": "Document photos",
+      "gradientPhrase": "in 2 minutes",
+      "lead": "Perfect photos for passport, visa or any document. Maximum photorealism, no extra effects.",
+      "ctaLabel": "Create photo",
+      "ctaMicrocopy": "5 photos per pack"
+    }
+  },
+  "visa": {
+    "fallbackProof": {
+      "heading": "Thousands of ready visa photos",
+      "subheading": "Users take visa photos from home, no studio trip needed."
+    },
+    "fallbackHow": {
+      "title": "How it works",
+      "step1Title": "Upload a photo",
+      "step1Desc": "Any photo with a clear face, no filters or extreme close-ups — we check automatically.",
+      "step2Title": "Check against requirements",
+      "step2Desc": "We compare your photo against the official visa requirements.",
+      "step3Title": "Create the visa photo",
+      "step3Desc": "Background, size and proportions are auto-aligned to ICAO 9303.",
+      "step4Title": "Download JPG",
+      "step4Desc": "Get the final file in the right format — no studio trip required."
+    },
+    "fallbackFinal": {
+      "h2": "Ready to create your photo?",
+      "lead": "Upload any photo — we'll deliver a result that matches the visa requirements."
+    },
+    "fallbackPricing": {
+      "tagline": "One pack — visa photo + any document"
+    }
+  }
+}

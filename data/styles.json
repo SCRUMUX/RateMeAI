@@ -15019,5 +15019,745 @@
       "clothing",
       "scene_override"
     ]
+  },
+  {
+    "id": "visa_schengen",
+    "mode": "cv",
+    "type": "scene_locked",
+    "base_scene": "clean uniform white, evenly lit backdrop",
+    "default_clothing": "simple solid-color business top",
+    "expression": "Neutral composed expression, mouth closed, eyes open and looking straight into the camera, formal compliant demeanor.",
+    "allowed_variations": {
+      "lighting": [],
+      "clothing": [],
+      "framing": [
+        "portrait",
+        "half_body",
+        "full_body"
+      ]
+    },
+    "unlock_after_generations": 0,
+    "is_scenario_only": false,
+    "display_label": "🛂 Шенген 35×45",
+    "hook_text": "35×45 мм, белый фон, голова 32–36 мм",
+    "meta": {
+      "param": "trust",
+      "delta_range": [
+        0.02,
+        0.05
+      ]
+    },
+    "schema_version": 3,
+    "trigger": "visa",
+    "background": {
+      "base": "clean uniform white, evenly lit backdrop",
+      "lock": "locked",
+      "overrides_allowed": []
+    },
+    "clothing": {
+      "default": {
+        "male": "simple solid-color business top",
+        "female": "simple solid-color business top",
+        "neutral": "simple solid-color business top"
+      },
+      "allowed": [],
+      "gender_neutral": true
+    },
+    "weather": {
+      "enabled": false,
+      "allowed": [],
+      "default_na": true
+    },
+    "context_slots": {
+      "framing": [
+        "portrait",
+        "half_body",
+        "full_body"
+      ]
+    },
+    "quality_identity": {
+      "base": "",
+      "per_model_tail": {}
+    },
+    "scenario": "visa-schengen",
+    "trigger_pool": [
+      "clean uniform white, evenly lit backdrop"
+    ],
+    "scene_anchor": "clean uniform white, evenly lit backdrop",
+    "scene_overrides": [],
+    "background_lock": "locked",
+    "ambient": {
+      "lighting": [],
+      "weather": [],
+      "time_of_day": [],
+      "season": []
+    },
+    "location_type": "document"
+  },
+  {
+    "id": "visa_usa",
+    "mode": "cv",
+    "type": "scene_locked",
+    "base_scene": "clean uniform white, evenly lit backdrop",
+    "default_clothing": "simple solid-color business top",
+    "expression": "Neutral composed expression, mouth closed, eyes open and looking straight into the camera, formal compliant demeanor.",
+    "allowed_variations": {
+      "lighting": [],
+      "clothing": [],
+      "framing": [
+        "portrait",
+        "half_body",
+        "full_body"
+      ]
+    },
+    "unlock_after_generations": 0,
+    "is_scenario_only": false,
+    "display_label": "🇺🇸 США",
+    "hook_text": "Виза США",
+    "meta": {
+      "param": "trust",
+      "delta_range": [
+        0.02,
+        0.05
+      ]
+    },
+    "schema_version": 3,
+    "trigger": "visa",
+    "background": {
+      "base": "clean uniform white, evenly lit backdrop",
+      "lock": "locked",
+      "overrides_allowed": []
+    },
+    "clothing": {
+      "default": {
+        "male": "simple solid-color business top",
+        "female": "simple solid-color business top",
+        "neutral": "simple solid-color business top"
+      },
+      "allowed": [],
+      "gender_neutral": true
+    },
+    "weather": {
+      "enabled": false,
+      "allowed": [],
+      "default_na": true
+    },
+    "context_slots": {
+      "framing": [
+        "portrait",
+        "half_body",
+        "full_body"
+      ]
+    },
+    "quality_identity": {
+      "base": "",
+      "per_model_tail": {}
+    },
+    "scenario": "visa-usa",
+    "trigger_pool": [
+      "clean uniform white, evenly lit backdrop"
+    ],
+    "scene_anchor": "clean uniform white, evenly lit backdrop",
+    "scene_overrides": [],
+    "background_lock": "locked",
+    "ambient": {
+      "lighting": [],
+      "weather": [],
+      "time_of_day": [],
+      "season": []
+    },
+    "location_type": "document"
+  },
+  {
+    "id": "visa_uk",
+    "mode": "cv",
+    "type": "scene_locked",
+    "base_scene": "clean uniform white, evenly lit backdrop",
+    "default_clothing": "simple solid-color business top",
+    "expression": "Neutral composed expression, mouth closed, eyes open and looking straight into the camera, formal compliant demeanor.",
+    "allowed_variations": {
+      "lighting": [],
+      "clothing": [],
+      "framing": [
+        "portrait",
+        "half_body",
+        "full_body"
+      ]
+    },
+    "unlock_after_generations": 0,
+    "is_scenario_only": false,
+    "display_label": "🇬🇧 Великобритания",
+    "hook_text": "Виза Великобритании",
+    "meta": {
+      "param": "trust",
+      "delta_range": [
+        0.02,
+        0.05
+      ]
+    },
+    "schema_version": 3,
+    "trigger": "visa",
+    "background": {
+      "base": "clean uniform white, evenly lit backdrop",
+      "lock": "locked",
+      "overrides_allowed": []
+    },
+    "clothing": {
+      "default": {
+        "male": "simple solid-color business top",
+        "female": "simple solid-color business top",
+        "neutral": "simple solid-color business top"
+      },
+      "allowed": [],
+      "gender_neutral": true
+    },
+    "weather": {
+      "enabled": false,
+      "allowed": [],
+      "default_na": true
+    },
+    "context_slots": {
+      "framing": [
+        "portrait",
+        "half_body",
+        "full_body"
+      ]
+    },
+    "quality_identity": {
+      "base": "",
+      "per_model_tail": {}
+    },
+    "scenario": "visa-uk",
+    "trigger_pool": [
+      "clean uniform white, evenly lit backdrop"
+    ],
+    "scene_anchor": "clean uniform white, evenly lit backdrop",
+    "scene_overrides": [],
+    "background_lock": "locked",
+    "ambient": {
+      "lighting": [],
+      "weather": [],
+      "time_of_day": [],
+      "season": []
+    },
+    "location_type": "document"
+  },
+  {
+    "id": "visa_canada",
+    "mode": "cv",
+    "type": "scene_locked",
+    "base_scene": "clean uniform white, evenly lit backdrop",
+    "default_clothing": "simple solid-color business top",
+    "expression": "Neutral composed expression, mouth closed, eyes open and looking straight into the camera, formal compliant demeanor.",
+    "allowed_variations": {
+      "lighting": [],
+      "clothing": [],
+      "framing": [
+        "portrait",
+        "half_body",
+        "full_body"
+      ]
+    },
+    "unlock_after_generations": 0,
+    "is_scenario_only": false,
+    "display_label": "🇨🇦 Канада",
+    "hook_text": "Виза Канады",
+    "meta": {
+      "param": "trust",
+      "delta_range": [
+        0.02,
+        0.05
+      ]
+    },
+    "schema_version": 3,
+    "trigger": "visa",
+    "background": {
+      "base": "clean uniform white, evenly lit backdrop",
+      "lock": "locked",
+      "overrides_allowed": []
+    },
+    "clothing": {
+      "default": {
+        "male": "simple solid-color business top",
+        "female": "simple solid-color business top",
+        "neutral": "simple solid-color business top"
+      },
+      "allowed": [],
+      "gender_neutral": true
+    },
+    "weather": {
+      "enabled": false,
+      "allowed": [],
+      "default_na": true
+    },
+    "context_slots": {
+      "framing": [
+        "portrait",
+        "half_body",
+        "full_body"
+      ]
+    },
+    "quality_identity": {
+      "base": "",
+      "per_model_tail": {}
+    },
+    "scenario": "visa-canada",
+    "trigger_pool": [
+      "clean uniform white, evenly lit backdrop"
+    ],
+    "scene_anchor": "clean uniform white, evenly lit backdrop",
+    "scene_overrides": [],
+    "background_lock": "locked",
+    "ambient": {
+      "lighting": [],
+      "weather": [],
+      "time_of_day": [],
+      "season": []
+    },
+    "location_type": "document"
+  },
+  {
+    "id": "visa_japan",
+    "mode": "cv",
+    "type": "scene_locked",
+    "base_scene": "clean uniform white, evenly lit backdrop",
+    "default_clothing": "simple solid-color business top",
+    "expression": "Neutral composed expression, mouth closed, eyes open and looking straight into the camera, formal compliant demeanor.",
+    "allowed_variations": {
+      "lighting": [],
+      "clothing": [],
+      "framing": [
+        "portrait",
+        "half_body",
+        "full_body"
+      ]
+    },
+    "unlock_after_generations": 0,
+    "is_scenario_only": false,
+    "display_label": "🇯🇵 Япония",
+    "hook_text": "Виза Японии",
+    "meta": {
+      "param": "trust",
+      "delta_range": [
+        0.02,
+        0.05
+      ]
+    },
+    "schema_version": 3,
+    "trigger": "visa",
+    "background": {
+      "base": "clean uniform white, evenly lit backdrop",
+      "lock": "locked",
+      "overrides_allowed": []
+    },
+    "clothing": {
+      "default": {
+        "male": "simple solid-color business top",
+        "female": "simple solid-color business top",
+        "neutral": "simple solid-color business top"
+      },
+      "allowed": [],
+      "gender_neutral": true
+    },
+    "weather": {
+      "enabled": false,
+      "allowed": [],
+      "default_na": true
+    },
+    "context_slots": {
+      "framing": [
+        "portrait",
+        "half_body",
+        "full_body"
+      ]
+    },
+    "quality_identity": {
+      "base": "",
+      "per_model_tail": {}
+    },
+    "scenario": "visa-japan",
+    "trigger_pool": [
+      "clean uniform white, evenly lit backdrop"
+    ],
+    "scene_anchor": "clean uniform white, evenly lit backdrop",
+    "scene_overrides": [],
+    "background_lock": "locked",
+    "ambient": {
+      "lighting": [],
+      "weather": [],
+      "time_of_day": [],
+      "season": []
+    },
+    "location_type": "document"
+  },
+  {
+    "id": "visa_china",
+    "mode": "cv",
+    "type": "scene_locked",
+    "base_scene": "clean uniform white, evenly lit backdrop",
+    "default_clothing": "simple solid-color business top",
+    "expression": "Neutral composed expression, mouth closed, eyes open and looking straight into the camera, formal compliant demeanor.",
+    "allowed_variations": {
+      "lighting": [],
+      "clothing": [],
+      "framing": [
+        "portrait",
+        "half_body",
+        "full_body"
+      ]
+    },
+    "unlock_after_generations": 0,
+    "is_scenario_only": false,
+    "display_label": "🇨🇳 Китай",
+    "hook_text": "Виза Китая",
+    "meta": {
+      "param": "trust",
+      "delta_range": [
+        0.02,
+        0.05
+      ]
+    },
+    "schema_version": 3,
+    "trigger": "visa",
+    "background": {
+      "base": "clean uniform white, evenly lit backdrop",
+      "lock": "locked",
+      "overrides_allowed": []
+    },
+    "clothing": {
+      "default": {
+        "male": "simple solid-color business top",
+        "female": "simple solid-color business top",
+        "neutral": "simple solid-color business top"
+      },
+      "allowed": [],
+      "gender_neutral": true
+    },
+    "weather": {
+      "enabled": false,
+      "allowed": [],
+      "default_na": true
+    },
+    "context_slots": {
+      "framing": [
+        "portrait",
+        "half_body",
+        "full_body"
+      ]
+    },
+    "quality_identity": {
+      "base": "",
+      "per_model_tail": {}
+    },
+    "scenario": "visa-china",
+    "trigger_pool": [
+      "clean uniform white, evenly lit backdrop"
+    ],
+    "scene_anchor": "clean uniform white, evenly lit backdrop",
+    "scene_overrides": [],
+    "background_lock": "locked",
+    "ambient": {
+      "lighting": [],
+      "weather": [],
+      "time_of_day": [],
+      "season": []
+    },
+    "location_type": "document"
+  },
+  {
+    "id": "visa_uae",
+    "mode": "cv",
+    "type": "scene_locked",
+    "base_scene": "clean uniform white, evenly lit backdrop",
+    "default_clothing": "simple solid-color business top",
+    "expression": "Neutral composed expression, mouth closed, eyes open and looking straight into the camera, formal compliant demeanor.",
+    "allowed_variations": {
+      "lighting": [],
+      "clothing": [],
+      "framing": [
+        "portrait",
+        "half_body",
+        "full_body"
+      ]
+    },
+    "unlock_after_generations": 0,
+    "is_scenario_only": false,
+    "display_label": "🇦🇪 ОАЭ",
+    "hook_text": "Виза ОАЭ",
+    "meta": {
+      "param": "trust",
+      "delta_range": [
+        0.02,
+        0.05
+      ]
+    },
+    "schema_version": 3,
+    "trigger": "visa",
+    "background": {
+      "base": "clean uniform white, evenly lit backdrop",
+      "lock": "locked",
+      "overrides_allowed": []
+    },
+    "clothing": {
+      "default": {
+        "male": "simple solid-color business top",
+        "female": "simple solid-color business top",
+        "neutral": "simple solid-color business top"
+      },
+      "allowed": [],
+      "gender_neutral": true
+    },
+    "weather": {
+      "enabled": false,
+      "allowed": [],
+      "default_na": true
+    },
+    "context_slots": {
+      "framing": [
+        "portrait",
+        "half_body",
+        "full_body"
+      ]
+    },
+    "quality_identity": {
+      "base": "",
+      "per_model_tail": {}
+    },
+    "scenario": "visa-uae",
+    "trigger_pool": [
+      "clean uniform white, evenly lit backdrop"
+    ],
+    "scene_anchor": "clean uniform white, evenly lit backdrop",
+    "scene_overrides": [],
+    "background_lock": "locked",
+    "ambient": {
+      "lighting": [],
+      "weather": [],
+      "time_of_day": [],
+      "season": []
+    },
+    "location_type": "document"
+  },
+  {
+    "id": "visa_australia",
+    "mode": "cv",
+    "type": "scene_locked",
+    "base_scene": "clean uniform white, evenly lit backdrop",
+    "default_clothing": "simple solid-color business top",
+    "expression": "Neutral composed expression, mouth closed, eyes open and looking straight into the camera, formal compliant demeanor.",
+    "allowed_variations": {
+      "lighting": [],
+      "clothing": [],
+      "framing": [
+        "portrait",
+        "half_body",
+        "full_body"
+      ]
+    },
+    "unlock_after_generations": 0,
+    "is_scenario_only": false,
+    "display_label": "🇦🇺 Австралия",
+    "hook_text": "Виза Австралии",
+    "meta": {
+      "param": "trust",
+      "delta_range": [
+        0.02,
+        0.05
+      ]
+    },
+    "schema_version": 3,
+    "trigger": "visa",
+    "background": {
+      "base": "clean uniform white, evenly lit backdrop",
+      "lock": "locked",
+      "overrides_allowed": []
+    },
+    "clothing": {
+      "default": {
+        "male": "simple solid-color business top",
+        "female": "simple solid-color business top",
+        "neutral": "simple solid-color business top"
+      },
+      "allowed": [],
+      "gender_neutral": true
+    },
+    "weather": {
+      "enabled": false,
+      "allowed": [],
+      "default_na": true
+    },
+    "context_slots": {
+      "framing": [
+        "portrait",
+        "half_body",
+        "full_body"
+      ]
+    },
+    "quality_identity": {
+      "base": "",
+      "per_model_tail": {}
+    },
+    "scenario": "visa-australia",
+    "trigger_pool": [
+      "clean uniform white, evenly lit backdrop"
+    ],
+    "scene_anchor": "clean uniform white, evenly lit backdrop",
+    "scene_overrides": [],
+    "background_lock": "locked",
+    "ambient": {
+      "lighting": [],
+      "weather": [],
+      "time_of_day": [],
+      "season": []
+    },
+    "location_type": "document"
+  },
+  {
+    "id": "visa_korea",
+    "mode": "cv",
+    "type": "scene_locked",
+    "base_scene": "clean uniform white, evenly lit backdrop",
+    "default_clothing": "simple solid-color business top",
+    "expression": "Neutral composed expression, mouth closed, eyes open and looking straight into the camera, formal compliant demeanor.",
+    "allowed_variations": {
+      "lighting": [],
+      "clothing": [],
+      "framing": [
+        "portrait",
+        "half_body",
+        "full_body"
+      ]
+    },
+    "unlock_after_generations": 0,
+    "is_scenario_only": false,
+    "display_label": "🇰🇷 Южная Корея",
+    "hook_text": "Виза Южной Кореи",
+    "meta": {
+      "param": "trust",
+      "delta_range": [
+        0.02,
+        0.05
+      ]
+    },
+    "schema_version": 3,
+    "trigger": "visa",
+    "background": {
+      "base": "clean uniform white, evenly lit backdrop",
+      "lock": "locked",
+      "overrides_allowed": []
+    },
+    "clothing": {
+      "default": {
+        "male": "simple solid-color business top",
+        "female": "simple solid-color business top",
+        "neutral": "simple solid-color business top"
+      },
+      "allowed": [],
+      "gender_neutral": true
+    },
+    "weather": {
+      "enabled": false,
+      "allowed": [],
+      "default_na": true
+    },
+    "context_slots": {
+      "framing": [
+        "portrait",
+        "half_body",
+        "full_body"
+      ]
+    },
+    "quality_identity": {
+      "base": "",
+      "per_model_tail": {}
+    },
+    "scenario": "visa-korea",
+    "trigger_pool": [
+      "clean uniform white, evenly lit backdrop"
+    ],
+    "scene_anchor": "clean uniform white, evenly lit backdrop",
+    "scene_overrides": [],
+    "background_lock": "locked",
+    "ambient": {
+      "lighting": [],
+      "weather": [],
+      "time_of_day": [],
+      "season": []
+    },
+    "location_type": "document"
+  },
+  {
+    "id": "visa_india",
+    "mode": "cv",
+    "type": "scene_locked",
+    "base_scene": "clean uniform white, evenly lit backdrop",
+    "default_clothing": "simple solid-color business top",
+    "expression": "Neutral composed expression, mouth closed, eyes open and looking straight into the camera, formal compliant demeanor.",
+    "allowed_variations": {
+      "lighting": [],
+      "clothing": [],
+      "framing": [
+        "portrait",
+        "half_body",
+        "full_body"
+      ]
+    },
+    "unlock_after_generations": 0,
+    "is_scenario_only": false,
+    "display_label": "🇮🇳 Индия",
+    "hook_text": "Виза Индии",
+    "meta": {
+      "param": "trust",
+      "delta_range": [
+        0.02,
+        0.05
+      ]
+    },
+    "schema_version": 3,
+    "trigger": "visa",
+    "background": {
+      "base": "clean uniform white, evenly lit backdrop",
+      "lock": "locked",
+      "overrides_allowed": []
+    },
+    "clothing": {
+      "default": {
+        "male": "simple solid-color business top",
+        "female": "simple solid-color business top",
+        "neutral": "simple solid-color business top"
+      },
+      "allowed": [],
+      "gender_neutral": true
+    },
+    "weather": {
+      "enabled": false,
+      "allowed": [],
+      "default_na": true
+    },
+    "context_slots": {
+      "framing": [
+        "portrait",
+        "half_body",
+        "full_body"
+      ]
+    },
+    "quality_identity": {
+      "base": "",
+      "per_model_tail": {}
+    },
+    "scenario": "visa-india",
+    "trigger_pool": [
+      "clean uniform white, evenly lit backdrop"
+    ],
+    "scene_anchor": "clean uniform white, evenly lit backdrop",
+    "scene_overrides": [],
+    "background_lock": "locked",
+    "ambient": {
+      "lighting": [],
+      "weather": [],
+      "time_of_day": [],
+      "season": []
+    },
+    "location_type": "document"
   }
 ]

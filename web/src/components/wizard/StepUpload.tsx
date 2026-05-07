@@ -1,6 +1,8 @@
 import { useRef, useCallback, useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useApp } from '../../context/AppContext';
 import { REQUIREMENTS_BULLETS, REJECT_BULLETS } from '../../data/photo-requirements';
+import { isApprovalProbabilityScenario } from '../../scenarios/config';
 import ConsentGate from '../ConsentGate';
 
 interface Props {
@@ -9,9 +11,19 @@ interface Props {
 
 function StepUploadBody({ onNext }: Props) {
   const app = useApp();
+  const { t } = useTranslation('wizard');
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [dragOver, setDragOver] = useState(false);
   const pendingAdvance = useRef(false);
+
+  const showApprovalRequirements =
+    isApprovalProbabilityScenario(app.scenarioSlug) &&
+    !!app.complianceChecklist &&
+    app.complianceChecklist.length > 0;
+  const isVisa = app.scenarioSlug?.startsWith('visa-') ?? false;
+  const approvalSubtitleKey = isVisa
+    ? 'requirements.visaSubtitle'
+    : 'requirements.documentSubtitle';
 
   useEffect(() => {
     if (app.photo && pendingAdvance.current) {
@@ -86,6 +98,38 @@ function StepUploadBody({ onNext }: Props) {
             </li>
           ))}
         </ul>
+        {showApprovalRequirements && (
+          <div className="mt-[var(--space-12)] pt-[var(--space-12)] border-t border-[var(--glass-border)]">
+            <p className="text-left text-[12px] tablet:text-[13px] font-semibold text-[var(--color-text-primary)] mb-[var(--space-8)]">
+              {t(approvalSubtitleKey)}
+            </p>
+            <ul className="flex flex-col gap-[var(--space-6)] text-left">
+              {app.complianceChecklist!.map((item) => (
+                <li
+                  key={item.rule}
+                  className="flex items-start gap-[var(--space-8)] text-[12px] tablet:text-[13px] leading-[16px] tablet:leading-[18px] text-[var(--color-text-secondary)]"
+                >
+                  <svg
+                    width="14"
+                    height="14"
+                    viewBox="0 0 18 18"
+                    fill="none"
+                    className="shrink-0 mt-[2px]"
+                    aria-hidden="true"
+                  >
+                    <path
+                      d="M9 4V14M4 9H14"
+                      stroke="rgb(var(--accent-r),var(--accent-g),var(--accent-b))"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                    />
+                  </svg>
+                  <span>{item.rule}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
       </div>
 
       <div className="gradient-border-card glass-card rounded-[var(--radius-12)] p-[var(--space-16)] tablet:p-[var(--space-20)] flex-1">

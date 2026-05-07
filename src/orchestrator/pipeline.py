@@ -298,6 +298,16 @@ class AnalysisPipeline:
             except (TypeError, ValueError):
                 seed = None
 
+            scenario_slug_value = None
+            try:
+                from src.services.task_contract import (
+                    get_scenario_slug as _get_scenario_slug,
+                )
+
+                scenario_slug_value = _get_scenario_slug(context)
+            except Exception:  # pragma: no cover — defensive
+                scenario_slug_value = None
+
             with _trace_step(trace, "generate_image"):
                 await self._executor.single_pass(
                     mode,
@@ -315,6 +325,7 @@ class AnalysisPipeline:
                     framing=framing,
                     user_input_hints=user_hints,
                     seed=seed,
+                    scenario_slug=scenario_slug_value,
                 )
 
             if result_dict.get("generated_image_url") and mode in (

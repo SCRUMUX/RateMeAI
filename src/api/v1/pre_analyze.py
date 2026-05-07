@@ -16,11 +16,13 @@ from src.models.schemas import (
     RatingResult,
     InputQualityPublic,
     InputQualityIssuePublic,
+    VisaComplianceItem,
 )
 from src.api.deps import get_redis, require_consents
 from src.orchestrator.router import ModeRouter
 from src.providers.factory import get_llm
 from src.prompts.engine import PromptEngine
+from src.scenarios import get_scenario
 from src.services.ai_transfer_guard import task_context_scope
 from src.services.consent import (
     CONSENT_AI_TRANSFER,
@@ -28,6 +30,11 @@ from src.services.consent import (
 )
 from src.services.input_quality import analyze_input_quality
 from src.services.privacy import PrivacyLayer
+from src.services.visa_compliance import (
+    compliance_checklist,
+    estimate_approval_probability,
+    is_approval_probability_scenario,
+)
 from src.utils.text_sanitize import sanitize_llm_text
 from src.services.task_contract import build_policy_flags
 from src.utils.humanize import humanize_result_scores
@@ -63,6 +70,7 @@ async def pre_analyze(
     image: UploadFile = File(...),
     mode: AnalysisMode = Form(AnalysisMode.DATING),
     profession: str = Form(""),
+    scenario_slug: str = Form(""),
     user: User = Depends(require_consents),
     redis: Redis = Depends(get_redis),
 ):
@@ -70,6 +78,8 @@ async def pre_analyze(
         raise HTTPException(
             status_code=400, detail="Pre-analyze supports dating, cv, social modes only"
         )
+
+    scenario = get_scenario(scenario_slug.strip()) if scenario_slug.strip() else None
 
     content_type = image.content_type or ""
     if not content_type.startswith("image/"):
@@ -137,6 +147,7 @@ async def pre_analyze(
             # Attach locally-computed input quality — remote AI does not see it.
             resp = PreAnalysisResponse(**result_data)
             resp.input_quality = input_quality_public
+            _apply_approval_probability(resp, quality_report, scenario)
             return resp
         except RemoteAIError as exc:
             logger.error("Edge pre-analyze proxy failed: %s", exc)
@@ -201,7 +212,7 @@ async def pre_analyze(
     raw_first_impression = result_dict.get(
         "first_impression", result_dict.get("analysis", "")
     )
-    return PreAnalysisResponse(
+    response = PreAnalysisResponse(
         pre_analysis_id=pre_id,
         mode=mode,
         first_impression=sanitize_llm_text(raw_first_impression, max_len=600),
@@ -211,6 +222,38 @@ async def pre_analyze(
         enhancement_opportunities=opportunities,
         input_quality=input_quality_public,
     )
+    _apply_approval_probability(response, quality_report, scenario)
+    return response
+
+
+def _apply_approval_probability(
+    response: PreAnalysisResponse,
+    quality_report,
+    scenario,
+) -> None:
+    """Attach approval-probability + visa checklist for visa/document scenarios.
+
+    Mutates the response in place so we can call it from both code
+    paths (remote-AI proxy + local mode router) without duplicating
+    logic. Non-approval scenarios are untouched.
+    """
+
+    if not is_approval_probability_scenario(scenario):
+        return
+    response.approval_probability = estimate_approval_probability(
+        quality_report, scenario
+    )
+    response.analysis_display_mode = (
+        scenario.analysis_display.mode
+        if scenario is not None and scenario.analysis_display is not None
+        else "approval_probability"
+    )
+    checklist = compliance_checklist(scenario.slug if scenario is not None else None)
+    if checklist:
+        response.visa_compliance = [
+            VisaComplianceItem(rule=item["rule"], status=item.get("status", "pending"))
+            for item in checklist
+        ]
 
 
 def _extract_composite_score(mode: AnalysisMode, d: dict) -> float:

@@ -1,0 +1,36 @@
+{
+  "brand": {
+    "name": "Look Studio",
+    "tagline": "Adapt your photo to any context"
+  },
+  "nav": {
+    "home": "Home",
+    "products": "Products",
+    "pricing": "Pricing",
+    "login": "Sign in",
+    "logout": "Sign out",
+    "openApp": "Open app",
+    "balance": "Balance"
+  },
+  "cta": {
+    "start": "Start",
+    "next": "Next",
+    "back": "Back",
+    "cancel": "Cancel",
+    "save": "Save",
+    "retry": "Try again",
+    "close": "Close",
+    "continue": "Continue",
+    "tryFree": "Try for free",
+    "uploadPhoto": "Upload photo",
+    "createPhoto": "Create photo",
+    "openApp": "Open app",
+    "getAccess": "Get access"
+  },
+  "loading": {
+    "default": "Loading…",
+    "admin": "Loading admin panel…",
+    "analyzing": "Analyzing photo…",
+    "generating": "Generating result…"
+  }
+}

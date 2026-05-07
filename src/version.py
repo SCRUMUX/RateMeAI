@@ -4989,4 +4989,13 @@
 #          токенов» (origin + apiBase + storageKey + has/empty по
 #          каждому target'у) — теперь видно сразу, где зарыт токен,
 #          без обращения к консоли браузера.
-APP_VERSION = "1.55.5"
+# 1.56.0 — Scenario Platform: data-driven visa scenarios + i18n + approval probability flow
+#          Phase 2 Scenario Engine (src/scenarios/) backed by data/scenarios.json
+#          + 10 visa landings (/visa/*) reusing a generic VisaPage/VisaLanding shell.
+#          New approval-probability mode for visa + document-photo: pre-analyze
+#          accepts scenario_slug, returns approval_probability (0..100) +
+#          visa_compliance checklist instead of score / 10. After regeneration
+#          StepGenerate shows a fixed 98.9% (success_probability_after_pct from
+#          analysis_display block in scenarios.json). Frontend i18n bundle
+#          (RU + EN) splits UI translations from product content.
+APP_VERSION = "1.56.0"

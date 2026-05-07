@@ -1,0 +1,24 @@
+{
+  "session": {
+    "expired": "Your session has expired. Please sign in again."
+  },
+  "payment": {
+    "redirect_ru": "This payment is processed via ru.ailookstudio.ru — redirecting…",
+    "create_failed": "Failed to create payment. Please try again."
+  },
+  "storage": {
+    "network": "Could not load photo from storage. Check your connection and retry.",
+    "purged": "The photo was already removed from storage (24-hour retention). Please upload it again.",
+    "generic": "Could not load photo from storage (code {{status}}). Please try again later.",
+    "wrong_type": "Storage returned a non-image response. Please retry or upload manually.",
+    "blob_failed": "Failed to read the photo from storage. Please try again."
+  },
+  "admin": {
+    "forbidden": "Access denied. This account is not in ADMIN_USER_IDS.",
+    "unauthorized": "Unauthorized. Please sign in as administrator."
+  },
+  "generic": {
+    "unknown": "Something went wrong. Please try again later.",
+    "network": "Network unavailable. Check your connection."
+  }
+}

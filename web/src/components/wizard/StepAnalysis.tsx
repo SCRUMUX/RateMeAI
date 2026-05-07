@@ -1,10 +1,12 @@
 import { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useApp } from '../../context/AppContext';
 import ProgressBar from './ProgressBar';
 import CategoryTabs from '../CategoryTabs';
 import { COMING_SOON_CATEGORIES, type CategoryId } from '../../data/styles';
 import { sanitizeLLMText } from '../../lib/sanitize';
 import { PlaceholderUpload } from '../effects/PlaceholderArt';
+import { isApprovalProbabilityScenario } from '../../scenarios/config';
 
 interface Props {
   onNext: () => void;
@@ -15,6 +17,7 @@ const DOC_DEFAULT_DESCRIPTION = 'Анализируем ваше фото для
 
 export default function StepAnalysis({ onNext }: Props) {
   const app = useApp();
+  const { t } = useTranslation('wizard');
   const [analysisRequested, setAnalysisRequested] = useState(false);
   const isSimplified = app.scenarioSimplifiedAnalysis;
 
@@ -22,6 +25,13 @@ export default function StepAnalysis({ onNext }: Props) {
 
   const hasRealScores = !!app.preAnalysis;
   const beforeScore = hasRealScores ? app.preAnalysis!.score : null;
+  const isApproval = isApprovalProbabilityScenario(app.scenarioSlug);
+  const approvalProbability =
+    isApproval && app.preAnalysis?.approval_probability != null
+      ? app.preAnalysis.approval_probability
+      : null;
+  const visaCompliance = app.preAnalysis?.visa_compliance ?? app.complianceChecklist ?? null;
+  const isVisa = app.scenarioSlug?.startsWith('visa-') ?? false;
 
   const directionLocked = COMING_SOON_CATEGORIES.includes(activeTab);
   const canContinue = hasRealScores && !directionLocked;
@@ -53,12 +63,16 @@ export default function StepAnalysis({ onNext }: Props) {
     <div className="flex flex-col gap-[var(--space-12)] w-full max-w-[800px] mx-auto">
       <div className="flex flex-col items-center gap-[var(--space-4)] text-center">
         <h2 className="text-[20px] tablet:text-[28px] leading-[1.2] font-semibold text-[var(--color-text-primary)]">
-          {isSimplified ? 'Анализ фото' : 'Анализ восприятия'}
+          {isApproval
+            ? (isVisa ? t('analysis.titleVisa') : t('analysis.titleDocument'))
+            : isSimplified ? 'Анализ фото' : 'Анализ восприятия'}
         </h2>
         <p className="text-[12px] tablet:text-[13px] leading-[16px] tablet:leading-[18px] text-[var(--color-text-secondary)] max-w-[440px]">
-          {isSimplified
-            ? 'Проверим фото под требования документов: кадр, ракурс, фон и освещение'
-            : 'Покажем, как ваше фото считывается с первого взгляда: теплота, уверенность, привлекательность'}
+          {isApproval
+            ? (isVisa ? t('analysis.subtitleVisa') : t('analysis.subtitleDocument'))
+            : isSimplified
+              ? 'Проверим фото под требования документов: кадр, ракурс, фон и освещение'
+              : 'Покажем, как ваше фото считывается с первого взгляда: теплота, уверенность, привлекательность'}
         </p>
       </div>
 
@@ -74,15 +88,28 @@ export default function StepAnalysis({ onNext }: Props) {
           </div>
           <div className="flex flex-col gap-[var(--space-8)] p-[var(--space-12)]">
             <div className="flex items-center justify-between">
-              <span className="text-[16px] leading-[24px] text-[var(--color-text-primary)] font-medium">Исходное</span>
-              {beforeScore != null && (
+              <span className="text-[16px] leading-[24px] text-[var(--color-text-primary)] font-medium">
+                {isApproval ? t('analysis.approvalProbability') : 'Исходное'}
+              </span>
+              {isApproval && approvalProbability != null ? (
+                <span className="flex items-baseline gap-1">
+                  <span className="text-[15px] leading-[22px] text-[var(--color-text-primary)] font-semibold">
+                    {approvalProbability.toFixed(1)}
+                  </span>
+                  <span className="text-[11px] leading-[14px] text-[var(--color-text-muted)]">%</span>
+                </span>
+              ) : beforeScore != null ? (
                 <span className="flex items-center gap-1">
                   <span className="text-[14px] leading-[20px] text-[var(--color-text-secondary)]">{beforeScore.toFixed(2)}</span>
                   <span className="text-[11px] leading-[14px] text-[var(--color-text-muted)]">/ 10</span>
                 </span>
-              )}
+              ) : null}
             </div>
-            {beforeScore != null && <ProgressBar value={beforeScore} />}
+            {isApproval && approvalProbability != null ? (
+              <ProgressBar value={approvalProbability} max={100} />
+            ) : beforeScore != null ? (
+              <ProgressBar value={beforeScore} />
+            ) : null}
           </div>
         </div>
 
@@ -121,6 +148,37 @@ export default function StepAnalysis({ onNext }: Props) {
               <div className="h-1.5 rounded-full glass-progress-track overflow-hidden mt-[var(--space-4)]">
                 <div className="h-full rounded-full glass-progress-fill animate-pulse" style={{ width: '66%' }} />
               </div>
+            </div>
+          )}
+
+          {/* Visa/document compliance checklist — shown for approval-probability scenarios. */}
+          {isApproval && hasRealScores && visaCompliance && visaCompliance.length > 0 && (
+            <div className="gradient-border-card glass-card rounded-[var(--radius-12)] p-[var(--space-16)]">
+              <p className="text-[13px] leading-[18px] font-medium text-[var(--color-text-primary)] mb-[var(--space-10)]">
+                {t('analysis.checklistTitle')}
+              </p>
+              <ul className="flex flex-col gap-[var(--space-6)]">
+                {visaCompliance.map((item) => {
+                  const status = item.status || 'pending';
+                  const colorClass =
+                    status === 'passed'
+                      ? 'text-[var(--color-success-base, #4ade80)]'
+                      : status === 'failed'
+                        ? 'text-[var(--color-danger)]'
+                        : status === 'warn'
+                          ? 'text-[var(--color-warning-base)]'
+                          : 'text-[var(--color-text-muted)]';
+                  return (
+                    <li
+                      key={item.rule}
+                      className="flex items-start gap-[var(--space-8)] text-[12px] tablet:text-[13px] leading-[16px] tablet:leading-[18px] text-[var(--color-text-secondary)]"
+                    >
+                      <span className={`shrink-0 mt-[2px] ${colorClass}`}>•</span>
+                      <span>{item.rule}</span>
+                    </li>
+                  );
+                })}
+              </ul>
             </div>
           )}
 

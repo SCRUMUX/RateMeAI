@@ -1,4 +1,5 @@
 import { createContext, useContext, useEffect, useState, useCallback, useRef, useMemo, type ReactNode } from 'react';
+import i18next from 'i18next';
 import { restoreToken, startOAuth, logout as authLogout } from '../lib/auth';
 import * as api from '../lib/api';
 import type { CategoryId, StyleItem } from '../data/styles';
@@ -19,6 +20,7 @@ import {
 } from '../lib/pending-task';
 import {
   getScenario,
+  isApprovalProbabilityScenario,
   resolveScenarioStyles,
   type ScenarioEntryMode,
   type ScenarioStep3Mode,
@@ -61,6 +63,10 @@ interface AppState {
   scenarioPrimaryCtaMainApp: boolean;
   scenarioSimplifiedAnalysis: boolean;
   scenarioPaymentPackQty: number | null;
+  /** Visa/document compliance checklist for the active scenario (cached). */
+  complianceChecklist: api.VisaComplianceItem[] | null;
+  /** Cached output spec for the active visa/document scenario. */
+  scenarioOutputSpec: api.ApiScenarioOutputSpec | null;
   effectiveStyleList: StyleItem[];
   effectiveApiMode: string;
   hasRealAuth: boolean;
@@ -177,6 +183,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [identities, setIdentities] = useState<api.LinkedIdentity[]>([]);
   const [scenarioSlug, setScenarioSlug] = useState<string | null>(null);
   const [consentState, setConsentState] = useState<api.ConsentState | null>(null);
+  const [complianceCache, setComplianceCache] = useState<Record<string, api.ScenarioComplianceResponse>>({});
   // v1.22 A/B became default: the UI always sends an explicit
   // ``image_model`` + ``image_quality`` pair. GPT Image 2 @ low is the
   // cheapest reliable option on fal ($0.02/image) and is the new OOTB
@@ -289,6 +296,36 @@ export function AppProvider({ children }: { children: ReactNode }) {
     });
   }, [effectiveApiMode, catalogStyles]);
 
+  // Fetch the visa/document compliance checklist whenever an
+  // approval-probability scenario becomes active. The endpoint is
+  // public + cacheable, so we hold the response in component state and
+  // never re-request the same slug. Non-approval scenarios are skipped
+  // outright — listScenarios would still return a 200 but the SPA
+  // uses `complianceChecklist == null` as the "regular score" signal.
+  useEffect(() => {
+    if (!scenarioSlug) return;
+    if (!scenarioDef) return;
+    if (!isApprovalProbabilityScenario(scenarioDef)) return;
+    if (complianceCache[scenarioSlug]) return;
+    api.getScenarioCompliance(scenarioSlug).then((res) => {
+      setComplianceCache((prev) => ({ ...prev, [scenarioSlug]: res }));
+    }).catch((e) => {
+      console.warn('Failed to fetch scenario compliance for', scenarioSlug, e);
+    });
+  }, [scenarioSlug, scenarioDef, complianceCache]);
+
+  const complianceChecklist: api.VisaComplianceItem[] | null = useMemo(() => {
+    if (!scenarioSlug) return null;
+    const cached = complianceCache[scenarioSlug];
+    return cached ? cached.checklist : null;
+  }, [scenarioSlug, complianceCache]);
+
+  const scenarioOutputSpec: api.ApiScenarioOutputSpec | null = useMemo(() => {
+    if (!scenarioSlug) return null;
+    const cached = complianceCache[scenarioSlug];
+    return cached?.output_spec ?? null;
+  }, [scenarioSlug, complianceCache]);
+
   useEffect(() => {
     if (!scenarioBucketSlug) return;
     if (scenarioStyles[scenarioBucketSlug]) return;
@@ -351,7 +388,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setSession(null);
       setIsAuthenticated(false);
       setBalance(0);
-      setError('Сессия истекла. Пожалуйста, войдите снова.');
+      setError(
+        i18next.isInitialized
+          ? i18next.t('session.expired', { ns: 'errors' })
+          : 'Сессия истекла. Пожалуйста, войдите снова.',
+      );
       return true;
     }
     return false;
@@ -416,8 +457,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const runPreAnalyze = useCallback(async () => {
     if (!photo || preAnalyzeInFlightRef.current) return;
     const mode = effectiveApiMode;
+    // Cache key includes the active scenario so a switch from
+    // ``visa-schengen`` to ``visa-usa`` (both ``mode=cv``) doesn't
+    // serve the wrong checklist/probability from the previous fetch.
+    const cacheKey = scenarioSlug ? `${mode}::${scenarioSlug}` : mode;
 
-    const cached = preAnalysisCacheRef.current[mode];
+    const cached = preAnalysisCacheRef.current[cacheKey];
     if (cached) {
       setPreAnalysis(cached);
       return;
@@ -429,9 +474,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setPreAnalyzeError(false);
     setPreAnalyzeLoading(true);
     try {
-      const res = await api.preAnalyze(photo.file, mode);
+      const res = await api.preAnalyze(photo.file, mode, scenarioSlug);
       if (gen !== preAnalyzeGenRef.current) return;
-      preAnalysisCacheRef.current[mode] = res;
+      preAnalysisCacheRef.current[cacheKey] = res;
       setPreAnalysis(res);
     } catch (e) {
       if (gen !== preAnalyzeGenRef.current) return;
@@ -456,7 +501,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       preAnalyzeInFlightRef.current = false;
       setPreAnalyzeLoading(false);
     }
-  }, [photo, effectiveApiMode, handleAuthError, fetchConsents]);
+  }, [photo, effectiveApiMode, scenarioSlug, handleAuthError, fetchConsents]);
 
   const loginWithOAuth = useCallback(async (provider: 'yandex' | 'vk-id' | 'google') => {
     const returnPath = typeof window !== 'undefined' ? `${window.location.pathname}${window.location.search}` : '';
@@ -1019,7 +1064,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
     noCreditsError, preAnalyzeError, taskHistory, taskHistoryCount, identities,
     scenarioSlug, scenarioType, scenarioEntryMode, scenarioHideCategoryTabs, scenarioStep3Mode,
     scenarioDocumentPaywall, scenarioPrimaryCtaMainApp, scenarioSimplifiedAnalysis,
-    scenarioPaymentPackQty, effectiveStyleList, effectiveApiMode, hasRealAuth, canAccessApp,
+    scenarioPaymentPackQty, complianceChecklist, scenarioOutputSpec,
+    effectiveStyleList, effectiveApiMode, hasRealAuth, canAccessApp,
     consentState,
     imageModel, imageQuality, framing,
     syncScenarioFromRoute,

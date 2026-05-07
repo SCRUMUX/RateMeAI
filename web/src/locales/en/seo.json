@@ -1,0 +1,13 @@
+{
+  "siteName": "Look Studio",
+  "defaultTitle": "Look Studio — Adapt your photo to any context",
+  "defaultDescription": "Upload a photo, pick a style — the system adapts your photo and shows a perception score. Works in the browser and messengers.",
+  "documentPhoto": {
+    "title": "Document photos · Look Studio",
+    "description": "Passport, visa or any other document photo in 2 minutes: clean background, correct size, neutral expression — no trip to a photo studio."
+  },
+  "visa": {
+    "title": "{{country}} visa photo · Look Studio",
+    "description": "{{country}} visa photo by official requirements — correct size, background and expression. JPG ready in 2 minutes, no studio visit needed."
+  }
+}

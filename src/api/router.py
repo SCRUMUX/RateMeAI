@@ -19,6 +19,7 @@ from src.api.v1.admin import (
     styles_router as admin_styles_router,
 )
 from src.api.v1.landing import router as landing_router
+from src.api.v1.scenarios import router as scenarios_router
 
 api_router = APIRouter()
 api_router.include_router(analyze_router, prefix="/analyze", tags=["analyze"])
@@ -35,6 +36,7 @@ api_router.include_router(engagement_router, prefix="/engagement", tags=["engage
 api_router.include_router(catalog_router, prefix="/catalog", tags=["catalog"])
 api_router.include_router(sse_router, prefix="/sse", tags=["sse"])
 api_router.include_router(landing_router, prefix="/landing", tags=["landing"])
+api_router.include_router(scenarios_router, prefix="/scenarios", tags=["scenarios"])
 
 api_router.include_router(internal_router, prefix="/internal", tags=["internal"])
 

@@ -49,6 +49,15 @@ _CV_DOCUMENT_ASPECT: dict[str, str] = {
     "visa_eu": "3:4",  # 35×45 мм ≈ 3:4
     "visa_schengen": "3:4",  # 35×45 мм
     "visa_us": "1:1",  # 50×50 мм
+    "visa_usa": "1:1",  # 51×51 мм
+    "visa_uk": "3:4",  # 35×45 мм
+    "visa_canada": "3:4",  # 35×45 мм
+    "visa_japan": "1:1",  # 45×45 мм
+    "visa_china": "3:4",  # 33×48 мм (≈11:16, ближайший «3:4» для постпроцесса)
+    "visa_uae": "3:4",  # 43×55 мм (≈7:9, ближайший «3:4»)
+    "visa_australia": "3:4",  # 35-40×45-50 мм
+    "visa_korea": "3:4",  # 35×45 мм
+    "visa_india": "1:1",  # 51×51 мм
     "photo_4x6": "2:3",  # 40×60 мм
     "driver_license": "3:4",
 }
@@ -477,6 +486,7 @@ class ImageGenerationExecutor:
         framing: str | None = None,
         user_input_hints: dict | None = None,
         seed: int | None = None,
+        scenario_slug: str | None = None,
     ) -> None:
         if mode not in (
             AnalysisMode.CV,
@@ -556,6 +566,7 @@ class ImageGenerationExecutor:
                     out_substitutions=v2_substitutions,
                     seed=seed,
                     out_resolved_slots=resolved_slots,
+                    scenario_slug=scenario_slug,
                 )
 
             if prompt is None:
@@ -589,6 +600,7 @@ class ImageGenerationExecutor:
                     variant_id=variant_id,
                     target_model=ab_image_model,
                     framing=framing_norm,
+                    scenario_slug=scenario_slug,
                 )
 
             # v1.27.3 — surface soft-substitutions as a post-generation

@@ -1,0 +1,62 @@
+{
+  "steps": {
+    "upload": "Upload",
+    "analysis": "Analysis",
+    "style": "Style",
+    "documentFormat": "Format",
+    "generate": "Result"
+  },
+  "documentFormat": {
+    "title": "Choose format",
+    "subtitle": "Your photo will be optimized for the format requirements"
+  },
+  "categories": {
+    "social": "Social",
+    "cv": "Career",
+    "dating": "Dating",
+    "model": "Photoshoot",
+    "brand": "Personal brand",
+    "memes": "Memes"
+  },
+  "scenario": {
+    "labels": {
+      "document-photo": "Document photos",
+      "dating-photo": "Dating photos",
+      "resume-photo": "Resume photos",
+      "tinder-pack": "Tinder Pack",
+      "career": "Career",
+      "visa-schengen": "Schengen visa photo",
+      "visa-usa": "US visa photo",
+      "visa-uk": "UK visa photo",
+      "visa-canada": "Canada visa photo",
+      "visa-japan": "Japan visa photo",
+      "visa-china": "China visa photo",
+      "visa-uae": "UAE visa photo",
+      "visa-australia": "Australia visa photo",
+      "visa-korea": "South Korea visa photo",
+      "visa-india": "India visa photo"
+    }
+  },
+  "requirements": {
+    "visaSubtitle": "Visa centre requirements",
+    "documentSubtitle": "Document photo requirements"
+  },
+  "analysis": {
+    "approvalProbability": "Approval probability",
+    "titleVisa": "Compliance analysis",
+    "subtitleVisa": "We check your photo against the visa centre's requirements and estimate the approval probability",
+    "titleDocument": "Document photo analysis",
+    "subtitleDocument": "We check the photo against document requirements and estimate the approval probability",
+    "complianceCheck": {
+      "passed": "Passes",
+      "warn": "Needs review",
+      "failed": "Does not pass",
+      "pending": "Will be checked"
+    },
+    "checklistTitle": "What we check"
+  },
+  "generate": {
+    "approvalAfter": "Approval probability after improvement",
+    "approvalCardLabel": "Final photo"
+  }
+}

@@ -1,5 +1,6 @@
 import { lazy, Suspense, useEffect, useState } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useLocation, useNavigationType } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { AppProvider } from './context/AppContext';
 import { LandingModalsProvider } from './context/LandingModalsContext';
 import { ToastProvider } from './components/Toast';
@@ -10,6 +11,7 @@ import AppPage from './pages/AppPage';
 import DocumentPhotoPage from './pages/DocumentPhotoPage';
 import DatingPhotoPage from './pages/DatingPhotoPage';
 import ResumePhotoPage from './pages/ResumePhotoPage';
+import VisaPage from './pages/VisaPage';
 import PaymentSuccess from './pages/PaymentSuccess';
 import AuthCallback from './pages/AuthCallback';
 import LinkPage from './pages/LinkPage';
@@ -26,9 +28,10 @@ const LandingAdminPage = lazy(() => import('./pages/admin/LandingAdminPage'));
 const UsersAdminPage = lazy(() => import('./pages/admin/UsersAdminPage'));
 
 function AdminFallback() {
+  const { t } = useTranslation('common');
   return (
     <div className="min-h-screen flex items-center justify-center text-[var(--color-text-secondary)]">
-      Загрузка админ-панели…
+      {t('loading.admin')}
     </div>
   );
 }
@@ -101,6 +104,7 @@ export default function App() {
               <Route path="/app/dating-photo" element={<Navigate to="/znakomstva" replace />} />
               <Route path="/rezume" element={<ResumePhotoPage />} />
               <Route path="/app/resume-photo" element={<Navigate to="/rezume" replace />} />
+              <Route path="/visa/:country" element={<VisaPage />} />
               <Route path="/app/:scenarioSlug" element={<AppPage />} />
               <Route path="/app" element={<AppPage />} />
               <Route path="/payment-success" element={<PaymentSuccess />} />

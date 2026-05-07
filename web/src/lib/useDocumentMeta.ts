@@ -10,6 +10,12 @@ export interface DocumentMeta {
   ogImage?: string;
   /** When true, emits <meta name="robots" content="noindex,nofollow">. */
   noindex?: boolean;
+  /** Optional JSON-LD payload(s). When provided, the hook injects
+   *  <script type="application/ld+json"> tags into <head> and removes
+   *  them on unmount. Use for ``Service`` / ``FAQPage`` / ``HowTo``
+   *  schemas on scenario landings — Google + Yandex pick those up
+   *  even on JS-rendered SPAs. */
+  jsonLd?: Record<string, unknown> | Record<string, unknown>[];
 }
 
 const PRODUCTION_ORIGIN = 'https://ailookstudio.ru';
@@ -92,8 +98,24 @@ export default function useDocumentMeta(meta: DocumentMeta): void {
     const robots = ensureMetaByName('robots');
     robots.setAttribute('content', meta.noindex ? 'noindex,nofollow' : 'index,follow');
 
+    const ldNodes: HTMLScriptElement[] = [];
+    if (meta.jsonLd) {
+      const payloads = Array.isArray(meta.jsonLd) ? meta.jsonLd : [meta.jsonLd];
+      for (const payload of payloads) {
+        const node = document.createElement('script');
+        node.type = 'application/ld+json';
+        node.setAttribute('data-doc-meta', '1');
+        node.textContent = JSON.stringify(payload);
+        document.head.appendChild(node);
+        ldNodes.push(node);
+      }
+    }
+
     return () => {
       document.title = previousTitle;
+      for (const node of ldNodes) {
+        try { node.remove(); } catch { /* ignore */ }
+      }
       // We don't strip individual meta tags — the next page's effect will
       // overwrite them. Leaving a stale tag for a microtask between unmount
       // and the next mount is fine (and avoids flicker for crawlers).
@@ -104,5 +126,6 @@ export default function useDocumentMeta(meta: DocumentMeta): void {
     meta.canonicalPath,
     meta.ogImage,
     meta.noindex,
+    meta.jsonLd,
   ]);
 }

@@ -1,3 +1,4 @@
+import i18next from 'i18next';
 import type { CategoryId, StyleItem } from '../data/styles';
 
 export type ScenarioApiMode = 'dating' | 'cv' | 'social';
@@ -97,6 +98,164 @@ const SCENARIO_LIST: ScenarioDefinition[] = [
     mergeIntoCategory: 'dating',
     hideCategoryTabs: true,
   },
+  // ----- Visa scenarios -----
+  // Phase 3a: Schengen pilot. Visa scenarios are a thin reuse of the
+  // document-photo flow (`step3Mode: 'document_formats'`) — the actual
+  // document format catalog comes from the API
+  // (``/api/v1/catalog/scenario-styles?scenario=<slug>``) so adding a
+  // new visa is data-only on this side: append a record below + add
+  // a corresponding entry in ``data/scenarios.json`` and seed
+  // ``data/landing_content.json`` with the localised copy.
+  {
+    slug: 'visa-schengen',
+    type: 'standalone',
+    entryMode: 'landing',
+    canonicalPath: '/visa/schengen',
+    apiMode: 'cv',
+    scoresCategory: 'cv',
+    styles: { kind: 'scenario', slug: 'visa-schengen' },
+    hideCategoryTabs: true,
+    step3Mode: 'document_formats',
+    paymentPackQty: 5,
+    documentPaywall: true,
+    primaryCtaMainApp: true,
+    simplifiedAnalysis: true,
+  },
+  {
+    slug: 'visa-usa',
+    type: 'standalone',
+    entryMode: 'landing',
+    canonicalPath: '/visa/usa',
+    apiMode: 'cv',
+    scoresCategory: 'cv',
+    styles: { kind: 'scenario', slug: 'visa-usa' },
+    hideCategoryTabs: true,
+    step3Mode: 'document_formats',
+    paymentPackQty: 5,
+    documentPaywall: true,
+    primaryCtaMainApp: true,
+    simplifiedAnalysis: true,
+  },
+  {
+    slug: 'visa-uk',
+    type: 'standalone',
+    entryMode: 'landing',
+    canonicalPath: '/visa/uk',
+    apiMode: 'cv',
+    scoresCategory: 'cv',
+    styles: { kind: 'scenario', slug: 'visa-uk' },
+    hideCategoryTabs: true,
+    step3Mode: 'document_formats',
+    paymentPackQty: 5,
+    documentPaywall: true,
+    primaryCtaMainApp: true,
+    simplifiedAnalysis: true,
+  },
+  {
+    slug: 'visa-canada',
+    type: 'standalone',
+    entryMode: 'landing',
+    canonicalPath: '/visa/canada',
+    apiMode: 'cv',
+    scoresCategory: 'cv',
+    styles: { kind: 'scenario', slug: 'visa-canada' },
+    hideCategoryTabs: true,
+    step3Mode: 'document_formats',
+    paymentPackQty: 5,
+    documentPaywall: true,
+    primaryCtaMainApp: true,
+    simplifiedAnalysis: true,
+  },
+  {
+    slug: 'visa-japan',
+    type: 'standalone',
+    entryMode: 'landing',
+    canonicalPath: '/visa/japan',
+    apiMode: 'cv',
+    scoresCategory: 'cv',
+    styles: { kind: 'scenario', slug: 'visa-japan' },
+    hideCategoryTabs: true,
+    step3Mode: 'document_formats',
+    paymentPackQty: 5,
+    documentPaywall: true,
+    primaryCtaMainApp: true,
+    simplifiedAnalysis: true,
+  },
+  {
+    slug: 'visa-china',
+    type: 'standalone',
+    entryMode: 'landing',
+    canonicalPath: '/visa/china',
+    apiMode: 'cv',
+    scoresCategory: 'cv',
+    styles: { kind: 'scenario', slug: 'visa-china' },
+    hideCategoryTabs: true,
+    step3Mode: 'document_formats',
+    paymentPackQty: 5,
+    documentPaywall: true,
+    primaryCtaMainApp: true,
+    simplifiedAnalysis: true,
+  },
+  {
+    slug: 'visa-uae',
+    type: 'standalone',
+    entryMode: 'landing',
+    canonicalPath: '/visa/uae',
+    apiMode: 'cv',
+    scoresCategory: 'cv',
+    styles: { kind: 'scenario', slug: 'visa-uae' },
+    hideCategoryTabs: true,
+    step3Mode: 'document_formats',
+    paymentPackQty: 5,
+    documentPaywall: true,
+    primaryCtaMainApp: true,
+    simplifiedAnalysis: true,
+  },
+  {
+    slug: 'visa-australia',
+    type: 'standalone',
+    entryMode: 'landing',
+    canonicalPath: '/visa/australia',
+    apiMode: 'cv',
+    scoresCategory: 'cv',
+    styles: { kind: 'scenario', slug: 'visa-australia' },
+    hideCategoryTabs: true,
+    step3Mode: 'document_formats',
+    paymentPackQty: 5,
+    documentPaywall: true,
+    primaryCtaMainApp: true,
+    simplifiedAnalysis: true,
+  },
+  {
+    slug: 'visa-korea',
+    type: 'standalone',
+    entryMode: 'landing',
+    canonicalPath: '/visa/korea',
+    apiMode: 'cv',
+    scoresCategory: 'cv',
+    styles: { kind: 'scenario', slug: 'visa-korea' },
+    hideCategoryTabs: true,
+    step3Mode: 'document_formats',
+    paymentPackQty: 5,
+    documentPaywall: true,
+    primaryCtaMainApp: true,
+    simplifiedAnalysis: true,
+  },
+  {
+    slug: 'visa-india',
+    type: 'standalone',
+    entryMode: 'landing',
+    canonicalPath: '/visa/india',
+    apiMode: 'cv',
+    scoresCategory: 'cv',
+    styles: { kind: 'scenario', slug: 'visa-india' },
+    hideCategoryTabs: true,
+    step3Mode: 'document_formats',
+    paymentPackQty: 5,
+    documentPaywall: true,
+    primaryCtaMainApp: true,
+    simplifiedAnalysis: true,
+  },
 ];
 
 export const SCENARIOS_BY_SLUG: Record<string, ScenarioDefinition> = Object.fromEntries(
@@ -104,17 +263,35 @@ export const SCENARIOS_BY_SLUG: Record<string, ScenarioDefinition> = Object.from
 );
 
 // Human-readable labels for scenarios — used by Footer/Products column,
-// SEO links, etc. Falls back to the slug if a label is missing.
-export const SCENARIO_LABELS: Record<string, string> = {
+// SEO links, etc. The labels are sourced from the i18n bundle
+// (``wizard.scenario.labels.<slug>``) so RU edge and global SPA can
+// ship different copy without forking the scenario list. The static
+// map below stays as a typed fallback for unit tests / non-React
+// contexts where i18next has not been initialised.
+export const SCENARIO_LABELS_FALLBACK: Record<string, string> = {
   'document-photo': 'Фото на документы',
   'dating-photo': 'Фото для знакомств',
   'resume-photo': 'Фото на резюме',
   'tinder-pack': 'Tinder Pack',
   career: 'Карьера',
+  'visa-schengen': 'Фото на шенгенскую визу',
+  'visa-usa': 'Фото на визу США',
+  'visa-uk': 'Фото на визу Великобритании',
+  'visa-canada': 'Фото на визу Канады',
+  'visa-japan': 'Фото на визу Японии',
+  'visa-china': 'Фото на визу Китая',
+  'visa-uae': 'Фото на визу ОАЭ',
+  'visa-australia': 'Фото на визу Австралии',
+  'visa-korea': 'Фото на визу Южной Кореи',
+  'visa-india': 'Фото на визу Индии',
 };
 
 export function getScenarioLabel(slug: string): string {
-  return SCENARIO_LABELS[slug] ?? slug;
+  const key = `scenario.labels.${slug}`;
+  if (i18next.isInitialized && i18next.exists(key, { ns: 'wizard' })) {
+    return i18next.t(key, { ns: 'wizard' });
+  }
+  return SCENARIO_LABELS_FALLBACK[slug] ?? slug;
 }
 
 export function listScenariosForFooter(): Array<{ slug: string; label: string; href: string }> {
@@ -134,6 +311,44 @@ export function listScenariosForFooter(): Array<{ slug: string; label: string; h
 export function getScenario(slug: string | undefined | null): ScenarioDefinition | null {
   if (!slug) return null;
   return SCENARIOS_BY_SLUG[slug] ?? null;
+}
+
+// Mirror of ``src/services/visa_compliance.is_approval_probability_scenario``:
+// scenarios with ``analysis_display.mode == "approval_probability"`` (visas
+// + document-photo) render the headline metric as "Probability of approval %"
+// instead of "score / 10". The static check looks at the scenario slug —
+// the live ``analysis_display`` block from ``/api/v1/scenarios/{slug}`` is
+// the authoritative source but is not always available before the SPA hydrates,
+// so we accept a slug fallback that matches the seeded ``data/scenarios.json``.
+const APPROVAL_PROBABILITY_SLUGS = new Set<string>([
+  'document-photo',
+  'visa-schengen',
+  'visa-usa',
+  'visa-uk',
+  'visa-canada',
+  'visa-japan',
+  'visa-china',
+  'visa-uae',
+  'visa-australia',
+  'visa-korea',
+  'visa-india',
+]);
+
+export function isApprovalProbabilityScenario(
+  scenario: ScenarioDefinition | string | null | undefined,
+): boolean {
+  if (!scenario) return false;
+  const slug = typeof scenario === 'string' ? scenario : scenario.slug;
+  return APPROVAL_PROBABILITY_SLUGS.has(slug);
+}
+
+export function getApprovalProbabilityAfterPct(
+  scenario: ScenarioDefinition | string | null | undefined,
+): number | null {
+  // Default success probability after improvement, mirroring the
+  // ``success_probability_after_pct: 98.9`` block written into
+  // ``data/scenarios.json`` for every approval-probability scenario.
+  return isApprovalProbabilityScenario(scenario) ? 98.9 : null;
 }
 
 export function listAllowedScenarioSlugs(): string[] {

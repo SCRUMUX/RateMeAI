@@ -10,6 +10,7 @@
 // the wrong host. Per-target routing is now path-scoped: only
 // ``/api/v1/admin/*`` paths follow the switcher, everything else
 // goes to ``primary`` regardless of UI state.
+import i18next from 'i18next';
 import {
   ACTIVE_TARGET_STORAGE_KEY,
   getAdminTarget,
@@ -219,6 +220,80 @@ export function getLandingPage(slug: string) {
   return request<LandingPageResponse>(`/api/v1/landing/pages/${encodeURIComponent(slug)}`);
 }
 
+// -- Scenarios (public registry) --
+//
+// Phase 2 scenario engine: SPA used to keep a hardcoded list in
+// ``web/src/scenarios/config.ts``. The list is still the source of
+// truth for routing/wizard wiring (it ships before the build can
+// reach the API), but flags like ``enabled``, ``output_spec`` and
+// ``paywall.pack_qty`` are now sourced from this endpoint with the
+// hardcoded entry as a fallback. Visa scenarios live ONLY in the API
+// payload — they never need a code change to come online.
+
+export interface ApiScenarioPaywall {
+  pack_qty: number;
+  show_paywall: boolean;
+}
+
+export interface ApiScenarioOutputSpec {
+  size_mm: [number, number] | null;
+  dpi: number;
+  background_color: string;
+  head_height_mm: [number, number] | null;
+  aspect_key: string | null;
+}
+
+export interface ApiScenarioAnalysisDisplay {
+  mode: 'score' | 'approval_probability';
+  success_probability_after_pct: number | null;
+  label_key: string | null;
+}
+
+export interface ApiScenario {
+  slug: string;
+  kind: 'core' | 'document' | 'visa';
+  api_mode: 'rating' | 'dating' | 'cv' | 'social' | 'emoji';
+  pipeline_profile: 'simple' | 'advanced';
+  step3_mode: 'styles' | 'document_formats';
+  landing_slug: string | null;
+  enabled: boolean;
+  paywall: ApiScenarioPaywall | null;
+  output_spec: ApiScenarioOutputSpec | null;
+  analysis_display?: ApiScenarioAnalysisDisplay | null;
+}
+
+export interface ScenariosListResponse {
+  scenarios: ApiScenario[];
+  count: number;
+}
+
+export interface ScenarioGetResponse {
+  scenario: ApiScenario;
+}
+
+export interface ScenarioComplianceResponse {
+  slug: string;
+  kind: string;
+  checklist: VisaComplianceItem[];
+  output_spec: ApiScenarioOutputSpec | null;
+}
+
+export function listScenarios() {
+  return request<ScenariosListResponse>('/api/v1/scenarios');
+}
+
+export function getScenarioPublic(slug: string) {
+  return request<ScenarioGetResponse>(
+    `/api/v1/scenarios/${encodeURIComponent(slug)}`,
+  );
+}
+
+export function getScenarioCompliance(slug: string) {
+  return request<ScenarioComplianceResponse>(
+    `/api/v1/scenarios/${encodeURIComponent(slug)}/compliance`,
+  );
+}
+
 // -- Landing CMS (admin) --
 
 export interface AdminLandingPagesList {
@@ -327,6 +402,11 @@ export interface InputQualityPublic {
   blocking_issues: InputQualityIssue[];
 }
 
+export interface VisaComplianceItem {
+  rule: string;
+  status: 'pending' | 'passed' | 'warn' | 'failed' | string;
+}
+
 export interface PreAnalysisResponse {
   pre_analysis_id: string;
   mode: string;
@@ -341,12 +421,16 @@ export interface PreAnalysisResponse {
   }>;
   enhancement_opportunities: string[];
   input_quality?: InputQualityPublic | null;
+  approval_probability?: number | null;
+  visa_compliance?: VisaComplianceItem[] | null;
+  analysis_display_mode?: string | null;
 }
 
-export function preAnalyze(image: File, mode: string) {
+export function preAnalyze(image: File, mode: string, scenarioSlug?: string | null) {
   const fd = new FormData();
   fd.append('image', image);
   fd.append('mode', mode);
+  if (scenarioSlug) fd.append('scenario_slug', scenarioSlug);
   return request<PreAnalysisResponse>('/api/v1/pre-analyze', { method: 'POST', body: fd });
 }
 
@@ -670,6 +754,13 @@ export function createPayment(packQty: number) {
  * вместо alert — пользователь сразу попадает туда, где реально можно
  * оплатить, без загадочных «Ошибка создания платежа».
  */
+function _tr(key: string, fallback: string): string {
+  if (i18next.isInitialized && i18next.exists(key, { ns: 'errors' })) {
+    return i18next.t(key, { ns: 'errors' });
+  }
+  return fallback;
+}
+
 export function handleCreatePaymentError(e: unknown): string {
   if (e instanceof ApiError && e.status === 410) {
     try {
@@ -678,9 +769,12 @@ export function handleCreatePaymentError(e: unknown): string {
     } catch {
       /* fall through */
     }
-    return 'Оплата принимается только через ru.ailookstudio.ru — перенаправляем…';
+    return _tr(
+      'payment.redirect_ru',
+      'Оплата принимается только через ru.ailookstudio.ru — перенаправляем…',
+    );
   }
-  return 'Не удалось создать платёж. Попробуй ещё раз.';
+  return _tr('payment.create_failed', 'Не удалось создать платёж. Попробуй ещё раз.');
 }
 
 // -- Identity Linking --

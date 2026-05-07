@@ -1,9 +1,40 @@
 from __future__ import annotations
 
+import logging
+
 from src.models.enums import AnalysisMode
 from src.prompts import rating, dating, cv, social, emoji
 from src.prompts import image_gen as ig
 from src.prompts import perception as _perception  # noqa: F401 — ensures perception module loads
+
+logger = logging.getLogger(__name__)
+
+
+def _scenario_image_overrides(scenario_slug: str | None) -> str:
+    """Resolve scenario-level prompt overrides (Phase 2 Scenario Engine).
+
+    Returns the ``image_instructions`` string from
+    ``data/scenarios.json`` for the given slug, or an empty string when
+    no scenario / no overrides apply. Failures (registry not loaded,
+    bad JSON) degrade silently — the prompt is built without the
+    overrides instead of erroring the request.
+    """
+
+    if not scenario_slug:
+        return ""
+    try:
+        from src.scenarios import get_scenario as _get_scenario
+
+        scenario = _get_scenario(scenario_slug)
+    except Exception:  # pragma: no cover — defensive
+        logger.exception("scenario_registry_load_failed slug=%s", scenario_slug)
+        return ""
+    if scenario is None or not scenario.enabled:
+        return ""
+    overrides = scenario.prompt_overrides
+    if overrides is None:
+        return ""
+    return (overrides.image_instructions or "").strip()
 
 
 # Direct-dispatch table for the framing/target_model/gender-aware
@@ -60,6 +91,7 @@ class PromptEngine:
         variant_id: str = "",
         target_model: str = "gpt_image_2",
         framing: str | None = None,
+        scenario_slug: str | None = None,
     ) -> str:
         mode_str = _MODE_VALUE_MAP.get(mode, mode.value)
         variant = (
@@ -69,7 +101,7 @@ class PromptEngine:
         )
 
         if mode in _DIRECT_IMAGE_BUILDERS:
-            return _DIRECT_IMAGE_BUILDERS[mode](
+            base_prompt = _DIRECT_IMAGE_BUILDERS[mode](
                 style=style,
                 base_description=base_description,
                 gender=gender,
@@ -78,11 +110,15 @@ class PromptEngine:
                 target_model=target_model,
                 framing=framing,
             )
+        elif mode == AnalysisMode.EMOJI:
+            base_prompt = ig.build_emoji_prompt(base_description, gender=gender)
+        else:
+            raise ValueError(f"No image prompt for mode: {mode}")
 
-        if mode == AnalysisMode.EMOJI:
-            return ig.build_emoji_prompt(base_description, gender=gender)
-
-        raise ValueError(f"No image prompt for mode: {mode}")
+        scenario_extra = _scenario_image_overrides(scenario_slug)
+        if scenario_extra:
+            return f"{base_prompt}\n\n{scenario_extra}"
+        return base_prompt
 
     def build_image_prompt_v2(
         self,
@@ -97,6 +133,7 @@ class PromptEngine:
         out_substitutions: list[dict[str, str]] | None = None,
         seed: int | None = None,
         out_resolved_slots: dict[str, object] | None = None,
+        scenario_slug: str | None = None,
     ) -> str | None:
         """Slot-based prompt path — prefers :class:`StyleSpecV3` and
         falls back to :class:`StyleSpecV2`.
@@ -226,7 +263,11 @@ class PromptEngine:
 
         if out_substitutions is not None and ir.substitutions:
             out_substitutions.extend(ir.substitutions)
-        return wrap_for_model(ir, target_model)
+        wrapped = wrap_for_model(ir, target_model)
+        scenario_extra = _scenario_image_overrides(scenario_slug)
+        if scenario_extra:
+            return f"{wrapped}\n\n{scenario_extra}"
+        return wrapped
 
     def build_step_prompt(
         self,

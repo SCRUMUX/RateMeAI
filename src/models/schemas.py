@@ -297,6 +297,20 @@ class InputQualityPublic(BaseModel):
     face_area_ratio: float = 0.0
 
 
+class VisaComplianceItem(BaseModel):
+    """One bullet of a visa/document compliance checklist.
+
+    ``status`` mirrors the worker contract:
+    - ``"pending"`` — checklist sourced from the scenario, not yet
+      evaluated against the user's photo;
+    - ``"passed"`` / ``"warn"`` / ``"failed"`` — reserved for a future
+      automated compliance pass (Phase 5+).
+    """
+
+    rule: str
+    status: str = "pending"
+
+
 class PreAnalysisResponse(BaseModel):
     pre_analysis_id: str
     mode: AnalysisMode
@@ -306,3 +320,9 @@ class PreAnalysisResponse(BaseModel):
     perception_insights: list[dict] = Field(default_factory=list)
     enhancement_opportunities: list[str] = Field(default_factory=list)
     input_quality: InputQualityPublic | None = None
+    # Approval-probability flow (visas + document-photo). ``None`` for
+    # legacy ``mode: score`` scenarios. ``approval_probability`` is on
+    # a 0..100 scale (e.g. 72.5 for "72.5%").
+    approval_probability: float | None = None
+    visa_compliance: list[VisaComplianceItem] | None = None
+    analysis_display_mode: str | None = None

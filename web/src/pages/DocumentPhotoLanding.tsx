@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import NavBar from '../sections/NavBar';
 import Footer from '../sections/Footer';
 import AuthModal from '../components/AuthModal';
@@ -179,11 +180,35 @@ export default function DocumentPhotoLanding({ onStart, showAuth, onAuthClose }:
     app.setActiveCategory('cv');
   }, [app]);
 
+  const docLandingJsonLd = useMemo(
+    () => [
+      {
+        '@context': 'https://schema.org',
+        '@type': 'Service',
+        name: 'Document photos',
+        description:
+          'Online photo studio for passport, visa and other document photos. Clean background, correct size, neutral expression in 2 minutes.',
+        provider: { '@type': 'Organization', name: 'AI Look Studio', url: 'https://ailookstudio.ru' },
+        url: 'https://ailookstudio.ru/dokumenty',
+      },
+      {
+        '@context': 'https://schema.org',
+        '@type': 'HowTo',
+        name: how.title,
+        step: how.steps.map((s) => ({ '@type': 'HowToStep', name: s.title, text: s.desc })),
+      },
+    ],
+    [how],
+  );
+
+  const { t: tSeo } = useTranslation('seo');
   useDocumentMeta({
-    title: 'Фото на документы · Look Studio',
-    description:
-      'Фото на паспорт, визу и любые документы за 2 минуты: ровный фон, правильный размер, нейтральная мимика — без похода в фотостудию.',
+    title: tSeo('documentPhoto.title', { defaultValue: 'Фото на документы · Look Studio' }),
+    description: tSeo('documentPhoto.description', {
+      defaultValue: 'Фото на паспорт, визу и любые документы за 2 минуты: ровный фон, правильный размер, нейтральная мимика — без похода в фотостудию.',
+    }),
     canonicalPath: '/dokumenty',
+    jsonLd: docLandingJsonLd,
   });
 
   const howSteps: HowItWorksStep[] = how.steps;

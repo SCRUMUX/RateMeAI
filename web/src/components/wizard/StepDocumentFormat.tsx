@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { useApp } from '../../context/AppContext';
 import { DOCUMENT_USAGE_LOOKUP } from '../../data/landingStyles';
 
@@ -7,6 +8,7 @@ interface Props {
 
 export default function StepDocumentFormat({ onNext }: Props) {
   const app = useApp();
+  const { t } = useTranslation(['wizard', 'common']);
   // The API returns the document-photo bucket without the marketing
   // ``usage`` blurb, so we enrich each item from the static lookup
   // (``DOCUMENT_USAGE_LOOKUP`` keeps the same copy as the landing page
@@ -33,10 +35,10 @@ export default function StepDocumentFormat({ onNext }: Props) {
     <div className="flex flex-col h-full w-full max-w-[520px] mx-auto">
       <div className="shrink-0 flex flex-col gap-[var(--space-4)] text-center pb-[var(--space-12)]">
         <h2 className="text-[20px] tablet:text-[24px] leading-[1.2] font-semibold text-[var(--color-text-primary)]">
-          Выберите формат
+          {t('wizard:documentFormat.title')}
         </h2>
         <p className="text-[12px] tablet:text-[13px] leading-[16px] tablet:leading-[18px] text-[var(--color-text-secondary)]">
-          Фото будет оптимизировано под требования формата
+          {t('wizard:documentFormat.subtitle')}
         </p>
       </div>
 
@@ -85,7 +87,7 @@ export default function StepDocumentFormat({ onNext }: Props) {
           onClick={handleSelectAndNext}
           className="glass-btn-primary w-full py-[var(--space-12)] text-[15px] leading-[22px] rounded-[var(--radius-pill)] font-medium"
         >
-          Далее
+          {t('common:cta.next')}
         </button>
       </div>
     </div>

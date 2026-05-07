@@ -308,3 +308,84 @@ def test_pre_analysis_response_schema():
     assert d["mode"] == "dating"
     assert d["score"] == 7.5
     assert isinstance(d["perception_scores"], dict)
+    # Approval-probability fields default to None for the legacy
+    # ``mode: score`` flow so the SPA renders the existing card.
+    assert d["approval_probability"] is None
+    assert d["visa_compliance"] is None
+    assert d["analysis_display_mode"] is None
+
+
+def test_pre_analysis_apply_approval_probability_for_visa(tmp_path, monkeypatch):
+    """`_apply_approval_probability` populates new fields for visa scenarios."""
+
+    from src.api.v1.pre_analyze import _apply_approval_probability
+    from src.models.schemas import PreAnalysisResponse
+    from src.scenarios import get_scenario, loader as scenarios_loader
+
+    fake_path = tmp_path / "scenarios.json"
+    fake_path.write_text(
+        json.dumps(
+            {
+                "scenarios": {
+                    "visa-test": {
+                        "kind": "visa",
+                        "api_mode": "cv",
+                        "analysis_display": {
+                            "mode": "approval_probability",
+                            "success_probability_after_pct": 98.9,
+                        },
+                        "prompt_overrides": {
+                            "analysis_checklist": ["bullet 1", "bullet 2"],
+                        },
+                        "enabled": True,
+                    },
+                    "dating-photo": {
+                        "kind": "core",
+                        "api_mode": "dating",
+                        "enabled": True,
+                    },
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(scenarios_loader, "SCENARIOS_PATH", fake_path)
+    scenarios_loader.invalidate_cache()
+    try:
+        visa = get_scenario("visa-test")
+        dating = get_scenario("dating-photo")
+
+        resp_visa = PreAnalysisResponse(
+            pre_analysis_id="x",
+            mode=AnalysisMode.CV,
+            first_impression="",
+            score=0.0,
+            perception_scores={},
+            perception_insights=[],
+            enhancement_opportunities=[],
+        )
+        _apply_approval_probability(resp_visa, _ok_report(), visa)
+        assert resp_visa.approval_probability is not None
+        assert 40.0 <= resp_visa.approval_probability <= 92.0
+        assert resp_visa.analysis_display_mode == "approval_probability"
+        assert resp_visa.visa_compliance is not None
+        assert [item.rule for item in resp_visa.visa_compliance] == [
+            "bullet 1",
+            "bullet 2",
+        ]
+
+        resp_dating = PreAnalysisResponse(
+            pre_analysis_id="y",
+            mode=AnalysisMode.DATING,
+            first_impression="",
+            score=0.0,
+            perception_scores={},
+            perception_insights=[],
+            enhancement_opportunities=[],
+        )
+        _apply_approval_probability(resp_dating, _ok_report(), dating)
+        assert resp_dating.approval_probability is None
+        assert resp_dating.visa_compliance is None
+        assert resp_dating.analysis_display_mode is None
+    finally:
+        scenarios_loader.invalidate_cache()

@@ -1,7 +1,12 @@
 import { useState, useRef, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useNavigate, Link } from 'react-router-dom';
 import { CoinIcon } from '@ai-ds/core/icons';
-import { normalizePostPaymentPath } from '../../scenarios/config';
+import {
+  getApprovalProbabilityAfterPct,
+  isApprovalProbabilityScenario,
+  normalizePostPaymentPath,
+} from '../../scenarios/config';
 import { createPayment, handleCreatePaymentError, readGenerationWarnings } from '../../lib/api';
 import { rememberFlowReturnPath, rememberFlowStep } from '../../lib/flow-resume';
 import { savePhotoBeforePayment } from '../../lib/photo-persist';
@@ -65,6 +70,7 @@ function resolvedSlotsToHints(slots: ResolvedSlots | null | undefined): Record<s
 
 export default function StepGenerate({ onGoToStep, onOpenStorage }: Props) {
   const app = useApp();
+  const { t } = useTranslation('wizard');
   const navigate = useNavigate();
 
   const activeTab = app.activeCategory;
@@ -86,6 +92,16 @@ export default function StepGenerate({ onGoToStep, onOpenStorage }: Props) {
       : (genAfterScore != null && beforeScore == null)
         ? genAfterScore
         : predictedAfterScore;
+
+  // Approval-probability flow (visa + document-photo): the headline
+  // becomes a fixed 98.9% once the user successfully regenerates the
+  // photo. ``displayApprovalAfter`` mirrors the data-driven
+  // ``analysis_display.success_probability_after_pct`` from
+  // ``data/scenarios.json`` (98.9 for every visa + document-photo).
+  const isApproval = isApprovalProbabilityScenario(app.scenarioSlug);
+  const approvalTargetPct = getApprovalProbabilityAfterPct(app.scenarioSlug);
+  const displayApprovalAfter =
+    isApproval && hasGenResult ? (approvalTargetPct ?? 98.9) : null;
 
   const generationWarnings = readGenerationWarnings(app.currentTask?.result ?? null);
 
@@ -449,7 +465,14 @@ export default function StepGenerate({ onGoToStep, onOpenStorage }: Props) {
             <div className="flex flex-col gap-[var(--space-4)] px-[var(--space-10)] py-[var(--space-6)]">
               <div className="flex items-center justify-between">
                 <span className="text-[13px] leading-[18px] text-[var(--color-text-primary)] font-medium">{cardLabel}</span>
-                {isRunning ? null : cardScore != null && (
+                {isRunning ? null : isApproval && displayApprovalAfter != null ? (
+                  <span className="flex items-baseline gap-1">
+                    <span className="text-[14px] leading-[18px] font-semibold text-[var(--color-brand-primary)]">
+                      {displayApprovalAfter.toFixed(1)}
+                    </span>
+                    <span className="text-[11px] leading-[14px] text-[var(--color-text-muted)]">%</span>
+                  </span>
+                ) : isApproval ? null : cardScore != null && (
                   <span className="flex items-center gap-1">
                     <span className="text-[14px] leading-[18px] font-semibold text-[var(--color-brand-primary)]">
                       {cardScoreIsApprox ? '~' : ''}{cardScore.toFixed(2)}
@@ -460,9 +483,16 @@ export default function StepGenerate({ onGoToStep, onOpenStorage }: Props) {
               </div>
               {isRunning ? (
                 <ProgressBar value={progress?.percent ?? 10} max={100} accent />
-              ) : cardScore != null ? (
+              ) : isApproval && displayApprovalAfter != null ? (
+                <ProgressBar value={displayApprovalAfter} max={100} accent />
+              ) : isApproval ? null : cardScore != null ? (
                 <ProgressBar value={cardScore} accent />
               ) : null}
+              {!isRunning && isApproval && displayApprovalAfter != null && (
+                <span className="text-[11px] leading-[14px] text-[var(--color-text-muted)] mt-[2px]">
+                  {t('generate.approvalAfter')}
+                </span>
+              )}
             </div>
           </div>
 

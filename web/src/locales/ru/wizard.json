@@ -1,0 +1,62 @@
+{
+  "steps": {
+    "upload": "Загрузка",
+    "analysis": "Анализ",
+    "style": "Стиль",
+    "documentFormat": "Формат",
+    "generate": "Результат"
+  },
+  "documentFormat": {
+    "title": "Выберите формат",
+    "subtitle": "Фото будет оптимизировано под требования формата"
+  },
+  "categories": {
+    "social": "Соцсети",
+    "cv": "Карьера",
+    "dating": "Знакомства",
+    "model": "Фотосессия",
+    "brand": "Личный бренд",
+    "memes": "Мемы"
+  },
+  "scenario": {
+    "labels": {
+      "document-photo": "Фото на документы",
+      "dating-photo": "Фото для знакомств",
+      "resume-photo": "Фото на резюме",
+      "tinder-pack": "Tinder Pack",
+      "career": "Карьера",
+      "visa-schengen": "Фото на шенгенскую визу",
+      "visa-usa": "Фото на визу США",
+      "visa-uk": "Фото на визу Великобритании",
+      "visa-canada": "Фото на визу Канады",
+      "visa-japan": "Фото на визу Японии",
+      "visa-china": "Фото на визу Китая",
+      "visa-uae": "Фото на визу ОАЭ",
+      "visa-australia": "Фото на визу Австралии",
+      "visa-korea": "Фото на визу Южной Кореи",
+      "visa-india": "Фото на визу Индии"
+    }
+  },
+  "requirements": {
+    "visaSubtitle": "Требования визового центра",
+    "documentSubtitle": "Требования к фото на документы"
+  },
+  "analysis": {
+    "approvalProbability": "Вероятность одобрения",
+    "titleVisa": "Анализ соответствия",
+    "subtitleVisa": "Проверим фото по требованиям визового центра и подсчитаем вероятность одобрения",
+    "titleDocument": "Анализ фото на документы",
+    "subtitleDocument": "Проверим фото на пригодность для документов и подсчитаем вероятность одобрения",
+    "complianceCheck": {
+      "passed": "Соответствует",
+      "warn": "Требует проверки",
+      "failed": "Не соответствует",
+      "pending": "Будет проверено"
+    },
+    "checklistTitle": "Что проверяем"
+  },
+  "generate": {
+    "approvalAfter": "Вероятность одобрения после улучшения",
+    "approvalCardLabel": "Готовое фото"
+  }
+}
