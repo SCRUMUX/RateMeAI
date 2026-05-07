@@ -207,6 +207,31 @@ async def lifespan(app: FastAPI):
             settings.remote_ai_backend_url,
         )
 
+    # Admin gate observability (1.55.4). A silent empty whitelist used
+    # to mean "all /api/v1/admin/* requests return 403" with zero
+    # signal in the logs. Now every cold start dumps the size of each
+    # whitelist (never the values themselves) so deploys can confirm
+    # the env vars made it into the running container. Any operator
+    # debugging "why doesn't admin see me" can grep the log for this
+    # line first instead of poking at HTTP responses.
+    from src.api.v1.admin.auth import get_admin_emails, get_admin_ids
+
+    _ids = get_admin_ids()
+    _emails = get_admin_emails()
+    if not _ids and not _emails:
+        log.error(
+            "admin_gate: BOTH ADMIN_USER_IDS and ADMIN_EMAILS are empty — "
+            "all /api/v1/admin/* requests will return 403 (mode=%s)",
+            settings.deployment_mode,
+        )
+    else:
+        log.info(
+            "admin_gate: ADMIN_USER_IDS=%d entries, ADMIN_EMAILS=%d entries (mode=%s)",
+            len(_ids),
+            len(_emails),
+            settings.deployment_mode,
+        )
+
     reconciler_task = None
     if settings.uses_remote_ai:
         reconciler_task = asyncio.create_task(

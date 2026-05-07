@@ -21,48 +21,13 @@ export DEPLOY_GIT_SHA="$SHORT_SHA"
 
 echo "=== RU Deploy: SHA=$SHORT_SHA ==="
 
-# ── 0. Ensure provisioned env vars in .env.ru ──────────────────
-# Idempotent: replaces an existing ``KEY=...`` line in place, or
-# appends ``KEY=desired`` if the key is absent. No-op when the value
-# already matches, so re-running this script does not churn the file.
-#
-# IMPORTANT: this block runs BEFORE ``git pull`` because bash holds
-# this script open via its original file descriptor — when ``git pull``
-# replaces the file, the running interpreter keeps reading the OLD
-# inode's content for the rest of execution. Anything that needs to
-# actually run on every deploy must therefore live above the pull.
-ENV_FILE="${PROJECT_DIR}/.env.ru"
-
-ensure_env_line() {
-    local key="$1"
-    local desired="$2"
-    if [ ! -f "$ENV_FILE" ]; then
-        echo "[update.sh] WARNING: $ENV_FILE missing — cannot ensure $key"
-        return 0
-    fi
-    if grep -q "^${key}=" "$ENV_FILE"; then
-        local current
-        current=$(grep "^${key}=" "$ENV_FILE" | head -n1 | cut -d= -f2-)
-        if [ "$current" = "$desired" ]; then
-            echo "[update.sh] $key already up-to-date — no-op"
-            return 0
-        fi
-        echo "[update.sh] ensuring $key=$desired (replacing existing)"
-        # ``|`` delimiter avoids escaping comma-separated values.
-        sed -i "s|^${key}=.*|${key}=${desired}|" "$ENV_FILE"
-    else
-        echo "[update.sh] ensuring $key=$desired (appending)"
-        echo "${key}=${desired}" >> "$ENV_FILE"
-    fi
-}
-
-# Admin whitelist for ``/api/v1/admin/*`` — matched by
-# ``_parse_admin_emails`` in src/api/v1/admin/auth.py against
-# ``user_identities.profile_data->>'email'`` (any provider that
-# stored an email: google / yandex / vk_id / apple).
-# Primary (Railway) is unaffected: its env is managed by the
-# ``deploy-backend`` job's ``rl_set`` calls, not this script.
-ensure_env_line ADMIN_EMAILS "vladimir18kostyal@gmail.com,uk-tora@yandex.ru"
+# Note (1.55.4): env-var provisioning (INTERNAL_API_KEY, ADMIN_EMAILS,
+# DEPLOYMENT_MODE/MARKET_ID/SERVICE_ROLE/COMPUTE_MODE, ...) used to live
+# in this script but moved into the ``deploy-ru`` GitHub Actions job.
+# The CI bash runs in a workspace whose script is NOT replaced by
+# ``git pull`` mid-execution, so the in-script bash-inode quirk that
+# bit 1.55.2 (one-deploy lag) is gone. update.sh now does only what
+# it needs to do AT the host: pull, build, restart.
 
 # ── 1. Pull latest code ─────────────────────────────────────────
 echo "--- git pull ---"

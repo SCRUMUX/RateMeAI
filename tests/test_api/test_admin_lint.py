@@ -14,16 +14,16 @@ from pathlib import Path
 import pytest
 from fastapi import HTTPException
 
-from src.api.v1.admin import auth as admin_auth
 from src.api.v1.admin import styles as admin_styles
 from src.services import style_loader, style_store
 
 
 @pytest.fixture(autouse=True)
 def _reset_admin_id_cache():
-    admin_auth._parse_admin_ids.cache_clear()
+    # 1.55.4 — ``_parse_admin_ids`` no longer carries ``lru_cache``.
+    # Fixture kept as a no-op for symmetry with ``test_admin_styles``;
+    # nothing to clear on entry/exit anymore.
     yield
-    admin_auth._parse_admin_ids.cache_clear()
 
 
 @pytest.fixture

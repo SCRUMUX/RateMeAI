@@ -4880,4 +4880,86 @@
 #          in the new comment block at the top of section 0.
 #          No backend / frontend code changes.
 #          tsc / ruff / pytest (2061 passed, 54 skipped) зелёные.
-APP_VERSION = "1.55.3"
+# 1.55.4 — Корневой фикс «русская админка не видит залогиненного
+#          пользователя» вместо очередного костыля.
+#          ИСТОРИЯ ПРОБЛЕМЫ: 1.55.0 раскатил мульти-таргет фронт,
+#          1.55.1 починил OAuth, 1.55.2 попытался автоматически
+#          провижинить ``ADMIN_EMAILS`` на RU edge изнутри
+#          ``deploy/ru/update.sh`` — но bash держит открытым
+#          original inode, и любая правка update.sh применяется
+#          только на следующий deploy (one-deploy lag). 1.55.3
+#          переставил ensure_env_line ВЫШЕ git pull, всё равно
+#          оставляя one-deploy lag и хардкод emails в shell-скрипте.
+#          Никакой наблюдаемости не было: 403 от админ-эндпоинтов
+#          ничего не говорил оператору о причине.
+#          ЧТО СДЕЛАНО:
+#          1) **CI-driven provisioning** в .github/workflows/ci.yml.
+#             ``ADMIN_EMAILS`` теперь синкается ОДНИМ источником
+#             правды (новый GitHub secret ``secrets.ADMIN_EMAILS``
+#             с fallback на «vladimir18kostyal@gmail.com,
+#             uk-tora@yandex.ru») и одновременно:
+#             - в Railway через ``rl_set ADMIN_EMAILS=$ADMIN_EMAILS
+#               -s app -e production --skip-deploys`` в
+#               ``deploy-backend``;
+#             - в ``/opt/ratemeai/.env.ru`` через ``sync_env
+#               ADMIN_EMAILS "$ADMIN_EMAILS"`` в SSH-action
+#               ``deploy-ru`` ДО запуска update.sh.
+#             Эта логика выполняется в bash CI-раннера, который НЕ
+#             заменяется git pull'ом — bash inode quirk полностью
+#             обходится.
+#          2) **Удалён ensure_env_line из update.sh.** Скрипт теперь
+#             делает только то, что должно происходить ON-host: pull,
+#             build, restart. Комментарий с пояснением, почему env
+#             provisioning живёт в CI, оставлен на месте.
+#          3) **Снят ``lru_cache`` с ``_parse_admin_*``** в
+#             ``src/api/v1/admin/auth.py``. Кэш фиксировал первое
+#             прочитанное значение на всё время жизни процесса —
+#             это значило, что если ADMIN_EMAILS попал в ``.env.ru``
+#             ПОСЛЕ старта app, он бы никогда не подхватился без
+#             рестарта контейнера. Парсинг 2-элементного списка
+#             на запрос стоит микросекунды; зато диагностика теперь
+#             отражает живое состояние settings.
+#          4) **Старт-лог наблюдаемости** в ``src/main.py``:
+#             ``admin_gate: ADMIN_USER_IDS=N entries, ADMIN_EMAILS=M
+#             entries (mode=primary|edge)``. Если оба whitelist'а
+#             пусты — log.error «все /api/v1/admin/* будут 403».
+#             Теперь сразу из деплой-лога видно, дошёл ли env до
+#             контейнера.
+#          5) **Diagnostic endpoint ``GET /api/v1/admin/_whoami``**:
+#             auth required, admin gate intentionally NOT required.
+#             Возвращает ``{is_admin, matched_via: 'user_id'|'email'|
+#             null, identity_emails, whitelist_size:{user_ids,
+#             emails}, deployment_mode, market_id}``. НЕ раскрывает
+#             whitelist целиком, но мгновенно говорит «у тебя email
+#             X, а в ADMIN_EMAILS на этом инстансе 0 записей» —
+#             заменяет немой 403 на actionable объяснение.
+#          6) **AdminLayout: AdminGateDiagnostics-баннер.** При
+#             наличии токена SPA вызывает ``adminWhoami()``;
+#             если ``is_admin === false``, рендерит конкретное
+#             сообщение в зависимости от состояния (whitelist пуст /
+#             email-а нет у identity / email есть, но не в списке).
+#             Раньше оператор видел только 403 и догадывался — теперь
+#             в баннере чётко написано, что нужно поправить.
+#          ОПЕРАЦИОННОЕ:
+#          - Опционально создайте GitHub secret ``ADMIN_EMAILS``
+#            (Settings → Secrets → Actions). Без него используется
+#            хардкод-fallback с двумя текущими операторами.
+#          - На existing RU host правится автоматически на следующем
+#            deploy через main: CI допишет ADMIN_EMAILS в .env.ru,
+#            update.sh поднимет app с новым env.
+#          - Стартовый лог покажет ``admin_gate: ADMIN_EMAILS=2
+#            entries`` — это валидация, что фикс отработал.
+#          ТЕСТЫ:
+#          - ``tests/test_api/test_admin_auth.py`` — 9 новых
+#            unit-тестов: парсинг ADMIN_EMAILS (case/whitespace,
+#            picks-up-after-change), require_admin email-path
+#            (accept/reject/case-insensitive/skip-on-empty), все три
+#            ветки _whoami (email match / user_id match / no match
+#            with empty whitelists / no-email-identity).
+#          - ``tests/test_api/test_admin_styles.py`` обновлён:
+#            убраны cache_clear() (lru_cache снят), добавлен тест
+#            «settings change picks up without restart»,
+#            require_admin тесты передают monkeypatched admin_emails
+#            и mock-db.
+#          - ruff / tsc / pytest зелёные.
+APP_VERSION = "1.55.4"

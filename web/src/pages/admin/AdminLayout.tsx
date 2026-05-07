@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 
 import {
@@ -6,6 +6,7 @@ import {
   useAdminTarget,
 } from '../../lib/admin-target-context';
 import { tokenStorageKey, type AdminTargetId } from '../../lib/admin-targets';
+import { adminWhoami, ApiError, type AdminWhoamiResponse } from '../../lib/api';
 
 interface AdminLayoutProps {
   children: ReactNode;
@@ -113,21 +114,143 @@ function TargetSwitcher() {
 }
 
 /**
+ * 1.55.4 — diagnostic gate that runs AFTER ``NoTokenForTargetGate``.
+ *
+ * Even with a valid session token, the backend ``require_admin`` may
+ * still 403 (user UUID not in ``ADMIN_USER_IDS``, identity email not
+ * in ``ADMIN_EMAILS``, or both whitelists empty on this region).
+ * Pre-1.55.4 every page just showed "Доступ запрещён" without saying
+ * why, which led to hours of debugging "is the env var set? does my
+ * email match? am I on the right region?".
+ *
+ * The new ``GET /api/v1/admin/_whoami`` endpoint is auth-required but
+ * NOT admin-gated, so we can call it with the same token the user
+ * already has and render an actionable explanation: "your email is
+ * X but the whitelist on this server has 0 entries — ask ops to set
+ * ADMIN_EMAILS in .env.ru" or similar.
+ */
+function AdminGateDiagnostics({ children }: { children: ReactNode }) {
+  const { current, switchEpoch } = useAdminTarget();
+  const [info, setInfo] = useState<AdminWhoamiResponse | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    setError(null);
+    setInfo(null);
+    adminWhoami()
+      .then((res) => {
+        if (cancelled) return;
+        setInfo(res);
+      })
+      .catch((e: unknown) => {
+        if (cancelled) return;
+        if (e instanceof ApiError && e.status === 401) {
+          setError(
+            'Токен не принят сервером. Возможно, сессия истекла — '
+              + 'выйдите из кабинета и войдите снова.',
+          );
+        } else if (e instanceof Error) {
+          setError(e.message);
+        } else {
+          setError('Не удалось выполнить диагностику админки.');
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [current.id, switchEpoch]);
+
+  if (loading) {
+    return (
+      <div className="text-[13px] text-[#8b95a3] py-[var(--space-32)] text-center">
+        Проверка прав на сервере «{current.shortLabel}»…
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="rounded-[14px] border border-red-500/30 bg-red-500/[0.06] px-[var(--space-24)] py-[var(--space-24)] text-red-100 max-w-[760px]">
+        <h2 className="text-[16px] leading-[22px] font-semibold mb-[var(--space-8)]">
+          Не удалось проверить права на «{current.label}»
+        </h2>
+        <p className="text-[13px] leading-[20px] text-red-100/85">{error}</p>
+      </div>
+    );
+  }
+
+  if (info && !info.is_admin) {
+    const whitelistEmpty =
+      info.whitelist_size.user_ids === 0 && info.whitelist_size.emails === 0;
+    const userHasNoEmail = info.identity_emails.length === 0;
+    return (
+      <div className="rounded-[14px] border border-amber-400/30 bg-amber-500/[0.06] px-[var(--space-24)] py-[var(--space-24)] text-amber-100 max-w-[840px]">
+        <h2 className="text-[16px] leading-[22px] font-semibold mb-[var(--space-12)]">
+          Этот аккаунт не админ на «{info.deployment_mode}» (
+          {info.market_id || current.shortLabel})
+        </h2>
+        <ul className="text-[13px] leading-[20px] text-amber-100/90 space-y-[var(--space-6)] mb-[var(--space-12)]">
+          <li>
+            <span className="text-amber-100/70">user_id:</span>{' '}
+            <code className="font-mono text-[12px]">{info.user_id}</code>
+          </li>
+          <li>
+            <span className="text-amber-100/70">Привязанные emails:</span>{' '}
+            {userHasNoEmail
+              ? '— (Yandex/VK без login:email scope или phone-логин)'
+              : info.identity_emails.join(', ')}
+          </li>
+          <li>
+            <span className="text-amber-100/70">Whitelist на этом сервере:</span>{' '}
+            ADMIN_USER_IDS = {info.whitelist_size.user_ids}, ADMIN_EMAILS ={' '}
+            {info.whitelist_size.emails}
+          </li>
+        </ul>
+        <p className="text-[13px] leading-[20px] text-amber-100/85 mb-[var(--space-12)]">
+          {whitelistEmpty
+            ? 'На этом сервере оба whitelist-а пустые. Это значит, что переменные '
+              + 'ADMIN_USER_IDS / ADMIN_EMAILS не загружены в контейнер app — '
+              + 'нужно запустить деплой ещё раз (CI 1.55.4+ синкит ADMIN_EMAILS '
+              + 'в .env.ru через secrets.ADMIN_EMAILS) или вручную добавить '
+              + 'строку и перезапустить app.'
+            : userHasNoEmail
+              ? 'Whitelist непустой, но у текущего OAuth-провайдера нет email-а '
+                + '(Yandex без login:email scope, VK ID, либо вход по телефону). '
+                + 'Войдите через провайдера, который отдаёт email (Google).'
+              : 'Whitelist непустой, но ни один из ваших email-ов в нём не значится. '
+                + 'Добавьте нужный адрес в GitHub-секрет ADMIN_EMAILS '
+                + '(value: comma-separated) и передеплойте — CI запишет новый '
+                + 'whitelist одновременно на Railway и в .env.ru на RU-edge.'}
+        </p>
+        <p className="text-[12px] leading-[18px] text-amber-100/60">
+          Цель: {current.label}
+          {info.git ? ` · git=${info.git}` : ''}
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div key={`${current.id}:${switchEpoch}`}>{children}</div>
+  );
+}
+
+/**
  * If the operator switches to a target where they aren't logged in
  * (no per-target token), block the page content and explain how to
  * fix it. Without this, every admin endpoint would return 401 and
  * the page would just look broken.
  */
 function NoTokenForTargetGate({ children }: { children: ReactNode }) {
-  const { current, hasToken, setTarget, targets, switchEpoch } = useAdminTarget();
-  // Force a remount of the page content whenever the operator picks
-  // a new target so we don't display stale RU data after switching to
-  // primary (or vice-versa). Cheap and bullet-proof; the alternative
-  // is threading switchEpoch into every page's effect dependencies.
+  const { current, hasToken, setTarget, targets } = useAdminTarget();
   if (hasToken) {
-    return (
-      <div key={`${current.id}:${switchEpoch}`}>{children}</div>
-    );
+    return <AdminGateDiagnostics>{children}</AdminGateDiagnostics>;
   }
 
   const otherWithToken = targets.find(

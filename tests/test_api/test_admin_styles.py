@@ -29,9 +29,12 @@ from src.services import style_loader, style_store
 
 @pytest.fixture(autouse=True)
 def _reset_admin_id_cache():
-    admin_auth._parse_admin_ids.cache_clear()
+    # 1.55.4 — ``_parse_admin_ids`` no longer carries ``lru_cache``.
+    # The fixture is kept as an autouse no-op so other test files that
+    # used to rely on the parser being clean between tests don't have
+    # to be touched. (settings.admin_user_ids is monkeypatched per
+    # test where it matters.)
     yield
-    admin_auth._parse_admin_ids.cache_clear()
 
 
 @pytest.fixture
@@ -76,7 +79,6 @@ def test_admin_ids_parse_handles_whitespace_and_empties(monkeypatch):
         " uid-1 , uid-2,  ,uid-3,",
         raising=False,
     )
-    admin_auth._parse_admin_ids.cache_clear()
     ids = admin_auth.get_admin_ids()
     assert ids == frozenset({"uid-1", "uid-2", "uid-3"})
 
@@ -85,8 +87,23 @@ def test_admin_ids_empty_locks_endpoint(monkeypatch):
     monkeypatch.setattr(
         "src.config.settings.admin_user_ids", "", raising=False
     )
-    admin_auth._parse_admin_ids.cache_clear()
     assert admin_auth.get_admin_ids() == frozenset()
+
+
+def test_admin_ids_picks_up_settings_change_without_restart(monkeypatch):
+    """1.55.4 — without ``lru_cache``, changing ``settings.admin_user_ids``
+    is reflected on the very next call. Used to require a process
+    restart because the cache pinned the first value forever.
+    """
+    monkeypatch.setattr(
+        "src.config.settings.admin_user_ids", "uid-a", raising=False
+    )
+    assert admin_auth.get_admin_ids() == frozenset({"uid-a"})
+
+    monkeypatch.setattr(
+        "src.config.settings.admin_user_ids", "uid-a,uid-b", raising=False
+    )
+    assert admin_auth.get_admin_ids() == frozenset({"uid-a", "uid-b"})
 
 
 @pytest.mark.asyncio
@@ -94,10 +111,12 @@ async def test_require_admin_rejects_non_admin(monkeypatch):
     monkeypatch.setattr(
         "src.config.settings.admin_user_ids", "admin-1,admin-2", raising=False
     )
-    admin_auth._parse_admin_ids.cache_clear()
+    monkeypatch.setattr(
+        "src.config.settings.admin_emails", "", raising=False
+    )
     user = SimpleNamespace(id="random-user")
     with pytest.raises(HTTPException) as exc:
-        await admin_auth.require_admin(user=user)
+        await admin_auth.require_admin(user=user, db=None)  # type: ignore[arg-type]
     assert exc.value.status_code == 403
 
 
@@ -106,9 +125,13 @@ async def test_require_admin_accepts_listed_user(monkeypatch):
     monkeypatch.setattr(
         "src.config.settings.admin_user_ids", "admin-1,admin-2", raising=False
     )
-    admin_auth._parse_admin_ids.cache_clear()
+    monkeypatch.setattr(
+        "src.config.settings.admin_emails", "", raising=False
+    )
     user = SimpleNamespace(id="admin-2")
-    result = await admin_auth.require_admin(user=user)
+    # UUID match short-circuits before any DB call, so passing ``None``
+    # as db is fine here — exercising the fast path.
+    result = await admin_auth.require_admin(user=user, db=None)  # type: ignore[arg-type]
     assert result is user
 
 

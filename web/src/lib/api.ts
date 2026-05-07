@@ -823,6 +823,28 @@ export function listAdminStyleConflicts() {
 }
 
 // ---------------------------------------------------------------------------
+// Admin: diagnostic ping (1.55.4). Authenticated but NOT admin-gated.
+// Tells the caller why they would (or wouldn't) pass require_admin on
+// the currently-selected target. Used by AdminLayout to render an
+// actionable banner instead of a silent 403 page.
+// ---------------------------------------------------------------------------
+
+export interface AdminWhoamiResponse {
+  user_id: string;
+  is_admin: boolean;
+  matched_via: 'user_id' | 'email' | null;
+  identity_emails: string[];
+  whitelist_size: { user_ids: number; emails: number };
+  deployment_mode: string;
+  market_id: string;
+  git: string | null;
+}
+
+export function adminWhoami(opts: AdminRequestOptions = {}) {
+  return request<AdminWhoamiResponse>('/api/v1/admin/_whoami', opts);
+}
+
+// ---------------------------------------------------------------------------
 // Admin: Users tab — list/inspect users, adjust credits, ledger refunds.
 // All endpoints gated by require_admin (UUID or email whitelist). Photo
 // paths are intentionally never returned from the backend.

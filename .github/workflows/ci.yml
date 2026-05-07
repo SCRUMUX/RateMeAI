@@ -110,6 +110,13 @@ jobs:
       GLOBAL_API_BASE_URL: ${{ secrets.RAILWAY_API_URL }}
       GLOBAL_WEB_BASE_URL: https://ailookstudio.ru
       RU_PUBLIC_BASE_URL: ${{ secrets.RU_PUBLIC_BASE_URL }}
+      # 1.55.4 — ADMIN_EMAILS is now provisioned from CI to BOTH Railway
+      # (primary) and the RU edge .env.ru, replacing the brittle in-script
+      # ensure_env_line block in deploy/ru/update.sh that suffered from
+      # bash inode replacement during git pull. Source: optional GitHub
+      # repo secret; falls back to the known operator list so existing
+      # deploys keep working without manual secret config.
+      ADMIN_EMAILS: ${{ secrets.ADMIN_EMAILS || 'vladimir18kostyal@gmail.com,uk-tora@yandex.ru' }}
     steps:
       - uses: actions/checkout@v4
 
@@ -139,6 +146,7 @@ jobs:
           GC_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
           GC_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
           FAL_API_KEY: ${{ secrets.FAL_API_KEY }}
+          ADMIN_EMAILS: ${{ env.ADMIN_EMAILS }}
         run: |
           set -e
           FAILED=0
@@ -250,6 +258,18 @@ jobs:
             rl_set INTERNAL_API_KEY="$INTERNAL_API_KEY" -s app -e production --skip-deploys
           else
             echo "::warning::INTERNAL_API_KEY secret not set — edge→primary auth may break"
+          fi
+          # 1.55.4 — ADMIN_EMAILS sync (primary side). Mirrors what the
+          # deploy-ru job writes into .env.ru below, so both regions
+          # share the same email whitelist without manual dashboard
+          # tweaking. Empty value = skip (we never want to clobber a
+          # manually-set production whitelist with an empty string).
+          if [ -n "$ADMIN_EMAILS" ]; then
+            ENTRIES=$(echo "$ADMIN_EMAILS" | tr ',' '\n' | grep -c .)
+            echo "Syncing ADMIN_EMAILS to Railway app service ($ENTRIES entries)..."
+            rl_set ADMIN_EMAILS="$ADMIN_EMAILS" -s app -e production --skip-deploys
+          else
+            echo "::warning::ADMIN_EMAILS not set — admin endpoints stay locked on primary"
           fi
           if [ -n "$GC_ID" ] && [ -n "$GC_SECRET" ]; then
             echo "Syncing Google OAuth credentials to Railway app service..."
@@ -383,13 +403,17 @@ jobs:
           INTERNAL_API_KEY: ${{ secrets.INTERNAL_API_KEY }}
           GLOBAL_API_BASE_URL: ${{ secrets.RAILWAY_API_URL }}
           RU_PUBLIC_BASE_URL: ${{ secrets.RU_PUBLIC_BASE_URL }}
+          # 1.55.4 — single source of truth for the admin whitelist on
+          # both regions, sourced from the GitHub secret with a known
+          # fallback so deploys never silently drop the admins.
+          ADMIN_EMAILS: ${{ secrets.ADMIN_EMAILS || 'vladimir18kostyal@gmail.com,uk-tora@yandex.ru' }}
         with:
           host: ${{ secrets.RU_SSH_HOST }}
           username: ${{ secrets.RU_SSH_USER }}
           key: ${{ secrets.RU_SSH_KEY }}
           port: 22
           command_timeout: 10m
-          envs: DEPLOY_GIT_SHA,INTERNAL_API_KEY,GLOBAL_API_BASE_URL,RU_PUBLIC_BASE_URL
+          envs: DEPLOY_GIT_SHA,INTERNAL_API_KEY,GLOBAL_API_BASE_URL,RU_PUBLIC_BASE_URL,ADMIN_EMAILS
           script: |
             export DEPLOY_GIT_SHA="${DEPLOY_GIT_SHA:0:12}"
             ENV_FILE="/opt/ratemeai/.env.ru"
@@ -429,6 +453,24 @@ jobs:
             if [ -n "$INTERNAL_API_KEY" ]; then
               sync_env INTERNAL_API_KEY "$INTERNAL_API_KEY"
               echo "INTERNAL_API_KEY synced to .env.ru"
+            fi
+            # 1.55.4 — ADMIN_EMAILS provisioning is now CI-driven and
+            # runs OUTSIDE update.sh. Why: in 1.55.2/1.55.3 the helper
+            # lived inside update.sh, but bash holds the running
+            # script's inode open across the in-script ``git pull``,
+            # so any change to update.sh only took effect on the NEXT
+            # deploy (one-deploy lag). Doing it here, in the CI ssh
+            # action's own bash, sidesteps the inode quirk entirely:
+            # this script is never replaced mid-run. The change also
+            # makes the value visible in the CI log ("ADMIN_EMAILS
+            # synced (N entries)") and editable via a single GitHub
+            # secret without touching code.
+            if [ -n "$ADMIN_EMAILS" ]; then
+              sync_env ADMIN_EMAILS "$ADMIN_EMAILS"
+              ENTRIES=$(echo "$ADMIN_EMAILS" | tr ',' '\n' | grep -c .)
+              echo "ADMIN_EMAILS synced to .env.ru ($ENTRIES entries)"
+            else
+              echo "::warning::ADMIN_EMAILS empty — RU admin endpoints will return 403 for everyone"
             fi
             bash /opt/ratemeai/deploy/ru/update.sh
 
