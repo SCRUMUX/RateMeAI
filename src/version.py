@@ -4962,4 +4962,31 @@
 #            require_admin тесты передают monkeypatched admin_emails
 #            и mock-db.
 #          - ruff / tsc / pytest зелёные.
-APP_VERSION = "1.55.4"
+# 1.55.5 — РЕАЛЬНАЯ причина «русская админка не видит логин»: на
+#          RU-сборке (`VITE_API_BASE_URL=https://ru.ailookstudio.ru`)
+#          оба admin-target указывают на ОДИН backend, но slot'ы
+#          в localStorage разные:
+#             primary → ailook_session_token
+#             ru      → ailook_session_token__ru
+#          Публичный OAuth (auth.ts → setToken) ВСЕГДА пишет в
+#          primary-slot. После того как оператор переключил «Цель»
+#          на «RU» (ailook_admin_active_target=ru), `hasToken`
+#          в admin-target-context смотрел в ru-slot, который пуст,
+#          и `NoTokenForTargetGate` выводил «Нужен вход на target
+#          «RU»» — несмотря на валидный токен в primary-slot.
+#          Backend это видел нормально (в логах _whoami матчился по
+#          email), но frontend даже не доходил до запроса —
+#          блокировал на первом гейте.
+#          Фикс: `getTokenForTarget(id)` теперь делает fallback на
+#          primary-slot, когда `apiBase` запрошенного target'а
+#          совпадает с primary apiBase (тот же backend → тот же
+#          токен валиден). На Vercel-сборке (primary=Railway,
+#          ru=ru.ailookstudio.ru) фолбэка нет — токен Railway не
+#          валиден на RU edge, изоляция сохранена.
+#          `request()` тоже переехал на `getTokenForTarget`, чтобы
+#          Authorization-заголовок выставлялся корректно.
+#          NoTokenForTargetGate получил блок «Показать диагностику
+#          токенов» (origin + apiBase + storageKey + has/empty по
+#          каждому target'у) — теперь видно сразу, где зарыт токен,
+#          без обращения к консоли браузера.
+APP_VERSION = "1.55.5"

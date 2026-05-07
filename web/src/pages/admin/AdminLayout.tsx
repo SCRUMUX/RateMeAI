@@ -276,6 +276,24 @@ function NoTokenForTargetGate({ children }: { children: ReactNode }) {
       ? `${current.apiBase.replace(/\/+$/, '')}/admin/users`
       : null;
 
+  // 1.55.5 — diagnostic dump so the operator (and we) can immediately
+  // see WHY hasToken is false. Without this the page just says
+  // "Нужен вход" and there's no way to tell whether the token is in
+  // a different slot, on a different origin, or genuinely absent.
+  const tokenSlots = targets.map((t) => {
+    const key = tokenStorageKey(t.id);
+    const raw = (() => {
+      try { return localStorage.getItem(key); } catch { return null; }
+    })();
+    return {
+      id: t.id,
+      label: t.shortLabel,
+      apiBase: t.apiBase,
+      storageKey: key,
+      hasValue: Boolean(raw),
+    };
+  });
+
   return (
     <div className="rounded-[14px] border border-amber-400/30 bg-amber-500/5 px-[var(--space-24)] py-[var(--space-24)] text-amber-100 max-w-[760px]">
       <h2 className="text-[16px] leading-[22px] font-semibold mb-[var(--space-8)]">
@@ -310,11 +328,25 @@ function NoTokenForTargetGate({ children }: { children: ReactNode }) {
         <button
           type="button"
           onClick={() => setTarget(otherWithToken.id)}
-          className="px-[var(--space-16)] h-[36px] rounded-[var(--radius-pill)] bg-white/10 hover:bg-white/15 text-white text-[13px] leading-[18px] font-medium"
+          className="px-[var(--space-16)] h-[36px] rounded-[var(--radius-pill)] bg-white/10 hover:bg-white/15 text-white text-[13px] leading-[18px] font-medium mb-[var(--space-16)]"
         >
           Переключиться обратно на {otherWithToken.shortLabel}
         </button>
       )}
+      <details className="text-[12px] leading-[18px] text-amber-100/60 select-text">
+        <summary className="cursor-pointer text-amber-100/80">
+          Показать диагностику токенов
+        </summary>
+        <ul className="mt-[var(--space-8)] space-y-[var(--space-4)] font-mono text-[11px]">
+          <li>origin: {currentHost || '—'}</li>
+          {tokenSlots.map((s) => (
+            <li key={s.id}>
+              {s.label} ({s.apiBase || '—'}) → {s.storageKey}:{' '}
+              {s.hasValue ? 'present' : 'empty'}
+            </li>
+          ))}
+        </ul>
+      </details>
     </div>
   );
 }

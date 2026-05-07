@@ -92,7 +92,32 @@ export function setTokenForTarget(id: AdminTargetId, t: string | null): void {
 }
 
 export function getTokenForTarget(id: AdminTargetId): string | null {
-  return _tokens[id];
+  const direct = _tokens[id];
+  if (direct) return direct;
+  // 1.55.5 — same-origin fallback. On the RU edge SPA build,
+  // ``VITE_API_BASE_URL`` and ``VITE_ADMIN_TARGET_RU_URL`` both point
+  // at ``https://ru.ailookstudio.ru``, so ``primary`` and ``ru``
+  // resolve to the SAME backend. The OAuth flow always writes to the
+  // primary slot (legacy ``ailook_session_token``); without this
+  // fallback, switching the target dropdown to RU on the RU build
+  // would leave ``hasToken`` false and the page would show
+  // "Нужен вход на target «RU»" forever even though the operator IS
+  // logged in and the token IS valid for the requested apiBase.
+  // Fallback rule: if the requested target shares apiBase with
+  // primary (i.e. same backend), reuse the primary token. Targets on
+  // a different origin (the Vercel build, where primary = Railway
+  // and ru = ru.ailookstudio.ru) keep strict per-target isolation —
+  // a primary Railway token is NOT valid against the RU backend.
+  if (id !== 'primary') {
+    try {
+      const primaryBase = getAdminTarget('primary').apiBase;
+      const targetBase = getAdminTarget(id).apiBase;
+      if (primaryBase && targetBase && primaryBase === targetBase) {
+        return _tokens.primary;
+      }
+    } catch { /* unknown target — bail to null */ }
+  }
+  return null;
 }
 
 const ADMIN_PATH_PREFIX = '/api/v1/admin/';
@@ -125,7 +150,10 @@ async function request<T>(
     targetId = 'primary';
   }
   const apiBase = getAdminTarget(targetId).apiBase;
-  const token = _tokens[targetId];
+  // 1.55.5 — use ``getTokenForTarget`` so the same-origin fallback
+  // (RU build: primary===ru) actually attaches the Authorization
+  // header when the operator routes admin traffic via target=ru.
+  const token = getTokenForTarget(targetId);
 
   const headers = new Headers(fetchInit.headers);
   if (token) headers.set('Authorization', `Bearer ${token}`);
