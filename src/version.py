@@ -4622,4 +4622,24 @@
 #          таблицей и боковой шторкой (drawer); 4-я вкладка
 #          «Пользователи» в ``AdminLayout``; маршрут
 #          ``/admin/users`` lazy-load в ``App.tsx``.
-APP_VERSION = "1.52.0"
+# 1.53.0 — Scenario landings → CMS (frontend-only). Текст и
+#          steps трёх сценарных лендингов (документы / знакомства
+#          / резюме) теперь редактируется через тот же
+#          ``/admin/landing`` JSON-редактор, что и ``home``.
+#          В ``data/landing_content.json`` добавлены slug-и
+#          ``document_photo``, ``dating_photo``, ``resume_photo``;
+#          бэк (``landing_store``) автоматически их подхватывает,
+#          ``GET /api/v1/admin/landing/pages`` возвращает все 4
+#          ключа. В ``web/src/lib/landing-cms.ts`` добавлены
+#          парсеры ``parseHero`` / ``parseHowItWorks`` /
+#          ``parseFinalCta`` / ``parseScenarioPricing`` и
+#          универсальный ``useLandingPage(slug)`` с кэшем.
+#          ``DocumentPhotoLanding.tsx`` / ``DatingPhotoLanding.tsx``
+#          / ``ResumePhotoLanding.tsx`` читают блоки из CMS;
+#          захардкоженный контент остался в файлах как
+#          fallback — пустой/битый JSON-блок рендерит старую
+#          верстку, не белую страницу. Тестимониалы и
+#          social-proof пресеты намеренно оставлены
+#          динамическими (отдельные модули
+#          ``data/testimonials`` и ``data/social-proof``).
+APP_VERSION = "1.53.0"

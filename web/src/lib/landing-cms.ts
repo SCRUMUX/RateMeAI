@@ -10,7 +10,11 @@ export type LandingBlockType =
   | 'proof_counter'
   | 'testimonials'
   | 'six_categories'
-  | 'before_after';
+  | 'before_after'
+  | 'hero'
+  | 'how_it_works'
+  | 'final_cta'
+  | 'scenario_pricing';
 
 export interface LandingBlock {
   id: string;
@@ -144,6 +148,136 @@ export function defaultProofCounter(
   };
 }
 
+// --- scenario-landing block parsers --------------------------------------
+// All four parsers share the same shape: take the raw block payload + a
+// component-side fallback, return a fully-typed object. Missing fields
+// always fall back to the JSX-baked default so an empty/broken JSON
+// block renders the original landing copy instead of a blank section.
+
+export interface HeroContent {
+  icon: string;
+  title: string;
+  gradientPhrase: string;
+  lead: string;
+  ctaLabel: string;
+  ctaMicrocopy: string;
+}
+
+export function parseHero(value: unknown, fallback: HeroContent): HeroContent {
+  if (!value || typeof value !== 'object') return fallback;
+  const obj = value as Record<string, unknown>;
+  return {
+    icon: asString(obj.icon).trim() || fallback.icon,
+    title: asString(obj.title).trim() || fallback.title,
+    gradientPhrase:
+      asString(obj.gradient_phrase).trim()
+      || asString(obj.gradientPhrase).trim()
+      || fallback.gradientPhrase,
+    lead: asString(obj.lead).trim() || fallback.lead,
+    ctaLabel:
+      asString(obj.cta_label).trim()
+      || asString(obj.ctaLabel).trim()
+      || fallback.ctaLabel,
+    ctaMicrocopy:
+      asString(obj.cta_microcopy).trim()
+      || asString(obj.ctaMicrocopy).trim()
+      || fallback.ctaMicrocopy,
+  };
+}
+
+export interface HowItWorksStepContent {
+  num: string;
+  title: string;
+  desc: string;
+}
+
+export interface HowItWorksContent {
+  title: string;
+  steps: HowItWorksStepContent[];
+}
+
+export function parseHowItWorks(
+  value: unknown,
+  fallback: HowItWorksContent,
+): HowItWorksContent {
+  if (!value || typeof value !== 'object') return fallback;
+  const obj = value as Record<string, unknown>;
+  const stepsRaw = Array.isArray(obj.steps) ? obj.steps : null;
+  if (!stepsRaw || !stepsRaw.length) {
+    return {
+      title: asString(obj.title).trim() || fallback.title,
+      steps: fallback.steps,
+    };
+  }
+  const steps: HowItWorksStepContent[] = stepsRaw
+    .map((raw, idx) => {
+      if (!raw || typeof raw !== 'object') return null;
+      const r = raw as Record<string, unknown>;
+      const fb = fallback.steps[idx] || {
+        num: String(idx + 1),
+        title: '',
+        desc: '',
+      };
+      return {
+        num: asString(r.num).trim() || fb.num,
+        title: asString(r.title).trim() || fb.title,
+        desc: asString(r.desc).trim() || fb.desc,
+      };
+    })
+    .filter((s): s is HowItWorksStepContent => !!s && (!!s.title || !!s.desc));
+  return {
+    title: asString(obj.title).trim() || fallback.title,
+    steps: steps.length ? steps : fallback.steps,
+  };
+}
+
+export interface FinalCtaContent {
+  brandHeading: string;
+  h2: string;
+  lead: string;
+  ctaSignedInLabel: string;
+  ctaAnonymousLabel: string;
+}
+
+export function parseFinalCta(
+  value: unknown,
+  fallback: FinalCtaContent,
+): FinalCtaContent {
+  if (!value || typeof value !== 'object') return fallback;
+  const obj = value as Record<string, unknown>;
+  return {
+    brandHeading:
+      asString(obj.brand_heading).trim()
+      || asString(obj.brandHeading).trim()
+      || fallback.brandHeading,
+    h2: asString(obj.h2).trim() || fallback.h2,
+    lead: asString(obj.lead).trim() || fallback.lead,
+    ctaSignedInLabel:
+      asString(obj.cta_signed_in_label).trim()
+      || asString(obj.ctaSignedInLabel).trim()
+      || fallback.ctaSignedInLabel,
+    ctaAnonymousLabel:
+      asString(obj.cta_anonymous_label).trim()
+      || asString(obj.ctaAnonymousLabel).trim()
+      || fallback.ctaAnonymousLabel,
+  };
+}
+
+export interface ScenarioPricingContent {
+  tagline: string;
+}
+
+export function parseScenarioPricing(
+  value: unknown,
+  fallback: ScenarioPricingContent,
+): ScenarioPricingContent {
+  if (!value || typeof value !== 'object') return fallback;
+  const obj = value as Record<string, unknown>;
+  return {
+    tagline: asString(obj.tagline).trim() || fallback.tagline,
+  };
+}
+
 export function parseSupportContacts(value: unknown): FooterSupportContacts {
   if (!value || typeof value !== 'object') return {};
   const obj = value as Record<string, unknown>;
@@ -209,6 +343,70 @@ export function useLandingHome(): LandingPage | null {
       subscribers.delete(subscriber);
     };
   }, []);
+
+  return page;
+}
+
+// --- generic per-slug cache (scenario landings) ---------------------------
+// Mirrors the `home` cache but keyed by slug. The `home` slug gets its
+// own dedicated path (above) for backward compatibility — every landing
+// component that already calls `useLandingHome()` keeps working untouched.
+
+const slugCache = new Map<string, LandingPage | null>();
+const slugPromises = new Map<string, Promise<LandingPage | null>>();
+const slugSubscribers = new Map<
+  string,
+  Set<(page: LandingPage | null) => void>
+>();
+
+function fetchSlug(slug: string): Promise<LandingPage | null> {
+  const existing = slugPromises.get(slug);
+  if (existing) return existing;
+  const promise = getLandingPage(slug)
+    .then((res) => {
+      const page = asLandingPage(res.page);
+      slugCache.set(slug, page);
+      slugSubscribers.get(slug)?.forEach((fn) => fn(page));
+      return page;
+    })
+    .catch(() => {
+      slugCache.set(slug, null);
+      slugSubscribers.get(slug)?.forEach((fn) => fn(null));
+      return null;
+    });
+  slugPromises.set(slug, promise);
+  return promise;
+}
+
+export function useLandingPage(slug: string): LandingPage | null {
+  const [page, setPage] = useState<LandingPage | null>(
+    slugCache.get(slug) ?? null,
+  );
+
+  useEffect(() => {
+    let cancelled = false;
+    const subscriber = (value: LandingPage | null) => {
+      if (!cancelled) setPage(value);
+    };
+    let bucket = slugSubscribers.get(slug);
+    if (!bucket) {
+      bucket = new Set();
+      slugSubscribers.set(slug, bucket);
+    }
+    bucket.add(subscriber);
+
+    const cached = slugCache.get(slug);
+    if (cached !== undefined) {
+      setPage(cached);
+    } else {
+      void fetchSlug(slug);
+    }
+
+    return () => {
+      cancelled = true;
+      bucket?.delete(subscriber);
+    };
+  }, [slug]);
 
   return page;
 }
