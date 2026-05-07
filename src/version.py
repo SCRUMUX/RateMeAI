@@ -4692,4 +4692,99 @@
 #          unblock clears, delete calls purge with
 #          ``source="admin"``, ``ensure_user_not_blocked``
 #          на 3 кейса). Полный набор: 2061 passed, 54 skipped.
-APP_VERSION = "1.54.0"
+# 1.55.0 — Multi-target admin + UX-фиксы (frontend-only).
+#          После 1.54 пользователь обнаружил, что блок,
+#          списания, лендинг и стили срабатывают только на
+#          том инстансе, к которому пришёл админ-запрос —
+#          а у нас два независимых FastAPI с собственными
+#          Postgres'ами и собственными ``data/styles.json`` /
+#          ``data/landing_content.json``: primary
+#          (``app-production-6986.up.railway.app``,
+#          обслуживает ``ailookstudio.ru`` и
+#          ``ailookstudio.vercel.app``) и RU edge VPS
+#          (``ru.ailookstudio.ru``). Решение: явный
+#          переключатель ``Цель = Primary | RU`` в шапке
+#          админки + кнопка «Применить на оба» для CMS
+#          операций.
+#          Новые модули фронта:
+#            * ``web/src/lib/admin-targets.ts`` — декларация
+#              ``ADMIN_TARGETS = [primary, ru]`` (env-driven
+#              ``VITE_ADMIN_TARGET_PRIMARY_URL`` /
+#              ``VITE_ADMIN_TARGET_RU_URL``), per-target
+#              localStorage ключи
+#              ``ailook_session_token__{primary|ru}``.
+#            * ``web/src/lib/admin-target-context.tsx`` —
+#              React-контекст ``useAdminTarget()``;
+#              ``setTarget(id)`` зеркалит в api.ts и пишет
+#              ``ailook_admin_active_target`` в localStorage,
+#              чтобы выбор пережил refresh.
+#          api.ts: ``API_BASE`` → ``getApiBase()``,
+#          ``request<T>(path, init?)`` принимает
+#          ``init.target`` (override на один вызов — для
+#          fan-out). Токены и URL берутся из словарей
+#          ``_tokens[targetId]`` / ``ADMIN_TARGETS``.
+#          Legacy-ключ ``ailook_session_token`` мигрируется
+#          в ``__primary`` при boot, поэтому существующие
+#          сессии не выпадают.
+#          AdminLayout: dropdown с цветным бейджем
+#          (Primary = синий, RU = зелёный), под ним
+#          подпись «у каждого target свои юзеры/кредиты,
+#          контент пишется явно через "Применить на оба"».
+#          При смене target children перемонтируются по
+#          ключу (свежий fetch без stale данных).
+#          ``NoTokenForTargetGate`` показывает страницу
+#          логина с прямыми ссылками на
+#          ``ailookstudio.ru/auth`` и
+#          ``ru.ailookstudio.ru/auth`` если на выбранном
+#          target нет токена.
+#          CMS: ``LandingAdminPage`` и
+#          ``StylesAdminPage`` (модалка) получили кнопку
+#          «Применить на оба» рядом с обычным
+#          «Сохранить». Кнопка делает PUT/POST на оба
+#          target последовательно и рендерит inline-панель
+#          с per-target диагностикой
+#          (``✓ Primary: Сохранено`` / ``✗ RU: 401 — нужен
+#          логин``). Failures одного target не откатывают
+#          второго; оператор видит, где починить.
+#          UX-фиксы редактора стилей:
+#            * Ошибки API (422/409/500) теперь падают
+#              **внутри** модалки, а не за её оверлеем —
+#              ``handleSave`` rethrow'ит, ``StyleEditModal``
+#              ловит и рисует красный баннер «Ошибка
+#              сохранения».
+#            * Баннер валидации сверху модалки
+#              «Не сохранено: исправьте поля — trigger_pool,
+#              clothing.default» с авто-переходом на
+#              вкладку «Поля стиля».
+#            * ``per_model_tail`` стал controlled:
+#              defaultValue+onBlur заменён на
+#              буферизированный textarea с парсингом
+#              JSON по onChange и индикатором
+#              «Невалидный JSON object».
+#            * Кнопка «Сохранить» дизейблится во время
+#              запроса, лейбл «Сохраняем…».
+#          UX-фиксы Users tab: универсальный
+#          ``describeAdminError`` переводит 404 в
+#          «Пользователь не найден на текущем сервере.
+#          Возможно, он на другом региональном инстансе —
+#          переключите Цель в шапке», 401 — в
+#          «Сессия не активна на этом сервере», 403 — в
+#          «Аккаунт не в ADMIN_USER_IDS на этом инстансе».
+#          Применён в catch-блоках ``fetchUsers``,
+#          ``fetchDetail``, ``submitAction``,
+#          ``handleBlock/Unblock/Delete``.
+#          Backend: НИКАКИХ изменений в API/моделях.
+#          CORS уже разрешает кросс-домен primary↔ru
+#          (проверено через preflight на
+#          ``/admin/users/{id}/block`` — оба инстанса
+#          возвращают 200 с правильными
+#          ``Access-Control-Allow-Origin``). Миграция
+#          011 раскатана на оба postgres'а в 1.54.
+#          Тесты: ``tsc --noEmit`` зелёный, ``ruff``
+#          зелёный, ``pytest`` 2061 passed (без новых
+#          тестов — multi-target фронта unit-тестами не
+#          покрывается, нужен e2e).
+#          ОПЕРАЦИОННОЕ: на RU edge нужно проверить
+#          ``ADMIN_EMAILS`` в ``/opt/ratemeai/.env.ru`` —
+#          без этой строки логин админа на ru.* даст 403.
+APP_VERSION = "1.55.0"

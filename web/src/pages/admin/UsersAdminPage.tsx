@@ -70,6 +70,45 @@ function describeContact(user: AdminUserSummary): string {
   return user.id.slice(0, 8) + '…';
 }
 
+/**
+ * Translate a backend ``ApiError`` into a Russian message that
+ * mentions the multi-instance reality. The two big surprises for
+ * the operator are:
+ *
+ * - 404: user lives on the OTHER region's Postgres. Tell them to
+ *   switch ``Цель`` in the header (set up in 1.55.0).
+ * - 401/403: token isn't valid for the current target. They need
+ *   to log in on this region.
+ *
+ * Everything else falls back to the generic message so we don't
+ * eat structured backend errors like ``insufficient_credits``.
+ */
+function describeAdminError(e: unknown, fallback: string): string {
+  if (!(e instanceof ApiError)) {
+    return e instanceof Error ? e.message : fallback;
+  }
+  if (e.status === 404) {
+    return (
+      'Пользователь не найден на текущем сервере. '
+      + 'Возможно, он зарегистрирован на другом региональном инстансе — '
+      + 'переключите «Цель» в шапке админки и попробуйте снова.'
+    );
+  }
+  if (e.status === 401) {
+    return (
+      'Сессия не активна на этом сервере. '
+      + 'Войдите в основной кабинет на текущем target и вернитесь в админку.'
+    );
+  }
+  if (e.status === 403) {
+    return (
+      'Доступ запрещён на текущем сервере. '
+      + 'Этот аккаунт не входит в ADMIN_USER_IDS / ADMIN_EMAILS на этом инстансе.'
+    );
+  }
+  return e.message || fallback;
+}
+
 interface ConfirmActionState {
   mode: ActionMode;
   amount: string;
@@ -119,13 +158,7 @@ export default function UsersAdminPage() {
       const res = await api.listAdminUsers({ q, limit: lim });
       setUsers(res.items);
     } catch (e) {
-      if (e instanceof ApiError && e.status === 403) {
-        setListError('Доступ запрещён. Аккаунт не в ADMIN_USER_IDS / ADMIN_EMAILS.');
-      } else if (e instanceof ApiError && e.status === 401) {
-        setListError('Сессия не активна. Войдите в основной кабинет и вернитесь.');
-      } else {
-        setListError(e instanceof Error ? e.message : 'Не удалось загрузить список');
-      }
+      setListError(describeAdminError(e, 'Не удалось загрузить список'));
       setUsers([]);
     } finally {
       setLoadingList(false);
@@ -143,7 +176,7 @@ export default function UsersAdminPage() {
       const res = await api.getAdminUser(userId);
       setDetail(res);
     } catch (e) {
-      setDetailError(e instanceof Error ? e.message : 'Не удалось загрузить пользователя');
+      setDetailError(describeAdminError(e, 'Не удалось загрузить пользователя'));
       setDetail(null);
     } finally {
       setLoadingDetail(false);
@@ -234,8 +267,8 @@ export default function UsersAdminPage() {
         try {
           const parsed = JSON.parse(e.body);
           if (
-            parsed?.detail?.code === 'insufficient_credits' ||
-            parsed?.code === 'insufficient_credits'
+            parsed?.detail?.code === 'insufficient_credits'
+            || parsed?.code === 'insufficient_credits'
           ) {
             const balance =
               parsed?.detail?.balance ?? parsed?.balance ?? '?';
@@ -248,7 +281,7 @@ export default function UsersAdminPage() {
           /* fall through to generic message */
         }
       }
-      setActionError(e instanceof Error ? e.message : 'Не удалось выполнить операцию');
+      setActionError(describeAdminError(e, 'Не удалось выполнить операцию'));
     } finally {
       setActionBusy(false);
     }
@@ -270,7 +303,7 @@ export default function UsersAdminPage() {
       await fetchDetail(detail.user.id);
       void fetchUsers(submittedQuery, limit);
     } catch (e) {
-      setModerationError(e instanceof Error ? e.message : 'Не удалось заблокировать');
+      setModerationError(describeAdminError(e, 'Не удалось заблокировать'));
     } finally {
       setBlockBusy(false);
     }
@@ -285,7 +318,7 @@ export default function UsersAdminPage() {
       await fetchDetail(detail.user.id);
       void fetchUsers(submittedQuery, limit);
     } catch (e) {
-      setModerationError(e instanceof Error ? e.message : 'Не удалось разблокировать');
+      setModerationError(describeAdminError(e, 'Не удалось разблокировать'));
     } finally {
       setBlockBusy(false);
     }
@@ -306,7 +339,7 @@ export default function UsersAdminPage() {
       setActiveUserId(null);
       void fetchUsers(submittedQuery, limit);
     } catch (e) {
-      setModerationError(e instanceof Error ? e.message : 'Не удалось удалить пользователя');
+      setModerationError(describeAdminError(e, 'Не удалось удалить пользователя'));
     } finally {
       setDeleteBusy(false);
     }

@@ -357,7 +357,74 @@ sudo DEPLOY_GIT_SHA=$(git rev-parse --short=12 HEAD) ./deploy/ru/update.sh
 
 ---
 
-## 9. Мониторинг
+## 9. Multi-target admin (1.55.0+)
+
+В админке `/admin/*` есть переключатель **«Цель»** (правый верхний угол), который позволяет одному оператору работать с обоими backend-инстансами без перелогина и переключения доменов.
+
+### Зачем
+
+Primary (Railway) и RU Edge (VPS) — это два независимых FastAPI с собственными:
+- Postgres (свои `users`, `credit_transactions`, `tasks`)
+- Redis (свои сессии и очереди)
+- `data/styles.json` и `data/landing_content.json` на диске контейнера
+
+Это значит: юзер существует только в БД одного инстанса, кредиты/блок применяются только на нём, CMS-правка сохраняется только в локальный файл того инстанса, к которому пришёл админ-запрос.
+
+### Что делает переключатель
+
+| Действие | Поведение |
+|---|---|
+| Просмотр / поиск пользователей, кредиты, блок, удаление | Выполняется только на выбранном target. Если юзер живёт на другом — 404 с подсказкой «переключите Цель в шапке». |
+| Landing CMS — кнопка «Сохранить» | Записывает только в выбранный target. |
+| Landing CMS — кнопка «Применить на оба» | Делает PUT последовательно на primary и RU. Показывает per-target диагностику (`✓ Primary: Сохранено` / `✗ RU: 401 — нужен логин`). |
+| Styles modal — кнопка «Сохранить» | Только в выбранный target. |
+| Styles modal — кнопка «Применить на оба» | Аналогично landing — fan-out с диагностикой. |
+
+### Per-target session tokens
+
+Каждый target имеет свой токен в `localStorage`:
+- `ailook_session_token__primary`
+- `ailook_session_token__ru`
+
+Чтобы залогиниться на RU edge, оператор открывает `https://ru.ailookstudio.ru/auth`, проходит OAuth (Google / Yandex / VK-ID), потом возвращается в админку и переключает «Цель» на `RU`. Токен из RU теперь в `__ru` ключе.
+
+Если на выбранной цели нет токена, админка показывает экран «Нужен вход на target X» со ссылками на оба `/auth`-домена.
+
+### Env-переменные
+
+На фронте (Vercel build-time):
+- `VITE_API_BASE_URL` — primary API (как и раньше). Используется и SPA, и primary target по умолчанию.
+- `VITE_ADMIN_TARGET_PRIMARY_URL` (опционально) — переопределяет primary target. По умолчанию = `VITE_API_BASE_URL`.
+- `VITE_ADMIN_TARGET_RU_URL` (опционально) — RU target. По умолчанию `https://ru.ailookstudio.ru`.
+
+На бэке требуется одинаково на ОБОИХ инстансах:
+- `ADMIN_EMAILS` — список email-ов (через запятую), которым доступна админка через `require_admin`. Без этого список на RU вернёт 403.
+- `ADMIN_USER_IDS` — UUID-ы (опционально, дублирует email-whitelist).
+
+CORS уже разрешает кросс-домен — primary пропускает `Origin: https://ru.ailookstudio.ru`, и наоборот (см. `src/main.py` _origins).
+
+### Чек-лист после деплоя 1.55
+
+```bash
+# Проверить, что оба инстанса на 1.55.0+
+curl -s https://app-production-6986.up.railway.app/health | jq -r .version
+curl -s https://ru.ailookstudio.ru/health | jq -r .version
+
+# На RU edge через SSH:
+ssh root@ru-vps "grep ADMIN_EMAILS /opt/ratemeai/.env.ru"
+ssh root@ru-vps "cd /opt/ratemeai && docker compose -f docker-compose.ru.yml exec app alembic current"
+# должно быть 011_user_blocked (head)
+```
+
+### Известные риски
+
+1. **OAuth redirect URIs**. Если в Google/Yandex/VK Console не добавлен `https://ru.ailookstudio.ru/auth/callback`, логин на RU сломается. Лечится в админ-консоли провайдера.
+2. **«Применить на оба» не атомарно**. Если primary принял, а RU упал — состояния рассинхронизированы. Оператор видит per-target результат и может повторить только проблемный target после переключения «Цели».
+3. **Юзеры существуют только в одном регионе**. Если оператор не помнит, где зарегистрирован клиент, проще всего попробовать поиск на обоих target по очереди.
+
+---
+
+## 10. Мониторинг
 
 ### Endpoints
 

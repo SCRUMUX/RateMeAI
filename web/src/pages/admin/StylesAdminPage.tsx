@@ -6,7 +6,8 @@ import type {
   AdminStyleEntry,
   AdminStyleSummary,
 } from '../../lib/api';
-import { ApiError } from '../../lib/api';
+import { ApiError, getTokenForTarget } from '../../lib/api';
+import { ADMIN_TARGETS, type AdminTargetId } from '../../lib/admin-targets';
 import AdminLayout from './AdminLayout';
 
 type ModeFilter = 'all' | 'cv' | 'social' | 'dating' | string;
@@ -39,6 +40,12 @@ const LOCATION_TYPES: readonly string[] = [
 ] as const;
 
 const DEFAULT_SEASONS = ['spring', 'summer', 'autumn', 'winter'];
+
+interface PerTargetSaveResult {
+  target: AdminTargetId;
+  status: 'ok' | 'failed' | 'skipped';
+  message: string;
+}
 
 function severityCounts(issues: AdminLintIssue[] | undefined): {
   errors: number;
@@ -204,20 +211,72 @@ export default function StylesAdminPage() {
     setEditing(null);
   }, []);
 
+  // 1.55.0: rethrow на ошибке. Раньше setError(...) рисовал баннер
+  // на родительской странице, который полностью перекрывался модалкой
+  // редактора (z-50 vs z-неопределён). Оператор видел "ничего не
+  // произошло". Теперь модалка сама ловит исключение и показывает
+  // ошибку внутри своей формы.
   const handleSave = useCallback(
     async (entry: AdminStyleEntry, isNew: boolean) => {
-      try {
-        if (isNew) {
-          await api.createAdminStyle(entry);
-        } else {
-          await api.updateAdminStyle(entry.id, entry);
-        }
-        setEditing(null);
-        await fetchList();
-      } catch (e) {
-        const msg = e instanceof Error ? e.message : 'Не удалось сохранить';
-        setError(msg);
+      if (isNew) {
+        await api.createAdminStyle(entry);
+      } else {
+        await api.updateAdminStyle(entry.id, entry);
       }
+      setEditing(null);
+      await fetchList();
+    },
+    [fetchList],
+  );
+
+  /**
+   * "Apply to both" for styles: write the entry to every declared
+   * admin target (primary and RU). Each target has its own
+   * ``data/styles.json`` on disk, so a single write only updates the
+   * current region. Returns per-target results so the modal can
+   * render a diagnostic banner.
+   */
+  const handleSaveBoth = useCallback(
+    async (
+      entry: AdminStyleEntry,
+      isNew: boolean,
+    ): Promise<PerTargetSaveResult[]> => {
+      const results: PerTargetSaveResult[] = [];
+      for (const t of ADMIN_TARGETS) {
+        if (!getTokenForTarget(t.id)) {
+          results.push({
+            target: t.id,
+            status: 'skipped',
+            message: `Нет токена для ${t.shortLabel}. Войдите на этом target и повторите.`,
+          });
+          continue;
+        }
+        try {
+          if (isNew) {
+            await api.createAdminStyle(entry, { target: t.id });
+          } else {
+            await api.updateAdminStyle(entry.id, entry, { target: t.id });
+          }
+          results.push({
+            target: t.id,
+            status: 'ok',
+            message: 'Сохранено.',
+          });
+        } catch (e) {
+          const msg =
+            e instanceof ApiError
+              ? `${e.status} — ${e.body.slice(0, 200) || e.message}`
+              : e instanceof Error
+                ? e.message
+                : 'Неизвестная ошибка';
+          results.push({ target: t.id, status: 'failed', message: msg });
+        }
+      }
+      const anyOk = results.some((r) => r.status === 'ok');
+      if (anyOk) {
+        await fetchList();
+      }
+      return results;
     },
     [fetchList],
   );
@@ -414,6 +473,7 @@ export default function StylesAdminPage() {
           isNew={editing.isNew}
           onClose={(dirty) => closeEdit(dirty)}
           onSave={(updated) => handleSave(updated, editing.isNew)}
+          onSaveBoth={(updated) => handleSaveBoth(updated, editing.isNew)}
         />
       )}
     </AdminLayout>
@@ -469,17 +529,41 @@ function StyleEditModal({
   isNew,
   onClose,
   onSave,
+  onSaveBoth,
 }: {
   entry: AdminStyleEntry;
   isNew: boolean;
   onClose: (dirty: boolean) => void;
-  onSave: (entry: AdminStyleEntry) => void;
+  onSave: (entry: AdminStyleEntry) => Promise<void>;
+  onSaveBoth: (entry: AdminStyleEntry) => Promise<PerTargetSaveResult[]>;
 }) {
   const [tab, setTab] = useState<'basic' | 'fields'>('basic');
   const initialJson = useMemo(() => JSON.stringify(entry), [entry]);
   const [draft, setDraft] = useState<AdminStyleEntry>(() => structuredClone(entry));
   const [fieldErrors, setFieldErrors] = useState<V3FieldErrors>({});
   const [liveIssues, setLiveIssues] = useState<AdminLintIssue[]>([]);
+  // 1.55.0: API errors and validation banners now live INSIDE the
+  // modal (see also handleSave above). Without this, errors from
+  // POST/PUT /admin/styles vanished behind the modal overlay and
+  // the operator had no idea why "Save" didn't seem to do anything.
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [validationBanner, setValidationBanner] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  // per_model_tail is a JSON object; we keep a string buffer the
+  // user types into and only commit the parsed value on each keystroke
+  // when JSON parses cleanly. Replaces the previous defaultValue +
+  // onBlur trick that silently lost edits if the user clicked
+  // "Save" before blurring the textarea.
+  const initialTailJson = JSON.stringify(
+    asObject(entry.quality_identity).per_model_tail ?? {},
+    null,
+    2,
+  );
+  const [tailBuffer, setTailBuffer] = useState<string>(initialTailJson);
+  const [tailJsonValid, setTailJsonValid] = useState<boolean>(true);
+  const [bothResults, setBothResults] = useState<PerTargetSaveResult[] | null>(
+    null,
+  );
 
   const update = useCallback(<K extends string>(key: K, value: unknown) => {
     setDraft((prev) => ({ ...prev, [key]: value }));
@@ -645,28 +729,100 @@ function StyleEditModal({
     });
   }, []);
 
-  const updateQualityTail = useCallback((raw: string) => {
+  // Buffered, controlled JSON editor for per_model_tail. We commit the
+  // parsed value on every keystroke that yields valid JSON, but always
+  // keep the raw string buffer so the user can fix typos mid-edit.
+  const updateTailBuffer = useCallback((raw: string) => {
+    setTailBuffer(raw);
     try {
-      const parsed = JSON.parse(raw || '{}');
-      setDraft((prev) => {
-        const block = asObject(prev.quality_identity);
-        return { ...prev, quality_identity: { ...block, per_model_tail: parsed } };
-      });
+      const parsed = JSON.parse(raw.trim() || '{}');
+      if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+        setTailJsonValid(true);
+        setDraft((prev) => {
+          const block = asObject(prev.quality_identity);
+          return { ...prev, quality_identity: { ...block, per_model_tail: parsed } };
+        });
+      } else {
+        setTailJsonValid(false);
+      }
     } catch {
-      // keep last good value if JSON malformed; user can retry
+      setTailJsonValid(false);
     }
   }, []);
 
-  const onSubmit = (e: React.FormEvent) => {
+  const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setSaveError(null);
+    setValidationBanner(null);
     const errors = validateV3Draft(draft);
     setFieldErrors(errors);
     if (Object.keys(errors).length > 0) {
-      // Surface the fields-tab so users see the offending field immediately.
       setTab('fields');
+      // Build a friendly summary so the operator immediately sees WHY
+      // saving was blocked instead of having to scan every fieldset.
+      const labels: Record<keyof V3FieldErrors, string> = {
+        trigger_pool: 'trigger_pool',
+        scene_anchor: 'scene_anchor',
+        clothing_default: 'clothing.default',
+        quality_base: 'quality_identity.base',
+      };
+      const parts = (Object.keys(errors) as (keyof V3FieldErrors)[])
+        .map((k) => labels[k])
+        .filter(Boolean);
+      setValidationBanner(
+        `Не сохранено: исправьте поля — ${parts.join(', ')}.`,
+      );
       return;
     }
-    onSave(draft);
+    if (!tailJsonValid) {
+      setTab('fields');
+      setValidationBanner('Не сохранено: per_model_tail содержит невалидный JSON.');
+      return;
+    }
+    setSaving(true);
+    try {
+      await onSave(draft);
+    } catch (err) {
+      // Surface backend errors (422 / 409 / 500 / 403 etc.) right
+      // here in the modal — previously they vanished behind the
+      // overlay and the operator thought "Save" was a no-op.
+      const msg = err instanceof Error ? err.message : 'Не удалось сохранить';
+      setSaveError(msg);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const onSubmitBoth = async () => {
+    setSaveError(null);
+    setValidationBanner(null);
+    setBothResults(null);
+    const errors = validateV3Draft(draft);
+    setFieldErrors(errors);
+    if (Object.keys(errors).length > 0) {
+      setTab('fields');
+      setValidationBanner('Не сохранено: исправьте поля (см. вкладку «Поля стиля»).');
+      return;
+    }
+    if (!tailJsonValid) {
+      setTab('fields');
+      setValidationBanner('Не сохранено: per_model_tail содержит невалидный JSON.');
+      return;
+    }
+    setSaving(true);
+    try {
+      const results = await onSaveBoth(draft);
+      setBothResults(results);
+      const allOk = results.every((r) => r.status === 'ok');
+      if (!allOk) {
+        const failed = results.filter((r) => r.status !== 'ok').length;
+        setSaveError(
+          `Записано не везде: ${failed} target(ов) с проблемами — см. список ниже.`,
+        );
+      }
+    } finally {
+      setSaving(false);
+    }
   };
 
   const rawDefault = clothing.default;
@@ -707,6 +863,57 @@ function StyleEditModal({
             </button>
           ))}
         </div>
+
+        {validationBanner && (
+          <div
+            role="alert"
+            className="px-[var(--space-24)] py-[var(--space-12)] border-b border-red-500/30 bg-red-500/15 text-[13px] leading-[18px] text-red-200 font-medium"
+          >
+            {validationBanner}
+          </div>
+        )}
+
+        {saveError && (
+          <div
+            role="alert"
+            className="px-[var(--space-24)] py-[var(--space-12)] border-b border-red-500/30 bg-red-500/15 text-[13px] leading-[18px] text-red-200"
+          >
+            <div className="font-semibold mb-[2px]">Ошибка сохранения</div>
+            <div className="opacity-90 break-words">{saveError}</div>
+          </div>
+        )}
+
+        {bothResults && (
+          <div className="px-[var(--space-24)] py-[var(--space-12)] border-b border-white/10 bg-white/[0.02] text-[12px] leading-[16px]">
+            <div className="font-medium uppercase tracking-wide text-[#8b95a3] mb-[var(--space-6)]">
+              Результат «Применить на оба»
+            </div>
+            <ul className="space-y-[var(--space-4)]">
+              {bothResults.map((r) => {
+                const tone =
+                  r.status === 'ok'
+                    ? 'text-emerald-300'
+                    : r.status === 'skipped'
+                      ? 'text-amber-300'
+                      : 'text-red-300';
+                const icon =
+                  r.status === 'ok' ? '✓' : r.status === 'skipped' ? '◇' : '✗';
+                const targetMeta = ADMIN_TARGETS.find(
+                  (t) => t.id === r.target,
+                );
+                return (
+                  <li key={r.target} className={`flex items-start gap-[var(--space-8)] ${tone}`}>
+                    <span className="font-semibold w-[14px]">{icon}</span>
+                    <span className="font-medium w-[80px] shrink-0">
+                      {targetMeta?.shortLabel ?? r.target}
+                    </span>
+                    <span className="opacity-90 break-words">{r.message}</span>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        )}
 
         {liveIssues.length > 0 && (
           <div className="px-[var(--space-24)] py-[var(--space-12)] border-b border-white/10 bg-amber-500/5 text-[12px] leading-[16px] text-amber-200 space-y-[var(--space-4)]">
@@ -1038,12 +1245,17 @@ function StyleEditModal({
                     className="input"
                   />
                 </Field>
-                <Field label="per_model_tail (JSON)">
+                <Field
+                  label="per_model_tail (JSON)"
+                  hint={tailJsonValid ? 'object вида {"model_name": "tail string"}' : undefined}
+                  error={tailJsonValid ? undefined : 'Невалидный JSON object'}
+                >
                   <textarea
-                    rows={2}
-                    defaultValue={JSON.stringify(quality.per_model_tail ?? {}, null, 2)}
-                    onBlur={(e) => updateQualityTail(e.target.value)}
-                    className="input font-mono text-[12px]"
+                    rows={3}
+                    value={tailBuffer}
+                    onChange={(e) => updateTailBuffer(e.target.value)}
+                    className={`input font-mono text-[12px] ${tailJsonValid ? '' : 'border-red-500/50'}`}
+                    spellCheck={false}
                   />
                 </Field>
               </Fieldset>
@@ -1059,19 +1271,38 @@ function StyleEditModal({
           )}
         </div>
 
-        <footer className="flex justify-end gap-[var(--space-8)] px-[var(--space-24)] py-[var(--space-16)] border-t border-white/10">
+        <footer className="flex flex-wrap justify-end gap-[var(--space-8)] px-[var(--space-24)] py-[var(--space-16)] border-t border-white/10">
           <button
             type="button"
             onClick={() => onClose(isDirty)}
-            className="px-[var(--space-16)] h-[36px] rounded-[var(--radius-pill)] border border-white/10 hover:bg-white/5 text-[13px] leading-[18px]"
+            disabled={saving}
+            className="px-[var(--space-16)] h-[36px] rounded-[var(--radius-pill)] border border-white/10 hover:bg-white/5 text-[13px] leading-[18px] disabled:opacity-50"
           >
             Отмена
           </button>
           <button
             type="submit"
-            className="px-[var(--space-16)] h-[36px] rounded-[var(--radius-pill)] bg-blue-600 hover:bg-blue-500 font-medium text-[13px] leading-[18px]"
+            disabled={saving}
+            className={`px-[var(--space-16)] h-[36px] rounded-[var(--radius-pill)] font-medium text-[13px] leading-[18px] ${
+              saving
+                ? 'bg-white/10 text-[#8b95a3] cursor-not-allowed'
+                : 'bg-blue-600 hover:bg-blue-500 text-white'
+            }`}
           >
-            Сохранить
+            {saving ? 'Сохраняем…' : 'Сохранить'}
+          </button>
+          <button
+            type="button"
+            onClick={() => void onSubmitBoth()}
+            disabled={saving}
+            title="Записать стиль одновременно на primary и RU"
+            className={`px-[var(--space-16)] h-[36px] rounded-[var(--radius-pill)] font-medium text-[13px] leading-[18px] ${
+              saving
+                ? 'bg-white/10 text-[#8b95a3] cursor-not-allowed'
+                : 'bg-emerald-600 hover:bg-emerald-500 text-white'
+            }`}
+          >
+            {saving ? 'Сохраняем…' : 'Применить на оба'}
           </button>
         </footer>
 

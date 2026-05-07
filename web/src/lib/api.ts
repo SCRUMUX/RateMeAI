@@ -1,25 +1,140 @@
-export const API_BASE = (import.meta.env.VITE_API_BASE_URL ?? import.meta.env.VITE_API_URL ?? '').trim();
+// 1.55.0 — multi-target admin. The SPA can talk to multiple FastAPI
+// instances (primary / RU edge); see ``./admin-targets.ts``. The
+// active target is global (a module-scoped variable, not React state)
+// because the API helpers must work both inside and outside React
+// trees. ``setActiveAdminTarget`` is called by
+// ``./admin-target-context.tsx`` whenever the operator picks a new
+// target in the AdminLayout dropdown.
+import {
+  ADMIN_TARGETS,
+  ACTIVE_TARGET_STORAGE_KEY,
+  getAdminTarget,
+  tokenStorageKey,
+  type AdminTargetId,
+} from './admin-targets';
 
-// Synchronously hydrate the session token from localStorage at module
-// load. AppContext also calls restoreToken() inside a useEffect, but
-// admin pages mount before that effect fires and would otherwise issue
-// requests without an Authorization header → 401. Reading localStorage
-// here (before any React render) closes that race for every page.
-const _TOKEN_STORAGE_KEY = 'ailook_session_token';
-let _token: string | null =
-  (typeof localStorage !== 'undefined' ? localStorage.getItem(_TOKEN_STORAGE_KEY) : null);
+const _LEGACY_TOKEN_KEY = 'ailook_session_token';
 
-export function setToken(t: string | null) { _token = t; }
-export function getToken() { return _token; }
+function _hydrateActiveTarget(): AdminTargetId {
+  if (typeof localStorage === 'undefined') return 'primary';
+  const raw = localStorage.getItem(ACTIVE_TARGET_STORAGE_KEY);
+  if (raw === 'ru' || raw === 'primary') return raw;
+  return 'primary';
+}
 
-async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
-  const headers = new Headers(init.headers);
-  if (_token) headers.set('Authorization', `Bearer ${_token}`);
-  if (!headers.has('Content-Type') && !(init.body instanceof FormData)) {
+function _hydrateTokens(): Record<AdminTargetId, string | null> {
+  const out: Record<AdminTargetId, string | null> = {
+    primary: null,
+    ru: null,
+  };
+  if (typeof localStorage === 'undefined') return out;
+  for (const t of ADMIN_TARGETS) {
+    out[t.id] = localStorage.getItem(tokenStorageKey(t.id));
+  }
+  // Migrate legacy single-token storage (1.54 and earlier wrote
+  // ``ailook_session_token`` directly). Map it to ``primary`` so
+  // existing logged-in operators don't get bounced.
+  const legacy = localStorage.getItem(_LEGACY_TOKEN_KEY);
+  if (legacy && !out.primary) {
+    out.primary = legacy;
+    try {
+      localStorage.setItem(tokenStorageKey('primary'), legacy);
+    } catch {
+      /* localStorage might be unavailable (private mode) — fine */
+    }
+  }
+  return out;
+}
+
+let _activeTarget: AdminTargetId = _hydrateActiveTarget();
+const _tokens: Record<AdminTargetId, string | null> = _hydrateTokens();
+
+export function getActiveAdminTarget(): AdminTargetId {
+  return _activeTarget;
+}
+
+export function setActiveAdminTarget(id: AdminTargetId): void {
+  _activeTarget = id;
+  if (typeof localStorage !== 'undefined') {
+    try {
+      localStorage.setItem(ACTIVE_TARGET_STORAGE_KEY, id);
+    } catch { /* fine */ }
+  }
+}
+
+export function getApiBase(): string {
+  return getAdminTarget(_activeTarget).apiBase;
+}
+
+/** Legacy export — kept so any consumer that imported the constant
+ *  before 1.55 still compiles. New code should call ``getApiBase()``
+ *  so the value reflects the currently-active target. */
+export const API_BASE = getApiBase();
+
+export function setToken(t: string | null): void {
+  _tokens[_activeTarget] = t;
+  if (typeof localStorage === 'undefined') return;
+  try {
+    if (t) {
+      localStorage.setItem(tokenStorageKey(_activeTarget), t);
+      // Mirror primary token to the legacy key so older code paths
+      // (logout flows, etc.) still find it. Only for primary so we
+      // don't accidentally overwrite legacy with an RU token.
+      if (_activeTarget === 'primary') {
+        localStorage.setItem(_LEGACY_TOKEN_KEY, t);
+      }
+    } else {
+      localStorage.removeItem(tokenStorageKey(_activeTarget));
+      if (_activeTarget === 'primary') {
+        localStorage.removeItem(_LEGACY_TOKEN_KEY);
+      }
+    }
+  } catch { /* fine */ }
+}
+
+export function setTokenForTarget(id: AdminTargetId, t: string | null): void {
+  _tokens[id] = t;
+  if (typeof localStorage === 'undefined') return;
+  try {
+    if (t) {
+      localStorage.setItem(tokenStorageKey(id), t);
+    } else {
+      localStorage.removeItem(tokenStorageKey(id));
+    }
+  } catch { /* fine */ }
+}
+
+export function getToken(): string | null {
+  return _tokens[_activeTarget];
+}
+
+export function getTokenForTarget(id: AdminTargetId): string | null {
+  return _tokens[id];
+}
+
+export interface AdminRequestOptions {
+  /** Override the active target for this single call. Used by the
+   *  CMS "Применить на оба сервера" button so a write to RU doesn't
+   *  require globally switching targets. */
+  target?: AdminTargetId;
+}
+
+async function request<T>(
+  path: string,
+  init: RequestInit & AdminRequestOptions = {},
+): Promise<T> {
+  const { target, ...fetchInit } = init as RequestInit & AdminRequestOptions;
+  const targetId = target ?? _activeTarget;
+  const apiBase = getAdminTarget(targetId).apiBase;
+  const token = _tokens[targetId];
+
+  const headers = new Headers(fetchInit.headers);
+  if (token) headers.set('Authorization', `Bearer ${token}`);
+  if (!headers.has('Content-Type') && !(fetchInit.body instanceof FormData)) {
     headers.set('Content-Type', 'application/json');
   }
 
-  const res = await fetch(`${API_BASE}${path}`, { ...init, headers });
+  const res = await fetch(`${apiBase}${path}`, { ...fetchInit, headers });
 
   if (!res.ok) {
     const text = await res.text().catch(() => '');
@@ -83,19 +198,26 @@ export interface AdminLandingPagesList {
   slugs: string[];
 }
 
-export function listAdminLandingPages() {
-  return request<AdminLandingPagesList>('/api/v1/admin/landing/pages');
+export function listAdminLandingPages(opts: AdminRequestOptions = {}) {
+  return request<AdminLandingPagesList>('/api/v1/admin/landing/pages', opts);
 }
 
-export function getAdminLandingPage(slug: string) {
-  return request<LandingPageResponse>(`/api/v1/admin/landing/pages/${encodeURIComponent(slug)}`);
+export function getAdminLandingPage(slug: string, opts: AdminRequestOptions = {}) {
+  return request<LandingPageResponse>(
+    `/api/v1/admin/landing/pages/${encodeURIComponent(slug)}`,
+    opts,
+  );
 }
 
-export function putAdminLandingPage(slug: string, page: Record<string, unknown>) {
-  return request<{ status: string; slug: string }>(`/api/v1/admin/landing/pages/${encodeURIComponent(slug)}`, {
-    method: 'PUT',
-    body: JSON.stringify({ page }),
-  });
+export function putAdminLandingPage(
+  slug: string,
+  page: Record<string, unknown>,
+  opts: AdminRequestOptions = {},
+) {
+  return request<{ status: string; slug: string }>(
+    `/api/v1/admin/landing/pages/${encodeURIComponent(slug)}`,
+    { ...opts, method: 'PUT', body: JSON.stringify({ page }) },
+  );
 }
 
 export interface ConsentState {
@@ -600,41 +722,53 @@ export type AdminStyleEntry = Record<string, unknown> & {
   mode: string;
 };
 
-export function listAdminStyles() {
-  return request<AdminStyleSummary[]>('/api/v1/admin/styles');
+export function listAdminStyles(opts: AdminRequestOptions = {}) {
+  return request<AdminStyleSummary[]>('/api/v1/admin/styles', opts);
 }
 
-export function getAdminStyle(styleId: string) {
+export function getAdminStyle(styleId: string, opts: AdminRequestOptions = {}) {
   return request<AdminStyleEntry>(
     `/api/v1/admin/styles/${encodeURIComponent(styleId)}`,
+    opts,
   );
 }
 
-export function createAdminStyle(payload: AdminStyleEntry) {
+export function createAdminStyle(
+  payload: AdminStyleEntry,
+  opts: AdminRequestOptions = {},
+) {
   return request<AdminStyleEntry>('/api/v1/admin/styles', {
+    ...opts,
     method: 'POST',
     body: JSON.stringify(payload),
   });
 }
 
-export function updateAdminStyle(styleId: string, patch: Partial<AdminStyleEntry>) {
+export function updateAdminStyle(
+  styleId: string,
+  patch: Partial<AdminStyleEntry>,
+  opts: AdminRequestOptions = {},
+) {
   return request<AdminStyleEntry>(
     `/api/v1/admin/styles/${encodeURIComponent(styleId)}`,
-    { method: 'PUT', body: JSON.stringify(patch) },
+    { ...opts, method: 'PUT', body: JSON.stringify(patch) },
   );
 }
 
-export function deleteAdminStyle(styleId: string) {
+export function deleteAdminStyle(
+  styleId: string,
+  opts: AdminRequestOptions = {},
+) {
   return request<void>(
     `/api/v1/admin/styles/${encodeURIComponent(styleId)}`,
-    { method: 'DELETE' },
+    { ...opts, method: 'DELETE' },
   );
 }
 
-export function reloadAdminStyles() {
+export function reloadAdminStyles(opts: AdminRequestOptions = {}) {
   return request<{ status: string; count: number }>(
     '/api/v1/admin/styles/reload',
-    { method: 'POST' },
+    { ...opts, method: 'POST' },
   );
 }
 
