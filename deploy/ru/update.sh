@@ -45,6 +45,45 @@ echo "--- fix storage permissions ---"
 docker run --rm -v ratemeai_app_storage:/app/storage alpine \
     sh -c "chmod -R 777 /app/storage 2>/dev/null; echo 'storage permissions fixed'" || true
 
+# ── 2c. Ensure provisioned env vars in .env.ru ─────────────────
+# Idempotent: replaces an existing ``KEY=...`` line in place, or
+# appends ``KEY=desired`` if the key is absent. No-op when the value
+# already matches, so re-running this script does not churn the file.
+# Runs BEFORE ``docker compose up -d`` so the new values are loaded
+# when the app container restarts.
+ENV_FILE="${PROJECT_DIR}/.env.ru"
+
+ensure_env_line() {
+    local key="$1"
+    local desired="$2"
+    if [ ! -f "$ENV_FILE" ]; then
+        echo "[update.sh] WARNING: $ENV_FILE missing — cannot ensure $key"
+        return 0
+    fi
+    if grep -q "^${key}=" "$ENV_FILE"; then
+        local current
+        current=$(grep "^${key}=" "$ENV_FILE" | head -n1 | cut -d= -f2-)
+        if [ "$current" = "$desired" ]; then
+            echo "[update.sh] $key already up-to-date — no-op"
+            return 0
+        fi
+        echo "[update.sh] ensuring $key=$desired (replacing existing)"
+        # ``|`` delimiter avoids escaping comma-separated values.
+        sed -i "s|^${key}=.*|${key}=${desired}|" "$ENV_FILE"
+    else
+        echo "[update.sh] ensuring $key=$desired (appending)"
+        echo "${key}=${desired}" >> "$ENV_FILE"
+    fi
+}
+
+# Admin whitelist for ``/api/v1/admin/*`` — matched by
+# ``_parse_admin_emails`` in src/api/v1/admin/auth.py against
+# ``user_identities.profile_data->>'email'`` (any provider that
+# stored an email: google / yandex / vk_id / apple).
+# Primary (Railway) is unaffected: its env is managed by the
+# ``deploy-backend`` job's ``rl_set`` calls, not this script.
+ensure_env_line ADMIN_EMAILS "vladimir18kostyal@gmail.com,uk-tora@yandex.ru"
+
 # ── 3. Rebuild and restart backend (migrations run on startup) ──
 echo "--- backend build ---"
 docker compose -f "$COMPOSE_FILE" up -d --build app

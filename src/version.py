@@ -4834,4 +4834,28 @@
 #          login-prompt.
 #          Backend без изменений. tsc / ruff / pytest
 #          (2061 passed) зелёные.
-APP_VERSION = "1.55.1"
+# 1.55.2 — Auto-provision ``ADMIN_EMAILS`` on the RU edge via
+#          ``deploy/ru/update.sh``. Added an idempotent
+#          ``ensure_env_line`` helper that, on every CI deploy-ru
+#          run (and manual ``./update.sh`` invocations), rewrites
+#          or appends ``ADMIN_EMAILS=vladimir18kostyal@gmail.com,
+#          uk-tora@yandex.ru`` into ``/opt/ratemeai/.env.ru`` BEFORE
+#          ``docker compose up -d app`` so the app container picks
+#          up the new whitelist on startup. Logs a clear
+#          ``[update.sh] ensuring ADMIN_EMAILS=...`` line in the
+#          deploy-ru CI output so the change is auditable.
+#          Re-runs are no-ops once the value matches.
+#          Why: vladimir18kostyal@gmail.com (primary Google admin)
+#          and uk-tora@yandex.ru (RU Yandex admin) need joint
+#          access to ``ru.ailookstudio.ru/admin/*``.
+#          ``_parse_admin_emails`` in src/api/v1/admin/auth.py:39-45
+#          consumes the comma-separated list case-insensitively.
+#          Primary (Railway) is unaffected: its env is managed by
+#          the ``deploy-backend`` job's ``rl_set`` calls in
+#          ``.github/workflows/ci.yml``, not by this script.
+#          Also documented the convention in ``.env.ru.example``
+#          under a new "Admin whitelist" section (placeholder
+#          email only — real emails live in update.sh).
+#          No code changes; tsc / ruff / pytest (2061 passed,
+#          54 skipped) зелёные.
+APP_VERSION = "1.55.2"
