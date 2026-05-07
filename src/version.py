@@ -4858,4 +4858,26 @@
 #          email only — real emails live in update.sh).
 #          No code changes; tsc / ruff / pytest (2061 passed,
 #          54 skipped) зелёные.
-APP_VERSION = "1.55.2"
+# 1.55.3 — Hotfix to 1.55.2: the ``ensure_env_line`` block in
+#          ``deploy/ru/update.sh`` was placed AFTER ``git pull``,
+#          which never ran on the deploy that introduced it.
+#          Root cause: bash holds the script open via its original
+#          file descriptor. ``git pull`` mid-script replaces the
+#          file's inode (rename(2) is atomic), but the running
+#          interpreter keeps reading the OLD inode for the rest of
+#          execution — the new content only takes effect on the NEXT
+#          deploy. Net result on the 1.55.2 deploy-ru run: the new
+#          ensure block lived only on disk, not in the running bash
+#          process; the deploy-ru log had no ``[update.sh] ensuring``
+#          line and ``ADMIN_EMAILS`` was never written to ``.env.ru``.
+#          Fix: moved ``ensure_env_line`` (and its
+#          ``ADMIN_EMAILS=vladimir18kostyal@gmail.com,uk-tora@yandex.ru``
+#          call) ABOVE ``git pull``. The OLD inode now executes the
+#          ensure block before the file is replaced, so the very
+#          first deploy after this change applies the env var. Future
+#          edits to update.sh will follow the same one-deploy-lag
+#          rule for anything below ``git pull`` — call out the rule
+#          in the new comment block at the top of section 0.
+#          No backend / frontend code changes.
+#          tsc / ruff / pytest (2061 passed, 54 skipped) зелёные.
+APP_VERSION = "1.55.3"

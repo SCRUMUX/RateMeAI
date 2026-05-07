@@ -21,36 +21,16 @@ export DEPLOY_GIT_SHA="$SHORT_SHA"
 
 echo "=== RU Deploy: SHA=$SHORT_SHA ==="
 
-# ── 1. Pull latest code ─────────────────────────────────────────
-echo "--- git pull ---"
-git pull origin main
-
-# ── 2. Rebuild frontend (--no-cache to guarantee fresh build) ───
-echo "--- frontend build ---"
-docker compose -f "$COMPOSE_FILE" --profile build-only build --no-cache web
-
-rm -rf /tmp/web-dist
-TEMP_CONTAINER=$(docker create ratemeai-web-ru:latest)
-docker cp "$TEMP_CONTAINER:/usr/share/nginx/html" /tmp/web-dist
-docker rm "$TEMP_CONTAINER"
-
-docker run --rm \
-    -v ratemeai_web_dist:/usr/share/nginx/html \
-    -v /tmp/web-dist:/src:ro \
-    alpine sh -c "rm -rf /usr/share/nginx/html/* && cp -r /src/* /usr/share/nginx/html/"
-rm -rf /tmp/web-dist
-
-# ── 2b. Fix storage volume permissions ────────────────────────
-echo "--- fix storage permissions ---"
-docker run --rm -v ratemeai_app_storage:/app/storage alpine \
-    sh -c "chmod -R 777 /app/storage 2>/dev/null; echo 'storage permissions fixed'" || true
-
-# ── 2c. Ensure provisioned env vars in .env.ru ─────────────────
+# ── 0. Ensure provisioned env vars in .env.ru ──────────────────
 # Idempotent: replaces an existing ``KEY=...`` line in place, or
 # appends ``KEY=desired`` if the key is absent. No-op when the value
 # already matches, so re-running this script does not churn the file.
-# Runs BEFORE ``docker compose up -d`` so the new values are loaded
-# when the app container restarts.
+#
+# IMPORTANT: this block runs BEFORE ``git pull`` because bash holds
+# this script open via its original file descriptor — when ``git pull``
+# replaces the file, the running interpreter keeps reading the OLD
+# inode's content for the rest of execution. Anything that needs to
+# actually run on every deploy must therefore live above the pull.
 ENV_FILE="${PROJECT_DIR}/.env.ru"
 
 ensure_env_line() {
@@ -83,6 +63,30 @@ ensure_env_line() {
 # Primary (Railway) is unaffected: its env is managed by the
 # ``deploy-backend`` job's ``rl_set`` calls, not this script.
 ensure_env_line ADMIN_EMAILS "vladimir18kostyal@gmail.com,uk-tora@yandex.ru"
+
+# ── 1. Pull latest code ─────────────────────────────────────────
+echo "--- git pull ---"
+git pull origin main
+
+# ── 2. Rebuild frontend (--no-cache to guarantee fresh build) ───
+echo "--- frontend build ---"
+docker compose -f "$COMPOSE_FILE" --profile build-only build --no-cache web
+
+rm -rf /tmp/web-dist
+TEMP_CONTAINER=$(docker create ratemeai-web-ru:latest)
+docker cp "$TEMP_CONTAINER:/usr/share/nginx/html" /tmp/web-dist
+docker rm "$TEMP_CONTAINER"
+
+docker run --rm \
+    -v ratemeai_web_dist:/usr/share/nginx/html \
+    -v /tmp/web-dist:/src:ro \
+    alpine sh -c "rm -rf /usr/share/nginx/html/* && cp -r /src/* /usr/share/nginx/html/"
+rm -rf /tmp/web-dist
+
+# ── 2b. Fix storage volume permissions ────────────────────────
+echo "--- fix storage permissions ---"
+docker run --rm -v ratemeai_app_storage:/app/storage alpine \
+    sh -c "chmod -R 777 /app/storage 2>/dev/null; echo 'storage permissions fixed'" || true
 
 # ── 3. Rebuild and restart backend (migrations run on startup) ──
 echo "--- backend build ---"
