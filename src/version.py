@@ -4575,4 +4575,51 @@
 #          Onboarding нового админа теперь = одна env-переменная,
 #          без поиска UUID в БД. Оба whitelist-а опциональны и
 #          работают параллельно (OR).
-APP_VERSION = "1.50.9"
+# 1.51.0 — Sync session-token bootstrap (frontend only). Раньше
+#          ``_token`` в ``web/src/lib/api.ts`` инициализировался
+#          ``null``, а реальное значение из ``localStorage``
+#          подгружал ``AppContext`` уже внутри ``useEffect`` →
+#          при прямом заходе на ``/admin/*`` страница успевала
+#          смонтироваться и сделать запрос ДО восстановления
+#          токена, ловя 401 и показывая «Сессия не активна».
+#          Теперь ``_token`` читает ``ailook_session_token`` из
+#          localStorage синхронно при загрузке модуля — до первого
+#          React-рендера. Чистая фронт-правка, бэк не тронут;
+#          фиксит редкие 401 и в обычном кабинете при reload.
+# 1.52.0 — Admin Users tab: новая страница ``/admin/users`` для
+#          ops-обзора пользователей, баланса кредитов, истории
+#          транзакций и генераций с возможностью ручных операций.
+#          Бэк (новый ``src/api/v1/admin/users.py``):
+#            * GET ``/api/v1/admin/users?q=&limit=`` — substring
+#              поиск по username / telegram_id / profile_data.email
+#              + агрегаты (total_generations, last_task_at,
+#              last_seen). Никаких полей с путями к фото в
+#              ответах (privacy-by-design).
+#            * GET ``/api/v1/admin/users/{id}`` — карточка с
+#              identities, последними 50 транзакциями и 20
+#              задачами (только id/mode/status/timestamps —
+#              ``input_image_path``/``share_card_path`` НЕ в
+#              SELECT-листе).
+#            * POST ``/api/v1/admin/users/{id}/credits`` —
+#              атомарное начисление (+amount, ``admin_grant``)
+#              или списание (-amount, ``admin_debit``) с
+#              обязательным ``reason``. Проверка
+#              insufficient_credits на 400.
+#            * POST ``/api/v1/admin/users/{id}/refund`` —
+#              учётный возврат: списываем кредиты + пишем
+#              ``admin_refund`` транзакцию с note и
+#              опциональным payment_id. Реальные деньги через
+#              ЮKassa/Stripe возвращаем отдельно вручную.
+#          Все ручки гейтятся ``require_admin`` (UUID или email
+#          из ``ADMIN_EMAILS``); существующий
+#          ``/internal/admin/grant-credits`` (X-Internal-Key) не
+#          тронут — продолжает работать для GitHub Actions
+#          workflow и админ-бота.
+#          Хелперы ``format_user_summary`` / ``search_users_by_query``
+#          вынесены в ``src/services/admin_lookup.py``;
+#          ``internal.py`` теперь импортирует их оттуда.
+#          Фронт: ``web/src/pages/admin/UsersAdminPage.tsx`` с
+#          таблицей и боковой шторкой (drawer); 4-я вкладка
+#          «Пользователи» в ``AdminLayout``; маршрут
+#          ``/admin/users`` lazy-load в ``App.tsx``.
+APP_VERSION = "1.52.0"

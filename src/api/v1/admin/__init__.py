@@ -8,5 +8,6 @@ the gate.
 
 from src.api.v1.admin.styles import router as styles_router
 from src.api.v1.admin.landing import router as admin_landing_router
+from src.api.v1.admin.users import router as admin_users_router
 
-__all__ = ["styles_router", "admin_landing_router"]
+__all__ = ["styles_router", "admin_landing_router", "admin_users_router"]

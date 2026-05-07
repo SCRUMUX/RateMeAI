@@ -1,6 +1,13 @@
 export const API_BASE = (import.meta.env.VITE_API_BASE_URL ?? import.meta.env.VITE_API_URL ?? '').trim();
 
-let _token: string | null = null;
+// Synchronously hydrate the session token from localStorage at module
+// load. AppContext also calls restoreToken() inside a useEffect, but
+// admin pages mount before that effect fires and would otherwise issue
+// requests without an Authorization header → 401. Reading localStorage
+// here (before any React render) closes that race for every page.
+const _TOKEN_STORAGE_KEY = 'ailook_session_token';
+let _token: string | null =
+  (typeof localStorage !== 'undefined' ? localStorage.getItem(_TOKEN_STORAGE_KEY) : null);
 
 export function setToken(t: string | null) { _token = t; }
 export function getToken() { return _token; }
@@ -659,6 +666,130 @@ export function lintOneAdminStyle(styleId: string) {
 
 export function listAdminStyleConflicts() {
   return request<AdminConflictReport>('/api/v1/admin/styles/conflicts');
+}
+
+// ---------------------------------------------------------------------------
+// Admin: Users tab — list/inspect users, adjust credits, ledger refunds.
+// All endpoints gated by require_admin (UUID or email whitelist). Photo
+// paths are intentionally never returned from the backend.
+// ---------------------------------------------------------------------------
+
+export interface AdminUserSummary {
+  id: string;
+  telegram_id: number | null;
+  username: string | null;
+  first_name: string | null;
+  is_premium: boolean;
+  image_credits: number;
+  created_at: string | null;
+  providers: string[];
+  emails: string[];
+  primary_email: string | null;
+  total_generations: number;
+  last_task_at: string | null;
+  last_seen: string | null;
+}
+
+export interface AdminUserListResponse {
+  items: AdminUserSummary[];
+  count: number;
+  query: string;
+  limit: number;
+}
+
+export interface AdminUserIdentity {
+  provider: string;
+  external_id: string;
+  email?: string | null;
+  username?: string | null;
+  first_name?: string | null;
+  last_name?: string | null;
+  created_at?: string | null;
+}
+
+export interface AdminUserTransaction {
+  id: number;
+  amount: number;
+  balance_after: number;
+  tx_type: string;
+  payment_id: string | null;
+  created_at: string | null;
+}
+
+export interface AdminUserTask {
+  id: string;
+  mode: string;
+  status: string;
+  created_at: string | null;
+  completed_at: string | null;
+  error_message: string | null;
+}
+
+export interface AdminUserDetailResponse {
+  user: AdminUserSummary;
+  identities: AdminUserIdentity[];
+  transactions: AdminUserTransaction[];
+  tasks: AdminUserTask[];
+}
+
+export interface AdminCreditAdjustResponse {
+  status: string;
+  tx_type: 'admin_grant' | 'admin_debit';
+  before: number;
+  after: number;
+  amount: number;
+  transaction_id: number;
+}
+
+export interface AdminRefundResponse {
+  status: string;
+  tx_type: 'admin_refund';
+  before: number;
+  after: number;
+  credits: number;
+  transaction_id: number;
+}
+
+export function listAdminUsers(params: { q?: string; limit?: number } = {}) {
+  const search = new URLSearchParams();
+  if (params.q) search.set('q', params.q);
+  if (params.limit) search.set('limit', String(params.limit));
+  const qs = search.toString();
+  return request<AdminUserListResponse>(
+    `/api/v1/admin/users${qs ? `?${qs}` : ''}`,
+  );
+}
+
+export function getAdminUser(userId: string) {
+  return request<AdminUserDetailResponse>(
+    `/api/v1/admin/users/${encodeURIComponent(userId)}`,
+  );
+}
+
+export function adminAdjustCredits(
+  userId: string,
+  body: { amount: number; reason: string },
+) {
+  return request<AdminCreditAdjustResponse>(
+    `/api/v1/admin/users/${encodeURIComponent(userId)}/credits`,
+    {
+      method: 'POST',
+      body: JSON.stringify(body),
+    },
+  );
+}
+
+export function adminRefund(
+  userId: string,
+  body: { credits: number; payment_id?: string; note: string },
+) {
+  return request<AdminRefundResponse>(
+    `/api/v1/admin/users/${encodeURIComponent(userId)}/refund`,
+    {
+      method: 'POST',
+      body: JSON.stringify(body),
+    },
+  );
 }
 
 // -- Phone OTP --

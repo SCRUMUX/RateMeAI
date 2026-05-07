@@ -22,6 +22,7 @@ import NotFound from './pages/NotFound';
 const StylesAdminPage = lazy(() => import('./pages/admin/StylesAdminPage'));
 const ConflictsAdminPage = lazy(() => import('./pages/admin/ConflictsAdminPage'));
 const LandingAdminPage = lazy(() => import('./pages/admin/LandingAdminPage'));
+const UsersAdminPage = lazy(() => import('./pages/admin/UsersAdminPage'));
 
 function AdminFallback() {
   return (
@@ -102,6 +103,14 @@ export default function App() {
                 element={
                   <Suspense fallback={<AdminFallback />}>
                     <LandingAdminPage />
+                  </Suspense>
+                }
+              />
+              <Route
+                path="/admin/users"
+                element={
+                  <Suspense fallback={<AdminFallback />}>
+                    <UsersAdminPage />
                   </Suspense>
                 }
               />

@@ -13,6 +13,11 @@ interface AdminTab {
 
 const TABS: AdminTab[] = [
   {
+    to: '/admin/users',
+    label: 'Пользователи',
+    match: (p) => p.startsWith('/admin/users'),
+  },
+  {
     to: '/admin/landing',
     label: 'Landing CMS',
     match: (p) => p.startsWith('/admin/landing'),

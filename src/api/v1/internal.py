@@ -1033,21 +1033,7 @@ class AdminGrantCreditsRequest(BaseModel):
     dry_run: bool = False
 
 
-def _fmt_candidate(user: User, identity: UserIdentity | None) -> dict[str, Any]:
-    data: dict[str, Any] = (identity.profile_data or {}) if identity else {}
-    return {
-        "user_id": str(user.id),
-        "telegram_id": user.telegram_id,
-        "username": user.username,
-        "first_name": user.first_name,
-        "credits_before": user.image_credits,
-        "provider": identity.provider if identity else None,
-        "external_id": identity.external_id if identity else None,
-        "profile_username": data.get("username"),
-        "profile_first_name": data.get("first_name"),
-        "profile_last_name": data.get("last_name"),
-        "profile_email": data.get("email"),
-    }
+from src.services.admin_lookup import format_user_summary as _fmt_candidate  # noqa: E402
 
 
 async def _find_admin_candidates(
