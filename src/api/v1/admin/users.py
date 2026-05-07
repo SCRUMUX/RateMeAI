@@ -22,13 +22,14 @@ from datetime import datetime, timezone
 from typing import Any
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel, Field
+from redis.asyncio import Redis
 from sqlalchemy import func, select
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.api.deps import get_db
+from src.api.deps import get_db, get_redis
 from src.api.v1.admin.auth import require_admin
 from src.models.db import (
     CreditTransaction,
@@ -41,6 +42,7 @@ from src.services.admin_lookup import (
     collect_identity_emails,
     search_users_by_query,
 )
+from src.services.user_purge import purge_user
 
 logger = logging.getLogger(__name__)
 
@@ -94,6 +96,9 @@ def _user_row(
         "total_generations": total_generations,
         "last_task_at": last_task_at.isoformat() if last_task_at else None,
         "last_seen": last_seen.isoformat() if last_seen else None,
+        "blocked_at": user.blocked_at.isoformat() if user.blocked_at else None,
+        "blocked_reason": user.blocked_reason,
+        "blocked_by": str(user.blocked_by) if user.blocked_by else None,
     }
 
 
@@ -485,3 +490,132 @@ async def refund_credits(
         "credits": payload.credits,
         "transaction_id": tx.id,
     }
+
+
+# ---------------------------------------------------------------------------
+# POST /admin/users/{user_id}/block  — soft-block account (in-app message)
+# ---------------------------------------------------------------------------
+
+
+class BlockRequest(BaseModel):
+    reason: str = Field(..., min_length=3, max_length=500)
+
+
+@router.post("/users/{user_id}/block")
+async def block_user(
+    user_id: str,
+    payload: BlockRequest,
+    admin: User = Depends(require_admin),
+    db: AsyncSession = Depends(get_db),
+) -> dict[str, Any]:
+    """Mark a user as blocked. ``get_auth_user`` will refuse all
+    subsequent requests with 403 ``account_blocked`` and the frontend
+    will show a full-screen overlay.
+
+    No external messaging here — by design, the user simply sees the
+    in-app block screen the next time they hit the API. Existing
+    sessions don't need to be revoked because the dependency check
+    fails on every authenticated request.
+    """
+    uid = _parse_user_id(user_id)
+    user = await _load_user_or_404(db, uid)
+
+    if user.id == admin.id:
+        raise HTTPException(
+            status_code=400, detail="Cannot block your own admin account"
+        )
+
+    user.blocked_at = datetime.now(timezone.utc)
+    user.blocked_reason = payload.reason.strip()
+    user.blocked_by = admin.id
+
+    try:
+        await db.commit()
+    except SQLAlchemyError:
+        await db.rollback()
+        logger.exception("admin_block: failed to commit for user %s", uid)
+        raise HTTPException(status_code=500, detail="Failed to block user")
+
+    await db.refresh(user)
+
+    logger.info(
+        "admin_block: admin=%s user=%s reason=%s",
+        admin.id,
+        uid,
+        payload.reason,
+    )
+
+    return {
+        "status": "ok",
+        "blocked_at": user.blocked_at.isoformat() if user.blocked_at else None,
+        "blocked_reason": user.blocked_reason,
+        "blocked_by": str(user.blocked_by) if user.blocked_by else None,
+    }
+
+
+# ---------------------------------------------------------------------------
+# POST /admin/users/{user_id}/unblock  — clear block fields
+# ---------------------------------------------------------------------------
+
+
+@router.post("/users/{user_id}/unblock")
+async def unblock_user(
+    user_id: str,
+    admin: User = Depends(require_admin),
+    db: AsyncSession = Depends(get_db),
+) -> dict[str, Any]:
+    uid = _parse_user_id(user_id)
+    user = await _load_user_or_404(db, uid)
+
+    user.blocked_at = None
+    user.blocked_reason = None
+    user.blocked_by = None
+
+    try:
+        await db.commit()
+    except SQLAlchemyError:
+        await db.rollback()
+        logger.exception("admin_unblock: failed to commit for user %s", uid)
+        raise HTTPException(status_code=500, detail="Failed to unblock user")
+
+    logger.info("admin_unblock: admin=%s user=%s", admin.id, uid)
+    return {"status": "ok", "blocked_at": None}
+
+
+# ---------------------------------------------------------------------------
+# DELETE /admin/users/{user_id}  — full erasure via shared purge service
+# ---------------------------------------------------------------------------
+
+
+@router.delete("/users/{user_id}")
+async def delete_user(
+    user_id: str,
+    request: Request,
+    admin: User = Depends(require_admin),
+    db: AsyncSession = Depends(get_db),
+    redis: Redis = Depends(get_redis),
+) -> dict[str, Any]:
+    """Full erasure of a user's account by an admin (152-ФЗ ст. 14).
+
+    Goes through the same ``purge_user`` service as the self-serve
+    ``DELETE /users/me`` endpoint, but stamps the deletion log with
+    ``source="admin"`` so the audit trail can distinguish the two.
+    """
+    uid = _parse_user_id(user_id)
+    user = await _load_user_or_404(db, uid)
+
+    if user.id == admin.id:
+        raise HTTPException(
+            status_code=400, detail="Cannot delete your own admin account"
+        )
+
+    result = await purge_user(
+        user=user,
+        db=db,
+        redis=redis,
+        source="admin",
+        client_ip=request.client.host if request.client else None,
+        user_agent=request.headers.get("user-agent"),
+    )
+    logger.info("admin_delete: admin=%s user=%s", admin.id, uid)
+    return result

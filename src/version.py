@@ -4642,4 +4642,54 @@
 #          social-proof пресеты намеренно оставлены
 #          динамическими (отдельные модули
 #          ``data/testimonials`` и ``data/social-proof``).
-APP_VERSION = "1.53.0"
+# 1.54.0 — Soft-block + admin delete (минимум перед запуском).
+#          DB: миграция ``011_user_blocked`` добавляет в
+#          ``users`` поля ``blocked_at`` / ``blocked_reason`` /
+#          ``blocked_by`` (все nullable; NULL = активен).
+#          Backend: ``ensure_user_not_blocked()`` в
+#          ``src/api/deps.py`` поднимает 403 с
+#          ``detail = {"code": "account_blocked", "reason": ...}``;
+#          вызывается из ``get_auth_user`` (каждый
+#          authenticated-запрос), ``_auth_response`` (web auth),
+#          трёх OAuth-callback'ов (Yandex/Google/VK-ID) и
+#          ``_claim_link_response`` — заблокированный
+#          юзер не может ни залогиниться, ни обновить токен.
+#          Сервис ``src/services/user_purge.py`` — общая
+#          логика 152-ФЗ ст. 14 erasure (storage + redis +
+#          DB cascade + ``deletion_log``); используется и
+#          self-serve ``DELETE /users/me`` (source="api"),
+#          и админским ``DELETE /admin/users/{id}``
+#          (source="admin"). Новые ручки в
+#          ``src/api/v1/admin/users.py``:
+#            * POST ``/admin/users/{id}/block`` — ставит
+#              ``blocked_at/by/reason``. Самоблокировка
+#              запрещена (400). Сообщения никуда не уходят —
+#              юзер видит in-app overlay.
+#            * POST ``/admin/users/{id}/unblock`` — обнуляет
+#              три поля.
+#            * DELETE ``/admin/users/{id}`` — полная
+#              деперсонализация через ``purge_user``;
+#              самоудаление admin-аккаунта запрещено.
+#          Все три гейтятся ``require_admin``.
+#          Frontend: глобальный перехватчик 403 в
+#          ``request()`` (``web/src/lib/api.ts``) при коде
+#          ``account_blocked`` бросает CustomEvent, который
+#          ловит ``App.tsx`` и рисует
+#          ``AccountBlockedScreen`` поверх всего UI
+#          (``z-[10000]``). На странице
+#          ``/admin/users`` в drawer'е добавлены кнопки
+#          «Заблокировать» / «Разблокировать» (с
+#          обязательной причиной мин. 3 символа) и
+#          «Удалить из системы» (необратимо, требует
+#          ввести UUID юзера для подтверждения). В таблице
+#          справа — бейдж 🔒 «Заблокирован» с tooltip из
+#          ``blocked_reason``. Bumped ``AdminUserSummary``
+#          с тремя новыми полями (``blocked_at`` /
+#          ``blocked_reason`` / ``blocked_by``).
+#          Тесты: 12 новых юнит-тестов в
+#          ``tests/test_api/test_admin_users.py``
+#          (block validations, 404/400, self-block ban,
+#          unblock clears, delete calls purge with
+#          ``source="admin"``, ``ensure_user_not_blocked``
+#          на 3 кейса). Полный набор: 2061 passed, 54 skipped.
+APP_VERSION = "1.54.0"

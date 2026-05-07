@@ -30,6 +30,27 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
       detail = json.detail ?? json.message ?? json;
       body = typeof detail === 'string' ? detail : JSON.stringify(detail);
     } catch { /* not JSON — keep raw text */ }
+
+    // Global block detector. Backend signals a soft-blocked account by
+    // responding 403 with detail = { code: "account_blocked", reason }.
+    // We dispatch a CustomEvent that App.tsx listens for to render the
+    // full-screen "Аккаунт заблокирован" overlay — no per-component
+    // try/catch needed.
+    if (
+      res.status === 403
+      && typeof detail === 'object'
+      && detail !== null
+      && (detail as { code?: unknown }).code === 'account_blocked'
+    ) {
+      const reason = (detail as { reason?: unknown }).reason;
+      if (typeof window !== 'undefined' && typeof window.dispatchEvent === 'function') {
+        window.dispatchEvent(
+          new CustomEvent('account-blocked', {
+            detail: { reason: typeof reason === 'string' ? reason : '' },
+          }),
+        );
+      }
+    }
     throw new ApiError(res.status, body, detail);
   }
   return res.json() as Promise<T>;
@@ -688,6 +709,9 @@ export interface AdminUserSummary {
   total_generations: number;
   last_task_at: string | null;
   last_seen: string | null;
+  blocked_at: string | null;
+  blocked_reason: string | null;
+  blocked_by: string | null;
 }
 
 export interface AdminUserListResponse {
@@ -789,6 +813,49 @@ export function adminRefund(
       method: 'POST',
       body: JSON.stringify(body),
     },
+  );
+}
+
+export interface AdminBlockResponse {
+  status: string;
+  blocked_at: string | null;
+  blocked_reason: string | null;
+  blocked_by: string | null;
+}
+
+export function adminBlockUser(userId: string, reason: string) {
+  return request<AdminBlockResponse>(
+    `/api/v1/admin/users/${encodeURIComponent(userId)}/block`,
+    {
+      method: 'POST',
+      body: JSON.stringify({ reason }),
+    },
+  );
+}
+
+export function adminUnblockUser(userId: string) {
+  return request<{ status: string; blocked_at: null }>(
+    `/api/v1/admin/users/${encodeURIComponent(userId)}/unblock`,
+    { method: 'POST' },
+  );
+}
+
+export interface AdminDeleteResponse {
+  deleted: boolean;
+  artefacts: {
+    tasks: number;
+    generated_files: number;
+    share_cards: number;
+    consents: number;
+    identities: number;
+    perception_records: number;
+  };
+}
+
+export function adminDeleteUser(userId: string) {
+  return request<AdminDeleteResponse>(
+    `/api/v1/admin/users/${encodeURIComponent(userId)}`,
+    { method: 'DELETE' },
   );
 }
 

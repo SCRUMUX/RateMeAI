@@ -385,6 +385,9 @@ async def test_get_user_response_omits_image_paths():
         is_premium=False,
         image_credits=5,
         created_at=datetime.now(timezone.utc),
+        blocked_at=None,
+        blocked_reason=None,
+        blocked_by=None,
     )
     # tasks_q returns column-tuples — note the absence of image-path
     # columns. The handler MUST mirror that: response['tasks'][i]
@@ -427,3 +430,209 @@ async def test_search_users_empty_query_returns_recent_users():
     rows = await admin_lookup.search_users_by_query(db, q="", limit=10)
     assert rows == ["user-A", "user-B"]
     db.execute.assert_awaited_once()
+
+
+# ---------------------------------------------------------------------------
+# block_user / unblock_user / delete_user (1.54.0)
+# ---------------------------------------------------------------------------
+
+
+def _block_user(*, blocked: bool = False) -> SimpleNamespace:
+    """Helper: construct a SimpleNamespace user with the full block-field
+    surface so handlers don't AttributeError."""
+    return SimpleNamespace(
+        id=uuid4(),
+        telegram_id=None,
+        username=None,
+        first_name=None,
+        is_premium=False,
+        image_credits=5,
+        created_at=datetime.now(timezone.utc),
+        blocked_at=datetime.now(timezone.utc) if blocked else None,
+        blocked_reason="prior reason" if blocked else None,
+        blocked_by=uuid4() if blocked else None,
+    )
+
+
+@pytest.mark.asyncio
+async def test_block_user_rejects_short_reason_via_pydantic():
+    with pytest.raises(ValidationError):
+        admin_users.BlockRequest(reason="ab")
+
+
+@pytest.mark.asyncio
+async def test_block_user_404_when_missing():
+    db = MagicMock()
+    db.execute = AsyncMock(return_value=_scalar_one_or_none_result(None))
+    db.commit = AsyncMock()
+    payload = admin_users.BlockRequest(reason="abuse: ticket #42")
+    with pytest.raises(HTTPException) as exc:
+        await admin_users.block_user(
+            user_id=str(uuid4()),
+            payload=payload,
+            admin=SimpleNamespace(id=uuid4()),
+            db=db,
+        )
+    assert exc.value.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_block_user_refuses_self_block():
+    user = _block_user()
+    db = MagicMock()
+    db.execute = AsyncMock(return_value=_scalar_one_or_none_result(user))
+    db.commit = AsyncMock()
+    payload = admin_users.BlockRequest(reason="trying to lock self out")
+    with pytest.raises(HTTPException) as exc:
+        await admin_users.block_user(
+            user_id=str(user.id),
+            payload=payload,
+            admin=SimpleNamespace(id=user.id),
+            db=db,
+        )
+    assert exc.value.status_code == 400
+    db.commit.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_block_user_sets_block_fields_and_commits():
+    user = _block_user()
+    db = MagicMock()
+    db.execute = AsyncMock(return_value=_scalar_one_or_none_result(user))
+    db.commit = AsyncMock()
+    db.refresh = AsyncMock()
+    admin_id = uuid4()
+    payload = admin_users.BlockRequest(reason="violation of TOS, ticket #99")
+
+    result = await admin_users.block_user(
+        user_id=str(user.id),
+        payload=payload,
+        admin=SimpleNamespace(id=admin_id),
+        db=db,
+    )
+
+    assert result["status"] == "ok"
+    assert user.blocked_at is not None
+    assert user.blocked_reason == "violation of TOS, ticket #99"
+    assert user.blocked_by == admin_id
+    db.commit.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_unblock_user_clears_block_fields():
+    user = _block_user(blocked=True)
+    db = MagicMock()
+    db.execute = AsyncMock(return_value=_scalar_one_or_none_result(user))
+    db.commit = AsyncMock()
+
+    result = await admin_users.unblock_user(
+        user_id=str(user.id),
+        admin=SimpleNamespace(id=uuid4()),
+        db=db,
+    )
+
+    assert result["status"] == "ok"
+    assert user.blocked_at is None
+    assert user.blocked_reason is None
+    assert user.blocked_by is None
+    db.commit.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_unblock_user_404_when_missing():
+    db = MagicMock()
+    db.execute = AsyncMock(return_value=_scalar_one_or_none_result(None))
+    with pytest.raises(HTTPException) as exc:
+        await admin_users.unblock_user(
+            user_id=str(uuid4()),
+            admin=SimpleNamespace(id=uuid4()),
+            db=db,
+        )
+    assert exc.value.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_delete_user_refuses_self_delete():
+    user = _block_user()
+    db = MagicMock()
+    db.execute = AsyncMock(return_value=_scalar_one_or_none_result(user))
+    request = SimpleNamespace(client=None, headers={})
+    with pytest.raises(HTTPException) as exc:
+        await admin_users.delete_user(
+            user_id=str(user.id),
+            request=request,
+            admin=SimpleNamespace(id=user.id),
+            db=db,
+            redis=None,
+        )
+    assert exc.value.status_code == 400
+
+
+@pytest.mark.asyncio
+async def test_delete_user_calls_purge_with_admin_source(monkeypatch):
+    user = _block_user()
+    db = MagicMock()
+    db.execute = AsyncMock(return_value=_scalar_one_or_none_result(user))
+    request = SimpleNamespace(client=None, headers={"user-agent": "ops"})
+
+    captured: dict = {}
+
+    async def fake_purge(*, user, db, redis, source, client_ip, user_agent):
+        captured["source"] = source
+        captured["user_id"] = user.id
+        captured["user_agent"] = user_agent
+        return {"deleted": True, "artefacts": {}}
+
+    monkeypatch.setattr(admin_users, "purge_user", fake_purge)
+
+    result = await admin_users.delete_user(
+        user_id=str(user.id),
+        request=request,
+        admin=SimpleNamespace(id=uuid4()),
+        db=db,
+        redis=None,
+    )
+
+    assert result == {"deleted": True, "artefacts": {}}
+    assert captured["source"] == "admin"
+    assert captured["user_id"] == user.id
+    assert captured["user_agent"] == "ops"
+
+
+# ---------------------------------------------------------------------------
+# ensure_user_not_blocked — central auth gate
+# ---------------------------------------------------------------------------
+
+
+def test_ensure_user_not_blocked_passes_for_active_user():
+    from src.api.deps import ensure_user_not_blocked
+
+    user = SimpleNamespace(blocked_at=None, blocked_reason=None)
+    ensure_user_not_blocked(user)
+
+
+def test_ensure_user_not_blocked_raises_403_with_account_blocked_code():
+    from src.api.deps import ensure_user_not_blocked
+
+    user = SimpleNamespace(
+        blocked_at=datetime.now(timezone.utc),
+        blocked_reason="abuse",
+    )
+    with pytest.raises(HTTPException) as exc:
+        ensure_user_not_blocked(user)
+    assert exc.value.status_code == 403
+    assert isinstance(exc.value.detail, dict)
+    assert exc.value.detail["code"] == "account_blocked"
+    assert exc.value.detail["reason"] == "abuse"
+
+
+def test_ensure_user_not_blocked_handles_missing_reason():
+    from src.api.deps import ensure_user_not_blocked
+
+    user = SimpleNamespace(
+        blocked_at=datetime.now(timezone.utc),
+        blocked_reason=None,
+    )
+    with pytest.raises(HTTPException) as exc:
+        ensure_user_not_blocked(user)
+    assert exc.value.detail["reason"] == ""

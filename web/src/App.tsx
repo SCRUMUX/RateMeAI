@@ -1,9 +1,10 @@
-import { lazy, Suspense, useEffect } from 'react';
+import { lazy, Suspense, useEffect, useState } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useLocation, useNavigationType } from 'react-router-dom';
 import { AppProvider } from './context/AppContext';
 import { LandingModalsProvider } from './context/LandingModalsContext';
 import { ToastProvider } from './components/Toast';
 import { useReveal } from './lib/useReveal';
+import AccountBlockedScreen from './components/AccountBlockedScreen';
 import Landing from './pages/Landing';
 import AppPage from './pages/AppPage';
 import DocumentPhotoPage from './pages/DocumentPhotoPage';
@@ -50,10 +51,38 @@ function ScrollToTop() {
   return null;
 }
 
+/**
+ * 1.54.0 — Global ``account-blocked`` listener.
+ *
+ * ``request()`` in ``src/lib/api.ts`` dispatches this event whenever the
+ * API answers 403 with ``{code: "account_blocked"}``. We render the
+ * full-screen overlay above all routes so the blocked user can't
+ * interact with anything else.
+ */
+function useAccountBlockedListener(): {
+  blocked: boolean;
+  reason: string;
+  clear: () => void;
+} {
+  const [blocked, setBlocked] = useState(false);
+  const [reason, setReason] = useState('');
+  useEffect(() => {
+    const handler = (event: Event) => {
+      const ce = event as CustomEvent<{ reason?: string }>;
+      setReason(ce.detail?.reason ?? '');
+      setBlocked(true);
+    };
+    window.addEventListener('account-blocked', handler);
+    return () => window.removeEventListener('account-blocked', handler);
+  }, []);
+  return { blocked, reason, clear: () => setBlocked(false) };
+}
+
 export default function App() {
   // 1.50.3: scroll-reveal singleton — один IntersectionObserver
   // активирует .reveal/.reveal-stagger ноды по всему приложению.
   useReveal();
+  const { blocked, reason, clear } = useAccountBlockedListener();
 
   return (
     <BrowserRouter>
@@ -61,6 +90,9 @@ export default function App() {
       <ToastProvider>
         <AppProvider>
           <LandingModalsProvider>
+            {blocked && (
+              <AccountBlockedScreen reason={reason} onClose={clear} />
+            )}
             <Routes>
               <Route path="/" element={<Landing />} />
               <Route path="/dokumenty" element={<DocumentPhotoPage />} />

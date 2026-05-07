@@ -101,6 +101,17 @@ export default function UsersAdminPage() {
   const [actionBusy, setActionBusy] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
 
+  // Block / unblock / delete have their own busy flag and inline error.
+  // Block uses a small inline form (textarea for reason). Delete asks
+  // the admin to retype the user-id to prevent fat-finger destruction.
+  const [blockBusy, setBlockBusy] = useState(false);
+  const [blockReason, setBlockReason] = useState('');
+  const [blockOpen, setBlockOpen] = useState(false);
+  const [moderationError, setModerationError] = useState<string | null>(null);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleteConfirmId, setDeleteConfirmId] = useState('');
+  const [deleteBusy, setDeleteBusy] = useState(false);
+
   const fetchUsers = useCallback(async (q: string, lim: number) => {
     setLoadingList(true);
     setListError(null);
@@ -144,6 +155,11 @@ export default function UsersAdminPage() {
       setDetail(null);
       setAction(EMPTY_ACTION);
       setActionError(null);
+      setBlockOpen(false);
+      setBlockReason('');
+      setDeleteOpen(false);
+      setDeleteConfirmId('');
+      setModerationError(null);
       return;
     }
     void fetchDetail(activeUserId);
@@ -238,6 +254,64 @@ export default function UsersAdminPage() {
     }
   }, [detail, action, fetchDetail, fetchUsers, submittedQuery, limit]);
 
+  const handleBlock = useCallback(async () => {
+    if (!detail) return;
+    const reason = blockReason.trim();
+    if (reason.length < 3) {
+      setModerationError('Укажите причину блокировки (мин. 3 символа).');
+      return;
+    }
+    setBlockBusy(true);
+    setModerationError(null);
+    try {
+      await api.adminBlockUser(detail.user.id, reason);
+      setBlockOpen(false);
+      setBlockReason('');
+      await fetchDetail(detail.user.id);
+      void fetchUsers(submittedQuery, limit);
+    } catch (e) {
+      setModerationError(e instanceof Error ? e.message : 'Не удалось заблокировать');
+    } finally {
+      setBlockBusy(false);
+    }
+  }, [detail, blockReason, fetchDetail, fetchUsers, submittedQuery, limit]);
+
+  const handleUnblock = useCallback(async () => {
+    if (!detail) return;
+    setBlockBusy(true);
+    setModerationError(null);
+    try {
+      await api.adminUnblockUser(detail.user.id);
+      await fetchDetail(detail.user.id);
+      void fetchUsers(submittedQuery, limit);
+    } catch (e) {
+      setModerationError(e instanceof Error ? e.message : 'Не удалось разблокировать');
+    } finally {
+      setBlockBusy(false);
+    }
+  }, [detail, fetchDetail, fetchUsers, submittedQuery, limit]);
+
+  const handleDelete = useCallback(async () => {
+    if (!detail) return;
+    if (deleteConfirmId.trim() !== detail.user.id) {
+      setModerationError('UUID не совпадает — введите id пользователя точно как в карточке.');
+      return;
+    }
+    setDeleteBusy(true);
+    setModerationError(null);
+    try {
+      await api.adminDeleteUser(detail.user.id);
+      setDeleteOpen(false);
+      setDeleteConfirmId('');
+      setActiveUserId(null);
+      void fetchUsers(submittedQuery, limit);
+    } catch (e) {
+      setModerationError(e instanceof Error ? e.message : 'Не удалось удалить пользователя');
+    } finally {
+      setDeleteBusy(false);
+    }
+  }, [detail, deleteConfirmId, fetchUsers, submittedQuery, limit]);
+
   const totalCount = users?.length ?? 0;
 
   return (
@@ -314,6 +388,7 @@ export default function UsersAdminPage() {
                 <th className="text-right px-[var(--space-16)] py-[var(--space-12)]">Генераций</th>
                 <th className="text-left px-[var(--space-16)] py-[var(--space-12)]">Создан</th>
                 <th className="text-left px-[var(--space-16)] py-[var(--space-12)]">Активен</th>
+                <th className="text-left px-[var(--space-16)] py-[var(--space-12)]">Статус</th>
               </tr>
             </thead>
             <tbody>
@@ -346,11 +421,23 @@ export default function UsersAdminPage() {
                   <td className="px-[var(--space-16)] py-[var(--space-12)] text-[#8b95a3]">
                     {formatRelative(u.last_task_at ?? u.last_seen)}
                   </td>
+                  <td className="px-[var(--space-16)] py-[var(--space-12)]">
+                    {u.blocked_at ? (
+                      <span
+                        className="inline-flex items-center gap-[4px] px-[8px] h-[22px] rounded-full bg-red-500/15 border border-red-500/30 text-[11px] leading-[14px] text-red-300 font-medium"
+                        title={u.blocked_reason ?? ''}
+                      >
+                        🔒 Заблокирован
+                      </span>
+                    ) : (
+                      <span className="text-[12px] text-[#5a6470]">активен</span>
+                    )}
+                  </td>
                 </tr>
               ))}
               {!loadingList && users && users.length === 0 && (
                 <tr>
-                  <td colSpan={6} className="px-[var(--space-16)] py-[var(--space-32)] text-center text-[#5a6470]">
+                  <td colSpan={7} className="px-[var(--space-16)] py-[var(--space-32)] text-center text-[#5a6470]">
                     Никого не нашли. Попробуйте другой запрос.
                   </td>
                 </tr>
@@ -374,6 +461,38 @@ export default function UsersAdminPage() {
           onCancelAction={cancelAction}
           onChangeAction={setAction}
           onSubmitAction={submitAction}
+          blockOpen={blockOpen}
+          blockReason={blockReason}
+          blockBusy={blockBusy}
+          deleteOpen={deleteOpen}
+          deleteConfirmId={deleteConfirmId}
+          deleteBusy={deleteBusy}
+          moderationError={moderationError}
+          onOpenBlock={() => {
+            setBlockOpen(true);
+            setBlockReason('');
+            setModerationError(null);
+          }}
+          onCancelBlock={() => {
+            setBlockOpen(false);
+            setBlockReason('');
+            setModerationError(null);
+          }}
+          onChangeBlockReason={setBlockReason}
+          onSubmitBlock={handleBlock}
+          onSubmitUnblock={handleUnblock}
+          onOpenDelete={() => {
+            setDeleteOpen(true);
+            setDeleteConfirmId('');
+            setModerationError(null);
+          }}
+          onCancelDelete={() => {
+            setDeleteOpen(false);
+            setDeleteConfirmId('');
+            setModerationError(null);
+          }}
+          onChangeDeleteConfirmId={setDeleteConfirmId}
+          onSubmitDelete={handleDelete}
         />
       )}
     </AdminLayout>
@@ -393,6 +512,22 @@ interface UserDrawerProps {
   onCancelAction: () => void;
   onChangeAction: (next: ConfirmActionState) => void;
   onSubmitAction: () => void;
+  blockOpen: boolean;
+  blockReason: string;
+  blockBusy: boolean;
+  deleteOpen: boolean;
+  deleteConfirmId: string;
+  deleteBusy: boolean;
+  moderationError: string | null;
+  onOpenBlock: () => void;
+  onCancelBlock: () => void;
+  onChangeBlockReason: (next: string) => void;
+  onSubmitBlock: () => void;
+  onSubmitUnblock: () => void;
+  onOpenDelete: () => void;
+  onCancelDelete: () => void;
+  onChangeDeleteConfirmId: (next: string) => void;
+  onSubmitDelete: () => void;
 }
 
 function UserDrawer({
@@ -408,6 +543,22 @@ function UserDrawer({
   onCancelAction,
   onChangeAction,
   onSubmitAction,
+  blockOpen,
+  blockReason,
+  blockBusy,
+  deleteOpen,
+  deleteConfirmId,
+  deleteBusy,
+  moderationError,
+  onOpenBlock,
+  onCancelBlock,
+  onChangeBlockReason,
+  onSubmitBlock,
+  onSubmitUnblock,
+  onOpenDelete,
+  onCancelDelete,
+  onChangeDeleteConfirmId,
+  onSubmitDelete,
 }: UserDrawerProps) {
   const summary = detail?.user;
   const [tab, setTab] = useState<'transactions' | 'tasks'>('transactions');
@@ -487,6 +638,24 @@ function UserDrawer({
               </div>
             </section>
 
+            {summary.blocked_at && (
+              <div className="mb-[var(--space-16)] rounded-[var(--radius-12)] border border-red-500/30 bg-red-500/10 p-[var(--space-16)]">
+                <div className="flex items-center gap-[var(--space-8)] mb-[var(--space-8)]">
+                  <span className="text-[12px] uppercase tracking-wide text-red-300 font-semibold">
+                    🔒 Аккаунт заблокирован
+                  </span>
+                  <span className="text-[11px] text-[#8b95a3]">
+                    с {formatDate(summary.blocked_at)}
+                  </span>
+                </div>
+                {summary.blocked_reason && (
+                  <p className="text-[12px] leading-[16px] text-[#a8b1bf] italic">
+                    Причина: {summary.blocked_reason}
+                  </p>
+                )}
+              </div>
+            )}
+
             <section className="mb-[var(--space-24)]">
               <h4 className="text-[13px] uppercase tracking-wide text-[#8b95a3] mb-[var(--space-8)]">
                 Действия
@@ -520,6 +689,126 @@ function UserDrawer({
                   onSubmit={onSubmitAction}
                   onCancel={onCancelAction}
                 />
+              )}
+            </section>
+
+            <section className="mb-[var(--space-24)]">
+              <h4 className="text-[13px] uppercase tracking-wide text-[#8b95a3] mb-[var(--space-8)]">
+                Модерация
+              </h4>
+              <div className="flex flex-wrap gap-[var(--space-8)]">
+                {summary.blocked_at ? (
+                  <button
+                    onClick={onSubmitUnblock}
+                    disabled={blockBusy}
+                    className="px-[var(--space-16)] h-[36px] rounded-[var(--radius-pill)] bg-emerald-500/15 border border-emerald-400/30 hover:bg-emerald-500/25 disabled:opacity-50 text-[13px] leading-[18px] text-emerald-200"
+                  >
+                    {blockBusy ? 'Разблокируем…' : 'Разблокировать'}
+                  </button>
+                ) : (
+                  <button
+                    onClick={onOpenBlock}
+                    className="px-[var(--space-16)] h-[36px] rounded-[var(--radius-pill)] bg-red-500/10 border border-red-500/30 hover:bg-red-500/20 text-[13px] leading-[18px] text-red-200"
+                  >
+                    Заблокировать
+                  </button>
+                )}
+                <button
+                  onClick={onOpenDelete}
+                  className="px-[var(--space-16)] h-[36px] rounded-[var(--radius-pill)] bg-red-500/15 border border-red-500/40 hover:bg-red-500/25 text-[13px] leading-[18px] text-red-200"
+                >
+                  Удалить из системы
+                </button>
+              </div>
+
+              {moderationError && (
+                <div className="mt-[var(--space-12)] px-[var(--space-12)] py-[var(--space-8)] bg-red-500/10 border border-red-500/30 rounded-[var(--radius-8)] text-[12px] text-red-300">
+                  {moderationError}
+                </div>
+              )}
+
+              {blockOpen && (
+                <div className="mt-[var(--space-12)] rounded-[var(--radius-12)] border border-white/10 bg-white/[0.02] p-[var(--space-16)] flex flex-col gap-[var(--space-12)]">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[13px] font-semibold text-white">
+                      Блокировка пользователя
+                    </span>
+                    <button
+                      onClick={onCancelBlock}
+                      className="text-[12px] text-[#5a6470] hover:text-white"
+                    >
+                      Отмена
+                    </button>
+                  </div>
+                  <label className="flex flex-col gap-[var(--space-4)]">
+                    <span className="text-[11px] uppercase tracking-wide text-[#8b95a3]">
+                      Причина (показывается пользователю)
+                    </span>
+                    <textarea
+                      value={blockReason}
+                      onChange={(e) => onChangeBlockReason(e.target.value)}
+                      rows={3}
+                      maxLength={500}
+                      className="w-full px-[var(--space-12)] py-[var(--space-8)] rounded-[var(--radius-8)] border border-white/10 bg-black/30 text-[13px] leading-[18px] focus:outline-none focus:border-red-400"
+                      placeholder="например: нарушение правил сервиса (тикет #...)"
+                    />
+                  </label>
+                  <button
+                    onClick={onSubmitBlock}
+                    disabled={blockBusy}
+                    className={`px-[var(--space-16)] h-[36px] rounded-[var(--radius-pill)] text-[13px] leading-[18px] font-medium ${
+                      blockBusy
+                        ? 'bg-white/10 text-[#8b95a3] cursor-not-allowed'
+                        : 'bg-red-600 hover:bg-red-500 text-white'
+                    }`}
+                  >
+                    {blockBusy ? 'Блокируем…' : 'Подтвердить блокировку'}
+                  </button>
+                </div>
+              )}
+
+              {deleteOpen && (
+                <div className="mt-[var(--space-12)] rounded-[var(--radius-12)] border border-red-500/40 bg-red-500/[0.06] p-[var(--space-16)] flex flex-col gap-[var(--space-12)]">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[13px] font-semibold text-white">
+                      Удаление аккаунта (необратимо)
+                    </span>
+                    <button
+                      onClick={onCancelDelete}
+                      className="text-[12px] text-[#5a6470] hover:text-white"
+                    >
+                      Отмена
+                    </button>
+                  </div>
+                  <p className="text-[12px] leading-[16px] text-[#a8b1bf]">
+                    Удалит запись пользователя и все связанные артефакты
+                    (генерации, согласия, идентичности, ledger). Восстановить
+                    нельзя. Отметка останется только в <code>deletion_log</code>
+                    (без PII).
+                  </p>
+                  <label className="flex flex-col gap-[var(--space-4)]">
+                    <span className="text-[11px] uppercase tracking-wide text-[#8b95a3]">
+                      Подтвердите: введите UUID пользователя
+                    </span>
+                    <input
+                      value={deleteConfirmId}
+                      onChange={(e) => onChangeDeleteConfirmId(e.target.value)}
+                      className="w-full px-[var(--space-12)] h-[36px] rounded-[var(--radius-8)] border border-red-500/30 bg-black/30 text-[13px] leading-[18px] font-mono focus:outline-none focus:border-red-400"
+                      placeholder={summary.id}
+                    />
+                  </label>
+                  <button
+                    onClick={onSubmitDelete}
+                    disabled={deleteBusy || deleteConfirmId.trim() !== summary.id}
+                    className={`px-[var(--space-16)] h-[36px] rounded-[var(--radius-pill)] text-[13px] leading-[18px] font-medium ${
+                      deleteBusy || deleteConfirmId.trim() !== summary.id
+                        ? 'bg-white/10 text-[#8b95a3] cursor-not-allowed'
+                        : 'bg-red-700 hover:bg-red-600 text-white'
+                    }`}
+                  >
+                    {deleteBusy ? 'Удаляем…' : 'Удалить навсегда'}
+                  </button>
+                </div>
               )}
             </section>
 

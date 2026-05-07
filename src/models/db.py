@@ -39,6 +39,17 @@ class User(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )
+    # Admin block: NULL = active. When set, ``get_auth_user`` and the
+    # OAuth/web auth handlers reject the user with HTTP 403
+    # ``{code: "account_blocked", reason: ...}``. Frontend listens to
+    # that code and shows the full-screen "Аккаунт заблокирован" overlay.
+    blocked_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    blocked_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+    blocked_by: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), nullable=True
+    )
 
     tasks: Mapped[list["Task"]] = relationship(
         back_populates="user", cascade="all, delete-orphan"

@@ -31,7 +31,7 @@ from src.models.schemas import (
     ClaimLinkRequest,
     ClaimLinkResponse,
 )
-from src.api.deps import get_db, get_auth_user, get_redis
+from src.api.deps import get_db, get_auth_user, get_redis, ensure_user_not_blocked
 from src.utils.auth_tokens import hash_api_key
 from src.services.sessions import create_session
 
@@ -157,6 +157,11 @@ async def _usage_for(user: User, db: AsyncSession) -> UserUsage:
 async def _auth_response(
     user: User, db: AsyncSession, redis: Redis
 ) -> ChannelAuthResponse:
+    # Refuse to mint a session for blocked users — otherwise they'd
+    # land on /app, see the token in localStorage, and only THEN hit
+    # 403 on the next API call. Failing here surfaces the block
+    # screen immediately on the OAuth callback / web auth.
+    ensure_user_not_blocked(user)
     token = await create_session(redis, user.id)
     usage = await _usage_for(user, db)
     return ChannelAuthResponse(session_token=token, user_id=user.id, usage=usage)
@@ -459,6 +464,7 @@ async def yandex_oauth_callback(
         },
         link_to_user=link_to,
     )
+    ensure_user_not_blocked(user)
     token = await create_session(redis, user.id)
 
     web_base = settings.web_base_url or settings.api_base_url
@@ -559,6 +565,7 @@ async def google_oauth_callback(
         },
         link_to_user=link_to,
     )
+    ensure_user_not_blocked(user)
     token = await create_session(redis, user.id)
 
     web_base = settings.web_base_url or settings.api_base_url
@@ -681,6 +688,7 @@ async def vk_id_oauth_callback(
         },
         link_to_user=link_to,
     )
+    ensure_user_not_blocked(user)
     token = await create_session(redis, user.id)
 
     web_base = settings.web_base_url or settings.api_base_url
@@ -829,6 +837,7 @@ async def claim_link(
 async def _claim_link_response(
     user: User, db: AsyncSession, redis: Redis
 ) -> ClaimLinkResponse:
+    ensure_user_not_blocked(user)
     token = await create_session(redis, user.id)
     usage = await _usage_for(user, db)
     identities = await _identities_list(db, user.id)

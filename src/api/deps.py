@@ -34,6 +34,25 @@ def _user_exempt_from_rate_limit(user: User) -> bool:
     return uname in _rate_limit_exempt_usernames()
 
 
+def ensure_user_not_blocked(user: User) -> None:
+    """Raise HTTP 403 ``account_blocked`` if the user is soft-blocked.
+
+    Called from ``get_auth_user`` (every authenticated request) AND
+    from auth handlers right before issuing a session token, so a
+    blocked user can't grab a fresh token only to get 403 on the
+    next request. The frontend listens for the ``account_blocked``
+    code and shows a full-screen overlay.
+    """
+    if user.blocked_at is not None:
+        raise HTTPException(
+            status_code=403,
+            detail={
+                "code": "account_blocked",
+                "reason": user.blocked_reason or "",
+            },
+        )
+
+
 async def get_db(request: Request) -> AsyncGenerator[AsyncSession, None]:
     async with request.app.state.db_sessionmaker() as session:
         yield session
@@ -66,6 +85,7 @@ async def get_auth_user(
                 raise HTTPException(
                     status_code=401, detail="User not found for session"
                 )
+            ensure_user_not_blocked(user)
             return user
 
     # 2) API key (B2B)
@@ -82,6 +102,7 @@ async def get_auth_user(
         user = await db.get(User, client.user_id)
         if user is None:
             raise HTTPException(status_code=401, detail="Invalid API key")
+        ensure_user_not_blocked(user)
         return user
 
     raise HTTPException(
