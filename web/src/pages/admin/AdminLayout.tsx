@@ -5,7 +5,7 @@ import {
   AdminTargetProvider,
   useAdminTarget,
 } from '../../lib/admin-target-context';
-import type { AdminTargetId } from '../../lib/admin-targets';
+import { tokenStorageKey, type AdminTargetId } from '../../lib/admin-targets';
 
 interface AdminLayoutProps {
   children: ReactNode;
@@ -131,48 +131,58 @@ function NoTokenForTargetGate({ children }: { children: ReactNode }) {
   }
 
   const otherWithToken = targets.find(
-    (t) => t.id !== current.id && Boolean(localStorage.getItem(`ailook_session_token__${t.id}`)),
+    (t) => t.id !== current.id
+      && Boolean(localStorage.getItem(tokenStorageKey(t.id))),
   );
+
+  // Cross-origin reality check (1.55.1): localStorage is per-origin,
+  // so a session token written on ru.ailookstudio.ru is *literally
+  // invisible* to scripts running on ailookstudio.ru. Switching to RU
+  // from a non-RU origin will never find the token even after a
+  // separate-tab login. We detect it from window.location.host vs
+  // the target's apiBase host and show a direct "open RU admin"
+  // shortcut instead of a useless login prompt.
+  const targetHost = (() => {
+    try { return new URL(current.apiBase).host; } catch { return ''; }
+  })();
+  const currentHost = typeof window !== 'undefined' ? window.location.host : '';
+  const isCrossOrigin =
+    targetHost !== '' && currentHost !== '' && targetHost !== currentHost;
+  const targetAdminUrl =
+    isCrossOrigin && current.apiBase
+      ? `${current.apiBase.replace(/\/+$/, '')}/admin/users`
+      : null;
 
   return (
     <div className="rounded-[14px] border border-amber-400/30 bg-amber-500/5 px-[var(--space-24)] py-[var(--space-24)] text-amber-100 max-w-[760px]">
       <h2 className="text-[16px] leading-[22px] font-semibold mb-[var(--space-8)]">
         Нужен вход на target «{current.label}»
       </h2>
-      <p className="text-[13px] leading-[20px] text-amber-100/85 mb-[var(--space-16)]">
-        У этого инстанса своя база сессий. Чтобы дёргать админ-эндпоинты,
-        войдите в основной кабинет на нужном домене и вернитесь сюда.
-      </p>
-      <ul className="text-[12px] leading-[18px] text-amber-100/70 space-y-[var(--space-4)] mb-[var(--space-16)] list-disc pl-[var(--space-20)]">
-        <li>
-          Для primary: войти на{' '}
-          <a
-            href="https://ailookstudio.ru/auth"
-            target="_blank"
-            rel="noreferrer"
-            className="underline hover:text-white"
-          >
-            ailookstudio.ru/auth
-          </a>{' '}
-          и потом открыть{' '}
-          <code className="bg-black/30 px-[4px] py-[1px] rounded">
-            /admin/users
-          </code>
-          .
-        </li>
-        <li>
-          Для RU: войти на{' '}
-          <a
-            href="https://ru.ailookstudio.ru/auth"
-            target="_blank"
-            rel="noreferrer"
-            className="underline hover:text-white"
-          >
-            ru.ailookstudio.ru/auth
-          </a>{' '}
-          и потом открыть тот же путь админки.
-        </li>
-      </ul>
+      {isCrossOrigin ? (
+        <>
+          <p className="text-[13px] leading-[20px] text-amber-100/85 mb-[var(--space-12)]">
+            Админка target «{current.shortLabel}» живёт на другом домене
+            ({targetHost}), и его сессия хранится только там — из этой
+            вкладки её не достать. Откройте админку напрямую на нужном
+            домене:
+          </p>
+          {targetAdminUrl && (
+            <a
+              href={targetAdminUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex items-center gap-[var(--space-8)] px-[var(--space-16)] h-[36px] rounded-[var(--radius-pill)] bg-emerald-600 hover:bg-emerald-500 text-white text-[13px] leading-[18px] font-medium mb-[var(--space-16)]"
+            >
+              Открыть админку «{current.shortLabel}» в новой вкладке →
+            </a>
+          )}
+        </>
+      ) : (
+        <p className="text-[13px] leading-[20px] text-amber-100/85 mb-[var(--space-16)]">
+          У этого инстанса своя база сессий. Войдите в основной кабинет
+          на этом домене и вернитесь сюда — токен подтянется автоматически.
+        </p>
+      )}
       {otherWithToken && (
         <button
           type="button"

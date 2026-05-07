@@ -25,6 +25,8 @@ import {
 import {
   ADMIN_TARGETS,
   getAdminTarget,
+  TOKEN_STORAGE_PREFIX,
+  LEGACY_PRIMARY_TOKEN_KEY,
   type AdminTarget,
   type AdminTargetId,
 } from './admin-targets';
@@ -82,12 +84,17 @@ export function AdminTargetProvider({ children }: { children: ReactNode }) {
   );
 
   // Listen for cross-tab logout/login: another tab writing to a
-  // per-target session-token key needs to reflect here so the
-  // hasToken flag updates without a full reload.
+  // session-token key needs to reflect here so the hasToken flag
+  // updates without a full reload. Watches both the per-target
+  // suffixed keys (RU) and the legacy single-token key used by the
+  // public OAuth flow / cabinet (Primary).
   useEffect(() => {
     function onStorage(e: StorageEvent) {
       if (!e.key) return;
-      if (e.key.startsWith('ailook_session_token__')) {
+      if (
+        e.key === LEGACY_PRIMARY_TOKEN_KEY
+        || e.key.startsWith(TOKEN_STORAGE_PREFIX)
+      ) {
         setTokenSeq((n) => n + 1);
       }
     }

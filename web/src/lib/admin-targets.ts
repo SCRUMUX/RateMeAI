@@ -39,8 +39,15 @@ export interface AdminTarget {
  *  entry per target so switching never clobbers the other token. */
 export const TOKEN_STORAGE_PREFIX = 'ailook_session_token__';
 
-/** Storage key for the currently-selected target so a refresh keeps
- *  the operator on the right instance. */
+/** Legacy single-token storage key used by the SPA's pre-1.55 auth
+ *  flow (``auth.ts``, ``AppContext``, ``OAuthCallback``). We keep
+ *  using this exact key for the ``primary`` target so that a user
+ *  who logs in via the regular OAuth flow lands the token where the
+ *  rest of the app expects it. ``ru`` gets its own suffixed key. */
+export const LEGACY_PRIMARY_TOKEN_KEY = 'ailook_session_token';
+
+/** Storage key for the currently-selected admin target so a refresh
+ *  keeps the operator on the right instance. */
 export const ACTIVE_TARGET_STORAGE_KEY = 'ailook_admin_active_target';
 
 const _DEFAULT_PRIMARY_URL =
@@ -77,5 +84,11 @@ export function getAdminTarget(id: AdminTargetId): AdminTarget {
 }
 
 export function tokenStorageKey(id: AdminTargetId): string {
+  // ``primary`` reuses the legacy single-token key so the public
+  // OAuth/cabinet flow (which writes ``ailook_session_token``
+  // directly via ``auth.ts``) and the admin Primary flow share
+  // the same slot. Otherwise logging in to the cabinet wouldn't
+  // authorise admin requests on the same instance.
+  if (id === 'primary') return LEGACY_PRIMARY_TOKEN_KEY;
   return `${TOKEN_STORAGE_PREFIX}${id}`;
 }

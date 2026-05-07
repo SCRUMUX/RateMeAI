@@ -1,19 +1,21 @@
 // 1.55.0 — multi-target admin. The SPA can talk to multiple FastAPI
-// instances (primary / RU edge); see ``./admin-targets.ts``. The
-// active target is global (a module-scoped variable, not React state)
-// because the API helpers must work both inside and outside React
-// trees. ``setActiveAdminTarget`` is called by
-// ``./admin-target-context.tsx`` whenever the operator picks a new
-// target in the AdminLayout dropdown.
+// instances (primary / RU edge); see ``./admin-targets.ts``.
+//
+// 1.55.1 hotfix: routing was originally done off ``_activeTarget``
+// for ALL traffic, including OAuth init, ``/users/me`` and SSE
+// progress. That broke the public flow whenever an operator left
+// the admin switcher on RU — Google OAuth would suddenly redirect
+// to ``ru.ailookstudio.ru/auth/callback`` (often unregistered →
+// "redirect_uri_mismatch"), and image URLs would resolve against
+// the wrong host. Per-target routing is now path-scoped: only
+// ``/api/v1/admin/*`` paths follow the switcher, everything else
+// goes to ``primary`` regardless of UI state.
 import {
-  ADMIN_TARGETS,
   ACTIVE_TARGET_STORAGE_KEY,
   getAdminTarget,
   tokenStorageKey,
   type AdminTargetId,
 } from './admin-targets';
-
-const _LEGACY_TOKEN_KEY = 'ailook_session_token';
 
 function _hydrateActiveTarget(): AdminTargetId {
   if (typeof localStorage === 'undefined') return 'primary';
@@ -28,21 +30,11 @@ function _hydrateTokens(): Record<AdminTargetId, string | null> {
     ru: null,
   };
   if (typeof localStorage === 'undefined') return out;
-  for (const t of ADMIN_TARGETS) {
-    out[t.id] = localStorage.getItem(tokenStorageKey(t.id));
-  }
-  // Migrate legacy single-token storage (1.54 and earlier wrote
-  // ``ailook_session_token`` directly). Map it to ``primary`` so
-  // existing logged-in operators don't get bounced.
-  const legacy = localStorage.getItem(_LEGACY_TOKEN_KEY);
-  if (legacy && !out.primary) {
-    out.primary = legacy;
-    try {
-      localStorage.setItem(tokenStorageKey('primary'), legacy);
-    } catch {
-      /* localStorage might be unavailable (private mode) — fine */
-    }
-  }
+  // ``tokenStorageKey('primary')`` resolves to the legacy key
+  // ``ailook_session_token``, so this picks up tokens written by
+  // both the public OAuth flow (auth.ts) and admin login.
+  out.primary = localStorage.getItem(tokenStorageKey('primary'));
+  out.ru = localStorage.getItem(tokenStorageKey('ru'));
   return out;
 }
 
@@ -62,34 +54,29 @@ export function setActiveAdminTarget(id: AdminTargetId): void {
   }
 }
 
-export function getApiBase(): string {
-  return getAdminTarget(_activeTarget).apiBase;
+/** Resolve the API base URL for a given target. ``getApiBase()``
+ *  without arguments returns the primary base — that's the value
+ *  used by SSE / image-url helpers and any non-admin code path. */
+export function getApiBase(target: AdminTargetId = 'primary'): string {
+  return getAdminTarget(target).apiBase;
 }
 
-/** Legacy export — kept so any consumer that imported the constant
- *  before 1.55 still compiles. New code should call ``getApiBase()``
- *  so the value reflects the currently-active target. */
-export const API_BASE = getApiBase();
+/** Legacy export — kept so consumers that imported the constant
+ *  before 1.55 still compile. ALWAYS resolves to primary so
+ *  non-admin features (SSE, image URLs) can't be broken by the
+ *  admin target switcher. */
+export const API_BASE = getApiBase('primary');
 
+/** Public token setter used by the cabinet OAuth flow. Always
+ *  writes to the primary slot — non-admin code never targets RU. */
 export function setToken(t: string | null): void {
-  _tokens[_activeTarget] = t;
-  if (typeof localStorage === 'undefined') return;
-  try {
-    if (t) {
-      localStorage.setItem(tokenStorageKey(_activeTarget), t);
-      // Mirror primary token to the legacy key so older code paths
-      // (logout flows, etc.) still find it. Only for primary so we
-      // don't accidentally overwrite legacy with an RU token.
-      if (_activeTarget === 'primary') {
-        localStorage.setItem(_LEGACY_TOKEN_KEY, t);
-      }
-    } else {
-      localStorage.removeItem(tokenStorageKey(_activeTarget));
-      if (_activeTarget === 'primary') {
-        localStorage.removeItem(_LEGACY_TOKEN_KEY);
-      }
-    }
-  } catch { /* fine */ }
+  setTokenForTarget('primary', t);
+}
+
+/** Public token getter — returns the primary token. Admin code
+ *  that needs the active-target token uses ``getTokenForTarget``. */
+export function getToken(): string | null {
+  return _tokens.primary;
 }
 
 export function setTokenForTarget(id: AdminTargetId, t: string | null): void {
@@ -104,16 +91,18 @@ export function setTokenForTarget(id: AdminTargetId, t: string | null): void {
   } catch { /* fine */ }
 }
 
-export function getToken(): string | null {
-  return _tokens[_activeTarget];
-}
-
 export function getTokenForTarget(id: AdminTargetId): string | null {
   return _tokens[id];
 }
 
+const ADMIN_PATH_PREFIX = '/api/v1/admin/';
+
+function _isAdminPath(path: string): boolean {
+  return path.startsWith(ADMIN_PATH_PREFIX);
+}
+
 export interface AdminRequestOptions {
-  /** Override the active target for this single call. Used by the
+  /** Override the routing target for this single call. Used by the
    *  CMS "Применить на оба сервера" button so a write to RU doesn't
    *  require globally switching targets. */
   target?: AdminTargetId;
@@ -124,7 +113,17 @@ async function request<T>(
   init: RequestInit & AdminRequestOptions = {},
 ): Promise<T> {
   const { target, ...fetchInit } = init as RequestInit & AdminRequestOptions;
-  const targetId = target ?? _activeTarget;
+  // Path-scoped target selection: admin endpoints follow the
+  // operator's chosen target, everything else stays on primary so
+  // OAuth/SSE/cabinet keep working regardless of admin UI state.
+  let targetId: AdminTargetId;
+  if (target) {
+    targetId = target;
+  } else if (_isAdminPath(path)) {
+    targetId = _activeTarget;
+  } else {
+    targetId = 'primary';
+  }
   const apiBase = getAdminTarget(targetId).apiBase;
   const token = _tokens[targetId];
 

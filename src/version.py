@@ -4787,4 +4787,51 @@
 #          ОПЕРАЦИОННОЕ: на RU edge нужно проверить
 #          ``ADMIN_EMAILS`` в ``/opt/ratemeai/.env.ru`` —
 #          без этой строки логин админа на ru.* даст 403.
-APP_VERSION = "1.55.0"
+# 1.55.1 — Hotfix: OAuth (Google/Yandex/VK) ломался после
+#          переключения «Цель» в админке на RU.
+#          Root cause: 1.55.0 сделал ``getApiBase()`` /
+#          ``getToken()`` / ``request()`` зависимыми от
+#          глобального ``_activeTarget``, который пишется
+#          в ``localStorage.ailook_admin_active_target``
+#          из admin-target-context. Эта переменная
+#          использовалась ВЕЗДЕ — включая oauthInit,
+#          ``/users/me`` и SSE прогресс. Если оператор хоть
+#          раз кликнул переключатель на RU и не вернулся,
+#          ACTIVE_TARGET_STORAGE_KEY застревал в ``ru``,
+#          OAuth init шёл на ``https://ru.ailookstudio.ru``,
+#          authorize_url возвращался с
+#          ``redirect_uri=https://ru.ailookstudio.ru/auth/callback``
+#          — которого нет в Google/Yandex/VK Console для
+#          Vercel-фронта, и провайдер показывал
+#          ``redirect_uri_mismatch``.
+#          Fix: разнесли public flow и admin flow в api.ts.
+#            * ``setToken(t)`` / ``getToken()`` теперь ВСЕГДА
+#              работают с primary slot (для основного
+#              кабинета). Админка использует
+#              ``setTokenForTarget(id, t)`` /
+#              ``getTokenForTarget(id)``.
+#            * ``request<T>(path, init?)`` определяет target
+#              по path: запросы на ``/api/v1/admin/*``
+#              следуют ``_activeTarget`` (или явному
+#              ``init.target``), всё остальное жёстко идёт
+#              на primary.
+#            * ``API_BASE`` legacy export всегда указывает
+#              на primary (нужно для SSE и
+#              ``image-url.ts``, которые захватывают
+#              константу на boot).
+#            * ``tokenStorageKey('primary')`` теперь
+#              возвращает ``'ailook_session_token'``
+#              (legacy key), чтобы public OAuth flow и
+#              admin Primary flow жили в одном слоте — иначе
+#              логин в кабинет не авторизовал бы admin
+#              запросы на том же инстансе.
+#          Cross-origin reality check в AdminLayout: при
+#          переключении target на инстанс с другим origin
+#          (``localStorage`` per-origin → токен невозможно
+#          достать из чужого домена) ``NoTokenForTargetGate``
+#          теперь показывает прямую кнопку «Открыть админку
+#          target в новой вкладке», а не бесполезный
+#          login-prompt.
+#          Backend без изменений. tsc / ruff / pytest
+#          (2061 passed) зелёные.
+APP_VERSION = "1.55.1"
