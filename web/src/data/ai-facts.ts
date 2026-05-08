@@ -72,8 +72,14 @@ export function getStreamFacts(category?: CategoryId): AiFact[] {
   ];
 }
 
-/** Backward-compatible flat list (all categories combined). */
-export const AI_FACTS: AiFact[] = getStreamFacts();
+/**
+ * 1.59.0 — removed the eager ``AI_FACTS = getStreamFacts()`` export.
+ * The original module-level evaluation could fire before i18next had
+ * finished loading the `wizard:streamFacts.*` resource (depends on
+ * import order) and silently bake an empty array into the module
+ * cache. Use {@link getStreamFacts} or {@link getRandomFact} instead —
+ * both resolve through i18next on every call.
+ */
 
 export function getRandomFact(
   excludeIndex?: number,

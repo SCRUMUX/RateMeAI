@@ -253,7 +253,7 @@ export default function VisaLanding({ visa, onStart, showAuth, onAuthClose }: Pr
         />
 
         {visaTestimonials.length > 0 && (
-          <Testimonials items={visaTestimonials} tone="documents" />
+          <Testimonials items={visaTestimonials} tone="visa" />
         )}
 
         <HowItWorks steps={howSteps} title={how.title} />

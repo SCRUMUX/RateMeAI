@@ -99,6 +99,14 @@ jobs:
           npx tsc --noEmit
           VITE_API_BASE_URL=http://127.0.0.1:8000 VITE_MARKET_ID=global npm run build
 
+      # 1.59.0 — vitest unit/integration tests for the SPA (initially
+      # focused on landing-cms fallbacks + Pricing render). Runs after
+      # tsc/build so the test suite executes against the same module
+      # graph the production bundle compiles.
+      - name: Vitest (frontend)
+        working-directory: web
+        run: npm test -- --reporter=verbose
+
   # ─── Deploy backend (Railway: app + worker + bot) ───────────
   deploy-backend:
     needs: [test]

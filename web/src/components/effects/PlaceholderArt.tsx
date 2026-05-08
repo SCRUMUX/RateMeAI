@@ -23,7 +23,7 @@
 
 import { type CSSProperties, type SVGProps } from 'react';
 
-export type PlaceholderTone = 'home' | 'dating' | 'cv' | 'documents';
+export type PlaceholderTone = 'home' | 'dating' | 'cv' | 'documents' | 'visa';
 
 const TONE_COLORS: Record<PlaceholderTone, string | undefined> = {
   // home — без override → используется category-aware accent.
@@ -31,6 +31,10 @@ const TONE_COLORS: Record<PlaceholderTone, string | undefined> = {
   dating: '#F46FA0',
   cv: '#7C9BFF',
   documents: '#D9CFB7',
+  // visa — теплый оттенок штампа загранпаспорта; визуально отличается
+  // от documents (бежевый), чтобы карусель отзывов на /visa/* не
+  // сливалась со страницами фото на документы.
+  visa: '#5BA9F2',
 };
 
 interface ToneProps {

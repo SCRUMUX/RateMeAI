@@ -1,0 +1,5 @@
+{
+  "_comment": "Empty stub — RU bundle uses the curated TESTIMONIALS list in web/src/data/testimonials.ts as the master corpus. The EN bundle (en/testimonials.json) carries actual data. Kept here so i18next has a same-shape resource for both languages and getActiveTestimonials() can probe it without missing-namespace warnings.",
+  "carousel": {},
+  "styleShowcase": {}
+}

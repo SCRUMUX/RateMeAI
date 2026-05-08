@@ -28,6 +28,8 @@ import ruScenarios from '../locales/ru/scenarios.json';
 import ruPolicies from '../locales/ru/policies.json';
 import ruCatalog from '../locales/ru/catalog.json';
 import ruStyles from '../locales/ru/styles.json';
+import ruSocialProof from '../locales/ru/socialProof.json';
+import ruTestimonials from '../locales/ru/testimonials.json';
 import enCommon from '../locales/en/common.json';
 import enErrors from '../locales/en/errors.json';
 import enWizard from '../locales/en/wizard.json';
@@ -39,6 +41,8 @@ import enScenarios from '../locales/en/scenarios.json';
 import enPolicies from '../locales/en/policies.json';
 import enCatalog from '../locales/en/catalog.json';
 import enStyles from '../locales/en/styles.json';
+import enSocialProof from '../locales/en/socialProof.json';
+import enTestimonials from '../locales/en/testimonials.json';
 
 export const SUPPORTED_LANGS = ['ru', 'en'] as const;
 export type AppLang = (typeof SUPPORTED_LANGS)[number];
@@ -61,6 +65,8 @@ const resources = {
     policies: ruPolicies,
     catalog: ruCatalog,
     styles: ruStyles,
+    socialProof: ruSocialProof,
+    testimonials: ruTestimonials,
   },
   en: {
     common: enCommon,
@@ -74,6 +80,8 @@ const resources = {
     policies: enPolicies,
     catalog: enCatalog,
     styles: enStyles,
+    socialProof: enSocialProof,
+    testimonials: enTestimonials,
   },
 } as const;
 
@@ -93,6 +101,8 @@ void i18next.use(initReactI18next).init({
     'policies',
     'catalog',
     'styles',
+    'socialProof',
+    'testimonials',
   ],
   defaultNS: 'common',
   interpolation: { escapeValue: false },

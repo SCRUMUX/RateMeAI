@@ -5048,4 +5048,67 @@
 #            ISSUE_TEXTS proxy keeps the input_quality.py call site
 #            working unchanged. New tests in
 #            tests/test_services/test_photo_requirements.py.
-APP_VERSION = "1.58.0"
+# 1.59.0 — i18n closure (after 1.58.0). Tenth-and-final pass closing
+#          the remaining holes that 1.57/1.58 surfaced on the global
+#          server.
+#          Backend:
+#          • src/prompts/{social,dating,cv}.py + perception.py now
+#            ship paired _BODY_RU/_BODY_EN bodies; build_prompt(...,
+#            lang=...) and PromptEngine.build(..., lang=...) accept an
+#            explicit language while _resolve_lang() maps an unset
+#            settings.resolved_market_id to RU (back-compat) and
+#            ``global``/``en`` to EN. Existing test corpus keeps
+#            asserting RU phrasing by passing lang="ru" explicitly.
+#          • src/services/photo_requirements.py adds
+#            _REQUIREMENTS_BULLETS_BY_LANG / _REJECT_BULLETS_BY_LANG
+#            with get_requirements_bullets / get_reject_bullets
+#            getters and a _BulletListProxy that keeps the legacy
+#            module-level imports working. format_requirements_plaintext
+#            and short_requirements_block became language-aware.
+#          Frontend:
+#          • web/src/lib/api.ts now post-processes catalog API
+#            responses through localizeApiStyle(), translating each
+#            entry's label/hook through the styles:* namespace with
+#            a 7-category fallback. scripts/audit_styles.py audits
+#            i18n coverage of data/styles.json against
+#            web/src/locales/{ru,en}/styles.json and now exits 0.
+#          • Two brand-new i18n namespaces — socialProof (HOME_COPY,
+#            CATEGORY_EXTRA_MESSAGES, DOCUMENT_GENERIC_MESSAGES,
+#            categoryMessages, feedTemplates with t() interpolation,
+#            feedContexts) and testimonials (~50 EN entries). RU
+#            testimonials stay hardcoded for parity; getActiveTestimonials()
+#            prefers the EN bundle when MARKET_ID=global, falls back to
+#            the RU corpus.
+#          • DOCUMENT_SOCIAL_PROOF_PRESET converted to a Proxy-backed
+#            getter; AI_FACTS eager export removed (use
+#            getStreamFacts/getRandomFact). Both lazy-resolve through
+#            i18next on every call instead of capturing empty strings
+#            during module init.
+#          • PlaceholderTone gained a 'visa' variant (#5BA9F2);
+#            VisaLanding's <Testimonials/> uses tone="visa" so the
+#            visa carousel visually separates from documents.
+#          SEO:
+#          • useDocumentMeta now resolves canonical URLs through
+#            SEO_DOMAINS (RU=ailookstudio.ru, EN=ailookstudio.com),
+#            emits ``hreflang`` link tags (ru/ru-ru/en/x-default),
+#            and seeds og:locale + og:locale:alternate. sitemap.xml
+#            grew xhtml:link alternates per URL.
+#          Auto-translate seed:
+#          • scripts/seed_landing_global.py gained --mode=auto-translate
+#            and --preserve-existing. LANDING_I18N_MAP covers
+#            footer/scenario_pricing/proof_counter/how_it_works/final_cta
+#            for home/document_photo/visa-* with dotted-path writes
+#            (incl. plans[N].title etc). Re-run is idempotent against
+#            admin edits when --preserve-existing is set.
+#          Tests / CI:
+#          • web/vitest.config.ts + src/test/setup.ts wire up jsdom
+#            and pin VITE_MARKET_ID=ru for stable i18n. New tests:
+#            web/src/lib/landing-cms.test.ts (coalesceCmsString,
+#            parseHero, parseProofCounter) and
+#            web/src/sections/Pricing.test.tsx (CMS-fallback render).
+#            CI workflow gained a ``Vitest (frontend)`` step.
+#          • tests/test_prompts/test_localization.py covers
+#            _resolve_lang + lang-aware build_prompt for each of
+#            social/dating/cv. tests/test_services/test_photo_requirements.py
+#            asserts RU/EN parity.
+APP_VERSION = "1.59.0"

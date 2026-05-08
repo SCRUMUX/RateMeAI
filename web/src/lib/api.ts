@@ -619,8 +619,61 @@ export interface CatalogStylesResponse {
   schema: 'v1' | 'v2';
 }
 
-export function getCatalogStyles(mode: string) {
-  return request<CatalogStylesResponse>(`/api/v1/catalog/styles?mode=${mode}&schema=v2`);
+/**
+ * 1.59.0 — i18n localisation for catalog responses.
+ *
+ * The backend `/api/v1/catalog/styles` endpoint returns Russian
+ * ``label`` and ``hook`` strings (the master copy lives in
+ * ``data/styles.json``). On the global build we want the English
+ * versions from ``web/src/locales/en/styles.json`` instead, with the
+ * server payload acting as a fallback for keys that do not have a
+ * translation yet. This helper performs the lookup; both
+ * ``getCatalogStyles`` and ``getScenarioStyles`` route their results
+ * through it.
+ *
+ * The i18n bundle is shaped as
+ * ``styles:<category>.<style_key>.{name,desc}``. ``category`` is the
+ * style's mode for the regular catalog (``dating`` / ``cv`` /
+ * ``social`` / ``model`` / ``brand`` / ``memes``). Document and visa
+ * styles live under the ``documents`` namespace regardless of the
+ * scenario they belong to, so the helper falls through both
+ * candidates and the legacy ``items.<key>`` shape.
+ */
+const STYLE_FALLBACK_CATEGORIES = ['documents', 'dating', 'cv', 'social', 'model', 'brand', 'memes'];
+
+function _lookupStyleString(category: string | undefined, key: string, field: 'name' | 'desc'): string | null {
+  const candidates: string[] = [];
+  if (category) candidates.push(`styles:${category}.${key}.${field}`);
+  for (const cat of STYLE_FALLBACK_CATEGORIES) {
+    if (cat !== category) candidates.push(`styles:${cat}.${key}.${field}`);
+  }
+  for (const path of candidates) {
+    if (i18next.exists(path)) {
+      const v = i18next.t(path);
+      if (typeof v === 'string' && v.trim()) return v;
+    }
+  }
+  return null;
+}
+
+function localizeApiStyle<T extends { key: string; label: string; hook: string }>(
+  entry: T,
+  category?: string,
+): T {
+  const localizedLabel = _lookupStyleString(category, entry.key, 'name');
+  const localizedHook = _lookupStyleString(category, entry.key, 'desc');
+  return {
+    ...entry,
+    label: localizedLabel ?? entry.label,
+    hook: localizedHook ?? entry.hook,
+  };
+}
+
+export async function getCatalogStyles(mode: string): Promise<CatalogStylesResponse> {
+  const res = await request<CatalogStylesResponse>(
+    `/api/v1/catalog/styles?mode=${mode}&schema=v2`,
+  );
+  return { ...res, styles: res.styles.map((s) => localizeApiStyle(s, mode)) };
 }
 
 // Styles that live behind a specific scenario page (e.g. /dokumenty,
@@ -639,10 +692,16 @@ export interface ScenarioStylesResponse {
   schema: 'v1' | 'v2';
 }
 
-export function getScenarioStyles(scenarioSlug: string) {
-  return request<ScenarioStylesResponse>(
+export async function getScenarioStyles(
+  scenarioSlug: string,
+): Promise<ScenarioStylesResponse> {
+  const res = await request<ScenarioStylesResponse>(
     `/api/v1/catalog/scenario-styles?scenario=${encodeURIComponent(scenarioSlug)}&schema=v2`,
   );
+  // Each entry carries its own ``mode``; pass it as the category hint
+  // so document-photo styles read from ``styles:documents.*`` and
+  // dating styles read from ``styles:dating.*``.
+  return { ...res, styles: res.styles.map((s) => localizeApiStyle(s, s.mode)) };
 }
 
 // v2 slot payload returned by /api/v1/catalog/styles/{id}/options?schema=v2

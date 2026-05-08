@@ -1,3 +1,4 @@
+import i18next from '../lib/i18n';
 import { DOCUMENT_LANDING_ITEMS } from './landingStyles';
 import { CATEGORIES, type CategoryId } from './styles';
 import { FULL_LANDING_STYLES_BY_CATEGORY } from './landingStyles';
@@ -26,133 +27,65 @@ export interface SocialProofPreset {
   feed: SocialProofFeedItem[];
 }
 
-// 1.49.2: «лайк раз в 5..10 секунд». Это не TikTok-фонтан и не
-// ботовский счётчик +1 в секунду — это естественное приращение
-// social proof: каждые 5..10s появляется один лайк (3..4 сердечка
-// плавно вылетают и тают), цифра увеличивается на 1 (или 2..3 при
-// редком burst). По всем категориям единый pace, чтобы поведение
-// было предсказуемым.
-const HOME_COPY: Record<CategoryId, Omit<SocialProofPreset, 'id' | 'feed'>> = {
+/**
+ * 1.59.0 — copy moved into the ``socialProof`` i18n namespace, but
+ * the numeric pacing knobs (counter delays, base counts, ticker
+ * intervals) stay in code: they are pure presentation tuning and
+ * never need to be translated.
+ */
+const HOME_PACING: Record<CategoryId, Omit<SocialProofPreset, 'id' | 'feed' | 'title'>> = {
   social: {
-    title: 'Люди уже улучшили свои фото для соцсетей',
     baseCount: 2734,
-    counter: {
-      minDelayMs: 5000,
-      maxDelayMs: 10000,
-      burstChance: 0.1,
-      maxBurstSize: 3,
-    },
+    counter: { minDelayMs: 5000, maxDelayMs: 10000, burstChance: 0.1, maxBurstSize: 3 },
     tickerIntervalMs: 4200,
   },
   cv: {
-    title: 'Люди уже улучшили свои фото для карьеры',
     baseCount: 2481,
-    counter: {
-      minDelayMs: 5000,
-      maxDelayMs: 10000,
-      burstChance: 0.1,
-      maxBurstSize: 3,
-    },
+    counter: { minDelayMs: 5000, maxDelayMs: 10000, burstChance: 0.1, maxBurstSize: 3 },
     tickerIntervalMs: 4300,
   },
   dating: {
-    title: 'Люди уже улучшили свои фото для знакомств',
     baseCount: 2916,
-    counter: {
-      minDelayMs: 5000,
-      maxDelayMs: 10000,
-      burstChance: 0.12,
-      maxBurstSize: 3,
-    },
+    counter: { minDelayMs: 5000, maxDelayMs: 10000, burstChance: 0.12, maxBurstSize: 3 },
     tickerIntervalMs: 3900,
   },
   model: {
-    title: 'Люди уже следят за новыми фотосет-сценариями',
     baseCount: 1864,
-    counter: {
-      minDelayMs: 5000,
-      maxDelayMs: 10000,
-      burstChance: 0.08,
-      maxBurstSize: 2,
-    },
+    counter: { minDelayMs: 5000, maxDelayMs: 10000, burstChance: 0.08, maxBurstSize: 2 },
     tickerIntervalMs: 4500,
   },
   brand: {
-    title: 'Люди уже готовят новые фото для личного бренда',
     baseCount: 2017,
-    counter: {
-      minDelayMs: 5000,
-      maxDelayMs: 10000,
-      burstChance: 0.08,
-      maxBurstSize: 2,
-    },
+    counter: { minDelayMs: 5000, maxDelayMs: 10000, burstChance: 0.08, maxBurstSize: 2 },
     tickerIntervalMs: 4400,
   },
   memes: {
-    title: 'Люди уже ждут запуск новых мем-сценариев',
     baseCount: 1679,
-    counter: {
-      minDelayMs: 5000,
-      maxDelayMs: 10000,
-      burstChance: 0.12,
-      maxBurstSize: 3,
-    },
+    counter: { minDelayMs: 5000, maxDelayMs: 10000, burstChance: 0.12, maxBurstSize: 3 },
     tickerIntervalMs: 4000,
   },
 };
 
-const CATEGORY_EXTRA_MESSAGES: Record<CategoryId, string[]> = {
-  social: [
-    'Сразу появилось ощущение контента, который хочется досмотреть.',
-    'Фото стало выглядеть так, будто над ним работал контент-креатор.',
-    'В ленте кадр стал цеплять заметно быстрее.',
-    'Теперь легче держать единый визуальный вайб аккаунта.',
-    'Даже обычное селфи стало выглядеть как сильный пост.',
-  ],
-  cv: [
-    'Первое впечатление стало заметно более собранным и уверенным.',
-    'Такой визуал не отвлекает, а усиливает доверие к профилю.',
-    'Для LinkedIn и резюме это ощущается намного сильнее обычного селфи.',
-    'Фото стало выглядеть профессионально без лишней искусственности.',
-    'С этим образом проще заходить в рабочие и экспертные сценарии.',
-  ],
-  dating: [
-    'Анкета стала выглядеть теплее и заметно живее.',
-    'Появился тот самый вайб легкого знакомства без перегруза.',
-    'Фото выглядит уверенно, но не слишком постановочно.',
-    'Визуал стал располагать к первому сообщению.',
-    'Профиль начал выглядеть дороже и естественнее одновременно.',
-  ],
-  model: [
-    'Свет и подача ощущаются как начало полноценного фотосета.',
-    'Даже в ранних сценариях уже видна студийная подача.',
-    'Такой визуал легко представить в портфолио.',
-    'Фон и свет собирают образ намного сильнее.',
-    'Сценарий выглядит как хорошая база для съемки.',
-  ],
-  brand: [
-    'Визуал сразу начинает работать на позиционирование.',
-    'Подача ощущается увереннее и взрослее.',
-    'Такой образ хорошо ложится в экспертный контент.',
-    'Появилось ощущение цельного личного бренда.',
-    'Фото лучше поддерживает голос и статус бренда.',
-  ],
-  memes: [
-    'С первого взгляда считывается вайб и шутка.',
-    'Контент выглядит живее и вируснее.',
-    'Образ быстро вызывает реакцию и эмоцию.',
-    'Для мем-формата это очень цепляющая подача.',
-    'Даже превью стало ощущаться бодрее.',
-  ],
-};
+function homeTitleFor(category: CategoryId): string {
+  const v = i18next.t(`socialProof:home.${category}`);
+  return typeof v === 'string' && v.trim() ? v : '';
+}
 
-const DOCUMENT_GENERIC_MESSAGES = [
-  'Получилось аккуратно и без ощущения фотосалона.',
-  'Формат выглядит строго, но при этом естественно.',
-  'Хорошо, что можно быстро подобрать нужный тип документа.',
-  'Важнее всего, что лицо сохранилось узнаваемым.',
-  'Для документов такой спокойный и чистый результат особенно важен.',
-];
+function categoryMessages(category: CategoryId): string[] {
+  const raw = i18next.t(`socialProof:categoryMessages.${category}`, { returnObjects: true });
+  if (Array.isArray(raw)) {
+    return raw.filter((s): s is string => typeof s === 'string' && !!s.trim());
+  }
+  return [];
+}
+
+function documentsGenericMessages(): string[] {
+  const raw = i18next.t('socialProof:documents.genericMessages', { returnObjects: true });
+  if (Array.isArray(raw)) {
+    return raw.filter((s): s is string => typeof s === 'string' && !!s.trim());
+  }
+  return [];
+}
 
 const FALLBACK_AUTHORS = {
   social: ['@viki.frame', '@den.content', '@sasha.reels', '@mila.daily', '@roma.feed'],
@@ -169,12 +102,19 @@ function capitalize(value: string): string {
 }
 
 function getStyleName(category: CategoryId, styleKey: string): string {
-  return FULL_LANDING_STYLES_BY_CATEGORY[category].find((style) => style.key === styleKey)?.name ?? 'Новый стиль';
+  const fallback = i18next.t('socialProof:fallbackStyleName');
+  return (
+    FULL_LANDING_STYLES_BY_CATEGORY[category].find((style) => style.key === styleKey)?.name
+    ?? (typeof fallback === 'string' ? fallback : 'New style')
+  );
 }
 
 function buildTestimonialFeed(category: CategoryId): SocialProofFeedItem[] {
   const categoryLabel = CATEGORIES.find((item) => item.id === category)?.label ?? capitalize(category);
   const categoryTestimonials = TESTIMONIALS.filter((item) => item.category === category);
+  const messages = categoryMessages(category);
+  const aiCtx = i18next.t('socialProof:feedContexts.aiAnalysis');
+  const recentCtx = i18next.t('socialProof:feedContexts.recentImpression');
 
   const derived = categoryTestimonials.flatMap((item, index) => {
     const styleName = getStyleName(category, item.styleKey);
@@ -191,23 +131,29 @@ function buildTestimonialFeed(category: CategoryId): SocialProofFeedItem[] {
       {
         id: `${item.id}-score`,
         author: item.nickname,
-        message: `После стиля «${styleName}» скор вырос с ${beforeScore} до ${afterScore}.`,
-        context: `${categoryLabel} · AI анализ`,
+        message: i18next.t('socialProof:feedTemplates.styleScore', {
+          styleName,
+          before: beforeScore,
+          after: afterScore,
+        }) as string,
+        context: `${categoryLabel} · ${aiCtx}`,
       },
       {
         id: `${item.id}-effect`,
         author: item.nickname,
-        message: CATEGORY_EXTRA_MESSAGES[category][index] ?? `Стиль «${styleName}» заметно усилил первое впечатление.`,
+        message:
+          messages[index]
+          ?? (i18next.t('socialProof:feedTemplates.styleEffect', { styleName }) as string),
         context: `${categoryLabel} · ${styleName}`,
       },
     ];
   });
 
-  const extras = CATEGORY_EXTRA_MESSAGES[category].map((message, index) => ({
+  const extras = messages.map((message, index) => ({
     id: `${category}-extra-${index}`,
     author: FALLBACK_AUTHORS[category][index % FALLBACK_AUTHORS[category].length],
     message,
-    context: `${categoryLabel} · Недавнее впечатление`,
+    context: `${categoryLabel} · ${recentCtx}`,
   }));
 
   return [...derived, ...extras];
@@ -216,12 +162,14 @@ function buildTestimonialFeed(category: CategoryId): SocialProofFeedItem[] {
 function buildComingSoonFeed(category: CategoryId): SocialProofFeedItem[] {
   const categoryLabel = CATEGORIES.find((item) => item.id === category)?.label ?? capitalize(category);
   const styles = FULL_LANDING_STYLES_BY_CATEGORY[category].slice(0, 5);
+  const previewCtx = i18next.t('socialProof:feedContexts.preview');
+  const earlyCtx = i18next.t('socialProof:feedContexts.earlyAccess');
 
   const styleMessages = styles.flatMap((style, index) => [
     {
       id: `${category}-${style.key}-1`,
       author: FALLBACK_AUTHORS[category][index % FALLBACK_AUTHORS[category].length],
-      message: `Сценарий «${style.name}» уже выглядит как сильная идея для запуска.`,
+      message: i18next.t('socialProof:feedTemplates.comingSoonStrong', { styleName: style.name }) as string,
       context: `${categoryLabel} · ${style.name}`,
     },
     {
@@ -233,76 +181,101 @@ function buildComingSoonFeed(category: CategoryId): SocialProofFeedItem[] {
     {
       id: `${category}-${style.key}-3`,
       author: FALLBACK_AUTHORS[category][(index + 2) % FALLBACK_AUTHORS[category].length],
-      message: `У «${style.name}» очень сильный вайб для первого впечатления.`,
-      context: `${categoryLabel} · preview`,
+      message: i18next.t('socialProof:feedTemplates.comingSoonVibe', { styleName: style.name }) as string,
+      context: `${categoryLabel} · ${previewCtx}`,
     },
   ]);
 
-  const extras = CATEGORY_EXTRA_MESSAGES[category].map((message, index) => ({
+  const extras = categoryMessages(category).map((message, index) => ({
     id: `${category}-coming-extra-${index}`,
     author: FALLBACK_AUTHORS[category][index % FALLBACK_AUTHORS[category].length],
     message,
-    context: `${categoryLabel} · ранний доступ`,
+    context: `${categoryLabel} · ${earlyCtx}`,
   }));
 
   return [...styleMessages, ...extras];
 }
 
 function buildDocumentFeed(): SocialProofFeedItem[] {
+  const docLabel = i18next.t('socialProof:documents.label') as string;
+  const recentReview = i18next.t('socialProof:feedContexts.recentReview') as string;
+  const recentImpression = i18next.t('socialProof:feedContexts.recentDocImpression') as string;
+
   const derived = DOCUMENT_LANDING_ITEMS.flatMap((item, index) => [
     {
       id: `documents-${item.key}-main`,
       author: FALLBACK_AUTHORS.documents[index % FALLBACK_AUTHORS.documents.length],
-      message: `Сделал формат «${item.name}» без поездки в фотосалон.`,
-      context: `Документы · ${item.name}`,
+      message: i18next.t('socialProof:feedTemplates.documentMain', { name: item.name }) as string,
+      context: `${docLabel} · ${item.name}`,
     },
     {
       id: `documents-${item.key}-desc`,
       author: FALLBACK_AUTHORS.documents[(index + 1) % FALLBACK_AUTHORS.documents.length],
       message: item.desc,
-      context: `Документы · ${item.usage}`,
+      context: `${docLabel} · ${item.usage}`,
     },
     {
       id: `documents-${item.key}-effect`,
       author: FALLBACK_AUTHORS.documents[(index + 2) % FALLBACK_AUTHORS.documents.length],
-      message: `Удобно, что формат «${item.name}» сразу выглядит спокойно и аккуратно.`,
-      context: `Документы · недавний отзыв`,
+      message: i18next.t('socialProof:feedTemplates.documentEffect', { name: item.name }) as string,
+      context: `${docLabel} · ${recentReview}`,
     },
   ]);
 
-  const extras = DOCUMENT_GENERIC_MESSAGES.map((message, index) => ({
+  const extras = documentsGenericMessages().map((message, index) => ({
     id: `documents-extra-${index}`,
     author: FALLBACK_AUTHORS.documents[index % FALLBACK_AUTHORS.documents.length],
     message,
-    context: 'Документы · недавнее впечатление',
+    context: `${docLabel} · ${recentImpression}`,
   }));
 
   return [...derived, ...extras];
 }
 
 export function getLandingSocialProofPreset(category: CategoryId): SocialProofPreset {
-  const basePreset = HOME_COPY[category];
+  const pacing = HOME_PACING[category];
   const feed = TESTIMONIALS.some((item) => item.category === category)
     ? buildTestimonialFeed(category)
     : buildComingSoonFeed(category);
 
   return {
     id: category,
-    ...basePreset,
+    title: homeTitleFor(category),
+    ...pacing,
     feed,
   };
 }
 
-export const DOCUMENT_SOCIAL_PROOF_PRESET: SocialProofPreset = {
-  id: 'documents',
-  title: 'Люди уже подготовили свои фото для документов',
-  baseCount: 3186,
-  counter: {
-    minDelayMs: 5000,
-    maxDelayMs: 10000,
-    burstChance: 0.08,
-    maxBurstSize: 2,
+/**
+ * 1.59.0 — DOCUMENT_SOCIAL_PROOF_PRESET is now a getter so the i18n
+ * lookups happen lazily (after i18next has finished initialising).
+ * Module-level eager evaluation produced empty strings on the EN
+ * build because the import order ran this file before the resource
+ * bundles were attached.
+ */
+export function getDocumentSocialProofPreset(): SocialProofPreset {
+  return {
+    id: 'documents',
+    title: i18next.t('socialProof:documents.title') as string,
+    baseCount: 3186,
+    counter: { minDelayMs: 5000, maxDelayMs: 10000, burstChance: 0.08, maxBurstSize: 2 },
+    tickerIntervalMs: 4300,
+    feed: buildDocumentFeed(),
+  };
+}
+
+/**
+ * Backwards-compatible export: callers that destructure
+ * ``DOCUMENT_SOCIAL_PROOF_PRESET`` (e.g. VisaLanding for the proof
+ * counter pacing) keep working. Each property access reads through
+ * the getter, so the bundle never freezes a stale empty title.
+ */
+export const DOCUMENT_SOCIAL_PROOF_PRESET: SocialProofPreset = new Proxy(
+  {} as SocialProofPreset,
+  {
+    get(_target, prop) {
+      const live = getDocumentSocialProofPreset();
+      return live[prop as keyof SocialProofPreset];
+    },
   },
-  tickerIntervalMs: 4300,
-  feed: buildDocumentFeed(),
-};
+);

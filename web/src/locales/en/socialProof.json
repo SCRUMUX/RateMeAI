@@ -1,0 +1,82 @@
+{
+  "home": {
+    "social": "People are already upgrading their social-media photos",
+    "cv": "People are already upgrading their photos for their career",
+    "dating": "People are already upgrading their photos for dating",
+    "model": "People are already watching new photoshoot scenarios",
+    "brand": "People are already preparing new photos for their personal brand",
+    "memes": "People are already waiting for the new meme scenarios to launch"
+  },
+  "documents": {
+    "title": "People have already prepared their photos for documents",
+    "label": "Documents",
+    "genericMessages": [
+      "Came out neat and without that photo-studio feel.",
+      "Strict format yet still natural-looking.",
+      "Nice that I could quickly pick the right document type.",
+      "The most important thing — my face stayed recognisable.",
+      "For documents this calm, clean result really matters."
+    ]
+  },
+  "fallbackStyleName": "New style",
+  "categoryMessages": {
+    "social": [
+      "Right away it feels like content you want to keep watching.",
+      "The photo looks like a content creator worked on it.",
+      "In the feed the shot grabs attention much faster.",
+      "It's easier now to keep a consistent visual vibe.",
+      "Even a regular selfie looks like a strong post."
+    ],
+    "cv": [
+      "The first impression became noticeably more composed and confident.",
+      "This visual doesn't distract — it boosts trust in the profile.",
+      "For LinkedIn and CVs it feels way stronger than a regular selfie.",
+      "The photo looks professional without feeling artificial.",
+      "It's easier to step into work and expert contexts with this look."
+    ],
+    "dating": [
+      "The profile feels warmer and noticeably more alive.",
+      "Got that easy-meet vibe without being overdone.",
+      "The photo looks confident yet not too staged.",
+      "The visual makes it easier to send a first message.",
+      "The profile started looking more premium and more natural at the same time."
+    ],
+    "model": [
+      "The light and posing feel like the start of a real photoshoot.",
+      "Even early scenarios already show studio-grade delivery.",
+      "Easy to imagine this visual in a portfolio.",
+      "The background and light pull the look together far better.",
+      "The scenario looks like a strong base for a shoot."
+    ],
+    "brand": [
+      "The visual immediately starts working on positioning.",
+      "The delivery feels more confident and grown-up.",
+      "This image fits expert content really well.",
+      "There's now a sense of a coherent personal brand.",
+      "The photo supports the brand voice and status much better."
+    ],
+    "memes": [
+      "The vibe and the joke land instantly.",
+      "The content looks more alive and shareable.",
+      "The image triggers a reaction and emotion fast.",
+      "For meme formats this delivery is super catchy.",
+      "Even the preview already feels punchier."
+    ]
+  },
+  "feedTemplates": {
+    "styleScore": "After the «{{styleName}}» style the score went from {{before}} to {{after}}.",
+    "styleEffect": "The «{{styleName}}» style noticeably boosted the first impression.",
+    "comingSoonStrong": "The «{{styleName}}» scenario already looks like a strong launch idea.",
+    "comingSoonVibe": "«{{styleName}}» has a very strong first-impression vibe.",
+    "documentMain": "Got the «{{name}}» format done without a trip to the photo studio.",
+    "documentEffect": "Nice that the «{{name}}» format already looks calm and tidy."
+  },
+  "feedContexts": {
+    "aiAnalysis": "AI analysis",
+    "preview": "preview",
+    "earlyAccess": "early access",
+    "recentImpression": "Recent impression",
+    "recentReview": "recent review",
+    "recentDocImpression": "recent impression"
+  }
+}

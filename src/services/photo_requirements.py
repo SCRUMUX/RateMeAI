@@ -213,7 +213,7 @@ ISSUE_TEXTS: dict[str, dict[str, str]] = _IssueTextsProxy()
 # Human-readable bullet lists for UI/bot
 # ---------------------------------------------------------------------------
 
-REQUIREMENTS_BULLETS: list[str] = [
+_REQUIREMENTS_BULLETS_RU: list[str] = [
     "Лицо крупно и по центру кадра — минимум 15% площади",
     "Анфас, без сильных поворотов головы",
     "Чёткое фото без размытия и движения",
@@ -222,7 +222,16 @@ REQUIREMENTS_BULLETS: list[str] = [
     "Один человек в кадре",
 ]
 
-REJECT_BULLETS: list[str] = [
+_REQUIREMENTS_BULLETS_EN: list[str] = [
+    "Face is large and centered — at least 15% of the frame",
+    "Frontal pose, head not strongly turned",
+    "Sharp photo without blur or motion",
+    "Face not covered by mirrored glasses, masks, hands or hair",
+    "Good lighting, facial features clearly visible",
+    "One person in the frame",
+]
+
+_REJECT_BULLETS_RU: list[str] = [
     "Фото без лица или лицо слишком мелкое",
     "Размытые или шумные фото, в том числе скриншоты",
     "Несколько людей в кадре",
@@ -230,24 +239,109 @@ REJECT_BULLETS: list[str] = [
     "Файл больше 10 МБ",
 ]
 
+_REJECT_BULLETS_EN: list[str] = [
+    "Photo without a face, or face is too small",
+    "Blurry or noisy photos, including screenshots",
+    "Multiple people in the frame",
+    "Resolution lower than 400×400 pixels",
+    "File larger than 10 MB",
+]
 
-def format_requirements_plaintext() -> str:
-    """Plain-text bullets list for bot /photo_help."""
-    lines = ["*Требования к фото:*"]
-    lines.extend(f"• {b}" for b in REQUIREMENTS_BULLETS)
+
+_REQUIREMENTS_BULLETS_BY_LANG: dict[str, list[str]] = {
+    "ru": _REQUIREMENTS_BULLETS_RU,
+    "en": _REQUIREMENTS_BULLETS_EN,
+}
+
+_REJECT_BULLETS_BY_LANG: dict[str, list[str]] = {
+    "ru": _REJECT_BULLETS_RU,
+    "en": _REJECT_BULLETS_EN,
+}
+
+
+def get_requirements_bullets(market_id: str | None = None) -> list[str]:
+    return list(_REQUIREMENTS_BULLETS_BY_LANG[_resolve_lang(market_id)])
+
+
+def get_reject_bullets(market_id: str | None = None) -> list[str]:
+    return list(_REJECT_BULLETS_BY_LANG[_resolve_lang(market_id)])
+
+
+# Backwards-compatible module-level lists. The bot ignores MARKET_ID
+# (always RU edge), so legacy ``REQUIREMENTS_BULLETS`` / ``REJECT_BULLETS``
+# imports still work and resolve through the active market like ISSUE_TEXTS.
+class _BulletListProxy(list[str]):
+    def __init__(self, lookup):
+        super().__init__()
+        self._lookup = lookup
+
+    def _active(self) -> list[str]:
+        return self._lookup()
+
+    def __iter__(self):
+        return iter(self._active())
+
+    def __len__(self):  # type: ignore[override]
+        return len(self._active())
+
+    def __getitem__(self, idx):  # type: ignore[override]
+        return self._active()[idx]
+
+    def __contains__(self, item):  # type: ignore[override]
+        return item in self._active()
+
+    def __repr__(self) -> str:  # type: ignore[override]
+        return repr(self._active())
+
+
+REQUIREMENTS_BULLETS: list[str] = _BulletListProxy(get_requirements_bullets)  # type: ignore[assignment]
+REJECT_BULLETS: list[str] = _BulletListProxy(get_reject_bullets)  # type: ignore[assignment]
+
+
+_PLAINTEXT_HEADERS: dict[str, tuple[str, str]] = {
+    "ru": ("*Требования к фото:*", "*Не будет обработано:*"),
+    "en": ("*Photo requirements:*", "*Will not be processed:*"),
+}
+
+
+def format_requirements_plaintext(market_id: str | None = None) -> str:
+    """Plain-text bullets list for bot /photo_help.
+
+    The bot is RU-only (always runs on the RU edge), so callers omit
+    ``market_id`` and get the Russian copy. ``market_id='global'`` is
+    used by the EN-side photo help screen on the web app.
+    """
+    lang = _resolve_lang(market_id)
+    headers = _PLAINTEXT_HEADERS[lang]
+    bullets = get_requirements_bullets(market_id)
+    rejects = get_reject_bullets(market_id)
+    lines = [headers[0]]
+    lines.extend(f"• {b}" for b in bullets)
     lines.append("")
-    lines.append("*Не будет обработано:*")
-    lines.extend(f"• {b}" for b in REJECT_BULLETS)
+    lines.append(headers[1])
+    lines.extend(f"• {b}" for b in rejects)
     return "\n".join(lines)
 
 
-def short_requirements_block() -> str:
+_SHORT_BLOCK_RU = (
+    "*Требования к фото:*\n"
+    "• Лицо крупно и по центру (не меньше 15% кадра)\n"
+    "• Чёткий анфас, без масок и очков-зеркалок\n"
+    "• Один человек в кадре, разрешение от 400×400\n"
+    "\n"
+    "/photo\\_help — подробнее"
+)
+
+_SHORT_BLOCK_EN = (
+    "*Photo requirements:*\n"
+    "• Face is large and centered (at least 15% of the frame)\n"
+    "• Sharp frontal portrait, no masks or mirrored glasses\n"
+    "• One person in the frame, resolution 400×400 or higher\n"
+    "\n"
+    "/photo\\_help — more details"
+)
+
+
+def short_requirements_block(market_id: str | None = None) -> str:
     """Compact block suitable for WELCOME_TEXT in the bot."""
-    return (
-        "*Требования к фото:*\n"
-        "• Лицо крупно и по центру (не меньше 15% кадра)\n"
-        "• Чёткий анфас, без масок и очков-зеркалок\n"
-        "• Один человек в кадре, разрешение от 400×400\n"
-        "\n"
-        "/photo\\_help — подробнее"
-    )
+    return _SHORT_BLOCK_RU if _resolve_lang(market_id) == "ru" else _SHORT_BLOCK_EN

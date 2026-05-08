@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { getCurrentMarketId } from '../config/market';
 
 export interface DocumentMeta {
   title: string;
@@ -16,9 +17,27 @@ export interface DocumentMeta {
    *  schemas on scenario landings — Google + Yandex pick those up
    *  even on JS-rendered SPAs. */
   jsonLd?: Record<string, unknown> | Record<string, unknown>[];
+  /**
+   * 1.59.0 — when ``true`` (default) the hook also emits hreflang
+   * link tags for ``ru`` / ``en`` / ``x-default`` so Google can pair
+   * up the two regional builds (``ailookstudio.ru`` and ``ailookstudio.com``)
+   * for the same path. Pass ``false`` on routes that intentionally
+   * exist only on one market (e.g. ``/admin``).
+   */
+  emitHreflang?: boolean;
 }
 
-const PRODUCTION_ORIGIN = 'https://ailookstudio.ru';
+/**
+ * 1.59.0 — single source of truth for the public domains. Used by
+ * the hreflang emitter and the canonical resolver. Order:
+ * ``ru`` first (the existing canonical origin), ``en`` second.
+ */
+export const SEO_DOMAINS = {
+  ru: 'https://ailookstudio.ru',
+  en: 'https://ailookstudio.com',
+} as const;
+
+const PRODUCTION_ORIGIN = SEO_DOMAINS.ru;
 
 function ensureMetaByName(name: string): HTMLMetaElement {
   let el = document.head.querySelector<HTMLMetaElement>(`meta[name="${name}"]`);
@@ -52,15 +71,53 @@ function ensureLinkByRel(rel: string): HTMLLinkElement {
   return el;
 }
 
+function _resolveOrigin(): string {
+  // 1.59.0 — pick the canonical origin per market. RU build →
+  // ailookstudio.ru, EN build → ailookstudio.com. We still honour the
+  // current window origin when it matches one of the production
+  // hosts so previewing on the live host doesn't switch to the other
+  // domain's canonical.
+  if (typeof window !== 'undefined' && window.location?.hostname) {
+    const host = window.location.hostname;
+    if (host.endsWith('ailookstudio.ru')) return SEO_DOMAINS.ru;
+    if (host.endsWith('ailookstudio.com')) return SEO_DOMAINS.en;
+  }
+  return getCurrentMarketId() === 'ru' ? SEO_DOMAINS.ru : SEO_DOMAINS.en;
+}
+
 function buildCanonicalUrl(canonicalPath: string | undefined): string | null {
   if (!canonicalPath) return null;
-  // Use the production origin for canonicals so preview deploys / local dev
-  // don't pollute search index with multiple URLs for the same page.
-  const origin = typeof window !== 'undefined' && window.location.origin && window.location.hostname.endsWith('ailookstudio.ru')
-    ? window.location.origin
-    : PRODUCTION_ORIGIN;
+  const origin = _resolveOrigin();
   const path = canonicalPath.startsWith('/') ? canonicalPath : `/${canonicalPath}`;
   return `${origin}${path}`;
+}
+
+function _normalizePath(canonicalPath: string): string {
+  return canonicalPath.startsWith('/') ? canonicalPath : `/${canonicalPath}`;
+}
+
+const HREFLANG_ATTR = 'data-doc-meta-hreflang';
+
+function _ensureHreflangLink(hreflang: string): HTMLLinkElement {
+  let el = document.head.querySelector<HTMLLinkElement>(
+    `link[${HREFLANG_ATTR}="${hreflang}"]`,
+  );
+  if (!el) {
+    el = document.createElement('link');
+    el.setAttribute('rel', 'alternate');
+    el.setAttribute('hreflang', hreflang);
+    el.setAttribute(HREFLANG_ATTR, hreflang);
+    document.head.appendChild(el);
+  }
+  return el;
+}
+
+function _removeHreflangLinks(): void {
+  document.head
+    .querySelectorAll<HTMLLinkElement>(`link[${HREFLANG_ATTR}]`)
+    .forEach((el) => {
+      try { el.remove(); } catch { /* ignore */ }
+    });
 }
 
 /**
@@ -87,6 +144,31 @@ export default function useDocumentMeta(meta: DocumentMeta): void {
     if (canonicalUrl) {
       ensureLinkByRel('canonical').setAttribute('href', canonicalUrl);
       ensureMetaByProperty('og:url').setAttribute('content', canonicalUrl);
+    }
+
+    // 1.59.0 — hreflang alternates for the RU/EN regional builds.
+    // The path is identical on both deployments (the SPA routes are
+    // shared); only the origin differs. Always emit ``x-default``
+    // pointing at the global EN host because that is the
+    // language-agnostic landing for international searches.
+    _removeHreflangLinks();
+    if (meta.canonicalPath && (meta.emitHreflang ?? true)) {
+      const path = _normalizePath(meta.canonicalPath);
+      _ensureHreflangLink('ru-ru').setAttribute('href', `${SEO_DOMAINS.ru}${path}`);
+      _ensureHreflangLink('ru').setAttribute('href', `${SEO_DOMAINS.ru}${path}`);
+      _ensureHreflangLink('en').setAttribute('href', `${SEO_DOMAINS.en}${path}`);
+      _ensureHreflangLink('x-default').setAttribute('href', `${SEO_DOMAINS.en}${path}`);
+      const ogLocale = ensureMetaByProperty('og:locale');
+      ogLocale.setAttribute('content', getCurrentMarketId() === 'ru' ? 'ru_RU' : 'en_US');
+      const ogLocaleAlt = document.head.querySelector<HTMLMetaElement>(
+        'meta[property="og:locale:alternate"]',
+      ) ?? document.createElement('meta');
+      ogLocaleAlt.setAttribute('property', 'og:locale:alternate');
+      ogLocaleAlt.setAttribute(
+        'content',
+        getCurrentMarketId() === 'ru' ? 'en_US' : 'ru_RU',
+      );
+      if (!ogLocaleAlt.parentElement) document.head.appendChild(ogLocaleAlt);
     }
 
     if (meta.ogImage) {
@@ -127,5 +209,9 @@ export default function useDocumentMeta(meta: DocumentMeta): void {
     meta.ogImage,
     meta.noindex,
     meta.jsonLd,
+    meta.emitHreflang,
   ]);
 }
+
+// Reference to silence unused-import linter when PRODUCTION_ORIGIN is not used directly.
+void PRODUCTION_ORIGIN;

@@ -7,8 +7,8 @@
           "type": "proof_counter",
           "enabled": true,
           "data": {
-            "heading": "",
-            "subheading": "",
+            "heading": "Cool photos already created",
+            "subheading": "Each category has 100+ unique styles for any task.",
             "baseCount": 2799,
             "counter": {
               "minDelayMs": 8000,
@@ -93,47 +93,47 @@
           "type": "pricing",
           "enabled": true,
           "data": {
-            "title": "",
-            "subtitle": "",
-            "caption": "",
-            "tryFreeLabel": "",
+            "title": "First upgrade",
+            "subtitle": "— try it for free",
+            "caption": "Unlock exclusive styles",
+            "tryFreeLabel": "Try the free upgrade",
             "plans": [
               {
-                "title": "",
-                "price": "",
-                "photos": "",
+                "title": "Try it",
+                "price": "$0.99",
+                "photos": "1 photo",
                 "packQty": 1,
-                "desc": "",
+                "desc": "See how the service refines your photo in seconds. Perfect for evaluating the result before a full upgrade.",
                 "highlighted": false,
                 "badge": null,
                 "savingBadge": null
               },
               {
-                "title": "",
-                "price": "",
-                "photos": "",
+                "title": "Refresh photos",
+                "price": "$2.99",
+                "photos": "5 photos",
                 "packQty": 5,
-                "desc": "",
+                "desc": "Refresh your best shots and pick the perfect variant for social or profile pages.",
                 "highlighted": false,
                 "badge": null,
                 "savingBadge": null
               },
               {
-                "title": "",
-                "price": "",
-                "photos": "",
+                "title": "Boost your image",
+                "price": "$6.99",
+                "photos": "15 photos",
                 "packQty": 15,
-                "desc": "",
+                "desc": "Full image boost across different situations: social, dating, work. Find the photo that really works.",
                 "highlighted": true,
                 "badge": "",
                 "savingBadge": ""
               },
               {
-                "title": "",
-                "price": "",
-                "photos": "",
+                "title": "Full transformation",
+                "price": "$11.99",
+                "photos": "30 photos",
                 "packQty": 30,
-                "desc": "",
+                "desc": "Maximum variants and styles. Choose this if you want to fully refresh your visual identity and stand out anywhere.",
                 "highlighted": false,
                 "badge": null,
                 "savingBadge": null
@@ -147,8 +147,8 @@
           "enabled": true,
           "data": {
             "brand": {
-              "title": "",
-              "tagline": ""
+              "title": "Look Studio",
+              "tagline": "Portraits that work: dating, profiles, documents and resume — in a couple of minutes."
             },
             "products": null,
             "support": [
@@ -221,10 +221,10 @@
                 }
               ]
             },
-            "creditsText": "",
-            "creditsLinkLabel": "",
+            "creditsText": "Made by",
+            "creditsLinkLabel": "UX4AI",
             "creditsLinkHref": "",
-            "copyright": "",
+            "copyright": "© 2026 Look Studio",
             "links": [
               {
                 "label": "",
@@ -249,11 +249,11 @@
           "enabled": true,
           "data": {
             "icon": "📋",
-            "title": "",
-            "gradient_phrase": "",
-            "lead": "",
-            "cta_label": "",
-            "cta_microcopy": ""
+            "title": "Document photos",
+            "gradient_phrase": "in 2 minutes",
+            "lead": "Perfect photos for passport, visa or any document. Maximum photorealism, no extra effects.",
+            "cta_label": "Create photo",
+            "cta_microcopy": "5 photos per pack"
           }
         },
         {
@@ -270,22 +270,22 @@
           "type": "how_it_works",
           "enabled": true,
           "data": {
-            "title": "",
+            "title": "How it works",
             "steps": [
               {
                 "num": "",
-                "title": "",
-                "desc": ""
+                "title": "Upload a photo",
+                "desc": "Any photo with a clear face — quality is checked automatically."
               },
               {
                 "num": "",
-                "title": "",
-                "desc": ""
+                "title": "Choose a scenario",
+                "desc": "Documents, resume, dating, visas — each has its own rules and styles."
               },
               {
                 "num": "",
-                "title": "",
-                "desc": ""
+                "title": "Get the result",
+                "desc": "Final image in 1-2 minutes, in the format you need."
               },
               {
                 "num": "",
@@ -312,7 +312,7 @@
           "type": "scenario_pricing",
           "enabled": true,
           "data": {
-            "tagline": ""
+            "tagline": "Unlock exclusive styles"
           }
         }
       ]
@@ -388,7 +388,7 @@
           "type": "scenario_pricing",
           "enabled": true,
           "data": {
-            "tagline": ""
+            "tagline": "Unlock exclusive styles"
           }
         }
       ]
@@ -464,7 +464,7 @@
           "type": "scenario_pricing",
           "enabled": true,
           "data": {
-            "tagline": ""
+            "tagline": "Unlock exclusive styles"
           }
         }
       ]
@@ -480,8 +480,8 @@
             "title": "",
             "gradient_phrase": "",
             "lead": "",
-            "cta_label": "",
-            "cta_microcopy": ""
+            "cta_label": "Create photo",
+            "cta_microcopy": "5 photos per pack"
           }
         },
         {
@@ -489,8 +489,8 @@
           "type": "proof_counter",
           "enabled": true,
           "data": {
-            "heading": "",
-            "subheading": ""
+            "heading": "Thousands of ready visa photos",
+            "subheading": "Users take visa photos from home, no studio trip needed."
           }
         },
         {
@@ -498,27 +498,27 @@
           "type": "how_it_works",
           "enabled": true,
           "data": {
-            "title": "",
+            "title": "How it works",
             "steps": [
               {
                 "num": "",
-                "title": "",
-                "desc": ""
+                "title": "Upload a photo",
+                "desc": "Any photo with a clear face, no filters or extreme close-ups — we check automatically."
               },
               {
                 "num": "",
-                "title": "",
-                "desc": ""
+                "title": "Check against requirements",
+                "desc": "We compare your photo against the official visa requirements."
               },
               {
                 "num": "",
-                "title": "",
-                "desc": ""
+                "title": "Create the visa photo",
+                "desc": "Background, size and proportions are auto-aligned to ICAO 9303."
               },
               {
                 "num": "",
-                "title": "",
-                "desc": ""
+                "title": "Download JPG",
+                "desc": "Get the final file in the right format — no studio trip required."
               }
             ]
           }
@@ -529,8 +529,8 @@
           "enabled": true,
           "data": {
             "brand_heading": "",
-            "h2": "",
-            "lead": "",
+            "h2": "Ready to create your photo?",
+            "lead": "Upload any photo — we'll deliver a result that matches the visa requirements.",
             "cta_signed_in_label": "",
             "cta_anonymous_label": ""
           }
@@ -540,7 +540,7 @@
           "type": "scenario_pricing",
           "enabled": true,
           "data": {
-            "tagline": ""
+            "tagline": "One pack — visa photo + any document"
           }
         }
       ]
@@ -556,8 +556,8 @@
             "title": "",
             "gradient_phrase": "",
             "lead": "",
-            "cta_label": "",
-            "cta_microcopy": ""
+            "cta_label": "Create photo",
+            "cta_microcopy": "5 photos per pack"
           }
         },
         {
@@ -565,8 +565,8 @@
           "type": "proof_counter",
           "enabled": true,
           "data": {
-            "heading": "",
-            "subheading": ""
+            "heading": "Thousands of ready visa photos",
+            "subheading": "Users take visa photos from home, no studio trip needed."
           }
         },
         {
@@ -574,27 +574,27 @@
           "type": "how_it_works",
           "enabled": true,
           "data": {
-            "title": "",
+            "title": "How it works",
             "steps": [
               {
                 "num": "",
-                "title": "",
-                "desc": ""
+                "title": "Upload a photo",
+                "desc": "Any photo with a clear face, no filters or extreme close-ups — we check automatically."
               },
               {
                 "num": "",
-                "title": "",
-                "desc": ""
+                "title": "Check against requirements",
+                "desc": "We compare your photo against the official visa requirements."
               },
               {
                 "num": "",
-                "title": "",
-                "desc": ""
+                "title": "Create the visa photo",
+                "desc": "Background, size and proportions are auto-aligned to ICAO 9303."
               },
               {
                 "num": "",
-                "title": "",
-                "desc": ""
+                "title": "Download JPG",
+                "desc": "Get the final file in the right format — no studio trip required."
               }
             ]
           }
@@ -605,8 +605,8 @@
           "enabled": true,
           "data": {
             "brand_heading": "",
-            "h2": "",
-            "lead": "",
+            "h2": "Ready to create your photo?",
+            "lead": "Upload any photo — we'll deliver a result that matches the visa requirements.",
             "cta_signed_in_label": "",
             "cta_anonymous_label": ""
           }
@@ -616,7 +616,7 @@
           "type": "scenario_pricing",
           "enabled": true,
           "data": {
-            "tagline": ""
+            "tagline": "One pack — visa photo + any document"
           }
         }
       ]
@@ -632,8 +632,8 @@
             "title": "",
             "gradient_phrase": "",
             "lead": "",
-            "cta_label": "",
-            "cta_microcopy": ""
+            "cta_label": "Create photo",
+            "cta_microcopy": "5 photos per pack"
           }
         },
         {
@@ -641,8 +641,8 @@
           "type": "proof_counter",
           "enabled": true,
           "data": {
-            "heading": "",
-            "subheading": ""
+            "heading": "Thousands of ready visa photos",
+            "subheading": "Users take visa photos from home, no studio trip needed."
           }
         },
         {
@@ -650,27 +650,27 @@
           "type": "how_it_works",
           "enabled": true,
           "data": {
-            "title": "",
+            "title": "How it works",
             "steps": [
               {
                 "num": "",
-                "title": "",
-                "desc": ""
+                "title": "Upload a photo",
+                "desc": "Any photo with a clear face, no filters or extreme close-ups — we check automatically."
               },
               {
                 "num": "",
-                "title": "",
-                "desc": ""
+                "title": "Check against requirements",
+                "desc": "We compare your photo against the official visa requirements."
               },
               {
                 "num": "",
-                "title": "",
-                "desc": ""
+                "title": "Create the visa photo",
+                "desc": "Background, size and proportions are auto-aligned to ICAO 9303."
               },
               {
                 "num": "",
-                "title": "",
-                "desc": ""
+                "title": "Download JPG",
+                "desc": "Get the final file in the right format — no studio trip required."
               }
             ]
           }
@@ -681,8 +681,8 @@
           "enabled": true,
           "data": {
             "brand_heading": "",
-            "h2": "",
-            "lead": "",
+            "h2": "Ready to create your photo?",
+            "lead": "Upload any photo — we'll deliver a result that matches the visa requirements.",
             "cta_signed_in_label": "",
             "cta_anonymous_label": ""
           }
@@ -692,7 +692,7 @@
           "type": "scenario_pricing",
           "enabled": true,
           "data": {
-            "tagline": ""
+            "tagline": "One pack — visa photo + any document"
           }
         }
       ]
@@ -708,8 +708,8 @@
             "title": "",
             "gradient_phrase": "",
             "lead": "",
-            "cta_label": "",
-            "cta_microcopy": ""
+            "cta_label": "Create photo",
+            "cta_microcopy": "5 photos per pack"
           }
         },
         {
@@ -717,8 +717,8 @@
           "type": "proof_counter",
           "enabled": true,
           "data": {
-            "heading": "",
-            "subheading": ""
+            "heading": "Thousands of ready visa photos",
+            "subheading": "Users take visa photos from home, no studio trip needed."
           }
         },
         {
@@ -726,27 +726,27 @@
           "type": "how_it_works",
           "enabled": true,
           "data": {
-            "title": "",
+            "title": "How it works",
             "steps": [
               {
                 "num": "",
-                "title": "",
-                "desc": ""
+                "title": "Upload a photo",
+                "desc": "Any photo with a clear face, no filters or extreme close-ups — we check automatically."
               },
               {
                 "num": "",
-                "title": "",
-                "desc": ""
+                "title": "Check against requirements",
+                "desc": "We compare your photo against the official visa requirements."
               },
               {
                 "num": "",
-                "title": "",
-                "desc": ""
+                "title": "Create the visa photo",
+                "desc": "Background, size and proportions are auto-aligned to ICAO 9303."
               },
               {
                 "num": "",
-                "title": "",
-                "desc": ""
+                "title": "Download JPG",
+                "desc": "Get the final file in the right format — no studio trip required."
               }
             ]
           }
@@ -757,8 +757,8 @@
           "enabled": true,
           "data": {
             "brand_heading": "",
-            "h2": "",
-            "lead": "",
+            "h2": "Ready to create your photo?",
+            "lead": "Upload any photo — we'll deliver a result that matches the visa requirements.",
             "cta_signed_in_label": "",
             "cta_anonymous_label": ""
           }
@@ -768,7 +768,7 @@
           "type": "scenario_pricing",
           "enabled": true,
           "data": {
-            "tagline": ""
+            "tagline": "One pack — visa photo + any document"
           }
         }
       ]
@@ -784,8 +784,8 @@
             "title": "",
             "gradient_phrase": "",
             "lead": "",
-            "cta_label": "",
-            "cta_microcopy": ""
+            "cta_label": "Create photo",
+            "cta_microcopy": "5 photos per pack"
           }
         },
         {
@@ -793,8 +793,8 @@
           "type": "proof_counter",
           "enabled": true,
           "data": {
-            "heading": "",
-            "subheading": ""
+            "heading": "Thousands of ready visa photos",
+            "subheading": "Users take visa photos from home, no studio trip needed."
           }
         },
         {
@@ -802,27 +802,27 @@
           "type": "how_it_works",
           "enabled": true,
           "data": {
-            "title": "",
+            "title": "How it works",
             "steps": [
               {
                 "num": "",
-                "title": "",
-                "desc": ""
+                "title": "Upload a photo",
+                "desc": "Any photo with a clear face, no filters or extreme close-ups — we check automatically."
               },
               {
                 "num": "",
-                "title": "",
-                "desc": ""
+                "title": "Check against requirements",
+                "desc": "We compare your photo against the official visa requirements."
               },
               {
                 "num": "",
-                "title": "",
-                "desc": ""
+                "title": "Create the visa photo",
+                "desc": "Background, size and proportions are auto-aligned to ICAO 9303."
               },
               {
                 "num": "",
-                "title": "",
-                "desc": ""
+                "title": "Download JPG",
+                "desc": "Get the final file in the right format — no studio trip required."
               }
             ]
           }
@@ -833,8 +833,8 @@
           "enabled": true,
           "data": {
             "brand_heading": "",
-            "h2": "",
-            "lead": "",
+            "h2": "Ready to create your photo?",
+            "lead": "Upload any photo — we'll deliver a result that matches the visa requirements.",
             "cta_signed_in_label": "",
             "cta_anonymous_label": ""
           }
@@ -844,7 +844,7 @@
           "type": "scenario_pricing",
           "enabled": true,
           "data": {
-            "tagline": ""
+            "tagline": "One pack — visa photo + any document"
           }
         }
       ]
@@ -860,8 +860,8 @@
             "title": "",
             "gradient_phrase": "",
             "lead": "",
-            "cta_label": "",
-            "cta_microcopy": ""
+            "cta_label": "Create photo",
+            "cta_microcopy": "5 photos per pack"
           }
         },
         {
@@ -869,8 +869,8 @@
           "type": "proof_counter",
           "enabled": true,
           "data": {
-            "heading": "",
-            "subheading": ""
+            "heading": "Thousands of ready visa photos",
+            "subheading": "Users take visa photos from home, no studio trip needed."
           }
         },
         {
@@ -878,27 +878,27 @@
           "type": "how_it_works",
           "enabled": true,
           "data": {
-            "title": "",
+            "title": "How it works",
             "steps": [
               {
                 "num": "",
-                "title": "",
-                "desc": ""
+                "title": "Upload a photo",
+                "desc": "Any photo with a clear face, no filters or extreme close-ups — we check automatically."
               },
               {
                 "num": "",
-                "title": "",
-                "desc": ""
+                "title": "Check against requirements",
+                "desc": "We compare your photo against the official visa requirements."
               },
               {
                 "num": "",
-                "title": "",
-                "desc": ""
+                "title": "Create the visa photo",
+                "desc": "Background, size and proportions are auto-aligned to ICAO 9303."
               },
               {
                 "num": "",
-                "title": "",
-                "desc": ""
+                "title": "Download JPG",
+                "desc": "Get the final file in the right format — no studio trip required."
               }
             ]
           }
@@ -909,8 +909,8 @@
           "enabled": true,
           "data": {
             "brand_heading": "",
-            "h2": "",
-            "lead": "",
+            "h2": "Ready to create your photo?",
+            "lead": "Upload any photo — we'll deliver a result that matches the visa requirements.",
             "cta_signed_in_label": "",
             "cta_anonymous_label": ""
           }
@@ -920,7 +920,7 @@
           "type": "scenario_pricing",
           "enabled": true,
           "data": {
-            "tagline": ""
+            "tagline": "One pack — visa photo + any document"
           }
         }
       ]
@@ -936,8 +936,8 @@
             "title": "",
             "gradient_phrase": "",
             "lead": "",
-            "cta_label": "",
-            "cta_microcopy": ""
+            "cta_label": "Create photo",
+            "cta_microcopy": "5 photos per pack"
           }
         },
         {
@@ -945,8 +945,8 @@
           "type": "proof_counter",
           "enabled": true,
           "data": {
-            "heading": "",
-            "subheading": ""
+            "heading": "Thousands of ready visa photos",
+            "subheading": "Users take visa photos from home, no studio trip needed."
           }
         },
         {
@@ -954,27 +954,27 @@
           "type": "how_it_works",
           "enabled": true,
           "data": {
-            "title": "",
+            "title": "How it works",
             "steps": [
               {
                 "num": "",
-                "title": "",
-                "desc": ""
+                "title": "Upload a photo",
+                "desc": "Any photo with a clear face, no filters or extreme close-ups — we check automatically."
               },
               {
                 "num": "",
-                "title": "",
-                "desc": ""
+                "title": "Check against requirements",
+                "desc": "We compare your photo against the official visa requirements."
               },
               {
                 "num": "",
-                "title": "",
-                "desc": ""
+                "title": "Create the visa photo",
+                "desc": "Background, size and proportions are auto-aligned to ICAO 9303."
               },
               {
                 "num": "",
-                "title": "",
-                "desc": ""
+                "title": "Download JPG",
+                "desc": "Get the final file in the right format — no studio trip required."
               }
             ]
           }
@@ -985,8 +985,8 @@
           "enabled": true,
           "data": {
             "brand_heading": "",
-            "h2": "",
-            "lead": "",
+            "h2": "Ready to create your photo?",
+            "lead": "Upload any photo — we'll deliver a result that matches the visa requirements.",
             "cta_signed_in_label": "",
             "cta_anonymous_label": ""
           }
@@ -996,7 +996,7 @@
           "type": "scenario_pricing",
           "enabled": true,
           "data": {
-            "tagline": ""
+            "tagline": "One pack — visa photo + any document"
           }
         }
       ]
@@ -1012,8 +1012,8 @@
             "title": "",
             "gradient_phrase": "",
             "lead": "",
-            "cta_label": "",
-            "cta_microcopy": ""
+            "cta_label": "Create photo",
+            "cta_microcopy": "5 photos per pack"
           }
         },
         {
@@ -1021,8 +1021,8 @@
           "type": "proof_counter",
           "enabled": true,
           "data": {
-            "heading": "",
-            "subheading": ""
+            "heading": "Thousands of ready visa photos",
+            "subheading": "Users take visa photos from home, no studio trip needed."
           }
         },
         {
@@ -1030,27 +1030,27 @@
           "type": "how_it_works",
           "enabled": true,
           "data": {
-            "title": "",
+            "title": "How it works",
             "steps": [
               {
                 "num": "",
-                "title": "",
-                "desc": ""
+                "title": "Upload a photo",
+                "desc": "Any photo with a clear face, no filters or extreme close-ups — we check automatically."
               },
               {
                 "num": "",
-                "title": "",
-                "desc": ""
+                "title": "Check against requirements",
+                "desc": "We compare your photo against the official visa requirements."
               },
               {
                 "num": "",
-                "title": "",
-                "desc": ""
+                "title": "Create the visa photo",
+                "desc": "Background, size and proportions are auto-aligned to ICAO 9303."
               },
               {
                 "num": "",
-                "title": "",
-                "desc": ""
+                "title": "Download JPG",
+                "desc": "Get the final file in the right format — no studio trip required."
               }
             ]
           }
@@ -1061,8 +1061,8 @@
           "enabled": true,
           "data": {
             "brand_heading": "",
-            "h2": "",
-            "lead": "",
+            "h2": "Ready to create your photo?",
+            "lead": "Upload any photo — we'll deliver a result that matches the visa requirements.",
             "cta_signed_in_label": "",
             "cta_anonymous_label": ""
           }
@@ -1072,7 +1072,7 @@
           "type": "scenario_pricing",
           "enabled": true,
           "data": {
-            "tagline": ""
+            "tagline": "One pack — visa photo + any document"
           }
         }
       ]
@@ -1088,8 +1088,8 @@
             "title": "",
             "gradient_phrase": "",
             "lead": "",
-            "cta_label": "",
-            "cta_microcopy": ""
+            "cta_label": "Create photo",
+            "cta_microcopy": "5 photos per pack"
           }
         },
         {
@@ -1097,8 +1097,8 @@
           "type": "proof_counter",
           "enabled": true,
           "data": {
-            "heading": "",
-            "subheading": ""
+            "heading": "Thousands of ready visa photos",
+            "subheading": "Users take visa photos from home, no studio trip needed."
           }
         },
         {
@@ -1106,27 +1106,27 @@
           "type": "how_it_works",
           "enabled": true,
           "data": {
-            "title": "",
+            "title": "How it works",
             "steps": [
               {
                 "num": "",
-                "title": "",
-                "desc": ""
+                "title": "Upload a photo",
+                "desc": "Any photo with a clear face, no filters or extreme close-ups — we check automatically."
               },
               {
                 "num": "",
-                "title": "",
-                "desc": ""
+                "title": "Check against requirements",
+                "desc": "We compare your photo against the official visa requirements."
               },
               {
                 "num": "",
-                "title": "",
-                "desc": ""
+                "title": "Create the visa photo",
+                "desc": "Background, size and proportions are auto-aligned to ICAO 9303."
               },
               {
                 "num": "",
-                "title": "",
-                "desc": ""
+                "title": "Download JPG",
+                "desc": "Get the final file in the right format — no studio trip required."
               }
             ]
           }
@@ -1137,8 +1137,8 @@
           "enabled": true,
           "data": {
             "brand_heading": "",
-            "h2": "",
-            "lead": "",
+            "h2": "Ready to create your photo?",
+            "lead": "Upload any photo — we'll deliver a result that matches the visa requirements.",
             "cta_signed_in_label": "",
             "cta_anonymous_label": ""
           }
@@ -1148,7 +1148,7 @@
           "type": "scenario_pricing",
           "enabled": true,
           "data": {
-            "tagline": ""
+            "tagline": "One pack — visa photo + any document"
           }
         }
       ]
@@ -1164,8 +1164,8 @@
             "title": "",
             "gradient_phrase": "",
             "lead": "",
-            "cta_label": "",
-            "cta_microcopy": ""
+            "cta_label": "Create photo",
+            "cta_microcopy": "5 photos per pack"
           }
         },
         {
@@ -1173,8 +1173,8 @@
           "type": "proof_counter",
           "enabled": true,
           "data": {
-            "heading": "",
-            "subheading": ""
+            "heading": "Thousands of ready visa photos",
+            "subheading": "Users take visa photos from home, no studio trip needed."
           }
         },
         {
@@ -1182,27 +1182,27 @@
           "type": "how_it_works",
           "enabled": true,
           "data": {
-            "title": "",
+            "title": "How it works",
             "steps": [
               {
                 "num": "",
-                "title": "",
-                "desc": ""
+                "title": "Upload a photo",
+                "desc": "Any photo with a clear face, no filters or extreme close-ups — we check automatically."
               },
               {
                 "num": "",
-                "title": "",
-                "desc": ""
+                "title": "Check against requirements",
+                "desc": "We compare your photo against the official visa requirements."
               },
               {
                 "num": "",
-                "title": "",
-                "desc": ""
+                "title": "Create the visa photo",
+                "desc": "Background, size and proportions are auto-aligned to ICAO 9303."
               },
               {
                 "num": "",
-                "title": "",
-                "desc": ""
+                "title": "Download JPG",
+                "desc": "Get the final file in the right format — no studio trip required."
               }
             ]
           }
@@ -1213,8 +1213,8 @@
           "enabled": true,
           "data": {
             "brand_heading": "",
-            "h2": "",
-            "lead": "",
+            "h2": "Ready to create your photo?",
+            "lead": "Upload any photo — we'll deliver a result that matches the visa requirements.",
             "cta_signed_in_label": "",
             "cta_anonymous_label": ""
           }
@@ -1224,7 +1224,7 @@
           "type": "scenario_pricing",
           "enabled": true,
           "data": {
-            "tagline": ""
+            "tagline": "One pack — visa photo + any document"
           }
         }
       ]

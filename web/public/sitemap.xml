@@ -1,77 +1,123 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
+        xmlns:xhtml="http://www.w3.org/1999/xhtml">
   <url>
     <loc>https://ailookstudio.ru/</loc>
+    <xhtml:link rel="alternate" hreflang="ru" href="https://ailookstudio.ru/" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://ailookstudio.com/" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://ailookstudio.com/" />
     <changefreq>weekly</changefreq>
     <priority>1.0</priority>
   </url>
   <url>
     <loc>https://ailookstudio.ru/dokumenty</loc>
+    <xhtml:link rel="alternate" hreflang="ru" href="https://ailookstudio.ru/dokumenty" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://ailookstudio.com/dokumenty" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://ailookstudio.com/dokumenty" />
     <changefreq>weekly</changefreq>
     <priority>0.9</priority>
   </url>
   <url>
     <loc>https://ailookstudio.ru/znakomstva</loc>
+    <xhtml:link rel="alternate" hreflang="ru" href="https://ailookstudio.ru/znakomstva" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://ailookstudio.com/znakomstva" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://ailookstudio.com/znakomstva" />
     <changefreq>weekly</changefreq>
     <priority>0.9</priority>
   </url>
   <url>
     <loc>https://ailookstudio.ru/rezume</loc>
+    <xhtml:link rel="alternate" hreflang="ru" href="https://ailookstudio.ru/rezume" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://ailookstudio.com/rezume" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://ailookstudio.com/rezume" />
     <changefreq>weekly</changefreq>
     <priority>0.9</priority>
   </url>
   <url>
     <loc>https://ailookstudio.ru/visa/schengen</loc>
+    <xhtml:link rel="alternate" hreflang="ru" href="https://ailookstudio.ru/visa/schengen" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://ailookstudio.com/visa/schengen" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://ailookstudio.com/visa/schengen" />
     <changefreq>weekly</changefreq>
     <priority>0.9</priority>
   </url>
   <url>
     <loc>https://ailookstudio.ru/privacy</loc>
+    <xhtml:link rel="alternate" hreflang="ru" href="https://ailookstudio.ru/privacy" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://ailookstudio.com/privacy" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://ailookstudio.com/privacy" />
     <changefreq>monthly</changefreq>
     <priority>0.3</priority>
   </url>
   <url>
     <loc>https://ailookstudio.ru/visa/usa</loc>
+    <xhtml:link rel="alternate" hreflang="ru" href="https://ailookstudio.ru/visa/usa" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://ailookstudio.com/visa/usa" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://ailookstudio.com/visa/usa" />
     <changefreq>weekly</changefreq>
     <priority>0.9</priority>
   </url>
   <url>
     <loc>https://ailookstudio.ru/visa/uk</loc>
+    <xhtml:link rel="alternate" hreflang="ru" href="https://ailookstudio.ru/visa/uk" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://ailookstudio.com/visa/uk" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://ailookstudio.com/visa/uk" />
     <changefreq>weekly</changefreq>
     <priority>0.9</priority>
   </url>
   <url>
     <loc>https://ailookstudio.ru/visa/canada</loc>
+    <xhtml:link rel="alternate" hreflang="ru" href="https://ailookstudio.ru/visa/canada" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://ailookstudio.com/visa/canada" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://ailookstudio.com/visa/canada" />
     <changefreq>weekly</changefreq>
     <priority>0.9</priority>
   </url>
   <url>
     <loc>https://ailookstudio.ru/visa/japan</loc>
+    <xhtml:link rel="alternate" hreflang="ru" href="https://ailookstudio.ru/visa/japan" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://ailookstudio.com/visa/japan" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://ailookstudio.com/visa/japan" />
     <changefreq>weekly</changefreq>
     <priority>0.9</priority>
   </url>
   <url>
     <loc>https://ailookstudio.ru/visa/china</loc>
+    <xhtml:link rel="alternate" hreflang="ru" href="https://ailookstudio.ru/visa/china" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://ailookstudio.com/visa/china" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://ailookstudio.com/visa/china" />
     <changefreq>weekly</changefreq>
     <priority>0.9</priority>
   </url>
   <url>
     <loc>https://ailookstudio.ru/visa/uae</loc>
+    <xhtml:link rel="alternate" hreflang="ru" href="https://ailookstudio.ru/visa/uae" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://ailookstudio.com/visa/uae" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://ailookstudio.com/visa/uae" />
     <changefreq>weekly</changefreq>
     <priority>0.9</priority>
   </url>
   <url>
     <loc>https://ailookstudio.ru/visa/australia</loc>
+    <xhtml:link rel="alternate" hreflang="ru" href="https://ailookstudio.ru/visa/australia" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://ailookstudio.com/visa/australia" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://ailookstudio.com/visa/australia" />
     <changefreq>weekly</changefreq>
     <priority>0.9</priority>
   </url>
   <url>
     <loc>https://ailookstudio.ru/visa/korea</loc>
+    <xhtml:link rel="alternate" hreflang="ru" href="https://ailookstudio.ru/visa/korea" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://ailookstudio.com/visa/korea" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://ailookstudio.com/visa/korea" />
     <changefreq>weekly</changefreq>
     <priority>0.9</priority>
   </url>
   <url>
     <loc>https://ailookstudio.ru/visa/india</loc>
+    <xhtml:link rel="alternate" hreflang="ru" href="https://ailookstudio.ru/visa/india" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://ailookstudio.com/visa/india" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://ailookstudio.com/visa/india" />
     <changefreq>weekly</changefreq>
     <priority>0.9</priority>
   </url>

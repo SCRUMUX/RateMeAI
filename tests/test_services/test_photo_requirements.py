@@ -71,3 +71,54 @@ def test_legacy_issue_texts_proxy_uses_active_market(monkeypatch):
     monkeypatch.setattr(pr, "_resolve_lang", lambda *_args, **_kw: "ru")
     entry_ru = pr.ISSUE_TEXTS[pr.IssueCode.NO_FACE]
     assert entry_ru["message"].startswith("На фото не обнаружено лицо")
+
+
+# ---------------------------------------------------------------------------
+# 1.59.0 — REQUIREMENTS_BULLETS / REJECT_BULLETS / *_plaintext localisation
+# ---------------------------------------------------------------------------
+
+
+def test_requirements_bullets_localised_per_market():
+    ru = pr.get_requirements_bullets(market_id="ru")
+    en = pr.get_requirements_bullets(market_id="global")
+    assert len(ru) == len(en) == 6
+    assert any("Лицо крупно" in b for b in ru)
+    assert any("Face is large" in b for b in en)
+
+
+def test_reject_bullets_localised_per_market():
+    ru = pr.get_reject_bullets(market_id="ru")
+    en = pr.get_reject_bullets(market_id="global")
+    assert len(ru) == len(en) == 5
+    assert any("400×400" in b for b in ru)
+    assert any("400×400" in b for b in en)
+    assert any("скриншот" in b for b in ru)
+    assert any("screenshots" in b for b in en)
+
+
+def test_format_requirements_plaintext_localised():
+    ru = pr.format_requirements_plaintext(market_id="ru")
+    en = pr.format_requirements_plaintext(market_id="global")
+    assert ru.startswith("*Требования к фото:*")
+    assert "*Не будет обработано:*" in ru
+    assert en.startswith("*Photo requirements:*")
+    assert "*Will not be processed:*" in en
+
+
+def test_short_requirements_block_localised():
+    ru = pr.short_requirements_block(market_id="ru")
+    en = pr.short_requirements_block(market_id="global")
+    assert ru.startswith("*Требования к фото:*")
+    assert "/photo\\_help" in ru
+    assert en.startswith("*Photo requirements:*")
+    assert "/photo\\_help" in en
+
+
+def test_legacy_bullets_proxy_uses_active_market(monkeypatch):
+    monkeypatch.setattr(pr, "_resolve_lang", lambda *_args, **_kw: "en")
+    assert any("Face is large" in b for b in pr.REQUIREMENTS_BULLETS)
+    assert any("screenshots" in b for b in pr.REJECT_BULLETS)
+
+    monkeypatch.setattr(pr, "_resolve_lang", lambda *_args, **_kw: "ru")
+    assert any("Лицо крупно" in b for b in pr.REQUIREMENTS_BULLETS)
+    assert any("скриншот" in b for b in pr.REJECT_BULLETS)

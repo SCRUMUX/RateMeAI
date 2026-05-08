@@ -299,32 +299,78 @@ export const TESTIMONIALS: Testimonial[] = [
   { id: 'ss-doc-student', category: 'documents', styleKey: 'student_id', nickname: '@dima_uni', shortReview: 'Студак сделали за вечер — пропуск тоже подошёл 🎓', fullReview: 'Студак сделали за вечер — заодно подошло на пропуск в коворкинг.', emojiReview: 'За вечер 🎓 ещё и на пропуск подошло 🪪', beforeScore: 5.5, afterScore: 6.5, deltaRange: [0.02, 0.05], tier: 'Обычный', usage: 'style-showcase' },
 ];
 
-// 1.57.0 — language-aware testimonials. Russian-language reviews are
-// the primary corpus (the source recordings come from RU users). On
-// the global build (`i18next.language === 'en'`) we ship a much smaller
-// generic English set so the carousel still renders, but the SPA never
-// accidentally surfaces Russian quotes on the EN landings.
-const EN_TESTIMONIALS: Testimonial[] = [
-  { id: 'en-cv-default', category: 'cv', styleKey: 'corporate_office', nickname: '@alex.t', shortReview: 'Hired in two weeks after the new headshot.', fullReview: 'Two weeks after refreshing my LinkedIn with a Look Studio shot, I had four interviews lined up.', emojiReview: 'Two weeks → four interviews.', beforeScore: 6.0, afterScore: 8.4, deltaRange: [0.4, 0.6], tier: 'Премиум', usage: 'carousel' },
-  { id: 'en-dating-default', category: 'dating', styleKey: 'cafe', nickname: '@mira.k', shortReview: 'Mom said she actually likes my photo now.', fullReview: 'I used to skip dating apps because nothing looked right. After Look Studio my main shot finally feels like me — only my best self.', emojiReview: 'Finally a photo that feels like me.', beforeScore: 5.7, afterScore: 7.3, deltaRange: [0.3, 0.5], tier: 'Обычный', usage: 'carousel' },
-  { id: 'en-documents-default', category: 'documents', styleKey: 'passport_us', nickname: '@josh.r', shortReview: 'Visa centre approved on the first try.', fullReview: 'My DS-160 photo was rejected twice by other tools. Look Studio nailed the 2×2 inch crop and the visa centre approved it on the first try.', emojiReview: 'DS-160 approved on attempt one.', beforeScore: 5.5, afterScore: 6.7, deltaRange: [0.02, 0.05], tier: 'Обычный', usage: 'carousel' },
-  { id: 'en-model-default', category: 'model', styleKey: 'studio_classic', nickname: '@nina.v', shortReview: 'Looks like a real studio shoot, costs nothing close to one.', fullReview: 'I had a brand campaign with a 24-hour deadline. Look Studio gave me three magazine-ready shots in one evening.', emojiReview: 'Magazine-ready shots in one evening.', beforeScore: 6.1, afterScore: 7.9, deltaRange: [0.4, 0.6], tier: 'Премиум', usage: 'carousel' },
-  { id: 'en-brand-default', category: 'brand', styleKey: 'office_window', nickname: '@d.kovalov', shortReview: 'My signature avatar across every platform.', fullReview: 'I rolled the same Look Studio portrait into LinkedIn, X and my newsletter — clients literally remember the face now.', emojiReview: 'Same face, every platform.', beforeScore: 6.0, afterScore: 8.0, deltaRange: [0.4, 0.6], tier: 'Премиум', usage: 'carousel' },
-];
-
 function isEnglishLang(): boolean {
   if (!i18next.isInitialized) return false;
   const lang = (i18next.language || '').toLowerCase();
   return lang.startsWith('en');
 }
 
+interface RawTestimonial extends Omit<Testimonial, 'category' | 'tier' | 'usage'> {
+  tier?: string;
+  usage?: string;
+  category?: string;
+}
+
+function _toTestimonial(
+  raw: RawTestimonial,
+  category: ReviewCategory,
+  usage: TestimonialUsage,
+): Testimonial {
+  return {
+    id: raw.id,
+    styleKey: raw.styleKey,
+    category,
+    nickname: raw.nickname,
+    shortReview: raw.shortReview,
+    fullReview: raw.fullReview,
+    emojiReview: raw.emojiReview,
+    beforeScore: raw.beforeScore,
+    afterScore: raw.afterScore,
+    deltaRange: raw.deltaRange,
+    avatarSeed: raw.avatarSeed,
+    tier: (raw.tier === 'Премиум' || raw.tier === 'Обычный' ? raw.tier : undefined) as
+      | TestimonialTier
+      | undefined,
+    usage,
+  };
+}
+
+function _readBundleTestimonials(): Testimonial[] {
+  // 1.59.0 — EN testimonials live in the i18n bundle so editors can
+  // tweak copy without a code change. We fall through to the
+  // hardcoded RU corpus (TESTIMONIALS) below if the bundle is empty
+  // for the active language.
+  const out: Testimonial[] = [];
+  const usagePaths: Array<{ path: string; usage: TestimonialUsage }> = [
+    { path: 'testimonials:carousel', usage: 'carousel' },
+    { path: 'testimonials:styleShowcase', usage: 'style-showcase' },
+  ];
+  for (const { path, usage } of usagePaths) {
+    const raw = i18next.t(path, { returnObjects: true });
+    if (!raw || typeof raw !== 'object' || Array.isArray(raw)) continue;
+    for (const [category, list] of Object.entries(raw as Record<string, unknown>)) {
+      if (!Array.isArray(list)) continue;
+      for (const item of list as RawTestimonial[]) {
+        if (!item || typeof item !== 'object' || !item.id) continue;
+        out.push(_toTestimonial(item, category as ReviewCategory, usage));
+      }
+    }
+  }
+  return out;
+}
+
 /**
- * Active testimonial pool for the current i18n language. EN builds use
- * a compact placeholder set; everything else stays on the curated RU
- * corpus.
+ * Active testimonial pool for the current i18n language. EN builds
+ * read from the ``testimonials`` namespace; if the bundle returns an
+ * empty/incomplete set we fall back to the curated RU corpus so the
+ * carousel never goes silent.
  */
 export function getActiveTestimonials(): Testimonial[] {
-  return isEnglishLang() ? EN_TESTIMONIALS : TESTIMONIALS;
+  if (isEnglishLang()) {
+    const bundle = _readBundleTestimonials();
+    if (bundle.length > 0) return bundle;
+  }
+  return TESTIMONIALS;
 }
 
 export function getTestimonialsByCategory(category: ReviewCategory): Testimonial[] {

@@ -75,10 +75,31 @@ _MODE_VALUE_MAP: dict[AnalysisMode, str] = {
 
 
 class PromptEngine:
-    def build(self, mode: AnalysisMode, context: dict | None = None) -> str:
+    def build(
+        self,
+        mode: AnalysisMode,
+        context: dict | None = None,
+        lang: str | None = None,
+    ) -> str:
+        """Build the analysis system prompt.
+
+        ``lang`` selects the RU/EN templates for the analysis builders
+        that opted into language awareness in 1.59.0
+        (``dating``/``cv``/``social``). When omitted, the resolver in
+        ``perception._resolve_lang`` falls back to
+        ``settings.resolved_market_id`` so existing call sites keep
+        working unchanged. Builders that have no ``lang`` parameter
+        (rating, emoji) silently ignore the argument — kwargs only
+        flow into builders that explicitly accept them.
+        """
         builder = _PROMPT_MAP.get(mode)
         if builder is None:
             raise ValueError(f"Unknown mode: {mode}")
+        if lang is not None:
+            try:
+                return builder(context or {}, lang=lang)  # type: ignore[call-arg]
+            except TypeError:
+                pass
         return builder(context or {})
 
     def build_image_prompt(
