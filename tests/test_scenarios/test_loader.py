@@ -51,6 +51,7 @@ def isolated_scenarios_file(tmp_path: Path, monkeypatch):
                         },
                         "prompt_overrides": {
                             "analysis_checklist": ["check 1", "check 2"],
+                            "analysis_checklist_en": ["check 1 EN", "check 2 EN"],
                             "image_instructions": "Document-grade portrait.",
                         },
                         "paywall": {"pack_qty": 5, "show_paywall": True},
@@ -88,6 +89,7 @@ def test_load_scenarios_parses_visa_record(isolated_scenarios_file):
     assert s.requirements.glasses == "no_tinted"
     assert s.prompt_overrides is not None
     assert s.prompt_overrides.analysis_checklist == ("check 1", "check 2")
+    assert s.prompt_overrides.analysis_checklist_en == ("check 1 EN", "check 2 EN")
     assert s.paywall is not None
     assert s.paywall.pack_qty == 5
     assert s.enabled is True

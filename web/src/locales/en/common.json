@@ -32,5 +32,8 @@
     "admin": "Loading admin panel…",
     "analyzing": "Analyzing photo…",
     "generating": "Generating result…"
+  },
+  "actions": {
+    "backToHome": "← Back to home"
   }
 }

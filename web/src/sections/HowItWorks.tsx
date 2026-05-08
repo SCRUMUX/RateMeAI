@@ -27,6 +27,7 @@ function useDefaultSteps(): HowItWorksStep[] {
     { num: '1', title: t('howItWorks.step1Title'), desc: t('howItWorks.step1Desc') },
     { num: '2', title: t('howItWorks.step2Title'), desc: t('howItWorks.step2Desc') },
     { num: '3', title: t('howItWorks.step3Title'), desc: t('howItWorks.step3Desc') },
+    { num: '4', title: t('howItWorks.step4Title'), desc: t('howItWorks.step4Desc') },
   ];
 }
 

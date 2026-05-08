@@ -13,5 +13,9 @@
   "visa": {
     "title": "{{country}} visa photo · Look Studio",
     "description": "{{country}} visa photo by official requirements — correct size, background and expression. JPG ready in 2 minutes, no studio visit needed."
+  },
+  "privacy": {
+    "title": "Privacy policy · Look Studio",
+    "description": "Look Studio privacy policy: how we collect, store and protect user data in line with GDPR and CCPA."
   }
 }

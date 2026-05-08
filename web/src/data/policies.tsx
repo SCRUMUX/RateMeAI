@@ -1,5 +1,6 @@
 import { type ReactNode } from 'react';
 import i18next from 'i18next';
+import { getAppLanguage } from '../lib/i18n';
 
 export type PolicyId = 'privacy' | 'terms' | 'consents' | 'cookie' | 'refund';
 
@@ -58,8 +59,14 @@ const ul = 'list-disc pl-6 space-y-2';
 // ---------------------------------------------------------------------------
 // Privacy policy body — single source of truth for both the /privacy page
 // and the in-page modal (PolicyModal).
+//
+// 1.59.2 — split per market: ``PrivacyBodyRu`` is the legal master copy
+// for ``ailookstudio.ru`` (152-FZ + GDPR + CCPA), ``PrivacyBodyEn`` is
+// the equivalent ``ailookstudio.com`` version with the Russian-specific
+// references stripped. ``PrivacyBody`` dispatches by ``getAppLanguage()``
+// so the same modal/page renders the right language at build time.
 // ---------------------------------------------------------------------------
-export function PrivacyBody() {
+function PrivacyBodyRu() {
   return (
     <>
       <section>
@@ -222,7 +229,7 @@ export function PrivacyBody() {
 // ---------------------------------------------------------------------------
 // Terms / public offer body — placeholder template marked for legal review.
 // ---------------------------------------------------------------------------
-export function TermsBody() {
+function TermsBodyRu() {
   return (
     <>
       <div className="rounded-lg border border-yellow-500/30 bg-yellow-500/10 px-4 py-3 text-[13px] text-yellow-200">
@@ -309,7 +316,7 @@ export function TermsBody() {
 // ---------------------------------------------------------------------------
 // User consents body — derived from ConsentGate.tsx required kinds.
 // ---------------------------------------------------------------------------
-export function ConsentsBody() {
+function ConsentsBodyRu() {
   return (
     <>
       <p>
@@ -376,7 +383,7 @@ export function ConsentsBody() {
 // and how to manage it. We deliberately keep functional/security cookies
 // (auth session, CSRF) and avoid third-party trackers.
 // ---------------------------------------------------------------------------
-export function CookieBody() {
+function CookieBodyRu() {
   return (
     <>
       <p>
@@ -441,7 +448,7 @@ export function CookieBody() {
 // Refund policy body — extracted summary of section 4 of TermsBody, kept
 // in sync (manual). The full ToS is the source of truth in case of conflict.
 // ---------------------------------------------------------------------------
-export function RefundBody() {
+function RefundBodyRu() {
   return (
     <>
       <p>
@@ -501,6 +508,468 @@ export function RefundBody() {
       </section>
     </>
   );
+}
+
+// ===========================================================================
+// EN policy bodies — served on ailookstudio.com (any non-RU market). They
+// keep the same section structure as the RU master copy, but drop the
+// Russia-specific 152-FZ / Roskomnadzor references and instead lead with
+// GDPR + CCPA/CPRA. Contacts switch to ``privacy@ailookstudio.com`` /
+// ``support@ailookstudio.com``.
+// ===========================================================================
+
+function PrivacyBodyEn() {
+  return (
+    <>
+      <section>
+        <h2 className={sectionH}>1. General provisions</h2>
+        <p>
+          This Privacy Policy describes how the <strong>Look Studio</strong> service
+          (the “Service”), operated by <strong>[OPERATOR NAME]</strong> (the
+          “Operator”, address: [OPERATOR ADDRESS], company number: [REGISTRATION
+          ID], e-mail:{' '}
+          <a className={inlineLink} href="mailto:privacy@ailookstudio.com">privacy@ailookstudio.com</a>),
+          collects, stores and protects users' personal data.
+        </p>
+        <p>
+          The Policy is drafted in line with Regulation (EU) 2016/679 (GDPR) and
+          the California Consumer Privacy Act (CCPA/CPRA, USA), and applies to
+          every visitor of the Service regardless of their location.
+        </p>
+      </section>
+
+      <section>
+        <h2 className={sectionH}>2. Data we process</h2>
+        <ul className={ul}>
+          <li><strong>Photos</strong> you upload to the Service for AI processing (including images that contain a face).</li>
+          <li><strong>Telegram account metadata</strong> (tg_user_id, username) — only when you sign in through the Telegram bot.</li>
+          <li><strong>E-mail or phone number</strong> — only if you use them to sign in to the website.</li>
+          <li><strong>Technical data</strong>: hashed IP address, hashed User-Agent, session id. Raw IP / User-Agent are not stored.</li>
+          <li><strong>Payment data</strong> — handled by the payment provider; the Operator only receives the fact of payment and the amount.</li>
+        </ul>
+      </section>
+
+      <section>
+        <h2 className={sectionH}>3. About biometric data</h2>
+        <p>
+          <strong>Important.</strong> The Operator <u>does not process biometric
+          personal data</u> within the meaning of Art. 9 GDPR, because:
+        </p>
+        <ul className={ul}>
+          <li>The Operator <strong>does not extract or store</strong> biometric features (feature vectors, ArcFace/FaceNet embeddings, face geometry).</li>
+          <li>The Operator <strong>does not use the image to identify</strong> the user, and does not match it against any government or private face database.</li>
+          <li>The “appearance preservation” check is performed by a <strong>Vision Language Model</strong> as a visual comparison of two frames without extracting biometric vectors; the comparison result (a number 0–10) is not stored against the user.</li>
+          <li>The uploaded image is <strong>removed from RAM and Redis no later than 15 minutes</strong> after upload, and never reaches long-term storage.</li>
+        </ul>
+        <p>
+          Should future functionality require biometric identification, the
+          Operator will request a separate written consent from the user before
+          enabling it.
+        </p>
+      </section>
+
+      <section>
+        <h2 className={sectionH}>4. Purposes of processing</h2>
+        <ul className={ul}>
+          <li>Generating AI-processed images at your request.</li>
+          <li>Granting access to the personal account and saved results.</li>
+          <li>Billing and tracking spent credits.</li>
+          <li>Technical support, abuse prevention.</li>
+          <li>Forwarding images to external AI providers (OpenRouter, Reve, Replicate) — <strong>only with your explicit consent</strong>.</li>
+        </ul>
+      </section>
+
+      <section>
+        <h2 className={sectionH}>5. Legal grounds</h2>
+        <ul className={ul}>
+          <li><strong>Consent of the data subject</strong> (Art. 6(1)(a) GDPR) — for the core image processing.</li>
+          <li><strong>Separate consent</strong> — for cross-border transfer of images to external AI services.</li>
+          <li><strong>Performance of a contract</strong> (Art. 6(1)(b) GDPR) — for billing.</li>
+          <li><strong>Legitimate interest</strong> — for abuse prevention (hash-based rate limiting without raw IPs).</li>
+        </ul>
+      </section>
+
+      <section>
+        <h2 className={sectionH}>6. Age limit</h2>
+        <p>
+          The Service is intended for users <strong>16 or older</strong>. By
+          registering you confirm that you meet this age requirement. If you are
+          under 16, you must not use the Service.
+        </p>
+      </section>
+
+      <section>
+        <h2 className={sectionH}>7. Retention periods</h2>
+        <ul className={ul}>
+          <li><strong>Original uploaded photos</strong> — no longer than 15 minutes in the Redis stash, then physically deleted.</li>
+          <li><strong>Generated images</strong> — 72 hours, then physically deleted by a background job.</li>
+          <li><strong>Account and consent records</strong> — until you request deletion or after 1 year of inactivity.</li>
+          <li><strong>Payment transactions</strong> — kept for the period required by applicable tax legislation.</li>
+        </ul>
+      </section>
+
+      <section>
+        <h2 className={sectionH}>8. Cross-border transfers</h2>
+        <p>If consent is granted, images are forwarded to the following services:</p>
+        <ul className={ul}>
+          <li><strong>OpenRouter</strong> (USA) — image analysis by a VLM model.</li>
+          <li><strong>Reve</strong> (USA) — image generation.</li>
+          <li><strong>Replicate</strong> (USA) — image generation.</li>
+        </ul>
+        <p>
+          Without a cross-border transfer consent the API returns HTTP 451 and the
+          Service makes no external request. You can revoke the consent at any
+          time from your personal account.
+        </p>
+      </section>
+
+      <section>
+        <h2 className={sectionH}>9. Your rights</h2>
+        <p>You have the right to:</p>
+        <ul className={ul}>
+          <li><strong>Be informed</strong> about the scope and purposes of processing (Art. 15 GDPR, CCPA §1798.110).</li>
+          <li><strong>Request deletion</strong> of all your data — <code className="mx-1">DELETE /api/v1/users/me</code>.</li>
+          <li><strong>Export your data</strong> in machine-readable form — <code className="mx-1">GET /api/v1/users/me/export</code>.</li>
+          <li><strong>Withdraw consent</strong> for processing or cross-border transfers from your account.</li>
+          <li><strong>Opt out of the sale of personal data</strong> (the Operator does not sell personal data to third parties).</li>
+          <li><strong>Lodge a complaint</strong> with the relevant Supervisory Authority (EU) or California Attorney General (USA).</li>
+        </ul>
+      </section>
+
+      <section>
+        <h2 className={sectionH}>10. AI transparency</h2>
+        <p>Every generated image is marked:</p>
+        <ul className={ul}>
+          <li>With a <strong>visual badge</strong> “AI-generated” on the preview and share card.</li>
+          <li>With <strong>EXIF metadata</strong> <code>UserComment=AI-generated by AI Look Studio</code> in the JPEG file.</li>
+        </ul>
+        <p>These measures meet the AI transparency requirements of the EU AI Act (Art. 50).</p>
+      </section>
+
+      <section>
+        <h2 className={sectionH}>11. Security</h2>
+        <ul className={ul}>
+          <li>All traffic is HTTPS (TLS 1.2+).</li>
+          <li>Storage is isolated to private network segments.</li>
+          <li>Logs go through a PII filter: image bytes and base64 payloads never reach the log stream.</li>
+          <li>IP / User-Agent values are hashed before being stored.</li>
+          <li>An automated job physically deletes expired generations every few minutes.</li>
+        </ul>
+      </section>
+
+      <section>
+        <h2 className={sectionH}>12. Contacts</h2>
+        <p>
+          Questions, deletion or consent withdrawal requests:{' '}
+          <a className={inlineLink} href="mailto:privacy@ailookstudio.com">privacy@ailookstudio.com</a>
+        </p>
+        <p>The Operator will respond within <strong>30 days</strong>.</p>
+      </section>
+
+      <section>
+        <h2 className={sectionH}>13. Changes</h2>
+        <p>
+          The Operator may update this Policy. The current version is always
+          available at{' '}
+          <a className={inlineLink} href="https://ailookstudio.com/privacy">https://ailookstudio.com/privacy</a>.
+          Material changes will trigger a fresh consent prompt.
+        </p>
+      </section>
+    </>
+  );
+}
+
+function TermsBodyEn() {
+  return (
+    <>
+      <div className="rounded-lg border border-yellow-500/30 bg-yellow-500/10 px-4 py-3 text-[13px] text-yellow-200">
+        Template document. The final wording must be reviewed by counsel and
+        contain the legal entity's registration details.
+      </div>
+
+      <section>
+        <h2 className={sectionH}>1. Subject of the agreement</h2>
+        <p>
+          These Terms of Use (the “Terms” or “Offer”) govern the relationship
+          between <strong>[OPERATOR NAME]</strong> (the “Operator”) and any
+          person (the “User”) using the <strong>Look Studio</strong> service
+          (the “Service”).
+        </p>
+        <p>
+          Using the Service constitutes unconditional acceptance of these
+          Terms. If you do not agree with the Terms, please stop using the
+          Service.
+        </p>
+      </section>
+
+      <section>
+        <h2 className={sectionH}>2. Service description</h2>
+        <p>
+          The Service provides AI tools for photo analysis and enhancement:
+          perception scoring, generation of improved variants, and style
+          selection for different scenarios (social media, dating, documents,
+          resume).
+        </p>
+      </section>
+
+      <section>
+        <h2 className={sectionH}>3. Payment and pricing</h2>
+        <ul className={ul}>
+          <li>Payments are processed by a third-party payment provider — the Operator does not receive payment card data.</li>
+          <li>Prices are published on the{' '}
+            <a className={inlineLink} href="/#pricing">Pricing</a> page and may change. The price displayed at checkout applies.</li>
+          <li>Once paid, the User's account is credited with generation credits, which are spent while using the Service.</li>
+        </ul>
+      </section>
+
+      <section>
+        <h2 className={sectionH}>4. Refunds</h2>
+        <p>
+          Refunds are available within <strong>14 days</strong> of payment if
+          the credits have not been used. Refund requests should be sent to{' '}
+          <a className={inlineLink} href="mailto:support@ailookstudio.com">support@ailookstudio.com</a>{' '}
+          with the transaction id.
+        </p>
+      </section>
+
+      <section>
+        <h2 className={sectionH}>5. Limitations and liability</h2>
+        <ul className={ul}>
+          <li>The Service is provided “as is”. The Operator does not guarantee that the AI processing result will fully match the User's expectations.</li>
+          <li>Uploading other people's photos without their consent, content involving minors, or any other unlawful material is forbidden.</li>
+          <li>The Operator may suspend an account for breach of these Terms without refund.</li>
+          <li>The Operator is not liable for indirect damages or lost profits.</li>
+        </ul>
+      </section>
+
+      <section>
+        <h2 className={sectionH}>6. Intellectual property</h2>
+        <p>
+          The User retains the rights to the original photos they upload.
+          Generated images are licensed to the User on a non-exclusive basis
+          for personal and commercial use (social media, resumes, avatars,
+          and so on).
+        </p>
+      </section>
+
+      <section>
+        <h2 className={sectionH}>7. Contacts</h2>
+        <p>
+          Questions about Terms and payments:{' '}
+          <a className={inlineLink} href="mailto:support@ailookstudio.com">support@ailookstudio.com</a>.
+        </p>
+      </section>
+    </>
+  );
+}
+
+function ConsentsBodyEn() {
+  return (
+    <>
+      <p>
+        Before you start, the Service asks you for three mandatory consents.
+        Each one can be withdrawn at any time from your profile settings.
+      </p>
+
+      <section>
+        <h2 className={sectionH}>Personal data processing</h2>
+        <p>
+          <strong>I consent to the processing of personal data, including a photo of my face.</strong>
+        </p>
+        <p>
+          Without this consent the Service cannot accept a file for processing.
+          The original photo is not retained: after processing, it is removed
+          from RAM and the Redis stash within 15 minutes of upload. Scores and
+          generated images are stored for no longer than 72 hours.
+        </p>
+      </section>
+
+      <section>
+        <h2 className={sectionH}>Transfer to external AI services</h2>
+        <p>
+          <strong>
+            I agree to the transfer of photos to external AI services
+            (OpenRouter, Reve and similar providers), including outside my
+            country.
+          </strong>
+        </p>
+        <p>
+          This is a legally required consent for cross-border transfers
+          (Chapter V GDPR). Without it, the API returns HTTP 451 and no
+          generation is performed.
+        </p>
+      </section>
+
+      <section>
+        <h2 className={sectionH}>Age confirmation</h2>
+        <p>
+          <strong>
+            I am 16 years of age or older. I understand that the Service is not
+            intended for users under 16.
+          </strong>
+        </p>
+        <p>
+          Required by Art. 8 GDPR and our internal policies. False
+          confirmation may result in account suspension.
+        </p>
+      </section>
+
+      <section>
+        <h2 className={sectionH}>Managing consents</h2>
+        <p>
+          All your consents are visible in your personal account. API:
+          {' '}<code className="mx-1">GET /api/v1/users/me/consents</code>,{' '}
+          <code className="mx-1">POST /api/v1/users/me/consents/revoke</code>.
+        </p>
+      </section>
+    </>
+  );
+}
+
+function CookieBodyEn() {
+  return (
+    <>
+      <p>
+        Look Studio uses a minimal set of cookies and similar technologies
+        (localStorage, sessionStorage) needed for the Service to work and to
+        analyse basic visit statistics.
+      </p>
+
+      <section>
+        <h2 className={sectionH}>1. Cookies we use</h2>
+        <ul className={ul}>
+          <li>
+            <strong>Functional.</strong> Authentication session token, theme
+            preference, wizard progress. The Service does not work without
+            them; consent is implied by using the website.
+          </li>
+          <li>
+            <strong>Analytics (consent-based).</strong> Anonymous visit
+            statistics. Only hashed device identifiers are used; raw IP
+            addresses are never stored.
+          </li>
+          <li>
+            <strong>Payment.</strong> Cookies of the payment provider — set
+            when checkout starts and governed by their policy.
+          </li>
+        </ul>
+      </section>
+
+      <section>
+        <h2 className={sectionH}>2. Third-party services</h2>
+        <p>
+          We do not share user data with advertising networks. External AI
+          providers (see the{' '}
+          <a className={inlineLink} href="/?policy=privacy">Privacy policy</a>)
+          only receive the contents of the generation request and have no
+          access to website cookies.
+        </p>
+      </section>
+
+      <section>
+        <h2 className={sectionH}>3. Managing cookies</h2>
+        <ul className={ul}>
+          <li>Most browsers let you delete or block cookies via settings.</li>
+          <li>Blocking functional cookies will prevent you from signing in.</li>
+          <li>You can withdraw analytics consent in the{' '}
+            <a className={inlineLink} href="/?policy=consents">Data processing consents</a> section.</li>
+        </ul>
+      </section>
+
+      <section>
+        <h2 className={sectionH}>4. Contacts</h2>
+        <p>
+          Questions about cookies:{' '}
+          <a className={inlineLink} href="mailto:privacy@ailookstudio.com">privacy@ailookstudio.com</a>.
+        </p>
+      </section>
+    </>
+  );
+}
+
+function RefundBodyEn() {
+  return (
+    <>
+      <p>
+        Refunds for credit pack purchases on Look Studio follow the rules
+        described below. The full text lives in the{' '}
+        <a className={inlineLink} href="/?policy=terms">Terms of use</a>.
+      </p>
+
+      <section>
+        <h2 className={sectionH}>1. Window and grounds</h2>
+        <ul className={ul}>
+          <li>Refund requests are accepted within <strong>14 days</strong> of payment.</li>
+          <li>Refunds are only possible for <strong>unused credits</strong>. The amount is proportional to the remaining balance: spent credits are not refunded.</li>
+          <li>If a technical failure on our side caused the issue, credits are returned to the account automatically without a refund request.</li>
+        </ul>
+      </section>
+
+      <section>
+        <h2 className={sectionH}>2. Procedure</h2>
+        <ol className="list-decimal pl-6 space-y-2">
+          <li>Email{' '}
+            <a className={inlineLink} href="mailto:support@ailookstudio.com">support@ailookstudio.com</a>{' '}
+            or message{' '}
+            <a className={inlineLink} href="https://t.me/ailookstudio_support" target="_blank" rel="noopener noreferrer">Telegram support</a>.</li>
+          <li>Provide the transaction id (available in the payment confirmation email) and the reason for the refund.</li>
+          <li>We acknowledge the request and trigger a refund through the payment provider.</li>
+        </ol>
+      </section>
+
+      <section>
+        <h2 className={sectionH}>3. Processing time</h2>
+        <ul className={ul}>
+          <li>Initial response — within <strong>24 hours</strong> on business days.</li>
+          <li>Decision — up to <strong>30 calendar days</strong> (typically 1-3 days).</li>
+          <li>Time for the refund to reach your card depends on the issuing bank, usually 3-10 business days.</li>
+        </ul>
+      </section>
+
+      <section>
+        <h2 className={sectionH}>4. When a refund is not possible</h2>
+        <ul className={ul}>
+          <li>All credits in the pack have already been spent.</li>
+          <li>More than 14 days have passed since payment.</li>
+          <li>The account has been suspended for breach of the Terms of Use.</li>
+        </ul>
+      </section>
+
+      <section>
+        <h2 className={sectionH}>5. Contacts</h2>
+        <p>
+          E-mail:{' '}
+          <a className={inlineLink} href="mailto:support@ailookstudio.com">support@ailookstudio.com</a>{' '}
+          · Telegram:{' '}
+          <a className={inlineLink} href="https://t.me/ailookstudio_support" target="_blank" rel="noopener noreferrer">@ailookstudio_support</a>.
+        </p>
+      </section>
+    </>
+  );
+}
+
+// ===========================================================================
+// Public dispatchers — pick the per-build language at render time.
+// ===========================================================================
+
+export function PrivacyBody() {
+  return getAppLanguage() === 'ru' ? <PrivacyBodyRu /> : <PrivacyBodyEn />;
+}
+
+export function TermsBody() {
+  return getAppLanguage() === 'ru' ? <TermsBodyRu /> : <TermsBodyEn />;
+}
+
+export function ConsentsBody() {
+  return getAppLanguage() === 'ru' ? <ConsentsBodyRu /> : <ConsentsBodyEn />;
+}
+
+export function CookieBody() {
+  return getAppLanguage() === 'ru' ? <CookieBodyRu /> : <CookieBodyEn />;
+}
+
+export function RefundBody() {
+  return getAppLanguage() === 'ru' ? <RefundBodyRu /> : <RefundBodyEn />;
 }
 
 const POLICY_BODIES: Record<PolicyId, ReactNode> = {

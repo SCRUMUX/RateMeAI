@@ -75,15 +75,20 @@ def _parse_requirements(raw: Any) -> VisaRequirements | None:
     )
 
 
+def _parse_checklist(raw: Any) -> tuple[str, ...]:
+    if not isinstance(raw, list):
+        return ()
+    return tuple(str(item) for item in raw if isinstance(item, str))
+
+
 def _parse_overrides(raw: Any) -> PromptOverrides | None:
     if not isinstance(raw, dict):
         return None
-    checklist_raw = raw.get("analysis_checklist") or []
-    if not isinstance(checklist_raw, list):
-        checklist_raw = []
-    checklist = tuple(str(item) for item in checklist_raw if isinstance(item, str))
+    checklist = _parse_checklist(raw.get("analysis_checklist"))
+    checklist_en = _parse_checklist(raw.get("analysis_checklist_en"))
     return PromptOverrides(
         analysis_checklist=checklist,
+        analysis_checklist_en=checklist_en,
         image_instructions=str(raw.get("image_instructions") or ""),
     )
 

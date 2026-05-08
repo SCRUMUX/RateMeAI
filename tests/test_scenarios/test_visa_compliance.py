@@ -35,6 +35,18 @@ def isolated_scenarios_file(tmp_path: Path, monkeypatch):
                         },
                         "prompt_overrides": {
                             "analysis_checklist": ["rule a", "rule b"],
+                            "analysis_checklist_en": ["rule A EN", "rule B EN"],
+                            "image_instructions": "x",
+                        },
+                        "enabled": True,
+                    },
+                    "visa-no-en": {
+                        "kind": "visa",
+                        "api_mode": "cv",
+                        "pipeline_profile": "simple",
+                        "step3_mode": "document_formats",
+                        "prompt_overrides": {
+                            "analysis_checklist": ["rule а", "rule б"],
                             "image_instructions": "x",
                         },
                         "enabled": True,
@@ -56,7 +68,7 @@ def isolated_scenarios_file(tmp_path: Path, monkeypatch):
 
 
 def test_compliance_checklist_returns_pending_pairs(isolated_scenarios_file):
-    items = compliance_checklist("visa-test")
+    items = compliance_checklist("visa-test", market_id="ru")
     assert items == [
         {"rule": "rule a", "status": "pending"},
         {"rule": "rule b", "status": "pending"},
@@ -64,15 +76,33 @@ def test_compliance_checklist_returns_pending_pairs(isolated_scenarios_file):
 
 
 def test_compliance_checklist_empty_for_non_visa(isolated_scenarios_file):
-    assert compliance_checklist("core-photo") == []
+    assert compliance_checklist("core-photo", market_id="ru") == []
 
 
 def test_compliance_checklist_empty_for_unknown(isolated_scenarios_file):
-    assert compliance_checklist("does-not-exist") == []
+    assert compliance_checklist("does-not-exist", market_id="ru") == []
 
 
 def test_compliance_checklist_empty_for_none_slug(isolated_scenarios_file):
-    assert compliance_checklist(None) == []
+    assert compliance_checklist(None, market_id="ru") == []
+
+
+def test_compliance_checklist_en_market(isolated_scenarios_file):
+    """Non-RU markets get the English checklist."""
+    items = compliance_checklist("visa-test", market_id="global")
+    assert items == [
+        {"rule": "rule A EN", "status": "pending"},
+        {"rule": "rule B EN", "status": "pending"},
+    ]
+
+
+def test_compliance_checklist_en_falls_back_to_ru(isolated_scenarios_file):
+    """When the EN translation is missing the EN market still gets a non-empty list."""
+    items = compliance_checklist("visa-no-en", market_id="global")
+    assert items == [
+        {"rule": "rule а", "status": "pending"},
+        {"rule": "rule б", "status": "pending"},
+    ]
 
 
 def test_output_spec_payload_for_visa(isolated_scenarios_file):

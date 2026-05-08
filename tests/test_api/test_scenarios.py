@@ -38,6 +38,7 @@ def isolated_scenarios_file(tmp_path: Path, monkeypatch):
                         },
                         "prompt_overrides": {
                             "analysis_checklist": ["a", "b"],
+                            "analysis_checklist_en": ["A EN", "B EN"],
                             "image_instructions": "x",
                         },
                         "paywall": {"pack_qty": 5, "show_paywall": True},
@@ -114,11 +115,28 @@ async def test_compliance_endpoint_returns_checklist(isolated_scenarios_file):
     res = await scenarios_api.get_scenario_compliance("visa-test", response)
     assert res["slug"] == "visa-test"
     assert res["kind"] == "visa"
+    # Test env defaults to MARKET_ID="" → resolved_market_id="global" → EN locale.
+    assert res["checklist"] == [
+        {"rule": "A EN", "status": "pending"},
+        {"rule": "B EN", "status": "pending"},
+    ]
+    assert res["output_spec"]["aspect_key"] == "visa_test"
+
+
+@pytest.mark.asyncio
+async def test_compliance_endpoint_serves_ru_on_ru_edge(
+    isolated_scenarios_file, monkeypatch
+):
+    """Pin language='ru' and verify the endpoint switches to the master Russian copy."""
+    from src.services import visa_compliance as vc
+
+    monkeypatch.setattr(vc, "_resolve_lang", lambda *_a, **_kw: "ru")
+    response = Response()
+    res = await scenarios_api.get_scenario_compliance("visa-test", response)
     assert res["checklist"] == [
         {"rule": "a", "status": "pending"},
         {"rule": "b", "status": "pending"},
     ]
-    assert res["output_spec"]["aspect_key"] == "visa_test"
 
 
 @pytest.mark.asyncio

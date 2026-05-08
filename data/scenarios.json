@@ -110,6 +110,14 @@
           "Очки разрешены только без тонировки и бликов; головной убор только по религиозным причинам.",
           "Фотография сделана не более 6 месяцев назад."
         ],
+        "analysis_checklist_en": [
+          "Size 35×45 mm (7:9 aspect ratio), color photograph.",
+          "Head takes up 70-80% of the frame height (~32-36 mm from chin to crown).",
+          "Plain white or very light grey background, no shadows or patterns.",
+          "Neutral expression, mouth closed, eyes open, looking straight into the camera.",
+          "Glasses allowed only without tint or glare; head covering only for religious reasons.",
+          "Photo taken no more than 6 months ago."
+        ],
         "image_instructions": "Document-grade Schengen visa portrait. Flat uniform white background (#FFFFFF, no shadows, no gradient). Neutral facial expression, mouth closed, eyes open and looking straight into the camera, head perfectly centered and frontal. Head must occupy 70-80% of frame height, framed from collarbone to slightly above the crown. No tinted glasses, no head covering (except religious). Soft, even lighting with no harsh shadows on face or background. Output color photo, ICAO 9303 compliant proportions."
       },
       "paywall": {
@@ -167,6 +175,14 @@
           "Нейтральное выражение, рот закрыт, глаза открыты, прямой взгляд в камеру.",
           "Очки: только по медицинским показаниям. Головной убор — только по религиозным причинам.",
           "Фотография сделана не более 6 месяцев назад."
+        ],
+        "analysis_checklist_en": [
+          "Size 51×51 mm; color photograph.",
+          "Head 25-35 mm tall (chin to crown).",
+          "Background: plain white or off-white, no shadows or patterns.",
+          "Neutral expression, mouth closed, eyes open, looking straight into the camera.",
+          "Glasses: medical reasons only. Head covering: religious reasons only.",
+          "Photo taken no more than 6 months ago."
         ],
         "image_instructions": "Document-grade US visa portrait. Square 1:1 aspect ratio (51×51 mm). Plain white or off-white background, no shadows, no gradient. Neutral facial expression, mouth closed, eyes open and looking straight into the camera, head centered. Head height between 25 and 35 mm from chin to crown; eyes in the upper third of the frame. No glasses (medical only), no head covering (religious only). Soft even lighting. Color photo, ICAO 9303 compliant."
       },
@@ -226,6 +242,14 @@
           "Очки: только по медицинским показаниям. Головной убор — только по религиозным причинам.",
           "Фотография сделана не более 1 месяцев назад."
         ],
+        "analysis_checklist_en": [
+          "Size 35×45 mm; color photograph.",
+          "Head 29-34 mm tall (chin to crown).",
+          "Background: plain light-coloured, no shadows or patterns.",
+          "Neutral expression, mouth closed, eyes open, looking straight into the camera.",
+          "Glasses: medical reasons only. Head covering: religious reasons only.",
+          "Photo taken no more than 1 month ago."
+        ],
         "image_instructions": "Document-grade UK visa portrait. 7:9 aspect ratio (35×45 mm). Plain light-coloured background (light grey or off-white preferred), strong contrast with the subject, no shadows. Neutral expression with mouth closed, eyes open and looking straight at the camera. Head, shoulders and upper body visible; head height 29-34 mm. No glasses (medical only) and no tinted lenses; no head covering except religious. Even lighting, color photo, ICAO 9303 compliant."
       },
       "paywall": {
@@ -283,6 +307,14 @@
           "Нейтральное выражение, рот закрыт, глаза открыты, прямой взгляд в камеру.",
           "Очки: без тонировки и бликов. Головной убор — только по религиозным причинам.",
           "Фотография сделана не более 6 месяцев назад."
+        ],
+        "analysis_checklist_en": [
+          "Size 35×45 mm; color photograph.",
+          "Head 31-36 mm tall (chin to crown).",
+          "Background: plain white or light-coloured, no shadows or patterns.",
+          "Neutral expression, mouth closed, eyes open, looking straight into the camera.",
+          "Glasses: no tint or glare. Head covering: religious reasons only.",
+          "Photo taken no more than 6 months ago."
         ],
         "image_instructions": "Document-grade Canadian visa portrait. 7:9 aspect ratio (35×45 mm). Plain white or very light-coloured background, no shadows, no patterns. Neutral expression with mouth closed, full front view, head and top of shoulders visible, head square to the camera. Head height between 31 and 36 mm. Non-tinted prescription glasses allowed if eyes fully visible; no sunglasses. No head covering except for religious reasons. Soft, even lighting; color photo; ICAO 9303 compliant."
       },
@@ -342,6 +374,14 @@
           "Очки: без тонировки и бликов. Головной убор — только по религиозным причинам.",
           "Фотография сделана не более 6 месяцев назад."
         ],
+        "analysis_checklist_en": [
+          "Size 45×45 mm; color photograph.",
+          "Head 27-33 mm tall (chin to crown).",
+          "Background: plain white, no shadows or patterns.",
+          "Neutral expression, mouth closed, eyes open, looking straight into the camera.",
+          "Glasses: no tint or glare. Head covering: religious reasons only.",
+          "Photo taken no more than 6 months ago."
+        ],
         "image_instructions": "Document-grade Japan visa portrait. 1:1 aspect ratio (45×45 mm). Plain white background only — no patterns, no shadows. Neutral expression, mouth closed, eyes open, looking straight at the camera. Head centered with a small top margin (~7.5 mm). Head height 27-33 mm from chin to crown. No hat, no head covering (religious only). Sharp, evenly lit color photo at high resolution; ICAO 9303 compliant."
       },
       "paywall": {
@@ -399,6 +439,14 @@
           "Нейтральное выражение, рот закрыт, глаза открыты, прямой взгляд в камеру.",
           "Очки: без тонировки и бликов. Головной убор — только по религиозным причинам.",
           "Фотография сделана не более 6 месяцев назад."
+        ],
+        "analysis_checklist_en": [
+          "Size 33×48 mm; color photograph.",
+          "Head 28-33 mm tall (chin to crown).",
+          "Background: plain white, no shadows or patterns.",
+          "Neutral expression, mouth closed, eyes open, looking straight into the camera.",
+          "Glasses: no tint or glare. Head covering: religious reasons only.",
+          "Photo taken no more than 6 months ago."
         ],
         "image_instructions": "Document-grade China visa portrait. Aspect ratio 33×48 mm (close to 11:16). Plain white background, no shadows, no border. Natural expression with both eyes open, mouth closed, ears visible, looking directly at the camera. Head centered, head height 28-33 mm chin-to-crown, ~3-5 mm top margin and ≥7 mm below chin. Glasses only if untinted and eyes fully visible. No head covering (religious only). Color photo on matte/glossy paper; ICAO 9303 compliant."
       },
@@ -458,6 +506,14 @@
           "Очки: без тонировки и бликов. Головной убор — только по религиозным причинам.",
           "Фотография сделана не более 6 месяцев назад."
         ],
+        "analysis_checklist_en": [
+          "Size 43×55 mm; color photograph.",
+          "Head 32-36 mm tall (chin to crown).",
+          "Background: plain white, no shadows or patterns.",
+          "Neutral expression, mouth closed, eyes open, looking straight into the camera.",
+          "Glasses: no tint or glare. Head covering: religious reasons only.",
+          "Photo taken no more than 6 months ago."
+        ],
         "image_instructions": "Document-grade UAE visa portrait. 43×55 mm format (~7:9). Plain white background, fully even, no shadows, no patterns or borders. Neutral expression, mouth closed, both eyes open, head centered and looking straight at the camera. Face occupies 70-80% of frame; head height 32-36 mm chin-to-crown. No tinted glasses, no sunglasses. No head covering (religious only, full face visible). Even, uniform lighting. Color photo, 24-bit, ICAO 9303 compliant."
       },
       "paywall": {
@@ -515,6 +571,14 @@
           "Нейтральное выражение, рот закрыт, глаза открыты, прямой взгляд в камеру.",
           "Очки: только по медицинским показаниям. Головной убор — только по религиозным причинам.",
           "Фотография сделана не более 6 месяцев назад."
+        ],
+        "analysis_checklist_en": [
+          "Size 35×45 mm; color photograph.",
+          "Head 32-36 mm tall (chin to crown).",
+          "Background: neutral or light grey, no shadows or patterns.",
+          "Neutral expression, mouth closed, eyes open, looking straight into the camera.",
+          "Glasses: medical reasons only. Head covering: religious reasons only.",
+          "Photo taken no more than 6 months ago."
         ],
         "image_instructions": "Document-grade Australia visa portrait. 35-40 mm × 45-50 mm. Neutral or light-grey background, even lighting, no shadows or reflections. Hair off the face so edges are visible. Neutral expression with mouth closed and eyes open, looking straight at the camera. Head centered, head height 32-36 mm chin-to-crown. No glasses (medical only, no tint, no glare). No head covering except religious; if worn, full face visible from chin to forehead. Natural skin tone, color photo, ICAO 9303 compliant."
       },
@@ -574,6 +638,14 @@
           "Очки: не разрешены. Головной убор — только по религиозным причинам.",
           "Фотография сделана не более 6 месяцев назад."
         ],
+        "analysis_checklist_en": [
+          "Size 35×45 mm; color photograph.",
+          "Head 32-36 mm tall (chin to crown).",
+          "Background: plain white, no shadows or patterns.",
+          "Neutral expression, mouth closed, eyes open, looking straight into the camera.",
+          "Glasses: not allowed. Head covering: religious reasons only.",
+          "Photo taken no more than 6 months ago."
+        ],
         "image_instructions": "Document-grade South Korea visa portrait. 35×45 mm format (7:9). Plain white background, no shadows, no border, no colored elements. Neutral expression, mouth closed, both ears fully visible, hair away from face. Head centered and frontal, looking directly at the camera. Head height 32-36 mm chin-to-crown. Glasses discouraged; if worn, no glare and frames must not obstruct eyes. No head covering except religious or medical. Sharp color photo at 600 DPI; ICAO 9303 compliant."
       },
       "paywall": {
@@ -631,6 +703,14 @@
           "Нейтральное выражение, рот закрыт, глаза открыты, прямой взгляд в камеру.",
           "Очки: без тонировки и бликов. Головной убор — только по религиозным причинам.",
           "Фотография сделана не более 3 месяцев назад."
+        ],
+        "analysis_checklist_en": [
+          "Size 51×51 mm; color photograph.",
+          "Head 25-35 mm tall (chin to crown).",
+          "Background: plain white or light-coloured, no shadows or patterns.",
+          "Neutral expression, mouth closed, eyes open, looking straight into the camera.",
+          "Glasses: no tint or glare. Head covering: religious reasons only.",
+          "Photo taken no more than 3 months ago."
         ],
         "image_instructions": "Document-grade India visa portrait. Square 51×51 mm (1:1). Plain white or very light coloured background, no shadows. Color photograph, full front view with both eyes open, mouth closed, natural expression. Head centered and fully visible: top of hair to bottom of chin, ears, forehead and chin all visible. Head height 25-35 mm chin-to-crown. No head covering except religious or medical. No edits or marks. ICAO 9303 compliant."
       },

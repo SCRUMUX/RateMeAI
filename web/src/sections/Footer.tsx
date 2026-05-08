@@ -253,7 +253,7 @@ export default function Footer({ cmsPage }: FooterProps = {}) {
               и закрывает визуальный пробел. */}
           <div className="flex flex-col gap-[var(--space-12)]">
             <div className="flex items-center gap-[var(--space-10)]">
-              <div className="relative w-9 h-9 shrink-0 text-[var(--color-text-primary)]">
+              <div className="relative w-10 h-10 tablet:w-11 tablet:h-11 shrink-0 text-[var(--color-text-primary)]">
                 <LogoEmblem className="relative w-full h-full" />
               </div>
               <span className="text-[20px] leading-[28px] font-semibold text-[var(--color-text-primary)] tracking-tight">

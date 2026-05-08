@@ -61,6 +61,12 @@ class PromptOverrides:
     ``analysis_checklist`` is a list of natural-language bullets the
     pre-analysis LLM must verify before allowing the user to proceed.
 
+    ``analysis_checklist_en`` is the English mirror surfaced on the
+    EN/global build (``MARKET_ID != "ru"``). It is optional — when
+    empty, :func:`src.services.visa_compliance.compliance_checklist`
+    falls back to the Russian master copy so we never ship an empty
+    panel even if a translation is still pending.
+
     ``image_instructions`` is a paragraph appended to the image-gen
     prompt right after the style block — typically the
     document-compliance hint ("uniform white background, neutral
@@ -68,6 +74,7 @@ class PromptOverrides:
     """
 
     analysis_checklist: tuple[str, ...] = ()
+    analysis_checklist_en: tuple[str, ...] = ()
     image_instructions: str = ""
 
 

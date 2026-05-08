@@ -5111,4 +5111,47 @@
 #            _resolve_lang + lang-aware build_prompt for each of
 #            social/dating/cv. tests/test_services/test_photo_requirements.py
 #            asserts RU/EN parity.
-APP_VERSION = "1.59.0"
+# 1.59.2 — Visa i18n closure. Patches the remaining EN-build holes
+#          surfaced after 1.59.0:
+#          Frontend:
+#          • web/src/sections/HowItWorks.tsx + ru/en landing.json
+#            grow a 4th step ("Download or share") so the home page
+#            no longer ships only 3 cards in a 4-column grid.
+#          • web/src/sections/Footer.tsx LogoEmblem now matches the
+#            NavBar size (w-10/w-11 tablet) — fixes the visibly
+#            small footer mark on EN/RU.
+#          • web/src/lib/api.ts ``localizeApiStyle`` extracts the
+#            leading emoji from the original RU label and prepends
+#            it to the localized EN copy so AppContext.tsx no longer
+#            falls back to the generic ✨ icon for every style.
+#          • web/src/data/policies.tsx splits each *Body() into
+#            *BodyRu/*BodyEn, dispatching by getAppLanguage(). Full
+#            English translation of Privacy/Terms/Consents/Cookie/Refund,
+#            adapted for ailookstudio.com (drops 152-FZ, keeps
+#            GDPR + CCPA/CPRA). EN policies.json drops the now-unused
+#            globalNotice block.
+#          • web/src/pages/PrivacyPolicy.tsx switches to i18n keys
+#            for "← Back to home", versionPrefix and useDocumentMeta
+#            description.
+#          • New i18n keys: common.actions.backToHome,
+#            seo.privacy.{title,description}, policies.versionPrefix.
+#          Backend:
+#          • data/scenarios.json: ``analysis_checklist_en`` added to
+#            all 10 visa scenarios (schengen/usa/uk/canada/japan/china/
+#            uae/australia/korea/india).
+#          • src/scenarios/{models,loader}.py: PromptOverrides gains
+#            an optional ``analysis_checklist_en`` tuple; loader parses
+#            it via a shared _parse_checklist helper.
+#          • src/services/visa_compliance.py: ``compliance_checklist``
+#            now picks RU vs EN through ``_resolve_lang(market_id)``,
+#            with a Russian fallback when the EN translation is
+#            missing. Existing call sites (pre-analyze, scenarios
+#            API) keep the same signature.
+#          Tests:
+#          • web/src/lib/api.test.ts — vitest covering
+#            ``_extractLeadingEmoji`` + ``localizeApiStyle`` (RU
+#            emoji preserved, missing key keeps the original label).
+#          • tests/test_scenarios/test_visa_compliance.py +
+#            test_loader.py + tests/test_api/test_scenarios.py
+#            updated for the EN/RU switch and the new model field.
+APP_VERSION = "1.59.2"

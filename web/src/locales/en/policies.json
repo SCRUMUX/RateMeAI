@@ -14,9 +14,5 @@
     "refund": "Refund"
   },
   "lastUpdated": "2026-04-20",
-  "globalNotice": {
-    "title": "Document is currently in Russian",
-    "description": "Our policies are published in Russian to satisfy local regulations. For an English copy of any document, please email privacy@ailookstudio.com — we will send a translation.",
-    "contact": "privacy@ailookstudio.com"
-  }
+  "versionPrefix": "Version {{version}} · Last updated {{date}}"
 }

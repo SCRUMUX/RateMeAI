@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { POLICIES } from '../data/policies';
 import useDocumentMeta from '../lib/useDocumentMeta';
 
@@ -12,12 +13,18 @@ import useDocumentMeta from '../lib/useDocumentMeta';
  */
 export default function PrivacyPolicy() {
   const entry = POLICIES.privacy;
+  const { t } = useTranslation(['common', 'seo', 'policies']);
 
   useDocumentMeta({
-    title: `${entry.shortTitle} · Look Studio`,
-    description:
-      'Политика обработки персональных данных Look Studio: как мы собираем, храним и защищаем данные пользователей в соответствии с 152-ФЗ и GDPR.',
+    title: t('seo:privacy.title', { defaultValue: `${entry.shortTitle} · Look Studio` }),
+    description: t('seo:privacy.description'),
     canonicalPath: '/privacy',
+  });
+
+  const backLabel = t('common:actions.backToHome');
+  const versionLabel = t('policies:versionPrefix', {
+    version: '1.0',
+    date: entry.lastUpdated,
   });
 
   return (
@@ -28,13 +35,13 @@ export default function PrivacyPolicy() {
             to="/"
             className="text-[13px] text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)] transition-colors"
           >
-            ← На главную
+            {backLabel}
           </Link>
         </div>
 
         <h1 className="text-[32px] font-bold mb-2">{entry.title}</h1>
         <p className="text-[13px] text-[var(--color-text-muted)] mb-10">
-          Версия 1.0 · Последнее обновление: {entry.lastUpdated}
+          {versionLabel}
         </p>
 
         <article className="prose prose-invert max-w-none space-y-6 text-[15px] leading-[1.7]">
@@ -46,7 +53,7 @@ export default function PrivacyPolicy() {
             to="/"
             className="text-[13px] text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)] transition-colors"
           >
-            ← На главную
+            {backLabel}
           </Link>
         </div>
       </div>

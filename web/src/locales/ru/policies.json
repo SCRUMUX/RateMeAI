@@ -14,9 +14,5 @@
     "refund": "Возврат"
   },
   "lastUpdated": "2026-04-20",
-  "globalNotice": {
-    "title": "Доступно на русском языке",
-    "description": "Политика опубликована на русском в соответствии с законодательством РФ. Для англоязычной версии напишите на privacy@ailookstudio.com — мы пришлём перевод.",
-    "contact": "privacy@ailookstudio.com"
-  }
+  "versionPrefix": "Версия {{version}} · Последнее обновление {{date}}"
 }

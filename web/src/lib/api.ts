@@ -656,15 +656,34 @@ function _lookupStyleString(category: string | undefined, key: string, field: 'n
   return null;
 }
 
-function localizeApiStyle<T extends { key: string; label: string; hook: string }>(
+// 1.59.1 — preserve the leading emoji from the original (RU) label.
+//
+// Translations in `web/src/locales/en/styles.json` are pure text
+// without emojis — but `AppContext.tsx` extracts the wizard icon by
+// matching a leading emoji in `style.label`. If we just swapped the
+// label, the EN catalog ended up with the ✨ fallback for every
+// style. We now lift the emoji from the original payload (which
+// always carries the RU master copy from `data/styles.json`) and
+// prepend it to the translated text so the icon stays per-style on
+// both builds.
+export function _extractLeadingEmoji(text: string): string {
+  return text.match(/^[\p{Emoji}\u200d]+\s*/u)?.[0] ?? '';
+}
+
+export function localizeApiStyle<T extends { key: string; label: string; hook: string }>(
   entry: T,
   category?: string,
 ): T {
   const localizedLabel = _lookupStyleString(category, entry.key, 'name');
   const localizedHook = _lookupStyleString(category, entry.key, 'desc');
+  let nextLabel = entry.label;
+  if (localizedLabel) {
+    const leadingEmoji = _extractLeadingEmoji(entry.label);
+    nextLabel = `${leadingEmoji}${localizedLabel}`;
+  }
   return {
     ...entry,
-    label: localizedLabel ?? entry.label,
+    label: nextLabel,
     hook: localizedHook ?? entry.hook,
   };
 }
