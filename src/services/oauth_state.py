@@ -29,13 +29,25 @@ async def save_oauth_state(
     code_verifier: str | None = None,
     device_id: str | None = None,
     link_user_id: str | None = None,
+    return_path: str | None = None,
 ) -> None:
+    """Persist OAuth state in Redis.
+
+    ``return_path`` is the SPA path to navigate to after a successful
+    callback (e.g. ``/visa/schengen``). Storing it server-side instead
+    of in browser ``sessionStorage`` lets the round-trip survive when
+    the OAuth provider sends the user to a different origin than the
+    one they started on (vercel.app vs ailookstudio.ru) — the previous
+    ``sessionStorage`` approach silently fell back to ``/`` whenever
+    that happened.
+    """
     payload = json.dumps(
         {
             "provider": provider,
             "code_verifier": code_verifier,
             "device_id": device_id,
             "link_user_id": link_user_id,
+            "return_path": return_path,
         }
     )
     await redis.set(f"{_PREFIX}{state}", payload, ex=_TTL)

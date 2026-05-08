@@ -12,9 +12,6 @@ interface Props {
   onNext: () => void;
 }
 
-const DEFAULT_DESCRIPTION = 'Анализируем ваше фото по ключевым параметрам восприятия. Каждый стиль адаптирует образ под конкретный контекст, улучшая целевые метрики.';
-const DOC_DEFAULT_DESCRIPTION = 'Анализируем ваше фото для проверки пригодности к использованию в документах. Оцениваются освещение, фон и расположение лица.';
-
 export default function StepAnalysis({ onNext }: Props) {
   const app = useApp();
   const { t } = useTranslation('wizard');
@@ -65,14 +62,12 @@ export default function StepAnalysis({ onNext }: Props) {
         <h2 className="text-[20px] tablet:text-[28px] leading-[1.2] font-semibold text-[var(--color-text-primary)]">
           {isApproval
             ? (isVisa ? t('analysis.titleVisa') : t('analysis.titleDocument'))
-            : isSimplified ? 'Анализ фото' : 'Анализ восприятия'}
+            : isSimplified ? t('analysis.titleSimplified') : t('analysis.title')}
         </h2>
         <p className="text-[12px] tablet:text-[13px] leading-[16px] tablet:leading-[18px] text-[var(--color-text-secondary)] max-w-[440px]">
           {isApproval
             ? (isVisa ? t('analysis.subtitleVisa') : t('analysis.subtitleDocument'))
-            : isSimplified
-              ? 'Проверим фото под требования документов: кадр, ракурс, фон и освещение'
-              : 'Покажем, как ваше фото считывается с первого взгляда: теплота, уверенность, привлекательность'}
+            : isSimplified ? t('analysis.subtitleSimplified') : t('analysis.subtitle')}
         </p>
       </div>
 
@@ -81,7 +76,7 @@ export default function StepAnalysis({ onNext }: Props) {
         <div className="gradient-border-card glass-card flex flex-col w-full max-w-[260px] shrink-0 rounded-[var(--radius-12)] overflow-hidden">
           <div className="w-full aspect-[4/5] shrink-0 bg-[var(--glass-surface-soft)] overflow-hidden">
             {app.photo ? (
-              <img src={app.photo.preview} alt="Original" className="w-full h-full object-cover" />
+              <img src={app.photo.preview} alt={t('analysis.altOriginal')} className="w-full h-full object-cover" />
             ) : (
               <PlaceholderUpload className="w-full h-full opacity-50 text-[var(--color-text-secondary)]" />
             )}
@@ -89,7 +84,7 @@ export default function StepAnalysis({ onNext }: Props) {
           <div className="flex flex-col gap-[var(--space-8)] p-[var(--space-12)]">
             <div className="flex items-center justify-between">
               <span className="text-[16px] leading-[24px] text-[var(--color-text-primary)] font-medium">
-                {isApproval ? t('analysis.approvalProbability') : 'Исходное'}
+                {isApproval ? t('analysis.approvalProbability') : t('analysis.originalLabel')}
               </span>
               {isApproval && approvalProbability != null ? (
                 <span className="flex items-baseline gap-1">
@@ -101,7 +96,7 @@ export default function StepAnalysis({ onNext }: Props) {
               ) : beforeScore != null ? (
                 <span className="flex items-center gap-1">
                   <span className="text-[14px] leading-[20px] text-[var(--color-text-secondary)]">{beforeScore.toFixed(2)}</span>
-                  <span className="text-[11px] leading-[14px] text-[var(--color-text-muted)]">/ 10</span>
+                  <span className="text-[11px] leading-[14px] text-[var(--color-text-muted)]">{t('analysis.scoreOf')}</span>
                 </span>
               ) : null}
             </div>
@@ -117,7 +112,7 @@ export default function StepAnalysis({ onNext }: Props) {
         <div className="flex flex-col gap-[var(--space-16)] w-full max-w-[520px]">
           {/* Description text (plain prose — any stray HTML/markdown from the LLM is stripped) */}
           <p className="text-[14px] leading-[20px] text-[var(--color-text-secondary)] min-h-[40px] whitespace-pre-wrap text-center">
-            {sanitizeLLMText(app.preAnalysis?.first_impression, 600) || (isSimplified ? DOC_DEFAULT_DESCRIPTION : DEFAULT_DESCRIPTION)}
+            {sanitizeLLMText(app.preAnalysis?.first_impression, 600) || (isSimplified ? t('analysis.defaultDescriptionDoc') : t('analysis.defaultDescription'))}
           </p>
 
           {/* Analysis button — shown before any analysis starts */}
@@ -126,7 +121,7 @@ export default function StepAnalysis({ onNext }: Props) {
               onClick={handleStartAnalysis}
               className="glass-btn-primary w-full py-[var(--space-12)] text-[15px] leading-[22px] rounded-[var(--radius-12)] font-medium"
             >
-              Запустить анализ
+              {t('analysis.startButton')}
             </button>
           )}
 
@@ -135,15 +130,15 @@ export default function StepAnalysis({ onNext }: Props) {
             <div className="gradient-border-card glass-card flex flex-col gap-[var(--space-16)] rounded-[var(--radius-12)] p-[var(--space-20)]">
               <div className="flex items-center gap-[var(--space-12)]">
                 <div className="w-[18px] h-[18px] border-2 border-t-transparent rounded-full animate-spin shrink-0" style={{ borderColor: 'rgba(var(--accent-r),var(--accent-g),var(--accent-b),0.5)', borderTopColor: 'transparent' }} />
-                <span className="text-[14px] leading-[20px] text-[var(--color-text-primary)]">Анализ фото...</span>
+                <span className="text-[14px] leading-[20px] text-[var(--color-text-primary)]">{t('analysis.loading')}</span>
               </div>
               <div className="flex items-center gap-[var(--space-12)] opacity-50">
                 <div className="w-[18px] h-[18px] rounded-full border border-[var(--glass-border)]" />
-                <span className="text-[14px] leading-[20px] text-[var(--color-text-muted)]">Оценка параметров...</span>
+                <span className="text-[14px] leading-[20px] text-[var(--color-text-muted)]">{t('analysis.loadingParams')}</span>
               </div>
               <div className="flex items-center gap-[var(--space-12)] opacity-50">
                 <div className="w-[18px] h-[18px] rounded-full border border-[var(--glass-border)]" />
-                <span className="text-[14px] leading-[20px] text-[var(--color-text-muted)]">Формирование результата...</span>
+                <span className="text-[14px] leading-[20px] text-[var(--color-text-muted)]">{t('analysis.loadingResult')}</span>
               </div>
               <div className="h-1.5 rounded-full glass-progress-track overflow-hidden mt-[var(--space-4)]">
                 <div className="h-full rounded-full glass-progress-fill animate-pulse" style={{ width: '66%' }} />
@@ -199,7 +194,7 @@ export default function StepAnalysis({ onNext }: Props) {
                 </svg>
                 <div className="flex flex-col gap-[var(--space-6)]">
                   <span className="text-[13px] leading-[18px] font-medium text-[var(--color-warning-base)]">
-                    Качество фото может повлиять на результат
+                    {t('analysis.softWarningsTitle')}
                   </span>
                   <ul className="flex flex-col gap-[var(--space-4)]">
                     {app.preAnalysis!.input_quality!.soft_warnings.map((w) => (
@@ -221,12 +216,12 @@ export default function StepAnalysis({ onNext }: Props) {
               когда API не смог отдать ни общий, ни детальный скор. */}
           {!hasRealScores && app.preAnalyzeError && (
             <div className="flex flex-col items-center gap-[var(--space-8)] text-center">
-              <span className="text-[13px] text-[var(--color-text-muted)]">Не удалось загрузить анализ</span>
+              <span className="text-[13px] text-[var(--color-text-muted)]">{t('analysis.loadFailed')}</span>
               <button
                 onClick={() => { setAnalysisRequested(true); app.runPreAnalyze(); }}
                 className="glass-btn-ghost px-[var(--space-16)] py-[var(--space-6)] text-[13px] text-[var(--color-text-primary)] rounded-[var(--radius-pill)]"
               >
-                Повторить
+                {t('analysis.retry')}
               </button>
             </div>
           )}
@@ -234,7 +229,7 @@ export default function StepAnalysis({ onNext }: Props) {
           {/* Direction picker — обычный сценарий */}
           {hasRealScores && !isSimplified && (
             <div className="flex flex-col gap-[var(--space-10)]">
-              <span className="text-[14px] leading-[20px] font-medium text-[var(--color-text-primary)] text-center">Для чего улучшаем фото?</span>
+              <span className="text-[14px] leading-[20px] font-medium text-[var(--color-text-primary)] text-center">{t('analysis.directionPrompt')}</span>
               {!app.scenarioHideCategoryTabs && (
                 <CategoryTabs active={activeTab} onChange={handleDirectionChange} />
               )}
@@ -244,7 +239,7 @@ export default function StepAnalysis({ onNext }: Props) {
           {/* No photo */}
           {!app.photo && (
             <div className="text-[14px] text-[var(--color-text-muted)] text-center">
-              Загрузите фото для анализа
+              {t('analysis.noPhoto')}
             </div>
           )}
 
@@ -254,7 +249,7 @@ export default function StepAnalysis({ onNext }: Props) {
               onClick={onNext}
               className="glass-btn-primary w-full py-[var(--space-12)] text-[15px] leading-[22px] rounded-[var(--radius-12)] font-medium mt-[var(--space-8)]"
             >
-              Выбрать формат
+              {t('analysis.selectFormat')}
             </button>
           )}
           {hasRealScores && !isSimplified && (
@@ -263,7 +258,7 @@ export default function StepAnalysis({ onNext }: Props) {
               disabled={!canContinue}
               className="glass-btn-primary w-full py-[var(--space-12)] text-[15px] leading-[22px] rounded-[var(--radius-12)] font-medium mt-[var(--space-8)] disabled:opacity-40 disabled:cursor-not-allowed"
             >
-              {directionLocked ? 'Направление скоро' : 'Продолжить'}
+              {directionLocked ? t('analysis.directionLocked') : t('analysis.continue')}
             </button>
           )}
         </div>

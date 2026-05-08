@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import type { SocialProofCounterConfig } from '../data/social-proof';
 
 export interface ProofCounterProps {
@@ -45,8 +46,13 @@ function randomFloat(min: number, max: number): number {
   return Math.random() * (max - min) + min;
 }
 
-function formatCounter(value: number): string {
-  return new Intl.NumberFormat('ru-RU').format(value);
+function localeForLanguage(lang: string): string {
+  // ``Intl.NumberFormat`` accepts BCP-47 tags. The two markets are
+  // RU and EN; ``en`` defaults to a thin space group separator so
+  // visa numbers like ``4 213`` stay readable, while ``ru-RU`` keeps
+  // the existing thin-space grouping users are used to.
+  if (lang.startsWith('ru')) return 'ru-RU';
+  return lang || 'en-US';
 }
 
 function usePrefersReducedMotion(): boolean {
@@ -83,6 +89,12 @@ export default function ProofCounter({
   subheading,
 }: ProofCounterProps) {
   const reducedMotion = usePrefersReducedMotion();
+  const { i18n } = useTranslation();
+  const formatter = useMemo(
+    () => new Intl.NumberFormat(localeForLanguage(i18n.language)),
+    [i18n.language],
+  );
+  const formatCounter = (value: number) => formatter.format(value);
   const [count, setCount] = useState(baseCount);
   // Re-mount key for the section glow flash.
   const [burstKey, setBurstKey] = useState(0);

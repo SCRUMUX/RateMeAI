@@ -22,11 +22,19 @@ import ruErrors from '../locales/ru/errors.json';
 import ruWizard from '../locales/ru/wizard.json';
 import ruSeo from '../locales/ru/seo.json';
 import ruLanding from '../locales/ru/landing.json';
+import ruModals from '../locales/ru/modals.json';
+import ruAccount from '../locales/ru/account.json';
+import ruScenarios from '../locales/ru/scenarios.json';
+import ruPolicies from '../locales/ru/policies.json';
 import enCommon from '../locales/en/common.json';
 import enErrors from '../locales/en/errors.json';
 import enWizard from '../locales/en/wizard.json';
 import enSeo from '../locales/en/seo.json';
 import enLanding from '../locales/en/landing.json';
+import enModals from '../locales/en/modals.json';
+import enAccount from '../locales/en/account.json';
+import enScenarios from '../locales/en/scenarios.json';
+import enPolicies from '../locales/en/policies.json';
 
 export const SUPPORTED_LANGS = ['ru', 'en'] as const;
 export type AppLang = (typeof SUPPORTED_LANGS)[number];
@@ -43,6 +51,10 @@ const resources = {
     wizard: ruWizard,
     seo: ruSeo,
     landing: ruLanding,
+    modals: ruModals,
+    account: ruAccount,
+    scenarios: ruScenarios,
+    policies: ruPolicies,
   },
   en: {
     common: enCommon,
@@ -50,6 +62,10 @@ const resources = {
     wizard: enWizard,
     seo: enSeo,
     landing: enLanding,
+    modals: enModals,
+    account: enAccount,
+    scenarios: enScenarios,
+    policies: enPolicies,
   },
 } as const;
 
@@ -57,7 +73,7 @@ void i18next.use(initReactI18next).init({
   resources,
   lng: getAppLanguage(),
   fallbackLng: 'en',
-  ns: ['common', 'errors', 'wizard', 'seo', 'landing'],
+  ns: ['common', 'errors', 'wizard', 'seo', 'landing', 'modals', 'account', 'scenarios', 'policies'],
   defaultNS: 'common',
   interpolation: { escapeValue: false },
   returnNull: false,

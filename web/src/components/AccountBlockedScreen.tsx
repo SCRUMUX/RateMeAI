@@ -16,6 +16,7 @@
  * is not the moment to show product chrome.
  */
 import { useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 
 const SUPPORT_EMAIL = 'support@ailookstudio.ru';
 
@@ -28,6 +29,7 @@ export default function AccountBlockedScreen({
   reason,
   onClose,
 }: AccountBlockedScreenProps) {
+  const { t } = useTranslation('account');
   const handleSignOut = useCallback(() => {
     try {
       localStorage.removeItem('ailook_session_token');
@@ -67,16 +69,16 @@ export default function AccountBlockedScreen({
           id="account-blocked-title"
           className="text-xl font-semibold text-white mb-3"
         >
-          Аккаунт заблокирован
+          {t('blocked.title')}
         </h1>
 
         <p className="text-sm text-white/70 leading-relaxed mb-2">
-          Ваш аккаунт заблокирован. За разъяснением обратитесь в поддержку.
+          {t('blocked.description')}
         </p>
 
         {reason ? (
           <p className="text-xs text-white/50 leading-relaxed mb-6 italic">
-            Причина: {reason}
+            {t('blocked.reason', { reason })}
           </p>
         ) : (
           <div className="mb-6" />
@@ -86,14 +88,14 @@ export default function AccountBlockedScreen({
           href={`mailto:${SUPPORT_EMAIL}`}
           className="inline-block w-full rounded-xl bg-white text-black font-medium py-2.5 px-4 hover:bg-white/90 transition mb-2"
         >
-          Написать в поддержку
+          {t('blocked.ctaSupport')}
         </a>
         <button
           type="button"
           onClick={handleSignOut}
           className="inline-block w-full rounded-xl bg-transparent text-white/70 font-medium py-2.5 px-4 border border-white/15 hover:bg-white/5 transition"
         >
-          Выйти
+          {t('blocked.ctaSignOut')}
         </button>
       </div>
     </div>

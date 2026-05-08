@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import NavBar from '../sections/NavBar';
 import Hero from '../sections/Hero';
 import HowItWorks from '../sections/HowItWorks';
@@ -15,7 +16,7 @@ import MeshGradientBg from '../components/effects/MeshGradientBg';
 import FluidBackground from '../components/effects/FluidBackground';
 import EnergyField from '../components/effects/EnergyField';
 import { useApp } from '../context/AppContext';
-import { TESTIMONIALS, getTestimonialsByCategory } from '../data/testimonials';
+import { getActiveTestimonials, getTestimonialsByCategory } from '../data/testimonials';
 import {
   defaultProofCounter,
   findBlock,
@@ -27,30 +28,32 @@ import LogoEmblem from '../assets/LogoEmblem';
 
 export default function Landing() {
   const app = useApp();
+  const { t } = useTranslation(['landing', 'seo']);
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const cmsPage = useLandingHome();
   const canAccessApp = app.canAccessApp;
 
   useDocumentMeta({
-    title: 'Look Studio — фото для соцсетей, знакомств, документов и резюме',
-    description:
-      'Студия портретов Look Studio: безупречные снимки для Tinder, LinkedIn, паспорта и соцсетей за минуты. Сохраняем сходство, добавляем свет и кадрирование.',
+    title: t('seo:home.title', { defaultValue: 'Look Studio — photos for social, dating, documents and resume' }),
+    description: t('seo:home.description', {
+      defaultValue: 'Look Studio portrait studio: flawless photos for Tinder, LinkedIn, passports and social in minutes. Preserve identity, add light and framing.',
+    }),
     canonicalPath: '/',
   });
 
   const proofContent = useMemo(() => {
     const fallback = defaultProofCounter(
-      'Классных фото уже создано',
-      'В каждой категории — более 100 уникальных стилей под любую задачу.',
+      t('proofCounter.heading'),
+      t('proofCounter.subheading'),
       2799,
     );
     const block = findBlock(cmsPage ?? undefined, 'proof_counter');
     return parseProofCounter(block?.data, fallback);
-  }, [cmsPage]);
+  }, [cmsPage, t]);
 
   const testimonialsItems = useMemo(() => {
     const forCategory = getTestimonialsByCategory(app.activeCategory);
-    return forCategory.length >= 3 ? forCategory : TESTIMONIALS;
+    return forCategory.length >= 3 ? forCategory : getActiveTestimonials();
   }, [app.activeCategory]);
 
   return (
@@ -71,7 +74,7 @@ export default function Landing() {
           subheading={proofContent.subheading}
         />
         <Testimonials items={testimonialsItems} tone="home" />
-        <HowItWorks title="Как это работает" />
+        <HowItWorks title={t('howItWorks.title')} />
         <Simulation cmsPage={cmsPage} />
         <BeforeAfterSection cmsPage={cmsPage} />
 
@@ -89,17 +92,17 @@ export default function Landing() {
 
           <div className="reveal flex flex-col items-center gap-[var(--space-16)] text-center max-w-[600px]">
             <h2 className="landing-h2 text-[var(--color-text-primary)]">
-              Попробуйте прямо сейчас
+              {t('brandCta.h2')}
             </h2>
             <p className="landing-lead">
-              Загрузите фото, получите анализ восприятия и улучшите образ за несколько секунд
+              {t('brandCta.lead')}
             </p>
             {canAccessApp ? (
               <Link
                 to="/app"
                 className="glass-btn-primary inline-flex items-center justify-center px-[var(--space-32)] py-[var(--space-16)] text-[18px] leading-[24px] rounded-[var(--radius-12)] font-medium no-underline mt-[var(--space-8)]"
               >
-                Открыть приложение
+                {t('brandCta.openApp')}
               </Link>
             ) : (
               <button
@@ -107,7 +110,7 @@ export default function Landing() {
                 onClick={() => setAuthModalOpen(true)}
                 className="glass-btn-primary inline-flex items-center justify-center px-[var(--space-32)] py-[var(--space-16)] text-[18px] leading-[24px] rounded-[var(--radius-12)] font-medium mt-[var(--space-8)]"
               >
-                Получить доступ
+                {t('brandCta.getAccess')}
               </button>
             )}
           </div>

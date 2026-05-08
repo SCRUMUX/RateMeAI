@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useId, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
 function clamp01(v: number): number {
   if (v < 0) return 0;
@@ -71,8 +72,8 @@ export default function BeforeAfterSlider({
   before,
   after,
   initial = 0.55,
-  labelBefore = 'До',
-  labelAfter = 'После',
+  labelBefore,
+  labelAfter,
   autoCycle = false,
   autoCycleMs = 3000,
   autoHoldMs = 3000,
@@ -82,6 +83,9 @@ export default function BeforeAfterSlider({
 }: BeforeAfterSliderProps) {
   const prefersReducedMotion = usePrefersReducedMotion();
   const id = useId();
+  const { t } = useTranslation('landing');
+  const beforeText = labelBefore ?? t('beforeAfter.labelBefore');
+  const afterText = labelAfter ?? t('beforeAfter.labelAfter');
 
   const usesFade = autoCycle || playKey !== undefined;
 
@@ -283,15 +287,15 @@ export default function BeforeAfterSlider({
       {!hideLabels && (
         <>
           <div className="absolute top-[var(--space-8)] left-[var(--space-8)] glass-badge-cyan px-[var(--space-8)] py-[2px] rounded-[var(--radius-pill)] text-[11px] leading-[14px] font-medium text-[var(--color-text-primary)]">
-            {labelBefore}
+            {beforeText}
           </div>
           <div className="absolute top-[var(--space-8)] right-[var(--space-8)] glass-badge-success px-[var(--space-8)] py-[2px] rounded-[var(--radius-pill)] text-[11px] leading-[14px] font-medium text-[var(--color-text-primary)]">
-            {labelAfter}
+            {afterText}
           </div>
         </>
       )}
 
-      <span id={id} className="sr-only">{labelBefore} / {labelAfter}</span>
+      <span id={id} className="sr-only">{beforeText} / {afterText}</span>
     </div>
   );
 }

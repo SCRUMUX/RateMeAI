@@ -1,7 +1,6 @@
 import { useRef, useCallback, useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useApp } from '../../context/AppContext';
-import { REQUIREMENTS_BULLETS, REJECT_BULLETS } from '../../data/photo-requirements';
 import { isApprovalProbabilityScenario } from '../../scenarios/config';
 import ConsentGate from '../ConsentGate';
 
@@ -15,6 +14,15 @@ function StepUploadBody({ onNext }: Props) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [dragOver, setDragOver] = useState(false);
   const pendingAdvance = useRef(false);
+
+  // ``returnObjects`` lets us pull a localized list out of the JSON
+  // namespace; if i18next happens to fall through (e.g. missing
+  // translation), we coerce the result to an array so .map never
+  // throws on the page.
+  const requirementsBullets = (t('upload.bullets', { returnObjects: true }) as unknown) as string[];
+  const rejectBullets = (t('upload.rejectBullets', { returnObjects: true }) as unknown) as string[];
+  const safeRequirements = Array.isArray(requirementsBullets) ? requirementsBullets : [];
+  const safeReject = Array.isArray(rejectBullets) ? rejectBullets : [];
 
   const showApprovalRequirements =
     isApprovalProbabilityScenario(app.scenarioSlug) &&
@@ -70,10 +78,10 @@ function StepUploadBody({ onNext }: Props) {
     <>
       <div className="gradient-border-card glass-card rounded-[var(--radius-12)] p-[var(--space-16)] tablet:p-[var(--space-20)] flex-1">
         <p className="text-left text-[13px] tablet:text-[14px] font-medium text-[var(--color-text-primary)] mb-[var(--space-10)]">
-          Требования к фото
+          {t('upload.requirementsTitle')}
         </p>
         <ul className="flex flex-col gap-[var(--space-8)] text-left">
-          {REQUIREMENTS_BULLETS.map((text) => (
+          {safeRequirements.map((text) => (
             <li
               key={text}
               className="flex items-start gap-[var(--space-8)] text-[12px] tablet:text-[13px] leading-[16px] tablet:leading-[18px] text-[var(--color-text-secondary)]"
@@ -134,10 +142,10 @@ function StepUploadBody({ onNext }: Props) {
 
       <div className="gradient-border-card glass-card rounded-[var(--radius-12)] p-[var(--space-16)] tablet:p-[var(--space-20)] flex-1">
         <p className="text-left text-[13px] tablet:text-[14px] font-medium text-[var(--color-danger)] mb-[var(--space-10)]">
-          Не будет обработано
+          {t('upload.rejectTitle')}
         </p>
         <ul className="flex flex-col gap-[var(--space-8)] text-left">
-          {REJECT_BULLETS.map((text) => (
+          {safeReject.map((text) => (
             <li
               key={text}
               className="flex items-start gap-[var(--space-8)] text-[12px] tablet:text-[13px] leading-[16px] tablet:leading-[18px] text-[var(--color-text-muted)]"
@@ -169,10 +177,10 @@ function StepUploadBody({ onNext }: Props) {
     <div className="flex flex-col gap-[var(--space-24)] w-full max-w-[800px] mx-auto">
       <div className="flex flex-col items-center gap-[var(--space-8)] text-center">
         <h2 className="text-[20px] tablet:text-[28px] leading-[1.2] font-semibold text-[var(--color-text-primary)]">
-          Загрузите фото
+          {t('upload.title')}
         </h2>
         <p className="text-[12px] tablet:text-[13px] leading-[16px] tablet:leading-[18px] text-[var(--color-text-secondary)] max-w-[440px]">
-          Хорошее фото — половина результата. Просто следуйте чеклисту справа.
+          {t('upload.lead')}
         </p>
       </div>
 
@@ -184,7 +192,7 @@ function StepUploadBody({ onNext }: Props) {
           {hasPhoto ? (
             <div className="gradient-border-card glass-card rounded-[var(--radius-12)] overflow-hidden w-full flex">
               <div className="w-full aspect-[4/5] bg-[var(--glass-surface-soft)] overflow-hidden">
-                <img src={app.photo!.preview} alt="Загруженное фото" className="w-full h-full object-cover" />
+                <img src={app.photo!.preview} alt={t('upload.alt')} className="w-full h-full object-cover" />
               </div>
             </div>
           ) : (
@@ -211,10 +219,10 @@ function StepUploadBody({ onNext }: Props) {
                 </div>
                 <div className="flex flex-col items-center gap-[var(--space-4)]">
                   <span className="text-[15px] leading-[20px] font-medium text-[var(--color-text-primary)] text-center">
-                    {dragOver ? 'Отпустите файл' : 'Нажмите или перетащите фото'}
+                    {dragOver ? t('upload.dropzoneRelease') : t('upload.dropzoneIdle')}
                   </span>
                   <span className="text-[12px] leading-[16px] text-[var(--color-text-muted)] text-center">
-                    JPG, PNG — до 10 МБ
+                    {t('upload.dropzoneHint')}
                   </span>
                 </div>
               </div>
@@ -234,13 +242,13 @@ function StepUploadBody({ onNext }: Props) {
             onClick={onNext}
             className="w-full max-w-[260px] tablet:w-[260px] tablet:max-w-[260px] mx-auto tablet:mx-0 shrink-0 glass-btn-primary py-[var(--space-12)] text-[15px] leading-[22px] rounded-[var(--radius-12)] font-medium"
           >
-            Далее
+            {t('upload.next')}
           </button>
           <button
             onClick={() => fileInputRef.current?.click()}
             className="flex-1 glass-btn-ghost py-[var(--space-12)] text-[14px] leading-[20px] text-[var(--color-text-primary)] rounded-[var(--radius-12)]"
           >
-            Заменить фото
+            {t('upload.replace')}
           </button>
         </div>
       )}

@@ -4,6 +4,7 @@ import logging
 import secrets
 import string
 from datetime import date
+from urllib.parse import quote
 
 from fastapi import APIRouter, Depends, HTTPException, Header
 from redis.asyncio import Redis
@@ -41,6 +42,26 @@ router = APIRouter()
 _LINK_TOKEN_PREFIX = "ratemeai:link_token:"
 _LINK_TOKEN_TTL = 600  # 10 minutes
 _LINK_TOKEN_LENGTH = 6
+
+
+def _sanitize_return_path(raw: str | None) -> str:
+    """Sanitize a client-supplied OAuth return path.
+
+    Only relative paths starting with a single ``/`` are accepted —
+    this prevents open-redirect via ``//evil.com`` or
+    ``/\\evil.com``. Empty/invalid input collapses to an empty
+    string, which downstream callers translate into "go to ``/``".
+    """
+    if not raw:
+        return ""
+    candidate = raw.strip()
+    if not candidate.startswith("/"):
+        return ""
+    if candidate.startswith("//") or candidate.startswith("/\\"):
+        return ""
+    if len(candidate) > 512:
+        return ""
+    return candidate
 
 
 async def _resolve_link_code(redis: Redis, link_code: str) -> str | None:
@@ -415,6 +436,7 @@ async def yandex_oauth_init(
         provider="yandex",
         device_id=body.device_id,
         link_user_id=link_user_id,
+        return_path=_sanitize_return_path(body.return_path),
     )
 
     url = build_authorize_url(state, redirect_uri)
@@ -468,8 +490,10 @@ async def yandex_oauth_callback(
     token = await create_session(redis, user.id)
 
     web_base = settings.web_base_url or settings.api_base_url
+    return_path = _sanitize_return_path(stored.get("return_path"))
+    return_query = f"&return_path={quote(return_path, safe='')}" if return_path else ""
     return RedirectResponse(
-        url=f"{web_base}/auth/callback?token={token}&provider=yandex&user_id={user.id}",
+        url=f"{web_base}/auth/callback?token={token}&provider=yandex&user_id={user.id}{return_query}",
     )
 
 
@@ -502,6 +526,7 @@ async def google_oauth_init(
         provider="google",
         device_id=body.device_id,
         link_user_id=link_user_id,
+        return_path=_sanitize_return_path(body.return_path),
     )
 
     url = build_authorize_url(state, redirect_uri)
@@ -569,8 +594,10 @@ async def google_oauth_callback(
     token = await create_session(redis, user.id)
 
     web_base = settings.web_base_url or settings.api_base_url
+    return_path = _sanitize_return_path(stored.get("return_path"))
+    return_query = f"&return_path={quote(return_path, safe='')}" if return_path else ""
     return RedirectResponse(
-        url=f"{web_base}/auth/callback?token={token}&provider=google&user_id={user.id}",
+        url=f"{web_base}/auth/callback?token={token}&provider=google&user_id={user.id}{return_query}",
     )
 
 
@@ -608,6 +635,7 @@ async def vk_id_oauth_init(
         code_verifier=code_verifier,
         device_id=device_id,
         link_user_id=link_user_id,
+        return_path=_sanitize_return_path(body.return_path),
     )
 
     url = build_authorize_url(state, redirect_uri, code_challenge)
@@ -692,8 +720,10 @@ async def vk_id_oauth_callback(
     token = await create_session(redis, user.id)
 
     web_base = settings.web_base_url or settings.api_base_url
+    return_path = _sanitize_return_path(stored.get("return_path"))
+    return_query = f"&return_path={quote(return_path, safe='')}" if return_path else ""
     return RedirectResponse(
-        url=f"{web_base}/auth/callback?token={token}&provider=vk_id&user_id={user.id}",
+        url=f"{web_base}/auth/callback?token={token}&provider=vk_id&user_id={user.id}{return_query}",
     )
 
 

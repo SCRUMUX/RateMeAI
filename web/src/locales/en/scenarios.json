@@ -1,0 +1,159 @@
+{
+  "documentPhoto": {
+    "hero": {
+      "icon": "📋",
+      "title": "Document photos",
+      "gradientPhrase": "in 2 minutes",
+      "lead": "We craft the perfect photo for a passport, visa or any document. Maximum photorealism, no over-processing.",
+      "ctaLabel": "Create photo — $2.99",
+      "ctaMicrocopy": "5 photos per pack"
+    },
+    "proof": {
+      "heading": "Document photos already made",
+      "subheading": "People order them from home, faster and cheaper than a studio."
+    },
+    "how": {
+      "title": "How it works",
+      "steps": [
+        { "num": "1", "title": "Upload a photo", "desc": "Any photo with a clear, close-up face works — we’ll auto-check it." },
+        { "num": "2", "title": "Photo check", "desc": "We assess fitness for the document in seconds." },
+        { "num": "3", "title": "Pick a format", "desc": "Passport, visa, driver’s license or any other doc — we configure size and background." },
+        { "num": "4", "title": "Get the result", "desc": "Download the final photo in the right format — skip the photo studio trip." }
+      ]
+    },
+    "final": {
+      "brandHeading": "📋 Document photos",
+      "h2": "Ready to create your photo?",
+      "lead": "Upload any photo — we’ll deliver a result that meets document requirements",
+      "ctaSignedInLabel": "Open app",
+      "ctaAnonymousLabel": "Get access"
+    },
+    "pricing": {
+      "tagline": "One pack — passport, visa and any document photo"
+    },
+    "testimonials": [
+      {
+        "id": "doc-1",
+        "styleKey": "passport",
+        "category": "cv",
+        "nickname": "@anna_paperwork",
+        "shortReview": "Made my passport photo at home — accepted on the first try.",
+        "fullReview": "",
+        "emojiReview": "Made my passport photo at home 🛂 accepted at the office on the first try 👌 no studio runs 🙌",
+        "avatarSeed": "anna_paperwork",
+        "tier": "Standard"
+      },
+      {
+        "id": "doc-2",
+        "styleKey": "visa",
+        "category": "cv",
+        "nickname": "@kirill_visa",
+        "shortReview": "Visa approved, photo passed all the checks.",
+        "fullReview": "",
+        "emojiReview": "Visa approved ✅ photo passed the check on the first try 📑 calm background, exact size 🎯",
+        "avatarSeed": "kirill_visa",
+        "tier": "Premium"
+      },
+      {
+        "id": "doc-3",
+        "styleKey": "driver_license",
+        "category": "cv",
+        "nickname": "@masha_docs",
+        "shortReview": "Love that I don’t have to drive to a photo studio.",
+        "fullReview": "",
+        "emojiReview": "No more studio drives 🚗 uploaded a selfie — got a license photo 📸 fast and tidy 💼",
+        "avatarSeed": "masha_docs",
+        "tier": "Standard"
+      },
+      {
+        "id": "doc-4",
+        "styleKey": "medical",
+        "category": "cv",
+        "nickname": "@oleg_form",
+        "shortReview": "Medical board accepted it without questions.",
+        "fullReview": "",
+        "emojiReview": "Medical board accepted it without questions 🩺 neutral background and correct ratios 📐 saved time 🕒",
+        "avatarSeed": "oleg_form",
+        "tier": "Standard"
+      }
+    ]
+  },
+  "resume": {
+    "hero": {
+      "icon": "💼",
+      "title": "Resume photos",
+      "gradientPhrase": "and profile",
+      "lead": "We make your photo focused and professional: calm background, confident vibe, no plastic look or weird artefacts.",
+      "ctaLabel": "Start",
+      "ctaMicrocopy": "Result in a few minutes"
+    },
+    "proof": {
+      "heading": "Resume photos already made",
+      "subheading": "So you land your dream job faster."
+    },
+    "how": {
+      "title": "How it works",
+      "steps": [
+        { "num": "1", "title": "Upload a photo", "desc": "Any portrait works — even a casual selfie. The face just needs to be large." },
+        { "num": "2", "title": "Pick a style", "desc": "Corporate, startup, IT, mentor — we tailor it to your field." },
+        { "num": "3", "title": "Get the result", "desc": "A professional portrait: calm background, confident vibe, no plastic look." },
+        { "num": "4", "title": "Boost your profile", "desc": "Use it on LinkedIn, hh.ru or your resume — replies start to flow." }
+      ]
+    },
+    "final": {
+      "brandHeading": "💼 Resume photos",
+      "h2": "Ready to refresh your resume?",
+      "lead": "Replace your photo on LinkedIn and hh.ru — replies to your applications take off",
+      "ctaSignedInLabel": "Open app",
+      "ctaAnonymousLabel": "Get access"
+    },
+    "pricing": {
+      "tagline": "Refresh your LinkedIn and hh.ru portrait in a single pack"
+    },
+    "seo": {
+      "title": "Resume photos · Look Studio",
+      "description": "Photos for LinkedIn, hh.ru and corporate profiles: business framing, neutral background, natural attire. Done in minutes."
+    }
+  },
+  "dating": {
+    "hero": {
+      "icon": "💘",
+      "title": "Dating photos",
+      "gradientPhrase": "to get more replies",
+      "lead": "We improve your photo so it looks natural, friendly and confident — without that “over-generated” look.",
+      "ctaLabel": "Start",
+      "ctaMicrocopy": "Takes a couple of minutes"
+    },
+    "proof": {
+      "heading": "Dating photos already made",
+      "subheading": "So you find your match faster."
+    },
+    "how": {
+      "title": "How it works",
+      "steps": [
+        { "num": "1", "title": "Upload a photo", "desc": "Any selfie or portrait — just make sure the face is large and sharp." },
+        { "num": "2", "title": "Pick a style", "desc": "Café, travel, evening city — over 100 dating scenarios." },
+        { "num": "3", "title": "Get the result", "desc": "A natural profile photo without the over-generated feel." },
+        { "num": "4", "title": "Get matches", "desc": "Mix styles to build the perfect pack — match counts climb fast." }
+      ]
+    },
+    "final": {
+      "brandHeading": "💘 Dating photos",
+      "h2": "Ready for more matches?",
+      "lead": "Replace 1-2 photos on your profile and watch the response shift",
+      "ctaSignedInLabel": "Open app",
+      "ctaAnonymousLabel": "Get access"
+    },
+    "pricing": {
+      "tagline": "Pick the perfect set for your profile — match counts climb fast"
+    },
+    "seo": {
+      "title": "Dating photos · Look Studio",
+      "description": "Photos for Tinder, Hinge and Bumble: natural shots that boost matches. We preserve your identity and add lighting, expression and framing."
+    }
+  },
+  "visa": {
+    "sizeFormat": "{{w}}×{{h}} mm",
+    "gradientPhrase": "{{size}}, ICAO standard"
+  }
+}

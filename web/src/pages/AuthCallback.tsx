@@ -1,8 +1,16 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { setToken } from '../lib/auth';
 import { useApp } from '../context/AppContext';
 import { consumeOAuthReturnPath } from '../lib/flow-resume';
+
+function isSafeReturnPath(path: string | null | undefined): path is string {
+  if (!path) return false;
+  if (!path.startsWith('/')) return false;
+  if (path.startsWith('//') || path.startsWith('/\\')) return false;
+  return true;
+}
 
 export default function AuthCallback() {
   const [params] = useSearchParams();
@@ -10,6 +18,7 @@ export default function AuthCallback() {
   const { loginWithToken } = useApp();
   const handled = useRef(false);
   const [error, setError] = useState<string | null>(null);
+  const { t } = useTranslation('errors');
 
   useEffect(() => {
     if (handled.current) return;
@@ -19,9 +28,11 @@ export default function AuthCallback() {
     const userId = params.get('user_id') ?? '';
     const provider = params.get('provider') ?? '';
     const oauthError = params.get('error');
+    const queryReturnPath = params.get('return_path');
 
     if (oauthError) {
-      setError(`Ошибка авторизации: ${params.get('error_description') || oauthError}`);
+      const detail = params.get('error_description') || oauthError;
+      setError(t('auth.oauth_error_prefix', { detail }));
       return;
     }
 
@@ -29,14 +40,18 @@ export default function AuthCallback() {
       setToken(token);
       loginWithToken(token, userId, provider)
         .then(() => {
-          const path = consumeOAuthReturnPath('/');
+          // Priority: server-provided ``return_path`` (works across
+          // origins) → sessionStorage fallback (same-origin only) → ``/``.
+          const path = isSafeReturnPath(queryReturnPath)
+            ? queryReturnPath
+            : consumeOAuthReturnPath('/');
           navigate(path, { replace: true });
         })
-        .catch(() => setError('Не удалось завершить авторизацию. Попробуйте снова.'));
+        .catch(() => setError(t('auth.callback_failed')));
     } else {
-      setError('Токен авторизации не получен. Попробуйте войти снова.');
+      setError(t('auth.no_token'));
     }
-  }, [params, navigate, loginWithToken]);
+  }, [params, navigate, loginWithToken, t]);
 
   if (error) {
     return (
@@ -47,7 +62,7 @@ export default function AuthCallback() {
             onClick={() => navigate('/', { replace: true })}
             className="glass-btn-primary px-6 py-3 rounded-[var(--radius-12)] text-[15px]"
           >
-            Вернуться на главную
+            {t('auth.back_home')}
           </button>
         </div>
       </div>
@@ -56,7 +71,7 @@ export default function AuthCallback() {
 
   return (
     <div className="min-h-screen flex items-center justify-center">
-      <p className="text-[var(--color-text-secondary)] text-lg">Авторизация...</p>
+      <p className="text-[var(--color-text-secondary)] text-lg">{t('auth.loading')}</p>
     </div>
   );
 }

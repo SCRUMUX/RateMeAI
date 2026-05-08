@@ -1,0 +1,22 @@
+{
+  "titles": {
+    "privacy": "Privacy policy",
+    "terms": "Terms of use",
+    "consents": "Data-processing consents",
+    "cookie": "Cookie policy",
+    "refund": "Refund policy"
+  },
+  "shortTitles": {
+    "privacy": "Privacy",
+    "terms": "Terms",
+    "consents": "Consents",
+    "cookie": "Cookies",
+    "refund": "Refund"
+  },
+  "lastUpdated": "2026-04-20",
+  "globalNotice": {
+    "title": "Document is currently in Russian",
+    "description": "Our policies are published in Russian to satisfy local regulations. For an English copy of any document, please email privacy@ailookstudio.com — we will send a translation.",
+    "contact": "privacy@ailookstudio.com"
+  }
+}

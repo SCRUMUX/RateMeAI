@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { CATEGORIES, COMING_SOON_CATEGORIES, type CategoryId } from '../data/styles';
 
 interface CategoryTabsProps {
@@ -18,6 +19,7 @@ interface CategoryTabsProps {
  * блок «громоздким».
  */
 export default function CategoryTabs({ active, onChange, hideComingSoon = false }: CategoryTabsProps) {
+  const { t } = useTranslation('landing');
   const visible = hideComingSoon
     ? CATEGORIES.filter((cat) => !COMING_SOON_CATEGORIES.includes(cat.id))
     : CATEGORIES;
@@ -44,7 +46,7 @@ export default function CategoryTabs({ active, onChange, hideComingSoon = false 
           >
             <span className="text-[15px] tablet:text-[17px]">{cat.icon}</span>
             {cat.label}
-            {isDisabled && <span className="text-[9px] tablet:text-[10px] leading-none opacity-70 absolute -top-[2px] -right-[2px]">скоро</span>}
+            {isDisabled && <span className="text-[9px] tablet:text-[10px] leading-none opacity-70 absolute -top-[2px] -right-[2px]">{t('categoryTabs.comingSoon')}</span>}
           </button>
         );
       })}

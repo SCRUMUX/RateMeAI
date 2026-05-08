@@ -218,6 +218,13 @@ class WebAuthRequest(BaseModel):
 class OAuthInitRequest(BaseModel):
     device_id: str = ""
     link_code: str = ""
+    # SPA path the user came from (``/visa/schengen``, ``/dokumenty``,
+    # etc.). Backend persists it inside the OAuth ``state`` Redis
+    # entry and echoes it back in the final callback redirect URL —
+    # this is the only reliable way to preserve "where to return"
+    # across an OAuth round-trip when the provider may land the user
+    # on a different web origin than the one that initiated login.
+    return_path: str = ""
 
 
 class OAuthInitResponse(BaseModel):

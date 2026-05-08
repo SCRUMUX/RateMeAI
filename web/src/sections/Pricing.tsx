@@ -1,18 +1,21 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { CoinIcon, ImageIcon } from '@ai-ds/core/icons';
+import { useTranslation } from 'react-i18next';
 import { useApp } from '../context/AppContext';
 import { createPayment, handleCreatePaymentError } from '../lib/api';
 import { normalizePostPaymentPath, getPostPaymentReturnPath } from '../scenarios/config';
 import { rememberFlowReturnPath } from '../lib/flow-resume';
 import { findBlock, type LandingPage } from '../lib/landing-cms';
 
-const PLANS = [
-  { title: 'Попробовать', price: '59 рублей', photos: '1 фото', packQty: 1, desc: 'Посмотри, как сервис улучшит твоё фото за секунды. Идеально, чтобы оценить результат перед полной прокачкой.', highlighted: false, badge: null, savingBadge: null },
-  { title: 'Обновить фото', price: '199 рублей', photos: '5 фото', packQty: 5, desc: 'Освежи свои лучшие снимки и выбери идеальный вариант для соцсетей или профиля.', highlighted: false, badge: null, savingBadge: null },
-  { title: 'Прокачать образ', price: '499 рублей', photos: '15 фото', packQty: 15, desc: 'Полная прокачка твоего образа под разные ситуации: соцсети, знакомства, работа. Найди фото, которое реально работает.', highlighted: true, badge: 'BEST', savingBadge: 'Экономия 40%' },
-  { title: 'Полная трансформация', price: '899 рублей', photos: '30 фото', packQty: 30, desc: 'Максимум вариантов и стилей. Подходит, если хочешь полностью обновить свой визуальный образ и выделяться в любой ситуации.', highlighted: false, badge: null, savingBadge: null },
-];
+function buildDefaultPlans(t: (key: string) => string) {
+  return [
+    { title: t('pricing.plans.try.title'), price: t('pricing.plans.try.price'), photos: t('pricing.plans.try.photos'), packQty: 1, desc: t('pricing.plans.try.desc'), highlighted: false, badge: null as string | null, savingBadge: null as string | null },
+    { title: t('pricing.plans.refresh.title'), price: t('pricing.plans.refresh.price'), photos: t('pricing.plans.refresh.photos'), packQty: 5, desc: t('pricing.plans.refresh.desc'), highlighted: false, badge: null, savingBadge: null },
+    { title: t('pricing.plans.boost.title'), price: t('pricing.plans.boost.price'), photos: t('pricing.plans.boost.photos'), packQty: 15, desc: t('pricing.plans.boost.desc'), highlighted: true, badge: 'BEST', savingBadge: t('pricing.savingBadge') },
+    { title: t('pricing.plans.transform.title'), price: t('pricing.plans.transform.price'), photos: t('pricing.plans.transform.photos'), packQty: 30, desc: t('pricing.plans.transform.desc'), highlighted: false, badge: null, savingBadge: null },
+  ];
+}
 
 type CmsPlan = {
   title: string;
@@ -62,6 +65,7 @@ function asPlans(value: unknown): CmsPlan[] | null {
 export default function Pricing({ cmsPage }: { cmsPage?: LandingPage | null } = {}) {
   const { canAccessApp } = useApp();
   const navigate = useNavigate();
+  const { t } = useTranslation('landing');
   const [loading, setLoading] = useState<number | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const resumePath = getPostPaymentReturnPath() ?? '/app';
@@ -69,11 +73,12 @@ export default function Pricing({ cmsPage }: { cmsPage?: LandingPage | null } = 
   const cmsBlock = findBlock(cmsPage ?? undefined, 'pricing');
   const cmsData = (cmsBlock?.data ?? {}) as PricingCms;
   const cmsPlans = asPlans((cmsData as any).plans);
-  const effectivePlans = cmsPlans ?? PLANS;
-  const headingTitle = asString(cmsData.title, 'Первое улучшение');
-  const headingSubtitle = asString(cmsData.subtitle, '— попробуй бесплатно');
-  const headingCaption = asString(cmsData.caption, 'Разблокируй эксклюзивные стили');
-  const tryFreeLabel = asString(cmsData.tryFreeLabel, 'Попробовать бесплатное улучшение');
+  const defaultPlans = useMemo(() => buildDefaultPlans(t), [t]);
+  const effectivePlans = cmsPlans ?? defaultPlans;
+  const headingTitle = asString(cmsData.title, t('pricing.title'));
+  const headingSubtitle = asString(cmsData.subtitle, t('pricing.subtitle'));
+  const headingCaption = asString(cmsData.caption, t('pricing.caption'));
+  const tryFreeLabel = asString(cmsData.tryFreeLabel, t('pricing.tryFreeLabel'));
 
   useEffect(() => {
     const el = scrollRef.current;
@@ -174,7 +179,7 @@ export default function Pricing({ cmsPage }: { cmsPage?: LandingPage | null } = 
                       : 'glass-btn-ghost font-medium'
                 }`}
               >
-                {loading === plan.packQty ? 'Загрузка...' : 'Выбрать'}
+                {loading === plan.packQty ? t('pricing.loading') : t('pricing.select')}
               </button>
             </div>
           ))}

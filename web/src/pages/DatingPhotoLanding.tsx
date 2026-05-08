@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import NavBar from '../sections/NavBar';
 import Footer from '../sections/Footer';
 import AuthModal from '../components/AuthModal';
@@ -29,37 +30,6 @@ import {
   type ScenarioPricingContent,
 } from '../lib/landing-cms';
 
-const DATING_FALLBACK_HERO: HeroContent = {
-  icon: '💘',
-  title: 'Фото для знакомств',
-  gradientPhrase: 'чтобы отвечали чаще',
-  lead: 'Улучшим фото так, чтобы оно выглядело естественно, дружелюбно и уверенно — без эффекта «перегенерировано».',
-  ctaLabel: 'Начать',
-  ctaMicrocopy: 'Займёт пару минут',
-};
-
-const DATING_FALLBACK_HOW: HowItWorksContent = {
-  title: 'Как это работает',
-  steps: [
-    { num: '1', title: 'Загрузи фото', desc: 'Любое селфи или портрет — главное, чтобы лицо было крупно и чётко.' },
-    { num: '2', title: 'Выбери стиль', desc: 'Кафе, путешествие, вечерний город — больше 100 dating-сценариев.' },
-    { num: '3', title: 'Получи результат', desc: 'Естественное фото для анкеты, без эффекта «перегенерировано».' },
-    { num: '4', title: 'Получай мэтчи', desc: 'Меняй стили и собирай идеальную подборку — мэтчей становится заметно больше.' },
-  ],
-};
-
-const DATING_FALLBACK_FINAL: FinalCtaContent = {
-  brandHeading: '💘 Фото для знакомств',
-  h2: 'Готовы получать мэтчи?',
-  lead: 'Замените 1-2 фото в анкете и наблюдайте, как меняется отклик',
-  ctaSignedInLabel: 'Открыть приложение',
-  ctaAnonymousLabel: 'Получить доступ',
-};
-
-const DATING_FALLBACK_PRICING: ScenarioPricingContent = {
-  tagline: 'Подбери идеальный набор для своей анкеты — мэтчей становится заметно больше',
-};
-
 interface LandingProps {
   onStart?: () => void;
   showAuth?: boolean;
@@ -71,43 +41,79 @@ export default function DatingPhotoLanding({ onStart, showAuth, onAuthClose }: L
   const canAccessApp = app.canAccessApp;
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const authOpen = authModalOpen || !!showAuth;
+  const { t: tScenarios } = useTranslation('scenarios');
 
   const page = useLandingPage('dating_photo');
 
   const datingPreset = getLandingSocialProofPreset('dating');
-  const fallbackProof: ProofCounterContent = {
-    heading: 'Фото для знакомств уже создано',
-    subheading: 'Чтобы вы быстрее нашли свою половинку.',
-    baseCount: datingPreset.baseCount,
-    counter: datingPreset.counter,
-  };
+
+  const fallbackHero: HeroContent = useMemo(
+    () => ({
+      icon: tScenarios('dating.hero.icon'),
+      title: tScenarios('dating.hero.title'),
+      gradientPhrase: tScenarios('dating.hero.gradientPhrase'),
+      lead: tScenarios('dating.hero.lead'),
+      ctaLabel: tScenarios('dating.hero.ctaLabel'),
+      ctaMicrocopy: tScenarios('dating.hero.ctaMicrocopy'),
+    }),
+    [tScenarios],
+  );
+  const fallbackProof: ProofCounterContent = useMemo(
+    () => ({
+      heading: tScenarios('dating.proof.heading'),
+      subheading: tScenarios('dating.proof.subheading'),
+      baseCount: datingPreset.baseCount,
+      counter: datingPreset.counter,
+    }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [tScenarios],
+  );
+  const fallbackHow: HowItWorksContent = useMemo(() => {
+    const steps = tScenarios('dating.how.steps', { returnObjects: true }) as unknown;
+    const safe = Array.isArray(steps) ? (steps as HowItWorksContent['steps']) : [];
+    return {
+      title: tScenarios('dating.how.title'),
+      steps: safe,
+    };
+  }, [tScenarios]);
+  const fallbackFinal: FinalCtaContent = useMemo(
+    () => ({
+      brandHeading: tScenarios('dating.final.brandHeading'),
+      h2: tScenarios('dating.final.h2'),
+      lead: tScenarios('dating.final.lead'),
+      ctaSignedInLabel: tScenarios('dating.final.ctaSignedInLabel'),
+      ctaAnonymousLabel: tScenarios('dating.final.ctaAnonymousLabel'),
+    }),
+    [tScenarios],
+  );
+  const fallbackPricing: ScenarioPricingContent = useMemo(
+    () => ({ tagline: tScenarios('dating.pricing.tagline') }),
+    [tScenarios],
+  );
 
   const hero = useMemo(
-    () => parseHero(findBlock(page, 'hero')?.data, DATING_FALLBACK_HERO),
-    [page],
+    () => parseHero(findBlock(page, 'hero')?.data, fallbackHero),
+    [page, fallbackHero],
   );
   const proof = useMemo(
     () => parseProofCounter(findBlock(page, 'proof_counter')?.data, fallbackProof),
-    // datingPreset is module-stable, fallbackProof depends only on it +
-    // immutable strings — safe to ignore here.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [page],
+    [page, fallbackProof],
   );
   const how = useMemo(
-    () => parseHowItWorks(findBlock(page, 'how_it_works')?.data, DATING_FALLBACK_HOW),
-    [page],
+    () => parseHowItWorks(findBlock(page, 'how_it_works')?.data, fallbackHow),
+    [page, fallbackHow],
   );
   const final = useMemo(
-    () => parseFinalCta(findBlock(page, 'final_cta')?.data, DATING_FALLBACK_FINAL),
-    [page],
+    () => parseFinalCta(findBlock(page, 'final_cta')?.data, fallbackFinal),
+    [page, fallbackFinal],
   );
   const pricing = useMemo(
     () =>
       parseScenarioPricing(
         findBlock(page, 'scenario_pricing')?.data,
-        DATING_FALLBACK_PRICING,
+        fallbackPricing,
       ),
-    [page],
+    [page, fallbackPricing],
   );
 
   // 1.50.7: sync AppContext.activeCategory with the page's themed
@@ -118,9 +124,8 @@ export default function DatingPhotoLanding({ onStart, showAuth, onAuthClose }: L
   }, [app]);
 
   useDocumentMeta({
-    title: 'Фото для знакомств · Look Studio',
-    description:
-      'Фото для Tinder, Hinge и Bumble: естественные снимки, которые увеличивают мэтчи. Сохраняем сходство, добавляем свет, мимику и кадрирование.',
+    title: tScenarios('dating.seo.title'),
+    description: tScenarios('dating.seo.description'),
     canonicalPath: '/znakomstva',
   });
 

@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { createPortal } from 'react-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import { getMockDelta, type StyleItem } from '../../data/styles';
@@ -16,6 +17,7 @@ interface Props {
 
 export default function StylesSheet({ open, onClose, styles, selectedKey, lockedKeys, onPick }: Props) {
   const { activeCategory } = useApp();
+  const { t } = useTranslation('wizard');
 
   useEffect(() => {
     if (!open) return;
@@ -62,10 +64,10 @@ export default function StylesSheet({ open, onClose, styles, selectedKey, locked
               <div className="w-10 h-1 rounded-full bg-[var(--glass-border-hover)]" />
             </div>
             <div className="shrink-0 flex items-center justify-between px-[var(--space-16)] py-[var(--space-8)]">
-              <span className="text-[16px] leading-[24px] font-semibold text-[var(--color-text-primary)]">Все образы</span>
+              <span className="text-[16px] leading-[24px] font-semibold text-[var(--color-text-primary)]">{t('stylesSheet.title')}</span>
               <button
                 onClick={onClose}
-                aria-label="Закрыть"
+                aria-label={t('stylesSheet.close')}
                 className="w-9 h-9 flex items-center justify-center rounded-full glass-btn-ghost text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] transition-colors"
               >
                 <svg width="18" height="18" viewBox="0 0 16 16" fill="none">
@@ -80,8 +82,8 @@ export default function StylesSheet({ open, onClose, styles, selectedKey, locked
                 const locked = lockedKeys.has(s.key);
                 const selected = !locked && s.key === selectedKey;
                 const lockBadge = s.unlock_after_generations
-                  ? `Доступно после ${s.unlock_after_generations} генераций`
-                  : 'Скоро доступно';
+                  ? t('stylesSheet.lockedAfter', { count: s.unlock_after_generations })
+                  : t('stylesSheet.lockedSoon');
                 return (
                   <button
                     key={s.key}
@@ -118,7 +120,7 @@ export default function StylesSheet({ open, onClose, styles, selectedKey, locked
                     )}
                     {locked && (
                       <span className="px-[var(--space-8)] py-[var(--space-4)] rounded-[var(--radius-pill)] text-[11px] leading-[14px] text-[var(--color-text-muted)] font-medium bg-[var(--glass-surface-strong)] shrink-0">
-                        Скоро
+                        {t('stylesSheet.soonBadge')}
                       </span>
                     )}
                   </button>
@@ -126,7 +128,7 @@ export default function StylesSheet({ open, onClose, styles, selectedKey, locked
               })}
               {ordered.length === 0 && (
                 <div className="text-[13px] text-[var(--color-text-muted)] text-center py-[var(--space-16)]">
-                  Нет доступных стилей
+                  {t('stylesSheet.empty')}
                 </div>
               )}
             </div>

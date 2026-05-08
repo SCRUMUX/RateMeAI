@@ -1,0 +1,22 @@
+{
+  "titles": {
+    "privacy": "Политика конфиденциальности",
+    "terms": "Условия использования",
+    "consents": "Согласия на обработку данных",
+    "cookie": "Использование cookies",
+    "refund": "Возврат средств"
+  },
+  "shortTitles": {
+    "privacy": "Конфиденциальность",
+    "terms": "Условия",
+    "consents": "Согласия",
+    "cookie": "Cookies",
+    "refund": "Возврат"
+  },
+  "lastUpdated": "2026-04-20",
+  "globalNotice": {
+    "title": "Доступно на русском языке",
+    "description": "Политика опубликована на русском в соответствии с законодательством РФ. Для англоязычной версии напишите на privacy@ailookstudio.com — мы пришлём перевод.",
+    "contact": "privacy@ailookstudio.com"
+  }
+}

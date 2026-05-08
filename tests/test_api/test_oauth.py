@@ -176,6 +176,77 @@ def test_yandex_callback_idempotent_user(mock_exchange, mock_userinfo, client):
     assert user_ids[0] == user_ids[1]
 
 
+# ── return_path round-trip ──
+#
+# Stage 0 of the visa OAuth fix (1.57.0): the SPA passes a relative
+# ``return_path`` (e.g. ``/visa/schengen``) when starting OAuth. The
+# backend stores it in Redis next to the ``state`` token and re-emits
+# it as a query parameter on the final redirect to ``/auth/callback``,
+# so the SPA can navigate the user back to the original landing even
+# when the OAuth provider sends them through a different origin.
+
+
+@patch(
+    "src.channels.yandex_auth.get_user_info",
+    new_callable=AsyncMock,
+    return_value=YandexUser(
+        id="ya_return", login="return", display_name="Return", default_email=None
+    ),
+)
+@patch(
+    "src.channels.yandex_auth.exchange_code",
+    new_callable=AsyncMock,
+    return_value="tok",
+)
+def test_yandex_callback_propagates_return_path(mock_exchange, mock_userinfo, client):
+    init = client.post(
+        "/api/v1/auth/yandex/init",
+        json={"device_id": "dev-return", "return_path": "/visa/schengen"},
+    )
+    assert init.status_code == 200, init.text
+    state = _extract_param(init.json()["authorize_url"], "state")
+
+    r = client.get(
+        "/api/v1/auth/yandex/callback",
+        params={"code": "c-return", "state": state},
+        follow_redirects=False,
+    )
+    assert r.status_code == 307
+    location = r.headers["location"]
+    assert _extract_param(location, "return_path") == "/visa/schengen"
+
+
+@patch(
+    "src.channels.yandex_auth.get_user_info",
+    new_callable=AsyncMock,
+    return_value=YandexUser(
+        id="ya_dirty", login="dirty", display_name="Dirty", default_email=None
+    ),
+)
+@patch(
+    "src.channels.yandex_auth.exchange_code",
+    new_callable=AsyncMock,
+    return_value="tok",
+)
+def test_yandex_callback_strips_unsafe_return_path(mock_exchange, mock_userinfo, client):
+    """Absolute URLs and protocol-relative paths must be dropped to
+    prevent open-redirect via the OAuth round-trip."""
+    init = client.post(
+        "/api/v1/auth/yandex/init",
+        json={"return_path": "https://evil.example.com/phish"},
+    )
+    state = _extract_param(init.json()["authorize_url"], "state")
+
+    r = client.get(
+        "/api/v1/auth/yandex/callback",
+        params={"code": "c-dirty", "state": state},
+        follow_redirects=False,
+    )
+    assert r.status_code == 307
+    location = r.headers["location"]
+    assert "return_path=" not in location, location
+
+
 # ── helpers ──
 
 

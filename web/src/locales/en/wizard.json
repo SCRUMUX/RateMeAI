@@ -6,6 +6,51 @@
     "documentFormat": "Format",
     "generate": "Result"
   },
+  "stepBar": {
+    "stepLabel": "Step {{current}} of {{total}}",
+    "titles": {
+      "upload": "Upload",
+      "analysis": "Analysis",
+      "style": "Style",
+      "format": "Format",
+      "generate": "Result"
+    },
+    "descs": {
+      "upload": "Upload a photo",
+      "analysis": "AI perception analysis",
+      "analysisShort": "AI analysis",
+      "style": "Pick a style",
+      "format": "Pick a format",
+      "generate": "Generation and result",
+      "generateDownload": "Generation and download"
+    }
+  },
+  "upload": {
+    "title": "Upload a photo",
+    "lead": "A good photo is half the result — just follow the checklist on the right.",
+    "alt": "Uploaded photo",
+    "dropzoneRelease": "Drop the file",
+    "dropzoneIdle": "Click or drop a photo",
+    "dropzoneHint": "JPG, PNG — up to 10 MB",
+    "next": "Next",
+    "replace": "Replace photo",
+    "requirementsTitle": "Photo requirements",
+    "rejectTitle": "Will not be processed",
+    "bullets": [
+      "Face is large and centered (≥ 15%)",
+      "Front view, no strong angles",
+      "Sharp photo, no motion blur",
+      "Face uncovered, no masks",
+      "One person, good lighting"
+    ],
+    "rejectBullets": [
+      "No face or face too small",
+      "Blurry or noisy shots",
+      "Several people in the frame",
+      "Resolution below 400×400",
+      "File larger than 10 MB"
+    ]
+  },
   "documentFormat": {
     "title": "Choose format",
     "subtitle": "Your photo will be optimized for the format requirements"
@@ -47,6 +92,27 @@
     "subtitleVisa": "We check your photo against the visa centre's requirements and estimate the approval probability",
     "titleDocument": "Document photo analysis",
     "subtitleDocument": "We check the photo against document requirements and estimate the approval probability",
+    "title": "Perception analysis",
+    "titleSimplified": "Photo analysis",
+    "subtitle": "We show how your photo reads at first glance: warmth, presence, appeal",
+    "subtitleSimplified": "We check the photo against document requirements: framing, angle, background, lighting",
+    "originalLabel": "Original",
+    "scoreOf": "/ 10",
+    "altOriginal": "Original",
+    "defaultDescription": "We analyse your photo on the key perception parameters. Each style adapts the look to a specific context, improving the target metrics.",
+    "defaultDescriptionDoc": "We analyse the photo to check whether it can be used on documents. Lighting, background and face position are evaluated.",
+    "startButton": "Run analysis",
+    "loading": "Analyzing photo...",
+    "loadingParams": "Scoring parameters...",
+    "loadingResult": "Building the result...",
+    "softWarningsTitle": "Photo quality may affect the outcome",
+    "loadFailed": "Failed to load the analysis",
+    "retry": "Retry",
+    "directionPrompt": "What are we improving the photo for?",
+    "noPhoto": "Upload a photo to analyse",
+    "selectFormat": "Pick a format",
+    "directionLocked": "Direction coming soon",
+    "continue": "Continue",
     "complianceCheck": {
       "passed": "Passes",
       "warn": "Needs review",
@@ -55,8 +121,162 @@
     },
     "checklistTitle": "What we check"
   },
+  "style": {
+    "title": "Pick a style",
+    "subtitle": "Each style improves perception metrics for a specific context",
+    "selectedTag": "Selected style",
+    "framingTitle": "Frame format",
+    "framingPortrait": "Portrait",
+    "framingHalf": "Half body",
+    "framingFull": "Full body",
+    "noPhotoForParams": "Upload a photo to view the parameters",
+    "recommended": "Recommended styles",
+    "generateCta": "Generate",
+    "anotherLook": "I want another look",
+    "anotherLookCount": "· {{count}} available",
+    "comingSoon": "Coming soon...",
+    "comingSoonDesc": "Generation for this direction will appear in an upcoming release"
+  },
+  "stylesSheet": {
+    "title": "All looks",
+    "close": "Close",
+    "lockedAfter": "Available after {{count}} generations",
+    "lockedSoon": "Coming soon",
+    "soonBadge": "Soon",
+    "empty": "No styles available"
+  },
+  "styleSettings": {
+    "title": "Style settings",
+    "close": "Close",
+    "loading": "Loading settings...",
+    "noFields": "This style has no additional settings.",
+    "triggerLabel": "Style trigger",
+    "triggerHint": "Always in frame. Cannot be changed.",
+    "triggerTooltip": "This element is always in frame. It cannot be changed.",
+    "auto": "Auto (random)",
+    "default": "Default",
+    "defaultFramingTooltip": "Use the framing from the “Pick a style” step",
+    "scenePlaceholder": "For example: against the mountains",
+    "clothingPlaceholder": "For example: red suit",
+    "applyCta": "Apply and generate",
+    "category": {
+      "lighting": "Lighting",
+      "scene": "Scene / location",
+      "clothing": "Clothing",
+      "framing": "Framing",
+      "weather": "Weather",
+      "time_of_day": "Time of day",
+      "season": "Season"
+    },
+    "lighting": {
+      "golden hour": "Golden hour",
+      "studio": "Studio lighting",
+      "overcast": "Soft diffused",
+      "blue hour": "Blue hour",
+      "morning": "Morning",
+      "sunset": "Sunset",
+      "twilight": "Twilight"
+    },
+    "framingLabel": {
+      "portrait": "Portrait (head and shoulders)",
+      "half_body": "Half body",
+      "full_body": "Full body"
+    },
+    "weather": {
+      "clear": "Clear",
+      "sunny": "Sunny",
+      "overcast": "Overcast",
+      "cloudy": "Cloudy",
+      "rain": "Rain",
+      "rainy": "Rain",
+      "snow": "Snow",
+      "fog": "Fog",
+      "mist": "Mist",
+      "windy": "Windy",
+      "storm": "Storm"
+    },
+    "timeOfDay": {
+      "dawn": "Dawn",
+      "morning": "Morning",
+      "noon": "Noon",
+      "afternoon": "Afternoon",
+      "evening": "Evening",
+      "sunset": "Sunset",
+      "dusk": "Dusk",
+      "twilight": "Twilight",
+      "blue hour": "Blue hour",
+      "golden hour": "Golden hour",
+      "night": "Night",
+      "midnight": "Midnight"
+    },
+    "season": {
+      "spring": "Spring",
+      "summer": "Summer",
+      "autumn": "Autumn",
+      "fall": "Autumn",
+      "winter": "Winter"
+    }
+  },
   "generate": {
     "approvalAfter": "Approval probability after improvement",
-    "approvalCardLabel": "Final photo"
+    "approvalCardLabel": "Final photo",
+    "stepLabels": {
+      "upload": "Uploading photo...",
+      "validate": "Validating image...",
+      "analyze": "Analyzing photo...",
+      "generate": "Generating result...",
+      "finalize": "Finalizing...",
+      "complete": "Done",
+      "fallback": "Processing..."
+    },
+    "headings": {
+      "result": "Result is ready",
+      "running": "Generating...",
+      "failed": "Generation failed",
+      "ready": "Generation"
+    },
+    "subtitles": {
+      "result": "Save the result or try another variant.",
+      "failed": "Try again — your photo and settings are saved.",
+      "running": "Usually takes 2-3 minutes. You can switch tabs — the result will wait.",
+      "ready": "Generation takes 2-3 minutes. Start when you're ready."
+    },
+    "selection": {
+      "label": "You picked",
+      "direction": "Direction:",
+      "style": "Style:"
+    },
+    "warningsTitle": "Generation parameters were adjusted",
+    "altGenerated": "Generated photo",
+    "aiBadgeAria": "Image generated by artificial intelligence",
+    "aiBadge": "AI-generated",
+    "imageLoadFailed": "Failed to load the image",
+    "regenerate": "Regenerate",
+    "genFailedShort": "Failed to generate",
+    "downloading": "Downloading...",
+    "downloadCta": "Download photo",
+    "shareLoading": "Loading...",
+    "shareCta": "Share",
+    "downloadError": "Could not download the file. Please try again later.",
+    "improveMore": "Improve more",
+    "settings": "Settings",
+    "settingsTitle": "Tune lighting, weather, time of day and other slots",
+    "anotherFormat": "Different format",
+    "anotherStyle": "Different style",
+    "anotherPhoto": "Different photo",
+    "openMain": "Open Look Studio",
+    "modeLabel": "Mode:",
+    "startGeneration": "Start generation",
+    "generatePhoto": "Generate photo",
+    "tryAgain": "Try again",
+    "topUp": "Top up balance",
+    "noCreditsTitle": "Out of credits",
+    "noCreditsDesc": "Top up your balance to generate images.",
+    "close": "Close",
+    "docPaywallTitle": "Top up your balance",
+    "docPaywallDesc": "To generate a document photo, buy a pack — your photo and settings are saved.",
+    "docPaywallCta": "{{count}} photos — $2.99",
+    "loading": "Loading...",
+    "fallbackCardLabel": "Upgrade"
   }
 }

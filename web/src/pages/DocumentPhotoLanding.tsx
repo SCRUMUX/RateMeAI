@@ -30,148 +30,119 @@ import {
   type ScenarioPricingContent,
 } from '../lib/landing-cms';
 
-/**
- * Synthetic, document-flavoured testimonials. The carousel uses the
- * same default 3-slot layout as on other landings; placeholder
- * before/after gets the neutral ``documents`` tone (cream-white,
- * passport-style) so the reader still sees a consistent slider with
- * a thematically distinct visual.
- */
-const DOCUMENT_TESTIMONIALS: Testimonial[] = [
-  {
-    id: 'doc-1',
-    styleKey: 'passport',
-    category: 'cv',
-    nickname: '@anna_paperwork',
-    shortReview: 'Сделала фото на загран дома — приняли с первого раза.',
-    fullReview: '',
-    emojiReview: 'Сделала фото на загран дома 🛂 приняли в МФЦ с первого раза 👌 не тратила время на фотосалон 🙌',
-    beforeScore: 0,
-    afterScore: 0,
-    deltaRange: [0, 0],
-    avatarSeed: 'anna_paperwork',
-    tier: 'Обычный',
-  },
-  {
-    id: 'doc-2',
-    styleKey: 'visa',
-    category: 'cv',
-    nickname: '@kirill_visa',
-    shortReview: 'Виза одобрена, фото прошло проверку требований.',
-    fullReview: '',
-    emojiReview: 'Виза одобрена ✅ фото прошло проверку с первого раза 📑 спокойный фон и нужные размеры 🎯',
-    beforeScore: 0,
-    afterScore: 0,
-    deltaRange: [0, 0],
-    avatarSeed: 'kirill_visa',
-    tier: 'Премиум',
-  },
-  {
-    id: 'doc-3',
-    styleKey: 'driver_license',
-    category: 'cv',
-    nickname: '@masha_docs',
-    shortReview: 'Удобно, что не надо ехать в фотостудию.',
-    fullReview: '',
-    emojiReview: 'Не надо ехать в фотостудию 🚗 загрузила селфи — получила фото для прав 📸 быстро и аккуратно 💼',
-    beforeScore: 0,
-    afterScore: 0,
-    deltaRange: [0, 0],
-    avatarSeed: 'masha_docs',
-    tier: 'Обычный',
-  },
-  {
-    id: 'doc-4',
-    styleKey: 'medical',
-    category: 'cv',
-    nickname: '@oleg_form',
-    shortReview: 'Медкомиссия приняла без вопросов.',
-    fullReview: '',
-    emojiReview: 'Медкомиссия приняла без вопросов 🩺 нейтральный фон и правильные пропорции 📐 экономия времени 🕒',
-    beforeScore: 0,
-    afterScore: 0,
-    deltaRange: [0, 0],
-    avatarSeed: 'oleg_form',
-    tier: 'Обычный',
-  },
-];
-
-const FALLBACK_HERO: HeroContent = {
-  icon: '📋',
-  title: 'Фото на документы',
-  gradientPhrase: 'за 2 минуты',
-  lead: 'Создадим идеальное фото для паспорта, визы или любого документа. Максимальная фотореалистичность, без лишних эффектов.',
-  ctaLabel: 'Создать фото — 199 ₽',
-  ctaMicrocopy: '5 фото в пакете',
-};
-
-const FALLBACK_PROOF: ProofCounterContent = {
-  heading: 'Фото для документов уже сделано',
-  subheading: 'Пользователи делают их не выходя из дома и дешевле, чем в студии.',
-  baseCount: DOCUMENT_SOCIAL_PROOF_PRESET.baseCount,
-  counter: DOCUMENT_SOCIAL_PROOF_PRESET.counter,
-};
-
-const FALLBACK_HOW: HowItWorksContent = {
-  title: 'Как это работает',
-  steps: [
-    { num: '1', title: 'Загрузите фото', desc: 'Любое фото с чётким лицом, без фильтров и крупным планом — мы проверим автоматически.' },
-    { num: '2', title: 'Проверка фото', desc: 'Проверим пригодность фото для документа за несколько секунд.' },
-    { num: '3', title: 'Выберите формат', desc: 'Паспорт, виза, права или другой документ — настроим размеры и фон.' },
-    { num: '4', title: 'Получите результат', desc: 'Скачайте готовое фото в нужном формате — экономия похода в фотосалон.' },
-  ],
-};
-
-const FALLBACK_FINAL: FinalCtaContent = {
-  brandHeading: '📋 Фото на документы',
-  h2: 'Готовы создать фото?',
-  lead: 'Загрузите любое фото — получим результат, соответствующий требованиям документов',
-  ctaSignedInLabel: 'Открыть приложение',
-  ctaAnonymousLabel: 'Получить доступ',
-};
-
-const FALLBACK_PRICING: ScenarioPricingContent = {
-  tagline: 'Один пакет — фото на паспорт, визу и любой документ',
-};
-
 interface LandingProps {
   onStart?: () => void;
   showAuth?: boolean;
   onAuthClose?: () => void;
 }
 
+interface RawTestimonial {
+  id?: string;
+  styleKey?: string;
+  category?: string;
+  nickname?: string;
+  shortReview?: string;
+  fullReview?: string;
+  emojiReview?: string;
+  avatarSeed?: string;
+  tier?: 'Обычный' | 'Премиум' | 'Standard' | 'Premium' | string;
+}
+
 export default function DocumentPhotoLanding({ onStart, showAuth, onAuthClose }: LandingProps) {
   const app = useApp();
   const canAccessApp = app.canAccessApp;
   const [authModalOpen, setAuthModalOpen] = useState(false);
+  const { t: tScenarios } = useTranslation('scenarios');
 
   const authOpen = authModalOpen || !!showAuth;
 
   const page = useLandingPage('document_photo');
 
+  const fallbackHero: HeroContent = useMemo(
+    () => ({
+      icon: tScenarios('documentPhoto.hero.icon'),
+      title: tScenarios('documentPhoto.hero.title'),
+      gradientPhrase: tScenarios('documentPhoto.hero.gradientPhrase'),
+      lead: tScenarios('documentPhoto.hero.lead'),
+      ctaLabel: tScenarios('documentPhoto.hero.ctaLabel'),
+      ctaMicrocopy: tScenarios('documentPhoto.hero.ctaMicrocopy'),
+    }),
+    [tScenarios],
+  );
+  const fallbackProof: ProofCounterContent = useMemo(
+    () => ({
+      heading: tScenarios('documentPhoto.proof.heading'),
+      subheading: tScenarios('documentPhoto.proof.subheading'),
+      baseCount: DOCUMENT_SOCIAL_PROOF_PRESET.baseCount,
+      counter: DOCUMENT_SOCIAL_PROOF_PRESET.counter,
+    }),
+    [tScenarios],
+  );
+  const fallbackHow: HowItWorksContent = useMemo(() => {
+    const steps = tScenarios('documentPhoto.how.steps', { returnObjects: true }) as unknown;
+    const safeSteps = Array.isArray(steps) ? (steps as HowItWorksContent['steps']) : [];
+    return {
+      title: tScenarios('documentPhoto.how.title'),
+      steps: safeSteps,
+    };
+  }, [tScenarios]);
+  const fallbackFinal: FinalCtaContent = useMemo(
+    () => ({
+      brandHeading: tScenarios('documentPhoto.final.brandHeading'),
+      h2: tScenarios('documentPhoto.final.h2'),
+      lead: tScenarios('documentPhoto.final.lead'),
+      ctaSignedInLabel: tScenarios('documentPhoto.final.ctaSignedInLabel'),
+      ctaAnonymousLabel: tScenarios('documentPhoto.final.ctaAnonymousLabel'),
+    }),
+    [tScenarios],
+  );
+  const fallbackPricing: ScenarioPricingContent = useMemo(
+    () => ({ tagline: tScenarios('documentPhoto.pricing.tagline') }),
+    [tScenarios],
+  );
+
+  const documentTestimonials: Testimonial[] = useMemo(() => {
+    const raw = tScenarios('documentPhoto.testimonials', { returnObjects: true }) as unknown;
+    if (!Array.isArray(raw)) return [];
+    return (raw as RawTestimonial[]).map((item) => ({
+      id: String(item.id ?? ''),
+      styleKey: String(item.styleKey ?? ''),
+      category: (item.category as Testimonial['category']) ?? 'cv',
+      nickname: String(item.nickname ?? ''),
+      shortReview: String(item.shortReview ?? ''),
+      fullReview: String(item.fullReview ?? ''),
+      emojiReview: String(item.emojiReview ?? ''),
+      beforeScore: 0,
+      afterScore: 0,
+      deltaRange: [0, 0],
+      avatarSeed: String(item.avatarSeed ?? item.id ?? ''),
+      tier: (item.tier as Testimonial['tier']) ?? 'Обычный',
+    }));
+  }, [tScenarios]);
+
   const hero = useMemo(
-    () => parseHero(findBlock(page, 'hero')?.data, FALLBACK_HERO),
-    [page],
+    () => parseHero(findBlock(page, 'hero')?.data, fallbackHero),
+    [page, fallbackHero],
   );
   const proof = useMemo(
-    () => parseProofCounter(findBlock(page, 'proof_counter')?.data, FALLBACK_PROOF),
-    [page],
+    () => parseProofCounter(findBlock(page, 'proof_counter')?.data, fallbackProof),
+    [page, fallbackProof],
   );
   const how = useMemo(
-    () => parseHowItWorks(findBlock(page, 'how_it_works')?.data, FALLBACK_HOW),
-    [page],
+    () => parseHowItWorks(findBlock(page, 'how_it_works')?.data, fallbackHow),
+    [page, fallbackHow],
   );
   const final = useMemo(
-    () => parseFinalCta(findBlock(page, 'final_cta')?.data, FALLBACK_FINAL),
-    [page],
+    () => parseFinalCta(findBlock(page, 'final_cta')?.data, fallbackFinal),
+    [page, fallbackFinal],
   );
   const pricing = useMemo(
     () =>
       parseScenarioPricing(
         findBlock(page, 'scenario_pricing')?.data,
-        FALLBACK_PRICING,
+        fallbackPricing,
       ),
-    [page],
+    [page, fallbackPricing],
   );
 
   // 1.50.7: sync AppContext.activeCategory so portal-mounted modals
@@ -260,7 +231,7 @@ export default function DocumentPhotoLanding({ onStart, showAuth, onAuthClose }:
         />
 
         <Testimonials
-          items={DOCUMENT_TESTIMONIALS}
+          items={documentTestimonials}
           tone="documents"
         />
 

@@ -1,4 +1,5 @@
 import { type ReactNode } from 'react';
+import i18next from 'i18next';
 
 export type PolicyId = 'privacy' | 'terms' | 'consents' | 'cookie' | 'refund';
 
@@ -8,6 +9,46 @@ export interface PolicyEntry {
   shortTitle: string;
   lastUpdated: string;
   body: ReactNode;
+}
+
+// 1.57.0 — titles/shortTitles are sourced lazily from the ``policies``
+// i18n namespace. Body text remains the long-form Russian legal copy
+// (the documents legally apply to RU residents); on the EN build we
+// surface a notice block in :class:`PolicyModal` pointing the user at
+// privacy@ailookstudio.com for an English version.
+const FALLBACK_TITLES: Record<PolicyId, string> = {
+  privacy: 'Политика конфиденциальности',
+  terms: 'Условия использования',
+  consents: 'Согласия на обработку данных',
+  cookie: 'Использование cookies',
+  refund: 'Возврат средств',
+};
+
+const FALLBACK_SHORT_TITLES: Record<PolicyId, string> = {
+  privacy: 'Конфиденциальность',
+  terms: 'Условия',
+  consents: 'Согласия',
+  cookie: 'Cookies',
+  refund: 'Возврат',
+};
+
+function tPolicy(key: string, fallback: string): string {
+  if (i18next.isInitialized && i18next.exists(key, { ns: 'policies' })) {
+    return i18next.t(key, { ns: 'policies' });
+  }
+  return fallback;
+}
+
+export function getPolicyTitle(id: PolicyId): string {
+  return tPolicy(`titles.${id}`, FALLBACK_TITLES[id]);
+}
+
+export function getPolicyShortTitle(id: PolicyId): string {
+  return tPolicy(`shortTitles.${id}`, FALLBACK_SHORT_TITLES[id]);
+}
+
+export function getPolicyLastUpdated(): string {
+  return tPolicy('lastUpdated', '2026-04-20');
 }
 
 const sectionH = 'text-[22px] font-semibold mt-6 mb-3';
@@ -462,45 +503,58 @@ export function RefundBody() {
   );
 }
 
-export const POLICIES: Record<PolicyId, PolicyEntry> = {
-  privacy: {
-    id: 'privacy',
-    title: 'Политика конфиденциальности',
-    shortTitle: 'Конфиденциальность',
-    lastUpdated: '2026-04-20',
-    body: <PrivacyBody />,
-  },
-  terms: {
-    id: 'terms',
-    title: 'Условия использования',
-    shortTitle: 'Условия',
-    lastUpdated: '2026-04-20',
-    body: <TermsBody />,
-  },
-  consents: {
-    id: 'consents',
-    title: 'Согласия на обработку данных',
-    shortTitle: 'Согласия',
-    lastUpdated: '2026-04-20',
-    body: <ConsentsBody />,
-  },
-  cookie: {
-    id: 'cookie',
-    title: 'Использование cookies',
-    shortTitle: 'Cookies',
-    lastUpdated: '2026-04-20',
-    body: <CookieBody />,
-  },
-  refund: {
-    id: 'refund',
-    title: 'Возврат средств',
-    shortTitle: 'Возврат',
-    lastUpdated: '2026-04-20',
-    body: <RefundBody />,
-  },
+const POLICY_BODIES: Record<PolicyId, ReactNode> = {
+  privacy: <PrivacyBody />,
+  terms: <TermsBody />,
+  consents: <ConsentsBody />,
+  cookie: <CookieBody />,
+  refund: <RefundBody />,
 };
+
+const POLICY_IDS: PolicyId[] = ['privacy', 'terms', 'consents', 'cookie', 'refund'];
+
+function buildPolicy(id: PolicyId): PolicyEntry {
+  return {
+    id,
+    title: getPolicyTitle(id),
+    shortTitle: getPolicyShortTitle(id),
+    lastUpdated: getPolicyLastUpdated(),
+    body: POLICY_BODIES[id],
+  };
+}
+
+/**
+ * Backwards-compat record used by ``PrivacyPolicy`` page. Prefer
+ * ``getPolicy(id)`` in components so titles stay reactive to the
+ * i18n bundle. Each access rebuilds the entry so titles stay in sync
+ * with the active language.
+ */
+export const POLICIES: Record<PolicyId, PolicyEntry> = new Proxy(
+  {} as Record<PolicyId, PolicyEntry>,
+  {
+    get(_target, prop: string): PolicyEntry | undefined {
+      if (POLICY_IDS.includes(prop as PolicyId)) {
+        return buildPolicy(prop as PolicyId);
+      }
+      return undefined;
+    },
+    has(_target, prop: string): boolean {
+      return POLICY_IDS.includes(prop as PolicyId);
+    },
+    ownKeys() {
+      return POLICY_IDS;
+    },
+    getOwnPropertyDescriptor(_target, prop: string) {
+      if (POLICY_IDS.includes(prop as PolicyId)) {
+        return { enumerable: true, configurable: true };
+      }
+      return undefined;
+    },
+  },
+);
 
 export function getPolicy(id: string | null | undefined): PolicyEntry | null {
   if (!id) return null;
-  return POLICIES[id as PolicyId] ?? null;
+  if (!POLICY_IDS.includes(id as PolicyId)) return null;
+  return buildPolicy(id as PolicyId);
 }

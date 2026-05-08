@@ -45,6 +45,7 @@ export async function startOAuth(
     returnPath?: string;
   },
   linkCode?: string,
+  returnPath?: string,
 ) {
   const deviceId = getDeviceId();
   if (photoCtx?.file) {
@@ -55,7 +56,13 @@ export async function startOAuth(
       returnPath: photoCtx.returnPath,
     });
   }
-  const res = await oauthInit(provider, deviceId, linkCode);
+  // ``returnPath`` is sent to the backend so it can survive the OAuth
+  // round-trip via Redis ``state``. ``photoCtx?.returnPath`` is the
+  // legacy IndexedDB-only path and is only set when there is a photo;
+  // we prefer the explicit argument for the call to oauthInit so visa
+  // landings (no photo yet) still get a return path on the server.
+  const effectiveReturnPath = returnPath ?? photoCtx?.returnPath;
+  const res = await oauthInit(provider, deviceId, linkCode, effectiveReturnPath);
   window.location.href = res.authorize_url;
 }
 

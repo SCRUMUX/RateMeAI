@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import TestimonialShowcaseCard from '../components/TestimonialShowcaseCard';
 import { type PlaceholderTone } from '../components/effects/PlaceholderArt';
 import type { Testimonial } from '../data/testimonials';
@@ -72,7 +73,7 @@ function usePrefersReducedMotion(): boolean {
  */
 export default function Testimonials({
   items,
-  title = 'Впечатления пользователей',
+  title,
   eyebrow,
   rotationMs = DEFAULT_ROTATION_MS,
   variant = 'default',
@@ -80,6 +81,8 @@ export default function Testimonials({
   tone,
 }: TestimonialsProps) {
   const reducedMotion = usePrefersReducedMotion();
+  const { t } = useTranslation('landing');
+  const effectiveTitle = title ?? t('testimonials.title');
   const [activeIndex, setActiveIndex] = useState(0);
   const pausedUntilRef = useRef<number>(0);
 
@@ -137,7 +140,7 @@ export default function Testimonials({
               {eyebrow}
             </span>
           )}
-          <h2 className="landing-h2 text-[var(--color-text-primary)]">{title}</h2>
+          <h2 className="landing-h2 text-[var(--color-text-primary)]">{effectiveTitle}</h2>
         </div>
 
         <div className={`testimonial-carousel ${isCompact ? 'is-compact' : ''}`}>
@@ -177,14 +180,14 @@ export default function Testimonials({
           </div>
 
           {total > 1 && total <= 8 && (
-            <div className="testimonial-dots" role="tablist" aria-label="Отзывы">
+            <div className="testimonial-dots" role="tablist" aria-label={t('testimonials.title')}>
               {items.map((it, i) => (
                 <button
                   key={it.id}
                   type="button"
                   role="tab"
                   aria-selected={i === activeIndex}
-                  aria-label={`Отзыв ${i + 1} из ${total}`}
+                  aria-label={t('testimonials.dotLabel', { current: i + 1, total, defaultValue: '{{current}} / {{total}}' })}
                   className={`testimonial-dot ${i === activeIndex ? 'is-active' : ''}`}
                   onClick={() => {
                     setActiveIndex(i);

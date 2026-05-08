@@ -1,4 +1,256 @@
 {
+  "navbar": {
+    "logoTitle": "Look Studio",
+    "menu": {
+      "scenarios": "Scenarios",
+      "pricing": "Pricing",
+      "howItWorks": "How it works",
+      "examples": "Examples",
+      "api": "API"
+    },
+    "scenarios": {
+      "title": "Photo categories",
+      "documents": "Document photos",
+      "resume": "Resume photos",
+      "dating": "Dating photos",
+      "visas": "Visa photos",
+      "all": "All scenarios"
+    },
+    "actions": {
+      "login": "Sign in",
+      "openApp": "Open app",
+      "getAccess": "Get access",
+      "logout": "Sign out",
+      "topUp": "Top up balance",
+      "linkAccount": "Link account",
+      "tryNow": "Try it",
+      "start": "Start",
+      "appShort": "App",
+      "backHome": "Back to home"
+    },
+    "labels": {
+      "balance": "Balance",
+      "credits": "credits",
+      "menu": "Menu",
+      "languageButton": "English",
+      "themeLight": "Light theme",
+      "themeDark": "Dark theme",
+      "themeToLight": "Switch to light theme",
+      "themeToDark": "Switch to dark theme"
+    },
+    "links": {
+      "styles": "Styles",
+      "pricing": "Pricing",
+      "api": "API"
+    }
+  },
+  "hero": {
+    "titleLine1": "Adapt your photo",
+    "titleLine2": "for any context.",
+    "lead": "One upload — many variants",
+    "subLead": "Pick a category and a style — Look Studio adapts your photo and shows the perception score. Improve the result with every generation. Works in the browser and in messengers.",
+    "platformsHint": "Pick your favourite platform:",
+    "platforms": {
+      "webApp": "Right here",
+      "telegram": "Live now",
+      "ok": "Mini app",
+      "vk": "Mini app",
+      "comingSoon": "Coming soon"
+    }
+  },
+  "brandCta": {
+    "h2": "Try it now",
+    "lead": "Upload a photo, get a perception analysis and improve your look in seconds",
+    "openApp": "Open app",
+    "getAccess": "Get access"
+  },
+  "proofCounter": {
+    "heading": "Cool photos already created",
+    "subheading": "Each category has 100+ unique styles for any task."
+  },
+  "howItWorks": {
+    "title": "How it works",
+    "step1Title": "Upload a photo",
+    "step1Desc": "Any photo with a clear face — quality is checked automatically.",
+    "step2Title": "Choose a scenario",
+    "step2Desc": "Documents, resume, dating, visas — each has its own rules and styles.",
+    "step3Title": "Get the result",
+    "step3Desc": "Final image in 1-2 minutes, in the format you need."
+  },
+  "testimonials": {
+    "title": "User reviews",
+    "subtitle": "What people say after creating their photos",
+    "tierRegular": "Regular",
+    "tierPremium": "Premium",
+    "more": "Read more",
+    "less": "Show less"
+  },
+  "beforeAfter": {
+    "title": "Before and after",
+    "subtitle": "A few examples — hover to reveal the result.",
+    "labelBefore": "Before",
+    "labelAfter": "After"
+  },
+  "simulation": {
+    "title": "Refine your photo",
+    "subtitle": "— for any goal",
+    "lead": "Every category has 100+ unique styles. Each generation improves the perception psychology",
+    "sublead": "Every style generates a new photo and tunes the perception psychology to a concrete life situation",
+    "comingSoonHeading": "Coming soon",
+    "comingSoonText": "Generation for this category will arrive in the next update. Stay tuned!",
+    "tryOtherStyles": "Try other styles",
+    "moreStyles": "{{count}} more styles"
+  },
+  "pricing": {
+    "title": "First upgrade",
+    "subtitle": "— try it for free",
+    "caption": "Unlock exclusive styles",
+    "tryFreeLabel": "Try the free upgrade",
+    "loading": "Loading...",
+    "select": "Choose",
+    "savingBadge": "Save 40%",
+    "plans": {
+      "try": {
+        "title": "Try it",
+        "price": "$0.99",
+        "photos": "1 photo",
+        "desc": "See how the service refines your photo in seconds. Perfect for evaluating the result before a full upgrade."
+      },
+      "refresh": {
+        "title": "Refresh photos",
+        "price": "$2.99",
+        "photos": "5 photos",
+        "desc": "Refresh your best shots and pick the perfect variant for social or profile pages."
+      },
+      "boost": {
+        "title": "Boost your image",
+        "price": "$6.99",
+        "photos": "15 photos",
+        "desc": "Full image boost across different situations: social, dating, work. Find the photo that really works."
+      },
+      "transform": {
+        "title": "Full transformation",
+        "price": "$11.99",
+        "photos": "30 photos",
+        "desc": "Maximum variants and styles. Choose this if you want to fully refresh your visual identity and stand out anywhere."
+      }
+    }
+  },
+  "scenarioPricing": {
+    "tagline": "Unlock exclusive styles",
+    "tryFreeLabel": "Try the free upgrade",
+    "loading": "Loading…",
+    "savingBadge": "Save 40%",
+    "footer": "All packs share one balance — photos can be spent on any category.",
+    "plans": {
+      "try": {
+        "title": "Try it",
+        "priceLabel": "$2.99",
+        "photosLabel": "5 photos",
+        "perPhotoLabel": "$0.60 per photo",
+        "desc": "Starter pack — see how the service works on your face.",
+        "feature1": "Access to every style in the category",
+        "feature2": "No watermarks",
+        "feature3": "Result in 2 minutes",
+        "ctaLabel": "Buy 5 for $2.99"
+      },
+      "pro": {
+        "title": "Boost your image",
+        "priceLabel": "$6.99",
+        "photosLabel": "15 photos",
+        "perPhotoLabel": "$0.47 per photo",
+        "desc": "A full set for a profile, resume or documents — enough for every situation.",
+        "feature1": "15 photos in one pack",
+        "feature2": "All styles plus exclusives",
+        "feature3": "Priority generation queue",
+        "feature4": "No watermarks",
+        "ctaLabel": "Buy 15 for $6.99"
+      }
+    },
+    "b2b": {
+      "title": "Corporate plan",
+      "badge": "B2B",
+      "headline": "By volume",
+      "subline": "Contract, invoice, wire payment",
+      "description": "A branded photo bank, marketplace or mobile app. We plug in via API for your volume.",
+      "feature1": "✦ Your brand and custom styles",
+      "feature2": "✦ Webhook integration and SDK",
+      "feature3": "✦ SLA, contract and invoice",
+      "ctaLabel": "Learn about the API"
+    }
+  },
+  "apiSection": {
+    "title": "API for integrations",
+    "subtitle": "Plug photo upgrades and perception analysis into your product. Pick a scenario — we'll show what we can do.",
+    "ctaLabel": "Reach out about partnership",
+    "options": {
+      "dating": {
+        "name": "API for dating sites",
+        "tagline": "Profiles that get responses",
+        "description": "We embed photo upgrades right inside onboarding and the profile editor. The service adapts light, background, expression and framing without losing the person's identity — the user gets several strong variants instead of one mediocre shot.",
+        "benefit1": "Higher profile CTR and more matches thanks to photoreal-verified images",
+        "benefit2": "Ready-made flow: upload → pick a style → publish — no separate apps or studios",
+        "benefit3": "Flexible moderation: blurry, group and inappropriate shots are filtered automatically"
+      },
+      "hr": {
+        "name": "API for staffing agencies",
+        "tagline": "Corporate portraits in one click",
+        "description": "For HR platforms, ATS and job boards: a single standard for candidate photos. Instead of random selfies — a calm background, confident expression and tidy framing for a business scenario, without sending the applicant to a studio.",
+        "benefit1": "Unified candidate visuals — stronger impression on the first employer screening",
+        "benefit2": "Shorter hiring cycle: no extra \"please send a normal photo\" step",
+        "benefit3": "Works on LinkedIn, hh.ru, corporate career portals and internal HR systems"
+      },
+      "studio": {
+        "name": "API for photo studios",
+        "tagline": "Extend your line-up online",
+        "description": "We extend the studio line-up with online scenarios: document photos, lifestyle portraits, social and resume photos. Each format has its own sizes, background and styling. White-label under your brand is possible.",
+        "benefit1": "New 24/7 order flow without expanding the team of photographers and retouchers",
+        "benefit2": "Ready-made photobank for the client — packs, subscriptions, corporate tiers",
+        "benefit3": "White-label integration: your domain, your brand, your checkout"
+      },
+      "custom": {
+        "name": "API for custom tasks",
+        "tagline": "Tailored to your scenario and brand",
+        "description": "We connect non-standard scenarios: avatar marketplaces, beauty apps, ed-tech platforms, photo banks. We pick styling, formats and the validation algorithm to fit your task. With sufficient volume a custom model can be trained.",
+        "benefit1": "Contract and price scale with volume — no overpaying for a boxed plan",
+        "benefit2": "Dedicated SLA, direct integration support and help on the development side",
+        "benefit3": "Optional model fine-tuning to your brand styling and editorial guidelines"
+      }
+    }
+  },
+  "footer": {
+    "brandTitle": "Look Studio",
+    "tagline": "Portraits that work: dating, profiles, documents and resume — in a couple of minutes.",
+    "groups": {
+      "products": "Products",
+      "support": "Support",
+      "documents": "Documents",
+      "social": "Social"
+    },
+    "support": {
+      "contact": "Contact support",
+      "faq": "FAQ"
+    },
+    "documents": {
+      "privacy": "Privacy policy",
+      "terms": "Terms of use",
+      "consents": "Data processing consents",
+      "cookie": "Cookies usage",
+      "refund": "Refunds and payments"
+    },
+    "social": {
+      "ux4ai": "UX4AI · Telegram channel"
+    },
+    "credits": {
+      "text": "Made by",
+      "linkLabel": "UX4AI"
+    },
+    "copyright": "© 2026 Look Studio",
+    "subscribeCta": "Follow UX4AI"
+  },
+  "categoryTabs": {
+    "comingSoon": "soon"
+  },
   "documentPhoto": {
     "fallbackHero": {
       "title": "Document photos",

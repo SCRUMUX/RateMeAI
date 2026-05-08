@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { createPortal } from 'react-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import * as api from '../../lib/api';
@@ -49,95 +50,41 @@ interface StyleOptions {
   schemaVersion: 1 | 2 | 3;
 }
 
-const LIGHTING_LABELS_RU: Record<string, string> = {
-  'golden hour': 'Золотой час',
-  'studio': 'Студийный свет',
-  'overcast': 'Мягкий рассеянный',
-  'blue hour': 'Синий час',
-  'morning': 'Утреннее',
-  'sunset': 'Закат',
-  'twilight': 'Сумерки',
-};
-
-const FRAMING_LABELS_RU: Record<string, string> = {
-  portrait: 'Портрет (голова и плечи)',
-  half_body: 'По пояс',
-  full_body: 'В полный рост',
-};
-
-const WEATHER_LABELS_RU: Record<string, string> = {
-  clear: 'Ясно',
-  sunny: 'Солнечно',
-  overcast: 'Пасмурно',
-  cloudy: 'Облачно',
-  rain: 'Дождь',
-  rainy: 'Дождь',
-  snow: 'Снег',
-  fog: 'Туман',
-  mist: 'Дымка',
-  windy: 'Ветрено',
-  storm: 'Шторм',
-};
-
-const TIME_OF_DAY_LABELS_RU: Record<string, string> = {
-  dawn: 'Рассвет',
-  morning: 'Утро',
-  noon: 'Полдень',
-  afternoon: 'День',
-  evening: 'Вечер',
-  sunset: 'Закат',
-  dusk: 'Сумерки',
-  twilight: 'Сумерки',
-  'blue hour': 'Синий час',
-  'golden hour': 'Золотой час',
-  night: 'Ночь',
-  midnight: 'Полночь',
-};
-
-const SEASON_LABELS_RU: Record<string, string> = {
-  spring: 'Весна',
-  summer: 'Лето',
-  autumn: 'Осень',
-  fall: 'Осень',
-  winter: 'Зима',
-};
-
-const CATEGORY_LABELS_RU: Record<string, string> = {
-  lighting: 'Освещение',
-  scene: 'Сцена / локация',
-  clothing: 'Одежда',
-  framing: 'Ракурс',
-  weather: 'Погода',
-  time_of_day: 'Время суток',
-  season: 'Сезон',
-};
+const LIGHTING_KEYS = ['golden hour', 'studio', 'overcast', 'blue hour', 'morning', 'sunset', 'twilight'] as const;
 
 function capitalize(s: string): string {
   if (!s) return s;
   return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
-function labelFor(channel: string, value: string): string {
+type LabelTranslate = (key: string, options?: Record<string, unknown>) => string;
+
+function translateOrFallback(t: LabelTranslate, key: string, fallback: string): string {
+  const translated = t(key);
+  return translated && translated !== key ? translated : fallback;
+}
+
+function labelFor(t: LabelTranslate, channel: string, value: string): string {
   if (channel === 'framing') {
-    return FRAMING_LABELS_RU[value] ?? capitalize(value);
+    return translateOrFallback(t, `styleSettings.framingLabel.${value}`, capitalize(value));
   }
   if (channel === 'lighting') {
     const lc = value.toLowerCase();
-    for (const [key, ru] of Object.entries(LIGHTING_LABELS_RU)) {
-      if (lc.includes(key)) return ru;
+    for (const key of LIGHTING_KEYS) {
+      if (lc.includes(key)) {
+        return translateOrFallback(t, `styleSettings.lighting.${key}`, capitalize(value));
+      }
     }
     return capitalize(value);
   }
   if (channel === 'weather') {
-    return WEATHER_LABELS_RU[value.toLowerCase()] ?? capitalize(value);
+    return translateOrFallback(t, `styleSettings.weather.${value.toLowerCase()}`, capitalize(value));
   }
   if (channel === 'time_of_day') {
-    const lc = value.toLowerCase();
-    return TIME_OF_DAY_LABELS_RU[lc] ?? capitalize(value);
+    return translateOrFallback(t, `styleSettings.timeOfDay.${value.toLowerCase()}`, capitalize(value));
   }
   if (channel === 'season') {
-    const lc = value.toLowerCase();
-    return SEASON_LABELS_RU[lc] ?? capitalize(value);
+    return translateOrFallback(t, `styleSettings.season.${value.toLowerCase()}`, capitalize(value));
   }
   return capitalize(value);
 }
@@ -222,6 +169,7 @@ function normaliseOptions(res: api.StyleOptionsResponse): StyleOptions {
 
 export default function StyleSettingsModal({ open, onClose, styleId, initialHints, onApply }: Props) {
   const app = useApp();
+  const { t } = useTranslation('wizard');
   const [loading, setLoading] = useState(false);
   const [options, setOptions] = useState<StyleOptions | null>(null);
   const [hints, setHints] = useState<Record<string, any>>(() => ({ ...(initialHints ?? {}) }));
@@ -351,7 +299,7 @@ export default function StyleSettingsModal({ open, onClose, styleId, initialHint
           <div className="shrink-0 flex items-start justify-between px-[var(--space-16)] pt-[var(--space-8)] tablet:pt-[var(--space-16)] pb-[var(--space-8)]">
             <div className="flex flex-col min-w-0">
               <span className="text-[16px] leading-[22px] font-semibold text-text-primary">
-                Настройки стиля
+                {t('styleSettings.title')}
               </span>
               {styleName && (
                 <span className="text-[12px] leading-[16px] text-[var(--color-text-muted)] truncate">
@@ -362,7 +310,7 @@ export default function StyleSettingsModal({ open, onClose, styleId, initialHint
             <button
               type="button"
               onClick={onClose}
-              aria-label="Закрыть"
+              aria-label={t('styleSettings.close')}
               className="shrink-0 w-9 h-9 flex items-center justify-center rounded-full glass-btn-ghost text-[var(--color-text-muted)] hover:text-text-primary transition-colors"
             >
               <svg width="18" height="18" viewBox="0 0 16 16" fill="none">
@@ -375,7 +323,7 @@ export default function StyleSettingsModal({ open, onClose, styleId, initialHint
             {hasTrigger && (
               <div
                 className="flex items-start gap-[var(--space-8)] rounded-[var(--radius-12)] px-[var(--space-12)] py-[var(--space-8)] bg-brand-primary/10 border border-brand-primary/30"
-                title="Этот элемент всегда в кадре. Изменить нельзя."
+                title={t('styleSettings.triggerTooltip')}
               >
                 <svg
                   width="16"
@@ -393,13 +341,13 @@ export default function StyleSettingsModal({ open, onClose, styleId, initialHint
                 </svg>
                 <div className="flex flex-col min-w-0 flex-1">
                   <span className="text-[11px] uppercase tracking-wider text-brand-primary font-medium">
-                    Триггер стиля
+                    {t('styleSettings.triggerLabel')}
                   </span>
                   <span className="text-[13px] leading-[18px] text-text-primary truncate">
                     {triggerHeadline}
                   </span>
                   <span className="text-[11px] leading-[14px] text-[var(--color-text-muted)] mt-[2px]">
-                    Всегда в кадре. Изменить нельзя.
+                    {t('styleSettings.triggerHint')}
                   </span>
                 </div>
               </div>
@@ -407,29 +355,29 @@ export default function StyleSettingsModal({ open, onClose, styleId, initialHint
 
             {loading ? (
               <div className="text-[13px] text-[var(--color-text-muted)] text-center py-[var(--space-16)]">
-                Загрузка настроек...
+                {t('styleSettings.loading')}
               </div>
             ) : !hasAnyField ? (
               <div className="text-[13px] text-[var(--color-text-muted)] text-center py-[var(--space-16)]">
-                Этот стиль не поддерживает дополнительные настройки.
+                {t('styleSettings.noFields')}
               </div>
             ) : (
               <>
                 {hasLighting && (
                   <div className="flex flex-col gap-[var(--space-8)]">
                     <span className="text-[13px] font-medium text-[var(--color-text-muted)]">
-                      {CATEGORY_LABELS_RU.lighting}
+                      {t('styleSettings.category.lighting')}
                     </span>
                     <Select
-                      ariaLabel={CATEGORY_LABELS_RU.lighting}
+                      ariaLabel={t('styleSettings.category.lighting')}
                       value={hints.lighting ?? ''}
-                      placeholder="Авто (рандом)"
+                      placeholder={t('styleSettings.auto')}
                       onChange={(v) => setHints((h) => ({ ...h, lighting: v }))}
                       options={[
-                        { value: '', label: 'Авто (рандом)' },
+                        { value: '', label: t('styleSettings.auto') },
                         ...options!.lighting!.map((opt) => ({
                           value: opt,
-                          label: labelFor('lighting', opt),
+                          label: labelFor(t, 'lighting', opt),
                         })),
                       ]}
                     />
@@ -439,7 +387,7 @@ export default function StyleSettingsModal({ open, onClose, styleId, initialHint
                 {hasTimeOfDay && (
                   <div className="flex flex-col gap-[var(--space-8)]">
                     <span className="text-[13px] font-medium text-[var(--color-text-muted)]">
-                      {CATEGORY_LABELS_RU.time_of_day}
+                      {t('styleSettings.category.time_of_day')}
                     </span>
                     <div className="flex flex-wrap gap-[var(--space-4)]">
                       <button
@@ -452,7 +400,7 @@ export default function StyleSettingsModal({ open, onClose, styleId, initialHint
                             : 'glass-btn-ghost text-[var(--color-text-secondary)]'
                         }`}
                       >
-                        Авто (рандом)
+                        {t('styleSettings.auto')}
                       </button>
                       {options!.timeOfDay!.map((opt) => {
                         const active = (hints.time_of_day ?? '') === opt;
@@ -470,7 +418,7 @@ export default function StyleSettingsModal({ open, onClose, styleId, initialHint
                                 : 'glass-btn-ghost text-[var(--color-text-secondary)]'
                             }`}
                           >
-                            {labelFor('time_of_day', opt)}
+                            {labelFor(t, 'time_of_day', opt)}
                           </button>
                         );
                       })}
@@ -481,7 +429,7 @@ export default function StyleSettingsModal({ open, onClose, styleId, initialHint
                 {hasSeason && (
                   <div className="flex flex-col gap-[var(--space-8)]">
                     <span className="text-[13px] font-medium text-[var(--color-text-muted)]">
-                      {CATEGORY_LABELS_RU.season}
+                      {t('styleSettings.category.season')}
                     </span>
                     <div className="flex flex-wrap gap-[var(--space-4)]">
                       <button
@@ -494,7 +442,7 @@ export default function StyleSettingsModal({ open, onClose, styleId, initialHint
                             : 'glass-btn-ghost text-[var(--color-text-secondary)]'
                         }`}
                       >
-                        Авто (рандом)
+                        {t('styleSettings.auto')}
                       </button>
                       {options!.season!.map((opt) => {
                         const active = (hints.season ?? '') === opt;
@@ -512,7 +460,7 @@ export default function StyleSettingsModal({ open, onClose, styleId, initialHint
                                 : 'glass-btn-ghost text-[var(--color-text-secondary)]'
                             }`}
                           >
-                            {labelFor('season', opt)}
+                            {labelFor(t, 'season', opt)}
                           </button>
                         );
                       })}
@@ -523,7 +471,7 @@ export default function StyleSettingsModal({ open, onClose, styleId, initialHint
                 {hasFraming && (
                   <div className="flex flex-col gap-[var(--space-8)]">
                     <span className="text-[13px] font-medium text-[var(--color-text-muted)]">
-                      {CATEGORY_LABELS_RU.framing}
+                      {t('styleSettings.category.framing')}
                     </span>
                     <div className="flex flex-wrap gap-[var(--space-4)]">
                       <button
@@ -535,9 +483,9 @@ export default function StyleSettingsModal({ open, onClose, styleId, initialHint
                             ? 'glass-btn-primary text-white'
                             : 'glass-btn-ghost text-[var(--color-text-secondary)]'
                         }`}
-                        title="Использовать ракурс из шага «Выберите стиль»"
+                        title={t('styleSettings.defaultFramingTooltip')}
                       >
-                        По умолчанию
+                        {t('styleSettings.default')}
                       </button>
                       {options!.framing!.map((opt) => {
                         const active = (hints.framing ?? '') === opt;
@@ -555,7 +503,7 @@ export default function StyleSettingsModal({ open, onClose, styleId, initialHint
                                 : 'glass-btn-ghost text-[var(--color-text-secondary)]'
                             }`}
                           >
-                            {labelFor('framing', opt)}
+                            {labelFor(t, 'framing', opt)}
                           </button>
                         );
                       })}
@@ -566,11 +514,11 @@ export default function StyleSettingsModal({ open, onClose, styleId, initialHint
                 {hasScene && (
                   <div className="flex flex-col gap-[var(--space-8)]">
                     <span className="text-[13px] font-medium text-[var(--color-text-muted)]">
-                      {CATEGORY_LABELS_RU.scene}
+                      {t('styleSettings.category.scene')}
                     </span>
                     <input
                       type="text"
-                      placeholder="Например: на фоне гор"
+                      placeholder={t('styleSettings.scenePlaceholder')}
                       value={hints.scene_override ?? ''}
                       onChange={(e) => setHints((h) => ({ ...h, scene_override: e.target.value }))}
                       className="w-full bg-surface-2 border border-border-base rounded-[var(--radius-8)] px-3 py-2 text-[14px] text-text-primary placeholder:text-[var(--color-text-muted)]"
@@ -595,11 +543,11 @@ export default function StyleSettingsModal({ open, onClose, styleId, initialHint
                 {hasClothing && (
                   <div className="flex flex-col gap-[var(--space-8)]">
                     <span className="text-[13px] font-medium text-[var(--color-text-muted)]">
-                      {CATEGORY_LABELS_RU.clothing}
+                      {t('styleSettings.category.clothing')}
                     </span>
                     <input
                       type="text"
-                      placeholder="Например: красный костюм"
+                      placeholder={t('styleSettings.clothingPlaceholder')}
                       value={hints.clothing_override ?? ''}
                       onChange={(e) => setHints((h) => ({ ...h, clothing_override: e.target.value }))}
                       className="w-full bg-surface-2 border border-border-base rounded-[var(--radius-8)] px-3 py-2 text-[14px] text-text-primary placeholder:text-[var(--color-text-muted)]"
@@ -624,7 +572,7 @@ export default function StyleSettingsModal({ open, onClose, styleId, initialHint
                 {hasWeather && (
                   <div className="flex flex-col gap-[var(--space-8)]">
                     <span className="text-[13px] font-medium text-[var(--color-text-muted)]">
-                      {CATEGORY_LABELS_RU.weather}
+                      {t('styleSettings.category.weather')}
                     </span>
                     <div className="flex flex-wrap gap-[var(--space-4)]">
                       <button
@@ -637,7 +585,7 @@ export default function StyleSettingsModal({ open, onClose, styleId, initialHint
                             : 'glass-btn-ghost text-[var(--color-text-secondary)]'
                         }`}
                       >
-                        Авто (рандом)
+                        {t('styleSettings.auto')}
                       </button>
                       {(options!.weather ?? []).map((opt) => {
                         const active = (hints.weather ?? '') === opt;
@@ -655,7 +603,7 @@ export default function StyleSettingsModal({ open, onClose, styleId, initialHint
                                 : 'glass-btn-ghost text-[var(--color-text-secondary)]'
                             }`}
                           >
-                            {labelFor('weather', opt)}
+                            {labelFor(t, 'weather', opt)}
                           </button>
                         );
                       })}
@@ -681,7 +629,7 @@ export default function StyleSettingsModal({ open, onClose, styleId, initialHint
               }}
               className="glass-btn-primary w-full py-[var(--space-12)] text-[15px] leading-[22px] rounded-[var(--radius-pill)] font-medium mt-[var(--space-4)]"
             >
-              Применить и сгенерировать
+              {t('styleSettings.applyCta')}
             </button>
           </div>
         </motion.div>

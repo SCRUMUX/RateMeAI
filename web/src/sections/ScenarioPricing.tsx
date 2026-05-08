@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { CoinIcon, ImageIcon } from '@ai-ds/core/icons';
+import { useTranslation } from 'react-i18next';
 import { useApp } from '../context/AppContext';
 import { createPayment, handleCreatePaymentError } from '../lib/api';
 import { normalizePostPaymentPath, getPostPaymentReturnPath } from '../scenarios/config';
@@ -42,40 +43,45 @@ interface PaidPlan {
   ctaLabel: string;
 }
 
-const PAID_PLANS: PaidPlan[] = [
-  {
-    id: 'try',
-    packQty: 5,
-    title: 'Попробовать',
-    priceLabel: '199 ₽',
-    photosLabel: '5 фото',
-    perPhotoLabel: '40 ₽ за фото',
-    desc: 'Стартовый пакет — оцени, как сервис работает с твоим лицом.',
-    features: ['Доступ ко всем стилям категории', 'Без водяных знаков', 'Подбор за 2 минуты'],
-    highlighted: false,
-    ctaLabel: 'Купить 5 за 199 ₽',
-  },
-  {
-    id: 'pro',
-    packQty: 15,
-    title: 'Прокачать образ',
-    priceLabel: '499 ₽',
-    photosLabel: '15 фото',
-    perPhotoLabel: '33 ₽ за фото',
-    desc: 'Полный сет под анкету, резюме или документы — хватит на все ситуации.',
-    features: ['15 фото в одном пакете', 'Все стили + эксклюзивы', 'Приоритетная очередь генерации', 'Без водяных знаков'],
-    highlighted: true,
-    badge: 'BEST',
-    savingBadge: 'Экономия 40%',
-    ctaLabel: 'Купить 15 за 499 ₽',
-  },
-];
-
-const CORPORATE_FEATURES = [
-  '✦ Свой бренд и кастомные стили',
-  '✦ Webhook-интеграция и SDK',
-  '✦ SLA, договор и счёт',
-];
+function buildPaidPlans(t: (key: string) => string): PaidPlan[] {
+  return [
+    {
+      id: 'try',
+      packQty: 5,
+      title: t('scenarioPricing.plans.try.title'),
+      priceLabel: t('scenarioPricing.plans.try.priceLabel'),
+      photosLabel: t('scenarioPricing.plans.try.photosLabel'),
+      perPhotoLabel: t('scenarioPricing.plans.try.perPhotoLabel'),
+      desc: t('scenarioPricing.plans.try.desc'),
+      features: [
+        t('scenarioPricing.plans.try.feature1'),
+        t('scenarioPricing.plans.try.feature2'),
+        t('scenarioPricing.plans.try.feature3'),
+      ],
+      highlighted: false,
+      ctaLabel: t('scenarioPricing.plans.try.ctaLabel'),
+    },
+    {
+      id: 'pro',
+      packQty: 15,
+      title: t('scenarioPricing.plans.pro.title'),
+      priceLabel: t('scenarioPricing.plans.pro.priceLabel'),
+      photosLabel: t('scenarioPricing.plans.pro.photosLabel'),
+      perPhotoLabel: t('scenarioPricing.plans.pro.perPhotoLabel'),
+      desc: t('scenarioPricing.plans.pro.desc'),
+      features: [
+        t('scenarioPricing.plans.pro.feature1'),
+        t('scenarioPricing.plans.pro.feature2'),
+        t('scenarioPricing.plans.pro.feature3'),
+        t('scenarioPricing.plans.pro.feature4'),
+      ],
+      highlighted: true,
+      badge: 'BEST',
+      savingBadge: t('scenarioPricing.savingBadge'),
+      ctaLabel: t('scenarioPricing.plans.pro.ctaLabel'),
+    },
+  ];
+}
 
 interface ScenarioPricingProps {
   /**
@@ -89,8 +95,18 @@ interface ScenarioPricingProps {
 export default function ScenarioPricing({ tagline }: ScenarioPricingProps) {
   const { canAccessApp } = useApp();
   const navigate = useNavigate();
+  const { t } = useTranslation('landing');
   const [loading, setLoading] = useState<PackQty | null>(null);
   const resumePath = getPostPaymentReturnPath() ?? '/app';
+  const paidPlans = useMemo(() => buildPaidPlans(t), [t]);
+  const corporateFeatures = useMemo(
+    () => [
+      t('scenarioPricing.b2b.feature1'),
+      t('scenarioPricing.b2b.feature2'),
+      t('scenarioPricing.b2b.feature3'),
+    ],
+    [t],
+  );
 
   async function handleBuy(packQty: PackQty) {
     if (!canAccessApp) {
@@ -132,7 +148,7 @@ export default function ScenarioPricing({ tagline }: ScenarioPricingProps) {
     >
       {/* Heading — mirrors main Pricing typography for brand consistency */}
       <div className="reveal flex flex-col items-center gap-[var(--space-12)] text-center max-w-[680px]">
-        <h2 className="landing-h2 text-[var(--color-text-primary)]">Первое улучшение</h2>
+        <h2 className="landing-h2 text-[var(--color-text-primary)]">{t('pricing.title')}</h2>
         <h2
           className="landing-h2"
           style={{
@@ -142,14 +158,14 @@ export default function ScenarioPricing({ tagline }: ScenarioPricingProps) {
             WebkitTextFillColor: 'transparent',
           }}
         >
-          — попробуй бесплатно
+          {t('pricing.subtitle')}
         </h2>
-        <p className="landing-lead">{tagline ?? 'Разблокируй эксклюзивные стили'}</p>
+        <p className="landing-lead">{tagline ?? t('scenarioPricing.tagline')}</p>
         <Link
           to={resumePath}
           className="glass-btn-secondary mt-[var(--space-8)] px-[var(--space-16)] tablet:px-[var(--space-20)] py-[var(--space-10)] text-[14px] tablet:text-[16px] leading-[20px] tablet:leading-[24px] text-[var(--color-brand-primary)] rounded-[var(--radius-12)] no-underline inline-flex items-center justify-center"
         >
-          Попробовать бесплатное улучшение
+          {t('scenarioPricing.tryFreeLabel')}
         </Link>
       </div>
 
@@ -162,7 +178,7 @@ export default function ScenarioPricing({ tagline }: ScenarioPricingProps) {
       >
         <div className="flex items-stretch gap-[var(--space-12)] tablet:gap-[var(--space-16)] tablet:justify-between px-[20px] tablet:px-0 w-max tablet:w-full">
           {/* Paid plans */}
-          {PAID_PLANS.map((plan) => (
+          {paidPlans.map((plan) => (
             <article
               key={plan.id}
               className={`snap-center gradient-border-card flex flex-col gap-[var(--space-20)] tablet:gap-[var(--space-24)] p-[var(--space-20)] tablet:p-[var(--space-28)] w-[calc(100vw-56px)] tablet:w-auto min-w-0 tablet:min-w-0 h-auto tablet:min-h-[520px] rounded-[var(--radius-12)] ${
@@ -238,7 +254,7 @@ export default function ScenarioPricing({ tagline }: ScenarioPricingProps) {
                   plan.highlighted ? 'glass-btn-primary' : 'glass-btn-secondary text-[var(--color-brand-primary)]'
                 }`}
               >
-                {loading === plan.packQty ? 'Загрузка…' : plan.ctaLabel}
+                {loading === plan.packQty ? t('scenarioPricing.loading') : plan.ctaLabel}
               </button>
             </article>
           ))}
@@ -249,7 +265,7 @@ export default function ScenarioPricing({ tagline }: ScenarioPricingProps) {
           >
             <div className="flex items-center justify-between gap-[var(--space-12)]">
               <span className="text-[20px] tablet:text-[22px] leading-[28px] tablet:leading-[30px] font-semibold text-[var(--color-text-primary)]">
-                Корпоративный тариф
+                {t('scenarioPricing.b2b.title')}
               </span>
               <span
                 className="px-[var(--space-8)] py-[2px] text-[12px] font-medium leading-[16px] rounded-full"
@@ -261,25 +277,25 @@ export default function ScenarioPricing({ tagline }: ScenarioPricingProps) {
                   color: 'var(--color-text-primary)',
                 }}
               >
-                B2B
+                {t('scenarioPricing.b2b.badge')}
               </span>
             </div>
 
             <div className="flex flex-col gap-[var(--space-8)]">
               <span className="text-[28px] tablet:text-[32px] leading-[1.1] font-bold text-[var(--color-text-primary)]">
-                По объёму
+                {t('scenarioPricing.b2b.headline')}
               </span>
               <span className="text-[14px] leading-[20px] text-[var(--color-text-muted)]">
-                Договор, счёт, безналичный расчёт
+                {t('scenarioPricing.b2b.subline')}
               </span>
             </div>
 
             <p className="text-[14px] tablet:text-[15px] leading-[20px] tablet:leading-[22px] text-[var(--color-text-secondary)]">
-              Брендовый фотобанк, маркетплейс или мобильное приложение. Подключаем по API под ваш объём.
+              {t('scenarioPricing.b2b.description')}
             </p>
 
             <ul className="flex flex-col gap-[var(--space-10)] m-0 p-0 list-none flex-1">
-              {CORPORATE_FEATURES.map((f) => (
+              {corporateFeatures.map((f) => (
                 <li
                   key={f}
                   className="flex items-start gap-[var(--space-10)] text-[13px] tablet:text-[14px] leading-[18px] tablet:leading-[20px] text-[var(--color-text-secondary)]"
@@ -294,14 +310,14 @@ export default function ScenarioPricing({ tagline }: ScenarioPricingProps) {
               onClick={handleCorporate}
               className="glass-btn-secondary w-full px-[var(--space-20)] py-[var(--space-12)] text-[15px] tablet:text-[16px] leading-[22px] tablet:leading-[24px] rounded-[var(--radius-12)] font-medium text-[var(--color-brand-primary)]"
             >
-              Узнать про API
+              {t('scenarioPricing.b2b.ctaLabel')}
             </button>
           </article>
         </div>
       </div>
 
       <p className="text-center text-[13px] tablet:text-[14px] leading-[20px] text-[var(--color-text-muted)] max-w-[600px]">
-        Все пакеты идут на один баланс — фото можно потратить на любую категорию.
+        {t('scenarioPricing.footer')}
       </p>
     </section>
   );

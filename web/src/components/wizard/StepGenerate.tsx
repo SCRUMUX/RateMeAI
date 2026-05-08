@@ -28,16 +28,10 @@ interface Props {
   onOpenStorage?: () => void;
 }
 
-const STEP_LABELS: Record<string, string> = {
-  upload: 'Загрузка фото...',
-  validate: 'Проверка изображения...',
-  analyze: 'Анализ фото...',
-  generate: 'Генерация образа...',
-  finalize: 'Финализация...',
-  complete: 'Готово',
-};
-
-function parseTaskProgress(status: string | undefined): { label: string; percent: number } | null {
+function parseTaskProgress(
+  status: string | undefined,
+  resolveLabel: (step: string) => string,
+): { label: string; percent: number } | null {
   if (!status) return null;
   const match = status.match(/^(\S+)\s+(\d+)\/(\d+)$/);
   if (!match) return null;
@@ -45,8 +39,7 @@ function parseTaskProgress(status: string | undefined): { label: string; percent
   const cur = parseInt(current, 10);
   const tot = parseInt(total, 10);
   const percent = tot > 0 ? Math.round((cur / tot) * 100) : 0;
-  const label = STEP_LABELS[step] ?? `${step}...`;
-  return { label, percent };
+  return { label: resolveLabel(step), percent };
 }
 
 // Re-project the backend's resolved_slots payload onto the keys
@@ -117,7 +110,12 @@ export default function StepGenerate({ onGoToStep, onOpenStorage }: Props) {
   const [settingsModalOpen, setSettingsModalOpen] = useState(false);
 
   const isRunning = app.isGenerating && !hasGenResult;
-  const progress = parseTaskProgress(app.currentTask?.status);
+  const progress = parseTaskProgress(app.currentTask?.status, (step) => {
+    const key = `generate.stepLabels.${step}`;
+    const translated = t(key);
+    if (translated && translated !== key) return translated;
+    return `${step}...`;
+  });
 
   useEffect(() => {
     if (!isRunning) {
@@ -296,7 +294,7 @@ export default function StepGenerate({ onGoToStep, onOpenStorage }: Props) {
     ? selectedStyle.name
     : frozenStyle
       ? frozenStyle.name
-      : app.photo ? selectedStyle.name : 'Апгрейд';
+      : app.photo ? selectedStyle.name : t('generate.fallbackCardLabel');
 
   const cardScore = displayAfterScore != null
     ? displayAfterScore
@@ -314,30 +312,30 @@ export default function StepGenerate({ onGoToStep, onOpenStorage }: Props) {
     <div className="flex flex-col gap-[var(--space-24)] tablet:gap-[var(--space-32)] w-full max-w-[800px] mx-auto">
       <div className="flex flex-col items-center gap-[var(--space-4)] text-center">
         <h2 className="text-[20px] tablet:text-[24px] leading-[1.2] font-semibold text-[var(--color-text-primary)]">
-          {hasGenResult ? 'Результат готов' : isRunning ? 'Генерация...' : genFailed ? 'Ошибка генерации' : 'Генерация'}
+          {hasGenResult ? t('generate.headings.result') : isRunning ? t('generate.headings.running') : genFailed ? t('generate.headings.failed') : t('generate.headings.ready')}
         </h2>
         <p className="text-[12px] tablet:text-[13px] leading-[16px] tablet:leading-[18px] text-[var(--color-text-secondary)] max-w-[440px]">
           {hasGenResult
-            ? 'Сохраните результат или попробуйте другой вариант.'
+            ? t('generate.subtitles.result')
             : genFailed
-              ? 'Попробуйте запустить ещё раз — фото и настройки сохранены.'
+              ? t('generate.subtitles.failed')
               : isRunning
-                ? 'Обычно занимает 2–3 минуты. Можно свернуть вкладку — результат дождётся.'
-                : 'Генерация занимает 2–3 минуты. Запустите, когда будете готовы.'}
+                ? t('generate.subtitles.running')
+                : t('generate.subtitles.ready')}
         </p>
       </div>
 
       {/* Selection summary: "Вы выбрали" label sits in the same row as pills */}
       {showSelectionSummary && selectedStyle && (
         <div className="flex flex-wrap items-center justify-center gap-x-[var(--space-8)] gap-y-[var(--space-4)] text-[13px] leading-[18px]">
-          <span className="text-[12px] leading-[16px] text-[var(--color-text-muted)]">Вы выбрали</span>
+          <span className="text-[12px] leading-[16px] text-[var(--color-text-muted)]">{t('generate.selection.label')}</span>
           {directionLabel && (
             <button
               type="button"
               onClick={() => onGoToStep('analysis')}
               className="glass-btn-ghost px-[var(--space-12)] py-[var(--space-4)] rounded-[var(--radius-pill)] text-[var(--color-text-primary)] inline-flex items-center gap-[var(--space-6)]"
             >
-              <span className="text-[var(--color-text-muted)]">Направление:</span>
+              <span className="text-[var(--color-text-muted)]">{t('generate.selection.direction')}</span>
               <span className="font-medium">«{directionLabel}»</span>
             </button>
           )}
@@ -346,7 +344,7 @@ export default function StepGenerate({ onGoToStep, onOpenStorage }: Props) {
             onClick={() => onGoToStep('style')}
             className="glass-btn-ghost px-[var(--space-12)] py-[var(--space-4)] rounded-[var(--radius-pill)] text-[var(--color-text-primary)] inline-flex items-center gap-[var(--space-6)]"
           >
-            <span className="text-[var(--color-text-muted)]">Стиль:</span>
+            <span className="text-[var(--color-text-muted)]">{t('generate.selection.style')}</span>
             <span className="font-medium">«{selectedStyle.name}»</span>
           </button>
         </div>
@@ -359,7 +357,7 @@ export default function StepGenerate({ onGoToStep, onOpenStorage }: Props) {
         <div className="max-w-[640px] mx-auto w-full px-[var(--space-16)]">
           <div className="glass-card border border-amber-300/30 bg-amber-500/10 rounded-[var(--radius-md)] px-[var(--space-12)] py-[var(--space-8)]">
             <p className="text-[12px] leading-[16px] font-medium text-amber-200 mb-[var(--space-4)]">
-              Параметры генерации скорректированы
+              {t('generate.warningsTitle')}
             </p>
             <ul className="text-[12px] leading-[16px] text-[var(--color-text-primary)] list-disc pl-[var(--space-16)] space-y-[2px]">
               {generationWarnings.map((msg, idx) => (
@@ -382,7 +380,7 @@ export default function StepGenerate({ onGoToStep, onOpenStorage }: Props) {
                 <>
                   <img
                     src={app.generatedImageUrl!}
-                    alt="Generated"
+                    alt={t('generate.altGenerated')}
                     className="w-full h-full object-cover cursor-pointer"
                     onClick={() => onOpenStorage?.()}
                     onError={() => setImageLoadError(true)}
@@ -393,7 +391,7 @@ export default function StepGenerate({ onGoToStep, onOpenStorage }: Props) {
                       is injected server-side (P1.5). */}
                   <div
                     className="absolute top-[var(--space-8)] left-[var(--space-8)] z-20 pointer-events-none select-none"
-                    aria-label="Изображение сгенерировано искусственным интеллектом"
+                    aria-label={t('generate.aiBadgeAria')}
                   >
                     <span
                       className="inline-flex items-center gap-[4px] px-[8px] py-[3px] rounded-[var(--radius-pill)] text-[10px] leading-[12px] font-semibold tracking-[0.02em] text-white"
@@ -407,19 +405,19 @@ export default function StepGenerate({ onGoToStep, onOpenStorage }: Props) {
                       <svg width="10" height="10" viewBox="0 0 16 16" fill="none" aria-hidden="true">
                         <path d="M8 2L9.5 6.5L14 8L9.5 9.5L8 14L6.5 9.5L2 8L6.5 6.5L8 2Z" fill="currentColor" />
                       </svg>
-                      AI-generated
+                      {t('generate.aiBadge')}
                     </span>
                   </div>
                 </>
               )}
               {imageLoadError && app.generatedImageUrl && (
                 <div className="w-full h-full flex flex-col items-center justify-center gap-3 text-center p-4">
-                  <p className="text-[14px] text-[var(--color-text-muted)]">Не удалось загрузить изображение</p>
+                  <p className="text-[14px] text-[var(--color-text-muted)]">{t('generate.imageLoadFailed')}</p>
                   <button
                     className="px-4 py-2 rounded-lg text-[13px] font-medium glass-card hover:opacity-80 transition-opacity"
                     onClick={() => { app.clearGeneratedImage(); setImageLoadError(false); }}
                   >
-                    Повторить генерацию
+                    {t('generate.regenerate')}
                   </button>
                 </div>
               )}
@@ -429,7 +427,7 @@ export default function StepGenerate({ onGoToStep, onOpenStorage }: Props) {
                   <div className="absolute inset-0 z-10 flex flex-col items-center justify-end pb-[var(--space-16)] gap-[var(--space-8)] bg-gradient-to-t from-black/70 via-transparent to-transparent">
                     <div className="w-6 h-6 border-2 border-t-transparent rounded-full animate-spin" style={{ borderColor: 'rgba(var(--accent-r),var(--accent-g),var(--accent-b),0.6)', borderTopColor: 'transparent' }} />
                     <span className="text-[12px] leading-[16px] text-[var(--color-text-primary)] font-medium text-center px-[var(--space-8)]">
-                      {progress?.label ?? 'Обработка...'}
+                      {progress?.label ?? t('generate.stepLabels.fallback')}
                     </span>
                     <div className="w-[80%] h-1 rounded-full glass-progress-track overflow-hidden">
                       <div className="h-full rounded-full glass-progress-fill transition-all duration-500" style={{ width: `${progress?.percent ?? 10}%` }} />
@@ -452,7 +450,7 @@ export default function StepGenerate({ onGoToStep, onOpenStorage }: Props) {
                   />
                   <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-[var(--space-8)] text-center px-[var(--space-12)]">
                     <svg width="32" height="32" viewBox="0 0 32 32" fill="none" className="text-[var(--color-text-primary)]"><circle cx="16" cy="16" r="14" stroke="currentColor" strokeOpacity="0.3" strokeWidth="1.5"/><path d="M16 10v8M16 22h.01" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg>
-                    <span className="text-[13px] leading-[18px] text-[var(--color-text-primary)] font-medium">Не удалось сгенерировать</span>
+                    <span className="text-[13px] leading-[18px] text-[var(--color-text-primary)] font-medium">{t('generate.genFailedShort')}</span>
                   </div>
                 </div>
               )}
@@ -522,7 +520,7 @@ export default function StepGenerate({ onGoToStep, onOpenStorage }: Props) {
                 className="glass-btn-primary w-full py-[var(--space-12)] text-[14px] leading-[20px] rounded-[var(--radius-12)] font-medium inline-flex items-center justify-center gap-[var(--space-6)] disabled:opacity-50"
               >
                 <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M8 2v8m0 0L5 7m3 3l3-3M3 12h10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
-                {downloadLoading ? 'Скачивание...' : 'Скачать фото'}
+                {downloadLoading ? t('generate.downloading') : t('generate.downloadCta')}
               </button>
               <button
                 onClick={handleShowShare}
@@ -532,11 +530,11 @@ export default function StepGenerate({ onGoToStep, onOpenStorage }: Props) {
                 <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true">
                   <path d="M12 5a2 2 0 1 0-1.9-1.4L5.9 6.1a2 2 0 1 0 0 3.8l4.2 2.5A2 2 0 1 0 11 11l-4.2-2.5a2 2 0 0 0 0-1L11 5c.3.3.6.4 1 .5z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
                 </svg>
-                {shareLoading ? 'Загрузка...' : 'Поделиться'}
+                {shareLoading ? t('generate.shareLoading') : t('generate.shareCta')}
               </button>
               {downloadError && (
                 <p className="text-[11px] leading-[14px] text-red-400 text-center">
-                  Не удалось скачать файл. Попробуйте позже.
+                  {t('generate.downloadError')}
                 </p>
               )}
             </div>
@@ -549,14 +547,14 @@ export default function StepGenerate({ onGoToStep, onOpenStorage }: Props) {
                 onClick={handleImproveGenerated}
                 className="glass-btn-ghost w-full py-[var(--space-10)] text-[13px] leading-[18px] rounded-[var(--radius-12)] font-medium"
               >
-                Улучшить ещё
+                {t('generate.improveMore')}
               </button>
               <button
                 onClick={() => setSettingsModalOpen(true)}
                 className="glass-btn-ghost w-full py-[var(--space-10)] text-[13px] leading-[18px] rounded-[var(--radius-12)] font-medium"
-                title="Настроить освещение, погоду, время суток и другие слоты"
+                title={t('generate.settingsTitle')}
               >
-                Настройки
+                {t('generate.settings')}
               </button>
               <button
                 onClick={() => {
@@ -566,7 +564,7 @@ export default function StepGenerate({ onGoToStep, onOpenStorage }: Props) {
                 }}
                 className="glass-btn-ghost w-full py-[var(--space-10)] text-[13px] leading-[18px] rounded-[var(--radius-12)] font-medium"
               >
-                {isDocPaywall ? 'Другой формат' : 'Другой стиль'}
+                {isDocPaywall ? t('generate.anotherFormat') : t('generate.anotherStyle')}
               </button>
               <button
                 onClick={() => {
@@ -576,14 +574,14 @@ export default function StepGenerate({ onGoToStep, onOpenStorage }: Props) {
                 }}
                 className="glass-btn-ghost w-full py-[var(--space-10)] text-[13px] leading-[18px] rounded-[var(--radius-12)] font-medium"
               >
-                Другое фото
+                {t('generate.anotherPhoto')}
               </button>
               {app.scenarioPrimaryCtaMainApp && (
                 <Link
                   to="/app"
                   className="glass-btn-ghost w-full py-[var(--space-10)] text-[13px] leading-[18px] rounded-[var(--radius-12)] font-medium no-underline inline-flex items-center justify-center"
                 >
-                  Открыть Look Studio
+                  {t('generate.openMain')}
                 </Link>
               )}
             </div>
@@ -599,7 +597,7 @@ export default function StepGenerate({ onGoToStep, onOpenStorage }: Props) {
       {showStartGenerateCta && !isDocPaywall && (
         <div className="shrink-0 flex flex-col items-center gap-[var(--space-6)] w-full max-w-[520px] mx-auto px-[var(--space-8)]">
           <div className="flex flex-wrap items-center justify-center gap-[var(--space-4)]">
-            <span className="text-[11px] leading-[14px] text-[var(--color-text-muted)] mr-[var(--space-4)]">Режим:</span>
+            <span className="text-[11px] leading-[14px] text-[var(--color-text-muted)] mr-[var(--space-4)]">{t('generate.modeLabel')}</span>
             {AB_MODELS.map((m) => (
               <button
                 key={m.key}
@@ -630,7 +628,7 @@ export default function StepGenerate({ onGoToStep, onOpenStorage }: Props) {
             disabled={app.isGenerating}
             className="glass-btn-primary px-[var(--space-32)] py-[var(--space-10)] tablet:py-[var(--space-8)] text-[15px] leading-[22px] rounded-[var(--radius-pill)] font-medium"
           >
-            Запустить генерацию
+            {t('generate.startGeneration')}
           </button>
         </div>
       )}
@@ -643,7 +641,7 @@ export default function StepGenerate({ onGoToStep, onOpenStorage }: Props) {
             disabled={app.isGenerating}
             className="glass-btn-primary px-[var(--space-32)] py-[var(--space-10)] tablet:py-[var(--space-8)] text-[15px] leading-[22px] rounded-[var(--radius-pill)] font-medium"
           >
-            Генерировать фото
+            {t('generate.generatePhoto')}
           </button>
         </div>
       )}
@@ -662,7 +660,7 @@ export default function StepGenerate({ onGoToStep, onOpenStorage }: Props) {
                 onClick={() => { app.clearError(); setGenFailed(false); handleGenerate(); }}
                 className="glass-btn-primary px-[var(--space-20)] py-[var(--space-10)] text-[14px] leading-[20px] rounded-[var(--radius-pill)]"
               >
-                Попробовать ещё раз
+                {t('generate.tryAgain')}
               </button>
               <button
                 onClick={() => {
@@ -673,18 +671,18 @@ export default function StepGenerate({ onGoToStep, onOpenStorage }: Props) {
                 }}
                 className="glass-btn-ghost px-[var(--space-20)] py-[var(--space-10)] text-[14px] leading-[20px] rounded-[var(--radius-pill)]"
               >
-                Другое фото
+                {t('generate.anotherPhoto')}
               </button>
               {/* v1.24: show top-up CTA when the backend flagged
                   no-credits or the error text mentions кредит/баланс,
                   so the user never gets stuck with a blank message. */}
               {(app.noCreditsError
-                || /кредит|баланс|no_credits|оплат/i.test(app.error ?? '')) && (
+                || /кредит|баланс|no_credits|оплат|credit|balance/i.test(app.error ?? '')) && (
                 <button
                   onClick={goToPricing}
                   className="glass-btn-ghost px-[var(--space-20)] py-[var(--space-10)] text-[14px] leading-[20px] rounded-[var(--radius-pill)] text-[var(--color-brand-primary)]"
                 >
-                  Пополнить баланс
+                  {t('generate.topUp')}
                 </button>
               )}
             </div>
@@ -696,9 +694,9 @@ export default function StepGenerate({ onGoToStep, onOpenStorage }: Props) {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
           <div className="glass-card rounded-[var(--radius-16)] p-[var(--space-24)] max-w-sm w-full mx-4 flex flex-col items-center gap-[var(--space-16)] text-center">
             <CoinIcon size={40} className="text-[var(--color-brand-primary)]" />
-            <h3 className="text-[18px] font-semibold text-[var(--color-text-primary)]">Пополните баланс</h3>
+            <h3 className="text-[18px] font-semibold text-[var(--color-text-primary)]">{t('generate.docPaywallTitle')}</h3>
             <p className="text-[14px] text-[var(--color-text-secondary)]">
-              Чтобы сгенерировать фото на документы, купите пакет — фото и настройки сохранятся.
+              {t('generate.docPaywallDesc')}
             </p>
             <div className="flex gap-[var(--space-12)] w-full">
               <button
@@ -706,14 +704,14 @@ export default function StepGenerate({ onGoToStep, onOpenStorage }: Props) {
                 onClick={() => setDocPaywallOpen(false)}
                 disabled={paymentLoading}
               >
-                Закрыть
+                {t('generate.close')}
               </button>
               <button
                 className="flex-1 glass-btn-primary rounded-[var(--radius-12)] py-[var(--space-10)] text-[14px] font-semibold text-white disabled:opacity-60"
                 onClick={() => handleDocPaywallBuy(paymentPackQty)}
                 disabled={paymentLoading}
               >
-                {paymentLoading ? 'Загрузка...' : `${paymentPackQty} фото — 199 ₽`}
+                {paymentLoading ? t('generate.loading') : t('generate.docPaywallCta', { count: paymentPackQty })}
               </button>
             </div>
           </div>
@@ -724,22 +722,22 @@ export default function StepGenerate({ onGoToStep, onOpenStorage }: Props) {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
           <div className="glass-card rounded-[var(--radius-16)] p-[var(--space-24)] max-w-sm w-full mx-4 flex flex-col items-center gap-[var(--space-16)] text-center">
             <CoinIcon size={40} className="text-[var(--color-brand-primary)]" />
-            <h3 className="text-[18px] font-semibold text-[var(--color-text-primary)]">Кредиты закончились</h3>
+            <h3 className="text-[18px] font-semibold text-[var(--color-text-primary)]">{t('generate.noCreditsTitle')}</h3>
             <p className="text-[14px] text-[var(--color-text-secondary)]">
-              Для генерации изображений необходимо пополнить баланс.
+              {t('generate.noCreditsDesc')}
             </p>
             <div className="flex gap-[var(--space-12)] w-full">
               <button
                 className="flex-1 glass-btn-ghost rounded-[var(--radius-12)] py-[var(--space-10)] text-[14px] font-medium text-[var(--color-text-primary)]"
                 onClick={() => { setShowNoCredits(false); app.clearNoCreditsError(); }}
               >
-                Закрыть
+                {t('generate.close')}
               </button>
               <button
                 className="flex-1 glass-btn-primary rounded-[var(--radius-12)] py-[var(--space-10)] text-[14px] font-semibold text-white"
                 onClick={goToPricing}
               >
-                Пополнить баланс
+                {t('generate.topUp')}
               </button>
             </div>
           </div>

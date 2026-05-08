@@ -1,0 +1,51 @@
+{
+  "common": {
+    "close": "Close"
+  },
+  "auth": {
+    "title": "Get access",
+    "titleRequired": "Sign in",
+    "descriptionRequired": "Authentication is required to use the application",
+    "redirecting": "Redirecting...",
+    "google": "Sign in with Google",
+    "yandex": "Sign in with Yandex",
+    "vkId": "Sign in with VK",
+    "errorService": "Sign in with this provider is temporarily unavailable. Please try again later.",
+    "errorGeneric": "Could not sign you in. Please try again.",
+    "errorNetwork": "Could not start sign in. Check your network connection.",
+    "tos": "By signing in, you agree to the terms of use",
+    "backToHome": "Back to home"
+  },
+  "support": {
+    "title": "How can we help?",
+    "subtitle": "We reply in Telegram within minutes or by email within 24 hours.",
+    "ctaTelegram": "Message on Telegram",
+    "faqTitle": "Frequently asked questions",
+    "defaultFaq": [
+      {
+        "q": "Where is my order?",
+        "a": "All your generations are available in your /app account right after payment. An email arrives within 1 minute."
+      },
+      {
+        "q": "How do I get a refund?",
+        "a": "If something went wrong, message us on Telegram or email with your order number. We reply within 24 hours."
+      },
+      {
+        "q": "Where do I download processed photos?",
+        "a": "Each generation has a full-resolution download link. The link stays active for 72 hours."
+      },
+      {
+        "q": "Email or Telegram notification didn’t arrive?",
+        "a": "Check the Spam folder. If you don’t see it, refresh /app — your generations will appear there."
+      },
+      {
+        "q": "How do you improve the photo?",
+        "a": "The service improves your photo while preserving identity. Every processed image is labeled as AI-generated — in EXIF and via a watermark."
+      }
+    ]
+  },
+  "policy": {
+    "lastUpdated": "Updated: {{date}}",
+    "openSeparate": "Open on a dedicated page →"
+  }
+}

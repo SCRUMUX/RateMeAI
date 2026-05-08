@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { CATEGORIES, COMING_SOON_CATEGORIES, getMockDelta, type CategoryId } from '../data/styles';
 import { DOCUMENT_LANDING_ITEMS, FULL_LANDING_STYLES_BY_CATEGORY } from '../data/landingStyles';
 import { getStyleShowcaseReview, type ReviewCategory } from '../data/testimonials';
@@ -50,6 +51,7 @@ export default function Simulation({
   forceCategory,
 }: SimulationProps = {}) {
   const { activeCategory, setActiveCategory } = useApp();
+  const { t } = useTranslation('landing');
   const category: ReviewCategory = forceCategory ?? activeCategory;
   const [selectedIdx, setSelectedIdx] = useState(0);
 
@@ -77,18 +79,10 @@ export default function Simulation({
 
   const cmsBlock = findBlock(cmsPage ?? undefined, 'six_categories');
   const cmsData = (cmsBlock?.data ?? {}) as Record<string, unknown>;
-  // 1.50.0: дефолт заголовка изменён с «6 категорий» на
-  // «Улучшаем фото» — суть та же, формулировка лучше работает.
-  const title = typeof cmsData.title === 'string' ? cmsData.title : 'Улучшаем фото';
-  const subtitle = typeof cmsData.subtitle === 'string' ? cmsData.subtitle : '— под любую задачу';
-  const lead =
-    typeof cmsData.lead === 'string'
-      ? cmsData.lead
-      : 'В каждой категории — более 100 уникальных стилей. Каждая генерация улучшает психологию восприятия';
-  const sublead =
-    typeof cmsData.sublead === 'string'
-      ? cmsData.sublead
-      : 'Каждый стиль генерирует новое фото и улучшает психологию восприятия для конкретной жизненной ситуации';
+  const title = typeof cmsData.title === 'string' && cmsData.title ? cmsData.title : t('simulation.title');
+  const subtitle = typeof cmsData.subtitle === 'string' && cmsData.subtitle ? cmsData.subtitle : t('simulation.subtitle');
+  const lead = typeof cmsData.lead === 'string' && cmsData.lead ? cmsData.lead : t('simulation.lead');
+  const sublead = typeof cmsData.sublead === 'string' && cmsData.sublead ? cmsData.sublead : t('simulation.sublead');
 
   function handleCategoryChange(id: CategoryId) {
     setActiveCategory(id);
@@ -141,13 +135,13 @@ export default function Simulation({
               {categoryLabel}
             </h3>
             <p className="text-[16px] leading-[24px] text-[var(--color-text-secondary)] text-center max-w-[400px]">
-              Генерация для этого направления появится в ближайшем обновлении. Следите за новостями!
+              {t('simulation.comingSoonText')}
             </p>
             <Link
               to="/app"
               className="glass-btn-primary inline-flex items-center justify-center px-[var(--space-24)] py-[var(--space-12)] text-[16px] leading-[22px] rounded-[var(--radius-pill)] font-medium no-underline mt-[var(--space-8)]"
             >
-              Попробовать другие стили
+              {t('simulation.tryOtherStyles')}
             </Link>
           </div>
         </div>
@@ -197,7 +191,7 @@ export default function Simulation({
                 to="/app"
                 className="glass-btn-secondary flex items-center justify-center w-full px-[var(--space-20)] py-[var(--space-10)] rounded-[var(--radius-12)] text-[var(--color-brand-primary)] text-[16px] leading-[24px] font-medium no-underline"
               >
-                Ещё {remaining} образов
+                {t('simulation.moreStyles', { count: remaining })}
               </Link>
             )}
           </div>

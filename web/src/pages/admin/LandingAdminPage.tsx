@@ -172,7 +172,11 @@ export default function LandingAdminPage() {
             Landing CMS
           </h2>
           <p className="text-[13px] leading-[18px] text-[#8b95a3]">
-            Источник данных: <code className="text-[#a8b1bf]">data/landing_content.json</code>. Сохраняем страницу целиком.
+            Источник данных: <code className="text-[#a8b1bf]">data/landing_content.json</code> на RU edge,
+            {' '}
+            <code className="text-[#a8b1bf]">data/landing_content.global.json</code> на primary.
+            Контент пер-серверный — тот сервер, на который сейчас указывает «Цель» в шапке, и редактируется.
+            Используйте кнопку «Применить на оба», когда правка действительно одинакова для RU и EN.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-[var(--space-8)]">

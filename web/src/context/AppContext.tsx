@@ -487,14 +487,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
       if (e instanceof api.ApiError && e.status === 451) {
         void fetchConsents();
         setPreAnalyzeError(false);
-        setError('Нужно подтвердить согласия на обработку данных.');
+        setError(i18next.t('errors:consent.required'));
         return;
       }
       setPreAnalyzeError(true);
       setError(
         humanizeApiError(
           e,
-          'Не удалось проанализировать фото. Попробуйте загрузить другое или повторите попытку.',
+          i18next.t('errors:generic.unknown'),
         ),
       );
     } finally {
@@ -506,15 +506,25 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const loginWithOAuth = useCallback(async (provider: 'yandex' | 'vk-id' | 'google') => {
     const returnPath = typeof window !== 'undefined' ? `${window.location.pathname}${window.location.search}` : '';
     if (returnPath) {
+      // Belt-and-suspenders: keep the legacy sessionStorage entry as a
+      // same-origin fallback. The authoritative store is now Redis on
+      // the backend (see ``return_path`` in ``oauth_state.py``), which
+      // survives cross-origin OAuth redirects (e.g. vercel.app vs
+      // ailookstudio.ru).
       rememberOAuthReturnPath(returnPath);
     }
-    await startOAuth(provider, photo ? {
-      file: photo.file,
-      mode: activeCategory,
-      style: selectedStyleKey,
-      scenarioSlug: scenarioSlug ?? undefined,
-      returnPath: returnPath || undefined,
-    } : undefined);
+    await startOAuth(
+      provider,
+      photo ? {
+        file: photo.file,
+        mode: activeCategory,
+        style: selectedStyleKey,
+        scenarioSlug: scenarioSlug ?? undefined,
+        returnPath: returnPath || undefined,
+      } : undefined,
+      undefined,
+      returnPath || undefined,
+    );
   }, [photo, activeCategory, selectedStyleKey, scenarioSlug]);
 
   const loginWithToken = useCallback(async (token: string, userId?: string, provider?: string) => {
@@ -744,7 +754,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       }
     } catch {
       setIsGenerating(false);
-      setError('Не удалось получить результат. Проверьте подключение и попробуйте снова.');
+      setError(i18next.t('errors:task.result_failed'));
     }
   }, [refreshBalance, fetchTaskHistory, verifyImageUrl, scheduleDeferredDeltaRefresh]);
 
@@ -758,7 +768,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       if (Date.now() - startedAt > TIMEOUT_MS) {
         stopPolling();
         setIsGenerating(false);
-        setError('Превышено время ожидания результата. Попробуйте снова.');
+        setError(i18next.t('errors:task.timeout'));
         return;
       }
       try {
@@ -774,7 +784,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         if (errorCount >= MAX_ERRORS) {
           stopPolling();
           setIsGenerating(false);
-          setError('Не удалось получить результат. Проверьте подключение и попробуйте снова.');
+          setError(i18next.t('errors:task.result_failed'));
         }
       }
     }, 3000);
@@ -980,7 +990,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         setIsGenerating(false);
         clearPendingTask();
         if (reauthed) {
-          setError('Сессия обновлена. Попробуйте ещё раз.');
+          setError(i18next.t('errors:session.refreshed'));
         }
       } else {
         setIsGenerating(false);
@@ -989,12 +999,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
           setNoCreditsError(true);
         } else if (e instanceof api.ApiError && e.status === 451) {
           void fetchConsents();
-          setError('Нужно подтвердить согласия на обработку данных.');
+          setError(i18next.t('errors:consent.required'));
         } else {
           setError(
             humanizeApiError(
               e,
-              'Не удалось запустить генерацию. Попробуйте ещё раз через минуту.',
+              i18next.t('errors:generic.unknown'),
             ),
           );
         }

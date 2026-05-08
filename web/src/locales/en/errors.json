@@ -1,6 +1,7 @@
 {
   "session": {
-    "expired": "Your session has expired. Please sign in again."
+    "expired": "Your session has expired. Please sign in again.",
+    "refreshed": "Session refreshed. Please try again."
   },
   "payment": {
     "redirect_ru": "This payment is processed via ru.ailookstudio.ru — redirecting…",
@@ -16,6 +17,21 @@
   "admin": {
     "forbidden": "Access denied. This account is not in ADMIN_USER_IDS.",
     "unauthorized": "Unauthorized. Please sign in as administrator."
+  },
+  "consent": {
+    "required": "Please confirm consent to data processing.",
+    "save_failed": "Could not save your consent. Please try again."
+  },
+  "task": {
+    "result_failed": "Could not retrieve the result. Check your connection and try again.",
+    "timeout": "Timed out waiting for the result. Please try again."
+  },
+  "auth": {
+    "callback_failed": "Could not finish authentication. Please try again.",
+    "no_token": "Authentication token missing. Please sign in again.",
+    "oauth_error_prefix": "Authentication error: {{detail}}",
+    "loading": "Signing you in...",
+    "back_home": "Back to home"
   },
   "generic": {
     "unknown": "Something went wrong. Please try again later.",

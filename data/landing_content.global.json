@@ -1,0 +1,1233 @@
+{
+  "pages": {
+    "home": {
+      "blocks": [
+        {
+          "id": "proof-counter",
+          "type": "proof_counter",
+          "enabled": true,
+          "data": {
+            "heading": "",
+            "subheading": "",
+            "baseCount": 2799,
+            "counter": {
+              "minDelayMs": 8000,
+              "maxDelayMs": 36000,
+              "burstChance": 0.16,
+              "maxBurstSize": 3
+            }
+          }
+        },
+        {
+          "id": "social-proof",
+          "type": "social_proof",
+          "enabled": false,
+          "data": {
+            "title": "",
+            "baseCount": 2734,
+            "counter": {
+              "minDelayMs": 8000,
+              "maxDelayMs": 36000,
+              "burstChance": 0.16,
+              "maxBurstSize": 3
+            },
+            "tickerIntervalMs": 4200,
+            "feed": [
+              {
+                "id": "sp-1",
+                "author": "",
+                "message": "",
+                "context": ""
+              },
+              {
+                "id": "sp-2",
+                "author": "",
+                "message": "",
+                "context": ""
+              },
+              {
+                "id": "sp-3",
+                "author": "",
+                "message": "",
+                "context": ""
+              }
+            ]
+          }
+        },
+        {
+          "id": "before-after",
+          "type": "before_after",
+          "enabled": false,
+          "data": {
+            "title": "",
+            "subtitle": "",
+            "caption": ""
+          }
+        },
+        {
+          "id": "six-categories",
+          "type": "six_categories",
+          "enabled": false,
+          "data": {
+            "title": "",
+            "subtitle": "",
+            "lead": "",
+            "sublead": ""
+          }
+        },
+        {
+          "id": "api",
+          "type": "api",
+          "enabled": false,
+          "data": {
+            "title": "",
+            "subtitle": "",
+            "primaryCtaLabel": "",
+            "primaryCtaUrl": "",
+            "secondaryCtaLabel": "",
+            "secondaryCtaUrl": ""
+          }
+        },
+        {
+          "id": "pricing",
+          "type": "pricing",
+          "enabled": true,
+          "data": {
+            "title": "",
+            "subtitle": "",
+            "caption": "",
+            "tryFreeLabel": "",
+            "plans": [
+              {
+                "title": "",
+                "price": "",
+                "photos": "",
+                "packQty": 1,
+                "desc": "",
+                "highlighted": false,
+                "badge": null,
+                "savingBadge": null
+              },
+              {
+                "title": "",
+                "price": "",
+                "photos": "",
+                "packQty": 5,
+                "desc": "",
+                "highlighted": false,
+                "badge": null,
+                "savingBadge": null
+              },
+              {
+                "title": "",
+                "price": "",
+                "photos": "",
+                "packQty": 15,
+                "desc": "",
+                "highlighted": true,
+                "badge": "",
+                "savingBadge": ""
+              },
+              {
+                "title": "",
+                "price": "",
+                "photos": "",
+                "packQty": 30,
+                "desc": "",
+                "highlighted": false,
+                "badge": null,
+                "savingBadge": null
+              }
+            ]
+          }
+        },
+        {
+          "id": "footer",
+          "type": "footer",
+          "enabled": true,
+          "data": {
+            "brand": {
+              "title": "",
+              "tagline": ""
+            },
+            "products": null,
+            "support": [
+              {
+                "label": "",
+                "action": ""
+              },
+              {
+                "label": "",
+                "action": ""
+              }
+            ],
+            "documents": [
+              {
+                "label": "",
+                "action": "",
+                "policyId": ""
+              },
+              {
+                "label": "",
+                "action": "",
+                "policyId": ""
+              },
+              {
+                "label": "",
+                "action": "",
+                "policyId": ""
+              },
+              {
+                "label": "",
+                "action": "",
+                "policyId": ""
+              },
+              {
+                "label": "",
+                "action": "",
+                "policyId": ""
+              }
+            ],
+            "social": [
+              {
+                "label": "",
+                "href": "",
+                "icon": "telegram"
+              }
+            ],
+            "support_contacts": {
+              "telegram_url": "",
+              "email": "",
+              "faq": [
+                {
+                  "q": "",
+                  "a": ""
+                },
+                {
+                  "q": "",
+                  "a": ""
+                },
+                {
+                  "q": "",
+                  "a": ""
+                },
+                {
+                  "q": "",
+                  "a": ""
+                },
+                {
+                  "q": "",
+                  "a": ""
+                }
+              ]
+            },
+            "creditsText": "",
+            "creditsLinkLabel": "",
+            "creditsLinkHref": "",
+            "copyright": "",
+            "links": [
+              {
+                "label": "",
+                "href": "",
+                "external": false
+              },
+              {
+                "label": "",
+                "href": "",
+                "external": true
+              }
+            ]
+          }
+        }
+      ]
+    },
+    "document_photo": {
+      "blocks": [
+        {
+          "id": "hero",
+          "type": "hero",
+          "enabled": true,
+          "data": {
+            "icon": "📋",
+            "title": "",
+            "gradient_phrase": "",
+            "lead": "",
+            "cta_label": "",
+            "cta_microcopy": ""
+          }
+        },
+        {
+          "id": "proof-counter",
+          "type": "proof_counter",
+          "enabled": true,
+          "data": {
+            "heading": "",
+            "subheading": ""
+          }
+        },
+        {
+          "id": "how-it-works",
+          "type": "how_it_works",
+          "enabled": true,
+          "data": {
+            "title": "",
+            "steps": [
+              {
+                "num": "",
+                "title": "",
+                "desc": ""
+              },
+              {
+                "num": "",
+                "title": "",
+                "desc": ""
+              },
+              {
+                "num": "",
+                "title": "",
+                "desc": ""
+              },
+              {
+                "num": "",
+                "title": "",
+                "desc": ""
+              }
+            ]
+          }
+        },
+        {
+          "id": "final-cta",
+          "type": "final_cta",
+          "enabled": true,
+          "data": {
+            "brand_heading": "",
+            "h2": "",
+            "lead": "",
+            "cta_signed_in_label": "",
+            "cta_anonymous_label": ""
+          }
+        },
+        {
+          "id": "scenario-pricing",
+          "type": "scenario_pricing",
+          "enabled": true,
+          "data": {
+            "tagline": ""
+          }
+        }
+      ]
+    },
+    "dating_photo": {
+      "blocks": [
+        {
+          "id": "hero",
+          "type": "hero",
+          "enabled": true,
+          "data": {
+            "icon": "💘",
+            "title": "",
+            "gradient_phrase": "",
+            "lead": "",
+            "cta_label": "",
+            "cta_microcopy": ""
+          }
+        },
+        {
+          "id": "proof-counter",
+          "type": "proof_counter",
+          "enabled": true,
+          "data": {
+            "heading": "",
+            "subheading": ""
+          }
+        },
+        {
+          "id": "how-it-works",
+          "type": "how_it_works",
+          "enabled": true,
+          "data": {
+            "title": "",
+            "steps": [
+              {
+                "num": "",
+                "title": "",
+                "desc": ""
+              },
+              {
+                "num": "",
+                "title": "",
+                "desc": ""
+              },
+              {
+                "num": "",
+                "title": "",
+                "desc": ""
+              },
+              {
+                "num": "",
+                "title": "",
+                "desc": ""
+              }
+            ]
+          }
+        },
+        {
+          "id": "final-cta",
+          "type": "final_cta",
+          "enabled": true,
+          "data": {
+            "brand_heading": "",
+            "h2": "",
+            "lead": "",
+            "cta_signed_in_label": "",
+            "cta_anonymous_label": ""
+          }
+        },
+        {
+          "id": "scenario-pricing",
+          "type": "scenario_pricing",
+          "enabled": true,
+          "data": {
+            "tagline": ""
+          }
+        }
+      ]
+    },
+    "resume_photo": {
+      "blocks": [
+        {
+          "id": "hero",
+          "type": "hero",
+          "enabled": true,
+          "data": {
+            "icon": "💼",
+            "title": "",
+            "gradient_phrase": "",
+            "lead": "",
+            "cta_label": "",
+            "cta_microcopy": ""
+          }
+        },
+        {
+          "id": "proof-counter",
+          "type": "proof_counter",
+          "enabled": true,
+          "data": {
+            "heading": "",
+            "subheading": ""
+          }
+        },
+        {
+          "id": "how-it-works",
+          "type": "how_it_works",
+          "enabled": true,
+          "data": {
+            "title": "",
+            "steps": [
+              {
+                "num": "",
+                "title": "",
+                "desc": ""
+              },
+              {
+                "num": "",
+                "title": "",
+                "desc": ""
+              },
+              {
+                "num": "",
+                "title": "",
+                "desc": ""
+              },
+              {
+                "num": "",
+                "title": "",
+                "desc": ""
+              }
+            ]
+          }
+        },
+        {
+          "id": "final-cta",
+          "type": "final_cta",
+          "enabled": true,
+          "data": {
+            "brand_heading": "",
+            "h2": "",
+            "lead": "",
+            "cta_signed_in_label": "",
+            "cta_anonymous_label": ""
+          }
+        },
+        {
+          "id": "scenario-pricing",
+          "type": "scenario_pricing",
+          "enabled": true,
+          "data": {
+            "tagline": ""
+          }
+        }
+      ]
+    },
+    "visa-schengen": {
+      "blocks": [
+        {
+          "id": "hero",
+          "type": "hero",
+          "enabled": true,
+          "data": {
+            "icon": "🛂",
+            "title": "",
+            "gradient_phrase": "",
+            "lead": "",
+            "cta_label": "",
+            "cta_microcopy": ""
+          }
+        },
+        {
+          "id": "proof-counter",
+          "type": "proof_counter",
+          "enabled": true,
+          "data": {
+            "heading": "",
+            "subheading": ""
+          }
+        },
+        {
+          "id": "how-it-works",
+          "type": "how_it_works",
+          "enabled": true,
+          "data": {
+            "title": "",
+            "steps": [
+              {
+                "num": "",
+                "title": "",
+                "desc": ""
+              },
+              {
+                "num": "",
+                "title": "",
+                "desc": ""
+              },
+              {
+                "num": "",
+                "title": "",
+                "desc": ""
+              },
+              {
+                "num": "",
+                "title": "",
+                "desc": ""
+              }
+            ]
+          }
+        },
+        {
+          "id": "final-cta",
+          "type": "final_cta",
+          "enabled": true,
+          "data": {
+            "brand_heading": "",
+            "h2": "",
+            "lead": "",
+            "cta_signed_in_label": "",
+            "cta_anonymous_label": ""
+          }
+        },
+        {
+          "id": "scenario-pricing",
+          "type": "scenario_pricing",
+          "enabled": true,
+          "data": {
+            "tagline": ""
+          }
+        }
+      ]
+    },
+    "visa-usa": {
+      "blocks": [
+        {
+          "id": "hero",
+          "type": "hero",
+          "enabled": true,
+          "data": {
+            "icon": "🇺🇸",
+            "title": "",
+            "gradient_phrase": "",
+            "lead": "",
+            "cta_label": "",
+            "cta_microcopy": ""
+          }
+        },
+        {
+          "id": "proof-counter",
+          "type": "proof_counter",
+          "enabled": true,
+          "data": {
+            "heading": "",
+            "subheading": ""
+          }
+        },
+        {
+          "id": "how-it-works",
+          "type": "how_it_works",
+          "enabled": true,
+          "data": {
+            "title": "",
+            "steps": [
+              {
+                "num": "",
+                "title": "",
+                "desc": ""
+              },
+              {
+                "num": "",
+                "title": "",
+                "desc": ""
+              },
+              {
+                "num": "",
+                "title": "",
+                "desc": ""
+              },
+              {
+                "num": "",
+                "title": "",
+                "desc": ""
+              }
+            ]
+          }
+        },
+        {
+          "id": "final-cta",
+          "type": "final_cta",
+          "enabled": true,
+          "data": {
+            "brand_heading": "",
+            "h2": "",
+            "lead": "",
+            "cta_signed_in_label": "",
+            "cta_anonymous_label": ""
+          }
+        },
+        {
+          "id": "scenario-pricing",
+          "type": "scenario_pricing",
+          "enabled": true,
+          "data": {
+            "tagline": ""
+          }
+        }
+      ]
+    },
+    "visa-uk": {
+      "blocks": [
+        {
+          "id": "hero",
+          "type": "hero",
+          "enabled": true,
+          "data": {
+            "icon": "🇬🇧",
+            "title": "",
+            "gradient_phrase": "",
+            "lead": "",
+            "cta_label": "",
+            "cta_microcopy": ""
+          }
+        },
+        {
+          "id": "proof-counter",
+          "type": "proof_counter",
+          "enabled": true,
+          "data": {
+            "heading": "",
+            "subheading": ""
+          }
+        },
+        {
+          "id": "how-it-works",
+          "type": "how_it_works",
+          "enabled": true,
+          "data": {
+            "title": "",
+            "steps": [
+              {
+                "num": "",
+                "title": "",
+                "desc": ""
+              },
+              {
+                "num": "",
+                "title": "",
+                "desc": ""
+              },
+              {
+                "num": "",
+                "title": "",
+                "desc": ""
+              },
+              {
+                "num": "",
+                "title": "",
+                "desc": ""
+              }
+            ]
+          }
+        },
+        {
+          "id": "final-cta",
+          "type": "final_cta",
+          "enabled": true,
+          "data": {
+            "brand_heading": "",
+            "h2": "",
+            "lead": "",
+            "cta_signed_in_label": "",
+            "cta_anonymous_label": ""
+          }
+        },
+        {
+          "id": "scenario-pricing",
+          "type": "scenario_pricing",
+          "enabled": true,
+          "data": {
+            "tagline": ""
+          }
+        }
+      ]
+    },
+    "visa-canada": {
+      "blocks": [
+        {
+          "id": "hero",
+          "type": "hero",
+          "enabled": true,
+          "data": {
+            "icon": "🇨🇦",
+            "title": "",
+            "gradient_phrase": "",
+            "lead": "",
+            "cta_label": "",
+            "cta_microcopy": ""
+          }
+        },
+        {
+          "id": "proof-counter",
+          "type": "proof_counter",
+          "enabled": true,
+          "data": {
+            "heading": "",
+            "subheading": ""
+          }
+        },
+        {
+          "id": "how-it-works",
+          "type": "how_it_works",
+          "enabled": true,
+          "data": {
+            "title": "",
+            "steps": [
+              {
+                "num": "",
+                "title": "",
+                "desc": ""
+              },
+              {
+                "num": "",
+                "title": "",
+                "desc": ""
+              },
+              {
+                "num": "",
+                "title": "",
+                "desc": ""
+              },
+              {
+                "num": "",
+                "title": "",
+                "desc": ""
+              }
+            ]
+          }
+        },
+        {
+          "id": "final-cta",
+          "type": "final_cta",
+          "enabled": true,
+          "data": {
+            "brand_heading": "",
+            "h2": "",
+            "lead": "",
+            "cta_signed_in_label": "",
+            "cta_anonymous_label": ""
+          }
+        },
+        {
+          "id": "scenario-pricing",
+          "type": "scenario_pricing",
+          "enabled": true,
+          "data": {
+            "tagline": ""
+          }
+        }
+      ]
+    },
+    "visa-japan": {
+      "blocks": [
+        {
+          "id": "hero",
+          "type": "hero",
+          "enabled": true,
+          "data": {
+            "icon": "🇯🇵",
+            "title": "",
+            "gradient_phrase": "",
+            "lead": "",
+            "cta_label": "",
+            "cta_microcopy": ""
+          }
+        },
+        {
+          "id": "proof-counter",
+          "type": "proof_counter",
+          "enabled": true,
+          "data": {
+            "heading": "",
+            "subheading": ""
+          }
+        },
+        {
+          "id": "how-it-works",
+          "type": "how_it_works",
+          "enabled": true,
+          "data": {
+            "title": "",
+            "steps": [
+              {
+                "num": "",
+                "title": "",
+                "desc": ""
+              },
+              {
+                "num": "",
+                "title": "",
+                "desc": ""
+              },
+              {
+                "num": "",
+                "title": "",
+                "desc": ""
+              },
+              {
+                "num": "",
+                "title": "",
+                "desc": ""
+              }
+            ]
+          }
+        },
+        {
+          "id": "final-cta",
+          "type": "final_cta",
+          "enabled": true,
+          "data": {
+            "brand_heading": "",
+            "h2": "",
+            "lead": "",
+            "cta_signed_in_label": "",
+            "cta_anonymous_label": ""
+          }
+        },
+        {
+          "id": "scenario-pricing",
+          "type": "scenario_pricing",
+          "enabled": true,
+          "data": {
+            "tagline": ""
+          }
+        }
+      ]
+    },
+    "visa-china": {
+      "blocks": [
+        {
+          "id": "hero",
+          "type": "hero",
+          "enabled": true,
+          "data": {
+            "icon": "🇨🇳",
+            "title": "",
+            "gradient_phrase": "",
+            "lead": "",
+            "cta_label": "",
+            "cta_microcopy": ""
+          }
+        },
+        {
+          "id": "proof-counter",
+          "type": "proof_counter",
+          "enabled": true,
+          "data": {
+            "heading": "",
+            "subheading": ""
+          }
+        },
+        {
+          "id": "how-it-works",
+          "type": "how_it_works",
+          "enabled": true,
+          "data": {
+            "title": "",
+            "steps": [
+              {
+                "num": "",
+                "title": "",
+                "desc": ""
+              },
+              {
+                "num": "",
+                "title": "",
+                "desc": ""
+              },
+              {
+                "num": "",
+                "title": "",
+                "desc": ""
+              },
+              {
+                "num": "",
+                "title": "",
+                "desc": ""
+              }
+            ]
+          }
+        },
+        {
+          "id": "final-cta",
+          "type": "final_cta",
+          "enabled": true,
+          "data": {
+            "brand_heading": "",
+            "h2": "",
+            "lead": "",
+            "cta_signed_in_label": "",
+            "cta_anonymous_label": ""
+          }
+        },
+        {
+          "id": "scenario-pricing",
+          "type": "scenario_pricing",
+          "enabled": true,
+          "data": {
+            "tagline": ""
+          }
+        }
+      ]
+    },
+    "visa-uae": {
+      "blocks": [
+        {
+          "id": "hero",
+          "type": "hero",
+          "enabled": true,
+          "data": {
+            "icon": "🇦🇪",
+            "title": "",
+            "gradient_phrase": "",
+            "lead": "",
+            "cta_label": "",
+            "cta_microcopy": ""
+          }
+        },
+        {
+          "id": "proof-counter",
+          "type": "proof_counter",
+          "enabled": true,
+          "data": {
+            "heading": "",
+            "subheading": ""
+          }
+        },
+        {
+          "id": "how-it-works",
+          "type": "how_it_works",
+          "enabled": true,
+          "data": {
+            "title": "",
+            "steps": [
+              {
+                "num": "",
+                "title": "",
+                "desc": ""
+              },
+              {
+                "num": "",
+                "title": "",
+                "desc": ""
+              },
+              {
+                "num": "",
+                "title": "",
+                "desc": ""
+              },
+              {
+                "num": "",
+                "title": "",
+                "desc": ""
+              }
+            ]
+          }
+        },
+        {
+          "id": "final-cta",
+          "type": "final_cta",
+          "enabled": true,
+          "data": {
+            "brand_heading": "",
+            "h2": "",
+            "lead": "",
+            "cta_signed_in_label": "",
+            "cta_anonymous_label": ""
+          }
+        },
+        {
+          "id": "scenario-pricing",
+          "type": "scenario_pricing",
+          "enabled": true,
+          "data": {
+            "tagline": ""
+          }
+        }
+      ]
+    },
+    "visa-australia": {
+      "blocks": [
+        {
+          "id": "hero",
+          "type": "hero",
+          "enabled": true,
+          "data": {
+            "icon": "🇦🇺",
+            "title": "",
+            "gradient_phrase": "",
+            "lead": "",
+            "cta_label": "",
+            "cta_microcopy": ""
+          }
+        },
+        {
+          "id": "proof-counter",
+          "type": "proof_counter",
+          "enabled": true,
+          "data": {
+            "heading": "",
+            "subheading": ""
+          }
+        },
+        {
+          "id": "how-it-works",
+          "type": "how_it_works",
+          "enabled": true,
+          "data": {
+            "title": "",
+            "steps": [
+              {
+                "num": "",
+                "title": "",
+                "desc": ""
+              },
+              {
+                "num": "",
+                "title": "",
+                "desc": ""
+              },
+              {
+                "num": "",
+                "title": "",
+                "desc": ""
+              },
+              {
+                "num": "",
+                "title": "",
+                "desc": ""
+              }
+            ]
+          }
+        },
+        {
+          "id": "final-cta",
+          "type": "final_cta",
+          "enabled": true,
+          "data": {
+            "brand_heading": "",
+            "h2": "",
+            "lead": "",
+            "cta_signed_in_label": "",
+            "cta_anonymous_label": ""
+          }
+        },
+        {
+          "id": "scenario-pricing",
+          "type": "scenario_pricing",
+          "enabled": true,
+          "data": {
+            "tagline": ""
+          }
+        }
+      ]
+    },
+    "visa-korea": {
+      "blocks": [
+        {
+          "id": "hero",
+          "type": "hero",
+          "enabled": true,
+          "data": {
+            "icon": "🇰🇷",
+            "title": "",
+            "gradient_phrase": "",
+            "lead": "",
+            "cta_label": "",
+            "cta_microcopy": ""
+          }
+        },
+        {
+          "id": "proof-counter",
+          "type": "proof_counter",
+          "enabled": true,
+          "data": {
+            "heading": "",
+            "subheading": ""
+          }
+        },
+        {
+          "id": "how-it-works",
+          "type": "how_it_works",
+          "enabled": true,
+          "data": {
+            "title": "",
+            "steps": [
+              {
+                "num": "",
+                "title": "",
+                "desc": ""
+              },
+              {
+                "num": "",
+                "title": "",
+                "desc": ""
+              },
+              {
+                "num": "",
+                "title": "",
+                "desc": ""
+              },
+              {
+                "num": "",
+                "title": "",
+                "desc": ""
+              }
+            ]
+          }
+        },
+        {
+          "id": "final-cta",
+          "type": "final_cta",
+          "enabled": true,
+          "data": {
+            "brand_heading": "",
+            "h2": "",
+            "lead": "",
+            "cta_signed_in_label": "",
+            "cta_anonymous_label": ""
+          }
+        },
+        {
+          "id": "scenario-pricing",
+          "type": "scenario_pricing",
+          "enabled": true,
+          "data": {
+            "tagline": ""
+          }
+        }
+      ]
+    },
+    "visa-india": {
+      "blocks": [
+        {
+          "id": "hero",
+          "type": "hero",
+          "enabled": true,
+          "data": {
+            "icon": "🇮🇳",
+            "title": "",
+            "gradient_phrase": "",
+            "lead": "",
+            "cta_label": "",
+            "cta_microcopy": ""
+          }
+        },
+        {
+          "id": "proof-counter",
+          "type": "proof_counter",
+          "enabled": true,
+          "data": {
+            "heading": "",
+            "subheading": ""
+          }
+        },
+        {
+          "id": "how-it-works",
+          "type": "how_it_works",
+          "enabled": true,
+          "data": {
+            "title": "",
+            "steps": [
+              {
+                "num": "",
+                "title": "",
+                "desc": ""
+              },
+              {
+                "num": "",
+                "title": "",
+                "desc": ""
+              },
+              {
+                "num": "",
+                "title": "",
+                "desc": ""
+              },
+              {
+                "num": "",
+                "title": "",
+                "desc": ""
+              }
+            ]
+          }
+        },
+        {
+          "id": "final-cta",
+          "type": "final_cta",
+          "enabled": true,
+          "data": {
+            "brand_heading": "",
+            "h2": "",
+            "lead": "",
+            "cta_signed_in_label": "",
+            "cta_anonymous_label": ""
+          }
+        },
+        {
+          "id": "scenario-pricing",
+          "type": "scenario_pricing",
+          "enabled": true,
+          "data": {
+            "tagline": ""
+          }
+        }
+      ]
+    }
+  }
+}

@@ -4998,4 +4998,24 @@
 #          StepGenerate shows a fixed 98.9% (success_probability_after_pct from
 #          analysis_display block in scenarios.json). Frontend i18n bundle
 #          (RU + EN) splits UI translations from product content.
-APP_VERSION = "1.56.0"
+# 1.57.0 — Visa OAuth fix + full i18n migration + per-market CMS split
+#          • OAuth return_path round-trips through Redis state instead of
+#            sessionStorage so cross-origin redirects (vercel.app →
+#            ailookstudio.ru / ru.ailookstudio.ru) land back on /visa/*
+#            instead of /. Backend stores the (sanitised, single-leading-/)
+#            return_path with the rest of the OAuth state and re-emits it
+#            on the final /auth/callback redirect; SPA prefers the URL
+#            query parameter over the legacy sessionStorage fallback.
+#          • Wizard / sections / modals / scenario landings / account
+#            screens migrated to react-i18next: new namespaces (modals,
+#            account, scenarios, policies) plus a much wider RU+EN
+#            translation bundle. RU edge keeps showing Russian, the
+#            global build now serves English without a runtime toggle.
+#          • Per-market CMS: landing_store now picks
+#            data/landing_content.json on RU and
+#            data/landing_content.<market>.json on the others. New
+#            scripts/seed_landing_global.py generates a sibling file
+#            with empty text fields so the SPA falls through to its
+#            i18n fallbacks on the global build. Admin Landing CMS UI
+#            spells out the per-server contract.
+APP_VERSION = "1.57.0"

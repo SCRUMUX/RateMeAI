@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { createPortal } from 'react-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import useFocusTrap from '../lib/useFocusTrap';
@@ -17,29 +18,6 @@ interface Props {
   faq?: FaqItem[];
 }
 
-const DEFAULT_FAQ: FaqItem[] = [
-  {
-    q: 'Где найти заказ?',
-    a: 'Все ваши генерации доступны в личном кабинете /app сразу после оплаты. Письмо приходит на почту в течение 1 минуты.',
-  },
-  {
-    q: 'Как получить возврат?',
-    a: 'Если что-то пошло не так — напишите нам в Telegram или на email с номером заказа. Ответим в течение 24 часов.',
-  },
-  {
-    q: 'Где скачать обработанные фото?',
-    a: 'Каждая генерация даёт ссылку на скачивание в полном разрешении. Ссылка активна 72 часа.',
-  },
-  {
-    q: 'Не приходит письмо или Telegram-уведомление?',
-    a: 'Проверьте папку «Спам». Если не нашли — обновите страницу /app, генерации появятся там.',
-  },
-  {
-    q: 'Как мы улучшаем фото?',
-    a: 'Сервис улучшает ваше фото с сохранением сходства. Все обработанные изображения помечены как сгенерированные — в EXIF и водяным знаком.',
-  },
-];
-
 const DEFAULT_TELEGRAM_URL = 'https://t.me/ailookstudio_support';
 const DEFAULT_EMAIL = 'support@ailookstudio.ru';
 
@@ -51,7 +29,12 @@ export default function SupportModal({
   faq,
 }: Props) {
   const [openIdx, setOpenIdx] = useState<number | null>(null);
-  const items = faq && faq.length > 0 ? faq : DEFAULT_FAQ;
+  const { t } = useTranslation('modals');
+  const defaultFaq = useMemo<FaqItem[]>(() => {
+    const value = t('support.defaultFaq', { returnObjects: true }) as unknown;
+    return Array.isArray(value) ? (value as FaqItem[]) : [];
+  }, [t]);
+  const items = faq && faq.length > 0 ? faq : defaultFaq;
   const tg = (telegramUrl && telegramUrl.trim()) || DEFAULT_TELEGRAM_URL;
   const mail = (email && email.trim()) || DEFAULT_EMAIL;
   const dialogRef = useRef<HTMLDivElement | null>(null);
@@ -102,15 +85,15 @@ export default function SupportModal({
                   id="support-modal-title"
                   className="text-[20px] tablet:text-[26px] font-semibold leading-[1.2] text-[var(--color-text-primary)]"
                 >
-                  Чем мы можем помочь?
+                  {t('support.title')}
                 </h2>
                 <p className="text-[12px] tablet:text-[13px] text-[var(--color-text-muted)] mt-[var(--space-4)]">
-                  Ответим в Telegram в течение нескольких минут или на email в течение 24 часов.
+                  {t('support.subtitle')}
                 </p>
               </div>
               <button
                 onClick={onClose}
-                aria-label="Закрыть"
+                aria-label={t('common.close')}
                 className="shrink-0 w-9 h-9 flex items-center justify-center rounded-full glass-btn-ghost text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] transition-colors"
               >
                 <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
@@ -131,7 +114,7 @@ export default function SupportModal({
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
                     <path d="M21.94 4.42c.34-1.61-.6-2.27-1.71-1.86L2.71 9.4c-1.18.46-1.16 1.12-.2 1.42l4.5 1.4 10.43-6.59c.49-.32.94-.15.57.18l-8.45 7.62-.32 4.6c.46 0 .67-.21.91-.45l2.18-2.12 4.55 3.36c.83.46 1.43.22 1.65-.77l2.99-14.04z" />
                   </svg>
-                  Написать в Telegram
+                  {t('support.ctaTelegram')}
                 </a>
                 <a
                   href={`mailto:${mail}`}
@@ -148,7 +131,7 @@ export default function SupportModal({
               {/* FAQ */}
               <div className="flex flex-col gap-[var(--space-8)]">
                 <h3 className="text-[14px] tablet:text-[15px] font-medium text-[var(--color-text-primary)] uppercase tracking-wide opacity-80">
-                  Частые вопросы
+                  {t('support.faqTitle')}
                 </h3>
                 <ul className="flex flex-col gap-[var(--space-8)]">
                   {items.map((item, i) => {

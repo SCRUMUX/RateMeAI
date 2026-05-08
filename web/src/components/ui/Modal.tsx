@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { createPortal } from 'react-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import type { ReactNode } from 'react';
@@ -60,6 +61,7 @@ export default function Modal({
   className = '',
 }: ModalProps) {
   const { activeCategory } = useApp();
+  const { t } = useTranslation('modals');
 
   useEffect(() => {
     if (!open) return;
@@ -107,7 +109,7 @@ export default function Modal({
                 <button
                   type="button"
                   onClick={onClose}
-                  aria-label="Закрыть"
+                  aria-label={t('common.close')}
                   className="absolute top-[var(--space-16)] right-[var(--space-16)] w-8 h-8 flex items-center justify-center rounded-full glass-btn-ghost text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] transition-colors cursor-pointer"
                 >
                   <svg width="16" height="16" viewBox="0 0 16 16" fill="none">

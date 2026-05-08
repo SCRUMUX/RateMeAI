@@ -1,3 +1,5 @@
+import { useTranslation } from 'react-i18next';
+
 export interface HowItWorksStep {
   num: string;
   title: string;
@@ -11,13 +13,6 @@ export interface HowItWorksProps {
   title?: string;
 }
 
-const DEFAULT_STEPS: HowItWorksStep[] = [
-  { num: '1', title: 'Загрузи фото', desc: 'Крупный анфас, ≥400×400, один человек в кадре. Фото без лица и размытые не обрабатываются.' },
-  { num: '2', title: 'Выбери категорию', desc: 'Экспериментируй с образами! 3 категории и более 100 стилей в каждой' },
-  { num: '3', title: 'Получи результат', desc: 'Адаптированное фото и оценка восприятия от 0 до 10. Всё объяснено.' },
-  { num: '4', title: 'Прокачивай образ', desc: 'Не понравился результат — генерируй снова. Скор растёт с каждой итерацией.' },
-];
-
 /**
  * "How it works" block. Reused on the home landing and on every
  * scenario landing (Dating, Resume, Documents) — the visual shell is
@@ -26,7 +21,18 @@ const DEFAULT_STEPS: HowItWorksStep[] = [
  * the row stays symmetrical even when titles wrap to different line
  * counts between cards.
  */
-export default function HowItWorks({ steps = DEFAULT_STEPS, title }: HowItWorksProps) {
+function useDefaultSteps(): HowItWorksStep[] {
+  const { t } = useTranslation('landing');
+  return [
+    { num: '1', title: t('howItWorks.step1Title'), desc: t('howItWorks.step1Desc') },
+    { num: '2', title: t('howItWorks.step2Title'), desc: t('howItWorks.step2Desc') },
+    { num: '3', title: t('howItWorks.step3Title'), desc: t('howItWorks.step3Desc') },
+  ];
+}
+
+export default function HowItWorks({ steps, title }: HowItWorksProps) {
+  const defaultSteps = useDefaultSteps();
+  const effectiveSteps = steps ?? defaultSteps;
   return (
     <section className="relative z-[2] w-full">
       <div className="howworks-wrapper relative w-full glass-divider">
@@ -36,7 +42,7 @@ export default function HowItWorks({ steps = DEFAULT_STEPS, title }: HowItWorksP
             <h2 className="reveal landing-h2 text-[var(--color-text-primary)] text-center">{title}</h2>
           )}
           <div className="reveal-stagger howworks-grid w-full">
-            {steps.map((s) => (
+            {effectiveSteps.map((s) => (
               <article
                 key={s.num}
                 className="howworks-card gradient-border-card glass-card rounded-[var(--radius-12)]"

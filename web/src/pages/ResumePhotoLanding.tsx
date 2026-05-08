@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import NavBar from '../sections/NavBar';
 import Footer from '../sections/Footer';
 import AuthModal from '../components/AuthModal';
@@ -29,37 +30,6 @@ import {
   type ScenarioPricingContent,
 } from '../lib/landing-cms';
 
-const RESUME_FALLBACK_HERO: HeroContent = {
-  icon: '💼',
-  title: 'Фото для резюме',
-  gradientPhrase: 'и профиля',
-  lead: 'Сделаем фото собранным и профессиональным: спокойный фон, уверенный вайб, без «пластика» и странных деталей.',
-  ctaLabel: 'Начать',
-  ctaMicrocopy: 'Результат за несколько минут',
-};
-
-const RESUME_FALLBACK_HOW: HowItWorksContent = {
-  title: 'Как это работает',
-  steps: [
-    { num: '1', title: 'Загрузи фото', desc: 'Подойдёт любой портрет — даже домашнее селфи. Главное, чтобы лицо было крупно.' },
-    { num: '2', title: 'Выбери стиль', desc: 'Корпоративный, стартап, IT, ментор — подберём под твою сферу.' },
-    { num: '3', title: 'Получи результат', desc: 'Профессиональный портрет: спокойный фон, уверенный вайб, без «пластика».' },
-    { num: '4', title: 'Усиль профиль', desc: 'Поставь на LinkedIn, hh.ru или резюме — отклики становятся заметнее.' },
-  ],
-};
-
-const RESUME_FALLBACK_FINAL: FinalCtaContent = {
-  brandHeading: '💼 Фото для резюме',
-  h2: 'Готовы обновить резюме?',
-  lead: 'Замените фото на LinkedIn и hh.ru — отклики на вакансии становятся заметнее',
-  ctaSignedInLabel: 'Открыть приложение',
-  ctaAnonymousLabel: 'Получить доступ',
-};
-
-const RESUME_FALLBACK_PRICING: ScenarioPricingContent = {
-  tagline: 'Обнови портрет на LinkedIn и hh.ru за один пакет',
-};
-
 interface LandingProps {
   onStart?: () => void;
   showAuth?: boolean;
@@ -71,41 +41,79 @@ export default function ResumePhotoLanding({ onStart, showAuth, onAuthClose }: L
   const canAccessApp = app.canAccessApp;
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const authOpen = authModalOpen || !!showAuth;
+  const { t: tScenarios } = useTranslation('scenarios');
 
   const page = useLandingPage('resume_photo');
 
   const cvPreset = getLandingSocialProofPreset('cv');
-  const fallbackProof: ProofCounterContent = {
-    heading: 'Фото для резюме уже создано',
-    subheading: 'Чтобы вы быстрее нашли работу мечты.',
-    baseCount: cvPreset.baseCount,
-    counter: cvPreset.counter,
-  };
+
+  const fallbackHero: HeroContent = useMemo(
+    () => ({
+      icon: tScenarios('resume.hero.icon'),
+      title: tScenarios('resume.hero.title'),
+      gradientPhrase: tScenarios('resume.hero.gradientPhrase'),
+      lead: tScenarios('resume.hero.lead'),
+      ctaLabel: tScenarios('resume.hero.ctaLabel'),
+      ctaMicrocopy: tScenarios('resume.hero.ctaMicrocopy'),
+    }),
+    [tScenarios],
+  );
+  const fallbackProof: ProofCounterContent = useMemo(
+    () => ({
+      heading: tScenarios('resume.proof.heading'),
+      subheading: tScenarios('resume.proof.subheading'),
+      baseCount: cvPreset.baseCount,
+      counter: cvPreset.counter,
+    }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [tScenarios],
+  );
+  const fallbackHow: HowItWorksContent = useMemo(() => {
+    const steps = tScenarios('resume.how.steps', { returnObjects: true }) as unknown;
+    const safe = Array.isArray(steps) ? (steps as HowItWorksContent['steps']) : [];
+    return {
+      title: tScenarios('resume.how.title'),
+      steps: safe,
+    };
+  }, [tScenarios]);
+  const fallbackFinal: FinalCtaContent = useMemo(
+    () => ({
+      brandHeading: tScenarios('resume.final.brandHeading'),
+      h2: tScenarios('resume.final.h2'),
+      lead: tScenarios('resume.final.lead'),
+      ctaSignedInLabel: tScenarios('resume.final.ctaSignedInLabel'),
+      ctaAnonymousLabel: tScenarios('resume.final.ctaAnonymousLabel'),
+    }),
+    [tScenarios],
+  );
+  const fallbackPricing: ScenarioPricingContent = useMemo(
+    () => ({ tagline: tScenarios('resume.pricing.tagline') }),
+    [tScenarios],
+  );
 
   const hero = useMemo(
-    () => parseHero(findBlock(page, 'hero')?.data, RESUME_FALLBACK_HERO),
-    [page],
+    () => parseHero(findBlock(page, 'hero')?.data, fallbackHero),
+    [page, fallbackHero],
   );
   const proof = useMemo(
     () => parseProofCounter(findBlock(page, 'proof_counter')?.data, fallbackProof),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [page],
+    [page, fallbackProof],
   );
   const how = useMemo(
-    () => parseHowItWorks(findBlock(page, 'how_it_works')?.data, RESUME_FALLBACK_HOW),
-    [page],
+    () => parseHowItWorks(findBlock(page, 'how_it_works')?.data, fallbackHow),
+    [page, fallbackHow],
   );
   const final = useMemo(
-    () => parseFinalCta(findBlock(page, 'final_cta')?.data, RESUME_FALLBACK_FINAL),
-    [page],
+    () => parseFinalCta(findBlock(page, 'final_cta')?.data, fallbackFinal),
+    [page, fallbackFinal],
   );
   const pricing = useMemo(
     () =>
       parseScenarioPricing(
         findBlock(page, 'scenario_pricing')?.data,
-        RESUME_FALLBACK_PRICING,
+        fallbackPricing,
       ),
-    [page],
+    [page, fallbackPricing],
   );
 
   // 1.50.7: sync AppContext.activeCategory so portal-mounted modals
@@ -115,9 +123,8 @@ export default function ResumePhotoLanding({ onStart, showAuth, onAuthClose }: L
   }, [app]);
 
   useDocumentMeta({
-    title: 'Фото на резюме · Look Studio',
-    description:
-      'Фото для LinkedIn, hh.ru и корпоративных профилей: бизнес-кадрирование, нейтральный фон, естественный костюм. Готово за пару минут.',
+    title: tScenarios('resume.seo.title'),
+    description: tScenarios('resume.seo.description'),
     canonicalPath: '/rezume',
   });
 

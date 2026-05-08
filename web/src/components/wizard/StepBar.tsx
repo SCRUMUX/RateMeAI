@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { WIZARD_STEPS, type WizardStepId, type WizardStep } from './shared';
 
 interface Props {
@@ -61,6 +62,7 @@ export default function StepBar({ currentStep, completedSteps, onStepClick, phot
   const steps = customSteps ?? WIZARD_STEPS;
   const currentIdx = steps.findIndex(s => s.id === currentStep);
   const contextProps = { photoPreview, analysisScore, styleDelta, finalScore };
+  const { t } = useTranslation('wizard');
 
   return (
     <div className="w-full max-w-[960px] mx-auto">
@@ -109,12 +111,12 @@ export default function StepBar({ currentStep, completedSteps, onStepClick, phot
                 <span className={`text-[12px] leading-[16px] font-medium transition-colors whitespace-nowrap ${
                   isCurrent ? 'text-[var(--color-text-primary)]' : isCompleted ? 'text-[var(--color-text-secondary)]' : 'text-[var(--color-text-muted)]'
                 }`}>
-                  {step.title}
+                  {t(`stepBar.titles.${step.titleKey}`)}
                 </span>
                 <span className={`text-[10px] leading-[14px] transition-colors whitespace-nowrap ${
                   isCurrent ? 'text-[var(--color-text-secondary)]' : 'text-[var(--color-text-muted)]'
                 }`}>
-                  {step.desc}
+                  {t(`stepBar.descs.${step.descKey}`)}
                 </span>
               </div>
             </button>
@@ -126,10 +128,10 @@ export default function StepBar({ currentStep, completedSteps, onStepClick, phot
       <div className="flex tablet:hidden flex-col gap-[var(--space-8)] px-[var(--space-4)]">
         <div className="flex items-center justify-between">
           <span className="text-[14px] leading-[20px] font-semibold text-[var(--color-text-primary)]">
-            {steps[currentIdx]?.title}
+            {steps[currentIdx] ? t(`stepBar.titles.${steps[currentIdx].titleKey}`) : ''}
           </span>
           <span className="text-[12px] leading-[16px] text-[var(--color-text-muted)] tabular-nums">
-            Шаг {currentIdx + 1} из {steps.length}
+            {t('stepBar.stepLabel', { current: currentIdx + 1, total: steps.length })}
           </span>
         </div>
 

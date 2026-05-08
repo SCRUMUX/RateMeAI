@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import { createPortal } from 'react-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
@@ -17,6 +18,7 @@ export default function PolicyModal({ open, policyId, onClose }: Props) {
   const dialogRef = useRef<HTMLDivElement | null>(null);
   useFocusTrap(open && entry !== null, dialogRef);
   const { activeCategory } = useApp();
+  const { t } = useTranslation('modals');
 
   useEffect(() => {
     if (!open) return;
@@ -65,12 +67,12 @@ export default function PolicyModal({ open, policyId, onClose }: Props) {
                   {entry.title}
                 </h2>
                 <p className="text-[12px] text-[var(--color-text-muted)] mt-[var(--space-4)]">
-                  Обновлено: {entry.lastUpdated}
+                  {t('policy.lastUpdated', { date: entry.lastUpdated })}
                 </p>
               </div>
               <button
                 onClick={onClose}
-                aria-label="Закрыть"
+                aria-label={t('common.close')}
                 className="shrink-0 w-9 h-9 flex items-center justify-center rounded-full glass-btn-ghost text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] transition-colors"
               >
                 <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
@@ -90,7 +92,7 @@ export default function PolicyModal({ open, policyId, onClose }: Props) {
                   className="text-[13px] text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)] transition-colors no-underline"
                   onClick={onClose}
                 >
-                  Открыть на отдельной странице →
+                  {t('policy.openSeparate')}
                 </Link>
               ) : (
                 <span />
@@ -99,7 +101,7 @@ export default function PolicyModal({ open, policyId, onClose }: Props) {
                 onClick={onClose}
                 className="glass-btn-secondary px-[var(--space-20)] py-[var(--space-8)] rounded-[var(--radius-12)] text-[14px] leading-[20px] text-[var(--color-text-primary)]"
               >
-                Закрыть
+                {t('common.close')}
               </button>
             </footer>
           </motion.div>

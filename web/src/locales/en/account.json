@@ -1,0 +1,55 @@
+{
+  "blocked": {
+    "title": "Account blocked",
+    "description": "Your account has been blocked. Please contact support for clarification.",
+    "reason": "Reason: {{reason}}",
+    "ctaSupport": "Contact support",
+    "ctaSignOut": "Sign out"
+  },
+  "linked": {
+    "title": "Linked accounts",
+    "providers": {
+      "telegram": "Telegram",
+      "yandex": "Yandex",
+      "vk_id": "VK",
+      "vk": "VK Mini App",
+      "phone": "Phone",
+      "ok": "Odnoklassniki",
+      "web": "Web (device)"
+    },
+    "thisDevice": "This device",
+    "loading": "Generating...",
+    "getCode": "Get linking code",
+    "codeHint": "The code is valid for 10 minutes. Enter it in the bot or on another device.",
+    "copyHint": "Click to copy",
+    "copied": "Copied!",
+    "openUrl": "Or open: {{url}}"
+  },
+  "linkPage": {
+    "successTitle": "Account linked successfully!",
+    "title": "Link account",
+    "description": "Enter the code from the bot or web app, then pick a linking method",
+    "codeLabel": "Linking code",
+    "codePlaceholder": "ABC123",
+    "codeHint": "Where to get the code? In the Telegram bot",
+    "codeHintInstructions": "tap “Link account” → “I want to sign in on the website via the bot”",
+    "linkVia": "Link via:",
+    "providers": {
+      "yandex": "Yandex",
+      "vkId": "VK"
+    },
+    "redirecting": "Redirecting...",
+    "phonePlaceholder": "+1 (555) 123-4567",
+    "otpPlaceholder": "SMS code",
+    "ctaSendCode": "Code",
+    "ctaVerify": "OK",
+    "errors": {
+      "enterCode": "Enter the linking code",
+      "linkFailed": "Could not start linking.",
+      "phoneInvalid": "Enter a valid phone number",
+      "otpFailed": "Could not send the code.",
+      "otpVerifyFailed": "Invalid or expired code."
+    },
+    "back": "Back to home"
+  }
+}

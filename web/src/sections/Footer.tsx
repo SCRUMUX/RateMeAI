@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { AicaIcon } from '@ai-ds/core/icons';
+import { useTranslation } from 'react-i18next';
 import LogoEmblem from '../assets/LogoEmblem';
 import {
   findBlock,
@@ -95,22 +96,28 @@ function asSocialItems(value: unknown): FooterSocialItem[] {
   return out;
 }
 
-const DEFAULT_DOCUMENTS: FooterItem[] = [
-  { label: 'Политика конфиденциальности', action: 'policy', policyId: 'privacy' },
-  { label: 'Условия использования', action: 'policy', policyId: 'terms' },
-  { label: 'Согласия на обработку', action: 'policy', policyId: 'consents' },
-  { label: 'Использование cookies', action: 'policy', policyId: 'cookie' },
-  { label: 'Возврат и оплата', action: 'policy', policyId: 'refund' },
-];
+function buildDefaultDocuments(t: (key: string) => string): FooterItem[] {
+  return [
+    { label: t('footer.documents.privacy'), action: 'policy', policyId: 'privacy' },
+    { label: t('footer.documents.terms'), action: 'policy', policyId: 'terms' },
+    { label: t('footer.documents.consents'), action: 'policy', policyId: 'consents' },
+    { label: t('footer.documents.cookie'), action: 'policy', policyId: 'cookie' },
+    { label: t('footer.documents.refund'), action: 'policy', policyId: 'refund' },
+  ];
+}
 
-const DEFAULT_SUPPORT: FooterItem[] = [
-  { label: 'Связаться с поддержкой', action: 'support' },
-  { label: 'FAQ', action: 'support' },
-];
+function buildDefaultSupport(t: (key: string) => string): FooterItem[] {
+  return [
+    { label: t('footer.support.contact'), action: 'support' },
+    { label: t('footer.support.faq'), action: 'support' },
+  ];
+}
 
-const DEFAULT_SOCIAL: FooterSocialItem[] = [
-  { label: 'UX4AI · канал в Telegram', href: 'https://t.me/ux4ai', icon: 'telegram' },
-];
+function buildDefaultSocial(t: (key: string) => string): FooterSocialItem[] {
+  return [
+    { label: t('footer.social.ux4ai'), href: 'https://t.me/ux4ai', icon: 'telegram' },
+  ];
+}
 
 function TelegramIcon({ className }: { className?: string }) {
   return (
@@ -140,53 +147,50 @@ export default function Footer({ cmsPage }: FooterProps = {}) {
   const effectivePage = cmsPage ?? sharedPage;
   const cmsBlock = findBlock(effectivePage ?? undefined, 'footer');
   const cmsData = (cmsBlock?.data ?? {}) as FooterCmsData;
+  const { t } = useTranslation('landing');
 
   const { openPolicy, openSupport } = useLandingModals();
 
-  const brandTitle = asString(cmsData.brand?.title, 'Look Studio');
+  const brandTitle = asString(cmsData.brand?.title, t('footer.brandTitle'));
   // 1.50.7: tagline без слов AI / ИИ / нейросеть. Если CMS возвращает
-  // legacy-tagline с "AI-фото..." — переписываем на новый дефолт,
+  // legacy-tagline с "AI-фото..." — переписываем на дефолт из i18n,
   // чтобы сайт не рендерил AI-формулировку, пока не задеплоится
   // обновлённый landing_content.json.
   const cmsTagline = asString(cmsData.brand?.tagline, '').trim();
-  const DEFAULT_TAGLINE =
-    'Портреты, которые работают: знакомства, профили, документы и резюме — за пару минут.';
+  const defaultTagline = t('footer.tagline');
   const brandTagline =
     cmsTagline && !/\bAI\b|\bИИ\b|нейросет/i.test(cmsTagline)
       ? cmsTagline
-      : DEFAULT_TAGLINE;
+      : defaultTagline;
 
   const products: ProductItem[] = useMemo(() => {
     const fromCms = asProducts(cmsData.products);
     if (fromCms) return fromCms;
-    // 1.50.6: первый пункт — "Look Studio" с ссылкой на верх главной
-    // (а не на /app). Дальше — только публичные лендинги сценариев,
-    // которые имеют свою страницу: Документы / Знакомства / Резюме.
     return [
-      { label: 'Look Studio', href: '/' },
+      { label: t('footer.brandTitle'), href: '/' },
       ...listScenariosForFooter(),
     ];
-  }, [cmsData.products]);
+  }, [cmsData.products, t]);
 
   const supportItems = useMemo(() => {
     const items = asFooterItems(cmsData.support);
-    return items.length ? items : DEFAULT_SUPPORT;
-  }, [cmsData.support]);
+    return items.length ? items : buildDefaultSupport(t);
+  }, [cmsData.support, t]);
 
   const documentItems = useMemo(() => {
     const items = asFooterItems(cmsData.documents);
-    return items.length ? items : DEFAULT_DOCUMENTS;
-  }, [cmsData.documents]);
+    return items.length ? items : buildDefaultDocuments(t);
+  }, [cmsData.documents, t]);
 
   const socialItems = useMemo(() => {
     const items = asSocialItems(cmsData.social);
-    return items.length ? items : DEFAULT_SOCIAL;
-  }, [cmsData.social]);
+    return items.length ? items : buildDefaultSocial(t);
+  }, [cmsData.social, t]);
 
-  const creditsText = asString(cmsData.creditsText, 'Сделано');
-  const creditsLinkLabel = asString(cmsData.creditsLinkLabel, 'UX4AI');
+  const creditsText = asString(cmsData.creditsText, t('footer.credits.text'));
+  const creditsLinkLabel = asString(cmsData.creditsLinkLabel, t('footer.credits.linkLabel'));
   const creditsLinkHref = asString(cmsData.creditsLinkHref, 'https://ux4ai.pro');
-  const copyright = asString(cmsData.copyright, '© 2026 Look Studio');
+  const copyright = asString(cmsData.copyright, t('footer.copyright'));
 
   function handleItemClick(item: FooterItem) {
     if (item.action === 'policy') openPolicy(item.policyId);
@@ -262,7 +266,7 @@ export default function Footer({ cmsPage }: FooterProps = {}) {
 
           {/* Products column */}
           <div className="flex flex-col">
-            <ColumnHeading>Продукты</ColumnHeading>
+            <ColumnHeading>{t('footer.groups.products')}</ColumnHeading>
             <ul className="flex flex-col gap-[var(--space-8)]">
               {products.map((p, i) => {
                 const isInternal = p.href.startsWith('/') && !p.external;
@@ -304,7 +308,7 @@ export default function Footer({ cmsPage }: FooterProps = {}) {
 
           {/* Support column */}
           <div className="flex flex-col">
-            <ColumnHeading>Поддержка</ColumnHeading>
+            <ColumnHeading>{t('footer.groups.support')}</ColumnHeading>
             <ul className="flex flex-col gap-[var(--space-8)]">
               {supportItems.map((item, i) => renderItem(item, `support-${i}`))}
             </ul>
@@ -312,7 +316,7 @@ export default function Footer({ cmsPage }: FooterProps = {}) {
 
           {/* Documents column */}
           <div className="flex flex-col">
-            <ColumnHeading>Документы</ColumnHeading>
+            <ColumnHeading>{t('footer.groups.documents')}</ColumnHeading>
             <ul className="flex flex-col gap-[var(--space-8)]">
               {documentItems.map((item, i) => renderItem(item, `doc-${i}`))}
             </ul>
@@ -344,7 +348,7 @@ export default function Footer({ cmsPage }: FooterProps = {}) {
             className="glass-btn-secondary inline-flex items-center gap-[var(--space-8)] px-[var(--space-16)] py-[var(--space-8)] rounded-[var(--radius-pill)] text-[13px] leading-[20px] text-[var(--color-text-primary)] no-underline"
           >
             <TelegramIcon className="text-[var(--color-brand-primary)]" />
-            Подписаться на UX4AI
+            {t('footer.subscribeCta')}
           </a>
         </div>
       </div>

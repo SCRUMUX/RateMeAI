@@ -2,6 +2,10 @@
   "siteName": "Look Studio",
   "defaultTitle": "Look Studio — Adapt your photo to any context",
   "defaultDescription": "Upload a photo, pick a style — the system adapts your photo and shows a perception score. Works in the browser and messengers.",
+  "home": {
+    "title": "Look Studio — photos for social, dating, documents and resume",
+    "description": "Look Studio portrait studio: flawless photos for Tinder, LinkedIn, passports and social in minutes. Preserve identity, add light and framing."
+  },
   "documentPhoto": {
     "title": "Document photos · Look Studio",
     "description": "Passport, visa or any other document photo in 2 minutes: clean background, correct size, neutral expression — no trip to a photo studio."

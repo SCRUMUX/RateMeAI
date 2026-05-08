@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { findBlock, type LandingPage } from '../lib/landing-cms';
 
 /**
@@ -28,60 +29,13 @@ interface ApiOption {
   benefits: string[];
 }
 
-const DEFAULT_OPTIONS: ApiOption[] = [
-  {
-    key: 'dating',
-    icon: '💘',
-    name: 'API для сайтов знакомств',
-    tagline: 'Анкеты, на которые отвечают',
-    description:
-      'Подключаем фото-улучшение прямо в onboarding и редактор анкеты. Сервис адаптирует свет, фон, мимику и кадрирование, не теряя сходство с человеком — пользователь получает несколько сильных вариантов вместо одного среднего.',
-    benefits: [
-      'Рост CTR анкет и количества мэтчей за счёт фотографий, прошедших проверку фотореализма',
-      'Готовый сценарий «загрузил → выбрал стиль → опубликовал» — без отдельных приложений и фотостудий',
-      'Гибкая модерация: автоматический отсев нечётких, групповых и неподходящих кадров',
-    ],
-  },
-  {
-    key: 'hr',
-    icon: '💼',
-    name: 'API для кадровых агентств',
-    tagline: 'Корпоративные портреты в один клик',
-    description:
-      'Для HR-платформ, ATS и job-board: единый стандарт фотографий в анкетах кандидатов. Вместо случайных селфи — спокойный фон, уверенная мимика и аккуратный кадр под бизнес-сценарий, без выезда соискателя в фотостудию.',
-    benefits: [
-      'Единый визуальный стандарт кандидатов — сильнее впечатление работодателя на первом скрининге',
-      'Сокращение цикла найма: нет промежуточного шага «принесите нормальное фото»',
-      'Подходит для LinkedIn, hh.ru, корпоративных карьерных порталов и внутренних HR-систем',
-    ],
-  },
-  {
-    key: 'studio',
-    icon: '📸',
-    name: 'API для фотостудий',
-    tagline: 'Расширьте линейку онлайн',
-    description:
-      'Достроим продуктовую линейку студии онлайн-сценариями: фото на документы, лайфстайл-портреты, фото для соцсетей и резюме. Каждый формат с собственными размерами, фоном и стилистикой. Возможно white-label под бренд студии.',
-    benefits: [
-      'Новый поток заказов 24/7 без расширения штата фотографов и ретушёров',
-      'Готовый фотобанк под клиента — пакеты, подписки, корпоративные тарифы',
-      'White-label интеграция: ваш домен, ваш бренд, ваша касса',
-    ],
-  },
-  {
-    key: 'custom',
-    icon: '⚙️',
-    name: 'API для кастомных задач',
-    tagline: 'Под ваш сценарий и бренд',
-    description:
-      'Подключаем под нестандартные сценарии: маркетплейсы аватаров, бьюти-приложения, образовательные платформы, фотобанки. Подбираем стилистику, форматы и алгоритм проверки под задачу. По объёму возможна тренировка кастомной модели.',
-    benefits: [
-      'Контракт и стоимость по объёму — без переплат за «коробочный» тариф',
-      'Выделенный SLA, прямая поддержка интеграции и помощь на стороне разработки',
-      'Возможна донастройка модели под фирменную стилистику и редполитику бренда',
-    ],
-  },
-];
+const OPTION_KEYS = ['dating', 'hr', 'studio', 'custom'] as const;
+const OPTION_ICONS: Record<(typeof OPTION_KEYS)[number], string> = {
+  dating: '💘',
+  hr: '💼',
+  studio: '📸',
+  custom: '⚙️',
+};
 
 function asString(value: unknown, fallback = ''): string {
   return typeof value === 'string' ? value : fallback;
@@ -90,16 +44,31 @@ function asString(value: unknown, fallback = ''): string {
 export default function ApiSection({ cmsPage }: { cmsPage?: LandingPage | null }) {
   const block = findBlock(cmsPage ?? undefined, 'api');
   const data = (block?.data ?? {}) as Record<string, unknown>;
+  const { t } = useTranslation('landing');
 
-  const title = asString(data.title, 'API для интеграций');
-  const subtitle = asString(
-    data.subtitle,
-    'Подключите фото-улучшение и анализ восприятия в свой продукт. Выберите сценарий — мы покажем, что и как умеем делать.',
+  const options = useMemo<ApiOption[]>(
+    () =>
+      OPTION_KEYS.map((key) => ({
+        key,
+        icon: OPTION_ICONS[key],
+        name: t(`apiSection.options.${key}.name`),
+        tagline: t(`apiSection.options.${key}.tagline`),
+        description: t(`apiSection.options.${key}.description`),
+        benefits: [
+          t(`apiSection.options.${key}.benefit1`),
+          t(`apiSection.options.${key}.benefit2`),
+          t(`apiSection.options.${key}.benefit3`),
+        ],
+      })),
+    [t],
   );
-  const ctaLabel = asString(data.primaryCtaLabel, 'Написать по сотрудничеству');
+
+  const title = asString(data.title, t('apiSection.title'));
+  const subtitle = asString(data.subtitle, t('apiSection.subtitle'));
+  const ctaLabel = asString(data.primaryCtaLabel, t('apiSection.ctaLabel'));
 
   const [activeIdx, setActiveIdx] = useState(0);
-  const active = DEFAULT_OPTIONS[activeIdx];
+  const active = options[activeIdx];
 
   return (
     <section
@@ -183,7 +152,7 @@ export default function ApiSection({ cmsPage }: { cmsPage?: LandingPage | null }
 
         {/* Left (на десктопе): список плашек API */}
         <div className="flex flex-col gap-[var(--space-20)] w-full desktop:max-w-[480px] order-first desktop:order-first">
-          {DEFAULT_OPTIONS.map((option, i) => (
+          {options.map((option, i) => (
             <button
               key={option.key}
               type="button"

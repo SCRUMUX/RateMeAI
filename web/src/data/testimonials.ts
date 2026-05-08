@@ -1,3 +1,4 @@
+import i18next from 'i18next';
 import type { CategoryId } from './styles';
 
 export type TestimonialTier = 'Обычный' | 'Премиум';
@@ -298,8 +299,38 @@ export const TESTIMONIALS: Testimonial[] = [
   { id: 'ss-doc-student', category: 'documents', styleKey: 'student_id', nickname: '@dima_uni', shortReview: 'Студак сделали за вечер — пропуск тоже подошёл 🎓', fullReview: 'Студак сделали за вечер — заодно подошло на пропуск в коворкинг.', emojiReview: 'За вечер 🎓 ещё и на пропуск подошло 🪪', beforeScore: 5.5, afterScore: 6.5, deltaRange: [0.02, 0.05], tier: 'Обычный', usage: 'style-showcase' },
 ];
 
+// 1.57.0 — language-aware testimonials. Russian-language reviews are
+// the primary corpus (the source recordings come from RU users). On
+// the global build (`i18next.language === 'en'`) we ship a much smaller
+// generic English set so the carousel still renders, but the SPA never
+// accidentally surfaces Russian quotes on the EN landings.
+const EN_TESTIMONIALS: Testimonial[] = [
+  { id: 'en-cv-default', category: 'cv', styleKey: 'corporate_office', nickname: '@alex.t', shortReview: 'Hired in two weeks after the new headshot.', fullReview: 'Two weeks after refreshing my LinkedIn with a Look Studio shot, I had four interviews lined up.', emojiReview: 'Two weeks → four interviews.', beforeScore: 6.0, afterScore: 8.4, deltaRange: [0.4, 0.6], tier: 'Премиум', usage: 'carousel' },
+  { id: 'en-dating-default', category: 'dating', styleKey: 'cafe', nickname: '@mira.k', shortReview: 'Mom said she actually likes my photo now.', fullReview: 'I used to skip dating apps because nothing looked right. After Look Studio my main shot finally feels like me — only my best self.', emojiReview: 'Finally a photo that feels like me.', beforeScore: 5.7, afterScore: 7.3, deltaRange: [0.3, 0.5], tier: 'Обычный', usage: 'carousel' },
+  { id: 'en-documents-default', category: 'documents', styleKey: 'passport_us', nickname: '@josh.r', shortReview: 'Visa centre approved on the first try.', fullReview: 'My DS-160 photo was rejected twice by other tools. Look Studio nailed the 2×2 inch crop and the visa centre approved it on the first try.', emojiReview: 'DS-160 approved on attempt one.', beforeScore: 5.5, afterScore: 6.7, deltaRange: [0.02, 0.05], tier: 'Обычный', usage: 'carousel' },
+  { id: 'en-model-default', category: 'model', styleKey: 'studio_classic', nickname: '@nina.v', shortReview: 'Looks like a real studio shoot, costs nothing close to one.', fullReview: 'I had a brand campaign with a 24-hour deadline. Look Studio gave me three magazine-ready shots in one evening.', emojiReview: 'Magazine-ready shots in one evening.', beforeScore: 6.1, afterScore: 7.9, deltaRange: [0.4, 0.6], tier: 'Премиум', usage: 'carousel' },
+  { id: 'en-brand-default', category: 'brand', styleKey: 'office_window', nickname: '@d.kovalov', shortReview: 'My signature avatar across every platform.', fullReview: 'I rolled the same Look Studio portrait into LinkedIn, X and my newsletter — clients literally remember the face now.', emojiReview: 'Same face, every platform.', beforeScore: 6.0, afterScore: 8.0, deltaRange: [0.4, 0.6], tier: 'Премиум', usage: 'carousel' },
+];
+
+function isEnglishLang(): boolean {
+  if (!i18next.isInitialized) return false;
+  const lang = (i18next.language || '').toLowerCase();
+  return lang.startsWith('en');
+}
+
+/**
+ * Active testimonial pool for the current i18n language. EN builds use
+ * a compact placeholder set; everything else stays on the curated RU
+ * corpus.
+ */
+export function getActiveTestimonials(): Testimonial[] {
+  return isEnglishLang() ? EN_TESTIMONIALS : TESTIMONIALS;
+}
+
 export function getTestimonialsByCategory(category: ReviewCategory): Testimonial[] {
-  return TESTIMONIALS.filter(t => t.category === category && (t.usage ?? 'carousel') === 'carousel');
+  return getActiveTestimonials().filter(
+    (t) => t.category === category && (t.usage ?? 'carousel') === 'carousel',
+  );
 }
 
 /**
@@ -314,10 +345,11 @@ export function getStyleShowcaseReview(
   category: ReviewCategory,
   styleKey: string,
 ): Testimonial | undefined {
-  const showcase = TESTIMONIALS.filter(
-    t => t.category === category && t.usage === 'style-showcase',
+  const pool = getActiveTestimonials();
+  const showcase = pool.filter(
+    (t) => t.category === category && t.usage === 'style-showcase',
   );
-  const exact = showcase.find(t => t.styleKey === styleKey);
+  const exact = showcase.find((t) => t.styleKey === styleKey);
   if (exact) return exact;
   if (showcase.length > 0) {
     // Stable per-styleKey selection so re-clicking the same style
@@ -328,5 +360,5 @@ export function getStyleShowcaseReview(
     }
     return showcase[hash % showcase.length];
   }
-  return TESTIMONIALS.find(t => t.category === category);
+  return pool.find((t) => t.category === category);
 }

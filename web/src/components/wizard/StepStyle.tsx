@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { COMING_SOON_CATEGORIES, getMockDelta } from '../../data/styles';
 import { useApp } from '../../context/AppContext';
 import ProgressBar from './ProgressBar';
@@ -6,18 +7,18 @@ import StylesSheet from './StylesSheet';
 import { computeLockedKeys } from './lockedStyles';
 import { PARAM_LABELS, computeStyleDeltas } from './shared';
 
-const FRAMING_OPTIONS = [
-  { id: 'portrait', label: 'Портрет' },
-  { id: 'half_body', label: 'По пояс' },
-  { id: 'full_body', label: 'В полный рост' },
-];
-
 interface Props {
   onNext: () => void;
 }
 
 export default function StepStyle({ onNext }: Props) {
   const app = useApp();
+  const { t } = useTranslation('wizard');
+  const FRAMING_OPTIONS = [
+    { id: 'portrait', label: t('style.framingPortrait') },
+    { id: 'half_body', label: t('style.framingHalf') },
+    { id: 'full_body', label: t('style.framingFull') },
+  ];
   const activeTab = app.activeCategory;
   const styles = app.effectiveStyleList;
   const hasStyles = styles.length > 0;
@@ -75,13 +76,13 @@ export default function StepStyle({ onNext }: Props) {
     <div className="flex flex-col gap-[var(--space-12)]">
       <div className="gradient-border-card glass-card flex flex-col items-center justify-center gap-[var(--space-8)] rounded-[var(--radius-12)] p-[var(--space-16)] min-h-[120px]">
         <span className="text-[32px]">🚧</span>
-        <p className="text-[14px] leading-[20px] text-[var(--color-text-secondary)] font-medium">Скоро...</p>
+        <p className="text-[14px] leading-[20px] text-[var(--color-text-secondary)] font-medium">{t('style.comingSoon')}</p>
         <p className="text-[12px] leading-[16px] text-[var(--color-text-muted)] text-center max-w-[260px]">
-          Генерация для этого направления появится в ближайшем обновлении
+          {t('style.comingSoonDesc')}
         </p>
       </div>
       <button disabled className="glass-btn-primary w-full py-[var(--space-10)] text-[14px] leading-[20px] rounded-[var(--radius-pill)] font-medium opacity-40 cursor-not-allowed">
-        Генерировать
+        {t('style.generateCta')}
       </button>
     </div>
   );
@@ -89,9 +90,9 @@ export default function StepStyle({ onNext }: Props) {
   return (
     <div className="flex flex-col w-full max-w-[520px] mx-auto gap-[var(--space-24)]">
       <div className="flex flex-col items-center gap-[var(--space-4)] text-center">
-        <h2 className="text-[20px] tablet:text-[24px] leading-[1.2] font-semibold text-[var(--color-text-primary)]">Выберите стиль</h2>
+        <h2 className="text-[20px] tablet:text-[24px] leading-[1.2] font-semibold text-[var(--color-text-primary)]">{t('style.title')}</h2>
         <p className="text-[12px] tablet:text-[13px] leading-[16px] tablet:leading-[18px] text-[var(--color-text-secondary)] max-w-[440px]">
-          Каждый стиль улучшает метрики восприятия под конкретный контекст
+          {t('style.subtitle')}
         </p>
       </div>
 
@@ -106,7 +107,7 @@ export default function StepStyle({ onNext }: Props) {
                 <span className="text-[28px] leading-none">{selectedStyle.icon}</span>
                 <div className="flex flex-col min-w-0">
                   <span className="text-[16px] leading-[22px] font-semibold text-[var(--color-text-primary)] truncate">{selectedStyle.name}</span>
-                  <span className="text-[12px] leading-[16px] text-[var(--color-text-muted)] truncate">Выбранный стиль</span>
+                  <span className="text-[12px] leading-[16px] text-[var(--color-text-muted)] truncate">{t('style.selectedTag')}</span>
                 </div>
               </div>
               <p className="text-[13px] leading-[18px] text-[var(--color-text-secondary)]">
@@ -115,7 +116,7 @@ export default function StepStyle({ onNext }: Props) {
               
               {/* Framing selector */}
               <div className="flex flex-col gap-[var(--space-8)] pt-[var(--space-4)] border-t border-[var(--glass-border-soft)]">
-                <span className="text-[12px] leading-[16px] text-[var(--color-text-muted)]">Формат кадра</span>
+                <span className="text-[12px] leading-[16px] text-[var(--color-text-muted)]">{t('style.framingTitle')}</span>
                 <div className="flex bg-[var(--glass-surface-soft)] p-1 rounded-[var(--radius-8)]">
                   {FRAMING_OPTIONS.map((opt) => (
                     <button
@@ -152,7 +153,7 @@ export default function StepStyle({ onNext }: Props) {
               </div>
             )) : (
               <div className="text-[13px] text-[var(--color-text-muted)] text-center py-[var(--space-8)]">
-                Загрузите фото для просмотра параметров
+                {t('style.noPhotoForParams')}
               </div>
             )}
           </div>
@@ -160,7 +161,7 @@ export default function StepStyle({ onNext }: Props) {
           {/* 3. Recommended styles */}
           {recommendedStyles.length > 0 && (
             <div className="flex flex-col gap-[var(--space-8)]">
-              <span className="text-[13px] leading-[18px] font-medium text-[var(--color-text-muted)]">Рекомендуемые стили</span>
+              <span className="text-[13px] leading-[18px] font-medium text-[var(--color-text-muted)]">{t('style.recommended')}</span>
               {recommendedStyles.map((s) => (
                 <button
                   key={s.key}
@@ -187,7 +188,7 @@ export default function StepStyle({ onNext }: Props) {
             onClick={handleGenerate}
             className="glass-btn-primary w-full py-[var(--space-12)] text-[15px] leading-[22px] rounded-[var(--radius-pill)] font-medium"
           >
-            Генерировать
+            {t('style.generateCta')}
           </button>
 
           {/* 5. Bottom-sheet trigger */}
@@ -199,10 +200,10 @@ export default function StepStyle({ onNext }: Props) {
             <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
               <path d="M3 5h10M3 8h10M3 11h6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
             </svg>
-            Хочу другой образ
+            {t('style.anotherLook')}
             {styles.length - lockedKeys.size > 0 && (
               <span className="text-[11px] leading-[14px] text-[var(--color-text-muted)]">
-                · {styles.length - lockedKeys.size} доступно
+                {t('style.anotherLookCount', { count: styles.length - lockedKeys.size })}
               </span>
             )}
           </button>

@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import { createPortal } from 'react-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
@@ -16,6 +17,7 @@ interface Props {
 
 export default function AuthModal({ open, onClose, onOAuth, required }: Props) {
   const { activeCategory } = useApp();
+  const { t } = useTranslation('modals');
   const [oauthLoading, setOauthLoading] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const market = getCurrentMarketConfig();
@@ -44,17 +46,15 @@ export default function AuthModal({ open, onClose, onOAuth, required }: Props) {
       await onOAuth(provider);
     } catch (err) {
       if (err instanceof ApiError && err.status === 503) {
-        setError('Авторизация через этот сервис временно недоступна. Попробуйте позже.');
+        setError(t('auth.errorService'));
       } else if (err instanceof ApiError) {
-        setError(
-          humanizeApiError(err, 'Не удалось авторизоваться. Попробуйте ещё раз.'),
-        );
+        setError(humanizeApiError(err, t('auth.errorGeneric')));
       } else {
-        setError('Не удалось начать авторизацию. Проверьте подключение к сети.');
+        setError(t('auth.errorNetwork'));
       }
       setOauthLoading(null);
     }
-  }, [onOAuth]);
+  }, [onOAuth, t]);
 
   return createPortal(
     <AnimatePresence>
@@ -93,11 +93,11 @@ export default function AuthModal({ open, onClose, onOAuth, required }: Props) {
             {/* Header */}
             <div className="flex flex-col gap-[var(--space-8)] text-center">
               <h3 className="text-[24px] leading-[32px] font-semibold text-[var(--color-text-primary)]">
-                {required ? 'Авторизация' : 'Получить доступ'}
+                {required ? t('auth.titleRequired') : t('auth.title')}
               </h3>
               <p className="text-[14px] leading-[20px] text-[var(--color-text-secondary)]">
                 {required
-                  ? 'Для использования приложения необходима авторизация'
+                  ? t('auth.descriptionRequired')
                   : market.authDescription}
               </p>
             </div>
@@ -122,7 +122,7 @@ export default function AuthModal({ open, onClose, onOAuth, required }: Props) {
                     <path d="M5.84 14.09A6.96 6.96 0 015.46 12c0-.72.13-1.43.38-2.09V7.07H2.18A11.96 11.96 0 001 12c0 1.94.46 3.77 1.18 5.07l3.66-2.98z" fill="#FBBC05"/>
                     <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
                   </svg>
-                  {oauthLoading === 'google' ? 'Перенаправление...' : 'Sign in with Google'}
+                  {oauthLoading === 'google' ? t('auth.redirecting') : t('auth.google')}
                 </button>
               )}
 
@@ -141,7 +141,7 @@ export default function AuthModal({ open, onClose, onOAuth, required }: Props) {
                   <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
                     <path d="M13.32 7.666h-.924c-1.694 0-2.585.858-2.585 2.123 0 1.43.616 2.1 1.881 2.959l1.045.704-3.003 4.548H7.5l2.739-4.064c-1.584-1.155-2.475-2.31-2.475-4.147 0-2.354 1.628-3.97 4.643-3.97h2.926V18H13.32V7.666z" fill="currentColor"/>
                   </svg>
-                  {oauthLoading === 'yandex' ? 'Перенаправление...' : 'Войти через Яндекс'}
+                  {oauthLoading === 'yandex' ? t('auth.redirecting') : t('auth.yandex')}
                 </button>
               )}
 
@@ -160,7 +160,7 @@ export default function AuthModal({ open, onClose, onOAuth, required }: Props) {
                   <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
                     <path d="M12.77 17.29c-5.47 0-8.59-3.74-8.72-9.96h2.74c.09 4.56 2.1 6.49 3.69 6.89V7.33h2.58v3.93c1.57-.17 3.22-1.97 3.78-3.93h2.58c-.43 2.41-2.24 4.21-3.52 4.94 1.28.59 3.33 2.16 4.11 5.02h-2.84c-.61-1.9-2.13-3.37-4.11-3.57v3.57h-.29z" fill="currentColor"/>
                   </svg>
-                  {oauthLoading === 'vk-id' ? 'Перенаправление...' : 'Войти через ВКонтакте'}
+                  {oauthLoading === 'vk-id' ? t('auth.redirecting') : t('auth.vkId')}
                 </button>
               )}
             </div>
@@ -170,7 +170,7 @@ export default function AuthModal({ open, onClose, onOAuth, required }: Props) {
             )}
 
             <p className="text-[12px] leading-[16px] text-[var(--color-text-muted)] text-center">
-              Нажимая кнопку входа, вы соглашаетесь с условиями использования
+              {t('auth.tos')}
             </p>
 
             {required && (
@@ -181,7 +181,7 @@ export default function AuthModal({ open, onClose, onOAuth, required }: Props) {
                 <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
                   <path d="M10 12L6 8L10 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
                 </svg>
-                Вернуться на главную
+                {t('auth.backToHome')}
               </Link>
             )}
           </motion.div>

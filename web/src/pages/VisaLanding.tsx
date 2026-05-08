@@ -54,18 +54,18 @@ export default function VisaLanding({ visa, onStart, showAuth, onAuthClose }: Pr
   const canAccessApp = app.canAccessApp;
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const authOpen = authModalOpen || !!showAuth;
-  const { t } = useTranslation(['wizard', 'seo', 'common', 'landing']);
+  const { t } = useTranslation(['wizard', 'seo', 'common', 'landing', 'scenarios']);
 
   const page = useLandingPage(visa.landingSlug);
 
   const country = t(visa.countryLabelKey);
-  const sizeLabel = `${visa.sizeMm[0]}×${visa.sizeMm[1]} мм`;
+  const sizeLabel = t('scenarios:visa.sizeFormat', { w: visa.sizeMm[0], h: visa.sizeMm[1] });
 
   const fallbackHero: HeroContent = useMemo(
     () => ({
       icon: visa.icon,
       title: country,
-      gradientPhrase: `${sizeLabel}, по стандартам ICAO`,
+      gradientPhrase: t('scenarios:visa.gradientPhrase', { size: sizeLabel }),
       lead: t('seo:visa.description', { country }),
       ctaLabel: t('common:cta.createPhoto'),
       ctaMicrocopy: t('common:cta.tryFree'),
