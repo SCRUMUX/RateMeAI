@@ -13,8 +13,8 @@ import { rememberFlowReturnPath } from '../lib/flow-resume';
  * полноразмерный Pricing с 4 карточками; здесь — три позиции,
  * заточенные под сценарный конверт-flow:
  *
- *   1. «Попробовать»     — 199 ₽ · 5 фото           (glass-card)
- *   2. «Прокачать образ» — 499 ₽ · 15 фото · BEST   (glass-card-premium)
+ *   1. «Попробовать»     — минимальный пакет · 5 фото           (glass-card)
+ *   2. «Прокачать образ» — 10 фото · BEST   (glass-card-premium)
  *   3. «Корпоративный»   — B2B-карточка без цены    (glass-card)
  *
  * Карточка #3 ведёт на главный лендинг к секции <ApiSection /> —
@@ -26,7 +26,7 @@ import { rememberFlowReturnPath } from '../lib/flow-resume';
  * + sheen (см. index.css). Hover-lift включён глобально.
  */
 
-type PackQty = 5 | 15;
+type PackQty = 5 | 10;
 
 interface PaidPlan {
   id: 'try' | 'pro';
@@ -63,7 +63,7 @@ function buildPaidPlans(t: (key: string) => string): PaidPlan[] {
     },
     {
       id: 'pro',
-      packQty: 15,
+      packQty: 10,
       title: t('scenarioPricing.plans.pro.title'),
       priceLabel: t('scenarioPricing.plans.pro.priceLabel'),
       photosLabel: t('scenarioPricing.plans.pro.photosLabel'),

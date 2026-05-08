@@ -49,3 +49,13 @@ def test_pulid_retry_escalates_over_baseline():
     assert s.pulid_retry_id_scale >= s.pulid_id_scale
     assert s.pulid_retry_steps >= s.pulid_steps
     assert s.pulid_retry_guidance_scale >= s.pulid_guidance_scale
+
+
+def test_credit_pack_defaults_documented():
+    """Tariff CSV defaults in Settings must match product grid (env may override)."""
+    packs_default = Settings.model_fields["credit_packs"].default
+    usd_default = Settings.model_fields["credit_packs_usd"].default
+    assert "5:227" in packs_default
+    assert "50:1527" in packs_default
+    assert "3.27" in usd_default
+    assert "19.27" in usd_default

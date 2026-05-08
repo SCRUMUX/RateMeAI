@@ -5154,4 +5154,4 @@
 #          • tests/test_scenarios/test_visa_compliance.py +
 #            test_loader.py + tests/test_api/test_scenarios.py
 #            updated for the EN/RU switch and the new model field.
-APP_VERSION = "1.59.2"
+APP_VERSION = "1.59.3"

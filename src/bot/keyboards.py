@@ -221,26 +221,35 @@ def error_keyboard() -> InlineKeyboardMarkup:
     )
 
 
-def upgrade_keyboard() -> InlineKeyboardMarkup:
-    from src.services.payments import get_credit_packs
-
-    rows = []
-    for pack in get_credit_packs():
-        rows.append(
+def topup_currency_keyboard() -> InlineKeyboardMarkup:
+    """Выбор валюты / региона оплаты перед списком пакетов (данные с /payments/packs)."""
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
             [
                 InlineKeyboardButton(
-                    text=f"\U0001f6d2 {pack.label}",
-                    callback_data=f"buy:{pack.quantity}",
+                    text="\U0001f1f7\U0001f1fa Оплата \u20bd (\u0420\u043e\u0441\u0441\u0438\u044f)",
+                    callback_data="topup_cur:rub",
                 )
-            ]
-        )
-    rows.append(
-        [InlineKeyboardButton(text="\U0001f4b0 Мой баланс", callback_data="balance")]
+            ],
+            [
+                InlineKeyboardButton(
+                    text="\U0001f30d Pay USD (Worldwide)",
+                    callback_data="topup_cur:usd",
+                )
+            ],
+            [InlineKeyboardButton(text="\U0001f4b0 Мой баланс", callback_data="balance")],
+            [
+                InlineKeyboardButton(
+                    text="\U0001f4f8 Новое фото", callback_data="new_photo"
+                )
+            ],
+        ]
     )
-    rows.append(
-        [InlineKeyboardButton(text="\U0001f4f8 Новое фото", callback_data="new_photo")]
-    )
-    return InlineKeyboardMarkup(inline_keyboard=rows)
+
+
+def upgrade_keyboard() -> InlineKeyboardMarkup:
+    """Alias: показываем выбор валюты (пакеты подгружаются после выбора)."""
+    return topup_currency_keyboard()
 
 
 def back_keyboard() -> InlineKeyboardMarkup:

@@ -1,13 +1,9 @@
-"""Tests for YooKassa webhook / payment endpoints.
-
-Платёжный контур живёт только на RU-edge (YooKassa принимает вебхуки только
-с российских IP), поэтому все тесты webhook/create работают через
-``edge_client`` (monkeypatch ``deployment_mode=edge``). Отдельные тесты ниже
-подтверждают, что на primary те же эндпоинты отдают 410.
-"""
+"""Tests for payment endpoints (YooKassa on edge, Xsolla on primary)."""
 
 from __future__ import annotations
 
+import hashlib
+import json
 from unittest.mock import AsyncMock, patch
 
 
@@ -118,12 +114,7 @@ def test_balance_unknown_user(client):
 
 
 def test_webhook_returns_410_on_primary(client):
-    """На primary-бэкенде (DEPLOYMENT_MODE!=edge) webhook YooKassa отключён.
-
-    Любой POST должен отвергаться с 410 Gone ещё до разбора тела — иначе
-    любой может засыпать бэкенд фейковыми событиями, а в самых неудачных
-    раскладах (тестовые креды) это приведёт к зачислению кредитов.
-    """
+    """YooKassa webhook must not run on primary."""
     body = _webhook_body(
         "pay_primary_blocked", "00000000-0000-0000-0000-000000000000", 5
     )
@@ -132,18 +123,86 @@ def test_webhook_returns_410_on_primary(client):
     assert r.json()["detail"] == "payments_disabled_on_primary"
 
 
-def test_create_payment_returns_410_on_primary(client):
-    """POST /api/v1/payments/create на primary отвечает 410 + machine-code.
+def test_xsolla_webhook_returns_410_on_edge(edge_client):
+    body = {"notification_type": "payment"}
+    r = edge_client.post("/api/v1/payments/xsolla/webhook", json=body)
+    assert r.status_code == 410
+    assert r.json()["detail"] == "xsolla_disabled_on_edge"
 
-    Web / bot по этому коду понимают, что оплата доступна только через
-    RU-домен, и редиректят пользователя.
-    """
-    _, token = _register_user(client, telegram_id=888_777)
-    r = client.post(
+
+@patch(
+    "src.services.payments.xsolla_provider.create_payment",
+    new_callable=AsyncMock,
+    return_value=("tok_unit", "https://secure.xsolla.com/paystation4/?token=tok_unit"),
+)
+def test_create_payment_primary_xsolla(mock_xsolla, primary_payment_client):
+    _, token = _register_user(primary_payment_client, telegram_id=888_888)
+    r = primary_payment_client.post(
         "/api/v1/payments/create",
         headers={"Authorization": f"Bearer {token}"},
         json={"pack_qty": 5},
     )
-    assert r.status_code == 410, r.text
-    assert r.json()["detail"] == "payments_disabled_on_primary"
-    assert r.headers.get("X-Payments-Channel") == "edge-only"
+    assert r.status_code == 200, r.text
+    data = r.json()
+    assert data["payment_id"] == "tok_unit"
+    assert "secure.xsolla.com" in data["confirmation_url"]
+    mock_xsolla.assert_awaited()
+
+
+def test_list_packs_primary(primary_payment_client):
+    r = primary_payment_client.get("/api/v1/payments/packs")
+    assert r.status_code == 200
+    body = r.json()
+    assert body["provider"] == "xsolla"
+    assert body["currency"] == "USD"
+    assert len(body["packs"]) >= 1
+
+
+def test_list_packs_edge(edge_client):
+    r = edge_client.get("/api/v1/payments/packs")
+    assert r.status_code == 200
+    body = r.json()
+    assert body["provider"] == "yookassa"
+    assert body["currency"] == "RUB"
+
+
+@patch("src.api.v1.payments._notify_user_channels", new_callable=AsyncMock)
+def test_xsolla_webhook_credits_user(mock_notify, primary_payment_client):
+    tg_id = 888_333
+    user_id, _token = _register_user(primary_payment_client, tg_id)
+    body = {
+        "notification_type": "payment",
+        "transaction": {"id": 990_001, "status": "done"},
+        "custom_parameters": {"user_id": user_id, "pack_qty": "10"},
+    }
+    raw = json.dumps(body, separators=(",", ":")).encode("utf-8")
+    secret = "unit-test-xsolla-secret"
+    sig = hashlib.sha1(raw + secret.encode()).hexdigest()
+    r = primary_payment_client.post(
+        "/api/v1/payments/xsolla/webhook",
+        content=raw,
+        headers={
+            "Authorization": f"Signature {sig}",
+            "Content-Type": "application/json",
+        },
+    )
+    assert r.status_code == 200, r.text
+    assert r.json()["status"] == "ok"
+
+
+@patch("src.api.v1.payments._notify_user_channels", new_callable=AsyncMock)
+def test_xsolla_webhook_bad_signature(mock_notify, primary_payment_client):
+    tg_id = 888_334
+    user_id, _token = _register_user(primary_payment_client, tg_id)
+    body = {
+        "notification_type": "payment",
+        "transaction": {"id": 990_002, "status": "done"},
+        "custom_parameters": {"user_id": user_id, "pack_qty": "5"},
+    }
+    raw = json.dumps(body).encode("utf-8")
+    r = primary_payment_client.post(
+        "/api/v1/payments/xsolla/webhook",
+        content=raw,
+        headers={"Authorization": "Signature deadbeef", "Content-Type": "application/json"},
+    )
+    assert r.status_code == 403

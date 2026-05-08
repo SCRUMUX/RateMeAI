@@ -110,31 +110,31 @@
     "tryFreeLabel": "Try the free upgrade",
     "loading": "Loading...",
     "select": "Choose",
-    "savingBadge": "Save 40%",
+    "savingBadge": "Save 35%",
     "plans": {
-      "try": {
-        "title": "Try it",
-        "price": "$0.99",
-        "photos": "1 photo",
-        "desc": "See how the service refines your photo in seconds. Perfect for evaluating the result before a full upgrade."
-      },
-      "refresh": {
-        "title": "Refresh photos",
-        "price": "$2.99",
+      "pack5": {
+        "title": "Starter pack",
+        "price": "$3.27",
         "photos": "5 photos",
-        "desc": "Refresh your best shots and pick the perfect variant for social or profile pages."
+        "desc": "Perfect to refresh portraits for profiles or documents and try multiple styles quickly."
       },
-      "boost": {
-        "title": "Boost your image",
-        "price": "$6.99",
-        "photos": "15 photos",
-        "desc": "Full image boost across different situations: social, dating, work. Find the photo that really works."
+      "pack10": {
+        "title": "Best value",
+        "price": "$5.27",
+        "photos": "10 photos",
+        "desc": "Enough for dating, resume and social — tune the look for each channel."
       },
-      "transform": {
-        "title": "Full transformation",
-        "price": "$11.99",
-        "photos": "30 photos",
-        "desc": "Maximum variants and styles. Choose this if you want to fully refresh your visual identity and stand out anywhere."
+      "pack20": {
+        "title": "Heavy user",
+        "price": "$8.27",
+        "photos": "20 photos",
+        "desc": "More experiments across scenarios — lock in several winning shots."
+      },
+      "pack50": {
+        "title": "Maximum runway",
+        "price": "$19.27",
+        "photos": "50 photos",
+        "desc": "Big batch for iterations, tests or family — one shared balance for every category."
       }
     }
   },
@@ -142,31 +142,31 @@
     "tagline": "Unlock exclusive styles",
     "tryFreeLabel": "Try the free upgrade",
     "loading": "Loading…",
-    "savingBadge": "Save 40%",
+    "savingBadge": "Save 35%",
     "footer": "All packs share one balance — photos can be spent on any category.",
     "plans": {
       "try": {
         "title": "Try it",
-        "priceLabel": "$2.99",
+        "priceLabel": "$3.27",
         "photosLabel": "5 photos",
-        "perPhotoLabel": "$0.60 per photo",
+        "perPhotoLabel": "~$0.65 per photo",
         "desc": "Starter pack — see how the service works on your face.",
         "feature1": "Access to every style in the category",
         "feature2": "No watermarks",
         "feature3": "Result in 2 minutes",
-        "ctaLabel": "Buy 5 for $2.99"
+        "ctaLabel": "Buy 5 for $3.27"
       },
       "pro": {
         "title": "Boost your image",
-        "priceLabel": "$6.99",
-        "photosLabel": "15 photos",
-        "perPhotoLabel": "$0.47 per photo",
+        "priceLabel": "$5.27",
+        "photosLabel": "10 photos",
+        "perPhotoLabel": "~$0.53 per photo",
         "desc": "A full set for a profile, resume or documents — enough for every situation.",
-        "feature1": "15 photos in one pack",
+        "feature1": "10 photos in one pack",
         "feature2": "All styles plus exclusives",
         "feature3": "Priority generation queue",
         "feature4": "No watermarks",
-        "ctaLabel": "Buy 15 for $6.99"
+        "ctaLabel": "Buy 10 for $5.27"
       }
     },
     "b2b": {
@@ -258,7 +258,7 @@
       "title": "Document photos",
       "gradientPhrase": "in 2 minutes",
       "lead": "Perfect photos for passport, visa or any document. Maximum photorealism, no extra effects.",
-      "ctaLabel": "Create photo",
+      "ctaLabel": "Create photo — $3.27",
       "ctaMicrocopy": "5 photos per pack"
     }
   },

@@ -36,13 +36,7 @@ def client():
 
 @pytest.fixture
 def edge_client(monkeypatch):
-    """TestClient c deployment_mode=edge.
-
-    Платёжный контур (create / yookassa webhook) живёт только на RU-edge —
-    на primary эти эндпоинты намеренно отдают 410. Тесты, которые проверяют
-    бизнес-логику зачисления кредитов, используют этот клиент, чтобы guard
-    не мешал.
-    """
+    """TestClient with deployment_mode=edge (YooKassa + RUB packs)."""
     if not _integration_services_alive():
         pytest.skip(
             "Postgres (127.0.0.1:5432) and Redis (127.0.0.1:6379) required — "
@@ -53,5 +47,28 @@ def edge_client(monkeypatch):
     from src.main import app
 
     monkeypatch.setattr(settings, "deployment_mode", "edge")
+    with TestClient(app) as c:
+        yield c
+
+
+@pytest.fixture
+def primary_payment_client(monkeypatch):
+    """Primary stack with mocked Xsolla credentials (payment_provider=xsolla)."""
+    if not _integration_services_alive():
+        pytest.skip(
+            "Postgres (127.0.0.1:5432) and Redis (127.0.0.1:6379) required — "
+            "e.g. docker compose up -d postgres redis",
+        )
+    from fastapi.testclient import TestClient
+    from src.config import settings
+    from src.main import app
+
+    monkeypatch.setattr(settings, "deployment_mode", "primary")
+    monkeypatch.setattr(settings, "xsolla_merchant_id", "883510")
+    monkeypatch.setattr(settings, "xsolla_project_id", "306459")
+    monkeypatch.setattr(settings, "xsolla_api_key", "unit-test-xsolla-key")
+    monkeypatch.setattr(settings, "xsolla_webhook_secret", "unit-test-xsolla-secret")
+    monkeypatch.setattr(settings, "yookassa_shop_id", "")
+    monkeypatch.setattr(settings, "yookassa_secret_key", "")
     with TestClient(app) as c:
         yield c

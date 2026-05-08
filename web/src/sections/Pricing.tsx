@@ -10,10 +10,10 @@ import { findBlock, coalesceCmsString, type LandingPage } from '../lib/landing-c
 
 function buildDefaultPlans(t: (key: string) => string) {
   return [
-    { title: t('pricing.plans.try.title'), price: t('pricing.plans.try.price'), photos: t('pricing.plans.try.photos'), packQty: 1, desc: t('pricing.plans.try.desc'), highlighted: false, badge: null as string | null, savingBadge: null as string | null },
-    { title: t('pricing.plans.refresh.title'), price: t('pricing.plans.refresh.price'), photos: t('pricing.plans.refresh.photos'), packQty: 5, desc: t('pricing.plans.refresh.desc'), highlighted: false, badge: null, savingBadge: null },
-    { title: t('pricing.plans.boost.title'), price: t('pricing.plans.boost.price'), photos: t('pricing.plans.boost.photos'), packQty: 15, desc: t('pricing.plans.boost.desc'), highlighted: true, badge: 'BEST', savingBadge: t('pricing.savingBadge') },
-    { title: t('pricing.plans.transform.title'), price: t('pricing.plans.transform.price'), photos: t('pricing.plans.transform.photos'), packQty: 30, desc: t('pricing.plans.transform.desc'), highlighted: false, badge: null, savingBadge: null },
+    { title: t('pricing.plans.pack5.title'), price: t('pricing.plans.pack5.price'), photos: t('pricing.plans.pack5.photos'), packQty: 5, desc: t('pricing.plans.pack5.desc'), highlighted: false, badge: null as string | null, savingBadge: null as string | null },
+    { title: t('pricing.plans.pack10.title'), price: t('pricing.plans.pack10.price'), photos: t('pricing.plans.pack10.photos'), packQty: 10, desc: t('pricing.plans.pack10.desc'), highlighted: true, badge: 'BEST', savingBadge: t('pricing.savingBadge') },
+    { title: t('pricing.plans.pack20.title'), price: t('pricing.plans.pack20.price'), photos: t('pricing.plans.pack20.photos'), packQty: 20, desc: t('pricing.plans.pack20.desc'), highlighted: false, badge: null, savingBadge: null },
+    { title: t('pricing.plans.pack50.title'), price: t('pricing.plans.pack50.price'), photos: t('pricing.plans.pack50.photos'), packQty: 50, desc: t('pricing.plans.pack50.desc'), highlighted: false, badge: null, savingBadge: null },
   ];
 }
 

@@ -63,10 +63,10 @@ describe('Pricing — CMS fallback', () => {
   it('renders i18n defaults when no CMS page is provided', () => {
     renderPricing(null);
     expect(screen.getByRole('heading', { level: 2, name: ruPricing.title as string })).toBeInTheDocument();
-    expect(screen.getByText(ruPricing.plans.try.title)).toBeInTheDocument();
-    expect(screen.getByText(ruPricing.plans.refresh.title)).toBeInTheDocument();
-    expect(screen.getByText(ruPricing.plans.boost.title)).toBeInTheDocument();
-    expect(screen.getByText(ruPricing.plans.transform.title)).toBeInTheDocument();
+    expect(screen.getByText(ruPricing.plans.pack5.title)).toBeInTheDocument();
+    expect(screen.getByText(ruPricing.plans.pack10.title)).toBeInTheDocument();
+    expect(screen.getByText(ruPricing.plans.pack20.title)).toBeInTheDocument();
+    expect(screen.getByText(ruPricing.plans.pack50.title)).toBeInTheDocument();
   });
 
   it('falls back per field when CMS payload has empty strings (global-server case)', () => {
@@ -82,19 +82,19 @@ describe('Pricing — CMS fallback', () => {
             caption: '',
             tryFreeLabel: '',
             plans: [
-              { title: '', price: '', photos: '', packQty: 1, desc: '' },
               { title: '', price: '', photos: '', packQty: 5, desc: '' },
-              { title: '', price: '', photos: '', packQty: 15, desc: '' },
-              { title: '', price: '', photos: '', packQty: 30, desc: '' },
+              { title: '', price: '', photos: '', packQty: 10, desc: '' },
+              { title: '', price: '', photos: '', packQty: 20, desc: '' },
+              { title: '', price: '', photos: '', packQty: 50, desc: '' },
             ],
           },
         },
       ],
     };
     renderPricing(emptyCms);
-    expect(screen.getByText(ruPricing.plans.try.title)).toBeInTheDocument();
-    expect(screen.getByText(ruPricing.plans.boost.title)).toBeInTheDocument();
-    expect(screen.getByText(ruPricing.plans.transform.title)).toBeInTheDocument();
+    expect(screen.getByText(ruPricing.plans.pack5.title)).toBeInTheDocument();
+    expect(screen.getByText(ruPricing.plans.pack10.title)).toBeInTheDocument();
+    expect(screen.getByText(ruPricing.plans.pack50.title)).toBeInTheDocument();
   });
 
   it('keeps non-empty CMS values', () => {
@@ -107,7 +107,7 @@ describe('Pricing — CMS fallback', () => {
           data: {
             title: 'Custom heading',
             plans: [
-              { title: 'Custom plan', price: '99 RUB', photos: '1 photo', packQty: 1, desc: 'desc' },
+              { title: 'Custom plan', price: '99 RUB', photos: '5 photos', packQty: 5, desc: 'desc' },
             ],
           },
         },

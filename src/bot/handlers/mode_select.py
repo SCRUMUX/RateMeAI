@@ -881,21 +881,172 @@ async def _submit_analysis(
         )
 
 
-@router.callback_query(F.data.startswith("buy:"))
-async def on_buy(callback: CallbackQuery, api_base_url: str, redis: Redis):
-    """Create YooKassa payment via edge server API and send payment link."""
-    from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+def _resolve_primary_payment_api() -> str | None:
+    from src.config import settings
 
-    pack_qty = int(callback.data.split(":", 1)[1])
+    raw = (settings.primary_api_url or "").strip().rstrip("/")
+    return raw or None
+
+
+async def _build_pack_keyboard_from_api(
+    api_base: str, callback_prefix: str
+) -> InlineKeyboardMarkup:
+    """Fetch /payments/packs from the target API and build buy_* callbacks."""
+    base = api_base.rstrip("/")
+    async with httpx.AsyncClient(timeout=12.0) as client:
+        resp = await client.get(f"{base}/api/v1/payments/packs")
+    if resp.status_code != 200:
+        logger.warning(
+            "payments/packs failed on %s: %s %s",
+            base,
+            resp.status_code,
+            resp.text[:200],
+        )
+        return error_keyboard()
+    try:
+        payload = resp.json()
+    except Exception:
+        return error_keyboard()
+    rows = []
+    for pack in payload.get("packs") or []:
+        try:
+            qty = int(pack.get("quantity"))
+        except (TypeError, ValueError):
+            continue
+        label = str(pack.get("label") or f"{qty}")
+        rows.append(
+            [
+                InlineKeyboardButton(
+                    text=f"\U0001f6d2 {label}",
+                    callback_data=f"{callback_prefix}:{qty}",
+                )
+            ]
+        )
+    rows.append(
+        [InlineKeyboardButton(text="\U0001f4b0 Мой баланс", callback_data="balance")]
+    )
+    rows.append(
+        [InlineKeyboardButton(text="\U0001f4f8 Новое фото", callback_data="new_photo")]
+    )
+    return InlineKeyboardMarkup(inline_keyboard=rows)
+
+
+async def _pack_money_label(api_base: str, pack_qty: int) -> str:
+    base = api_base.rstrip("/")
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            resp = await client.get(f"{base}/api/v1/payments/packs")
+        if resp.status_code == 200:
+            data = resp.json()
+            for row in data.get("packs") or []:
+                if int(row.get("quantity") or 0) == pack_qty:
+                    lab = str(row.get("label") or "")
+                    if "\u2014" in lab:
+                        return lab.split("\u2014", 1)[-1].strip()
+                    if "—" in lab:
+                        return lab.split("—", 1)[-1].strip()
+                    return lab
+    except Exception:
+        logger.debug("pack label fetch failed", exc_info=True)
+    return f"{pack_qty} \u043e\u0431\u0440\u0430\u0437\u043e\u0432"
+
+
+def _parse_buy_callback(data: str) -> tuple[str | None, int | None]:
+    """Return (payment_api_url sentinel: 'edge'|'usd', pack_qty)."""
+    if not data:
+        return None, None
+    if data.startswith("buy_usd:"):
+        try:
+            return "usd", int(data.split(":", 1)[1])
+        except (IndexError, ValueError):
+            return None, None
+    if data.startswith("buy_rub:"):
+        try:
+            return "rub", int(data.split(":", 1)[1])
+        except (IndexError, ValueError):
+            return None, None
+    if data.startswith("buy:"):
+        try:
+            return "rub", int(data.split(":", 1)[1])
+        except (IndexError, ValueError):
+            return None, None
+    return None, None
+
+
+@router.callback_query(F.data.startswith("topup_cur:"))
+async def on_topup_currency(callback: CallbackQuery, api_base_url: str):
+    """Промежуточный шаг: пользователь выбрал валюту — показываем пакеты."""
+    await callback.answer()
+    cur = (callback.data or "").split(":", 1)[-1].strip().lower()
+    if cur == "rub":
+        kb = await _build_pack_keyboard_from_api(api_base_url, "buy_rub")
+        await callback.message.answer(
+            "\U0001f6d2 *\u041f\u043e\u043f\u043e\u043b\u043d\u0438\u0442\u044c \u0431\u0430\u043b\u0430\u043d\u0441 (\u20bd)*\n\n"
+            "\u0412\u044b\u0431\u0435\u0440\u0438 \u043f\u0430\u043a\u0435\u0442:",
+            parse_mode="Markdown",
+            reply_markup=kb,
+        )
+        return
+    if cur == "usd":
+        primary = _resolve_primary_payment_api()
+        if not primary:
+            await callback.message.answer(
+                "\u274c \u041e\u043f\u043b\u0430\u0442\u0430 \u0432 USD \u0432\u0440\u0435\u043c\u0435\u043d\u043d\u043e \u043d\u0435\u0434\u043e\u0441\u0442\u0443\u043f\u043d\u0430 "
+                "(\u043d\u0435 \u0437\u0430\u0434\u0430\u043d PRIMARY_API_URL).",
+                reply_markup=error_keyboard(),
+            )
+            return
+        kb = await _build_pack_keyboard_from_api(primary, "buy_usd")
+        await callback.message.answer(
+            "\U0001f6d2 *Top up (USD)*\n\nChoose a pack:",
+            parse_mode="Markdown",
+            reply_markup=kb,
+        )
+        return
+    await callback.message.answer(
+        "\u274c \u041d\u0435\u0438\u0437\u0432\u0435\u0441\u0442\u043d\u044b\u0439 \u0432\u044b\u0431\u043e\u0440.",
+        reply_markup=error_keyboard(),
+    )
+
+
+@router.callback_query(
+    lambda c: bool(
+        c.data
+        and (
+            c.data.startswith("buy:")
+            or c.data.startswith("buy_rub:")
+            or c.data.startswith("buy_usd:")
+        )
+    )
+)
+async def on_buy_pack(callback: CallbackQuery, api_base_url: str, redis: Redis):
+    """Create checkout on edge (RUB) or primary (USD) and send payment link."""
+    route, pack_qty = _parse_buy_callback(callback.data or "")
+    if route is None or pack_qty is None:
+        await callback.answer()
+        return
 
     await callback.answer()
-    wait_msg = await callback.message.answer("\U0001f4b3 Создаю платёж...")
+    wait_msg = await callback.message.answer("\U0001f4b3 \u0421\u043e\u0437\u0434\u0430\u044e \u043f\u043b\u0430\u0442\u0451\u0436...")
 
     tg_id = callback.from_user.id
-    payment_api = api_base_url
+    if route == "usd":
+        payment_api = _resolve_primary_payment_api()
+        if not payment_api:
+            await wait_msg.edit_text(
+                "\u274c USD checkout \u043d\u0435\u0434\u043e\u0441\u0442\u0443\u043f\u0435\u043d.",
+                reply_markup=error_keyboard(),
+            )
+            return
+        session_getter = _ensure_primary_session
+        session_refresher = _force_refresh_primary_session
+    else:
+        payment_api = api_base_url
+        session_getter = _ensure_edge_session
+        session_refresher = _force_refresh_edge_session
 
     try:
-        session_token = await _ensure_edge_session(
+        session_token = await session_getter(
             redis,
             tg_id,
             callback.from_user.username,
@@ -904,7 +1055,7 @@ async def on_buy(callback: CallbackQuery, api_base_url: str, redis: Redis):
         )
         if not session_token:
             await wait_msg.edit_text(
-                "\u274c Не удалось создать профиль для оплаты. Попробуй /start.",
+                "\u274c \u041d\u0435 \u0443\u0434\u0430\u043b\u043e\u0441\u044c \u0441\u043e\u0437\u0434\u0430\u0442\u044c \u043f\u0440\u043e\u0444\u0438\u043b\u044c \u0434\u043b\u044f \u043e\u043f\u043b\u0430\u0442\u044b. \u041f\u043e\u043f\u0440\u043e\u0431\u0443\u0439 /start.",
                 reply_markup=error_keyboard(),
             )
             return
@@ -917,7 +1068,7 @@ async def on_buy(callback: CallbackQuery, api_base_url: str, redis: Redis):
             )
 
         if resp.status_code == 401:
-            session_token = await _force_refresh_edge_session(
+            session_token = await session_refresher(
                 redis,
                 tg_id,
                 callback.from_user.username,
@@ -945,7 +1096,7 @@ async def on_buy(callback: CallbackQuery, api_base_url: str, redis: Redis):
                 detail,
             )
             await wait_msg.edit_text(
-                "\u274c Не удалось создать платёж. Попробуй позже.",
+                "\u274c \u041d\u0435 \u0443\u0434\u0430\u043b\u043e\u0441\u044c \u0441\u043e\u0437\u0434\u0430\u0442\u044c \u043f\u043b\u0430\u0442\u0451\u0436. \u041f\u043e\u043f\u0440\u043e\u0431\u0443\u0439 \u043f\u043e\u0437\u0436\u0435.",
                 reply_markup=error_keyboard(),
             )
             return
@@ -953,42 +1104,41 @@ async def on_buy(callback: CallbackQuery, api_base_url: str, redis: Redis):
         data = resp.json()
         confirmation_url = data["confirmation_url"]
 
-        from src.services.payments import _pack_by_quantity
-
-        pack = _pack_by_quantity(pack_qty)
-        price_label = f"{pack.price_rub} \u20bd" if pack else f"{pack_qty} образов"
+        price_label = await _pack_money_label(payment_api, pack_qty)
 
         kb = InlineKeyboardMarkup(
             inline_keyboard=[
                 [
                     InlineKeyboardButton(
-                        text=f"\U0001f4b3 Оплатить {price_label}", url=confirmation_url
+                        text=f"\U0001f4b3 \u041e\u043f\u043b\u0430\u0442\u0438\u0442\u044c {price_label}",
+                        url=confirmation_url,
                     )
                 ],
                 [
                     InlineKeyboardButton(
-                        text="\U0001f4b0 Проверить баланс", callback_data="balance"
+                        text="\U0001f4b0 \u041f\u0440\u043e\u0432\u0435\u0440\u0438\u0442\u044c \u0431\u0430\u043b\u0430\u043d\u0441",
+                        callback_data="balance",
                     )
                 ],
                 [
                     InlineKeyboardButton(
-                        text="\U0001f4f8 Новое фото", callback_data="new_photo"
+                        text="\U0001f4f8 \u041d\u043e\u0432\u043e\u0435 \u0444\u043e\u0442\u043e",
+                        callback_data="new_photo",
                     )
                 ],
             ]
         )
-        qty_label = pack.quantity if pack else pack_qty
         await wait_msg.edit_text(
-            f"\U0001f6d2 *Пакет: {qty_label} образов за {price_label}*\n\n"
-            f"Нажми кнопку ниже для оплаты.\n"
-            f"После оплаты образы зачислятся автоматически!",
+            f"\U0001f6d2 *\u041f\u0430\u043a\u0435\u0442: {pack_qty} \u043e\u0431\u0440\u0430\u0437\u043e\u0432 \u0437\u0430 {price_label}*\n\n"
+            f"\u041d\u0430\u0436\u043c\u0438 \u043a\u043d\u043e\u043f\u043a\u0443 \u043d\u0438\u0436\u0435 \u0434\u043b\u044f \u043e\u043f\u043b\u0430\u0442\u044b.\n"
+            f"\u041f\u043e\u0441\u043b\u0435 \u043e\u043f\u043b\u0430\u0442\u044b \u043e\u0431\u0440\u0430\u0437\u044b \u0437\u0430\u0447\u0438\u0441\u043b\u044f\u0442\u0441\u044f \u0430\u0432\u0442\u043e\u043c\u0430\u0442\u0438\u0447\u0435\u0441\u043a\u0438!",
             parse_mode="Markdown",
             reply_markup=kb,
         )
     except Exception:
         logger.exception("Failed to create payment for tg_user=%s", tg_id)
         await wait_msg.edit_text(
-            "\u274c Не удалось создать платёж. Попробуй позже.",
+            "\u274c \u041d\u0435 \u0443\u0434\u0430\u043b\u043e\u0441\u044c \u0441\u043e\u0437\u0434\u0430\u0442\u044c \u043f\u043b\u0430\u0442\u0451\u0436. \u041f\u043e\u043f\u0440\u043e\u0431\u0443\u0439 \u043f\u043e\u0437\u0436\u0435.",
             reply_markup=error_keyboard(),
         )
 
@@ -1148,6 +1298,61 @@ async def _force_refresh_edge_session(
     await redis.delete(_EDGE_SESSION_KEY.format(telegram_id))
     return await _ensure_edge_session(
         redis, telegram_id, username, first_name, edge_url
+    )
+
+
+_PRIMARY_SESSION_KEY = "bot_primary_session:{}"
+
+
+async def _ensure_primary_session(
+    redis: Redis,
+    telegram_id: int,
+    username: str | None,
+    first_name: str | None,
+    primary_url: str,
+) -> str | None:
+    """Bearer session on primary API (USD / Xsolla) — separate Redis cache from edge."""
+    key = _PRIMARY_SESSION_KEY.format(telegram_id)
+    cached = await redis.get(key)
+    if cached:
+        ttl = await redis.ttl(key)
+        if ttl > _EDGE_MIN_REMAINING_TTL:
+            return cached.decode() if isinstance(cached, bytes) else cached
+
+    base = primary_url.rstrip("/")
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            resp = await client.post(
+                f"{base}/api/v1/auth/telegram",
+                json={
+                    "telegram_id": telegram_id,
+                    "username": username,
+                    "first_name": first_name,
+                },
+            )
+        if resp.status_code == 200:
+            data = resp.json()
+            token = data.get("session_token")
+            if token:
+                await redis.set(key, token, ex=_edge_session_ttl())
+                return token
+    except Exception:
+        logger.exception(
+            "Failed to get primary session for tg=%s on %s", telegram_id, base
+        )
+    return None
+
+
+async def _force_refresh_primary_session(
+    redis: Redis,
+    telegram_id: int,
+    username: str | None,
+    first_name: str | None,
+    primary_url: str,
+) -> str | None:
+    await redis.delete(_PRIMARY_SESSION_KEY.format(telegram_id))
+    return await _ensure_primary_session(
+        redis, telegram_id, username, first_name, primary_url
     )
 
 

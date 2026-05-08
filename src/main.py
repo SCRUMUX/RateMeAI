@@ -172,6 +172,21 @@ async def lifespan(app: FastAPI):
             settings.yookassa_shop_id = ""
             settings.yookassa_secret_key = ""
 
+    # Xsolla must never run on edge — same rationale as YooKassa on primary.
+    if settings.is_edge:
+        leftover_mid = settings.xsolla_merchant_id.strip()
+        leftover_xkey = settings.xsolla_api_key.strip()
+        leftover_pid = str(settings.xsolla_project_id or "").strip()
+        if leftover_mid or leftover_xkey or leftover_pid:
+            log.error(
+                "Xsolla credentials are set on edge deployment — nullifying in memory. "
+                "Xsolla must run only on DEPLOYMENT_MODE=primary.",
+            )
+            settings.xsolla_merchant_id = ""
+            settings.xsolla_api_key = ""
+            settings.xsolla_project_id = ""
+            settings.xsolla_webhook_secret = ""
+
     if settings.uses_remote_ai:
         if not settings.vk_id_app_id.strip():
             log.warning("VK_ID_APP_ID is empty — VK ID OAuth will not work on edge")

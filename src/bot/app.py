@@ -50,8 +50,8 @@ def _resolve_bot_api_base_url() -> str:
     if settings.is_production:
         logger.error(
             "EDGE_API_URL is empty in production — bot will fall back to "
-            "API_BASE_URL=%s, but /payments/* endpoints on primary return 410 "
-            "and users cannot top up credits until EDGE_API_URL is configured.",
+            "API_BASE_URL=%s. RUB top-ups still require EDGE_API_URL for ЮKassa; "
+            "configure PRIMARY_API_URL for USD (Xsolla) top-ups.",
             settings.api_base_url,
         )
     return settings.api_base_url.rstrip("/")

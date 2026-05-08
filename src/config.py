@@ -1,3 +1,5 @@
+from typing import Literal
+
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -84,8 +86,19 @@ class Settings(BaseSettings):
     yookassa_secret_key: str = ""
     yookassa_return_url: str = "https://t.me/{bot_username}"
 
-    # Credit packs: pack_size:price_rub (comma-separated)
-    credit_packs: str = "1:59,5:199,15:499,30:899"
+    # Credit packs: pack_size:price_rub (comma-separated), edge / YooKassa
+    credit_packs: str = "5:227,10:427,20:727,50:1527"
+    # Primary / Xsolla (USD), decimal prices allowed
+    credit_packs_usd: str = "5:3.27,10:5.27,20:8.27,50:19.27"
+
+    # Xsolla Pay Station (primary deployment only)
+    xsolla_merchant_id: str = ""
+    xsolla_project_id: str = ""
+    xsolla_api_key: str = ""
+    xsolla_webhook_secret: str = ""
+    xsolla_return_url: str = ""
+    # Bot / tooling: public HTTPS URL of primary API for USD checkout session
+    primary_api_url: str = ""
 
     # Admin (bootstrap API keys for B2B)
     admin_secret: str = ""
@@ -478,6 +491,14 @@ class Settings(BaseSettings):
     @property
     def uses_remote_ai(self) -> bool:
         return self.resolved_compute_mode == "remote"
+
+    @property
+    def payment_provider(self) -> Literal["yookassa", "xsolla"]:
+        return "yookassa" if self.is_edge else "xsolla"
+
+    def xsolla_project_secret(self) -> str:
+        """Secret used to verify webhook signatures (defaults to API key)."""
+        return (self.xsolla_webhook_secret or self.xsolla_api_key or "").strip()
 
 
 settings = Settings()
