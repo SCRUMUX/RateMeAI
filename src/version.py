@@ -5204,4 +5204,30 @@
 #          • .env.example: documents the flag, the correct webhook URL
 #            (Railway, NOT the Vercel SPA domain) and the sandbox card
 #            ``4111 1111 1111 1111`` for QA.
-APP_VERSION = "1.59.4"
+# 1.59.5 — Pricing CMS bypass. Live audit found that the real cause
+#          of "Failed to create payment" on the production landings
+#          (and the visible "old tariffs" complaint on both
+#          ailookstudio.ru/EN and ailookstudio.ru/RU) was a stale
+#          ``home`` row in the ``landing_pages`` table on BOTH
+#          deployments. It carried the pre-1.59 pack grid:
+#          • primary: $0.99/$2.99/$6.99/$11.99 → 1/5/15/30 photos
+#          • edge   : 59/199/499/899 ₽         → 1/5/15/30 фото
+#          ``Pricing.tsx`` used to per-field-merge those CMS rows over
+#          the i18n defaults via ``mergePlans`` (the 1.58 fallback
+#          fix). The merge passed ``packQty`` straight through, so the
+#          BUY buttons fired ``createPayment(1|15|30)`` against a
+#          backend whose ``CREDIT_PACKS_USD``/``CREDIT_PACKS`` only
+#          knows {5, 10, 20, 50} — every pack except the lone "5"
+#          immediately 4xx'd at ``pack_by_quantity()`` and the SPA
+#          fell into the alert.
+#          Fix: drop ``plans[]`` from the CMS contract entirely. CMS
+#          may still override ``title`` / ``subtitle`` / ``caption`` /
+#          ``tryFreeLabel`` of the section, but the tariff grid
+#          (price + ``packQty``) is now ALWAYS taken from the i18n
+#          bundle, which is generated from the same source as the
+#          backend ``CREDIT_PACKS*`` defaults. Stale CMS rows on prod
+#          stop being load-bearing — no admin re-seed needed.
+#          Test (``web/src/sections/Pricing.test.tsx``) flipped from
+#          "merge keeps custom plan" to "ignore plans[] from CMS" so
+#          regressions can't sneak the merge back in.
+APP_VERSION = "1.59.5"

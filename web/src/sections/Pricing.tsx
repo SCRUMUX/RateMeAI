@@ -19,60 +19,22 @@ function buildDefaultPlans(t: (key: string) => string) {
 
 type DefaultPlan = ReturnType<typeof buildDefaultPlans>[number];
 
-type CmsPlanRaw = {
-  title: unknown;
-  price: unknown;
-  photos: unknown;
-  packQty: unknown;
-  desc: unknown;
-  highlighted?: unknown;
-  badge?: unknown;
-  savingBadge?: unknown;
-};
-
+// 1.59.5 — CMS may only override the section heading/caption strings.
+// ``plans`` (price + ``packQty``) is intentionally NOT read from the
+// CMS anymore: a stale ``home`` document in the landing-pages table
+// used to ship pre-1.59 packs (1/15/30) and bind buy buttons to
+// ``packQty`` values that no longer exist in ``CREDIT_PACKS*`` —
+// ``POST /api/v1/payments/create`` then returned an error and the
+// SPA showed "Failed to create payment". Defaults from the i18n
+// bundle (``web/src/locales/{ru,en}/landing.json``) are now the
+// single source of truth for tariffs, kept in sync with the backend
+// catalog.
 type PricingCms = Partial<{
   title: string;
   subtitle: string;
   caption: string;
   tryFreeLabel: string;
-  plans: CmsPlanRaw[];
 }>;
-
-function asRawPlans(value: unknown): CmsPlanRaw[] | null {
-  if (!Array.isArray(value)) return null;
-  const out: CmsPlanRaw[] = [];
-  for (const item of value) {
-    if (!item || typeof item !== 'object') continue;
-    out.push(item as CmsPlanRaw);
-  }
-  return out.length ? out : null;
-}
-
-function mergePlans(rawPlans: CmsPlanRaw[] | null, defaults: DefaultPlan[]): DefaultPlan[] {
-  if (!rawPlans) return defaults;
-  // Per-field merge: if CMS field is missing or blank, fall back to the
-  // default plan with the same packQty (or same index when packQty does
-  // not match anything). This way an empty global JSON renders the
-  // English defaults instead of empty cards.
-  return rawPlans.map((raw, idx) => {
-    const packQtyRaw = typeof raw.packQty === 'number' ? raw.packQty : Number(raw.packQty);
-    const packQty = Number.isFinite(packQtyRaw) ? packQtyRaw : defaults[idx]?.packQty ?? idx + 1;
-    const fallback = defaults.find((p) => p.packQty === packQty) ?? defaults[idx] ?? defaults[0];
-    return {
-      title: coalesceCmsString(raw.title, fallback.title),
-      price: coalesceCmsString(raw.price, fallback.price),
-      photos: coalesceCmsString(raw.photos, fallback.photos),
-      packQty,
-      desc: coalesceCmsString(raw.desc, fallback.desc),
-      highlighted: typeof raw.highlighted === 'boolean' ? raw.highlighted : fallback.highlighted,
-      badge: typeof raw.badge === 'string' && raw.badge.trim() ? raw.badge : fallback.badge,
-      savingBadge:
-        typeof raw.savingBadge === 'string' && raw.savingBadge.trim()
-          ? raw.savingBadge
-          : fallback.savingBadge,
-    } satisfies DefaultPlan;
-  });
-}
 
 export default function Pricing({ cmsPage }: { cmsPage?: LandingPage | null } = {}) {
   const { canAccessApp } = useApp();
@@ -84,9 +46,7 @@ export default function Pricing({ cmsPage }: { cmsPage?: LandingPage | null } = 
 
   const cmsBlock = findBlock(cmsPage ?? undefined, 'pricing');
   const cmsData = (cmsBlock?.data ?? {}) as PricingCms;
-  const defaultPlans = useMemo(() => buildDefaultPlans(t), [t]);
-  const rawPlans = useMemo(() => asRawPlans((cmsData as any).plans), [cmsData]);
-  const effectivePlans = useMemo(() => mergePlans(rawPlans, defaultPlans), [rawPlans, defaultPlans]);
+  const effectivePlans = useMemo(() => buildDefaultPlans(t), [t]);
   const headingTitle = coalesceCmsString(cmsData.title, t('pricing.title'));
   const headingSubtitle = coalesceCmsString(cmsData.subtitle, t('pricing.subtitle'));
   const headingCaption = coalesceCmsString(cmsData.caption, t('pricing.caption'));
