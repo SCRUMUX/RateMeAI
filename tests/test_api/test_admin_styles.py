@@ -273,8 +273,8 @@ async def test_create_v2_requires_clothing_default(isolated_styles_file):
 
 
 @pytest.mark.asyncio
-async def test_create_v2_requires_quality_identity_base(isolated_styles_file):
-    """v2 styles without ``quality_identity.base`` lose the identity anchor."""
+async def test_create_v2_allows_empty_quality_identity_base(isolated_styles_file):
+    """v2 styles without ``quality_identity.base`` fall back to default tails."""
     payload = admin_styles.StyleCreatePayload(
         id="missing_quality",
         mode="social",
@@ -285,10 +285,8 @@ async def test_create_v2_requires_quality_identity_base(isolated_styles_file):
     raw["clothing"] = {"default": "smart casual fitted shirt"}
     raw["quality_identity"] = {"base": "   "}
     payload = admin_styles.StyleCreatePayload(**raw)
-    with pytest.raises(HTTPException) as exc:
-        await admin_styles.create_style(payload, _admin=None)
-    assert exc.value.status_code == 422
-    assert "quality_identity.base" in exc.value.detail
+    created = await admin_styles.create_style(payload, _admin=None)
+    assert created["id"] == "missing_quality"
 
 
 @pytest.mark.asyncio

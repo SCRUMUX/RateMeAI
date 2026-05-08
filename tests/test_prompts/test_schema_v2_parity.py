@@ -202,15 +202,19 @@ def test_v2_matches_v1_for_neutral_inputs(monkeypatch, mode, style):
         target_model="gpt_image_2",
         framing=None,
     )
-    # SCENE_BLEND_PHOTO is the only diff between v1 tail and v2 tail.
-    # Stripping it from v2 must yield the v1 output verbatim.
+    # SCENE_BLEND_PHOTO and the anatomy suffix are the only diffs between v1 tail and v2 tail.
+    # Stripping them from v2 must yield the v1 output verbatim.
     assert ig.SCENE_BLEND_PHOTO in via_v2, (
         "v2 path should embed SCENE_BLEND_PHOTO anchor (1.32.2).\n"
         f"v2 output: {via_v2!r}"
     )
     via_v2_stripped = via_v2.replace(" " + ig.SCENE_BLEND_PHOTO, "")
+    anatomy_suffix = " Ensure correct 1: 7 head-to-body ratio, natural shoulders, and realistic body proportions. The face must not be oversized relative to the body."
+    via_v2_stripped = via_v2_stripped.replace(anatomy_suffix, "")
+    anatomy_suffix_uncompressed = " Ensure correct 1:7 head-to-body ratio, natural shoulders, and realistic body proportions. The face must not be oversized relative to the body."
+    via_v2_stripped = via_v2_stripped.replace(anatomy_suffix_uncompressed, "")
     assert via_v2_stripped == via_v1, (
-        f"\n--- v2 (stripped of SCENE_BLEND) ---\n{via_v2_stripped}"
+        f"\n--- v2 (stripped of SCENE_BLEND and anatomy suffix) ---\n{via_v2_stripped}"
         f"\n--- v1 ---\n{via_v1}\n"
     )
 
@@ -248,6 +252,10 @@ def test_v2_framing_parity(monkeypatch, framing):
     )
     assert ig.SCENE_BLEND_PHOTO in via_v2
     via_v2_stripped = via_v2.replace(" " + ig.SCENE_BLEND_PHOTO, "")
+    anatomy_suffix = " Ensure correct 1: 7 head-to-body ratio, natural shoulders, and realistic body proportions. The face must not be oversized relative to the body."
+    via_v2_stripped = via_v2_stripped.replace(anatomy_suffix, "")
+    anatomy_suffix_uncompressed = " Ensure correct 1:7 head-to-body ratio, natural shoulders, and realistic body proportions. The face must not be oversized relative to the body."
+    via_v2_stripped = via_v2_stripped.replace(anatomy_suffix_uncompressed, "")
     assert via_v2_stripped == via_v1
 
 

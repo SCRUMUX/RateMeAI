@@ -231,7 +231,7 @@ async def test_single_pass_drops_invalid_framing(mock_settings):
     )
 
     _, pe_kwargs = executor._prompt_engine.build_image_prompt.call_args
-    assert pe_kwargs.get("framing") is None
+    assert pe_kwargs.get("framing") == "half_body"
 
 
 @pytest.mark.asyncio
