@@ -10,6 +10,7 @@
 // is *not* the source of truth — only a local fallback for the public
 // homepage. The admin panel (phase 5) updates JSON, not this file.
 
+import i18next from '../lib/i18n';
 import type { CategoryId, StyleItem } from './styles';
 import { STYLES_BY_CATEGORY } from './styles';
 
@@ -17,7 +18,40 @@ export interface DocumentFormatItem extends StyleItem {
   usage: string;
 }
 
-export const DOCUMENT_LANDING_ITEMS: DocumentFormatItem[] = [
+/**
+ * Wrap a {@link StyleItem} so `name` / `desc` lazily resolve through
+ * i18next at access time. The fallback is the original RU literal so
+ * builds without translations still render.
+ */
+function localizeStyle<T extends StyleItem>(category: string, item: T): T {
+  return new Proxy(item, {
+    get(target, prop, receiver) {
+      if (prop === 'name') {
+        return (
+          i18next.t(`styles:${category}.${target.key}.name`, target.name) || target.name
+        );
+      }
+      if (prop === 'desc') {
+        return (
+          i18next.t(`styles:${category}.${target.key}.desc`, target.desc) || target.desc
+        );
+      }
+      if (prop === 'usage' && 'usage' in target) {
+        const usage = (target as unknown as DocumentFormatItem).usage;
+        return (
+          i18next.t(`styles:${category}.${target.key}.usage`, usage) || usage
+        );
+      }
+      return Reflect.get(target, prop, receiver);
+    },
+  }) as T;
+}
+
+function localizeMany<T extends StyleItem>(category: string, items: T[]): T[] {
+  return items.map((it) => localizeStyle(category, it));
+}
+
+const DOCUMENT_LANDING_ITEMS_RAW: DocumentFormatItem[] = [
   {
     key: 'photo_3x4',
     icon: '📋',
@@ -92,6 +126,11 @@ export const DOCUMENT_LANDING_ITEMS: DocumentFormatItem[] = [
   },
 ];
 
+export const DOCUMENT_LANDING_ITEMS: DocumentFormatItem[] = localizeMany(
+  'documents',
+  DOCUMENT_LANDING_ITEMS_RAW,
+);
+
 export function isDocumentFormatItem(item: StyleItem): item is DocumentFormatItem {
   return 'usage' in item && typeof (item as DocumentFormatItem).usage === 'string';
 }
@@ -100,7 +139,7 @@ export const DOCUMENT_USAGE_LOOKUP: Record<string, string> = Object.fromEntries(
   DOCUMENT_LANDING_ITEMS.map((it) => [it.key, it.usage]),
 );
 
-export const TINDER_PACK_LANDING_ITEMS: StyleItem[] = [
+const TINDER_PACK_LANDING_ITEMS_RAW: StyleItem[] = [
   {
     key: 'tinder_pack_rooftop_golden',
     icon: '🌆',
@@ -127,7 +166,12 @@ export const TINDER_PACK_LANDING_ITEMS: StyleItem[] = [
   },
 ];
 
-export const LANDING_STYLES_BY_CATEGORY: Partial<Record<CategoryId, StyleItem[]>> = {
+export const TINDER_PACK_LANDING_ITEMS: StyleItem[] = localizeMany(
+  'dating',
+  TINDER_PACK_LANDING_ITEMS_RAW,
+);
+
+const LANDING_STYLES_BY_CATEGORY_RAW: Partial<Record<CategoryId, StyleItem[]>> = {
   dating: [
     { key: 'paris_eiffel', icon: '🗼', name: 'Эйфелева башня', desc: 'Романтичный кадр у башни подчеркнёт лёгкость и вкус', param: 'appeal', deltaRange: [0.42, 0.68] },
     { key: 'dubai_burj_khalifa', icon: '🏙', name: 'Бурдж-Халифа', desc: 'Амбициозный фон добавит ощущение успеха и масштаба', param: 'presence', deltaRange: [0.55, 0.82] },
@@ -181,7 +225,7 @@ export const LANDING_STYLES_BY_CATEGORY: Partial<Record<CategoryId, StyleItem[]>
     { key: 'warm_outdoor', icon: '🌤', name: 'На прогулке', desc: 'Естественный свет подчеркнёт натуральность и тепло', param: 'warmth', deltaRange: [0.22, 0.40] },
     { key: 'studio_elegant', icon: '✨', name: 'Студия', desc: 'Студийный свет создаст безупречный портрет', param: 'appeal', deltaRange: [0.62, 0.90] },
     { key: 'cafe', icon: '☕', name: 'Кафе / бар', desc: 'Расслабленная обстановка покажет лёгкость в общении', param: 'warmth', deltaRange: [0.18, 0.35] },
-    ...TINDER_PACK_LANDING_ITEMS,
+    ...TINDER_PACK_LANDING_ITEMS_RAW,
   ],
   cv: [
     { key: 'corporate', icon: '🏢', name: 'Корпоративный', desc: 'Деловой фон усилит впечатление надёжности', param: 'presence', deltaRange: [0.35, 0.55] },
@@ -265,6 +309,18 @@ export const LANDING_STYLES_BY_CATEGORY: Partial<Record<CategoryId, StyleItem[]>
     { key: 'casual', icon: '☀️', name: 'Casual', desc: 'Лёгкий стиль подчеркнёт естественность и вкус', param: 'warmth', deltaRange: [0.12, 0.26] },
     { key: 'artistic', icon: '🎨', name: 'Artistic', desc: 'Арт-стиль покажет креативность и уникальный взгляд', param: 'appeal', deltaRange: [0.48, 0.72] },
   ],
+};
+
+export const LANDING_STYLES_BY_CATEGORY: Partial<Record<CategoryId, StyleItem[]>> = {
+  dating: LANDING_STYLES_BY_CATEGORY_RAW.dating
+    ? localizeMany('dating', LANDING_STYLES_BY_CATEGORY_RAW.dating)
+    : undefined,
+  cv: LANDING_STYLES_BY_CATEGORY_RAW.cv
+    ? localizeMany('cv', LANDING_STYLES_BY_CATEGORY_RAW.cv)
+    : undefined,
+  social: LANDING_STYLES_BY_CATEGORY_RAW.social
+    ? localizeMany('social', LANDING_STYLES_BY_CATEGORY_RAW.social)
+    : undefined,
 };
 
 // Convenience export for landing surfaces that need a complete map across all

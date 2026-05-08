@@ -1,3 +1,4 @@
+import i18next from '../lib/i18n';
 import type { CategoryId } from './styles';
 
 export interface AiFact {
@@ -5,81 +6,83 @@ export interface AiFact {
   text: string;
 }
 
-export const PERCEPTION_FACTS: Record<CategoryId, AiFact[]> = {
+/**
+ * RU fallback set for the streaming "did you know" facts shown during
+ * generation. The actual copy lives in `wizard.json` under
+ * `streamFacts.<categoryId>` so each market renders its own language.
+ * If i18next has no entry for a category we fall back to this map so
+ * the carousel never goes silent.
+ */
+const FALLBACK_FACTS_BY_CATEGORY: Record<CategoryId, string[]> = {
   social: [
-    { type: 'fact', text: 'Первое впечатление формируется за 100 миллисекунд — и почти не меняется потом.' },
-    { type: 'fact', text: 'Улыбающиеся лица воспринимаются на 30% более привлекательными.' },
-    { type: 'fact', text: 'Зрительный контакт повышает ощущение искренности на 45%.' },
-    { type: 'fact', text: 'Фото с тёплым освещением вызывают в 2 раза больше доверия.' },
-    { type: 'fact', text: 'Симметрия лица подсознательно ассоциируется с генетическим здоровьем.' },
-    { type: 'fact', text: 'Наклон головы в 15 градусов делает выражение более дружелюбным.' },
-    { type: 'fact', text: 'Люди запоминают лица лучше, чем имена — визуальный образ критичен.' },
-    { type: 'fact', text: 'Эффект ореола: привлекательных людей считают умнее и успешнее.' },
-    { type: 'fact', text: 'Открытая поза увеличивает восприятие дружелюбности на 27%.' },
-    { type: 'fact', text: 'Цвет одежды на фото влияет на восприятие: синий — доверие, красный — уверенность.' },
-    { type: 'fact', text: 'Фото с естественным фоном воспринимаются как более искренние.' },
-    { type: 'fact', text: 'Микровыражения длятся 1/25 секунды, но мозг их считывает безошибочно.' },
+    'Первое впечатление формируется за 100 миллисекунд — и почти не меняется потом.',
+    'Улыбающиеся лица воспринимаются на 30% более привлекательными.',
+    'Зрительный контакт повышает ощущение искренности на 45%.',
+    'Фото с тёплым освещением вызывают в 2 раза больше доверия.',
   ],
   cv: [
-    { type: 'fact', text: 'Резюме с профессиональным фото получают на 40% больше откликов.' },
-    { type: 'fact', text: 'Рекрутеры тратят в среднем 7 секунд на первичный просмотр профиля.' },
-    { type: 'fact', text: 'Уверенная поза повышает не только восприятие другими, но и собственный уровень кортизола.' },
-    { type: 'fact', text: 'Деловой портрет с прямым взглядом повышает воспринимаемую компетентность на 35%.' },
-    { type: 'fact', text: 'Фото в деловой одежде увеличивает доверие к экспертизе на 60%.' },
-    { type: 'fact', text: 'Исследование LinkedIn: профили с фото получают в 21 раз больше просмотров.' },
-    { type: 'fact', text: 'Эффект первичности: первое впечатление о кандидате влияет на всё интервью.' },
-    { type: 'fact', text: 'Люди автоматически оценивают доминантность и теплоту по фото за доли секунды.' },
-    { type: 'fact', text: 'Прямая осанка на фото ассоциируется с лидерскими качествами.' },
-    { type: 'fact', text: 'Нейтральный фон на деловом фото повышает фокус на личности на 40%.' },
-    { type: 'fact', text: 'Исследования показывают: улыбка на деловом фото повышает воспринимаемую доступность.' },
-    { type: 'fact', text: 'Контраст одежды и фона усиливает визуальную запоминаемость профиля.' },
+    'Резюме с профессиональным фото получают на 40% больше откликов.',
+    'Рекрутеры тратят в среднем 7 секунд на первичный просмотр профиля.',
+    'Деловой портрет с прямым взглядом повышает воспринимаемую компетентность на 35%.',
   ],
   dating: [
-    { type: 'fact', text: 'Теплота — главный фактор привлекательности при первой встрече.' },
-    { type: 'fact', text: 'Улыбка Дюшена (искренняя) воспринимается в 10 раз привлекательнее социальной.' },
-    { type: 'fact', text: 'Исследования показывают: фото с питомцем увеличивает количество лайков на 35%.' },
-    { type: 'fact', text: 'Зрительный контакт на фото активирует зеркальные нейроны у зрителя.' },
-    { type: 'fact', text: 'Люди подсознательно оценивают привлекательность за 13 миллисекунд.' },
-    { type: 'fact', text: 'Тёплое освещение на фото повышает воспринимаемую привлекательность на 20%.' },
-    { type: 'fact', text: 'Открытая поза на фото ассоциируется с уверенностью и доступностью.' },
-    { type: 'fact', text: 'Фон влияет на восприятие: природа ассоциируется с заботой и эмпатией.' },
-    { type: 'fact', text: 'Эффект контраста: уникальное фото среди однотипных привлекает в 3 раза больше внимания.' },
-    { type: 'fact', text: 'Подлинность важнее идеальности — естественные фото вызывают больше доверия.' },
-    { type: 'fact', text: 'Исследование Photofeeler: угол камеры влияет на привлекательность до 30%.' },
-    { type: 'fact', text: 'Психология цвета: красные элементы в образе усиливают восприятие привлекательности.' },
+    'Теплота — главный фактор привлекательности при первой встрече.',
+    'Улыбка Дюшена (искренняя) воспринимается в 10 раз привлекательнее социальной.',
+    'Тёплое освещение на фото повышает воспринимаемую привлекательность на 20%.',
   ],
-  model: [
-    { type: 'fact', text: 'Профессиональные фото в портфолио увеличивают количество приглашений на кастинги в 3 раза.' },
-    { type: 'fact', text: 'Студийный свет Рембрандта считается золотым стандартом портретной фотографии.' },
-    { type: 'fact', text: 'Модели с разнообразным портфолио получают на 60% больше бронирований.' },
-    { type: 'fact', text: 'Правило третей в композиции увеличивает визуальную привлекательность кадра на 40%.' },
-  ],
-  brand: [
-    { type: 'fact', text: 'Личный бренд с качественным визуалом повышает доверие аудитории на 55%.' },
-    { type: 'fact', text: 'Эксперты с профессиональными фото получают в 4 раза больше запросов на сотрудничество.' },
-    { type: 'fact', text: 'Единый визуальный стиль увеличивает узнаваемость бренда на 80%.' },
-    { type: 'fact', text: 'Фото спикеров на сцене повышают воспринимаемый авторитет на 45%.' },
-  ],
-  memes: [
-    { type: 'fact', text: 'Мемы с лицами получают на 38% больше вовлечённости чем текстовые.' },
-    { type: 'fact', text: 'Средний мем живёт 4 дня, но лучшие становятся вечной классикой.' },
-    { type: 'fact', text: 'Юмор в визуальном контенте увеличивает запоминаемость на 70%.' },
-    { type: 'fact', text: 'Мем-формат Distracted Boyfriend стал самым узнаваемым шаблоном 2020-х.' },
-  ],
+  model: ['Профессиональные фото в портфолио увеличивают количество приглашений на кастинги в 3 раза.'],
+  brand: ['Личный бренд с качественным визуалом повышает доверие аудитории на 55%.'],
+  memes: ['Мемы с лицами получают на 38% больше вовлечённости чем текстовые.'],
 };
 
+function readFactsForCategory(category: CategoryId): string[] {
+  const raw = i18next.t(`wizard:streamFacts.${category}`, { returnObjects: true });
+  if (Array.isArray(raw)) {
+    const cleaned = raw.filter((s): s is string => typeof s === 'string' && !!s.trim());
+    if (cleaned.length) return cleaned;
+  }
+  return FALLBACK_FACTS_BY_CATEGORY[category] ?? [];
+}
+
+function toFacts(texts: string[]): AiFact[] {
+  return texts.map((text) => ({ type: 'fact', text }));
+}
+
+/**
+ * @deprecated Read facts via {@link getStreamFacts} so the EN build
+ * picks up the english translations. Kept for callers that still
+ * access the static map at module load time.
+ */
+export const PERCEPTION_FACTS: Record<CategoryId, AiFact[]> = new Proxy(
+  {} as Record<CategoryId, AiFact[]>,
+  {
+    get(_target, prop) {
+      if (typeof prop !== 'string') return undefined;
+      return toFacts(readFactsForCategory(prop as CategoryId));
+    },
+  },
+);
+
+export function getStreamFacts(category?: CategoryId): AiFact[] {
+  if (category) return toFacts(readFactsForCategory(category));
+  return [
+    ...toFacts(readFactsForCategory('social')),
+    ...toFacts(readFactsForCategory('cv')),
+    ...toFacts(readFactsForCategory('dating')),
+  ];
+}
+
 /** Backward-compatible flat list (all categories combined). */
-export const AI_FACTS: AiFact[] = [
-  ...PERCEPTION_FACTS.social,
-  ...PERCEPTION_FACTS.cv,
-  ...PERCEPTION_FACTS.dating,
-];
+export const AI_FACTS: AiFact[] = getStreamFacts();
 
 export function getRandomFact(
   excludeIndex?: number,
   category?: CategoryId,
 ): { fact: AiFact; index: number } {
-  const pool = category ? PERCEPTION_FACTS[category] : AI_FACTS;
+  const pool = getStreamFacts(category);
+  if (!pool.length) {
+    return { fact: { type: 'fact', text: '' }, index: 0 };
+  }
   let idx: number;
   do {
     idx = Math.floor(Math.random() * pool.length);

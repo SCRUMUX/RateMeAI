@@ -76,6 +76,20 @@ function asNumber(value: unknown, fallback: number): number {
   return fallback;
 }
 
+/**
+ * CMS values can be `""` (deliberately blanked on the global server so
+ * the SPA falls back to the i18n bundle). The naive
+ * `typeof v === 'string' ? v : fallback` returns the empty string and
+ * skips the fallback entirely, which is what produced empty Pricing
+ * cards / empty Footer copyright strings on the EN build. Use this
+ * helper everywhere a CMS field might be blank.
+ */
+export function coalesceCmsString(value: unknown, fallback: string): string {
+  if (typeof value !== 'string') return fallback;
+  const trimmed = value.trim();
+  return trimmed ? value : fallback;
+}
+
 export interface ProofCounterContent {
   heading: string;
   subheading?: string;

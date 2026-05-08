@@ -5018,4 +5018,34 @@
 #            with empty text fields so the SPA falls through to its
 #            i18n fallbacks on the global build. Admin Landing CMS UI
 #            spells out the per-server contract.
-APP_VERSION = "1.57.0"
+# 1.58.0 — i18n holes + CMS fallback hardening + visa testimonials + EN
+#          input_quality copy.
+#          • CMS fallback fix: introduced coalesceCmsString() in
+#            web/src/lib/landing-cms.ts and replaced the naive
+#            asString(value, fallback) helper in Pricing / Footer /
+#            BeforeAfterSection / ApiSection so an empty CMS string
+#            actually falls through to the i18n bundle (root cause of
+#            the empty Pricing cards on the global server). Pricing
+#            now per-field-merges cms plans on top of the default
+#            English plans instead of an all-or-nothing replacement.
+#          • Catalog i18n: new catalog namespace (categories,
+#            abModels, params, abQualities, creditsPerGen plurals)
+#            backs i18n-aware Proxy wrappers around CATEGORIES,
+#            AB_MODELS, AB_QUALITIES, PARAMS_BY_MODE and
+#            PARAM_LABELS, so wizard / landing surfaces stop leaking
+#            "Соцсети / Обычный режим / 1 кредит за генерацию" on EN.
+#            formatAbCredits() now goes through i18next plural rules.
+#          • Stream facts (StepGenerate streaming carousel) and
+#            ~120 landing-style names/descs (landingStyles +
+#            STYLES_BY_CATEGORY + DOCUMENT_LANDING_ITEMS +
+#            TINDER_PACK_LANDING_ITEMS) read through new
+#            wizard:streamFacts.* and styles namespaces.
+#          • Visa landings now render <Testimonials/> populated from
+#            scenarios:visa.testimonials (4 entries RU+EN). Previously
+#            visa pages skipped the social-proof block entirely.
+#          • Backend ISSUE_TEXTS_BY_LANG: photo_requirements.py
+#            picks RU vs EN by settings.resolved_market_id; legacy
+#            ISSUE_TEXTS proxy keeps the input_quality.py call site
+#            working unchanged. New tests in
+#            tests/test_services/test_photo_requirements.py.
+APP_VERSION = "1.58.0"

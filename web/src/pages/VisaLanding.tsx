@@ -9,8 +9,10 @@ import EnergyField from '../components/effects/EnergyField';
 import ProofCounter from '../sections/ProofCounter';
 import HowItWorks, { type HowItWorksStep } from '../sections/HowItWorks';
 import ScenarioPricing from '../sections/ScenarioPricing';
+import Testimonials from '../sections/Testimonials';
 import { useApp } from '../context/AppContext';
 import { DOCUMENT_SOCIAL_PROOF_PRESET } from '../data/social-proof';
+import type { Testimonial } from '../data/testimonials';
 import useDocumentMeta from '../lib/useDocumentMeta';
 import {
   findBlock,
@@ -111,6 +113,41 @@ export default function VisaLanding({ visa, onStart, showAuth, onAuthClose }: Pr
     () => ({ tagline: t('landing:visa.fallbackPricing.tagline') }),
     [t],
   );
+
+  // 1.58.0: visa landings used to skip the social-proof testimonials
+  // section, which made the page feel thin compared to document /
+  // dating / resume landings. We now reuse the same Testimonials
+  // component, sourcing copy from `scenarios:visa.testimonials` so
+  // each market renders its own language.
+  interface RawVisaTestimonial {
+    id?: string;
+    styleKey?: string;
+    category?: string;
+    nickname?: string;
+    shortReview?: string;
+    fullReview?: string;
+    emojiReview?: string;
+    avatarSeed?: string;
+    tier?: string;
+  }
+  const visaTestimonials: Testimonial[] = useMemo(() => {
+    const raw = t('scenarios:visa.testimonials', { returnObjects: true }) as unknown;
+    if (!Array.isArray(raw)) return [];
+    return (raw as RawVisaTestimonial[]).map((item) => ({
+      id: String(item.id ?? ''),
+      styleKey: String(item.styleKey ?? 'visa_eu'),
+      category: (item.category as Testimonial['category']) ?? 'cv',
+      nickname: String(item.nickname ?? ''),
+      shortReview: String(item.shortReview ?? ''),
+      fullReview: String(item.fullReview ?? ''),
+      emojiReview: String(item.emojiReview ?? '🛂'),
+      beforeScore: 0,
+      afterScore: 0,
+      deltaRange: [0, 0],
+      avatarSeed: String(item.avatarSeed ?? item.id ?? ''),
+      tier: (item.tier as Testimonial['tier']) ?? 'Обычный',
+    }));
+  }, [t]);
 
   const hero = useMemo(
     () => parseHero(findBlock(page, 'hero')?.data, fallbackHero),
@@ -214,6 +251,10 @@ export default function VisaLanding({ visa, onStart, showAuth, onAuthClose }: Pr
           heading={proof.heading}
           subheading={proof.subheading}
         />
+
+        {visaTestimonials.length > 0 && (
+          <Testimonials items={visaTestimonials} tone="documents" />
+        )}
 
         <HowItWorks steps={howSteps} title={how.title} />
 

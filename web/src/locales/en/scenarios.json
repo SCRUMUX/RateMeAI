@@ -154,6 +154,54 @@
   },
   "visa": {
     "sizeFormat": "{{w}}×{{h}} mm",
-    "gradientPhrase": "{{size}}, ICAO standard"
+    "gradientPhrase": "{{size}}, ICAO standard",
+    "testimonialsTitle": "Approved on the first try",
+    "testimonialsSubtitle": "Real photos that passed embassy checks",
+    "testimonials": [
+      {
+        "id": "visa-1",
+        "styleKey": "visa_eu",
+        "category": "cv",
+        "nickname": "@anna_schengen",
+        "shortReview": "Schengen application approved on the first try.",
+        "fullReview": "Took the AI-generated photo to the visa center, no remarks at all. Background, head size, expression — everything fit on the first scan.",
+        "emojiReview": "🛂✅",
+        "avatarSeed": "anna_schengen",
+        "tier": "Standard"
+      },
+      {
+        "id": "visa-2",
+        "styleKey": "visa_us",
+        "category": "cv",
+        "nickname": "@maxim_us_visa",
+        "shortReview": "US embassy accepted the photo at the interview.",
+        "fullReview": "The 50×50 square came out exactly to spec. The consular officer didn't even ask to retake — the photo passed automatic quality control.",
+        "emojiReview": "🇺🇸",
+        "avatarSeed": "maxim_us_visa",
+        "tier": "Premium"
+      },
+      {
+        "id": "visa-3",
+        "styleKey": "visa_eu",
+        "category": "cv",
+        "nickname": "@elena_uk",
+        "shortReview": "Saved 2 hours not going to a studio.",
+        "fullReview": "Made the photo from home, printed it at the nearest print shop, and submitted it to the British visa center. Approved without remarks — just like a regular studio shot.",
+        "emojiReview": "🇬🇧",
+        "avatarSeed": "elena_uk",
+        "tier": "Standard"
+      },
+      {
+        "id": "visa-4",
+        "styleKey": "visa_eu",
+        "category": "cv",
+        "nickname": "@dmitry_japan",
+        "shortReview": "Japan visa — approved with the AI photo.",
+        "fullReview": "Was worried the consulate would notice it's a synthetic image. The photo passed, no complaints — they cared about the white background, head size and a neutral expression.",
+        "emojiReview": "🇯🇵",
+        "avatarSeed": "dmitry_japan",
+        "tier": "Premium"
+      }
+    ]
   }
 }

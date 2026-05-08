@@ -26,6 +26,8 @@ import ruModals from '../locales/ru/modals.json';
 import ruAccount from '../locales/ru/account.json';
 import ruScenarios from '../locales/ru/scenarios.json';
 import ruPolicies from '../locales/ru/policies.json';
+import ruCatalog from '../locales/ru/catalog.json';
+import ruStyles from '../locales/ru/styles.json';
 import enCommon from '../locales/en/common.json';
 import enErrors from '../locales/en/errors.json';
 import enWizard from '../locales/en/wizard.json';
@@ -35,6 +37,8 @@ import enModals from '../locales/en/modals.json';
 import enAccount from '../locales/en/account.json';
 import enScenarios from '../locales/en/scenarios.json';
 import enPolicies from '../locales/en/policies.json';
+import enCatalog from '../locales/en/catalog.json';
+import enStyles from '../locales/en/styles.json';
 
 export const SUPPORTED_LANGS = ['ru', 'en'] as const;
 export type AppLang = (typeof SUPPORTED_LANGS)[number];
@@ -55,6 +59,8 @@ const resources = {
     account: ruAccount,
     scenarios: ruScenarios,
     policies: ruPolicies,
+    catalog: ruCatalog,
+    styles: ruStyles,
   },
   en: {
     common: enCommon,
@@ -66,6 +72,8 @@ const resources = {
     account: enAccount,
     scenarios: enScenarios,
     policies: enPolicies,
+    catalog: enCatalog,
+    styles: enStyles,
   },
 } as const;
 
@@ -73,7 +81,19 @@ void i18next.use(initReactI18next).init({
   resources,
   lng: getAppLanguage(),
   fallbackLng: 'en',
-  ns: ['common', 'errors', 'wizard', 'seo', 'landing', 'modals', 'account', 'scenarios', 'policies'],
+  ns: [
+    'common',
+    'errors',
+    'wizard',
+    'seo',
+    'landing',
+    'modals',
+    'account',
+    'scenarios',
+    'policies',
+    'catalog',
+    'styles',
+  ],
   defaultNS: 'common',
   interpolation: { escapeValue: false },
   returnNull: false,

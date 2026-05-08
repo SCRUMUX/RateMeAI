@@ -1,0 +1,44 @@
+{
+  "categories": {
+    "social": { "label": "Соцсети" },
+    "cv": { "label": "Карьера" },
+    "dating": { "label": "Знакомства" },
+    "model": { "label": "Фотосессия" },
+    "brand": { "label": "Личный бренд" },
+    "memes": { "label": "Мемы" },
+    "documents": { "label": "Документы" },
+    "visa": { "label": "Виза" }
+  },
+  "params": {
+    "warmth": "Теплота",
+    "presence": "Уверенность",
+    "appeal": "Привлекательность",
+    "trust": "Доверие",
+    "competence": "Компетентность",
+    "hireability": "Найм",
+    "social_score": "Social Score",
+    "dating_score": "Dating Score",
+    "authenticity": "Аутентичность"
+  },
+  "abModels": {
+    "gpt_image_2": {
+      "label": "Обычный режим",
+      "short": "Сбалансированный стандарт",
+      "description": "Стандартный рендер с хорошей адгезией промпта и стабильной передачей лица. Подходит для большинства сценариев."
+    },
+    "nano_banana_2": {
+      "label": "Премиум",
+      "short": "Максимальное сохранение лица",
+      "description": "Премиальный рендер с акцентом на идентичность и фактуру кожи. Лучше для крупных планов и тонких деталей лица."
+    }
+  },
+  "abQualities": {
+    "low": { "label": "Low", "hint": "≈1024 px, быстро и бюджетно" },
+    "medium": { "label": "Medium", "hint": "≈1536–2048 px, больше деталей" },
+    "high": { "label": "High", "hint": "≈2048 px + reasoning, максимум реализма лица" }
+  },
+  "creditsPerGen_one": "{{count}} кредит за генерацию",
+  "creditsPerGen_few": "{{count}} кредита за генерацию",
+  "creditsPerGen_many": "{{count}} кредитов за генерацию",
+  "creditsPerGen_other": "{{count}} кредита за генерацию"
+}

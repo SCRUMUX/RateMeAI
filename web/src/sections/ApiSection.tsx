@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { findBlock, type LandingPage } from '../lib/landing-cms';
+import { findBlock, coalesceCmsString, type LandingPage } from '../lib/landing-cms';
 
 /**
  * 1.50.6 — секция «API» под блоком «Тарифы» на главной.
@@ -37,10 +37,6 @@ const OPTION_ICONS: Record<(typeof OPTION_KEYS)[number], string> = {
   custom: '⚙️',
 };
 
-function asString(value: unknown, fallback = ''): string {
-  return typeof value === 'string' ? value : fallback;
-}
-
 export default function ApiSection({ cmsPage }: { cmsPage?: LandingPage | null }) {
   const block = findBlock(cmsPage ?? undefined, 'api');
   const data = (block?.data ?? {}) as Record<string, unknown>;
@@ -63,9 +59,9 @@ export default function ApiSection({ cmsPage }: { cmsPage?: LandingPage | null }
     [t],
   );
 
-  const title = asString(data.title, t('apiSection.title'));
-  const subtitle = asString(data.subtitle, t('apiSection.subtitle'));
-  const ctaLabel = asString(data.primaryCtaLabel, t('apiSection.ctaLabel'));
+  const title = coalesceCmsString(data.title, t('apiSection.title'));
+  const subtitle = coalesceCmsString(data.subtitle, t('apiSection.subtitle'));
+  const ctaLabel = coalesceCmsString(data.primaryCtaLabel, t('apiSection.ctaLabel'));
 
   const [activeIdx, setActiveIdx] = useState(0);
   const active = options[activeIdx];

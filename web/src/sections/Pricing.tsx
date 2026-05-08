@@ -6,7 +6,7 @@ import { useApp } from '../context/AppContext';
 import { createPayment, handleCreatePaymentError } from '../lib/api';
 import { normalizePostPaymentPath, getPostPaymentReturnPath } from '../scenarios/config';
 import { rememberFlowReturnPath } from '../lib/flow-resume';
-import { findBlock, type LandingPage } from '../lib/landing-cms';
+import { findBlock, coalesceCmsString, type LandingPage } from '../lib/landing-cms';
 
 function buildDefaultPlans(t: (key: string) => string) {
   return [
@@ -17,15 +17,17 @@ function buildDefaultPlans(t: (key: string) => string) {
   ];
 }
 
-type CmsPlan = {
-  title: string;
-  price: string;
-  photos: string;
-  packQty: number;
-  desc: string;
-  highlighted?: boolean;
-  badge?: string | null;
-  savingBadge?: string | null;
+type DefaultPlan = ReturnType<typeof buildDefaultPlans>[number];
+
+type CmsPlanRaw = {
+  title: unknown;
+  price: unknown;
+  photos: unknown;
+  packQty: unknown;
+  desc: unknown;
+  highlighted?: unknown;
+  badge?: unknown;
+  savingBadge?: unknown;
 };
 
 type PricingCms = Partial<{
@@ -33,33 +35,43 @@ type PricingCms = Partial<{
   subtitle: string;
   caption: string;
   tryFreeLabel: string;
-  plans: CmsPlan[];
+  plans: CmsPlanRaw[];
 }>;
 
-function asString(value: unknown, fallback = ''): string {
-  return typeof value === 'string' ? value : fallback;
-}
-
-function asPlans(value: unknown): CmsPlan[] | null {
+function asRawPlans(value: unknown): CmsPlanRaw[] | null {
   if (!Array.isArray(value)) return null;
-  const out: CmsPlan[] = [];
+  const out: CmsPlanRaw[] = [];
   for (const item of value) {
     if (!item || typeof item !== 'object') continue;
-    const obj = item as Record<string, unknown>;
-    const packQty = typeof obj.packQty === 'number' ? obj.packQty : Number(obj.packQty);
-    if (!Number.isFinite(packQty)) continue;
-    out.push({
-      title: asString(obj.title),
-      price: asString(obj.price),
-      photos: asString(obj.photos),
-      packQty,
-      desc: asString(obj.desc),
-      highlighted: Boolean(obj.highlighted),
-      badge: typeof obj.badge === 'string' ? obj.badge : null,
-      savingBadge: typeof obj.savingBadge === 'string' ? obj.savingBadge : null,
-    });
+    out.push(item as CmsPlanRaw);
   }
   return out.length ? out : null;
+}
+
+function mergePlans(rawPlans: CmsPlanRaw[] | null, defaults: DefaultPlan[]): DefaultPlan[] {
+  if (!rawPlans) return defaults;
+  // Per-field merge: if CMS field is missing or blank, fall back to the
+  // default plan with the same packQty (or same index when packQty does
+  // not match anything). This way an empty global JSON renders the
+  // English defaults instead of empty cards.
+  return rawPlans.map((raw, idx) => {
+    const packQtyRaw = typeof raw.packQty === 'number' ? raw.packQty : Number(raw.packQty);
+    const packQty = Number.isFinite(packQtyRaw) ? packQtyRaw : defaults[idx]?.packQty ?? idx + 1;
+    const fallback = defaults.find((p) => p.packQty === packQty) ?? defaults[idx] ?? defaults[0];
+    return {
+      title: coalesceCmsString(raw.title, fallback.title),
+      price: coalesceCmsString(raw.price, fallback.price),
+      photos: coalesceCmsString(raw.photos, fallback.photos),
+      packQty,
+      desc: coalesceCmsString(raw.desc, fallback.desc),
+      highlighted: typeof raw.highlighted === 'boolean' ? raw.highlighted : fallback.highlighted,
+      badge: typeof raw.badge === 'string' && raw.badge.trim() ? raw.badge : fallback.badge,
+      savingBadge:
+        typeof raw.savingBadge === 'string' && raw.savingBadge.trim()
+          ? raw.savingBadge
+          : fallback.savingBadge,
+    } satisfies DefaultPlan;
+  });
 }
 
 export default function Pricing({ cmsPage }: { cmsPage?: LandingPage | null } = {}) {
@@ -72,13 +84,13 @@ export default function Pricing({ cmsPage }: { cmsPage?: LandingPage | null } = 
 
   const cmsBlock = findBlock(cmsPage ?? undefined, 'pricing');
   const cmsData = (cmsBlock?.data ?? {}) as PricingCms;
-  const cmsPlans = asPlans((cmsData as any).plans);
   const defaultPlans = useMemo(() => buildDefaultPlans(t), [t]);
-  const effectivePlans = cmsPlans ?? defaultPlans;
-  const headingTitle = asString(cmsData.title, t('pricing.title'));
-  const headingSubtitle = asString(cmsData.subtitle, t('pricing.subtitle'));
-  const headingCaption = asString(cmsData.caption, t('pricing.caption'));
-  const tryFreeLabel = asString(cmsData.tryFreeLabel, t('pricing.tryFreeLabel'));
+  const rawPlans = useMemo(() => asRawPlans((cmsData as any).plans), [cmsData]);
+  const effectivePlans = useMemo(() => mergePlans(rawPlans, defaultPlans), [rawPlans, defaultPlans]);
+  const headingTitle = coalesceCmsString(cmsData.title, t('pricing.title'));
+  const headingSubtitle = coalesceCmsString(cmsData.subtitle, t('pricing.subtitle'));
+  const headingCaption = coalesceCmsString(cmsData.caption, t('pricing.caption'));
+  const tryFreeLabel = coalesceCmsString(cmsData.tryFreeLabel, t('pricing.tryFreeLabel'));
 
   useEffect(() => {
     const el = scrollRef.current;

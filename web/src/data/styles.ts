@@ -1,3 +1,5 @@
+import i18next from '../lib/i18n';
+
 export interface StyleItem {
   key: string;
   icon: string;
@@ -17,7 +19,14 @@ export interface ScoreParam {
 
 export type CategoryId = 'social' | 'cv' | 'dating' | 'model' | 'brand' | 'memes';
 
-export const CATEGORIES: { id: CategoryId; label: string; icon: string }[] = [
+interface CategoryMeta {
+  id: CategoryId;
+  /** RU-fallback используется если перевод в catalog.json отсутствует. */
+  label: string;
+  icon: string;
+}
+
+const CATEGORY_DEFS: CategoryMeta[] = [
   { id: 'social', label: 'Соцсети', icon: '📸' },
   { id: 'cv', label: 'Карьера', icon: '💼' },
   { id: 'dating', label: 'Знакомства', icon: '💕' },
@@ -26,9 +35,43 @@ export const CATEGORIES: { id: CategoryId; label: string; icon: string }[] = [
   { id: 'memes', label: 'Мемы', icon: '😂' },
 ];
 
+/**
+ * Build a Proxy-backed view over the underlying CATEGORY_DEFS so
+ * `cat.label` lazily reads through i18next. We can't replace
+ * CATEGORIES with a getter — too many files spread the array via
+ * `[...CATEGORIES]` / `CATEGORIES.find(...).label`. Instead each
+ * element is wrapped in a Proxy that resolves `label` at access time.
+ */
+const CATEGORY_PROXIES = CATEGORY_DEFS.map((def) =>
+  new Proxy(def, {
+    get(target, prop, receiver) {
+      if (prop === 'label') {
+        const translated = i18next.t(`catalog:categories.${target.id}.label`, target.label);
+        return translated || target.label;
+      }
+      return Reflect.get(target, prop, receiver);
+    },
+  }),
+);
+
+export const CATEGORIES: { id: CategoryId; label: string; icon: string }[] = CATEGORY_PROXIES;
+
+export function getCategoryLabel(id: CategoryId | string): string {
+  const def = CATEGORY_DEFS.find((c) => c.id === id);
+  const fallback = def?.label ?? String(id);
+  const translated = i18next.t(`catalog:categories.${id}.label`, fallback);
+  return translated || fallback;
+}
+
+export function getParamLabel(key: string, fallback?: string): string {
+  const fb = fallback ?? key;
+  const translated = i18next.t(`catalog:params.${key}`, fb);
+  return translated || fb;
+}
+
 export const COMING_SOON_CATEGORIES: CategoryId[] = ['model', 'brand', 'memes'];
 
-export const PARAMS_BY_MODE: Record<CategoryId, ScoreParam[]> = {
+const PARAMS_BY_MODE_RAW: Record<CategoryId, ScoreParam[]> = {
   social: [
     { key: 'social_score', label: 'Social Score', before: 5.99, after: 6.86 },
     { key: 'warmth', label: 'Теплота', before: 6.2, after: 7.1 },
@@ -64,13 +107,31 @@ export const PARAMS_BY_MODE: Record<CategoryId, ScoreParam[]> = {
   ],
 };
 
+function localizedParam(p: ScoreParam): ScoreParam {
+  return new Proxy(p, {
+    get(target, prop, receiver) {
+      if (prop === 'label') {
+        return getParamLabel(target.key, target.label);
+      }
+      return Reflect.get(target, prop, receiver);
+    },
+  });
+}
+
+export const PARAMS_BY_MODE: Record<CategoryId, ScoreParam[]> = Object.fromEntries(
+  Object.entries(PARAMS_BY_MODE_RAW).map(([cat, params]) => [
+    cat,
+    params.map(localizedParam),
+  ]),
+) as Record<CategoryId, ScoreParam[]>;
+
 // Live wizard categories (dating / cv / social) come from
 // /api/v1/catalog/styles?schema=v2 — they used to live here as a
 // hardcoded array, but the v2 cleanup made the API the single source
 // of truth so the admin panel can edit styles without a frontend
 // release. Only the still-not-shipped «coming soon» categories remain
 // hardcoded; landing-page marketing copy lives in `./landingStyles`.
-export const STYLES_BY_CATEGORY: Partial<Record<CategoryId, StyleItem[]>> = {
+const STYLES_BY_CATEGORY_RAW: Partial<Record<CategoryId, StyleItem[]>> = {
   model: [
     { key: 'studio_portrait', icon: '📸', name: 'Студийный портрет', desc: 'Классический студийный свет для идеального портфолио', param: 'appeal', deltaRange: [0.55, 0.82] },
     { key: 'fashion_editorial', icon: '👗', name: 'Fashion editorial', desc: 'Высокая мода и стиль для обложки журнала', param: 'appeal', deltaRange: [0.60, 0.88] },
@@ -102,6 +163,27 @@ export const STYLES_BY_CATEGORY: Partial<Record<CategoryId, StyleItem[]>> = {
     { key: 'galaxy_brain', icon: '🌌', name: 'Galaxy brain', desc: 'Гениальные решения требуют гениальной подачи', param: 'appeal', deltaRange: [0.45, 0.68] },
   ],
 };
+
+function localizeStyleItem<T extends StyleItem>(category: string, item: T): T {
+  return new Proxy(item, {
+    get(target, prop, receiver) {
+      if (prop === 'name') {
+        return i18next.t(`styles:${category}.${target.key}.name`, target.name) || target.name;
+      }
+      if (prop === 'desc') {
+        return i18next.t(`styles:${category}.${target.key}.desc`, target.desc) || target.desc;
+      }
+      return Reflect.get(target, prop, receiver);
+    },
+  }) as T;
+}
+
+export const STYLES_BY_CATEGORY: Partial<Record<CategoryId, StyleItem[]>> = Object.fromEntries(
+  Object.entries(STYLES_BY_CATEGORY_RAW).map(([cat, items]) => [
+    cat,
+    items?.map((it) => localizeStyleItem(cat, it)),
+  ]),
+) as Partial<Record<CategoryId, StyleItem[]>>;
 
 export function getMockDelta(range: [number, number], seed?: string): string {
   let hash = 0;

@@ -278,5 +278,67 @@
     "docPaywallCta": "{{count}} photos — $2.99",
     "loading": "Loading...",
     "fallbackCardLabel": "Upgrade"
+  },
+  "streamFacts": {
+    "social": [
+      "First impression forms in 100 milliseconds and rarely changes after.",
+      "Smiling faces are perceived as 30% more attractive.",
+      "Eye contact boosts perceived sincerity by 45%.",
+      "Photos with warm lighting earn twice as much trust.",
+      "Facial symmetry is subconsciously linked to genetic health.",
+      "A 15-degree head tilt makes the expression feel friendlier.",
+      "People remember faces better than names — visuals matter.",
+      "The halo effect: attractive people are judged as smarter and more successful.",
+      "An open posture boosts perceived friendliness by 27%.",
+      "Clothing color shifts perception: blue signals trust, red signals confidence.",
+      "Photos with natural backgrounds feel more authentic.",
+      "Micro-expressions last 1/25 of a second but the brain reads them flawlessly."
+    ],
+    "cv": [
+      "Resumes with a professional photo get 40% more responses.",
+      "Recruiters spend ~7 seconds on the first scan of a profile.",
+      "A confident pose changes both how others see you and your own cortisol levels.",
+      "A direct-gaze business portrait raises perceived competence by 35%.",
+      "Business attire boosts trust in your expertise by 60%.",
+      "LinkedIn study: profiles with photos get 21x more views.",
+      "Primacy effect: the first impression colors the entire interview.",
+      "People rate dominance and warmth from a photo within milliseconds.",
+      "Straight posture in a photo signals leadership.",
+      "A neutral background increases focus on the person by 40%.",
+      "Studies show: a smile in a business photo improves perceived approachability.",
+      "Contrast between clothing and background makes the profile more memorable."
+    ],
+    "dating": [
+      "Warmth is the leading driver of attractiveness in first encounters.",
+      "Genuine (Duchenne) smiles read as 10x more attractive than social ones.",
+      "Studies show photos with a pet boost likes by 35%.",
+      "Eye contact in a photo activates mirror neurons in the viewer.",
+      "People assess attractiveness within 13 milliseconds.",
+      "Warm lighting increases perceived attractiveness by 20%.",
+      "An open posture signals confidence and approachability.",
+      "Background matters: nature reads as caring and empathic.",
+      "The contrast effect: a unique photo among similar ones gets 3x more attention.",
+      "Authenticity beats perfection — natural photos earn more trust.",
+      "Photofeeler study: camera angle affects attractiveness by up to 30%.",
+      "Color psychology: red accents amplify perceived attractiveness."
+    ],
+    "model": [
+      "A professional portfolio triples casting invitations.",
+      "Rembrandt studio lighting is the gold standard of portrait photography.",
+      "Models with a varied portfolio receive 60% more bookings.",
+      "The rule of thirds increases visual appeal by 40%."
+    ],
+    "brand": [
+      "A personal brand with strong visuals raises audience trust by 55%.",
+      "Experts with professional photos receive 4x more partnership requests.",
+      "A consistent visual style boosts brand recognition by 80%.",
+      "Stage photos of speakers raise perceived authority by 45%."
+    ],
+    "memes": [
+      "Memes featuring faces get 38% more engagement than text-only ones.",
+      "An average meme lives 4 days, but the best ones become timeless classics.",
+      "Humor in visuals increases recall by 70%.",
+      "The Distracted Boyfriend template became the most recognizable meme of the 2020s."
+    ]
   }
 }

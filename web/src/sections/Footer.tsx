@@ -6,6 +6,7 @@ import LogoEmblem from '../assets/LogoEmblem';
 import {
   findBlock,
   useLandingHome,
+  coalesceCmsString,
   type FooterItem,
   type FooterSocialItem,
   type LandingPage,
@@ -36,8 +37,8 @@ interface FooterCmsData {
   copyright?: unknown;
 }
 
-function asString(value: unknown, fallback = ''): string {
-  return typeof value === 'string' ? value : fallback;
+function asNormString(value: unknown): string {
+  return typeof value === 'string' ? value : '';
 }
 
 function asProducts(value: unknown): ProductItem[] | null {
@@ -46,8 +47,8 @@ function asProducts(value: unknown): ProductItem[] | null {
   for (const item of value) {
     if (!item || typeof item !== 'object') continue;
     const obj = item as Record<string, unknown>;
-    const label = asString(obj.label).trim();
-    const href = asString(obj.href).trim();
+    const label = asNormString(obj.label).trim();
+    const href = asNormString(obj.href).trim();
     if (!label || !href) continue;
     out.push({ label, href, external: Boolean(obj.external) });
   }
@@ -60,17 +61,17 @@ function asFooterItems(value: unknown): FooterItem[] {
   for (const raw of value) {
     if (!raw || typeof raw !== 'object') continue;
     const obj = raw as Record<string, unknown>;
-    const label = asString(obj.label).trim();
+    const label = asNormString(obj.label).trim();
     if (!label) continue;
-    const action = asString(obj.action, 'link');
+    const action = coalesceCmsString(obj.action, 'link');
     if (action === 'policy') {
-      const policyId = asString(obj.policyId).trim();
+      const policyId = asNormString(obj.policyId).trim();
       if (!policyId) continue;
       out.push({ label, action: 'policy', policyId });
     } else if (action === 'support') {
       out.push({ label, action: 'support' });
     } else {
-      const href = asString(obj.href).trim();
+      const href = asNormString(obj.href).trim();
       if (!href) continue;
       out.push({ label, action: 'link', href, external: Boolean(obj.external) });
     }
@@ -84,13 +85,13 @@ function asSocialItems(value: unknown): FooterSocialItem[] {
   for (const raw of value) {
     if (!raw || typeof raw !== 'object') continue;
     const obj = raw as Record<string, unknown>;
-    const label = asString(obj.label).trim();
-    const href = asString(obj.href).trim();
+    const label = asNormString(obj.label).trim();
+    const href = asNormString(obj.href).trim();
     if (!label || !href) continue;
     out.push({
       label,
       href,
-      icon: asString(obj.icon, 'telegram'),
+      icon: coalesceCmsString(obj.icon, 'telegram'),
     });
   }
   return out;
@@ -151,12 +152,12 @@ export default function Footer({ cmsPage }: FooterProps = {}) {
 
   const { openPolicy, openSupport } = useLandingModals();
 
-  const brandTitle = asString(cmsData.brand?.title, t('footer.brandTitle'));
+  const brandTitle = coalesceCmsString(cmsData.brand?.title, t('footer.brandTitle'));
   // 1.50.7: tagline без слов AI / ИИ / нейросеть. Если CMS возвращает
   // legacy-tagline с "AI-фото..." — переписываем на дефолт из i18n,
   // чтобы сайт не рендерил AI-формулировку, пока не задеплоится
   // обновлённый landing_content.json.
-  const cmsTagline = asString(cmsData.brand?.tagline, '').trim();
+  const cmsTagline = asNormString(cmsData.brand?.tagline).trim();
   const defaultTagline = t('footer.tagline');
   const brandTagline =
     cmsTagline && !/\bAI\b|\bИИ\b|нейросет/i.test(cmsTagline)
@@ -187,10 +188,10 @@ export default function Footer({ cmsPage }: FooterProps = {}) {
     return items.length ? items : buildDefaultSocial(t);
   }, [cmsData.social, t]);
 
-  const creditsText = asString(cmsData.creditsText, t('footer.credits.text'));
-  const creditsLinkLabel = asString(cmsData.creditsLinkLabel, t('footer.credits.linkLabel'));
-  const creditsLinkHref = asString(cmsData.creditsLinkHref, 'https://ux4ai.pro');
-  const copyright = asString(cmsData.copyright, t('footer.copyright'));
+  const creditsText = coalesceCmsString(cmsData.creditsText, t('footer.credits.text'));
+  const creditsLinkLabel = coalesceCmsString(cmsData.creditsLinkLabel, t('footer.credits.linkLabel'));
+  const creditsLinkHref = coalesceCmsString(cmsData.creditsLinkHref, 'https://ux4ai.pro');
+  const copyright = coalesceCmsString(cmsData.copyright, t('footer.copyright'));
 
   function handleItemClick(item: FooterItem) {
     if (item.action === 'policy') openPolicy(item.policyId);

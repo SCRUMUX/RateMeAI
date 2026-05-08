@@ -1,9 +1,10 @@
+import i18next from '../../lib/i18n';
 import { PARAMS_BY_MODE, type CategoryId, type StyleItem } from '../../data/styles';
 import type { ScenarioStep3Mode } from '../../scenarios/config';
 
 export const STYLES_PER_PAGE = 8;
 
-export const PARAM_LABELS: Record<string, string> = {
+const PARAM_LABEL_FALLBACKS: Record<string, string> = {
   warmth: 'Теплота',
   presence: 'Уверенность',
   appeal: 'Привлекательность',
@@ -14,6 +15,21 @@ export const PARAM_LABELS: Record<string, string> = {
   dating_score: 'Dating Score',
   authenticity: 'Аутентичность',
 };
+
+/**
+ * Lazy i18next-backed view over PARAM_LABEL_FALLBACKS. Existing
+ * consumers read `PARAM_LABELS[key]` — Proxy resolves to the
+ * translated string at access time, falling back to the RU literal
+ * if no translation is available.
+ */
+export const PARAM_LABELS: Record<string, string> = new Proxy(PARAM_LABEL_FALLBACKS, {
+  get(target, prop) {
+    if (typeof prop !== 'string') return Reflect.get(target, prop);
+    const fallback = target[prop] ?? prop;
+    const translated = i18next.t(`catalog:params.${prop}`, fallback);
+    return translated || fallback;
+  },
+});
 
 export function computeStyleDeltas(style: StyleItem, tab: CategoryId): Record<string, number> {
   const avgDelta = (style.deltaRange[0] + style.deltaRange[1]) / 2;

@@ -1,11 +1,7 @@
 import { useTranslation } from 'react-i18next';
 import BeforeAfterSlider from '../components/BeforeAfterSlider';
 import { PlaceholderUpload, PlaceholderUpgrade } from '../components/effects/PlaceholderArt';
-import { findBlock, type LandingPage } from '../lib/landing-cms';
-
-function asString(value: unknown, fallback = ''): string {
-  return typeof value === 'string' ? value : fallback;
-}
+import { findBlock, coalesceCmsString, type LandingPage } from '../lib/landing-cms';
 
 export default function BeforeAfterSection({ cmsPage }: { cmsPage?: LandingPage | null }) {
   const block = findBlock(cmsPage ?? undefined, 'before_after');
@@ -17,10 +13,10 @@ export default function BeforeAfterSection({ cmsPage }: { cmsPage?: LandingPage 
     <section className="relative z-[2] flex flex-col items-center gap-[var(--space-32)] tablet:gap-[var(--space-48)] px-[var(--space-16)] tablet:px-[var(--space-24)] landing-section-py">
       <div className="reveal mx-auto flex w-full max-w-[1200px] flex-col items-center gap-[var(--space-12)] text-center">
         <h2 className="landing-h2 text-[var(--color-text-primary)]">
-          {asString(data.title, t('beforeAfter.title'))}
+          {coalesceCmsString(data.title, t('beforeAfter.title'))}
         </h2>
         <p className="landing-lead max-w-[720px]">
-          {asString(data.caption, t('beforeAfter.subtitle'))}
+          {coalesceCmsString(data.caption, t('beforeAfter.subtitle'))}
         </p>
       </div>
 

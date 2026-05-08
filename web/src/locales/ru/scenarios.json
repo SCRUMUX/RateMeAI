@@ -154,6 +154,54 @@
   },
   "visa": {
     "sizeFormat": "{{w}}×{{h}} мм",
-    "gradientPhrase": "{{size}}, по стандартам ICAO"
+    "gradientPhrase": "{{size}}, по стандартам ICAO",
+    "testimonialsTitle": "Одобрены с первого раза",
+    "testimonialsSubtitle": "Реальные фото, прошедшие проверку визовых центров",
+    "testimonials": [
+      {
+        "id": "visa-1",
+        "styleKey": "visa_eu",
+        "category": "cv",
+        "nickname": "@anna_schengen",
+        "shortReview": "Шенген одобрили с первой подачи.",
+        "fullReview": "Принесла фото от ИИ в визовый центр — ни одного замечания. Фон, размер головы, выражение лица — всё попало в требования с первой попытки.",
+        "emojiReview": "🛂✅",
+        "avatarSeed": "anna_schengen",
+        "tier": "Обычный"
+      },
+      {
+        "id": "visa-2",
+        "styleKey": "visa_us",
+        "category": "cv",
+        "nickname": "@maxim_us_visa",
+        "shortReview": "Посольство США приняло фото на интервью.",
+        "fullReview": "Квадрат 50×50 получился ровно по требованиям. Офицер даже не попросил переделать — фото прошло автоматическую проверку качества.",
+        "emojiReview": "🇺🇸",
+        "avatarSeed": "maxim_us_visa",
+        "tier": "Премиум"
+      },
+      {
+        "id": "visa-3",
+        "styleKey": "visa_eu",
+        "category": "cv",
+        "nickname": "@elena_uk",
+        "shortReview": "Сэкономила 2 часа на походе в студию.",
+        "fullReview": "Сделала фото дома, распечатала в ближайшем фотосалоне и отнесла в британский визовый центр. Одобрили без замечаний — как со студийного снимка.",
+        "emojiReview": "🇬🇧",
+        "avatarSeed": "elena_uk",
+        "tier": "Обычный"
+      },
+      {
+        "id": "visa-4",
+        "styleKey": "visa_eu",
+        "category": "cv",
+        "nickname": "@dmitry_japan",
+        "shortReview": "Виза в Японию — одобрена по ИИ-фото.",
+        "fullReview": "Переживал, что в консульстве заметят, что фото сделано нейросетью. Фото прошло без замечаний — там смотрят на белый фон, размер головы и нейтральное выражение.",
+        "emojiReview": "🇯🇵",
+        "avatarSeed": "dmitry_japan",
+        "tier": "Премиум"
+      }
+    ]
   }
 }

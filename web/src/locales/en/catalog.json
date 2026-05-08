@@ -1,0 +1,42 @@
+{
+  "categories": {
+    "social": { "label": "Social" },
+    "cv": { "label": "Career" },
+    "dating": { "label": "Dating" },
+    "model": { "label": "Photoshoot" },
+    "brand": { "label": "Personal brand" },
+    "memes": { "label": "Memes" },
+    "documents": { "label": "Documents" },
+    "visa": { "label": "Visa" }
+  },
+  "params": {
+    "warmth": "Warmth",
+    "presence": "Confidence",
+    "appeal": "Appeal",
+    "trust": "Trust",
+    "competence": "Competence",
+    "hireability": "Hireability",
+    "social_score": "Social score",
+    "dating_score": "Dating score",
+    "authenticity": "Authenticity"
+  },
+  "abModels": {
+    "gpt_image_2": {
+      "label": "Standard",
+      "short": "Balanced default",
+      "description": "Reliable render with strong prompt adherence and stable likeness. Works for most scenarios."
+    },
+    "nano_banana_2": {
+      "label": "Premium",
+      "short": "Maximum likeness",
+      "description": "Premium render focused on identity and skin texture. Best for close-ups and fine facial detail."
+    }
+  },
+  "abQualities": {
+    "low": { "label": "Low", "hint": "≈1024 px, fast and cheap" },
+    "medium": { "label": "Medium", "hint": "≈1536–2048 px, more detail" },
+    "high": { "label": "High", "hint": "≈2048 px + reasoning, maximum realism" }
+  },
+  "creditsPerGen_one": "{{count}} credit per generation",
+  "creditsPerGen_other": "{{count}} credits per generation"
+}
