@@ -21,6 +21,7 @@ _CV_HEADER_RU = (
     "Верни результат СТРОГО в формате JSON:\n\n"
     "{{\n"
     '  "detected_gender": "<male или female — пол человека на фото>",\n'
+    '  "first_impression": "<короткая емкая фраза (3-5 слов) о первом впечатлении>",\n'
     '  "profession": "{profession}",\n'
     '  "trust": <число от 0 до 10 с точностью до сотых, насколько человек вызывает доверие>,\n'
     '  "competence": <число от 0 до 10 с точностью до сотых, восприятие компетентности>,\n'
@@ -35,6 +36,7 @@ _CV_HEADER_EN = (
     "Return the result STRICTLY as JSON:\n\n"
     "{{\n"
     '  "detected_gender": "<male or female — the person\'s gender in the photo>",\n'
+    '  "first_impression": "<a short, punchy phrase (3-5 words) about the first impression>",\n'
     '  "profession": "{profession}",\n'
     '  "trust": <number from 0 to 10 with two decimal places, how trustworthy the person looks>,\n'
     '  "competence": <number from 0 to 10 with two decimal places, perception of competence>,\n'

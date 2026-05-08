@@ -484,7 +484,6 @@ type V3FieldErrors = Partial<{
   trigger_pool: string;
   scene_anchor: string;
   clothing_default: string;
-  quality_base: string;
 }>;
 
 function validateV3Draft(draft: AdminStyleEntry): V3FieldErrors {
@@ -517,10 +516,7 @@ function validateV3Draft(draft: AdminStyleEntry): V3FieldErrors {
   } else {
     errors.clothing_default = 'clothing.default обязателен';
   }
-  const quality = asObject(draft.quality_identity);
-  if (!asString(quality.base).trim()) {
-    errors.quality_base = 'quality_identity.base обязателен';
-  }
+  // quality_identity.base is no longer mandatory; an empty value correctly falls back to default
   return errors;
 }
 
@@ -764,7 +760,6 @@ function StyleEditModal({
         trigger_pool: 'trigger_pool',
         scene_anchor: 'scene_anchor',
         clothing_default: 'clothing.default',
-        quality_base: 'quality_identity.base',
       };
       const parts = (Object.keys(errors) as (keyof V3FieldErrors)[])
         .map((k) => labels[k])
@@ -1236,8 +1231,8 @@ function StyleEditModal({
                 </label>
               </Fieldset>
 
-              <Fieldset legend="quality_identity" error={fieldErrors.quality_base}>
-                <Field label="base">
+              <Fieldset legend="quality_identity">
+                <Field label="base" hint="Если пусто, используется дефолтный хвост качества для модели">
                   <textarea
                     rows={2}
                     value={asString(quality.base)}

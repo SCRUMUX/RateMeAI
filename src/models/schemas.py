@@ -140,6 +140,7 @@ class DatingResult(BaseModel):
 
 class CVResult(BaseModel):
     profession: str
+    first_impression: str = ""
     trust: float = Field(ge=0, le=10)
     competence: float = Field(ge=0, le=10)
     hireability: float = Field(ge=0, le=10)

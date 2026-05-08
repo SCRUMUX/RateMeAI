@@ -244,13 +244,6 @@ def _validate_v2_shape(entry: dict[str, Any]) -> None:
             detail="v2 styles require a non-empty clothing.default description",
         )
 
-    quality = entry.get("quality_identity") or {}
-    if not str(quality.get("base") or "").strip():
-        raise HTTPException(
-            status_code=422,
-            detail="v2 styles require a non-empty quality_identity.base description",
-        )
-
     from src.services.style_loader_v2 import _to_v2
 
     try:

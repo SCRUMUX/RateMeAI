@@ -16,10 +16,10 @@ class DatingService:
         self._llm = llm
         self._prompt_engine = prompt_engine
 
-    async def analyze(self, image_bytes: bytes) -> DatingResult:
+    async def analyze(self, image_bytes: bytes, lang: str | None = None) -> DatingResult:
         from src.utils.consensus import consensus_analyze
 
-        prompt = self._prompt_engine.build(AnalysisMode.DATING)
+        prompt = self._prompt_engine.build(AnalysisMode.DATING, lang=lang)
         raw = await consensus_analyze(
             self._llm,
             image_bytes,

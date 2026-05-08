@@ -15,10 +15,10 @@ class EmojiService:
         self._llm = llm
         self._prompt_engine = prompt_engine
 
-    async def analyze(self, image_bytes: bytes) -> dict:
+    async def analyze(self, image_bytes: bytes, lang: str | None = None) -> dict:
         from src.utils.consensus import consensus_analyze
 
-        prompt = self._prompt_engine.build(AnalysisMode.EMOJI)
+        prompt = self._prompt_engine.build(AnalysisMode.EMOJI, lang=lang)
         raw = await consensus_analyze(
             self._llm,
             image_bytes,

@@ -17,11 +17,11 @@ class CVService:
         self._prompt_engine = prompt_engine
 
     async def analyze(
-        self, image_bytes: bytes, profession: str = "не указана"
+        self, image_bytes: bytes, profession: str = "не указана", lang: str | None = None
     ) -> CVResult:
         from src.utils.consensus import consensus_analyze
 
-        prompt = self._prompt_engine.build(AnalysisMode.CV, {"profession": profession})
+        prompt = self._prompt_engine.build(AnalysisMode.CV, {"profession": profession}, lang=lang)
         raw = await consensus_analyze(
             self._llm,
             image_bytes,
@@ -31,6 +31,7 @@ class CVService:
         )
 
         return CVResult(
+            first_impression=raw.get("first_impression", ""),
             profession=raw.get("profession", profession),
             trust=float(raw.get("trust", 5)),
             competence=float(raw.get("competence", 5)),

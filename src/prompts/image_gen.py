@@ -1269,12 +1269,12 @@ def is_document_style(style: str) -> bool:
 
 
 _DOC_COMPOSITION_HINT: dict[str, str] = {
-    "photo_3x4": "3:4 portrait framing, face fills 70-80% of the frame, small margin above the head.",
-    "passport_rf": "7:9 portrait framing, frontal pose, face fills 70-80% of the frame.",
-    "visa_eu": "7:9 portrait framing, face centered, 70-80% of the frame.",
-    "visa_schengen": "7:9 portrait framing, face centered, 70-80% of the frame.",
-    "visa_us": "1:1 square framing, face centered, 50-70% of the frame.",
-    "photo_4x6": "2:3 portrait framing, face fills 60-75% of the frame.",
+    "photo_3x4": "3:4 portrait framing, face fills 50-60% of the frame, small margin above the head.",
+    "passport_rf": "7:9 portrait framing, frontal pose, face fills 50-60% of the frame.",
+    "visa_eu": "7:9 portrait framing, face centered, 50-60% of the frame.",
+    "visa_schengen": "7:9 portrait framing, face centered, 50-60% of the frame.",
+    "visa_us": "1:1 square framing, face centered, 40-50% of the frame.",
+    "photo_4x6": "2:3 portrait framing, face fills 40-50% of the frame.",
     "driver_license": "3:4 portrait framing, face centered.",
 }
 
@@ -1416,6 +1416,8 @@ def _build_mode_prompt(
         parts.append(f"Composition: {composition}")
         parts.append(DOC_PRESERVE)
         parts.append(DOC_QUALITY)
+        parts.append(CAMERA_PHOTO)
+        parts.append(ANATOMY_PHOTO)
     else:
         if framing_line:
             parts.append(framing_line)

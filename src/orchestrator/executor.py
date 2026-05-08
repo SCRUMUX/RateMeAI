@@ -524,7 +524,7 @@ class ImageGenerationExecutor:
             else str(framing or "").strip().lower()
         )
         if framing_norm not in ("portrait", "half_body", "full_body"):
-            framing_norm = None
+            framing_norm = "half_body"
 
         try:
             desc = str(result_dict.get("base_description", ""))

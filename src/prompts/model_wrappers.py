@@ -55,6 +55,7 @@ QUALITY_PHOTO_GPT = " ".join(
         ig.SCENE_BLEND_PHOTO,
         ig.CAMERA_PHOTO,
         ig.ANATOMY_PHOTO,
+        "Ensure correct 1:7 head-to-body ratio, natural shoulders, and realistic body proportions. The face must not be oversized relative to the body.",
     ]
 )
 
@@ -124,6 +125,8 @@ def _assemble(ir: CompositionIR, *, tail: str) -> str:
         parts.append(f"Composition: {hint}")
         parts.append(ig.DOC_PRESERVE)
         parts.append(ig.DOC_QUALITY)
+        parts.append(ig.CAMERA_PHOTO)
+        parts.append(ig.ANATOMY_PHOTO)
     else:
         if ir.framing_line:
             parts.append(ir.framing_line)

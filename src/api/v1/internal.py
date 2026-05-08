@@ -368,9 +368,9 @@ async def pre_analyze_remote(
     with task_context_scope(guard_ctx):
         if request.mode == AnalysisMode.CV:
             prof = request.profession.strip() or "не указана"
-            result = await service.analyze(image_bytes, profession=prof)
+            result = await service.analyze(image_bytes, profession=prof, lang=request.market_id)
         else:
-            result = await service.analyze(image_bytes)
+            result = await service.analyze(image_bytes, lang=request.market_id)
     LLM_CALLS.labels(purpose=f"preanalyze_{request.mode.value}").inc()
 
     raw_dict = (

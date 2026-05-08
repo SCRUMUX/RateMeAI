@@ -16,10 +16,10 @@ class SocialService:
         self._llm = llm
         self._prompt_engine = prompt_engine
 
-    async def analyze(self, image_bytes: bytes) -> SocialResult:
+    async def analyze(self, image_bytes: bytes, lang: str | None = None) -> SocialResult:
         from src.utils.consensus import consensus_analyze
 
-        prompt = self._prompt_engine.build(AnalysisMode.SOCIAL)
+        prompt = self._prompt_engine.build(AnalysisMode.SOCIAL, lang=lang)
         raw = await consensus_analyze(
             self._llm,
             image_bytes,
