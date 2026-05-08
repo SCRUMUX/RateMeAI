@@ -15,6 +15,7 @@ logger = logging.getLogger(__name__)
 
 XSOLLA_TOKEN_URL = "https://api.xsolla.com/merchant/v2/merchants/{merchant_id}/token"
 PAYSTATION_URL = "https://secure.xsolla.com/paystation4/?token={token}"
+PAYSTATION_SANDBOX_URL = "https://sandbox-secure.xsolla.com/paystation4/?token={token}"
 
 
 def _resolve_return_url(channel: str) -> str:
@@ -54,20 +55,31 @@ async def create_payment(
     external_id = str(uuid.uuid4())
     amount = pack.price.quantize(Decimal("0.01"))
     return_url = _resolve_return_url(return_channel)
+    sandbox = bool(settings.xsolla_sandbox_mode)
+
+    # NOTE: ``settings.external_id`` is intentionally omitted — Xsolla
+    # rejects it with HTTP 422 unless the "External ID" option is turned
+    # on in the project cabinet. Our idempotency is on the transaction
+    # id we receive in the webhook, so we keep ``external_id`` only in
+    # ``custom_parameters`` for tracing.
+    settings_block: dict = {
+        "project_id": project_id,
+        "currency": "USD",
+        "language": "en",
+        "return_url": return_url,
+        "ui": {"theme": "default_dark"},
+    }
+    if sandbox:
+        # Sandbox mode lets the cabinet skip "project not active" checks
+        # and accepts test cards (4111 1111 1111 1111 etc.).
+        settings_block["mode"] = "sandbox"
 
     body = {
         "user": {
             "id": {"value": user_id},
             "name": {"value": "User"},
         },
-        "settings": {
-            "project_id": project_id,
-            "currency": "USD",
-            "language": "en",
-            "return_url": return_url,
-            "external_id": external_id,
-            "ui": {"theme": "default_dark"},
-        },
+        "settings": settings_block,
         "purchase": {
             "checkout": {"amount": float(amount), "currency": "USD"},
             "description": {"value": f"RateMeAI: {pack.quantity} photo upgrades"},
@@ -104,12 +116,14 @@ async def create_payment(
         if not token:
             logger.error("Xsolla token missing in response: %s", data)
             return None
-        confirmation = PAYSTATION_URL.format(token=token)
+        url_template = PAYSTATION_SANDBOX_URL if sandbox else PAYSTATION_URL
+        confirmation = url_template.format(token=token)
         logger.info(
-            "Xsolla payment token created user=%s pack=%s external_id=%s",
+            "Xsolla payment token created user=%s pack=%s external_id=%s sandbox=%s",
             user_id,
             pack_qty,
             external_id,
+            sandbox,
         )
         return str(token), confirmation
     except Exception:

@@ -97,6 +97,9 @@ class Settings(BaseSettings):
     xsolla_api_key: str = ""
     xsolla_webhook_secret: str = ""
     xsolla_return_url: str = ""
+    # Use Xsolla sandbox endpoints (no project activation required for test cards).
+    # Set to True until Publisher Account → Project → "Activate" is granted.
+    xsolla_sandbox_mode: bool = False
     # Bot / tooling: public HTTPS URL of primary API for USD checkout session
     primary_api_url: str = ""
 

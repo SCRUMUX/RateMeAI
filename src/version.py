@@ -5154,4 +5154,54 @@
 #          • tests/test_scenarios/test_visa_compliance.py +
 #            test_loader.py + tests/test_api/test_scenarios.py
 #            updated for the EN/RU switch and the new model field.
-APP_VERSION = "1.59.3"
+# 1.59.3 — Dual-currency payments. Primary deployment switches from
+#          410-redirect to native Xsolla Pay Station (USD), edge keeps
+#          YooKassa (RUB). Tariff grid unified across both: 5/10/20/50
+#          photo packs (RU 227/427/727/1527 ₽, EN 3.27/5.27/8.27/19.27 $).
+#          New code:
+#          • src/services/payments/{__init__,credit_packs,yookassa_provider,
+#            xsolla_provider}.py — provider-dispatch layer keyed off
+#            settings.payment_provider. ``CreditPack`` now carries Decimal
+#            price + RUB/USD currency.
+#          • src/api/v1/payments.py — POST /payments/create dispatches by
+#            provider, new POST /payments/xsolla/webhook with HMAC-SHA1
+#            verification, GET /payments/packs exposes the active catalog
+#            for bot/SPA. Edge-only guard removed.
+#          • src/main.py mirrors the YOOKASSA_* nullification for
+#            XSOLLA_* on edge (and vice versa) so a misconfigured env
+#            cannot leak the wrong provider.
+#          • src/bot/handlers/mode_select.py: ``topup_currency_keyboard``
+#            (RUB/USD branches) → calls primary or edge API depending on
+#            the user's selection; per-backend session caches in Redis.
+#          Frontend:
+#          • web/src/sections/{Pricing,ScenarioPricing}.tsx: 4-tier grid
+#            (5/10/20/50) for global pricing, 2-tier (5/10) for visa
+#            scenarios. landing.json (ru/en) updated with new prices and
+#            saving badges. ``web/src/lib/api.ts`` drops the legacy
+#            ``RU_PAYMENTS_SITE_URL`` 410 redirect.
+#          Config: CREDIT_PACKS default = 5:227,10:427,20:727,50:1527,
+#          new CREDIT_PACKS_USD = 5:3.27,10:5.27,20:8.27,50:19.27,
+#          XSOLLA_{MERCHANT_ID,PROJECT_ID,API_KEY,WEBHOOK_SECRET,
+#          RETURN_URL} + PRIMARY_API_URL.
+# 1.59.4 — Xsolla sandbox-mode + 422-fix. Live diagnosis against the
+#          Pay Station Token API revealed two production blockers:
+#          • Project 306459 was returning HTTP 422 ``Project is not
+#            active`` on every /token call until the merchant runs the
+#            mandatory test scenarios in Publisher Account.
+#          • Even with project active, ``settings.external_id`` triggered
+#            422 ``not required`` because the External-ID toggle is off
+#            in the cabinet — and we don't actually need it (idempotency
+#            uses the transaction id from the webhook).
+#          Fixes:
+#          • src/services/payments/xsolla_provider.py: drop
+#            ``settings.external_id`` (kept only inside
+#            ``custom_parameters`` for tracing); when
+#            ``XSOLLA_SANDBOX_MODE=true`` add ``settings.mode=sandbox``
+#            and route the user to ``sandbox-secure.xsolla.com`` instead
+#            of ``secure.xsolla.com``. Verified end-to-end against the
+#            live API — sandbox now returns a real Pay Station token.
+#          • src/config.py: new ``xsolla_sandbox_mode`` bool flag.
+#          • .env.example: documents the flag, the correct webhook URL
+#            (Railway, NOT the Vercel SPA domain) and the sandbox card
+#            ``4111 1111 1111 1111`` for QA.
+APP_VERSION = "1.59.4"
