@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { getLandingPage } from './api';
 import type { SocialProofCounterConfig } from '../data/social-proof';
+import type { Testimonial, ReviewCategory, TestimonialTier } from '../data/testimonials';
 
 export type LandingBlockType =
   | 'api'
@@ -175,6 +176,10 @@ export interface HeroContent {
   lead: string;
   ctaLabel: string;
   ctaMicrocopy: string;
+  titleLine1?: string;
+  titleLine2?: string;
+  subLead?: string;
+  platformsHint?: string;
 }
 
 export function parseHero(value: unknown, fallback: HeroContent): HeroContent {
@@ -196,6 +201,10 @@ export function parseHero(value: unknown, fallback: HeroContent): HeroContent {
       asString(obj.cta_microcopy).trim()
       || asString(obj.ctaMicrocopy).trim()
       || fallback.ctaMicrocopy,
+    titleLine1: asString(obj.title_line_1 || obj.titleLine1).trim() || fallback.titleLine1,
+    titleLine2: asString(obj.title_line_2 || obj.titleLine2).trim() || fallback.titleLine2,
+    subLead: asString(obj.sub_lead || obj.subLead).trim() || fallback.subLead,
+    platformsHint: asString(obj.platforms_hint || obj.platformsHint).trim() || fallback.platformsHint,
   };
 }
 
@@ -279,6 +288,36 @@ export function parseFinalCta(
 
 export interface ScenarioPricingContent {
   tagline: string;
+}
+
+export function parseTestimonials(value: unknown, fallback: Testimonial[]): Testimonial[] {
+  if (!value || typeof value !== 'object') return fallback;
+  const obj = value as Record<string, unknown>;
+  const items = obj.items;
+  if (!Array.isArray(items)) return fallback;
+
+  const parsed = items.map((raw) => {
+    if (!raw || typeof raw !== 'object') return null;
+    const r = raw as Record<string, unknown>;
+    const dr = r.deltaRange || r.delta_range;
+    return {
+      id: asString(r.id),
+      styleKey: asString(r.styleKey || r.style_key),
+      category: (asString(r.category) || 'social') as ReviewCategory,
+      nickname: asString(r.nickname),
+      shortReview: asString(r.shortReview || r.short_review),
+      fullReview: asString(r.fullReview || r.full_review),
+      emojiReview: asString(r.emojiReview || r.emoji_review),
+      avatarSeed: asString(r.avatarSeed || r.avatar_seed) || asString(r.id),
+      tier: (asString(r.tier) === 'Премиум' ? 'Премиум' : 'Обычный') as TestimonialTier,
+      beforeScore: asNumber(r.beforeScore || r.before_score, 0),
+      afterScore: asNumber(r.afterScore || r.after_score, 0),
+      deltaRange: Array.isArray(dr) && dr.length >= 2 ? [asNumber(dr[0], 0), asNumber(dr[1], 0)] : [0, 0],
+      usage: 'carousel',
+    } as Testimonial;
+  }).filter((t): t is Testimonial => t !== null && !!t.id);
+
+  return parsed.length > 0 ? parsed : fallback;
 }
 
 export function parseScenarioPricing(

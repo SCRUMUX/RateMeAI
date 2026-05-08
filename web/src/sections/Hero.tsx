@@ -2,6 +2,8 @@ import { Link } from 'react-router-dom';
 import { AicaIcon, TelegramIcon, WhatsappIcon, LineIcon, OkIcon, VkIcon, ZaloIcon, ChevronRightIcon } from '@ai-ds/core/icons';
 import type { FC } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useMemo } from 'react';
+import { findBlock, parseHero, type LandingPage } from '../lib/landing-cms';
 
 interface PlatformDef {
   name: string;
@@ -24,8 +26,29 @@ const PLATFORMS: PlatformDef[] = [
   { name: 'Line', subKey: 'comingSoon', border: '#06C755', opacity: 0.5, iconColor: '#06C755', Icon: LineIcon },
 ];
 
-export default function Hero() {
+export interface HeroProps {
+  cmsPage?: LandingPage | null;
+}
+
+export default function Hero({ cmsPage }: HeroProps = {}) {
   const { t } = useTranslation('landing');
+  
+  const content = useMemo(() => {
+    const fallback = {
+      icon: '',
+      title: '',
+      titleLine1: t('hero.titleLine1'),
+      titleLine2: t('hero.titleLine2'),
+      gradientPhrase: '',
+      lead: t('hero.lead'),
+      subLead: t('hero.subLead'),
+      ctaLabel: '',
+      ctaMicrocopy: '',
+      platformsHint: t('hero.platformsHint'),
+    };
+    return parseHero(findBlock(cmsPage ?? undefined, 'hero')?.data, fallback);
+  }, [cmsPage, t]);
+
   return (
     <section className="relative z-[2] flex flex-col items-center justify-center gap-[var(--space-40)] tablet:gap-[var(--space-96)] px-[var(--space-16)] tablet:px-[var(--space-24)] landing-hero-py"
       style={{ minHeight: '100vh' }}
@@ -33,7 +56,7 @@ export default function Hero() {
       {/* Text block */}
       <div className="relative z-[2] flex flex-col items-center gap-[var(--space-12)] text-center">
         <h1 className="landing-h1 text-[var(--color-text-primary)] flex flex-col gap-[var(--space-4)]">
-          <span>{t('hero.titleLine1')}</span>
+          <span>{content.titleLine1}</span>
           <span
             style={{
               background: 'linear-gradient(103deg, rgb(var(--accent-r), var(--accent-g), var(--accent-b)) 4%, rgb(var(--accent-sec-r), var(--accent-sec-g), var(--accent-sec-b)) 103%)',
@@ -41,21 +64,21 @@ export default function Hero() {
               WebkitTextFillColor: 'transparent',
             }}
           >
-            {t('hero.titleLine2')}
+            {content.titleLine2}
           </span>
         </h1>
         <p className="landing-lead mt-1">
-          {t('hero.lead')}
+          {content.lead}
         </p>
         <p className="landing-lead max-w-[660px]">
-          {t('hero.subLead')}
+          {content.subLead}
         </p>
       </div>
 
       {/* Platform links */}
       <div className="relative z-[2] flex flex-col items-center gap-[var(--space-12)]">
         <p className="text-[14px] tablet:text-[16px] leading-[20px] tablet:leading-[24px] text-[var(--color-text-secondary)]">
-          {t('hero.platformsHint')}
+          {content.platformsHint}
         </p>
         <div className="flex flex-wrap items-center justify-center gap-[var(--space-8)] tablet:gap-[var(--space-12)]">
           {PLATFORMS.map((p) => {

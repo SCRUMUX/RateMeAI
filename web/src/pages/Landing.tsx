@@ -21,7 +21,12 @@ import {
   defaultProofCounter,
   findBlock,
   parseProofCounter,
+  parseHowItWorks,
+  parseFinalCta,
+  parseTestimonials,
   useLandingHome,
+  type FinalCtaContent,
+  type HowItWorksContent,
 } from '../lib/landing-cms';
 import useDocumentMeta from '../lib/useDocumentMeta';
 import LogoEmblem from '../assets/LogoEmblem';
@@ -52,9 +57,37 @@ export default function Landing() {
   }, [cmsPage, t]);
 
   const testimonialsItems = useMemo(() => {
-    const forCategory = getTestimonialsByCategory(app.activeCategory);
-    return forCategory.length >= 3 ? forCategory : getActiveTestimonials();
-  }, [app.activeCategory]);
+    const defaultForCategory = getTestimonialsByCategory(app.activeCategory);
+    const fallback = defaultForCategory.length >= 3 ? defaultForCategory : getActiveTestimonials();
+    const block = findBlock(cmsPage ?? undefined, 'testimonials');
+    return parseTestimonials(block?.data, fallback);
+  }, [app.activeCategory, cmsPage]);
+
+  const howContent = useMemo(() => {
+    const fallback: HowItWorksContent = {
+      title: t('howItWorks.title'),
+      steps: [
+        { num: '1', title: t('howItWorks.step1Title'), desc: t('howItWorks.step1Desc') },
+        { num: '2', title: t('howItWorks.step2Title'), desc: t('howItWorks.step2Desc') },
+        { num: '3', title: t('howItWorks.step3Title'), desc: t('howItWorks.step3Desc') },
+        { num: '4', title: t('howItWorks.step4Title'), desc: t('howItWorks.step4Desc') },
+      ],
+    };
+    const block = findBlock(cmsPage ?? undefined, 'how_it_works');
+    return parseHowItWorks(block?.data, fallback);
+  }, [cmsPage, t]);
+
+  const finalCta = useMemo(() => {
+    const fallback: FinalCtaContent = {
+      brandHeading: 'Look Studio',
+      h2: t('brandCta.h2'),
+      lead: t('brandCta.lead'),
+      ctaSignedInLabel: t('brandCta.openApp'),
+      ctaAnonymousLabel: t('brandCta.getAccess'),
+    };
+    const block = findBlock(cmsPage ?? undefined, 'final_cta');
+    return parseFinalCta(block?.data, fallback);
+  }, [cmsPage, t]);
 
   return (
     <div data-category={app.activeCategory} className="min-h-screen w-full flex flex-col overflow-x-hidden selection:bg-brand-primary/30">
@@ -66,7 +99,7 @@ export default function Landing() {
         <MeshGradientBg />
         <FluidBackground />
         <EnergyField />
-        <Hero />
+        <Hero cmsPage={cmsPage} />
         <ProofCounter
           baseCount={proofContent.baseCount}
           counter={proofContent.counter}
@@ -74,7 +107,7 @@ export default function Landing() {
           subheading={proofContent.subheading}
         />
         <Testimonials items={testimonialsItems} tone="home" />
-        <HowItWorks title={t('howItWorks.title')} />
+        <HowItWorks title={howContent.title} steps={howContent.steps} />
         <Simulation cmsPage={cmsPage} />
         <BeforeAfterSection cmsPage={cmsPage} />
 
@@ -86,23 +119,23 @@ export default function Landing() {
               <LogoEmblem className="relative w-full h-full" />
             </div>
             <span className="brand-glow-text text-[36px] tablet:text-[72px] desktop:text-[120px] leading-[1] font-extrabold whitespace-nowrap">
-              Look Studio
+              {finalCta.brandHeading}
             </span>
           </div>
 
           <div className="reveal flex flex-col items-center gap-[var(--space-16)] text-center max-w-[600px]">
             <h2 className="landing-h2 text-[var(--color-text-primary)]">
-              {t('brandCta.h2')}
+              {finalCta.h2}
             </h2>
             <p className="landing-lead">
-              {t('brandCta.lead')}
+              {finalCta.lead}
             </p>
             {canAccessApp ? (
               <Link
                 to="/app"
                 className="glass-btn-primary inline-flex items-center justify-center px-[var(--space-32)] py-[var(--space-16)] text-[18px] leading-[24px] rounded-[var(--radius-12)] font-medium no-underline mt-[var(--space-8)]"
               >
-                {t('brandCta.openApp')}
+                {finalCta.ctaSignedInLabel}
               </Link>
             ) : (
               <button
@@ -110,7 +143,7 @@ export default function Landing() {
                 onClick={() => setAuthModalOpen(true)}
                 className="glass-btn-primary inline-flex items-center justify-center px-[var(--space-32)] py-[var(--space-16)] text-[18px] leading-[24px] rounded-[var(--radius-12)] font-medium mt-[var(--space-8)]"
               >
-                {t('brandCta.getAccess')}
+                {finalCta.ctaAnonymousLabel}
               </button>
             )}
           </div>
