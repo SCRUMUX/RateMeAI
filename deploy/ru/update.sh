@@ -12,11 +12,14 @@ set -euo pipefail
 
 PROJECT_DIR="${PROJECT_DIR:-/opt/ratemeai}"
 COMPOSE_FILE="docker-compose.ru.yml"
-# Variant B: production RU domain is ailookstudio.ru. The DOMAIN env
-# var override exists for the bake-in window when ailookstudio.ru is
-# still pointing at Vercel — set DOMAIN=https://ru.ailookstudio.ru in
-# that case so the local health check hits the live backend.
-DOMAIN="${DOMAIN:-https://ailookstudio.ru}"
+# Variant B rollout: until DNS for ailookstudio.ru is flipped to the
+# VPS, RU traffic still lives on ru.ailookstudio.ru. To keep this
+# script robust during the cut-over window we always probe health
+# locally first (loopback, no DNS) and fall back to ``$DOMAIN`` only
+# if the caller explicitly set one. After cut-over set
+# ``DOMAIN=https://ailookstudio.ru`` to also smoke-test the public
+# hostname.
+DOMAIN="${DOMAIN:-}"
 
 cd "$PROJECT_DIR"
 
@@ -69,9 +72,15 @@ docker compose -f "$COMPOSE_FILE" restart nginx
 echo "--- health check ---"
 for i in 1 2 3 4 5 6 7 8; do
     sleep 5
-    RESP=$(curl -sf "$DOMAIN/health" 2>/dev/null || echo "FAIL")
-    echo "  attempt $i: $RESP"
+    # Always probe the in-cluster app container — DNS-independent and
+    # exactly mirrors the docker compose ``healthcheck:`` directive.
+    RESP=$(docker compose -f "$COMPOSE_FILE" exec -T app curl -sf http://localhost:8000/health 2>/dev/null || echo "FAIL")
+    echo "  attempt $i (local): $RESP"
     if echo "$RESP" | grep -q '"ok"'; then
+        if [ -n "$DOMAIN" ]; then
+            echo "  also probing $DOMAIN/health …"
+            curl -sf "$DOMAIN/health" 2>/dev/null || echo "  (public domain probe failed — DNS may still be propagating)"
+        fi
         echo "=== Deploy successful: SHA=$SHORT_SHA ==="
         docker compose -f "$COMPOSE_FILE" ps
         exit 0
