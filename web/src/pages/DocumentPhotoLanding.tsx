@@ -14,7 +14,7 @@ import ScenarioPricing from '../sections/ScenarioPricing';
 import { useApp } from '../context/AppContext';
 import { DOCUMENT_SOCIAL_PROOF_PRESET } from '../data/social-proof';
 import type { Testimonial } from '../data/testimonials';
-import useDocumentMeta from '../lib/useDocumentMeta';
+import useDocumentMeta, { getCanonicalOrigin } from '../lib/useDocumentMeta';
 import {
   findBlock,
   parseFinalCta,
@@ -151,16 +151,17 @@ export default function DocumentPhotoLanding({ onStart, showAuth, onAuthClose }:
     app.setActiveCategory('cv');
   }, [app]);
 
-  const docLandingJsonLd = useMemo(
-    () => [
+  const docLandingJsonLd = useMemo(() => {
+    const origin = getCanonicalOrigin();
+    return [
       {
         '@context': 'https://schema.org',
         '@type': 'Service',
         name: 'Document photos',
         description:
           'Online photo studio for passport, visa and other document photos. Clean background, correct size, neutral expression in 2 minutes.',
-        provider: { '@type': 'Organization', name: 'AI Look Studio', url: 'https://ailookstudio.ru' },
-        url: 'https://ailookstudio.ru/dokumenty',
+        provider: { '@type': 'Organization', name: 'AI Look Studio', url: origin },
+        url: `${origin}/dokumenty`,
       },
       {
         '@context': 'https://schema.org',
@@ -168,9 +169,8 @@ export default function DocumentPhotoLanding({ onStart, showAuth, onAuthClose }:
         name: how.title,
         step: how.steps.map((s) => ({ '@type': 'HowToStep', name: s.title, text: s.desc })),
       },
-    ],
-    [how],
-  );
+    ];
+  }, [how]);
 
   const { t: tSeo } = useTranslation('seo');
   useDocumentMeta({

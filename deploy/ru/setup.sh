@@ -2,24 +2,36 @@
 set -euo pipefail
 
 # ============================================================
-# RU Edge Server Setup Script (Ubuntu 22.04)
+# RU Edge Server Setup Script (Ubuntu 22.04) — Variant B
 # ============================================================
 # Run as root or with sudo:
 #   chmod +x deploy/ru/setup.sh && sudo ./deploy/ru/setup.sh
 #
 # Prerequisites:
 #   - Ubuntu 22.04 with SSH access
-#   - Domain ru.ailookstudio.ru pointing to this server's IP
-#   - .env.ru filled out (copy from .env.ru.example)
+#   - DNS A-records pointing to this VPS:
+#       ailookstudio.ru
+#       www.ailookstudio.ru
+#       ru.ailookstudio.ru   (legacy зеркало, можно оставить)
+#   - .env.ru filled out (CI пишет его автоматически на каждом
+#     deploy; вручную — копируйте из .env.ru.example)
 # ============================================================
 
-DOMAIN="${DOMAIN:-ru.ailookstudio.ru}"
+# Список доменов, для которых certbot выпускает сертификаты.
+# Variant B: основной — ailookstudio.ru, www — алиас. Legacy
+# ru.ailookstudio.ru держим, чтобы не сломать старые ссылки и
+# OAuth-консоли, которые ещё не переехали (см. plan, этап 8).
+DOMAIN_PRIMARY="${DOMAIN_PRIMARY:-ailookstudio.ru}"
+DOMAIN_WWW="${DOMAIN_WWW:-www.ailookstudio.ru}"
+DOMAIN_LEGACY="${DOMAIN_LEGACY:-ru.ailookstudio.ru}"
 EMAIL="${CERTBOT_EMAIL:-admin@ailookstudio.ru}"
 PROJECT_DIR="${PROJECT_DIR:-/opt/ratemeai}"
 
-echo "=== RateMEAI RU Edge Server Setup ==="
-echo "Domain: $DOMAIN"
-echo "Project dir: $PROJECT_DIR"
+echo "=== AILookStudio RU Edge Server Setup (Variant B) ==="
+echo "Primary domain : $DOMAIN_PRIMARY"
+echo "WWW alias      : $DOMAIN_WWW"
+echo "Legacy mirror  : $DOMAIN_LEGACY"
+echo "Project dir    : $PROJECT_DIR"
 echo ""
 
 # --- 1. System updates ---
@@ -71,15 +83,15 @@ fi
 
 cd "$PROJECT_DIR"
 
-# --- 5. SSL Certificate (Let's Encrypt) ---
-echo "[5/7] Setting up SSL certificate..."
+# --- 5. SSL Certificates (Let's Encrypt) ---
+echo "[5/7] Setting up SSL certificates..."
 
-# Create temp nginx for certbot challenge (no SSL yet)
+# Temp nginx серверит ACME challenge для всех трёх доменов.
 mkdir -p /tmp/certbot-nginx
 cat > /tmp/certbot-nginx/default.conf <<NGINX_EOF
 server {
     listen 80;
-    server_name $DOMAIN;
+    server_name $DOMAIN_PRIMARY $DOMAIN_WWW $DOMAIN_LEGACY;
 
     location /.well-known/acme-challenge/ {
         root /var/www/certbot;
@@ -94,34 +106,52 @@ NGINX_EOF
 
 mkdir -p /var/www/certbot
 
-# Stop any existing containers on port 80
 docker compose -f docker-compose.ru.yml down 2>/dev/null || true
 
-# Run temp nginx for ACME challenge
 docker run -d --name certbot-nginx \
     -p 80:80 \
     -v /tmp/certbot-nginx/default.conf:/etc/nginx/conf.d/default.conf:ro \
     -v /var/www/certbot:/var/www/certbot \
     nginx:alpine
 
-# Get certificate
-docker run --rm \
-    -v /etc/letsencrypt:/etc/letsencrypt \
-    -v /var/www/certbot:/var/www/certbot \
-    certbot/certbot certonly \
-        --webroot \
-        --webroot-path=/var/www/certbot \
-        -d "$DOMAIN" \
-        --email "$EMAIL" \
-        --agree-tos \
-        --no-eff-email \
-        --non-interactive
+# 5a. Сертификат для основного домена + www-алиас (один cert, два SAN).
+issue_cert() {
+    local cert_name="$1"
+    shift
+    local domains=("$@")
+    local args=()
+    for d in "${domains[@]}"; do
+        args+=("-d" "$d")
+    done
 
-# Cleanup temp nginx
+    if [ -d "/etc/letsencrypt/live/$cert_name" ]; then
+        echo "  cert /etc/letsencrypt/live/$cert_name уже существует — пропускаем."
+        return 0
+    fi
+
+    docker run --rm \
+        -v /etc/letsencrypt:/etc/letsencrypt \
+        -v /var/www/certbot:/var/www/certbot \
+        certbot/certbot certonly \
+            --webroot \
+            --webroot-path=/var/www/certbot \
+            "${args[@]}" \
+            --cert-name "$cert_name" \
+            --email "$EMAIL" \
+            --agree-tos \
+            --no-eff-email \
+            --non-interactive
+}
+
+issue_cert "$DOMAIN_PRIMARY" "$DOMAIN_PRIMARY" "$DOMAIN_WWW"
+# Legacy зеркало живёт на отдельном cert'е, чтобы можно было
+# спокойно отозвать после перехода на 301-редирект.
+issue_cert "$DOMAIN_LEGACY" "$DOMAIN_LEGACY"
+
 docker stop certbot-nginx && docker rm certbot-nginx
 rm -rf /tmp/certbot-nginx
 
-echo "SSL certificate obtained for $DOMAIN."
+echo "SSL certificates obtained."
 
 # --- 6. Build and deploy ---
 echo "[6/7] Building and starting services..."
@@ -134,10 +164,8 @@ fi
 
 docker compose -f docker-compose.ru.yml down 2>/dev/null || true
 
-# Build the frontend image with RU API URL
 docker compose -f docker-compose.ru.yml --profile build-only build web
 
-# Copy built frontend to the named volume
 TEMP_CONTAINER=$(docker create ratemeai-web-ru:latest)
 docker cp "$TEMP_CONTAINER:/usr/share/nginx/html" /tmp/web-dist
 docker rm "$TEMP_CONTAINER"
@@ -150,7 +178,6 @@ docker run --rm \
 
 rm -rf /tmp/web-dist
 
-# Build backend and start all services
 docker compose -f docker-compose.ru.yml up -d --build
 
 echo "Services started."
@@ -168,7 +195,7 @@ echo "Services running:"
 docker compose -f docker-compose.ru.yml ps
 echo ""
 echo "Health check:"
-echo "  curl -s https://$DOMAIN/health"
+echo "  curl -s https://$DOMAIN_PRIMARY/health"
 echo ""
 echo "Useful commands:"
 echo "  docker compose -f docker-compose.ru.yml logs -f app     # API logs"

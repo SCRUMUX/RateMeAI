@@ -18,7 +18,8 @@
 import { useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 
-const SUPPORT_EMAIL = 'support@ailookstudio.ru';
+const SUPPORT_EMAIL =
+  (import.meta.env.VITE_SUPPORT_EMAIL ?? '').trim() || 'support@ailookstudio.ru';
 
 interface AccountBlockedScreenProps {
   reason: string;

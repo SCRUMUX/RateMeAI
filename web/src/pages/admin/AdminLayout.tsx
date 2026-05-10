@@ -5,7 +5,6 @@ import {
   AdminTargetProvider,
   useAdminTarget,
 } from '../../lib/admin-target-context';
-import { tokenStorageKey, type AdminTargetId } from '../../lib/admin-targets';
 import { adminWhoami, ApiError, type AdminWhoamiResponse } from '../../lib/api';
 
 interface AdminLayoutProps {
@@ -42,95 +41,40 @@ const TABS: AdminTab[] = [
 ];
 
 /**
- * Header dropdown that lets the operator switch between primary and
- * RU edge instances. Each target has its OWN session token in
- * localStorage (see ``admin-targets.ts``); the dropdown surfaces
- * which targets currently have a token so it's obvious whether the
- * next click will work or pop a login prompt.
+ * Variant B replacement for the old multi-target dropdown — admin
+ * always lives on the single primary backend (Railway). We render a
+ * compact read-only badge instead of a switcher so the operator
+ * still sees which API base their session is bound to (useful when
+ * previewing a non-prod build with VITE_API_BASE_URL overridden).
  */
-function TargetSwitcher() {
-  const { current, targets, setTarget } = useAdminTarget();
-  const [open, setOpen] = useState(false);
-
-  const accent =
-    current.id === 'ru'
-      ? 'bg-emerald-500/15 border-emerald-400/40 text-emerald-100'
-      : 'bg-blue-500/15 border-blue-400/40 text-blue-100';
-
+function PrimaryTargetBadge() {
+  const { current } = useAdminTarget();
   return (
-    <div className="relative">
-      <button
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        className={`flex items-center gap-[var(--space-8)] px-[var(--space-12)] py-[var(--space-8)] rounded-[var(--radius-pill)] border text-[12px] leading-[16px] font-medium transition-colors ${accent}`}
-        aria-haspopup="listbox"
-        aria-expanded={open}
-      >
-        <span className="text-[10px] uppercase tracking-[0.16em] opacity-70">
-          Цель
-        </span>
-        <span>{current.shortLabel}</span>
-        <span className="text-[10px] opacity-60">▾</span>
-      </button>
-      {open && (
-        <ul
-          role="listbox"
-          className="absolute right-0 mt-[var(--space-8)] min-w-[260px] rounded-[12px] border border-white/10 bg-[#13191F] shadow-2xl z-40 overflow-hidden"
-          onMouseLeave={() => setOpen(false)}
-        >
-          {targets.map((t) => {
-            const active = t.id === current.id;
-            return (
-              <li key={t.id}>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setTarget(t.id as AdminTargetId);
-                    setOpen(false);
-                  }}
-                  className={`w-full text-left px-[var(--space-16)] py-[var(--space-12)] text-[13px] leading-[18px] flex flex-col gap-[2px] transition-colors ${
-                    active
-                      ? 'bg-white/5 text-white'
-                      : 'text-[#cbd5e0] hover:bg-white/5 hover:text-white'
-                  }`}
-                >
-                  <span className="font-medium">{t.label}</span>
-                  <span className="text-[11px] text-[#8b95a3] truncate">
-                    {t.apiBase || '— API base пуст —'}
-                  </span>
-                </button>
-              </li>
-            );
-          })}
-          <li className="px-[var(--space-16)] py-[var(--space-8)] border-t border-white/10 text-[11px] leading-[15px] text-[#8b95a3]">
-            Юзеры, кредиты и блокировки относятся только к выбранному
-            серверу. Контент (стили / лендинг) можно записать сразу на
-            оба через кнопку «Применить на оба».
-          </li>
-        </ul>
-      )}
+    <div
+      className="flex items-center gap-[var(--space-8)] px-[var(--space-12)] py-[var(--space-8)] rounded-[var(--radius-pill)] border border-blue-400/40 bg-blue-500/15 text-blue-100 text-[12px] leading-[16px] font-medium"
+      title={current.apiBase || 'API base пуст'}
+    >
+      <span className="text-[10px] uppercase tracking-[0.16em] opacity-70">
+        Backend
+      </span>
+      <span>{current.shortLabel}</span>
     </div>
   );
 }
 
 /**
- * 1.55.4 — diagnostic gate that runs AFTER ``NoTokenForTargetGate``.
+ * 1.55.4 — diagnostic gate that runs after the token check.
  *
  * Even with a valid session token, the backend ``require_admin`` may
  * still 403 (user UUID not in ``ADMIN_USER_IDS``, identity email not
- * in ``ADMIN_EMAILS``, or both whitelists empty on this region).
- * Pre-1.55.4 every page just showed "Доступ запрещён" without saying
- * why, which led to hours of debugging "is the env var set? does my
- * email match? am I on the right region?".
- *
- * The new ``GET /api/v1/admin/_whoami`` endpoint is auth-required but
- * NOT admin-gated, so we can call it with the same token the user
- * already has and render an actionable explanation: "your email is
- * X but the whitelist on this server has 0 entries — ask ops to set
- * ADMIN_EMAILS in .env.ru" or similar.
+ * in ``ADMIN_EMAILS``, or both whitelists empty). The new
+ * ``/api/v1/admin/_whoami`` endpoint is auth-required but NOT
+ * admin-gated, so we can render an actionable explanation: "your
+ * email is X but the whitelist on this server has 0 entries — ask
+ * ops to set ADMIN_EMAILS in Railway" or similar.
  */
 function AdminGateDiagnostics({ children }: { children: ReactNode }) {
-  const { current, switchEpoch } = useAdminTarget();
+  const { current } = useAdminTarget();
   const [info, setInfo] = useState<AdminWhoamiResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -164,7 +108,7 @@ function AdminGateDiagnostics({ children }: { children: ReactNode }) {
     return () => {
       cancelled = true;
     };
-  }, [current.id, switchEpoch]);
+  }, []);
 
   if (loading) {
     return (
@@ -207,26 +151,24 @@ function AdminGateDiagnostics({ children }: { children: ReactNode }) {
               : info.identity_emails.join(', ')}
           </li>
           <li>
-            <span className="text-amber-100/70">Whitelist на этом сервере:</span>{' '}
+            <span className="text-amber-100/70">Whitelist:</span>{' '}
             ADMIN_USER_IDS = {info.whitelist_size.user_ids}, ADMIN_EMAILS ={' '}
             {info.whitelist_size.emails}
           </li>
         </ul>
         <p className="text-[13px] leading-[20px] text-amber-100/85 mb-[var(--space-12)]">
           {whitelistEmpty
-            ? 'На этом сервере оба whitelist-а пустые. Это значит, что переменные '
+            ? 'Оба whitelist-а пустые. Это значит, что переменные '
               + 'ADMIN_USER_IDS / ADMIN_EMAILS не загружены в контейнер app — '
-              + 'нужно запустить деплой ещё раз (CI 1.55.4+ синкит ADMIN_EMAILS '
-              + 'в .env.ru через secrets.ADMIN_EMAILS) или вручную добавить '
-              + 'строку и перезапустить app.'
+              + 'нужно запустить деплой ещё раз (CI синкит ADMIN_EMAILS '
+              + 'из секрета) или вручную добавить и перезапустить app.'
             : userHasNoEmail
               ? 'Whitelist непустой, но у текущего OAuth-провайдера нет email-а '
                 + '(Yandex без login:email scope, VK ID, либо вход по телефону). '
                 + 'Войдите через провайдера, который отдаёт email (Google).'
               : 'Whitelist непустой, но ни один из ваших email-ов в нём не значится. '
                 + 'Добавьте нужный адрес в GitHub-секрет ADMIN_EMAILS '
-                + '(value: comma-separated) и передеплойте — CI запишет новый '
-                + 'whitelist одновременно на Railway и в .env.ru на RU-edge.'}
+                + '(value: comma-separated) и передеплойте.'}
         </p>
         <p className="text-[12px] leading-[18px] text-amber-100/60">
           Цель: {current.label}
@@ -236,117 +178,31 @@ function AdminGateDiagnostics({ children }: { children: ReactNode }) {
     );
   }
 
-  return (
-    <div key={`${current.id}:${switchEpoch}`}>{children}</div>
-  );
+  return <div>{children}</div>;
 }
 
 /**
- * If the operator switches to a target where they aren't logged in
- * (no per-target token), block the page content and explain how to
- * fix it. Without this, every admin endpoint would return 401 and
- * the page would just look broken.
+ * Block admin pages when the operator hasn't logged in yet — every
+ * admin endpoint would otherwise return 401 and the page would just
+ * look broken.
  */
-function NoTokenForTargetGate({ children }: { children: ReactNode }) {
-  const { current, hasToken, setTarget, targets } = useAdminTarget();
+function NoTokenGate({ children }: { children: ReactNode }) {
+  const { current, hasToken } = useAdminTarget();
   if (hasToken) {
     return <AdminGateDiagnostics>{children}</AdminGateDiagnostics>;
   }
-
-  const otherWithToken = targets.find(
-    (t) => t.id !== current.id
-      && Boolean(localStorage.getItem(tokenStorageKey(t.id))),
-  );
-
-  // Cross-origin reality check (1.55.1): localStorage is per-origin,
-  // so a session token written on ru.ailookstudio.ru is *literally
-  // invisible* to scripts running on ailookstudio.ru. Switching to RU
-  // from a non-RU origin will never find the token even after a
-  // separate-tab login. We detect it from window.location.host vs
-  // the target's apiBase host and show a direct "open RU admin"
-  // shortcut instead of a useless login prompt.
-  const targetHost = (() => {
-    try { return new URL(current.apiBase).host; } catch { return ''; }
-  })();
-  const currentHost = typeof window !== 'undefined' ? window.location.host : '';
-  const isCrossOrigin =
-    targetHost !== '' && currentHost !== '' && targetHost !== currentHost;
-  const targetAdminUrl =
-    isCrossOrigin && current.apiBase
-      ? `${current.apiBase.replace(/\/+$/, '')}/admin/users`
-      : null;
-
-  // 1.55.5 — diagnostic dump so the operator (and we) can immediately
-  // see WHY hasToken is false. Without this the page just says
-  // "Нужен вход" and there's no way to tell whether the token is in
-  // a different slot, on a different origin, or genuinely absent.
-  const tokenSlots = targets.map((t) => {
-    const key = tokenStorageKey(t.id);
-    const raw = (() => {
-      try { return localStorage.getItem(key); } catch { return null; }
-    })();
-    return {
-      id: t.id,
-      label: t.shortLabel,
-      apiBase: t.apiBase,
-      storageKey: key,
-      hasValue: Boolean(raw),
-    };
-  });
-
   return (
     <div className="rounded-[14px] border border-amber-400/30 bg-amber-500/5 px-[var(--space-24)] py-[var(--space-24)] text-amber-100 max-w-[760px]">
       <h2 className="text-[16px] leading-[22px] font-semibold mb-[var(--space-8)]">
-        Нужен вход на target «{current.label}»
+        Нужен вход для доступа в админку
       </h2>
-      {isCrossOrigin ? (
-        <>
-          <p className="text-[13px] leading-[20px] text-amber-100/85 mb-[var(--space-12)]">
-            Админка target «{current.shortLabel}» живёт на другом домене
-            ({targetHost}), и его сессия хранится только там — из этой
-            вкладки её не достать. Откройте админку напрямую на нужном
-            домене:
-          </p>
-          {targetAdminUrl && (
-            <a
-              href={targetAdminUrl}
-              target="_blank"
-              rel="noreferrer"
-              className="inline-flex items-center gap-[var(--space-8)] px-[var(--space-16)] h-[36px] rounded-[var(--radius-pill)] bg-emerald-600 hover:bg-emerald-500 text-white text-[13px] leading-[18px] font-medium mb-[var(--space-16)]"
-            >
-              Открыть админку «{current.shortLabel}» в новой вкладке →
-            </a>
-          )}
-        </>
-      ) : (
-        <p className="text-[13px] leading-[20px] text-amber-100/85 mb-[var(--space-16)]">
-          У этого инстанса своя база сессий. Войдите в основной кабинет
-          на этом домене и вернитесь сюда — токен подтянется автоматически.
-        </p>
-      )}
-      {otherWithToken && (
-        <button
-          type="button"
-          onClick={() => setTarget(otherWithToken.id)}
-          className="px-[var(--space-16)] h-[36px] rounded-[var(--radius-pill)] bg-white/10 hover:bg-white/15 text-white text-[13px] leading-[18px] font-medium mb-[var(--space-16)]"
-        >
-          Переключиться обратно на {otherWithToken.shortLabel}
-        </button>
-      )}
-      <details className="text-[12px] leading-[18px] text-amber-100/60 select-text">
-        <summary className="cursor-pointer text-amber-100/80">
-          Показать диагностику токенов
-        </summary>
-        <ul className="mt-[var(--space-8)] space-y-[var(--space-4)] font-mono text-[11px]">
-          <li>origin: {currentHost || '—'}</li>
-          {tokenSlots.map((s) => (
-            <li key={s.id}>
-              {s.label} ({s.apiBase || '—'}) → {s.storageKey}:{' '}
-              {s.hasValue ? 'present' : 'empty'}
-            </li>
-          ))}
-        </ul>
-      </details>
+      <p className="text-[13px] leading-[20px] text-amber-100/85 mb-[var(--space-12)]">
+        Войдите в основной кабинет (OAuth) на этом домене и вернитесь сюда —
+        токен подтянется автоматически.
+      </p>
+      <p className="text-[12px] leading-[18px] text-amber-100/60">
+        Backend: {current.label}
+      </p>
     </div>
   );
 }
@@ -384,13 +240,13 @@ function AdminLayoutInner({ children }: AdminLayoutProps) {
                 );
               })}
             </nav>
-            <TargetSwitcher />
+            <PrimaryTargetBadge />
           </div>
         </div>
       </header>
 
       <main className="max-w-[1240px] mx-auto px-[var(--space-16)] tablet:px-[var(--space-32)] desktop:px-[var(--space-48)] py-[var(--space-32)] desktop:py-[var(--space-40)]">
-        <NoTokenForTargetGate>{children}</NoTokenForTargetGate>
+        <NoTokenGate>{children}</NoTokenGate>
       </main>
     </div>
   );

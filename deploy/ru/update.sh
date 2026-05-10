@@ -12,7 +12,11 @@ set -euo pipefail
 
 PROJECT_DIR="${PROJECT_DIR:-/opt/ratemeai}"
 COMPOSE_FILE="docker-compose.ru.yml"
-DOMAIN="https://ru.ailookstudio.ru"
+# Variant B: production RU domain is ailookstudio.ru. The DOMAIN env
+# var override exists for the bake-in window when ailookstudio.ru is
+# still pointing at Vercel — set DOMAIN=https://ru.ailookstudio.ru in
+# that case so the local health check hits the live backend.
+DOMAIN="${DOMAIN:-https://ailookstudio.ru}"
 
 cd "$PROJECT_DIR"
 

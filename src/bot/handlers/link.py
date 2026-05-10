@@ -17,6 +17,15 @@ from redis.asyncio import Redis
 
 from src.bot.keyboards import back_keyboard, link_waiting_keyboard, link_wizard_keyboard
 from src.bot.middleware import get_bot_auth_headers
+from src.config import settings
+
+
+def _landing_host_label() -> str:
+    """Domain string ("ailookstudio.ru") for the «Зайди на сайт …» prompt."""
+    base = settings.resolved_bot_web_landing_url
+    if not base:
+        return "ailookstudio.ru"
+    return base.replace("https://", "").replace("http://", "").rstrip("/")
 
 router = Router()
 logger = logging.getLogger(__name__)
@@ -77,7 +86,7 @@ async def on_link_have_web(callback: CallbackQuery, redis: Redis):
     await redis.set(_LINK_WAITING_KEY.format(user_id), "1", ex=_LINK_WAITING_TTL)
     await callback.message.answer(
         "\U0001f310 *Привязка через сайт*\n\n"
-        "1\ufe0f\u20e3 Зайди на сайт *ailookstudio.ru*\n"
+        f"1\ufe0f\u20e3 Зайди на сайт *{_landing_host_label()}*\n"
         "2\ufe0f\u20e3 Нажми на баланс вверху \u2192 *Получить код привязки*\n"
         "3\ufe0f\u20e3 Скопируй 6-значный код\n"
         "4\ufe0f\u20e3 *Отправь код прямо сюда в чат* \u2935\ufe0f\n\n"

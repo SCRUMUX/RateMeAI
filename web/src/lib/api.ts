@@ -1,136 +1,68 @@
-// 1.55.0 — multi-target admin. The SPA can talk to multiple FastAPI
-// instances (primary / RU edge); see ``./admin-targets.ts``.
-//
-// 1.55.1 hotfix: routing was originally done off ``_activeTarget``
-// for ALL traffic, including OAuth init, ``/users/me`` and SSE
-// progress. That broke the public flow whenever an operator left
-// the admin switcher on RU — Google OAuth would suddenly redirect
-// to ``ru.ailookstudio.ru/auth/callback`` (often unregistered →
-// "redirect_uri_mismatch"), and image URLs would resolve against
-// the wrong host. Per-target routing is now path-scoped: only
-// ``/api/v1/admin/*`` paths follow the switcher, everything else
-// goes to ``primary`` regardless of UI state.
+// Variant B (CMS hub on Railway) — every API request goes to the
+// primary backend. The legacy multi-target switcher (1.55.0) is gone
+// because the RU edge no longer exposes admin writes; CMS edits
+// reach RU via signed replication, so the SPA only ever needs the
+// Railway base URL plus the optional ``market`` query param.
 import i18next from 'i18next';
 import {
-  ACTIVE_TARGET_STORAGE_KEY,
   getAdminTarget,
   tokenStorageKey,
   type AdminTargetId,
 } from './admin-targets';
 
-function _hydrateActiveTarget(): AdminTargetId {
-  if (typeof localStorage === 'undefined') return 'primary';
-  const raw = localStorage.getItem(ACTIVE_TARGET_STORAGE_KEY);
-  if (raw === 'ru' || raw === 'primary') return raw;
+function _hydrateToken(): string | null {
+  if (typeof localStorage === 'undefined') return null;
+  return localStorage.getItem(tokenStorageKey('primary'));
+}
+
+let _token: string | null = _hydrateToken();
+
+/** Backwards-compat shim: callers that imported these used to flip
+ *  between primary and RU; now both resolve to ``primary``. */
+export function getActiveAdminTarget(): AdminTargetId {
   return 'primary';
 }
 
-function _hydrateTokens(): Record<AdminTargetId, string | null> {
-  const out: Record<AdminTargetId, string | null> = {
-    primary: null,
-    ru: null,
-  };
-  if (typeof localStorage === 'undefined') return out;
-  // ``tokenStorageKey('primary')`` resolves to the legacy key
-  // ``ailook_session_token``, so this picks up tokens written by
-  // both the public OAuth flow (auth.ts) and admin login.
-  out.primary = localStorage.getItem(tokenStorageKey('primary'));
-  out.ru = localStorage.getItem(tokenStorageKey('ru'));
-  return out;
+export function setActiveAdminTarget(_id: AdminTargetId): void {
+  // No-op — only ``primary`` exists in Variant B.
 }
 
-let _activeTarget: AdminTargetId = _hydrateActiveTarget();
-const _tokens: Record<AdminTargetId, string | null> = _hydrateTokens();
-
-export function getActiveAdminTarget(): AdminTargetId {
-  return _activeTarget;
-}
-
-export function setActiveAdminTarget(id: AdminTargetId): void {
-  _activeTarget = id;
-  if (typeof localStorage !== 'undefined') {
-    try {
-      localStorage.setItem(ACTIVE_TARGET_STORAGE_KEY, id);
-    } catch { /* fine */ }
-  }
-}
-
-/** Resolve the API base URL for a given target. ``getApiBase()``
- *  without arguments returns the primary base — that's the value
- *  used by SSE / image-url helpers and any non-admin code path. */
+/** Resolve the API base URL. ``target`` arg kept for compatibility
+ *  with pre-Variant-B callers; only ``primary`` is meaningful. */
 export function getApiBase(target: AdminTargetId = 'primary'): string {
   return getAdminTarget(target).apiBase;
 }
 
-/** Legacy export — kept so consumers that imported the constant
- *  before 1.55 still compile. ALWAYS resolves to primary so
- *  non-admin features (SSE, image URLs) can't be broken by the
- *  admin target switcher. */
+/** Legacy export — preserved so existing imports compile. */
 export const API_BASE = getApiBase('primary');
 
-/** Public token setter used by the cabinet OAuth flow. Always
- *  writes to the primary slot — non-admin code never targets RU. */
 export function setToken(t: string | null): void {
   setTokenForTarget('primary', t);
 }
 
-/** Public token getter — returns the primary token. Admin code
- *  that needs the active-target token uses ``getTokenForTarget``. */
 export function getToken(): string | null {
-  return _tokens.primary;
+  return _token;
 }
 
-export function setTokenForTarget(id: AdminTargetId, t: string | null): void {
-  _tokens[id] = t;
+export function setTokenForTarget(_id: AdminTargetId, t: string | null): void {
+  _token = t;
   if (typeof localStorage === 'undefined') return;
   try {
     if (t) {
-      localStorage.setItem(tokenStorageKey(id), t);
+      localStorage.setItem(tokenStorageKey('primary'), t);
     } else {
-      localStorage.removeItem(tokenStorageKey(id));
+      localStorage.removeItem(tokenStorageKey('primary'));
     }
   } catch { /* fine */ }
 }
 
-export function getTokenForTarget(id: AdminTargetId): string | null {
-  const direct = _tokens[id];
-  if (direct) return direct;
-  // 1.55.5 — same-origin fallback. On the RU edge SPA build,
-  // ``VITE_API_BASE_URL`` and ``VITE_ADMIN_TARGET_RU_URL`` both point
-  // at ``https://ru.ailookstudio.ru``, so ``primary`` and ``ru``
-  // resolve to the SAME backend. The OAuth flow always writes to the
-  // primary slot (legacy ``ailook_session_token``); without this
-  // fallback, switching the target dropdown to RU on the RU build
-  // would leave ``hasToken`` false and the page would show
-  // "Нужен вход на target «RU»" forever even though the operator IS
-  // logged in and the token IS valid for the requested apiBase.
-  // Fallback rule: if the requested target shares apiBase with
-  // primary (i.e. same backend), reuse the primary token. Targets on
-  // a different origin (the Vercel build, where primary = Railway
-  // and ru = ru.ailookstudio.ru) keep strict per-target isolation —
-  // a primary Railway token is NOT valid against the RU backend.
-  if (id !== 'primary') {
-    try {
-      const primaryBase = getAdminTarget('primary').apiBase;
-      const targetBase = getAdminTarget(id).apiBase;
-      if (primaryBase && targetBase && primaryBase === targetBase) {
-        return _tokens.primary;
-      }
-    } catch { /* unknown target — bail to null */ }
-  }
-  return null;
-}
-
-const ADMIN_PATH_PREFIX = '/api/v1/admin/';
-
-function _isAdminPath(path: string): boolean {
-  return path.startsWith(ADMIN_PATH_PREFIX);
+export function getTokenForTarget(_id: AdminTargetId): string | null {
+  return _token;
 }
 
 export interface AdminRequestOptions {
-  /** Override the routing target for this single call. Used by the
-   *  CMS "Применить на оба сервера" button so a write to RU doesn't
-   *  require globally switching targets. */
+  /** Variant B leftover — the only meaningful value is ``primary``.
+   *  Kept so existing call-sites do not need a sweep. */
   target?: AdminTargetId;
 }
 
@@ -138,23 +70,9 @@ async function request<T>(
   path: string,
   init: RequestInit & AdminRequestOptions = {},
 ): Promise<T> {
-  const { target, ...fetchInit } = init as RequestInit & AdminRequestOptions;
-  // Path-scoped target selection: admin endpoints follow the
-  // operator's chosen target, everything else stays on primary so
-  // OAuth/SSE/cabinet keep working regardless of admin UI state.
-  let targetId: AdminTargetId;
-  if (target) {
-    targetId = target;
-  } else if (_isAdminPath(path)) {
-    targetId = _activeTarget;
-  } else {
-    targetId = 'primary';
-  }
-  const apiBase = getAdminTarget(targetId).apiBase;
-  // 1.55.5 — use ``getTokenForTarget`` so the same-origin fallback
-  // (RU build: primary===ru) actually attaches the Authorization
-  // header when the operator routes admin traffic via target=ru.
-  const token = getTokenForTarget(targetId);
+  const { target: _ignored, ...fetchInit } = init as RequestInit & AdminRequestOptions;
+  const apiBase = getAdminTarget('primary').apiBase;
+  const token = _token;
 
   const headers = new Headers(fetchInit.headers);
   if (token) headers.set('Authorization', `Bearer ${token}`);
@@ -296,29 +214,53 @@ export function getScenarioCompliance(slug: string) {
 
 // -- Landing CMS (admin) --
 
+export type LandingMarket = 'ru' | 'global';
+
 export interface AdminLandingPagesList {
+  market: LandingMarket;
   slugs: string[];
 }
 
-export function listAdminLandingPages(opts: AdminRequestOptions = {}) {
-  return request<AdminLandingPagesList>('/api/v1/admin/landing/pages', opts);
+export interface AdminLandingMarketsResponse {
+  markets: LandingMarket[];
+  default: LandingMarket;
+  cms_role: 'editor' | 'follower';
 }
 
-export function getAdminLandingPage(slug: string, opts: AdminRequestOptions = {}) {
-  return request<LandingPageResponse>(
-    `/api/v1/admin/landing/pages/${encodeURIComponent(slug)}`,
-    opts,
+export interface AdminLandingPageResponse {
+  market: LandingMarket;
+  slug: string;
+  page: Record<string, unknown>;
+}
+
+function _marketQuery(market?: LandingMarket): string {
+  return market ? `?market=${market}` : '';
+}
+
+export function listAdminLandingMarkets() {
+  return request<AdminLandingMarketsResponse>('/api/v1/admin/landing/markets');
+}
+
+export function listAdminLandingPages(market?: LandingMarket) {
+  return request<AdminLandingPagesList>(
+    `/api/v1/admin/landing/pages${_marketQuery(market)}`,
+  );
+}
+
+export function getAdminLandingPage(slug: string, market?: LandingMarket) {
+  return request<AdminLandingPageResponse>(
+    `/api/v1/admin/landing/pages/${encodeURIComponent(slug)}${_marketQuery(market)}`,
   );
 }
 
 export function putAdminLandingPage(
   slug: string,
   page: Record<string, unknown>,
-  opts: AdminRequestOptions = {},
+  market?: LandingMarket,
 ) {
-  return request<{ status: string; slug: string }>(
-    `/api/v1/admin/landing/pages/${encodeURIComponent(slug)}`,
-    { ...opts, method: 'PUT', body: JSON.stringify({ page }) },
+  return request<{ status: string; market: LandingMarket; slug: string }>(
+    `/api/v1/admin/landing/pages/${encodeURIComponent(slug)}${_marketQuery(market)}`,
+    { method: 'PUT', body: JSON.stringify({ page }) },
   );
 }
 

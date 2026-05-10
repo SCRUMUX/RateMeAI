@@ -51,6 +51,9 @@ def _configure_logging() -> None:
 _configure_logging()
 
 _EDGE_RECONCILE_INTERVAL = 300  # 5 minutes
+# Variant B safety-pull cadence — once an hour matches the editor →
+# follower replication SLA from the rollout plan.
+_CMS_SAFETY_PULL_INTERVAL = 3600
 
 
 async def _edge_reconciler_loop(db_sessionmaker, redis: Redis) -> None:
@@ -68,6 +71,55 @@ async def _edge_reconciler_loop(db_sessionmaker, redis: Redis) -> None:
             log.exception("Edge reconciler iteration failed")
 
         await asyncio.sleep(_EDGE_RECONCILE_INTERVAL)
+
+
+async def _cms_safety_pull_loop() -> None:
+    """Hourly fallback: pull a fresh CMS snapshot from the editor.
+
+    The signed ``POST /internal/cms/replicate`` push handles instant
+    propagation when admins save a page; this loop covers transient
+    push failures and a fresh follower booting against an idle editor.
+    Writes only happen when the local document hash differs.
+
+    Lives in the FastAPI lifespan rather than the ARQ worker because
+    the RU edge ``docker-compose.ru.yml`` does not run a worker — all
+    AI processing is delegated to Railway. Putting the loop here keeps
+    the safety net active without spinning up an additional container.
+    """
+    log = logging.getLogger("cms_safety_pull")
+    if not settings.is_cms_follower:
+        return
+    if not settings.cms_safety_pull_enabled:
+        log.info("cms_safety_pull: disabled via CMS_SAFETY_PULL_ENABLED=false")
+        return
+    if not (settings.cms_master_url or "").strip():
+        log.info("cms_safety_pull: CMS_MASTER_URL is empty, loop will exit")
+        return
+
+    from src.services import cms_replication, landing_store
+
+    market = settings.resolved_market_id
+    if market not in landing_store.available_markets():
+        log.warning("cms_safety_pull: unknown market %s, loop will exit", market)
+        return
+
+    # Initial delay so we don't race the first replication push that
+    # may already be in flight when the follower comes up.
+    await asyncio.sleep(120)
+    while True:
+        try:
+            snapshot = await cms_replication.fetch_snapshot_from_master(market)
+            if snapshot is not None:
+                rewritten = cms_replication.apply_snapshot(market, snapshot)
+                if rewritten:
+                    log.info("cms_safety_pull: market=%s rewritten=true", market)
+                else:
+                    log.debug("cms_safety_pull: market=%s in sync", market)
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            log.exception("cms_safety_pull iteration failed")
+        await asyncio.sleep(_CMS_SAFETY_PULL_INTERVAL)
 
 
 def _run_alembic_upgrade() -> None:
@@ -208,14 +260,42 @@ async def lifespan(app: FastAPI):
             )
     sha = (settings.deploy_git_sha or "").strip()
     log.info(
-        "RateMeAI API starting version=%s market=%s role=%s compute=%s mode=%s%s",
+        "RateMeAI API starting version=%s market=%s role=%s compute=%s mode=%s cms=%s%s",
         APP_VERSION,
         settings.resolved_market_id,
         settings.resolved_service_role,
         settings.resolved_compute_mode,
         settings.deployment_mode,
+        settings.resolved_cms_role,
         f" git={sha[:12]}" if sha else "",
     )
+
+    # CMS replication sanity checks (Variant B). Misconfiguration here
+    # silently breaks landings on followers, so make every problem loud.
+    if settings.is_cms_editor and settings.is_production:
+        followers = settings.resolved_cms_follower_urls
+        if not followers:
+            log.warning(
+                "cms_replication: CMS_FOLLOWER_URLS is empty on editor — "
+                "RU edge will only see CMS edits via hourly safety-pull",
+            )
+        if not settings.resolved_cms_replication_secret:
+            log.error(
+                "cms_replication: no shared secret configured "
+                "(CMS_REPLICATION_SECRET / INTERNAL_API_KEY both empty) — "
+                "follower receivers will reject every push",
+            )
+    if settings.is_cms_follower:
+        if not settings.cms_master_url.strip():
+            log.error(
+                "cms_replication: CMS_MASTER_URL is empty on follower — "
+                "safety-pull cron cannot reach the editor",
+            )
+        if not settings.resolved_cms_replication_secret:
+            log.error(
+                "cms_replication: no shared secret configured on follower — "
+                "incoming replication pushes will be rejected",
+            )
     if settings.uses_remote_ai:
         log.info(
             "Edge mode: AI requests will be proxied to %s",
@@ -253,12 +333,23 @@ async def lifespan(app: FastAPI):
             _edge_reconciler_loop(app.state.db_sessionmaker, app.state.redis)
         )
 
+    cms_safety_task = None
+    if settings.is_cms_follower and settings.cms_safety_pull_enabled:
+        cms_safety_task = asyncio.create_task(_cms_safety_pull_loop())
+
     yield
 
     if reconciler_task and not reconciler_task.done():
         reconciler_task.cancel()
         try:
             await reconciler_task
+        except asyncio.CancelledError:
+            pass
+
+    if cms_safety_task and not cms_safety_task.done():
+        cms_safety_task.cancel()
+        try:
+            await cms_safety_task
         except asyncio.CancelledError:
             pass
 
@@ -304,8 +395,14 @@ app = FastAPI(
 
 app.add_middleware(RequestLoggingMiddleware)
 if settings.is_production:
+    # Variant B (CMS hub on Railway):
+    #   * ``ailookstudio.vercel.app`` — global SPA on Vercel (talks to Railway API).
+    #   * ``ailookstudio.ru`` / ``www.ailookstudio.ru`` — RU SPA hosted on
+    #     the RU edge VPS behind nginx (talks to local FastAPI).
+    #   * ``ru.ailookstudio.ru`` — legacy RU host, kept whitelisted while
+    #     the 301 redirect bake-in window runs (~2 weeks). Drop after the
+    #     redirect lands and analytics confirm no live traffic.
     _origins = [
-        "https://ratemeai.com",
         "https://ailookstudio.ru",
         "https://www.ailookstudio.ru",
         "https://ailookstudio.vercel.app",
@@ -348,6 +445,13 @@ class _IframeHeadersMiddleware(_BaseHTTP):
 
 app.add_middleware(_IframeHeadersMiddleware)
 app.include_router(api_router, prefix="/api/v1")
+
+# CMS replication endpoints (Variant B). Mounted at the app root so
+# they bypass CORS, sit outside ``/api/v1`` for nginx allowlist
+# isolation, and are explicitly excluded from the public OpenAPI schema.
+from src.api.internal_cms import router as _internal_cms_router  # noqa: E402
+
+app.include_router(_internal_cms_router, include_in_schema=False)
 
 _instrumentator = Instrumentator()
 _instrumentator.instrument(app)
@@ -548,6 +652,7 @@ async def health():
         "market_id": settings.resolved_market_id,
         "service_role": settings.resolved_service_role,
         "compute_mode": settings.resolved_compute_mode,
+        "cms_role": settings.resolved_cms_role,
     }
     sha = (settings.deploy_git_sha or "").strip()
     if sha:

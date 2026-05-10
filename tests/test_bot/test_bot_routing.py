@@ -24,14 +24,26 @@ def settings_clean(monkeypatch):
 
 
 def test_bot_uses_edge_api_when_configured(settings_clean, monkeypatch):
-    monkeypatch.setattr(settings_clean, "edge_api_url", "https://ru.ailookstudio.ru")
+    # Variant B: RU-edge живёт на ailookstudio.ru (apex). Старый
+    # ru.ailookstudio.ru остаётся зеркалом на переходный период,
+    # но по умолчанию EDGE_API_URL уже указывает на новый домен.
+    monkeypatch.setattr(settings_clean, "edge_api_url", "https://ailookstudio.ru")
     from src.bot.app import _resolve_bot_api_base_url
 
-    assert _resolve_bot_api_base_url() == "https://ru.ailookstudio.ru"
+    assert _resolve_bot_api_base_url() == "https://ailookstudio.ru"
 
 
 def test_bot_strips_trailing_slash(settings_clean, monkeypatch):
-    monkeypatch.setattr(settings_clean, "edge_api_url", "https://ru.ailookstudio.ru/")
+    monkeypatch.setattr(settings_clean, "edge_api_url", "https://ailookstudio.ru/")
+    from src.bot.app import _resolve_bot_api_base_url
+
+    assert _resolve_bot_api_base_url() == "https://ailookstudio.ru"
+
+
+def test_bot_uses_legacy_ru_subdomain_during_migration(settings_clean, monkeypatch):
+    """During the DNS cut-over window the bot may still be pinned to
+    ru.ailookstudio.ru. The resolver must accept that without rewriting."""
+    monkeypatch.setattr(settings_clean, "edge_api_url", "https://ru.ailookstudio.ru")
     from src.bot.app import _resolve_bot_api_base_url
 
     assert _resolve_bot_api_base_url() == "https://ru.ailookstudio.ru"

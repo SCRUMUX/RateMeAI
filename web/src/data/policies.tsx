@@ -16,7 +16,7 @@ export interface PolicyEntry {
 // i18n namespace. Body text remains the long-form Russian legal copy
 // (the documents legally apply to RU residents); on the EN build we
 // surface a notice block in :class:`PolicyModal` pointing the user at
-// privacy@ailookstudio.com for an English version.
+// privacy@ailookstudio.ru for an English version.
 const FALLBACK_TITLES: Record<PolicyId, string> = {
   privacy: 'Политика конфиденциальности',
   terms: 'Условия использования',
@@ -62,9 +62,10 @@ const ul = 'list-disc pl-6 space-y-2';
 //
 // 1.59.2 — split per market: ``PrivacyBodyRu`` is the legal master copy
 // for ``ailookstudio.ru`` (152-FZ + GDPR + CCPA), ``PrivacyBodyEn`` is
-// the equivalent ``ailookstudio.com`` version with the Russian-specific
-// references stripped. ``PrivacyBody`` dispatches by ``getAppLanguage()``
-// so the same modal/page renders the right language at build time.
+// the equivalent international version (rendered on the global SPA
+// hosted on Vercel) with the Russian-specific references stripped.
+// ``PrivacyBody`` dispatches by ``getAppLanguage()`` so the same modal/page
+// renders the right language at build time.
 // ---------------------------------------------------------------------------
 function PrivacyBodyRu() {
   return (
@@ -511,11 +512,12 @@ function RefundBodyRu() {
 }
 
 // ===========================================================================
-// EN policy bodies — served on ailookstudio.com (any non-RU market). They
-// keep the same section structure as the RU master copy, but drop the
-// Russia-specific 152-FZ / Roskomnadzor references and instead lead with
-// GDPR + CCPA/CPRA. Contacts switch to ``privacy@ailookstudio.com`` /
-// ``support@ailookstudio.com``.
+// EN policy bodies — served on the global SPA (ailookstudio.vercel.app or
+// any custom global domain). They keep the same section structure as the
+// RU master copy, but drop the Russia-specific 152-FZ / Roskomnadzor
+// references and instead lead with GDPR + CCPA/CPRA. Contact addresses
+// stay on ``ailookstudio.ru`` because that is the only mailbox we own
+// today; replace globally when a dedicated international domain ships.
 // ===========================================================================
 
 function PrivacyBodyEn() {
@@ -528,7 +530,7 @@ function PrivacyBodyEn() {
           (the “Service”), operated by <strong>[OPERATOR NAME]</strong> (the
           “Operator”, address: [OPERATOR ADDRESS], company number: [REGISTRATION
           ID], e-mail:{' '}
-          <a className={inlineLink} href="mailto:privacy@ailookstudio.com">privacy@ailookstudio.com</a>),
+          <a className={inlineLink} href="mailto:privacy@ailookstudio.ru">privacy@ailookstudio.ru</a>),
           collects, stores and protects users' personal data.
         </p>
         <p>
@@ -661,7 +663,7 @@ function PrivacyBodyEn() {
         <h2 className={sectionH}>12. Contacts</h2>
         <p>
           Questions, deletion or consent withdrawal requests:{' '}
-          <a className={inlineLink} href="mailto:privacy@ailookstudio.com">privacy@ailookstudio.com</a>
+          <a className={inlineLink} href="mailto:privacy@ailookstudio.ru">privacy@ailookstudio.ru</a>
         </p>
         <p>The Operator will respond within <strong>30 days</strong>.</p>
       </section>
@@ -671,7 +673,7 @@ function PrivacyBodyEn() {
         <p>
           The Operator may update this Policy. The current version is always
           available at{' '}
-          <a className={inlineLink} href="https://ailookstudio.com/privacy">https://ailookstudio.com/privacy</a>.
+          <a className={inlineLink} href="/privacy">/privacy</a>.
           Material changes will trigger a fresh consent prompt.
         </p>
       </section>
@@ -727,7 +729,7 @@ function TermsBodyEn() {
         <p>
           Refunds are available within <strong>14 days</strong> of payment if
           the credits have not been used. Refund requests should be sent to{' '}
-          <a className={inlineLink} href="mailto:support@ailookstudio.com">support@ailookstudio.com</a>{' '}
+          <a className={inlineLink} href="mailto:support@ailookstudio.ru">support@ailookstudio.ru</a>{' '}
           with the transaction id.
         </p>
       </section>
@@ -756,7 +758,7 @@ function TermsBodyEn() {
         <h2 className={sectionH}>7. Contacts</h2>
         <p>
           Questions about Terms and payments:{' '}
-          <a className={inlineLink} href="mailto:support@ailookstudio.com">support@ailookstudio.com</a>.
+          <a className={inlineLink} href="mailto:support@ailookstudio.ru">support@ailookstudio.ru</a>.
         </p>
       </section>
     </>
@@ -880,7 +882,7 @@ function CookieBodyEn() {
         <h2 className={sectionH}>4. Contacts</h2>
         <p>
           Questions about cookies:{' '}
-          <a className={inlineLink} href="mailto:privacy@ailookstudio.com">privacy@ailookstudio.com</a>.
+          <a className={inlineLink} href="mailto:privacy@ailookstudio.ru">privacy@ailookstudio.ru</a>.
         </p>
       </section>
     </>
@@ -909,7 +911,7 @@ function RefundBodyEn() {
         <h2 className={sectionH}>2. Procedure</h2>
         <ol className="list-decimal pl-6 space-y-2">
           <li>Email{' '}
-            <a className={inlineLink} href="mailto:support@ailookstudio.com">support@ailookstudio.com</a>{' '}
+            <a className={inlineLink} href="mailto:support@ailookstudio.ru">support@ailookstudio.ru</a>{' '}
             or message{' '}
             <a className={inlineLink} href="https://t.me/ailookstudio_support" target="_blank" rel="noopener noreferrer">Telegram support</a>.</li>
           <li>Provide the transaction id (available in the payment confirmation email) and the reason for the refund.</li>
@@ -939,7 +941,7 @@ function RefundBodyEn() {
         <h2 className={sectionH}>5. Contacts</h2>
         <p>
           E-mail:{' '}
-          <a className={inlineLink} href="mailto:support@ailookstudio.com">support@ailookstudio.com</a>{' '}
+          <a className={inlineLink} href="mailto:support@ailookstudio.ru">support@ailookstudio.ru</a>{' '}
           · Telegram:{' '}
           <a className={inlineLink} href="https://t.me/ailookstudio_support" target="_blank" rel="noopener noreferrer">@ailookstudio_support</a>.
         </p>

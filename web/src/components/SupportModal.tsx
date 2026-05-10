@@ -19,7 +19,11 @@ interface Props {
 }
 
 const DEFAULT_TELEGRAM_URL = 'https://t.me/ailookstudio_support';
-const DEFAULT_EMAIL = 'support@ailookstudio.ru';
+// Variant B: support email is a per-build value driven by VITE_SUPPORT_EMAIL.
+// Falls back to the RU mailbox when the env var is missing so existing
+// deployments keep working without code changes.
+const DEFAULT_EMAIL =
+  (import.meta.env.VITE_SUPPORT_EMAIL ?? '').trim() || 'support@ailookstudio.ru';
 
 export default function SupportModal({
   open,

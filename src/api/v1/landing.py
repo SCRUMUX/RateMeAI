@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from fastapi import APIRouter, HTTPException, Response
+from fastapi import APIRouter, HTTPException, Query, Response
 
 from src.services import landing_store
 
@@ -17,8 +17,19 @@ _LANDING_CACHE_CONTROL = "public, s-maxage=60, stale-while-revalidate=600"
 
 
 @router.get("/pages/{slug}")
-async def get_landing_page(slug: str, response: Response) -> dict[str, Any]:
-    data = landing_store.load_landing_content()
+async def get_landing_page(
+    slug: str,
+    response: Response,
+    market: str | None = Query(default=None),
+) -> dict[str, Any]:
+    """Return a public landing page.
+
+    ``market`` is optional — when omitted the backend falls back to the
+    deployment's ``MARKET_ID`` (RU edge → ``ru``, Railway → ``global``).
+    Allowing an explicit override lets the editor admin preview RU
+    content from the Vercel build without faking the hostname.
+    """
+    data = landing_store.load_landing_content(market)
     pages = data.get("pages") or {}
     if not isinstance(pages, dict):
         raise HTTPException(status_code=500, detail="Landing content is misconfigured")

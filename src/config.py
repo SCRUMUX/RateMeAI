@@ -449,6 +449,34 @@ class Settings(BaseSettings):
     internal_api_key: str = ""
     # URL of the RU edge server (bot on Railway uses it for payments/auth so webhook + DB match)
     edge_api_url: str = ""
+    # ------------------------------------------------------------------
+    # CMS replication (Variant B — single CMS hub on Railway).
+    # ------------------------------------------------------------------
+    # ``editor`` (Railway) accepts admin write requests on
+    # ``/api/v1/admin/landing/*`` and pushes every successful save to the
+    # configured ``cms_follower_urls``. ``follower`` (RU edge) refuses
+    # admin writes (HTTP 403) and only mutates ``data/landing_content.json``
+    # via the signed ``POST /internal/cms/replicate`` receiver or the
+    # hourly safety-pull ARQ cron. An empty / unrecognised value defaults
+    # to ``editor`` so a misconfigured deploy still serves CMS content
+    # locally without breaking the public read path.
+    cms_role: str = "editor"
+    # Master CMS URL — set on followers (e.g. ``https://app-production-6986.up.railway.app``).
+    # Empty on the editor itself.
+    cms_master_url: str = ""
+    # Comma-separated list of follower base URLs (editor only). Each
+    # entry is a full HTTPS origin (e.g. ``https://ailookstudio.ru``)
+    # without a trailing slash; the replication client appends
+    # ``/internal/cms/replicate``.
+    cms_follower_urls: str = ""
+    # HMAC-SHA256 shared secret used to sign replication payloads. If
+    # left empty, the existing ``internal_api_key`` is reused so no
+    # extra rotation is required for the initial rollout.
+    cms_replication_secret: str = ""
+    # Hourly safety-pull on followers compares Railway snapshot hashes
+    # to the local CMS file and rewrites it on mismatch. Disabled when
+    # ``cms_master_url`` is empty.
+    cms_safety_pull_enabled: bool = True
     # v1.26: URL соседнего инстанса, к которому ``/storage`` обратится за
     # файлом, если его нет локально/в Redis/в DB b64. На RU edge ставится
     # в URL primary; на primary — в URL edge. Запрос идёт с заголовком
@@ -463,6 +491,12 @@ class Settings(BaseSettings):
     app_port: int = 8000
     api_base_url: str = "http://localhost:8000"
     web_base_url: str = ""
+    # Variant B: тексты бота, которые приглашают пользователя «зайди
+    # на сайт …», должны называть домен SPA, под который этот бот
+    # настроен. Для RU-бота это ``ailookstudio.ru``, для Global —
+    # ``ailookstudio.vercel.app`` (домен можно переопределить
+    # перед запуском бота). Если не задано — берём ``web_base_url``.
+    bot_web_landing_url: str = ""
     bot_webhook_url: str = ""
     bot_webhook_secret: str = ""
 
@@ -498,6 +532,44 @@ class Settings(BaseSettings):
     @property
     def payment_provider(self) -> Literal["yookassa", "xsolla"]:
         return "yookassa" if self.is_edge else "xsolla"
+
+    @property
+    def resolved_cms_role(self) -> Literal["editor", "follower"]:
+        value = (self.cms_role or "").strip().lower()
+        return "follower" if value == "follower" else "editor"
+
+    @property
+    def is_cms_editor(self) -> bool:
+        return self.resolved_cms_role == "editor"
+
+    @property
+    def is_cms_follower(self) -> bool:
+        return self.resolved_cms_role == "follower"
+
+    @property
+    def resolved_cms_replication_secret(self) -> str:
+        secret = (self.cms_replication_secret or "").strip()
+        if secret:
+            return secret
+        return (self.internal_api_key or "").strip()
+
+    @property
+    def resolved_bot_web_landing_url(self) -> str:
+        """URL лендинга для текстов/кнопок бота.
+
+        Возвращает ``bot_web_landing_url`` если задан, иначе
+        ``web_base_url`` (без trailing slash). Пустая строка =
+        фолбэк на хардкод "ailookstudio.ru" в местах вызова.
+        """
+        candidate = (self.bot_web_landing_url or self.web_base_url or "").strip()
+        return candidate.rstrip("/")
+
+    @property
+    def resolved_cms_follower_urls(self) -> list[str]:
+        raw = (self.cms_follower_urls or "").strip()
+        if not raw:
+            return []
+        return [u.strip().rstrip("/") for u in raw.split(",") if u.strip()]
 
     def xsolla_project_secret(self) -> str:
         """Secret used to verify webhook signatures (defaults to API key)."""

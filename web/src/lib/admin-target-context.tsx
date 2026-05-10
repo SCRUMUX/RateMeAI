@@ -1,20 +1,17 @@
 /**
- * React side of the multi-target admin (1.55.0).
+ * Variant B compat shim — the multi-target admin (1.55.0) is gone,
+ * but ``AdminLayout`` still imports this context. We keep the same
+ * surface (``current``, ``targets``, ``hasToken``, ``switchEpoch``)
+ * so the layout / tabs do not need a sweep, but everything collapses
+ * onto the single ``primary`` target.
  *
- * The actual ``getApiBase()`` / token plumbing lives in
- * [./api.ts](./api.ts) so non-React code (e.g. background polling
- * helpers) keeps working. This file wraps that mutable state in a
- * React context so admin pages re-render when the operator picks a
- * new target via the AdminLayout dropdown.
- *
- * The context is admin-only — non-admin pages neither mount the
- * provider nor consume the context, so the rest of the SPA keeps
- * talking to ``primary`` (the default) without changes.
+ * The provider exists to (a) re-render on cross-tab login/logout
+ * (token change in another tab) and (b) preserve ``switchEpoch`` for
+ * any admin page that still keys data fetches off it (cheap no-op).
  */
 
 import {
   createContext,
-  useCallback,
   useContext,
   useEffect,
   useMemo,
@@ -25,76 +22,38 @@ import {
 import {
   ADMIN_TARGETS,
   getAdminTarget,
-  TOKEN_STORAGE_PREFIX,
   LEGACY_PRIMARY_TOKEN_KEY,
   type AdminTarget,
   type AdminTargetId,
 } from './admin-targets';
-import {
-  getActiveAdminTarget,
-  getTokenForTarget,
-  setActiveAdminTarget,
-} from './api';
+import { getTokenForTarget } from './api';
 
 interface AdminTargetContextValue {
-  /** Currently active target (also propagated to api.ts). */
   current: AdminTarget;
-  /** All declared targets — for rendering the switcher. */
   targets: readonly AdminTarget[];
-  /** Switch to ``id``. Persists the choice in localStorage and
-   *  updates api.ts so subsequent ``request()`` calls hit the new
-   *  base URL with the per-target stored token. */
   setTarget: (id: AdminTargetId) => void;
-  /** True if the active target has a session token in localStorage.
-   *  When false, AdminLayout shows a "log in on this region" prompt
-   *  instead of the page content (admin endpoints would 401). */
   hasToken: boolean;
-  /** Bumped whenever ``setTarget`` runs — admin pages key their
-   *  data fetches off this so caches don't leak across regions
-   *  (an RU user list shouldn't appear after switching to primary). */
   switchEpoch: number;
 }
 
 const AdminTargetContext = createContext<AdminTargetContextValue | null>(null);
 
 export function AdminTargetProvider({ children }: { children: ReactNode }) {
-  const [activeId, setActiveId] = useState<AdminTargetId>(() =>
-    getActiveAdminTarget(),
-  );
   const [tokenSeq, setTokenSeq] = useState(0);
-  const [switchEpoch, setSwitchEpoch] = useState(0);
 
-  const current = useMemo(() => getAdminTarget(activeId), [activeId]);
+  const current = useMemo(() => getAdminTarget('primary'), []);
   const hasToken = useMemo(
-    () => Boolean(getTokenForTarget(activeId)),
-    [activeId, tokenSeq],
+    // tokenSeq is the storage-event tick — listed in the deps so
+    // hasToken re-evaluates on cross-tab login/logout.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    () => Boolean(getTokenForTarget('primary')),
+    [tokenSeq],
   );
 
-  const setTarget = useCallback(
-    (id: AdminTargetId) => {
-      if (id === activeId) return;
-      setActiveAdminTarget(id);
-      setActiveId(id);
-      setSwitchEpoch((n) => n + 1);
-      // Force a re-evaluation of ``hasToken`` since localStorage might
-      // have changed in another tab while we were idle.
-      setTokenSeq((n) => n + 1);
-    },
-    [activeId],
-  );
-
-  // Listen for cross-tab logout/login: another tab writing to a
-  // session-token key needs to reflect here so the hasToken flag
-  // updates without a full reload. Watches both the per-target
-  // suffixed keys (RU) and the legacy single-token key used by the
-  // public OAuth flow / cabinet (Primary).
+  // Listen for cross-tab logout/login.
   useEffect(() => {
     function onStorage(e: StorageEvent) {
-      if (!e.key) return;
-      if (
-        e.key === LEGACY_PRIMARY_TOKEN_KEY
-        || e.key.startsWith(TOKEN_STORAGE_PREFIX)
-      ) {
+      if (e.key === LEGACY_PRIMARY_TOKEN_KEY) {
         setTokenSeq((n) => n + 1);
       }
     }
@@ -106,11 +65,13 @@ export function AdminTargetProvider({ children }: { children: ReactNode }) {
     () => ({
       current,
       targets: ADMIN_TARGETS,
-      setTarget,
+      setTarget: () => {
+        // No-op in Variant B — only ``primary`` exists.
+      },
       hasToken,
-      switchEpoch,
+      switchEpoch: 0,
     }),
-    [current, setTarget, hasToken, switchEpoch],
+    [current, hasToken],
   );
 
   return (

@@ -20,24 +20,58 @@ export interface DocumentMeta {
   /**
    * 1.59.0 — when ``true`` (default) the hook also emits hreflang
    * link tags for ``ru`` / ``en`` / ``x-default`` so Google can pair
-   * up the two regional builds (``ailookstudio.ru`` and ``ailookstudio.com``)
-   * for the same path. Pass ``false`` on routes that intentionally
-   * exist only on one market (e.g. ``/admin``).
+   * up the two regional builds (``ailookstudio.ru`` and the global
+   * SPA at ``ailookstudio.vercel.app``) for the same path. Pass
+   * ``false`` on routes that intentionally exist only on one market
+   * (e.g. ``/admin``).
    */
   emitHreflang?: boolean;
 }
 
 /**
- * 1.59.0 — single source of truth for the public domains. Used by
- * the hreflang emitter and the canonical resolver. Order:
- * ``ru`` first (the existing canonical origin), ``en`` second.
+ * Variant B — single source of truth for the public domains. Used by
+ * the hreflang emitter and the canonical resolver:
+ *   * ``ru`` build → ``ailookstudio.ru`` (RU edge VPS).
+ *   * global build → ``ailookstudio.vercel.app`` (Vercel SPA hitting Railway).
+ *
+ * Both can be overridden at build time via ``VITE_WEB_ORIGIN`` so a
+ * future custom global domain (e.g. ``ailookstudio.app``) drops in
+ * with zero code changes.
  */
+const GLOBAL_FALLBACK_ORIGIN = 'https://ailookstudio.vercel.app';
+
 export const SEO_DOMAINS = {
   ru: 'https://ailookstudio.ru',
-  en: 'https://ailookstudio.com',
+  en: GLOBAL_FALLBACK_ORIGIN,
 } as const;
 
-const PRODUCTION_ORIGIN = SEO_DOMAINS.ru;
+const _ENV_WEB_ORIGIN = (import.meta.env.VITE_WEB_ORIGIN ?? '').trim();
+
+/**
+ * Public origin of the current build (per ``VITE_WEB_ORIGIN``). Used
+ * by callers that need an absolute URL outside the SEO chain (e.g.
+ * email links). Falls back to the production canonical for the active
+ * market when the env var is unset.
+ */
+export function getPublicOrigin(): string {
+  if (_ENV_WEB_ORIGIN) return _ENV_WEB_ORIGIN.replace(/\/$/, '');
+  return getCurrentMarketId() === 'ru' ? SEO_DOMAINS.ru : SEO_DOMAINS.en;
+}
+
+/**
+ * Canonical origin for the *currently rendered page*, accounting for
+ * runtime hostname overrides (preview deploys, manual host swaps).
+ * Use this when emitting canonical/og:url JSON-LD payloads.
+ */
+export function getCanonicalOrigin(): string {
+  if (typeof window !== 'undefined' && window.location?.hostname) {
+    const host = window.location.hostname.toLowerCase();
+    if (host === 'ailookstudio.ru' || host === 'www.ailookstudio.ru') return SEO_DOMAINS.ru;
+    if (host.endsWith('ailookstudio.ru')) return SEO_DOMAINS.ru;
+    if (host.endsWith('ailookstudio.vercel.app')) return SEO_DOMAINS.en;
+  }
+  return getPublicOrigin();
+}
 
 function ensureMetaByName(name: string): HTMLMetaElement {
   let el = document.head.querySelector<HTMLMetaElement>(`meta[name="${name}"]`);
@@ -71,23 +105,9 @@ function ensureLinkByRel(rel: string): HTMLLinkElement {
   return el;
 }
 
-function _resolveOrigin(): string {
-  // 1.59.0 — pick the canonical origin per market. RU build →
-  // ailookstudio.ru, EN build → ailookstudio.com. We still honour the
-  // current window origin when it matches one of the production
-  // hosts so previewing on the live host doesn't switch to the other
-  // domain's canonical.
-  if (typeof window !== 'undefined' && window.location?.hostname) {
-    const host = window.location.hostname;
-    if (host.endsWith('ailookstudio.ru')) return SEO_DOMAINS.ru;
-    if (host.endsWith('ailookstudio.com')) return SEO_DOMAINS.en;
-  }
-  return getCurrentMarketId() === 'ru' ? SEO_DOMAINS.ru : SEO_DOMAINS.en;
-}
-
 function buildCanonicalUrl(canonicalPath: string | undefined): string | null {
   if (!canonicalPath) return null;
-  const origin = _resolveOrigin();
+  const origin = getCanonicalOrigin();
   const path = canonicalPath.startsWith('/') ? canonicalPath : `/${canonicalPath}`;
   return `${origin}${path}`;
 }
@@ -212,6 +232,3 @@ export default function useDocumentMeta(meta: DocumentMeta): void {
     meta.emitHreflang,
   ]);
 }
-
-// Reference to silence unused-import linter when PRODUCTION_ORIGIN is not used directly.
-void PRODUCTION_ORIGIN;

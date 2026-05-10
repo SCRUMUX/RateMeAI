@@ -54,6 +54,10 @@ services:
       MARKET_ID: ru
       SERVICE_ROLE: api
       COMPUTE_MODE: remote
+      # Variant B: this server is a CMS follower. Writes to landing JSON
+      # come only via /internal/cms/replicate from Railway, plus the
+      # hourly safety-pull cron in worker.
+      CMS_ROLE: follower
     depends_on:
       postgres:
         condition: service_healthy
@@ -73,8 +77,13 @@ services:
       context: .
       dockerfile: web/Dockerfile
       args:
-        VITE_API_BASE_URL: ${VITE_API_BASE_URL:-https://ru.ailookstudio.ru}
+        # Empty VITE_API_BASE_URL = SPA hits the local backend through the
+        # nginx /api proxy on the same origin. This avoids leaking the
+        # internal hostname into the bundle and works behind any TLS proxy.
+        VITE_API_BASE_URL: ${VITE_API_BASE_URL:-}
         VITE_MARKET_ID: ${VITE_MARKET_ID:-ru}
+        VITE_WEB_ORIGIN: ${VITE_WEB_ORIGIN:-https://ailookstudio.ru}
+        VITE_SUPPORT_EMAIL: ${VITE_SUPPORT_EMAIL:-support@ailookstudio.ru}
         DEPLOY_GIT_SHA: ${DEPLOY_GIT_SHA:-}
     image: ratemeai-web-ru:latest
     profiles:

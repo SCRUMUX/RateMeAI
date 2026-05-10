@@ -13,7 +13,7 @@ import Testimonials from '../sections/Testimonials';
 import { useApp } from '../context/AppContext';
 import { DOCUMENT_SOCIAL_PROOF_PRESET } from '../data/social-proof';
 import type { Testimonial } from '../data/testimonials';
-import useDocumentMeta from '../lib/useDocumentMeta';
+import useDocumentMeta, { getCanonicalOrigin } from '../lib/useDocumentMeta';
 import {
   findBlock,
   parseFinalCta,
@@ -178,14 +178,15 @@ export default function VisaLanding({ visa, onStart, showAuth, onAuthClose }: Pr
   // ``HowTo`` mirrors the how-it-works section. Both help Google +
   // Yandex understand what the page is about beyond og:title.
   const jsonLd = useMemo(() => {
-    const canonical = `https://ailookstudio.ru/visa/${visa.countrySlug}`;
+    const origin = getCanonicalOrigin();
+    const canonical = `${origin}/visa/${visa.countrySlug}`;
     return [
       {
         '@context': 'https://schema.org',
         '@type': 'Service',
         name: t('seo:visa.title', { country }),
         description: t('seo:visa.description', { country }),
-        provider: { '@type': 'Organization', name: 'AI Look Studio', url: 'https://ailookstudio.ru' },
+        provider: { '@type': 'Organization', name: 'AI Look Studio', url: origin },
         areaServed: country,
         url: canonical,
       },

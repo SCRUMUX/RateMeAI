@@ -749,6 +749,47 @@ async def worker_heartbeat(ctx: dict):
     await redis.set(WORKER_HEARTBEAT_KEY, str(time.time()), ex=WORKER_HEARTBEAT_TTL)
 
 
+async def cms_safety_pull_cron(ctx: dict) -> None:
+    """Pull the CMS snapshot from the editor on followers (hourly fallback).
+
+    The signed ``POST /internal/cms/replicate`` push handles instant
+    propagation when the admin saves a page, so this cron is the
+    safety net: it covers
+    * brief Railway → RU edge network outages,
+    * push retries that exceeded our budget,
+    * a fresh follower that booted while the editor was idle.
+    Writes only happen when the local document hash differs.
+    """
+    if not settings.is_cms_follower:
+        return
+    if not settings.cms_safety_pull_enabled:
+        return
+    if not (settings.cms_master_url or "").strip():
+        logger.debug("cms_safety_pull: no master url, skip")
+        return
+
+    from src.services import cms_replication, landing_store
+
+    market = settings.resolved_market_id
+    if market not in landing_store.available_markets():
+        logger.debug("cms_safety_pull: unknown market %s, skip", market)
+        return
+
+    payload = await cms_replication.fetch_snapshot_from_master(market)
+    if payload is None:
+        return
+    try:
+        rewritten = cms_replication.apply_snapshot(market, payload)
+    except (TypeError, ValueError) as exc:
+        logger.warning("cms_safety_pull: invalid snapshot: %s", exc)
+        return
+    logger.info(
+        "cms_safety_pull: market=%s rewritten=%s",
+        market,
+        rewritten,
+    )
+
+
 async def reconcile_stuck_tasks_cron(ctx: dict):
     """Cron wrapper: delegates to shared reconciliation logic."""
     from src.services.reconciliation import reconcile_stuck_tasks
@@ -860,6 +901,10 @@ class WorkerSettings:
         ),
         cron(worker_heartbeat, second={0, 30}),
         cron(privacy_gc_cron, minute={0, 30}),
+        # CMS safety-pull: every hour on the 7th minute (off-the-quarter
+        # so it doesn't pile on top of the heavier privacy / reconcile
+        # jobs). No-ops when ``CMS_ROLE != follower``.
+        cron(cms_safety_pull_cron, minute={7}),
     ]
     on_startup = startup
     on_shutdown = shutdown

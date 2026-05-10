@@ -21,6 +21,7 @@ from aiogram.types import (
 from redis.asyncio import Redis
 
 from src.bot.middleware import get_bot_auth_headers
+from src.config import settings
 
 logger = logging.getLogger(__name__)
 
@@ -40,10 +41,26 @@ CONSENT_REQUIRED_MESSAGE = (
 _PRIVACY_URL_FALLBACK = "https://ailookstudio.ru/privacy"
 
 
+def _resolve_privacy_url() -> str:
+    """Build privacy-policy URL from the bot's configured landing host.
+
+    Variant B: RU bot points at ``ailookstudio.ru``, Global bot
+    points at ``ailookstudio.vercel.app``. We fall back to the
+    historical RU URL only when neither ``bot_web_landing_url`` nor
+    ``web_base_url`` is set (e.g. local dev).
+    """
+    base = settings.resolved_bot_web_landing_url
+    if not base:
+        return _PRIVACY_URL_FALLBACK
+    return f"{base}/privacy"
+
+
 def _consent_keyboard(
     missing: list[str],
-    privacy_url: str = _PRIVACY_URL_FALLBACK,
+    privacy_url: str | None = None,
 ) -> InlineKeyboardMarkup:
+    if privacy_url is None:
+        privacy_url = _resolve_privacy_url()
     buttons: list[list[InlineKeyboardButton]] = []
     if "data_processing" in missing:
         buttons.append(
