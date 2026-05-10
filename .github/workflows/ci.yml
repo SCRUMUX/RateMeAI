@@ -464,13 +464,26 @@ jobs:
           # both regions, sourced from the GitHub secret with a known
           # fallback so deploys never silently drop the admins.
           ADMIN_EMAILS: ${{ secrets.ADMIN_EMAILS || 'vladimir18kostyal@gmail.com,uk-tora@yandex.ru' }}
+          # Variant B fix: OAuth credentials must be synced to the RU
+          # edge as well — without them /api/v1/auth/{provider}/init
+          # returns 503 ("…not configured on this server") and login
+          # buttons silently fail in the SPA. We sync only what GitHub
+          # secrets provide; any missing pair stays untouched in
+          # .env.ru so locally-configured creds are not wiped.
+          GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
+          GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
+          YANDEX_CLIENT_ID: ${{ secrets.YANDEX_CLIENT_ID }}
+          YANDEX_CLIENT_SECRET: ${{ secrets.YANDEX_CLIENT_SECRET }}
+          VK_CLIENT_ID: ${{ secrets.VK_CLIENT_ID }}
+          VK_CLIENT_SECRET: ${{ secrets.VK_CLIENT_SECRET }}
+          VK_SERVICE_TOKEN: ${{ secrets.VK_SERVICE_TOKEN }}
         with:
           host: ${{ secrets.RU_SSH_HOST }}
           username: ${{ secrets.RU_SSH_USER }}
           key: ${{ secrets.RU_SSH_KEY }}
           port: 22
           command_timeout: 10m
-          envs: DEPLOY_GIT_SHA,INTERNAL_API_KEY,GLOBAL_API_BASE_URL,RU_PUBLIC_BASE_URL,CMS_REPLICATION_SECRET,ADMIN_EMAILS
+          envs: DEPLOY_GIT_SHA,INTERNAL_API_KEY,GLOBAL_API_BASE_URL,RU_PUBLIC_BASE_URL,CMS_REPLICATION_SECRET,ADMIN_EMAILS,GOOGLE_CLIENT_ID,GOOGLE_CLIENT_SECRET,YANDEX_CLIENT_ID,YANDEX_CLIENT_SECRET,VK_CLIENT_ID,VK_CLIENT_SECRET,VK_SERVICE_TOKEN
           script: |
             export DEPLOY_GIT_SHA="${DEPLOY_GIT_SHA:0:12}"
             ENV_FILE="/opt/ratemeai/.env.ru"
@@ -535,6 +548,39 @@ jobs:
             if [ -n "$INTERNAL_API_KEY" ]; then
               sync_env INTERNAL_API_KEY "$INTERNAL_API_KEY"
               echo "INTERNAL_API_KEY synced to .env.ru"
+            fi
+            # Variant B fix — sync OAuth provider credentials to .env.ru.
+            # Without these the RU SPA's "Sign in with Google" returns
+            # 503 from /api/v1/auth/google/init. Each pair is optional:
+            # missing GitHub secrets leave the existing .env.ru entry
+            # untouched (so a locally-set Yandex/VK app keeps working).
+            if [ -n "$GOOGLE_CLIENT_ID" ]; then
+              sync_env GOOGLE_CLIENT_ID "$GOOGLE_CLIENT_ID"
+              echo "GOOGLE_CLIENT_ID synced to .env.ru"
+            fi
+            if [ -n "$GOOGLE_CLIENT_SECRET" ]; then
+              sync_env GOOGLE_CLIENT_SECRET "$GOOGLE_CLIENT_SECRET"
+              echo "GOOGLE_CLIENT_SECRET synced to .env.ru"
+            fi
+            if [ -n "$YANDEX_CLIENT_ID" ]; then
+              sync_env YANDEX_CLIENT_ID "$YANDEX_CLIENT_ID"
+              echo "YANDEX_CLIENT_ID synced to .env.ru"
+            fi
+            if [ -n "$YANDEX_CLIENT_SECRET" ]; then
+              sync_env YANDEX_CLIENT_SECRET "$YANDEX_CLIENT_SECRET"
+              echo "YANDEX_CLIENT_SECRET synced to .env.ru"
+            fi
+            if [ -n "$VK_CLIENT_ID" ]; then
+              sync_env VK_CLIENT_ID "$VK_CLIENT_ID"
+              echo "VK_CLIENT_ID synced to .env.ru"
+            fi
+            if [ -n "$VK_CLIENT_SECRET" ]; then
+              sync_env VK_CLIENT_SECRET "$VK_CLIENT_SECRET"
+              echo "VK_CLIENT_SECRET synced to .env.ru"
+            fi
+            if [ -n "$VK_SERVICE_TOKEN" ]; then
+              sync_env VK_SERVICE_TOKEN "$VK_SERVICE_TOKEN"
+              echo "VK_SERVICE_TOKEN synced to .env.ru"
             fi
             # 1.55.4 — ADMIN_EMAILS provisioning is now CI-driven and
             # runs OUTSIDE update.sh. Why: in 1.55.2/1.55.3 the helper
