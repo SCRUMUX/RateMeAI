@@ -100,6 +100,12 @@ services:
       - web_dist:/usr/share/nginx/html:ro
       - /etc/letsencrypt:/etc/letsencrypt:ro
       - certbot_www:/var/www/certbot:ro
+      # Variant B Phase-2 cut-over: update.sh drops the TLS server-block
+      # for ailookstudio.ru into this volume after certbot succeeds.
+      # nginx.conf has `include /etc/nginx/conf.d/extra/*.conf;` at the
+      # tail — empty volume = no-op, populated volume = HTTPS for the
+      # new domain.
+      - nginx_extra_conf:/etc/nginx/conf.d/extra:ro
     depends_on:
       app:
         condition: service_healthy
@@ -122,3 +128,5 @@ volumes:
     name: ratemeai_web_dist
   certbot_www:
     name: ratemeai_certbot_www
+  nginx_extra_conf:
+    name: ratemeai_nginx_extra_conf

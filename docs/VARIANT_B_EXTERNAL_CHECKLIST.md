@@ -3,187 +3,265 @@
 > Этот файл — операционный чек-лист, не code. Прохождение пунктов
 > необходимо для безопасного переключения трафика по плану
 > `.cursor/plans/variant-b-cms-hub_3f67f47c.plan.md`.
->
-> Доменная модель Variant B:
-> - **Global SPA** — `https://ailookstudio.vercel.app`
-> - **RU SPA + edge API** — `https://ailookstudio.ru`
-> - **Railway API (CMS hub editor)** — `https://app-production-6986.up.railway.app`
-> - **Legacy** — `https://ru.ailookstudio.ru` (зеркало RU edge на 2 недели,
->   потом 301 → `ailookstudio.ru`).
+
+## Доменная модель
+
+| Роль | Домен | Где живёт |
+|---|---|---|
+| Global SPA + Global API | `ailookstudio.vercel.app` | Vercel + Railway (`app-production-6986.up.railway.app`) |
+| RU SPA + RU API (целевой) | `ailookstudio.ru` + `www.ailookstudio.ru` | VPS (139.100.200.203) |
+| RU SPA + RU API (текущий) | `ru.ailookstudio.ru` | тот же VPS — оставляем как зеркало 2 недели после cutover |
+
+> Важно: бэкенд RU edge в любой момент времени отдаёт OAuth
+> `redirect_uri` от текущего значения `API_BASE_URL` в `.env.ru`.
+> До DNS-переключения это `https://ru.ailookstudio.ru/...`,
+> после — `https://ailookstudio.ru/...`. CI меняет это значение
+> синхронно с тем, что записано в `RU_PUBLIC_BASE_URL` секрете.
 
 ---
 
-## 1. OAuth провайдеры
+## Фаза A — ДО переключения DNS (выполняется сейчас, без даунтайма)
 
-`redirect_uri` собирается на бэкенде из `settings.api_base_url`
-(см. `src/api/v1/users.py`), поэтому сами URL уже корректные —
-нужно **зарегистрировать** их у провайдеров.
+В этой фазе RU-трафик ходит на `ru.ailookstudio.ru`. Цель —
+убедиться, что **сегодня** всё работает, и подготовить будущее.
 
-### 1.1 Google Cloud Console
+### A.1 OAuth — добавить URL для текущего и будущего домена
 
-Console → APIs & Services → Credentials → OAuth 2.0 Client.
+В каждой консоли в whitelist должны лежать **обе** записи: на
+действующий `ru.ailookstudio.ru` и на будущий `ailookstudio.ru`.
+Удалять старые URL **нельзя** — иначе сейчас всё сломается.
 
-**Authorized JavaScript origins (добавить):**
-- `https://ailookstudio.vercel.app`
-- `https://ailookstudio.ru`
-- `https://www.ailookstudio.ru`
+#### Google Cloud Console → Credentials → OAuth 2.0 Client
 
-**Authorized redirect URIs (должны существовать):**
-- `https://app-production-6986.up.railway.app/api/v1/auth/google/callback`
-- `https://ailookstudio.ru/api/v1/auth/google/callback`
-- `https://ru.ailookstudio.ru/api/v1/auth/google/callback` *(удалить через
-  2 недели после переключения DNS)*
+**Authorized JavaScript origins:**
+```
+https://ailookstudio.vercel.app
+https://app-production-6986.up.railway.app
+https://ru.ailookstudio.ru
+https://ailookstudio.ru
+https://www.ailookstudio.ru
+```
 
-### 1.2 Yandex OAuth (id.yandex.ru)
+**Authorized redirect URIs:**
+```
+https://app-production-6986.up.railway.app/api/v1/auth/google/callback
+https://ru.ailookstudio.ru/api/v1/auth/google/callback
+https://ailookstudio.ru/api/v1/auth/google/callback
+```
 
-Console → Мои приложения → ваше приложение → Платформы.
+#### Yandex OAuth (id.yandex.ru) → Мои приложения → Платформы
 
-**Callback URL — добавить оба:**
-- `https://app-production-6986.up.railway.app/api/v1/auth/yandex/callback`
-- `https://ailookstudio.ru/api/v1/auth/yandex/callback`
+**Callback URL:**
+```
+https://app-production-6986.up.railway.app/api/v1/auth/yandex/callback
+https://ru.ailookstudio.ru/api/v1/auth/yandex/callback
+https://ailookstudio.ru/api/v1/auth/yandex/callback
+```
 
-**Scope:** `login:email login:info` (без email-а админ-гейт не пустит).
+**Scope:** `login:email login:info` — без `email` админ-гейт не пустит.
 
-### 1.3 VK ID (dev.vk.com)
+#### VK ID (id.vk.com / dev.vk.com) → Доверенные redirect URL
 
-ID-приложение → Настройки → Доверенные redirect URI.
+⚠️ **Путь — `/auth/vk-id/callback`, а НЕ `/auth/vk/callback`.**
+В коде провайдер зарегистрирован как `vk-id` (см. `src/api/v1/users.py`).
 
-**Добавить:**
-- `https://app-production-6986.up.railway.app/api/v1/auth/vk/callback`
-- `https://ailookstudio.ru/api/v1/auth/vk/callback`
+```
+https://app-production-6986.up.railway.app/api/v1/auth/vk-id/callback
+https://ru.ailookstudio.ru/api/v1/auth/vk-id/callback
+https://ailookstudio.ru/api/v1/auth/vk-id/callback
+```
 
-### 1.4 Telegram Login Widget *(если используется)*
+#### Telegram Login Widget *(если используется)*
 
-`@BotFather` → `/setdomain` для бота:
-- основной: `ailookstudio.ru`
-- дополнительный (если поддержка multi-domain недоступна, делайте
-  через alias-бота для Global): `ailookstudio.vercel.app`.
+`@BotFather` → `/setdomain` для бота. Можно указывать только один
+домен — выбирайте **`ailookstudio.ru`** (поменяется бесшовно после
+DNS-cutover'а), либо временно `ru.ailookstudio.ru`.
 
----
-
-## 2. Платежи
-
-### 2.1 YooKassa (RU edge → `ailookstudio.ru`)
-
-Личный кабинет YooKassa → Настройки → Уведомления / Возвраты.
-
-**Webhook URL:** установить
-`https://ailookstudio.ru/api/v1/payments/yookassa/webhook`.
-
-**Допустимые return URLs (whitelist):**
-- `https://ailookstudio.ru/payment-success`
-- `https://www.ailookstudio.ru/payment-success`
-- *(на период миграции)* `https://ru.ailookstudio.ru/payment-success`
-
-**Важно:** менять webhook **после** перевода DNS `ailookstudio.ru`
-на VPS. Иначе YooKassa будет постить в Vercel и платежи потеряются.
-
-**Railway:** очистить `YOOKASSA_*` переменные у сервисов `app` /
-`worker` / `bot` — Global-пользователи не должны попадать в
-YooKassa flow.
-
-### 2.2 Xsolla (Global → Railway)
-
-Publisher Account → Webhooks.
-
-**Webhook URL:** оставить
-`https://app-production-6986.up.railway.app/api/v1/payments/xsolla/webhook`.
-
-**Return URL (`XSOLLA_RETURN_URL` в Railway env):**
-`https://ailookstudio.vercel.app/payment-success`.
-
-**На VPS:** не задавать `XSOLLA_*` — Xsolla отключён на edge.
-
-### 2.3 Telegram Stars / прочие провайдеры
-
-Callback URL не имеют, конфигурация не требуется.
-
----
-
-## 3. DNS
-
-| Запись | Значение | Когда менять |
-| --- | --- | --- |
-| `ailookstudio.ru` A | IP VPS | После того, как RU edge готов и certbot выпустил cert |
-| `www.ailookstudio.ru` A | IP VPS | Одновременно |
-| `ru.ailookstudio.ru` A | IP VPS | Без изменений (зеркало) |
-| `ailookstudio.vercel.app` | Vercel default | Не трогать |
-
-Vercel Dashboard:
-- удалить `ailookstudio.ru` из custom domains у Global-проекта
-  (после переключения DNS — иначе SSL Vercel будет конфликтовать
-  с certbot на VPS).
-
----
-
-## 4. CMS replication secret
+### A.2 CMS replication secret
 
 GitHub → Settings → Secrets and variables → Actions:
-- добавить `CMS_REPLICATION_SECRET` (random 32+ байт hex). CI
-  синкит этот секрет одновременно в Railway (`app`/`worker`) и в
-  `.env.ru` на VPS — оба должны видеть одинаковое значение,
-  иначе HMAC-проверка упадёт.
+- `CMS_REPLICATION_SECRET` — random 32+ байт hex. CI синкит этот
+  секрет в Railway (`app`/`worker`) и в `.env.ru` на VPS.
 
 Проверка после деплоя:
 ```bash
-# На VPS
-docker compose -f docker-compose.ru.yml exec app \
-    python -c "from src.config import settings; print(settings.resolved_cms_replication_secret[:8])"
 # На Railway
 railway run -s app python -c "from src.config import settings; print(settings.resolved_cms_replication_secret[:8])"
+# На VPS
+ssh root@VPS 'docker compose -f /opt/ratemeai/docker-compose.ru.yml exec -T app python -c "from src.config import settings; print(settings.resolved_cms_replication_secret[:8])"'
 ```
 Префиксы должны совпасть.
 
+### A.3 OAuth credentials на VPS (один раз)
+
+В GitHub Secrets должны быть:
+- `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` *(уже есть)*
+- *(опционально)* `YANDEX_CLIENT_ID`, `YANDEX_CLIENT_SECRET`,
+  `VK_CLIENT_ID`, `VK_CLIENT_SECRET`, `VK_SERVICE_TOKEN`
+
+CI синкает их в `.env.ru` через `deploy-ru` job (см.
+`.github/workflows/ci.yml`). Если Yandex/VK креды добавлены вручную
+прямо на VPS — CI их не перезаписывает (sync только при наличии
+секрета в GitHub).
+
+Smoke-проверка после деплоя (в PowerShell):
+```powershell
+$body = @{ device_id = "diag-1" } | ConvertTo-Json
+foreach ($prov in "google","yandex","vk-id") {
+    "=== $prov ==="
+    Invoke-WebRequest -Uri "https://ru.ailookstudio.ru/api/v1/auth/$prov/init" `
+        -Method POST -Body $body -ContentType "application/json" -UseBasicParsing
+}
+```
+Ожидаем `200 OK` для всех трёх.
+
+### A.4 Search Console
+
+- Зарегистрируйте `https://ailookstudio.vercel.app` как новую property
+  в Google Search Console (Vercel автоматом подтвердит DNS TXT).
+- В Yandex.Webmaster property `ailookstudio.ru` уже работает — sitemap
+  будет доступен после DNS-cutover'а.
+
 ---
 
-## 5. Telegram Bot webhooks
+## Фаза B — переключение DNS (момент даунтайма)
 
-### 5.1 Global bot (Railway)
+⚠️ Перед этой фазой убедитесь, что Фаза A полностью пройдена.
 
-Если в long-polling режиме — без изменений. Если webhook:
-```bash
-curl -X POST "https://api.telegram.org/bot<TOKEN>/setWebhook" \
-     -d "url=https://app-production-6986.up.railway.app/telegram/webhook"
+### B.1 Снизить TTL заранее
+
+За **24 часа** до cutover'а зайдите в **Vercel Dashboard → Domains
+→ ailookstudio.ru → DNS Records** и понизьте TTL у A-записи до
+**60 секунд** (минимум, что разрешает Vercel). Это ускорит
+переключение, потому что старые ответы перестанут жить в кэшах
+резолверов.
+
+### B.2 Открепить домен от Vercel-проекта
+
+В Vercel Dashboard → ваш Global-проект → Domains:
+- удалите `ailookstudio.ru` и `www.ailookstudio.ru` из доменов
+  Global-проекта.
+  - Vercel автоматически снимет SSL и перестанет претендовать на
+    обработку запросов по этому имени.
+  - Выпустить cert на VPS до этого шага не получится: пока Vercel
+    держит домен, ACME HTTP-01 challenge будет уходить на Vercel.
+
+### B.3 Поменять A-записи в Vercel DNS
+
+Vercel Dashboard → Domains → ailookstudio.ru → DNS Records:
+
+| Тип | Name | Value | TTL |
+|---|---|---|---|
+| A | `@` (или пусто = apex) | `139.100.200.203` | 60 |
+| A | `www` | `139.100.200.203` | 60 |
+
+Удалите все существующие A/AAAA записи для `@` и `www`,
+указывающие на Vercel (`76.76.21.21` и т.п.).
+
+NS-серверы (`ns1.vercel-dns.com`, `ns2.vercel-dns.com`) **не
+трогайте** — Vercel продолжает быть DNS-провайдером.
+
+### B.4 Дождаться пропагации и автоматического cutover'а
+
+После смены A-записи:
+
+1. Подождите 1–10 минут, пока DNS пропагируется.
+2. Проверьте:
+   ```powershell
+   Resolve-DnsName ailookstudio.ru -Type A
+   Resolve-DnsName www.ailookstudio.ru -Type A
+   ```
+   Оба должны вернуть `139.100.200.203`.
+3. Запустите **любой** push в `main` (или вручную re-run последнего
+   deploy в GitHub Actions). `deploy/ru/update.sh` сам:
+   - обнаружит, что DNS указывает на VPS;
+   - запросит Let's Encrypt-сертификат на `ailookstudio.ru` + `www`;
+   - подключит TLS server-block в nginx;
+   - сделает graceful reload.
+
+   В логе CI ищите блок `--- DNS cut-over check (ailookstudio.ru) ---`
+   и строку `[cut-over] ✅ https://ailookstudio.ru/health → 200`.
+
+   Если cutover не сработал автоматически (например, certbot rate-limit) —
+   повторный push в `main` повторит попытку. Скрипт идемпотентен.
+
+### B.5 YooKassa — сменить webhook URL
+
+Личный кабинет YooKassa → Настройки → Уведомления:
+- **Webhook URL:** `https://ailookstudio.ru/api/v1/payments/yookassa/webhook`
+- Старый URL (`https://ru.ailookstudio.ru/...`) можно оставить ещё
+  на 1 неделю как backup, потом удалить.
+
+YooKassa → Возвраты → Допустимые return URLs:
+- `https://ailookstudio.ru/payment-success`
+- `https://www.ailookstudio.ru/payment-success`
+- *(переходный период)* `https://ru.ailookstudio.ru/payment-success`
+
+---
+
+## Фаза C — После DNS (через 24 часа после cutover'а)
+
+### C.1 Удалить устаревшие OAuth redirect URI
+
+Только когда убедились, что `https://ailookstudio.ru/...` стабильно
+работает 24+ часов:
+
+- Google Cloud Console → удалите `https://ru.ailookstudio.ru/api/v1/auth/google/callback`
+- Yandex OAuth → удалите `https://ru.ailookstudio.ru/api/v1/auth/yandex/callback`
+- VK ID → удалите `https://ru.ailookstudio.ru/api/v1/auth/vk-id/callback`
+
+### C.2 Включить 301 `ru.ailookstudio.ru → ailookstudio.ru`
+
+Сделайте отдельный коммит, который заменит TLS-блок для
+`ru.ailookstudio.ru` в `deploy/ru/nginx.conf` на:
+```nginx
+server {
+    listen 443 ssl;
+    http2 on;
+    server_name ru.ailookstudio.ru;
+    ssl_certificate     /etc/letsencrypt/live/ru.ailookstudio.ru/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/ru.ailookstudio.ru/privkey.pem;
+    return 301 https://ailookstudio.ru$request_uri;
+}
 ```
+И обновите `RU_PUBLIC_BASE_URL` секрет на `https://ailookstudio.ru`,
+если он ещё стоит на старом значении.
 
-### 5.2 RU bot (VPS)
+### C.3 Search Console / Webmaster
 
-Если webhook:
+- Yandex.Webmaster: добавьте новый sitemap `https://ailookstudio.ru/sitemap.xml`.
+- Google Search Console: верните на ту же property `ailookstudio.ru`,
+  обновите sitemap.
+
+### C.4 Telegram bots
+
+Если бот RU использует webhook — обновите его:
 ```bash
 curl -X POST "https://api.telegram.org/bot<TOKEN>/setWebhook" \
      -d "url=https://ailookstudio.ru/telegram/webhook"
 ```
+Long-polling режим обновления не требует.
 
 ---
 
-## 6. SEO / поисковики
+## Приложение — где смотреть, какой `redirect_uri` шлёт бэкенд
 
-### 6.1 Google Search Console
+Если что-то не работает, единственный надёжный способ узнать
+**точный** URL — спросить у самого бэкенда:
 
-- Зарегистрировать `https://ailookstudio.vercel.app` как новый
-  property и подтвердить (Vercel автоматом создаст DNS TXT).
-- В property `https://ailookstudio.ru` обновить sitemap →
-  `https://ailookstudio.ru/sitemap.xml` (генерируется build-step'ом).
+```powershell
+$body = @{ device_id = "diag-$(Get-Random)" } | ConvertTo-Json
+Add-Type -AssemblyName System.Web
+foreach ($prov in "google","yandex","vk-id") {
+    "=== $prov ==="
+    $r = Invoke-WebRequest "https://ru.ailookstudio.ru/api/v1/auth/$prov/init" `
+        -Method POST -Body $body -ContentType "application/json" -UseBasicParsing
+    $j = $r.Content | ConvertFrom-Json
+    if ($j.authorize_url -match "redirect_uri=([^&]+)") {
+        "redirect_uri: " + [System.Web.HttpUtility]::UrlDecode($matches[1])
+    }
+}
+```
 
-### 6.2 Yandex.Webmaster
-
-- В property `ailookstudio.ru` обновить sitemap аналогично.
-- *(опционально)* Добавить `ailookstudio.vercel.app`.
-
----
-
-## 7. Порядок выполнения чек-листа
-
-Выполнять синхронно с этапами `rollout` плана:
-
-1. До переключения DNS:
-   - §1 (OAuth — добавить новые redirect URI, **не** удалять старые),
-   - §4 (CMS replication secret),
-   - §5 (Telegram, если меняется webhook),
-   - §6 (Search Console — зарегистрировать новые property).
-2. В момент переключения DNS:
-   - §3 (DNS A-записи + удалить domain из Vercel),
-   - §2.1 (YooKassa webhook + return URLs).
-3. После 24h smoke-теста:
-   - §1 — удалить устаревшие redirect URI (`ru.ailookstudio.ru`),
-   - перевести `ru.ailookstudio.ru` на 301-редирект (см. nginx.conf).
+Замените `ru.ailookstudio.ru` на `ailookstudio.ru` после cutover'а.
+Этот же URL должен лежать в whitelist'е соответствующего провайдера.
