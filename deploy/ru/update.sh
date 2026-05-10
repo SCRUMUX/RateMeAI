@@ -146,19 +146,20 @@ maybe_dns_cutover() {
     return 0
 }
 
-# Note (1.55.4): env-var provisioning (INTERNAL_API_KEY, ADMIN_EMAILS,
-# DEPLOYMENT_MODE/MARKET_ID/SERVICE_ROLE/COMPUTE_MODE, ...) used to live
-# in this script but moved into the ``deploy-ru`` GitHub Actions job.
-# The CI bash runs in a workspace whose script is NOT replaced by
-# ``git pull`` mid-execution, so the in-script bash-inode quirk that
-# bit 1.55.2 (one-deploy lag) is gone. update.sh now does only what
-# it needs to do AT the host: pull, build, restart.
+# Note (1.55.4 + cms-cutover follow-up):
+#   * env-var provisioning (INTERNAL_API_KEY, ADMIN_EMAILS, DEPLOYMENT_MODE,
+#     MARKET_ID, OAuth creds, ...) lives in the ``deploy-ru`` GitHub Actions
+#     job before this script runs.
+#   * ``git pull origin main`` ALSO lives in the CI bash, NOT here. Reason:
+#     bash opens a FD on /opt/ratemeai/deploy/ru/update.sh at start; if the
+#     pull happens INSIDE update.sh, bash keeps reading the previous inode
+#     and any function added in the new commit (e.g. ``maybe_dns_cutover``)
+#     stays unreachable for one whole deploy. Pulling in the parent CI bash
+#     means this script is always read AFTER the new contents land on disk.
+#   * For local manual runs (``sudo ./deploy/ru/update.sh``) make sure to
+#     ``git pull`` yourself first.
 
-# ── 1. Pull latest code ─────────────────────────────────────────
-echo "--- git pull ---"
-git pull origin main
-
-# ── 2. Rebuild frontend (--no-cache to guarantee fresh build) ───
+# ── 1. Rebuild frontend (--no-cache to guarantee fresh build) ───
 echo "--- frontend build ---"
 docker compose -f "$COMPOSE_FILE" --profile build-only build --no-cache web
 
@@ -173,20 +174,20 @@ docker run --rm \
     alpine sh -c "rm -rf /usr/share/nginx/html/* && cp -r /src/* /usr/share/nginx/html/"
 rm -rf /tmp/web-dist
 
-# ── 2b. Fix storage volume permissions ────────────────────────
+# ── 1b. Fix storage volume permissions ────────────────────────
 echo "--- fix storage permissions ---"
 docker run --rm -v ratemeai_app_storage:/app/storage alpine \
     sh -c "chmod -R 777 /app/storage 2>/dev/null; echo 'storage permissions fixed'" || true
 
-# ── 3. Rebuild and restart backend (migrations run on startup) ──
+# ── 2. Rebuild and restart backend (migrations run on startup) ──
 echo "--- backend build ---"
 docker compose -f "$COMPOSE_FILE" up -d --build app
 
-# ── 4. Restart nginx to pick up new config and volume content ───
+# ── 3. Restart nginx to pick up new config and volume content ───
 echo "--- nginx restart ---"
 docker compose -f "$COMPOSE_FILE" restart nginx
 
-# ── 5. Wait for healthy backend ─────────────────────────────────
+# ── 4. Wait for healthy backend ─────────────────────────────────
 echo "--- health check ---"
 for i in 1 2 3 4 5 6 7 8; do
     sleep 5

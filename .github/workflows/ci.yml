@@ -600,6 +600,12 @@ jobs:
             else
               echo "::warning::ADMIN_EMAILS empty — RU admin endpoints will return 403 for everyone"
             fi
+            # IMPORTANT: pull in CI bash, NOT inside update.sh — see header
+            # comment in update.sh for the bash-inode rationale. Without
+            # this, any function newly added to update.sh stays unreachable
+            # for one full deploy ("one-deploy lag" bug from 1.55.2).
+            echo "--- git pull (CI bash, before update.sh) ---"
+            cd /opt/ratemeai && git pull origin main
             bash /opt/ratemeai/deploy/ru/update.sh
 
       - name: RU smoke tests
