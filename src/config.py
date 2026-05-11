@@ -11,6 +11,17 @@ class Settings(BaseSettings):
     # Telegram
     telegram_bot_token: str = ""
     telegram_bot_username: str = "RateMeAI_bot"
+    # Two-region bot layout (v1.60+):
+    # * RU bot ``@RateMeAI_bot`` runs on the VPS (deployment_mode=edge).
+    # * Global bot ``@AI_Look_Studio_bot`` runs on Railway (deployment_mode=primary).
+    # ``peer_bot_username`` is the *other* region's bot — used by the
+    # language_guard middleware (src/bot/middlewares/language_guard.py)
+    # to redirect users that wrote to the wrong region (e.g. a
+    # ru-speaking user opens @AI_Look_Studio_bot — they get a short
+    # message with a ``t.me/{peer_bot_username}`` deep-link and the
+    # request is dropped *before* any DB write, so no PII crosses
+    # regions). Empty value disables the guard.
+    peer_bot_username: str = ""
 
     # OpenRouter (LLM)
     openrouter_api_key: str = ""

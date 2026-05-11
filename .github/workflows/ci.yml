@@ -304,6 +304,16 @@ jobs:
           # на остальных частях сервиса (return URLs платежей и т.п.).
           rl_set BOT_WEB_LANDING_URL="$GLOBAL_WEB_BASE_URL" -s bot -e production --skip-deploys
           rl_set BOT_WEB_LANDING_URL="$GLOBAL_WEB_BASE_URL" -s app -e production --skip-deploys
+          # Two-region bot routing: Railway runs @AI_Look_Studio_bot, so
+          # its peer (used by language_guard middleware for cross-region
+          # redirects) is the RU bot @RateMeAI_bot on the VPS.
+          rl_set PEER_BOT_USERNAME="RateMeAI_bot" -s bot -e production --skip-deploys
+          rl_set PEER_BOT_USERNAME="RateMeAI_bot" -s app -e production --skip-deploys
+          # Railway runs the Global bot. Pin TELEGRAM_BOT_USERNAME so the
+          # peer-bot logic on the edge stays consistent if someone wipes
+          # the variable in the Railway dashboard.
+          rl_set TELEGRAM_BOT_USERNAME="AI_Look_Studio_bot" -s bot -e production --skip-deploys
+          rl_set TELEGRAM_BOT_USERNAME="AI_Look_Studio_bot" -s app -e production --skip-deploys
           # YooKassa живёт только на RU-edge: закрепляем это на уровне инфры.
           # Бот ходит к edge за /auth, /payments/*, /tasks и /analyze, edge сам
           # проксирует AI на primary через INTERNAL_API_KEY. Без EDGE_API_URL
@@ -474,16 +484,25 @@ jobs:
           GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
           YANDEX_CLIENT_ID: ${{ secrets.YANDEX_CLIENT_ID }}
           YANDEX_CLIENT_SECRET: ${{ secrets.YANDEX_CLIENT_SECRET }}
-          VK_CLIENT_ID: ${{ secrets.VK_CLIENT_ID }}
-          VK_CLIENT_SECRET: ${{ secrets.VK_CLIENT_SECRET }}
+          # VK ID OAuth on the RU edge reads VK_ID_APP_ID / VK_ID_APP_SECRET
+          # (see src/config.py:413-415). The legacy VK_CLIENT_* names used
+          # by an earlier draft of this workflow were ignored by Pydantic
+          # and silently broke the VK sign-in button on ailookstudio.ru.
+          VK_ID_APP_ID: ${{ secrets.VK_ID_APP_ID }}
+          VK_ID_APP_SECRET: ${{ secrets.VK_ID_APP_SECRET }}
           VK_SERVICE_TOKEN: ${{ secrets.VK_SERVICE_TOKEN }}
+          # Two-region rollout: when set to "1", update.sh swaps the
+          # legacy ru.ailookstudio.ru SPA/API server-block for a 301
+          # redirect to ailookstudio.ru. Leave unset (default) until
+          # both domains coexist successfully for at least 7 days.
+          RU_LEGACY_REDIRECT_ENABLED: ${{ vars.RU_LEGACY_REDIRECT_ENABLED || '' }}
         with:
           host: ${{ secrets.RU_SSH_HOST }}
           username: ${{ secrets.RU_SSH_USER }}
           key: ${{ secrets.RU_SSH_KEY }}
           port: 22
           command_timeout: 10m
-          envs: DEPLOY_GIT_SHA,INTERNAL_API_KEY,GLOBAL_API_BASE_URL,RU_PUBLIC_BASE_URL,CMS_REPLICATION_SECRET,ADMIN_EMAILS,GOOGLE_CLIENT_ID,GOOGLE_CLIENT_SECRET,YANDEX_CLIENT_ID,YANDEX_CLIENT_SECRET,VK_CLIENT_ID,VK_CLIENT_SECRET,VK_SERVICE_TOKEN
+          envs: DEPLOY_GIT_SHA,INTERNAL_API_KEY,GLOBAL_API_BASE_URL,RU_PUBLIC_BASE_URL,CMS_REPLICATION_SECRET,ADMIN_EMAILS,GOOGLE_CLIENT_ID,GOOGLE_CLIENT_SECRET,YANDEX_CLIENT_ID,YANDEX_CLIENT_SECRET,VK_ID_APP_ID,VK_ID_APP_SECRET,VK_SERVICE_TOKEN,RU_LEGACY_REDIRECT_ENABLED
           script: |
             export DEPLOY_GIT_SHA="${DEPLOY_GIT_SHA:0:12}"
             ENV_FILE="/opt/ratemeai/.env.ru"
@@ -516,6 +535,11 @@ jobs:
             # домен, что и WEB_BASE_URL, но переменная отдельная,
             # чтобы Global-бот мог указывать на ailookstudio.vercel.app.
             sync_env BOT_WEB_LANDING_URL "$RU_PUBLIC_BASE_URL"
+            # Two-region bot routing: the RU edge runs @RateMeAI_bot,
+            # so its peer (used by language_guard for cross-redirects)
+            # is the Global bot @AI_Look_Studio_bot on Railway.
+            sync_env PEER_BOT_USERNAME "AI_Look_Studio_bot"
+            sync_env TELEGRAM_BOT_USERNAME "RateMeAI_bot"
             sync_env VITE_API_BASE_URL ""
             sync_env VITE_MARKET_ID ru
             sync_env VITE_WEB_ORIGIN "$RU_PUBLIC_BASE_URL"
@@ -570,13 +594,19 @@ jobs:
               sync_env YANDEX_CLIENT_SECRET "$YANDEX_CLIENT_SECRET"
               echo "YANDEX_CLIENT_SECRET synced to .env.ru"
             fi
-            if [ -n "$VK_CLIENT_ID" ]; then
-              sync_env VK_CLIENT_ID "$VK_CLIENT_ID"
-              echo "VK_CLIENT_ID synced to .env.ru"
+            # VK ID OAuth — Pydantic reads VK_ID_APP_ID / VK_ID_APP_SECRET
+            # (src/config.py:413-415). Strip any legacy VK_CLIENT_* lines
+            # that may still linger in .env.ru from a previous CI revision
+            # so the file stays clean and consistent.
+            sed -i '/^VK_CLIENT_ID=/d' "$ENV_FILE" 2>/dev/null || true
+            sed -i '/^VK_CLIENT_SECRET=/d' "$ENV_FILE" 2>/dev/null || true
+            if [ -n "$VK_ID_APP_ID" ]; then
+              sync_env VK_ID_APP_ID "$VK_ID_APP_ID"
+              echo "VK_ID_APP_ID synced to .env.ru"
             fi
-            if [ -n "$VK_CLIENT_SECRET" ]; then
-              sync_env VK_CLIENT_SECRET "$VK_CLIENT_SECRET"
-              echo "VK_CLIENT_SECRET synced to .env.ru"
+            if [ -n "$VK_ID_APP_SECRET" ]; then
+              sync_env VK_ID_APP_SECRET "$VK_ID_APP_SECRET"
+              echo "VK_ID_APP_SECRET synced to .env.ru"
             fi
             if [ -n "$VK_SERVICE_TOKEN" ]; then
               sync_env VK_SERVICE_TOKEN "$VK_SERVICE_TOKEN"

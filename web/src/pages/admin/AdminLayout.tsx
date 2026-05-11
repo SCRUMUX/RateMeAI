@@ -1,6 +1,7 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 
+import { AdminStatusBanner } from '../../components/admin/AdminStatusBanner';
 import {
   AdminTargetProvider,
   useAdminTarget,
@@ -41,11 +42,11 @@ const TABS: AdminTab[] = [
 ];
 
 /**
- * Variant B replacement for the old multi-target dropdown — admin
- * always lives on the single primary backend (Railway). We render a
- * compact read-only badge instead of a switcher so the operator
- * still sees which API base their session is bound to (useful when
- * previewing a non-prod build with VITE_API_BASE_URL overridden).
+ * Two-region replacement for the old multi-target dropdown — admin
+ * surfaces live on two independent backends (Railway + VPS). The
+ * compact header badge just labels which one this SPA is talking to;
+ * the full picture (auth state on both, pair-server URL, etc.) is
+ * rendered by ``AdminStatusBanner`` above the page content.
  */
 function PrimaryTargetBadge() {
   const { current } = useAdminTarget();
@@ -246,6 +247,14 @@ function AdminLayoutInner({ children }: AdminLayoutProps) {
       </header>
 
       <main className="max-w-[1240px] mx-auto px-[var(--space-16)] tablet:px-[var(--space-32)] desktop:px-[var(--space-48)] py-[var(--space-32)] desktop:py-[var(--space-40)]">
+        {/*
+          AdminStatusBanner sits OUTSIDE NoTokenGate so it always renders,
+          even when this domain has no session. Its own ``/admin/_whoami``
+          probe handles the 401 case gracefully with an actionable
+          "log in here" message — that's what makes the two-region
+          layout discoverable.
+        */}
+        <AdminStatusBanner />
         <NoTokenGate>{children}</NoTokenGate>
       </main>
     </div>

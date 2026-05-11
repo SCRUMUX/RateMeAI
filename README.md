@@ -8,11 +8,43 @@ AI-стилист, который анализирует фото и показ�
 
 **Платформы:** Telegram bot, Web app (Vercel), OK/VK Mini Apps, RU edge
 
+## Архитектура (двухрегиональная)
+
+Проект развёрнут в **двух независимых регионах** с одним codebase:
+
+* **Global** (Railway, `MARKET_ID=global`) — домен `ailookstudio.vercel.app`,
+  Telegram-бот `@AI_Look_Studio_bot`, платежи Xsolla.
+* **RU edge** (VPS, `MARKET_ID=ru`) — домен `ailookstudio.ru`,
+  Telegram-бот `@RateMeAI_bot`, платежи YooKassa.
+
+Ключевые инварианты, которые надо знать перед любым изменением кода:
+
+1. **PII RU-юзеров никогда не покидает VPS.** Edge → primary вызовы
+   используют синтетический `internal_user_id` и `extra="forbid"` на
+   Pydantic-схеме (см. `RemoteAnalysisRequest` в
+   [src/api/v1/internal.py](src/api/v1/internal.py)).
+2. **Два Telegram-бота**, и `LanguageGuardMiddleware`
+   ([src/bot/middlewares/language_guard.py](src/bot/middlewares/language_guard.py))
+   отсекает кросс-региональные обращения **до** записи в БД.
+3. **Каждое фото сначала проходит через
+   [`PrivacyLayer.sanitize_and_normalize`](src/services/privacy.py)**
+   (EXIF/ICC strip), потом — в модель. Оригиналы хранятся в
+   Redis-stash 15 мин и удаляются.
+4. **Логи маскируют PII** через [`PIIFilter`](src/utils/log_filters.py).
+5. **Админки две и независимые** — у каждого региона свой
+   `/admin`. `AdminStatusBanner`
+   ([web/src/components/admin/AdminStatusBanner.tsx](web/src/components/admin/AdminStatusBanner.tsx))
+   делает разделение явным.
+
+Полный документ: **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)** —
+содержит диаграммы, описание DNS-rollout'а, CMS-репликацию,
+бот-маршрутизацию и список ограничений.
+
 ## Документация
 
 | Документ | Содержание |
 |----------|-----------|
-| **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)** | Полная техническая архитектура: процессы, модель данных, API, auth, pipeline, провайдеры, bot, web, scoring, payments, edge |
+| **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)** | Двухрегиональная архитектура: домены, PII-инварианты, edge→primary delegation, бот-маршрутизация по языку, DNS rollout |
 | **[docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)** | CI/CD, Railway, Vercel, RU edge, переменные окружения, чеклисты, troubleshooting |
 | **[docs/DEVELOPMENT.md](docs/DEVELOPMENT.md)** | Локальный запуск, структура проекта, тесты, гайды по добавлению режимов/стилей/auth |
 | **[docs/master_product_constitution.md](docs/master_product_constitution.md)** | Продуктовая конституция: концепция AI-стилиста, принципы, UX, scoring, pipeline requirements |

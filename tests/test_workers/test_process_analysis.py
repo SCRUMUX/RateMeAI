@@ -295,10 +295,17 @@ async def test_process_analysis_cleans_ephemeral_artifacts_when_policy_requires(
     user = _FakeUser(user_id)
 
     ctx, _db = _build_ctx(task, user)
+    # Snapshot the storage key BEFORE running: _cleanup_ephemeral_artifacts
+    # now also nils ``task.input_image_path`` after deleting the file to
+    # avoid leaving a dangling PII pointer in Postgres (two-region
+    # invariant; see src/workers/tasks.py).
+    original_input_path = task.input_image_path
     await process_analysis(ctx, str(task_id))
 
-    ctx["storage"].delete.assert_any_await(task.input_image_path)
+    ctx["storage"].delete.assert_any_await(original_input_path)
     ctx["storage"].delete.assert_any_await(f"generated/{user_id}/{task_id}.jpg")
+    # Post-cleanup invariant: the row's pointer fields are scrubbed.
+    assert task.input_image_path is None
 
 
 @pytest.mark.asyncio

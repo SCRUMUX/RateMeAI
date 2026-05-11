@@ -21,7 +21,7 @@ from fastapi import (
     Query,
     Request as FastAPIRequest,
 )
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 from redis.asyncio import Redis
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -86,6 +86,11 @@ async def internal_ping(_key: str = Depends(_verify_internal_key)):
 
 
 class RemotePreAnalyzeRequest(BaseModel):
+    # PII-firewall: same rationale as ``RemoteAnalysisRequest`` —
+    # reject unknown fields so a forgetful edge-side patch can never
+    # leak email/phone/telegram_id into the primary backend.
+    model_config = ConfigDict(extra="forbid")
+
     image_b64: str
     mode: AnalysisMode = AnalysisMode.DATING
     profession: str = ""
@@ -96,6 +101,16 @@ class RemotePreAnalyzeRequest(BaseModel):
 
 
 class RemoteAnalysisRequest(BaseModel):
+    # PII-firewall: reject any extra fields the edge might accidentally
+    # add (email, phone, telegram_id, first_name, etc.). With the
+    # default ``extra="ignore"`` Pydantic would silently drop them but
+    # they would still travel over the wire and appear in primary
+    # access logs / request bodies. ``forbid`` makes the rejection
+    # explicit (HTTP 422) and gives ops a loud signal something on the
+    # edge is leaking. The whitelist below is the *complete* set of
+    # fields allowed to cross from the RU edge to the Global primary.
+    model_config = ConfigDict(extra="forbid")
+
     image_b64: str
     mode: AnalysisMode = AnalysisMode.RATING
     style: str = ""
@@ -176,7 +191,36 @@ async def process_analysis_remote(
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     image_bytes = sanitized.bytes_
 
-    internal_user_id = uuid.uuid5(uuid.NAMESPACE_DNS, "edge-proxy.internal")
+    # PII-firewall, layer 2: per-task synthetic user_id.
+    #
+    # Until v1.60 every edge-proxy request landed under a single
+    # sentinel UUID ``uuid5("edge-proxy.internal")``, which made it
+    # trivial to join all RU-edge tasks on the primary side via
+    # ``WHERE user_id = <sentinel>``. That's a soft k-anonymity break:
+    # an attacker reading primary Postgres could see "this single
+    # user produced 12 000 generations" and start correlating times
+    # with public RU-side activity.
+    #
+    # Now we derive ``internal_user_id`` from the edge-side trace
+    # (``edge_task_id`` or ``trace_id``). Both are random per-request
+    # tokens, so the result is uniformly distributed and cannot be
+    # reversed to a real Telegram/email identity. We still insert a
+    # User row on demand (FK constraint on ``tasks.user_id``) and
+    # credit it 999 999 to bypass the credit-deduct path, exactly
+    # like the legacy sentinel user.
+    _seed = (request.edge_task_id or request.trace_id or "").strip()
+    if not _seed:
+        _seed = uuid.uuid4().hex
+    internal_user_id = uuid.uuid5(uuid.NAMESPACE_DNS, f"edge-proxy.{_seed}")
+    if (await db.get(User, internal_user_id)) is None:
+        db.add(
+            User(
+                id=internal_user_id,
+                username="__edge_proxy__",
+                image_credits=999_999,
+            )
+        )
+        await db.flush()
 
     policy_flags = build_policy_flags(
         request.policy_flags or None,

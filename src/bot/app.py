@@ -16,6 +16,7 @@ from src.config import settings
 from src.version import APP_VERSION
 from src.bot.handlers import start, photo, mode_select, fallback, link, consent
 from src.bot.middleware import UserRegistrationMiddleware
+from src.bot.middlewares import LanguageGuardMiddleware
 
 logging.basicConfig(
     level=logging.INFO,
@@ -60,6 +61,16 @@ def _resolve_bot_api_base_url() -> str:
 def create_dispatcher(redis: Redis) -> Dispatcher:
     dp = Dispatcher()
     api_url = _resolve_bot_api_base_url()
+    # IMPORTANT: LanguageGuardMiddleware must run BEFORE
+    # UserRegistrationMiddleware. The latter calls /api/v1/auth/telegram
+    # which writes telegram_id / username / first_name into the local
+    # Postgres — exactly the PII we don't want to persist on the wrong
+    # region. The guard short-circuits cross-region traffic before any
+    # DB write happens. See src/bot/middlewares/language_guard.py for
+    # the decision matrix.
+    language_guard = LanguageGuardMiddleware()
+    dp.message.middleware(language_guard)
+    dp.callback_query.middleware(language_guard)
     dp.message.middleware(UserRegistrationMiddleware(api_url, redis))
     dp.callback_query.middleware(UserRegistrationMiddleware(api_url, redis))
 

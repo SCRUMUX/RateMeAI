@@ -146,6 +146,47 @@ maybe_dns_cutover() {
     return 0
 }
 
+# ────────────────────────────────────────────────────────────────────
+# Ensure the legacy ru.ailookstudio.ru server-block is installed in
+# the nginx_extra_conf volume. This is the SPA+API block by default;
+# when RU_LEGACY_REDIRECT_ENABLED=1 we install the 301 variant
+# instead. Either way the volume holds exactly one ru-legacy*.conf
+# at a time, so nginx never sees a duplicate :443 + ru.ailookstudio.ru
+# server-block.
+# ────────────────────────────────────────────────────────────────────
+ensure_ru_legacy_block() {
+    local extra_volume="ratemeai_nginx_extra_conf"
+    local templates_dir="$PROJECT_DIR/deploy/ru/nginx-extra-template"
+    local spa_template="$templates_dir/ru-legacy.conf"
+    local redirect_template="$templates_dir/ru-legacy-redirect.conf"
+    local desired
+    local desired_basename
+
+    if [ "${RU_LEGACY_REDIRECT_ENABLED:-0}" = "1" ]; then
+        desired="$redirect_template"
+        desired_basename="ru-legacy-redirect.conf"
+    else
+        desired="$spa_template"
+        desired_basename="ru-legacy.conf"
+    fi
+
+    if [ ! -f "$desired" ]; then
+        echo "  [ru-legacy] template missing ($desired) — skipping"
+        return 0
+    fi
+
+    echo "  [ru-legacy] installing $desired_basename (mode: ${RU_LEGACY_REDIRECT_ENABLED:-spa})"
+    # Remove the alternative file first, then drop in the chosen one.
+    docker run --rm \
+        -v "$extra_volume:/dst" \
+        -v "$desired:/src.conf:ro" \
+        alpine sh -c "
+            rm -f /dst/ru-legacy.conf /dst/ru-legacy-redirect.conf
+            cp /src.conf /dst/$desired_basename
+            chmod 644 /dst/$desired_basename
+        "
+}
+
 # Note (1.55.4 + cms-cutover follow-up):
 #   * env-var provisioning (INTERNAL_API_KEY, ADMIN_EMAILS, DEPLOYMENT_MODE,
 #     MARKET_ID, OAuth creds, ...) lives in the ``deploy-ru`` GitHub Actions
@@ -182,6 +223,10 @@ docker run --rm -v ratemeai_app_storage:/app/storage alpine \
 # ── 2. Rebuild and restart backend (migrations run on startup) ──
 echo "--- backend build ---"
 docker compose -f "$COMPOSE_FILE" up -d --build app
+
+# ── 2b. Install legacy ru.ailookstudio.ru server-block (SPA or 301)
+echo "--- ru-legacy server-block ---"
+ensure_ru_legacy_block
 
 # ── 3. Restart nginx to pick up new config and volume content ───
 echo "--- nginx restart ---"

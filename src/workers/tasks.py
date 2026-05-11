@@ -228,6 +228,13 @@ async def _cleanup_ephemeral_artifacts(
     # here unconditionally. New tasks are created with input_image_path=None.
     if task.input_image_path:
         await _delete_storage_key(storage, task.input_image_path)
+        # Two-region PII invariant: once the storage key is gone, the
+        # dangling pointer on the Task row is itself PII metadata (it
+        # reveals user_id + a deterministic path pattern). Nil it out
+        # so Postgres dumps / admin queries cannot reconstruct the
+        # filename. The Task ORM is in the caller's session so this
+        # change is committed by their ``await db.commit()`` call.
+        task.input_image_path = None
 
     # The generated result honours the legacy `delete_after_process` flag
     # (edge/worker synchronous flow). For the regular primary flow the
@@ -241,6 +248,28 @@ async def _cleanup_ephemeral_artifacts(
                     "Failed to delete generated cache key %s", cache_key, exc_info=True
                 )
         await _delete_storage_key(storage, f"generated/{task.user_id}/{task.id}.jpg")
+        # Same rationale as above — after the generated file is gone,
+        # strip the storage-pointer fields from ``task.result`` so they
+        # do not survive in Postgres. We keep the textual analysis
+        # (verdict, scores) because the SPA needs them; only the
+        # URL/path fields are nilled out.
+        if isinstance(task.result, dict):
+            scrubbed = dict(task.result)
+            _STORAGE_KEYS = (
+                "generated_image_url",
+                "generated_image_path",
+                "image_url",
+                "image_path",
+                "input_image_url",
+                "input_image_path",
+            )
+            mutated = False
+            for k in _STORAGE_KEYS:
+                if k in scrubbed and scrubbed[k]:
+                    scrubbed[k] = None
+                    mutated = True
+            if mutated:
+                task.result = scrubbed
 
 
 async def process_analysis(ctx: dict, task_id: str):
@@ -554,6 +583,22 @@ async def _process_analysis_inner(ctx: dict, task_id: str):
                 market_id,
                 include_generated=analysis_result.get("delta_status") != "pending",
             )
+            # Persist the PII-pointer scrub done inside cleanup.
+            # ``task.input_image_path`` / pointer fields in
+            # ``task.result`` get nilled out only in memory until this
+            # commit. Wrapped in try/except so a transient DB hiccup
+            # never bubbles up after a successful task — the storage
+            # files are already gone, the row will be re-scrubbed by
+            # the next nightly GC sweep.
+            try:
+                await db.commit()
+            except Exception:
+                logger.warning(
+                    "Failed to persist post-cleanup PII scrub for task %s "
+                    "(storage already wiped; will retry via nightly GC)",
+                    task_id,
+                    exc_info=True,
+                )
 
         except Exception as e:
             logger.exception("Task %s failed", task_id)
@@ -645,6 +690,19 @@ async def _process_analysis_inner(ctx: dict, task_id: str):
                 market_id,
                 include_generated=True,
             )
+            # See success-path commit above: persist the PII-pointer
+            # scrub. For FAILED tasks this is more important — the row
+            # lives in Postgres for the user's history dashboard, and
+            # we don't want stale storage paths lingering after the
+            # files themselves are gone.
+            try:
+                await db.commit()
+            except Exception:
+                logger.warning(
+                    "Failed to persist post-cleanup PII scrub for FAILED task %s",
+                    task_id,
+                    exc_info=True,
+                )
 
 
 async def compute_delta_scores(ctx: dict, task_id: str):
@@ -726,6 +784,18 @@ async def compute_delta_scores(ctx: dict, task_id: str):
                 market_id,
                 include_generated=True,
             )
+            # Same pattern as process_analysis: persist the PII-pointer
+            # scrub from cleanup. We don't fail loud here — the storage
+            # files are already wiped, only metadata remains.
+            try:
+                await db.commit()
+            except Exception:
+                logger.warning(
+                    "Failed to persist post-cleanup PII scrub after "
+                    "delta scoring for task %s",
+                    task_id,
+                    exc_info=True,
+                )
         except Exception:
             logger.exception("Delta scoring failed for task %s", task_id)
             task_result["delta_status"] = "failed"
@@ -739,6 +809,15 @@ async def compute_delta_scores(ctx: dict, task_id: str):
                 market_id,
                 include_generated=True,
             )
+            try:
+                await db.commit()
+            except Exception:
+                logger.warning(
+                    "Failed to persist post-cleanup PII scrub after "
+                    "delta scoring failure for task %s",
+                    task_id,
+                    exc_info=True,
+                )
 
 
 async def worker_heartbeat(ctx: dict):

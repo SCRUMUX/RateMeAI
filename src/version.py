@@ -5263,4 +5263,93 @@
 #          raises; routed_backend stays on gpt_image_2; web caller
 #          still gets A→B fallback; bot+NB2 (hypothetical future) still
 #          falls back to GPT-2.
-APP_VERSION = "1.59.6"
+# 1.60.0 — Two-region clean architecture, P0–P5 of the
+#          ``two-region_clean_architecture`` plan.
+#
+#          Decisive shifts:
+#
+#          P0 — critical fixes.
+#          * VK ID on RU edge was silently broken because CI synced
+#            ``VK_CLIENT_ID``/``VK_CLIENT_SECRET`` while Pydantic
+#            reads ``vk_id_app_id``/``vk_id_app_secret``
+#            (src/config.py:413-415). Renamed env vars throughout
+#            ``deploy-ru``; the workflow now strips legacy
+#            ``VK_CLIENT_*`` lines from ``.env.ru`` on every deploy.
+#          * ``yandex_oauth_init`` now returns HTTP 503 when
+#            ``YANDEX_CLIENT_ID``/``SECRET`` are missing, instead of
+#            building an authorize URL with an empty client_id and
+#            landing the user on Yandex's generic error page that
+#            looked like our bug.
+#
+#          P1 — two regional Telegram bots, language-routed.
+#          * ``settings.peer_bot_username`` (src/config.py) holds the
+#            "other region's" bot username; CI provisions it
+#            (``AI_Look_Studio_bot`` on RU edge, ``RateMeAI_bot`` on
+#            Railway). ``TELEGRAM_BOT_USERNAME`` is also pinned per
+#            region.
+#          * New ``LanguageGuardMiddleware`` runs BEFORE
+#            ``UserRegistrationMiddleware`` and short-circuits
+#            cross-region traffic before any DB write happens —
+#            ru-speaking users on the Global bot get a deep-link to
+#            ``@RateMeAI_bot`` and the chain aborts, and vice-versa.
+#            This is the boundary that makes 152-ФЗ residency real.
+#
+#          P2 — domain rollout machinery.
+#          * Split the 443 server-block for ``ru.ailookstudio.ru``
+#            out of ``deploy/ru/nginx.conf`` into two extra-templates
+#            (``ru-legacy.conf`` = SPA+API, ``ru-legacy-redirect.conf``
+#            = 301 to apex). ``ensure_ru_legacy_block`` in
+#            ``deploy/ru/update.sh`` keeps exactly one of them in the
+#            ``nginx_extra_conf`` named volume, picked by the
+#            ``RU_LEGACY_REDIRECT_ENABLED`` GitHub Variable.
+#          * Updated ``docs/VARIANT_B_EXTERNAL_CHECKLIST.md`` for the
+#            two-bot layout and the post-cutover state.
+#
+#          P3 — admin UX.
+#          * New ``AdminStatusBanner`` (web/src/components/admin/)
+#            shows the operator their auth state on THIS region
+#            (via ``/api/v1/admin/_whoami``) plus a button to the
+#            paired region's admin. Same-Origin Policy is the
+#            architectural choice, not a bug.
+#          * Added ``/admin → /admin/landing`` redirect so the bare
+#            URL is no longer a 404.
+#
+#          P4 — PII guardrails in code.
+#          * ``RemoteAnalysisRequest`` and ``RemotePreAnalyzeRequest``
+#            switched to ``ConfigDict(extra="forbid")``. Anything the
+#            edge might accidentally bolt on (email, telegram_id,
+#            first_name) is now rejected with HTTP 422.
+#          * ``internal_user_id`` on edge-proxy tasks is now
+#            ``uuid5(NAMESPACE_DNS, f"edge-proxy.{edge_task_id or
+#            trace_id or fresh}")`` instead of a single sentinel —
+#            breaks k-anonymity joins on the primary side. The User
+#            row is created on demand to keep the FK constraint
+#            happy.
+#          * New golden test
+#            ``tests/test_services/test_remote_ai_payload.py``
+#            asserts the JSON keys are whitelisted, no PII attribute
+#            names or email-shaped values are present, and the
+#            ephemeral policy_flags survive every hop.
+#          * ``PIIFilter`` (src/utils/log_filters.py) now masks
+#            emails, phones, ``telegram_id=…`` patterns and PII-keyed
+#            dict args (``first_name``, ``language_code`` etc).
+#          * ``_cleanup_ephemeral_artifacts`` zeros out
+#            ``task.input_image_path`` and the storage-pointer fields
+#            in ``task.result`` AFTER deleting the files, then
+#            commits — no more dangling paths in Postgres dumps.
+#
+#          P5 — documentation.
+#          * New ``docs/ARCHITECTURE.md`` is the source-of-truth doc
+#            for the two-region layout (PII invariants, edge→primary
+#            delegation, bot routing, DNS phases). README links to
+#            it from a new "Архитектура" section with the five
+#            invariants laid out for new contributors.
+#
+#          Migrations / breaking changes:
+#          * CI now expects GitHub-secrets ``VK_ID_APP_ID`` /
+#            ``VK_ID_APP_SECRET`` instead of ``VK_CLIENT_*``. The old
+#            names are no longer read; CI will strip them from
+#            ``.env.ru`` on the next deploy.
+#          * Edge requests with unknown JSON fields will now fail
+#            with HTTP 422 (previously they were silently dropped).
+APP_VERSION = "1.60.0"

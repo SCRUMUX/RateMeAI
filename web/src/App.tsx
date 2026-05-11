@@ -118,6 +118,11 @@ export default function App() {
               <Route path="/cookie" element={<Navigate to="/?policy=cookie" replace />} />
               <Route path="/refund" element={<Navigate to="/?policy=refund" replace />} />
               <Route path="/consents" element={<Navigate to="/?policy=consents" replace />} />
+              {/* Two-region admin: /admin → /admin/landing so the bare
+                  URL is never a 404. AdminStatusBanner inside the layout
+                  explains the "two independent backends, two logins"
+                  story to whoever lands here for the first time. */}
+              <Route path="/admin" element={<Navigate to="/admin/landing" replace />} />
               <Route
                 path="/admin/styles"
                 element={

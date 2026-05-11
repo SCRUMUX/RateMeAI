@@ -96,13 +96,18 @@ ssh root@VPS 'docker compose -f /opt/ratemeai/docker-compose.ru.yml exec -T app 
 
 В GitHub Secrets должны быть:
 - `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` *(уже есть)*
-- *(опционально)* `YANDEX_CLIENT_ID`, `YANDEX_CLIENT_SECRET`,
-  `VK_CLIENT_ID`, `VK_CLIENT_SECRET`, `VK_SERVICE_TOKEN`
+- `YANDEX_CLIENT_ID`, `YANDEX_CLIENT_SECRET` *(если пусто — кнопка
+  Yandex на ru.ailookstudio.ru возвращает HTTP 503)*
+- `VK_ID_APP_ID`, `VK_ID_APP_SECRET` *(именно такие имена; старые
+  `VK_CLIENT_*` Pydantic игнорирует — поле в коде называется
+  `vk_id_app_id`, см. [src/config.py:413-415](src/config.py))*
+- `VK_SERVICE_TOKEN` *(опционально, для VK Mini App)*
 
 CI синкает их в `.env.ru` через `deploy-ru` job (см.
-`.github/workflows/ci.yml`). Если Yandex/VK креды добавлены вручную
-прямо на VPS — CI их не перезаписывает (sync только при наличии
-секрета в GitHub).
+[.github/workflows/ci.yml](.github/workflows/ci.yml)). Если Yandex/VK
+креды добавлены вручную прямо на VPS — CI их не перезаписывает
+(sync только при наличии секрета в GitHub). При смене схемы имён CI
+автоматически удалит устаревшие `VK_CLIENT_*` строки из `.env.ru`.
 
 Smoke-проверка после деплоя (в PowerShell):
 ```powershell
@@ -212,20 +217,26 @@ YooKassa → Возвраты → Допустимые return URLs:
 
 ### C.2 Включить 301 `ru.ailookstudio.ru → ailookstudio.ru`
 
-Сделайте отдельный коммит, который заменит TLS-блок для
-`ru.ailookstudio.ru` в `deploy/ru/nginx.conf` на:
-```nginx
-server {
-    listen 443 ssl;
-    http2 on;
-    server_name ru.ailookstudio.ru;
-    ssl_certificate     /etc/letsencrypt/live/ru.ailookstudio.ru/fullchain.pem;
-    ssl_certificate_key /etc/letsencrypt/live/ru.ailookstudio.ru/privkey.pem;
-    return 301 https://ailookstudio.ru$request_uri;
-}
-```
-И обновите `RU_PUBLIC_BASE_URL` секрет на `https://ailookstudio.ru`,
-если он ещё стоит на старом значении.
+Никакого ручного редактирования `nginx.conf` не требуется. Server-
+блок для `ru.ailookstudio.ru` живёт в файле
+[deploy/ru/nginx-extra-template/ru-legacy.conf](deploy/ru/nginx-extra-template/ru-legacy.conf),
+а его 301-вариант — в
+[deploy/ru/nginx-extra-template/ru-legacy-redirect.conf](deploy/ru/nginx-extra-template/ru-legacy-redirect.conf).
+Переключение делается одной GitHub Variable:
+
+1. GitHub → Settings → Secrets and variables → Actions → **Variables**
+   (не Secrets!) → New repository variable.
+2. Name: `RU_LEGACY_REDIRECT_ENABLED`, Value: `1`.
+3. Re-run последнего deploy в Actions, или сделайте любой commit в `main`.
+
+После следующего `deploy-ru` функция `ensure_ru_legacy_block` в
+[deploy/ru/update.sh](deploy/ru/update.sh) подменит SPA/API-блок
+на 301-редирект. Откат: удалить variable → следующий deploy
+вернёт SPA/API.
+
+Обновите `RU_PUBLIC_BASE_URL` Secret на `https://ailookstudio.ru`,
+если он ещё стоит на старом значении (а также `CMS_FOLLOWER_URLS`
+для Railway).
 
 ### C.3 Search Console / Webmaster
 
@@ -233,14 +244,52 @@ server {
 - Google Search Console: верните на ту же property `ailookstudio.ru`,
   обновите sitemap.
 
-### C.4 Telegram bots
+### C.4 Telegram bots — two-region layout
 
-Если бот RU использует webhook — обновите его:
-```bash
-curl -X POST "https://api.telegram.org/bot<TOKEN>/setWebhook" \
-     -d "url=https://ailookstudio.ru/telegram/webhook"
-```
-Long-polling режим обновления не требует.
+Проект работает с **двумя независимыми Telegram-ботами**:
+
+| Регион | Bot username | Хостинг | TELEGRAM_BOT_TOKEN | PEER_BOT_USERNAME |
+|---|---|---|---|---|
+| RU | `@RateMeAI_bot` | VPS | задаётся в `.env.ru` | `AI_Look_Studio_bot` |
+| Global | `@AI_Look_Studio_bot` | Railway (`bot` service) | Railway env var | `RateMeAI_bot` |
+
+Middleware [src/bot/middlewares/language_guard.py](src/bot/middlewares/language_guard.py)
+перехватывает первое сообщение от каждого пользователя и проверяет
+`from_user.language_code`. Если язык не соответствует региону бота
+(например, `ru`-юзер написал Global-боту), middleware отвечает
+коротким сообщением со ссылкой на «правильного» бота и обрывает
+chain — `UserRegistrationMiddleware` НЕ вызывается, никаких записей
+в Postgres не появляется. Это краеугольный камень PII-сегрегации:
+RU-пользователи никогда не попадают в Railway-БД, и наоборот.
+
+#### Шаги по миграции:
+
+1. `/revoke` в @BotFather для старого скомпрометированного токена,
+   получить свежий для `@AI_Look_Studio_bot`.
+2. На Railway: `railway env set TELEGRAM_BOT_TOKEN=<новый_токен> -s bot`
+   (либо через Dashboard, скриншот «Service → Variables → bot»).
+3. CI автоматически проставит `TELEGRAM_BOT_USERNAME=AI_Look_Studio_bot`
+   и `PEER_BOT_USERNAME=RateMeAI_bot` на Railway (services `bot` и `app`).
+4. На VPS: CI автоматически проставит `TELEGRAM_BOT_USERNAME=RateMeAI_bot`
+   и `PEER_BOT_USERNAME=AI_Look_Studio_bot` в `.env.ru`.
+5. Webhook RU-бота:
+   ```bash
+   curl -X POST "https://api.telegram.org/bot<RU_TOKEN>/setWebhook" \
+        -d "url=https://ailookstudio.ru/telegram/webhook" \
+        -d "secret_token=<RU_BOT_WEBHOOK_SECRET>"
+   ```
+6. Webhook Global-бота:
+   ```bash
+   curl -X POST "https://api.telegram.org/bot<GLOBAL_TOKEN>/setWebhook" \
+        -d "url=https://app-production-6986.up.railway.app/telegram/webhook" \
+        -d "secret_token=<GLOBAL_BOT_WEBHOOK_SECRET>"
+   ```
+   `*_BOT_WEBHOOK_SECRET` должны различаться между регионами.
+
+> Бесплатные boundary-проверки: попробуйте написать `/start` каждому
+> боту с языковой настройкой Telegram-клиента, противоположной
+> региону бота. Должен прилететь короткий приветственный текст с
+> ссылкой `t.me/<другой_бот>` и никакой регистрации не происходит.
 
 ---
 

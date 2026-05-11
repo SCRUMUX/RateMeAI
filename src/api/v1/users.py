@@ -422,6 +422,16 @@ async def yandex_oauth_init(
     body: OAuthInitRequest,
     redis: Redis = Depends(get_redis),
 ):
+    # Match Google/VK ID init: fail loudly with 503 when credentials are
+    # missing. Otherwise we build an authorize URL with an empty client_id
+    # and the user lands on a Yandex error page that looks like our bug
+    # ("Неизвестный клиент"). 503 lets the SPA show "OAuth not configured"
+    # instead of silently spinning.
+    if not settings.yandex_client_id or not settings.yandex_client_secret:
+        raise HTTPException(
+            status_code=503, detail="Yandex OAuth not configured on this server"
+        )
+
     from src.channels.yandex_auth import build_authorize_url
     from src.services.oauth_state import save_oauth_state
 
