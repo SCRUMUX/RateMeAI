@@ -308,6 +308,11 @@ class AnalysisPipeline:
             except Exception:  # pragma: no cover — defensive
                 scenario_slug_value = None
 
+            # v1.59.6: pipe through the caller-identity tag so the
+            # A/B provider can disable silent A→B fallback for bot
+            # traffic (см. UnifiedImageGenProvider.generate).
+            caller_source = str((context or {}).get("source") or "").strip().lower()
+
             with _trace_step(trace, "generate_image"):
                 await self._executor.single_pass(
                     mode,
@@ -326,6 +331,7 @@ class AnalysisPipeline:
                     user_input_hints=user_hints,
                     seed=seed,
                     scenario_slug=scenario_slug_value,
+                    caller_source=caller_source,
                 )
 
             if result_dict.get("generated_image_url") and mode in (

@@ -5230,4 +5230,37 @@
 #          Test (``web/src/sections/Pricing.test.tsx``) flipped from
 #          "merge keeps custom plan" to "ignore plans[] from CMS" so
 #          regressions can't sneak the merge back in.
-APP_VERSION = "1.59.5"
+# 1.59.6 — Bot-only fallback guard for the A/B image-gen path.
+#          User-visible bug: a Telegram generation on 2026-05-10
+#          ~19:24 UTC came back through Nano Banana 2 instead of GPT
+#          Image 2 and had drifted identity. Root cause: the
+#          ``UnifiedImageGenProvider`` symmetric A↔B fallback (added
+#          in 1.24.2) treated bot traffic the same as the web SPA, so
+#          any transient GPT-2 failure (FAL queue timeout, OpenAI
+#          5xx, OpenAI content-policy hit on the face) silently
+#          re-ran the request on NB2 — with a prompt built for GPT-2,
+#          ``thinking_level=fast`` (bot defaults to ``quality=low``)
+#          and no face-preserve post-chain. The bot is contractually
+#          "always GPT" (Telegram has no Premium picker), so the
+#          fallback was never supposed to apply to it.
+#          Fix: thread a ``source`` tag through the request chain —
+#          bot → /analyze (Form field) → task ctx → edge→primary
+#          payload → /internal/process-analysis → task ctx →
+#          pipeline → executor → provider.params. The bot tags every
+#          request with ``source="telegram_bot"``; the unified
+#          provider refuses the A→B fallback when it sees that tag
+#          and lets the original exception propagate so the bot
+#          shows a generic "try again" message instead of returning
+#          a mis-routed image. Web clients (no tag) keep the legacy
+#          A→B and B→A backstops. The B→A direction is intentionally
+#          NOT gated by the tag — falling forward to GPT-2 is always
+#          safe for the bot contract.
+#          New Prometheus signal:
+#          ``style_mode_override_total{reason="fallback_skipped_telegram_bot"}``
+#          increments every time the guard fires.
+#          Regression tests in ``tests/test_providers/test_unified_provider.py``
+#          (4 new cases) lock the four corners: bot+GPT failure
+#          raises; routed_backend stays on gpt_image_2; web caller
+#          still gets A→B fallback; bot+NB2 (hypothetical future) still
+#          falls back to GPT-2.
+APP_VERSION = "1.59.6"

@@ -702,10 +702,20 @@ async def _submit_analysis(
         # silently route bot traffic away from GPT with no source-control
         # trace. The web client retains the Premium toggle and remains
         # the only path that can opt into Nano Banana 2.
+        #
+        # v1.59.6: also tag ``source="telegram_bot"`` so that the
+        # ``UnifiedImageGenProvider`` catch-fallback (A↔B on provider
+        # error) NEVER drifts bot traffic onto Nano Banana 2. Without
+        # this tag, a transient GPT Image 2 failure (FAL queue timeout,
+        # OpenAI 5xx, OpenAI content-policy on the face) would silently
+        # downgrade the response to NB2 and the user got identity-drift
+        # they did not ask for. The web client does not set this flag
+        # so its B-on-A-error backstop continues to work.
         form_data = {
             "mode": mode,
             "enhancement_level": str(enh_level),
             "image_model": "gpt_image_2",
+            "source": "telegram_bot",
         }
         if style:
             form_data["style"] = style

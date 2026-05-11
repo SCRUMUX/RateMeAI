@@ -124,6 +124,11 @@ class RemoteAnalysisRequest(BaseModel):
     # без нормализации — валидацию делает PromptEngine/VariationEngine.
     framing: str = ""
     input_hints: dict[str, Any] = Field(default_factory=dict)
+    # v1.59.6: caller-identity tag forwarded by edge. Used by the A/B
+    # provider to disable the silent A→B fallback for bot traffic.
+    # Whitelist is currently {"telegram_bot"}; any other value is
+    # treated the same as empty (web-client default).
+    source: str = ""
 
 
 class RemoteAnalysisResponse(BaseModel):
@@ -227,6 +232,12 @@ async def process_analysis_remote(
         ctx["framing"] = request.framing.strip()
     if isinstance(request.input_hints, dict) and request.input_hints:
         ctx["input_hints"] = dict(request.input_hints)
+
+    # v1.59.6: persist whitelisted ``source`` tag (currently only the
+    # Telegram bot) — the executor / UnifiedImageGenProvider read it
+    # to refuse the silent A→B fallback for bot traffic.
+    if (request.source or "").strip().lower() == "telegram_bot":
+        ctx["source"] = "telegram_bot"
 
     ctx = build_task_context(
         ctx,

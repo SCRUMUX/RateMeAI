@@ -104,6 +104,23 @@ class UnifiedImageGenProvider(ImageGenProvider):
         # choice is honoured, we must also support B→A so the caller
         # who explicitly picked Nano Banana still gets a GPT-2 retry
         # on transient errors.
+        #
+        # v1.59.6: trusted callers (currently only the Telegram bot,
+        # identified via ``params["source"] == "telegram_bot"``) opt out
+        # of the A→B fallback. The bot is contractually "always GPT" —
+        # NB2 is reserved for explicit Premium-toggle clicks in the web
+        # SPA. Allowing the fallback meant any transient GPT-2 error
+        # (FAL timeout, OpenAI 5xx, content policy) silently downgraded
+        # bot responses to NB2 with a prompt built for GPT-2; identity
+        # drift was the user-visible symptom. We let the original
+        # exception propagate so the bot surfaces a generic "не
+        # получилось, попробуй ещё раз" instead of returning a
+        # mis-routed image. B→A backstop stays enabled — premium web
+        # users who pick NB2 still get a GPT-2 retry on transient
+        # errors.
+        caller_source = str((params or {}).get("source", "")).strip().lower()
+        bot_no_fallback = caller_source == "telegram_bot" and provider is self._model_a
+
         try:
             return await provider.generate(
                 prompt=prompt,
@@ -111,6 +128,24 @@ class UnifiedImageGenProvider(ImageGenProvider):
                 params=params,
             )
         except Exception as exc:
+            if bot_no_fallback:
+                logger.warning(
+                    "Model %s failed for source=telegram_bot (%s); "
+                    "fallback to NB2 disabled by design — propagating error",
+                    backend_label,
+                    exc,
+                )
+                try:
+                    from src.metrics import STYLE_MODE_OVERRIDE
+
+                    STYLE_MODE_OVERRIDE.labels(
+                        from_mode=backend_label,
+                        to_mode=backend_label,
+                        reason="fallback_skipped_telegram_bot",
+                    ).inc()
+                except Exception:
+                    pass
+                raise
             if provider is self._model_a:
                 other = self._model_b
                 other_label = "nano_banana_2"

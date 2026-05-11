@@ -73,6 +73,7 @@ class RemoteAIService:
         image_quality: str = "",
         framing: str = "",
         input_hints: dict[str, Any] | None = None,
+        source: str = "",
     ) -> str:
         """Submit an analysis task to the primary backend. Returns remote task ID."""
         payload = {
@@ -109,6 +110,11 @@ class RemoteAIService:
             # на RU переключатель формата кадра ничего не менял.
             "framing": framing or "",
             "input_hints": input_hints or {},
+            # v1.59.6: caller-identity tag (currently only "telegram_bot")
+            # — primary disables the silent A→B image-gen fallback for
+            # tagged requests so bot traffic never drifts onto NB2 on a
+            # GPT Image 2 error. Older primaries ignore unknown fields.
+            "source": source or "",
         }
         try:
             resp = await self._client.post(
@@ -281,6 +287,7 @@ class RemoteAIService:
         image_quality: str = "",
         framing: str = "",
         input_hints: dict[str, Any] | None = None,
+        source: str = "",
         on_poll: Any | None = None,
     ) -> dict[str, Any]:
         """Submit a task and wait for it to complete. Returns full result."""
@@ -304,6 +311,7 @@ class RemoteAIService:
             image_quality=image_quality,
             framing=framing,
             input_hints=input_hints,
+            source=source,
         )
         return await self.poll_result(remote_id, on_poll=on_poll)
 

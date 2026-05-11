@@ -487,6 +487,7 @@ class ImageGenerationExecutor:
         user_input_hints: dict | None = None,
         seed: int | None = None,
         scenario_slug: str | None = None,
+        caller_source: str = "",
     ) -> None:
         if mode not in (
             AnalysisMode.CV,
@@ -740,6 +741,11 @@ class ImageGenerationExecutor:
                 extra["quality"] = ab_image_quality or getattr(
                     settings, "ab_default_quality", "medium"
                 )
+                # v1.59.6: forward the caller-identity tag so the
+                # provider can refuse the silent A→B fallback for
+                # tagged traffic (currently only Telegram bot).
+                if caller_source:
+                    extra["source"] = caller_source
                 # v1.23: derive a Nano Banana 2 aspect_ratio enum from
                 # the resolved StyleSpec output_size. NB2 does NOT
                 # accept a raw ``{width, height}`` — it needs an enum

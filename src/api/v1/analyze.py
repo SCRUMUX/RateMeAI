@@ -79,6 +79,7 @@ async def _handle_edge_analysis(
     image_quality: str = "",
     framing: str = "",
     input_hints: dict | None = None,
+    source: str = "",
 ) -> None:
     """In edge mode: proxy the AI task to the primary Railway backend.
 
@@ -161,6 +162,12 @@ async def _handle_edge_analysis(
                 # ибо `_process_analysis_request` кладёт туда обе вещи.
                 framing=(task_context or {}).get("framing", "") or framing,
                 input_hints=(task_context or {}).get("input_hints") or input_hints or {},
+                # v1.59.6: ``source`` tag (e.g. "telegram_bot") must
+                # survive the edge→primary hop, otherwise primary's
+                # ``UnifiedImageGenProvider`` would happily fall back
+                # to NB2 on a GPT-2 error for bot traffic, defeating
+                # the entire point of this guard.
+                source=(task_context or {}).get("source", "") or source,
                 on_poll=_edge_progress,
             )
 
@@ -357,6 +364,12 @@ async def create_analysis(
     framing: str = Form(""),
     input_hints: str = Form(""),
     seed: str = Form(""),
+    # v1.59.6: ``source`` is an optional caller-identity tag. Currently
+    # only the Telegram bot sets it (to ``"telegram_bot"``) so the A/B
+    # provider can refuse the silent A→B fallback for bot traffic; see
+    # ``UnifiedImageGenProvider.generate``. Unknown / empty values are
+    # treated as web clients (default behaviour, fallback allowed).
+    source: str = Form(""),
     user: User = Depends(check_credits_with_consent),
     db: AsyncSession = Depends(get_db),
     redis: Redis = Depends(get_redis),
@@ -421,6 +434,13 @@ async def create_analysis(
         ctx["credit_pre_reserved"] = True
     if mode in (AnalysisMode.DATING, AnalysisMode.CV, AnalysisMode.SOCIAL):
         ctx["defer_delta_scoring"] = True
+    # v1.59.6: keep ``source`` in the task context so the executor and
+    # the A/B provider can disable the silent NB2 fallback for callers
+    # that explicitly declared themselves (currently only the bot). We
+    # only persist a whitelisted value to prevent log injection / DB
+    # bloat from arbitrary user-controlled strings.
+    if (source or "").strip().lower() == "telegram_bot":
+        ctx["source"] = "telegram_bot"
 
     # v1.22: A/B path is now the default. If the client did not send
     # ``image_model`` (old bot build, edge proxy, curl, etc.) we fall
@@ -536,6 +556,8 @@ async def create_analysis(
                 # и выбор ракурса ничего не меняют на RU-сервере.
                 framing=ctx.get("framing", ""),
                 input_hints=ctx.get("input_hints") or None,
+                # v1.59.6: bot-only fallback guard tag.
+                source=ctx.get("source", ""),
             ),
             name=f"edge-analysis-{task.id}",
         )
