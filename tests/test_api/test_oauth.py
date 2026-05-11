@@ -4,8 +4,30 @@ from __future__ import annotations
 
 from unittest.mock import AsyncMock, patch
 
+import pytest
+
 from src.channels.yandex_auth import YandexUser
 from src.channels.vk_id_auth import VKIDUser
+from src.config import settings
+
+
+@pytest.fixture(autouse=True)
+def _ensure_oauth_creds(monkeypatch):
+    """Provide non-empty OAuth credentials so the 503-guards don't trip.
+
+    Both ``/auth/yandex/init`` and ``/auth/vk-id/init`` raise HTTP 503
+    when their respective ``*_CLIENT_ID``/``SECRET`` settings are empty
+    (production safety: missing creds → user sees "OAuth not
+    configured" instead of a confusing provider error page). Tests
+    don't load the production ``.env``, so the values are blank by
+    default — patch them to dummies that satisfy the guard.
+    """
+    monkeypatch.setattr(settings, "yandex_client_id", "test-yandex-id", raising=False)
+    monkeypatch.setattr(
+        settings, "yandex_client_secret", "test-yandex-secret", raising=False
+    )
+    monkeypatch.setattr(settings, "vk_id_app_id", "test-vk-id", raising=False)
+    monkeypatch.setattr(settings, "vk_id_app_secret", "test-vk-secret", raising=False)
 
 
 # ── Yandex ID ──
