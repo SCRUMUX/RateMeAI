@@ -146,46 +146,18 @@ maybe_dns_cutover() {
     return 0
 }
 
-# ────────────────────────────────────────────────────────────────────
-# Ensure the legacy ru.ailookstudio.ru server-block is installed in
-# the nginx_extra_conf volume. This is the SPA+API block by default;
-# when RU_LEGACY_REDIRECT_ENABLED=1 we install the 301 variant
-# instead. Either way the volume holds exactly one ru-legacy*.conf
-# at a time, so nginx never sees a duplicate :443 + ru.ailookstudio.ru
-# server-block.
-# ────────────────────────────────────────────────────────────────────
-ensure_ru_legacy_block() {
-    local extra_volume="ratemeai_nginx_extra_conf"
-    local templates_dir="$PROJECT_DIR/deploy/ru/nginx-extra-template"
-    local spa_template="$templates_dir/ru-legacy.conf"
-    local redirect_template="$templates_dir/ru-legacy-redirect.conf"
-    local desired
-    local desired_basename
-
-    if [ "${RU_LEGACY_REDIRECT_ENABLED:-0}" = "1" ]; then
-        desired="$redirect_template"
-        desired_basename="ru-legacy-redirect.conf"
-    else
-        desired="$spa_template"
-        desired_basename="ru-legacy.conf"
-    fi
-
-    if [ ! -f "$desired" ]; then
-        echo "  [ru-legacy] template missing ($desired) — skipping"
-        return 0
-    fi
-
-    echo "  [ru-legacy] installing $desired_basename (mode: ${RU_LEGACY_REDIRECT_ENABLED:-spa})"
-    # Remove the alternative file first, then drop in the chosen one.
-    docker run --rm \
-        -v "$extra_volume:/dst" \
-        -v "$desired:/src.conf:ro" \
-        alpine sh -c "
-            rm -f /dst/ru-legacy.conf /dst/ru-legacy-redirect.conf
-            cp /src.conf /dst/$desired_basename
-            chmod 644 /dst/$desired_basename
-        "
-}
+# 1.60-fix: legacy ``ensure_ru_legacy_block`` was removed.  The original
+# design split the :443 ``ru.ailookstudio.ru`` server-block out into
+# ``/etc/nginx/conf.d/extra/ru-legacy.conf`` (named volume), but on the
+# first deploy after the change the volume was empty for the few seconds
+# between ``docker compose up app`` (which restarts the nginx container
+# as a dependency) and ``ensure_ru_legacy_block`` — so nginx started
+# without any :443 listener, and remote ``Connection refused`` on
+# https://ru.ailookstudio.ru/health.  Решение: 443-блок для
+# ``ru.ailookstudio.ru`` снова живёт прямо в ``deploy/ru/nginx.conf``
+# (read-only mount из репо, всегда есть на старте).  ``extra/*.conf``
+# теперь используется только для НОВОГО ``ailookstudio.ru`` TLS-блока,
+# который ставит ``maybe_dns_cutover`` после DNS cut-over'а.
 
 # Note (1.55.4 + cms-cutover follow-up):
 #   * env-var provisioning (INTERNAL_API_KEY, ADMIN_EMAILS, DEPLOYMENT_MODE,
@@ -224,9 +196,11 @@ docker run --rm -v ratemeai_app_storage:/app/storage alpine \
 echo "--- backend build ---"
 docker compose -f "$COMPOSE_FILE" up -d --build app
 
-# ── 2b. Install legacy ru.ailookstudio.ru server-block (SPA or 301)
-echo "--- ru-legacy server-block ---"
-ensure_ru_legacy_block
+# Clean up any leftover ``extra/ru-legacy*.conf`` files from the
+# 1.60.0 short-lived split (see comment above ``maybe_dns_cutover``).
+# Idempotent: ``rm -f`` doesn't fail on a clean volume.
+docker run --rm -v ratemeai_nginx_extra_conf:/dst alpine \
+    sh -c "rm -f /dst/ru-legacy.conf /dst/ru-legacy-redirect.conf" || true
 
 # ── 3. Restart nginx to pick up new config and volume content ───
 echo "--- nginx restart ---"

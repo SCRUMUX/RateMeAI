@@ -230,22 +230,27 @@ Whitelist общий — `ADMIN_EMAILS` GitHub-секрет, который CI �
 
 ### Состояния (см. [docs/VARIANT_B_EXTERNAL_CHECKLIST.md](VARIANT_B_EXTERNAL_CHECKLIST.md))
 
-| Состояние | DNS `ailookstudio.ru` | nginx server-blocks (extra/) |
+| Состояние | DNS `ailookstudio.ru` | nginx config |
 |---|---|---|
-| Phase 1 — pre-cutover | → Vercel (Global SPA) | `ru-legacy.conf` (SPA+API на ru.ailookstudio.ru) |
-| Phase 2 — после DNS cutover'а | → IP VPS | `ru-legacy.conf` + `ailookstudio-tls.conf` |
-| Phase 3 — 301 со старого имени | → IP VPS | `ailookstudio-tls.conf` + `ru-legacy-redirect.conf` |
+| Phase 1 — pre-cutover | → Vercel (Global SPA) | `nginx.conf` (:443 ru.ailookstudio.ru), `extra/` пустой |
+| Phase 2 — после DNS cutover'а | → IP VPS | `nginx.conf` + `extra/ailookstudio-tls.conf` |
+| Phase 3 — 301 со старого имени | → IP VPS | `nginx.conf` с location-блоком 301 для `ru.ailookstudio.ru` |
 
-Переключение фаз делает [deploy/ru/update.sh](../deploy/ru/update.sh):
+Переключение между Phase 1 ↔ Phase 2 авто, между Phase 2 ↔ Phase 3
+— через коммит:
 
-* `maybe_dns_cutover` — авто-выпускает TLS-cert для `ailookstudio.ru`
-  и копирует `ailookstudio-tls.conf` в named volume `nginx_extra_conf`.
-* `ensure_ru_legacy_block` — каждый deploy кладёт либо `ru-legacy.conf`
-  (по умолчанию), либо `ru-legacy-redirect.conf` если в env
-  `RU_LEGACY_REDIRECT_ENABLED=1`.
-
-Это позволяет переключать состояния одной GitHub Variable, без
-ручного редактирования `nginx.conf`.
+* `maybe_dns_cutover` ([deploy/ru/update.sh](../deploy/ru/update.sh))
+  — авто-выпускает TLS-cert для `ailookstudio.ru` и копирует
+  `ailookstudio-tls.conf` в named volume `nginx_extra_conf`
+  (Phase 1 → Phase 2).
+* Phase 2 → Phase 3 (301 с `ru.ailookstudio.ru`): редактирование
+  `deploy/ru/nginx.conf` руками — заменить тело `server { listen 443;
+  server_name ru.ailookstudio.ru; ... }` на
+  `return 301 https://ailookstudio.ru$request_uri;`, плюс коммит.
+  Это редкая операция (раз в жизни проекта), и автоматизация через
+  named volume оказалась хрупкой: на первом deploy'е после переноса
+  объём может быть пустым на 1-2 секунды, и nginx стартует без :443 →
+  remote `Connection refused` до следующего рестарта.
 
 ---
 

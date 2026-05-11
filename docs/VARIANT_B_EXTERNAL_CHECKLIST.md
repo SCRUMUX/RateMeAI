@@ -217,22 +217,32 @@ YooKassa → Возвраты → Допустимые return URLs:
 
 ### C.2 Включить 301 `ru.ailookstudio.ru → ailookstudio.ru`
 
-Никакого ручного редактирования `nginx.conf` не требуется. Server-
-блок для `ru.ailookstudio.ru` живёт в файле
-[deploy/ru/nginx-extra-template/ru-legacy.conf](deploy/ru/nginx-extra-template/ru-legacy.conf),
-а его 301-вариант — в
-[deploy/ru/nginx-extra-template/ru-legacy-redirect.conf](deploy/ru/nginx-extra-template/ru-legacy-redirect.conf).
-Переключение делается одной GitHub Variable:
+Server-блок для `ru.ailookstudio.ru` живёт прямо в
+[deploy/ru/nginx.conf](../deploy/ru/nginx.conf). Чтобы перевести его
+в 301-режим:
 
-1. GitHub → Settings → Secrets and variables → Actions → **Variables**
-   (не Secrets!) → New repository variable.
-2. Name: `RU_LEGACY_REDIRECT_ENABLED`, Value: `1`.
-3. Re-run последнего deploy в Actions, или сделайте любой commit в `main`.
+1. Откройте [deploy/ru/nginx.conf](../deploy/ru/nginx.conf).
+2. Найдите блок `server { listen 443 ssl; ... server_name ru.ailookstudio.ru; ... }`.
+3. Замените всё его содержимое (от первой `ssl_certificate` до закрывающей `}`)
+   на:
 
-После следующего `deploy-ru` функция `ensure_ru_legacy_block` в
-[deploy/ru/update.sh](deploy/ru/update.sh) подменит SPA/API-блок
-на 301-редирект. Откат: удалить variable → следующий deploy
-вернёт SPA/API.
+   ```nginx
+   ssl_certificate     /etc/letsencrypt/live/ru.ailookstudio.ru/fullchain.pem;
+   ssl_certificate_key /etc/letsencrypt/live/ru.ailookstudio.ru/privkey.pem;
+   ssl_protocols TLSv1.2 TLSv1.3;
+   ssl_ciphers HIGH:!aNULL:!MD5;
+
+   return 301 https://ailookstudio.ru$request_uri;
+   ```
+
+4. Commit + push в `main`. CI делает `git pull` на VPS,
+   `update.sh` рестартует nginx → 301 активен.
+
+**Note:** в 1.60.0 была попытка автоматизировать это через named
+volume и GitHub Variable, но nginx стартовал с пустым extra-каталогом
+на 1-2 секунды (`Connection refused` для https://ru.ailookstudio.ru).
+Решение откатили — простой коммит в `nginx.conf` (раз в жизни
+проекта) надёжнее.
 
 Обновите `RU_PUBLIC_BASE_URL` Secret на `https://ailookstudio.ru`,
 если он ещё стоит на старом значении (а также `CMS_FOLLOWER_URLS`

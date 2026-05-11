@@ -5352,4 +5352,20 @@
 #            ``.env.ru`` on the next deploy.
 #          * Edge requests with unknown JSON fields will now fail
 #            with HTTP 422 (previously they were silently dropped).
-APP_VERSION = "1.60.0"
+# 1.60.1 — Hotfix: revert the ``ru-legacy.conf`` split.
+#          The 1.60.0 design moved the :443 ``ru.ailookstudio.ru``
+#          server-block out of ``deploy/ru/nginx.conf`` into a named
+#          volume (``/etc/nginx/conf.d/extra/ru-legacy.conf``), but on
+#          the first deploy the volume was empty for a couple of
+#          seconds → nginx started without any :443 listener, and
+#          https://ru.ailookstudio.ru/health returned ``Connection
+#          refused``. Reverted: the 443 block lives back in
+#          ``deploy/ru/nginx.conf`` (read-only mount, always present
+#          at startup). Phase-3 301-redirect is now a manual one-line
+#          edit instead of a GitHub Variable. ``RU_LEGACY_REDIRECT_ENABLED``
+#          variable and ``ensure_ru_legacy_block`` function removed.
+# 1.60.2 — Test fix: ``tests/test_api/test_oauth.py`` now patches
+#          ``settings.yandex_client_id`` etc. with autouse fixture so
+#          the 503-guard added in 1.60.0 doesn't trip on CI (CI doesn't
+#          load the prod ``.env``, so the values were blank).
+APP_VERSION = "1.60.2"

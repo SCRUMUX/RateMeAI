@@ -491,18 +491,19 @@ jobs:
           VK_ID_APP_ID: ${{ secrets.VK_ID_APP_ID }}
           VK_ID_APP_SECRET: ${{ secrets.VK_ID_APP_SECRET }}
           VK_SERVICE_TOKEN: ${{ secrets.VK_SERVICE_TOKEN }}
-          # Two-region rollout: when set to "1", update.sh swaps the
-          # legacy ru.ailookstudio.ru SPA/API server-block for a 301
-          # redirect to ailookstudio.ru. Leave unset (default) until
-          # both domains coexist successfully for at least 7 days.
-          RU_LEGACY_REDIRECT_ENABLED: ${{ vars.RU_LEGACY_REDIRECT_ENABLED || '' }}
+          # 1.60.1: RU_LEGACY_REDIRECT_ENABLED was removed after the
+          # split-server-block approach failed (named volume empty on
+          # cold start → nginx had no :443 listener for a few seconds,
+          # remote ``Connection refused``). 301 ru.ailookstudio.ru →
+          # ailookstudio.ru теперь делается ручным коммитом в
+          # deploy/ru/nginx.conf на Фазе 3 rollout'а.
         with:
           host: ${{ secrets.RU_SSH_HOST }}
           username: ${{ secrets.RU_SSH_USER }}
           key: ${{ secrets.RU_SSH_KEY }}
           port: 22
           command_timeout: 10m
-          envs: DEPLOY_GIT_SHA,INTERNAL_API_KEY,GLOBAL_API_BASE_URL,RU_PUBLIC_BASE_URL,CMS_REPLICATION_SECRET,ADMIN_EMAILS,GOOGLE_CLIENT_ID,GOOGLE_CLIENT_SECRET,YANDEX_CLIENT_ID,YANDEX_CLIENT_SECRET,VK_ID_APP_ID,VK_ID_APP_SECRET,VK_SERVICE_TOKEN,RU_LEGACY_REDIRECT_ENABLED
+          envs: DEPLOY_GIT_SHA,INTERNAL_API_KEY,GLOBAL_API_BASE_URL,RU_PUBLIC_BASE_URL,CMS_REPLICATION_SECRET,ADMIN_EMAILS,GOOGLE_CLIENT_ID,GOOGLE_CLIENT_SECRET,YANDEX_CLIENT_ID,YANDEX_CLIENT_SECRET,VK_ID_APP_ID,VK_ID_APP_SECRET,VK_SERVICE_TOKEN
           script: |
             export DEPLOY_GIT_SHA="${DEPLOY_GIT_SHA:0:12}"
             ENV_FILE="/opt/ratemeai/.env.ru"
