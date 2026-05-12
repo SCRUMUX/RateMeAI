@@ -27,15 +27,14 @@ function normalizeMarketId(raw: string | null | undefined): string | null {
 function detectMarketFromHostname(): string {
   if (typeof window === 'undefined') return 'global';
   const host = window.location.hostname.toLowerCase();
-  // Variant B (CMS hub on Railway):
+  // Variant B (CMS hub on Railway), as of 1.61.0:
   //   * ``ailookstudio.ru`` and ``www.ailookstudio.ru`` → RU SPA on the
   //     edge VPS.
-  //   * ``ru.ailookstudio.ru`` → legacy RU host (kept during the 301
-  //     bake-in window).
   //   * Anything else (``ailookstudio.vercel.app`` and Vercel preview
   //     subdomains) → global SPA on Railway.
+  // ``ru.ailookstudio.ru`` removed end-to-end in 1.61.0 — no DNS, no
+  // cert, no nginx server-block; the ``ru.`` fallback branch is gone.
   if (host === 'ailookstudio.ru' || host === 'www.ailookstudio.ru') return 'ru';
-  if (host.startsWith('ru.')) return 'ru';
   return 'global';
 }
 

@@ -491,19 +491,25 @@ jobs:
           VK_ID_APP_ID: ${{ secrets.VK_ID_APP_ID }}
           VK_ID_APP_SECRET: ${{ secrets.VK_ID_APP_SECRET }}
           VK_SERVICE_TOKEN: ${{ secrets.VK_SERVICE_TOKEN }}
-          # 1.60.1: RU_LEGACY_REDIRECT_ENABLED was removed after the
-          # split-server-block approach failed (named volume empty on
-          # cold start → nginx had no :443 listener for a few seconds,
-          # remote ``Connection refused``). 301 ru.ailookstudio.ru →
-          # ailookstudio.ru теперь делается ручным коммитом в
-          # deploy/ru/nginx.conf на Фазе 3 rollout'а.
+          # 1.61.0: ru.ailookstudio.ru fully removed (DNS gone, cert
+          # lineage deleted by deploy/ru/bootstrap-certs.sh, nginx.conf
+          # no longer references it). All RU traffic flows through
+          # https://ailookstudio.ru.  Cert issuance is out-of-band via
+          # the ``Bootstrap RU edge cert`` workflow.  update.sh is now
+          # pure rebuild + restart — no DNS branching at runtime.
+          # RU Telegram bot @RateMeAI_bot token (separate from the
+          # Railway-side @AI_Look_Studio_bot).  Optional: when the
+          # GitHub secret is unset, the existing value already in
+          # .env.ru (set manually on the VPS) keeps working — same
+          # contract as the OAuth creds above.
+          RU_TELEGRAM_BOT_TOKEN: ${{ secrets.RU_TELEGRAM_BOT_TOKEN }}
         with:
           host: ${{ secrets.RU_SSH_HOST }}
           username: ${{ secrets.RU_SSH_USER }}
           key: ${{ secrets.RU_SSH_KEY }}
           port: 22
           command_timeout: 10m
-          envs: DEPLOY_GIT_SHA,INTERNAL_API_KEY,GLOBAL_API_BASE_URL,RU_PUBLIC_BASE_URL,CMS_REPLICATION_SECRET,ADMIN_EMAILS,GOOGLE_CLIENT_ID,GOOGLE_CLIENT_SECRET,YANDEX_CLIENT_ID,YANDEX_CLIENT_SECRET,VK_ID_APP_ID,VK_ID_APP_SECRET,VK_SERVICE_TOKEN
+          envs: DEPLOY_GIT_SHA,INTERNAL_API_KEY,GLOBAL_API_BASE_URL,RU_PUBLIC_BASE_URL,CMS_REPLICATION_SECRET,ADMIN_EMAILS,GOOGLE_CLIENT_ID,GOOGLE_CLIENT_SECRET,YANDEX_CLIENT_ID,YANDEX_CLIENT_SECRET,VK_ID_APP_ID,VK_ID_APP_SECRET,VK_SERVICE_TOKEN,RU_TELEGRAM_BOT_TOKEN
           script: |
             export DEPLOY_GIT_SHA="${DEPLOY_GIT_SHA:0:12}"
             ENV_FILE="/opt/ratemeai/.env.ru"
@@ -613,6 +619,22 @@ jobs:
               sync_env VK_SERVICE_TOKEN "$VK_SERVICE_TOKEN"
               echo "VK_SERVICE_TOKEN synced to .env.ru"
             fi
+            # 1.61.0 — RU Telegram bot @RateMeAI_bot now runs as a docker
+            # service in polling mode on the VPS.  TELEGRAM_BOT_TOKEN
+            # must point at the RU bot's token (NOT the Railway-side
+            # @AI_Look_Studio_bot token).  We use a dedicated GitHub
+            # secret ``RU_TELEGRAM_BOT_TOKEN`` so the two regions can
+            # never collide.  If the secret is unset we leave the
+            # existing .env.ru value alone (operator-managed).
+            if [ -n "$RU_TELEGRAM_BOT_TOKEN" ]; then
+              sync_env TELEGRAM_BOT_TOKEN "$RU_TELEGRAM_BOT_TOKEN"
+              echo "TELEGRAM_BOT_TOKEN synced to .env.ru (RU bot)"
+            fi
+            # Polling mode invariant: BOT_WEBHOOK_URL must NOT be set
+            # for the RU bot — src/bot/app.py reads it as the switch
+            # between webhook (Railway) and polling (RU VPS).  Strip
+            # any stale line, never write one here.
+            sed -i '/^BOT_WEBHOOK_URL=/d' "$ENV_FILE" 2>/dev/null || true
             # 1.55.4 — ADMIN_EMAILS provisioning is now CI-driven and
             # runs OUTSIDE update.sh. Why: in 1.55.2/1.55.3 the helper
             # lived inside update.sh, but bash holds the running
@@ -643,6 +665,7 @@ jobs:
         if: env.SKIP_RU != 'true'
         env:
           RU_PUBLIC_BASE_URL: ${{ secrets.RU_PUBLIC_BASE_URL }}
+          RU_SSH_HOST: ${{ secrets.RU_SSH_HOST }}
         run: |
           set -e
           DOMAIN="$RU_PUBLIC_BASE_URL"
@@ -653,9 +676,23 @@ jobs:
           SHORT_SHA="${GITHUB_SHA:0:12}"
           FAIL=0
 
+          # ``--resolve`` pin so we never hit a stale GitHub runner DNS
+          # cache (this bit us in 1.60 — the runner kept resolving
+          # ailookstudio.ru to an old Vercel edge IP for hours after the
+          # cut-over).  RU_SSH_HOST is the VPS public IP we deploy to,
+          # which by definition is the right A-record for the domain.
+          HOST_NO_SCHEME=$(echo "$DOMAIN" | sed -E 's|^https?://||; s|/.*$||')
+          if [ -n "$RU_SSH_HOST" ] && [ -n "$HOST_NO_SCHEME" ]; then
+            RESOLVE_FLAG="--resolve ${HOST_NO_SCHEME}:443:${RU_SSH_HOST} --resolve ${HOST_NO_SCHEME}:80:${RU_SSH_HOST}"
+            echo "Smoke pins: ${RESOLVE_FLAG}"
+          else
+            RESOLVE_FLAG=""
+            echo "::warning::No --resolve pin (RU_SSH_HOST or DOMAIN missing); relying on runner DNS"
+          fi
+
           echo "=== Smoke test 1: /health with git SHA ==="
           sleep 20
-          HEALTH=$(curl -sf "$DOMAIN/health" || echo "FAIL")
+          HEALTH=$(curl -sf $RESOLVE_FLAG "$DOMAIN/health" || echo "FAIL")
           echo "  $HEALTH"
           if ! echo "$HEALTH" | grep -q '"ok"'; then
             echo "::error::Health check failed"
@@ -666,14 +703,14 @@ jobs:
           fi
 
           echo "=== Smoke test 2: /version.json (frontend build) ==="
-          VER=$(curl -sf "$DOMAIN/version.json" || echo "FAIL")
+          VER=$(curl -sf $RESOLVE_FLAG "$DOMAIN/version.json" || echo "FAIL")
           echo "  $VER"
           if [ "$VER" = "FAIL" ]; then
             echo "::warning::version.json not available"
           fi
 
           echo "=== Smoke test 3: catalog API (no auth) ==="
-          HTTP_CODE=$(curl -sf -o /dev/null -w "%{http_code}" "$DOMAIN/api/v1/catalog/styles?mode=dating")
+          HTTP_CODE=$(curl -sf $RESOLVE_FLAG -o /dev/null -w "%{http_code}" "$DOMAIN/api/v1/catalog/styles?mode=dating")
           echo "  HTTP $HTTP_CODE"
           if [ "$HTTP_CODE" != "200" ]; then
             echo "::error::Catalog API returned $HTTP_CODE"
@@ -681,13 +718,13 @@ jobs:
           fi
 
           echo "=== Smoke test 4: auth + DB-dependent endpoint ==="
-          AUTH_RESP=$(curl -sf -X POST "$DOMAIN/api/v1/auth/web" \
+          AUTH_RESP=$(curl -sf $RESOLVE_FLAG -X POST "$DOMAIN/api/v1/auth/web" \
             -H "Content-Type: application/json" \
             -d '{"device_id":"ci-smoke-test"}' || echo "FAIL")
           echo "  auth: ${AUTH_RESP:0:80}..."
           if echo "$AUTH_RESP" | grep -q "session_token"; then
             TOKEN=$(echo "$AUTH_RESP" | python3 -c "import sys,json; print(json.load(sys.stdin)['session_token'])")
-            TASKS_CODE=$(curl -sf -o /dev/null -w "%{http_code}" \
+            TASKS_CODE=$(curl -sf $RESOLVE_FLAG -o /dev/null -w "%{http_code}" \
               "$DOMAIN/api/v1/tasks?limit=1" \
               -H "Authorization: Bearer $TOKEN")
             echo "  tasks: HTTP $TASKS_CODE"
@@ -701,7 +738,7 @@ jobs:
           fi
 
           echo "=== Smoke test 5: edge→primary internal API connectivity ==="
-          READINESS=$(curl -sf "$DOMAIN/readiness" || echo "FAIL")
+          READINESS=$(curl -sf $RESOLVE_FLAG "$DOMAIN/readiness" || echo "FAIL")
           echo "  $READINESS"
           if echo "$READINESS" | grep -qE '"primary_reachable"\s*:\s*true'; then
             echo "  Edge→primary connectivity OK"

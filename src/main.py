@@ -399,14 +399,14 @@ if settings.is_production:
     #   * ``ailookstudio.vercel.app`` — global SPA on Vercel (talks to Railway API).
     #   * ``ailookstudio.ru`` / ``www.ailookstudio.ru`` — RU SPA hosted on
     #     the RU edge VPS behind nginx (talks to local FastAPI).
-    #   * ``ru.ailookstudio.ru`` — legacy RU host, kept whitelisted while
-    #     the 301 redirect bake-in window runs (~2 weeks). Drop after the
-    #     redirect lands and analytics confirm no live traffic.
+    # 1.61.0: ``ru.ailookstudio.ru`` removed from the whitelist — the
+    # subdomain is gone end-to-end (no DNS A-record, no cert, no nginx
+    # server-block), so anything still pointed at it can never reach
+    # this CORS layer in the first place.
     _origins = [
         "https://ailookstudio.ru",
         "https://www.ailookstudio.ru",
         "https://ailookstudio.vercel.app",
-        "https://ru.ailookstudio.ru",
     ]
     if settings.cors_extra_origins:
         _origins.extend(

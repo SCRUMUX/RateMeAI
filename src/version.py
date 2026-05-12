@@ -5403,4 +5403,31 @@
 #          loaded ``server_name``/``listen 443`` lines so we can
 #          see in CI logs exactly which server-blocks nginx ended
 #          up with.
-APP_VERSION = "1.60.5"
+# 1.61.0 — RU edge architectural cleanup (one commit, no patches):
+#          single cert + single :443 server-block in the repo, with
+#          server_name ailookstudio.ru www.ailookstudio.ru and an
+#          explicit www→apex 301 redirect. ru.ailookstudio.ru is
+#          gone end-to-end: no DNS record, no nginx server-block,
+#          no cert lineage (deleted by bootstrap-certs.sh), no
+#          mentions in CI or docs. The "lazy include" of TLS via
+#          a named volume populated at runtime — root cause of
+#          every 1.60.x regression — is removed: deploy/ru/nginx.conf
+#          now declares ssl_certificate paths directly and lives
+#          read-only in the repo, mounted as `:ro` into the nginx
+#          container. update.sh becomes ~180 lines shorter: no
+#          maybe_dns_cutover, no certbot calls, no SAN checks, no
+#          DNS resolution branching — just rebuild → restart → health.
+#          Cert issuance moves out-of-band to deploy/ru/bootstrap-certs.sh,
+#          triggered by the new ``Bootstrap RU edge cert`` workflow.
+#          The RU Telegram bot @RateMeAI_bot finally runs: added a
+#          dedicated docker service in polling mode (no public ports,
+#          BOT_WEBHOOK_URL deliberately unset), so the bot that already
+#          had a token in .env.ru actually has a process to back it.
+#          CI: new optional ``RU_TELEGRAM_BOT_TOKEN`` secret syncs the
+#          RU bot's token to .env.ru without colliding with the
+#          Railway-side @AI_Look_Studio_bot; ``BOT_WEBHOOK_URL=``
+#          stripped from .env.ru every deploy to enforce polling
+#          invariant. Smoke tests now ``curl --resolve``-pin the
+#          domain to the VPS public IP so a stale GitHub-runner DNS
+#          cache (the 1.60 footgun) can't mask a real outage.
+APP_VERSION = "1.61.0"

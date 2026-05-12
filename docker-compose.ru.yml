@@ -89,6 +89,46 @@ services:
     profiles:
       - build-only
 
+  # RU Telegram bot (@RateMeAI_bot) — polling mode.
+  # Why a separate service (not part of `app`): aiogram's long-polling
+  # loop blocks the event loop, so it must run in its own process. No
+  # public port exposed — talks outbound to api.telegram.org and inbound
+  # to the local `app` for auth/payments/tasks.
+  # Why polling (not webhook): the RU VPS already terminates TLS for
+  # public traffic and we don't want a second route surface for
+  # Telegram callbacks. BOT_WEBHOOK_URL is deliberately NOT set in
+  # .env.ru, which makes src/bot/app.py pick polling automatically.
+  bot:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    user: "root"
+    command: ["python", "-m", "src.bot.app"]
+    env_file:
+      - .env.ru
+    environment:
+      DEPLOYMENT_MODE: edge
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-ratemeai}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-ratemeai}
+      REDIS_URL: redis://redis:6379/0
+      STORAGE_LOCAL_PATH: /app/storage
+      APP_ENV: prod
+      DEPLOY_GIT_SHA: ${DEPLOY_GIT_SHA:-}
+      MARKET_ID: ru
+      SERVICE_ROLE: bot
+      COMPUTE_MODE: remote
+      CMS_ROLE: follower
+      # NB: BOT_WEBHOOK_URL intentionally unset → src/bot/app.py runs polling.
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      app:
+        condition: service_healthy
+    volumes:
+      - app_storage:/app/storage
+
   nginx:
     image: nginx:alpine
     restart: unless-stopped
@@ -100,12 +140,6 @@ services:
       - web_dist:/usr/share/nginx/html:ro
       - /etc/letsencrypt:/etc/letsencrypt:ro
       - certbot_www:/var/www/certbot:ro
-      # Variant B Phase-2 cut-over: update.sh drops the TLS server-block
-      # for ailookstudio.ru into this volume after certbot succeeds.
-      # nginx.conf has `include /etc/nginx/conf.d/extra/*.conf;` at the
-      # tail — empty volume = no-op, populated volume = HTTPS for the
-      # new domain.
-      - nginx_extra_conf:/etc/nginx/conf.d/extra:ro
     depends_on:
       app:
         condition: service_healthy
@@ -128,5 +162,3 @@ volumes:
     name: ratemeai_web_dist
   certbot_www:
     name: ratemeai_certbot_www
-  nginx_extra_conf:
-    name: ratemeai_nginx_extra_conf
