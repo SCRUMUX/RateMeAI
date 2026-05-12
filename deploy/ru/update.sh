@@ -168,31 +168,36 @@ maybe_dns_cutover() {
     fi
 
     # 4. Drop the TLS server-block into the named volume nginx mounts
-    # at /etc/nginx/conf.d/extra/. nginx.conf has a glob include that
-    # picks it up on next reload.
+    # at /etc/nginx/conf.d/extra/.  Why a full container restart instead
+    # of ``nginx -s reload``: empirically the ``include extra/*.conf;``
+    # glob isn't always picked up by SIGHUP when a file is dropped into
+    # a named volume from a sibling container (file appears in the
+    # volume but the running nginx master keeps its cached config tree).
+    # A container restart re-reads the include from scratch and is the
+    # only path we've seen reliably honour the new server-block.
     echo "  [cut-over] installing TLS include into $extra_volume …"
-    docker run --rm \
-        -v "$extra_volume:/dst" \
-        -v "$template:/src.conf:ro" \
-        alpine sh -c "cp /src.conf /dst/ailookstudio-tls.conf && chmod 644 /dst/ailookstudio-tls.conf"
+    if ! docker run --rm \
+            -v "$extra_volume:/dst" \
+            -v "$template:/src.conf:ro" \
+            alpine sh -c "cp /src.conf /dst/ailookstudio-tls.conf && chmod 644 /dst/ailookstudio-tls.conf && ls -la /dst/"; then
+        echo "  [cut-over] ERROR: failed to copy TLS template into named volume — aborting cut-over"
+        return 1
+    fi
 
-    # 5. Validate and reload nginx. If validation fails we DO NOT pull
-    # the include back — better to surface the error loudly via
-    # subsequent CI runs than to silently stay un-cut-over.
+    # 5. Validate and restart nginx so the new include is honoured.
     if ! docker compose -f "$COMPOSE_FILE" exec -T nginx nginx -t; then
         echo "  [cut-over] ERROR: nginx -t failed — manual intervention required"
         return 1
     fi
-    if [ "$need_issue" = "1" ]; then
-        # When the cert was just (re-)issued, do a full container
-        # restart so we don't accidentally keep stale file handles
-        # to the previous cert.pem (named volumes + nginx master
-        # process can hold the inode after a reload).
-        echo "  [cut-over] cert was (re-)issued — restarting nginx for clean fd state"
-        docker compose -f "$COMPOSE_FILE" restart nginx
-    else
-        docker compose -f "$COMPOSE_FILE" exec -T nginx nginx -s reload
-    fi
+    echo "  [cut-over] restarting nginx to pick up extra/ailookstudio-tls.conf …"
+    docker compose -f "$COMPOSE_FILE" restart nginx
+
+    # 5b. Diagnostic: list extra dir and the server_name lines nginx
+    # actually loaded.  Helps spot the next time the include doesn't
+    # apply (silently mounted empty, wrong file mode, etc.).
+    echo "  [cut-over] post-restart nginx state:"
+    docker compose -f "$COMPOSE_FILE" exec -T nginx ls -la /etc/nginx/conf.d/extra/ 2>&1 | sed 's/^/    /' || true
+    docker compose -f "$COMPOSE_FILE" exec -T nginx sh -c "nginx -T 2>/dev/null | grep -E 'server_name|listen 443' | sort -u" 2>&1 | sed 's/^/    /' || true
 
     # 6. Public smoke test on the new domain.  We probe the cert
     # by name (no -k) AND via --resolve to our own public IP so the

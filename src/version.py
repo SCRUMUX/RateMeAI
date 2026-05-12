@@ -5389,4 +5389,18 @@
 #          Smoke test now uses ``curl --resolve`` to the VPS public
 #          IP and refuses ``-k``, so a CN/SAN mismatch surfaces as a
 #          loud WARN instead of a green "200" via insecure curl.
-APP_VERSION = "1.60.4"
+# 1.60.5 — RU edge cert hardening, follow-up: 1.60.4 SAN-check
+#          reported ``cert already covers ailookstudio.ru`` (so the
+#          right cert *is* present on the VPS), but live probes
+#          still showed ``CN=ru.ailookstudio.ru`` for SNI
+#          ``ailookstudio.ru``.  Root cause: ``nginx -s reload``
+#          doesn't always re-evaluate the ``include extra/*.conf;``
+#          glob when a file is dropped into the volume from a
+#          sibling container — the running master keeps its cached
+#          config tree.  Fix: ALWAYS ``docker compose restart nginx``
+#          after copying the TLS template into the named volume,
+#          and dump ``ls -la /etc/nginx/conf.d/extra/`` plus the
+#          loaded ``server_name``/``listen 443`` lines so we can
+#          see in CI logs exactly which server-blocks nginx ended
+#          up with.
+APP_VERSION = "1.60.5"
