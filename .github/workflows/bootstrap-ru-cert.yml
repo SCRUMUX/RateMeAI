@@ -1,0 +1,73 @@
+name: Bootstrap RU edge cert
+
+# One-shot helper that SSH-es into the RU VPS and runs
+# ``deploy/ru/bootstrap-certs.sh`` to (re-)issue the Let's Encrypt cert
+# for ailookstudio.ru + www.ailookstudio.ru and drop the legacy
+# ru.ailookstudio.ru lineage.
+#
+# Why a separate workflow:
+#   * The main deploy (``ci.yml`` → deploy-ru) wants nginx.conf to
+#     point at /etc/letsencrypt/live/ailookstudio.ru/.  If we just
+#     bake a "issue cert" step inside update.sh, nginx will start
+#     before the cert exists and crash-loop on the very first deploy
+#     of v1.61.  This workflow fixes that by issuing the cert OUT OF
+#     BAND, then the routine deploy can come in cleanly.
+#   * Idempotent — running it twice is a no-op when the cert is
+#     already in place.
+#
+# Triggered manually:
+#     gh workflow run bootstrap-ru-cert.yml
+# or from the Actions tab → ``Bootstrap RU edge cert`` → Run workflow.
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: 'Git ref to checkout on the VPS (default: main)'
+        required: false
+        default: 'main'
+
+jobs:
+  bootstrap:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate RU secrets
+        env:
+          RU_SSH_HOST: ${{ secrets.RU_SSH_HOST }}
+          RU_SSH_KEY: ${{ secrets.RU_SSH_KEY }}
+          RU_SSH_USER: ${{ secrets.RU_SSH_USER }}
+        run: |
+          if [ -z "$RU_SSH_HOST" ] || [ -z "$RU_SSH_KEY" ] || [ -z "$RU_SSH_USER" ]; then
+            echo "::error::RU_SSH_HOST / RU_SSH_KEY / RU_SSH_USER must be set"
+            exit 1
+          fi
+
+      - name: SSH and run bootstrap-certs.sh
+        uses: appleboy/ssh-action@v1
+        env:
+          REF: ${{ inputs.ref }}
+        with:
+          host: ${{ secrets.RU_SSH_HOST }}
+          username: ${{ secrets.RU_SSH_USER }}
+          key: ${{ secrets.RU_SSH_KEY }}
+          port: 22
+          command_timeout: 5m
+          envs: REF
+          script: |
+            set -e
+            cd /opt/ratemeai
+            git fetch --all --prune
+            git checkout "$REF"
+            git pull origin "$REF"
+            chmod +x deploy/ru/bootstrap-certs.sh
+            sudo PROJECT_DIR=/opt/ratemeai ./deploy/ru/bootstrap-certs.sh
+
+      - name: Summary
+        if: always()
+        run: |
+          echo "## Bootstrap RU edge cert" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Ref deployed: \`${{ inputs.ref }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "If green: \`/etc/letsencrypt/live/ailookstudio.ru/\` now covers ailookstudio.ru + www.ailookstudio.ru." >> $GITHUB_STEP_SUMMARY
+          echo "Next: push the 1.61.x main commit to trigger the routine deploy." >> $GITHUB_STEP_SUMMARY
