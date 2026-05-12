@@ -1,0 +1,62 @@
+name: RU edge diagnostic
+
+# Read-only one-shot helper that SSH-es into the RU VPS and prints
+# ``docker compose ps`` plus the last lines of selected service logs.
+#
+# Triggered manually (workflow_dispatch).  Useful for poking at the
+# bot / app / nginx state after a deploy without re-running an
+# expensive update.sh.
+
+on:
+  workflow_dispatch:
+    inputs:
+      tail_lines:
+        description: 'How many tail lines to print per service'
+        required: false
+        default: '40'
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate RU secrets
+        env:
+          RU_SSH_HOST: ${{ secrets.RU_SSH_HOST }}
+          RU_SSH_KEY: ${{ secrets.RU_SSH_KEY }}
+          RU_SSH_USER: ${{ secrets.RU_SSH_USER }}
+        run: |
+          if [ -z "$RU_SSH_HOST" ] || [ -z "$RU_SSH_KEY" ] || [ -z "$RU_SSH_USER" ]; then
+            echo "::error::RU_SSH_HOST / RU_SSH_KEY / RU_SSH_USER must be set"
+            exit 1
+          fi
+
+      - name: SSH and dump compose state
+        uses: appleboy/ssh-action@v1
+        env:
+          TAIL_LINES: ${{ inputs.tail_lines }}
+        with:
+          host: ${{ secrets.RU_SSH_HOST }}
+          username: ${{ secrets.RU_SSH_USER }}
+          key: ${{ secrets.RU_SSH_KEY }}
+          port: 22
+          command_timeout: 2m
+          envs: TAIL_LINES
+          script: |
+            cd /opt/ratemeai
+            echo "===== docker compose ps ====="
+            docker compose -f docker-compose.ru.yml ps
+            echo ""
+            echo "===== bot logs (tail $TAIL_LINES) ====="
+            docker compose -f docker-compose.ru.yml logs --tail="$TAIL_LINES" bot 2>&1 || echo "(bot service not found)"
+            echo ""
+            echo "===== app logs (tail $TAIL_LINES) ====="
+            docker compose -f docker-compose.ru.yml logs --tail="$TAIL_LINES" app 2>&1 || true
+            echo ""
+            echo "===== nginx logs (tail 20) ====="
+            docker compose -f docker-compose.ru.yml logs --tail=20 nginx 2>&1 || true
+            echo ""
+            echo "===== /etc/letsencrypt/live ====="
+            sudo ls -la /etc/letsencrypt/live/ 2>&1 || true
+            echo ""
+            echo "===== nginx running config (server_name / listen) ====="
+            docker compose -f docker-compose.ru.yml exec -T nginx sh -c "nginx -T 2>/dev/null | grep -E 'server_name|listen [0-9]'" 2>&1 || true
