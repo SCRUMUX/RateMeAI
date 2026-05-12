@@ -73,6 +73,22 @@ maybe_dns_cutover() {
     resolve_a() {
         local name="$1"
         if command -v dig >/dev/null 2>&1; then
+            # 1.60.3: запрашиваем напрямую у публичных резолверов
+            # (8.8.8.8, 1.1.1.1) в обход системного резолвера VPS,
+            # потому что у Selectel / некоторых VPS systemd-resolved
+            # держит длинный кэш для apex-доменов и видит старый
+            # Vercel-edge IP даже после смены A-записи на 60-сек TTL.
+            local ip
+            for resolver in 8.8.8.8 1.1.1.1; do
+                ip=$(dig "@${resolver}" +short +time=3 +tries=2 "$name" A 2>/dev/null \
+                    | grep -E '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$' \
+                    | tail -1)
+                if [ -n "$ip" ]; then
+                    echo "$ip"
+                    return 0
+                fi
+            done
+            # Fallback: системный резолвер, если оба публичных недоступны
             dig +short +time=3 +tries=2 "$name" A 2>/dev/null \
                 | grep -E '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$' \
                 | tail -1
