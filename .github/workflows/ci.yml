@@ -537,6 +537,12 @@ jobs:
             # host, so VITE_API_BASE_URL stays empty.
             sync_env API_BASE_URL "$RU_PUBLIC_BASE_URL"
             sync_env WEB_BASE_URL "$RU_PUBLIC_BASE_URL"
+            # 1.61.0 — bot reads EDGE_API_URL to know which backend to
+            # hit for auth/tasks/payments.  On the RU edge it's the same
+            # origin as API_BASE_URL (the public RU URL); without it the
+            # bot logs a "EDGE_API_URL is empty in production" warning
+            # and ЮKassa RUB top-ups silently use the wrong return host.
+            sync_env EDGE_API_URL "$RU_PUBLIC_BASE_URL"
             # Variant B: тексты бота показывают этот URL ("Зайди на
             # сайт …") и собирают /privacy. На RU edge — тот же
             # домен, что и WEB_BASE_URL, но переменная отдельная,
