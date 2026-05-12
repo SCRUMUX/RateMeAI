@@ -60,3 +60,19 @@ jobs:
             echo ""
             echo "===== nginx running config (server_name / listen) ====="
             docker compose -f docker-compose.ru.yml exec -T nginx sh -c "nginx -T 2>/dev/null | grep -E 'server_name|listen [0-9]'" 2>&1 || true
+            echo ""
+            echo "===== .env.ru — bot-related keys (values masked) ====="
+            sudo sh -c '
+                for key in TELEGRAM_BOT_TOKEN TELEGRAM_BOT_USERNAME BOT_WEBHOOK_URL PEER_BOT_USERNAME EDGE_API_URL; do
+                    raw=$(grep -E "^${key}=" /opt/ratemeai/.env.ru 2>/dev/null | head -1 | sed "s/^${key}=//")
+                    if [ -z "$raw" ]; then
+                        printf "  %-25s = <MISSING>\n" "$key"
+                    elif [ ${#raw} -lt 8 ]; then
+                        printf "  %-25s = <SHORT len=%d>\n" "$key" "${#raw}"
+                    else
+                        head=$(echo "$raw" | cut -c1-4)
+                        tail=$(echo "$raw" | rev | cut -c1-4 | rev)
+                        printf "  %-25s = %s...%s (len=%d)\n" "$key" "$head" "$tail" "${#raw}"
+                    fi
+                done
+            ' 2>&1 || true
