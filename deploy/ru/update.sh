@@ -111,10 +111,47 @@ maybe_dns_cutover() {
 
     echo "  [cut-over] DNS for $primary_domain and $www_domain points to $public_ip — proceeding"
 
-    # 3. Issue cert if absent. webroot lives in the certbot_www volume,
-    # which nginx already serves under /.well-known/acme-challenge/
-    # for all three RU domains (see nginx.conf :80 server-block).
+    # 3. Issue cert if absent OR if existing one doesn't cover
+    # $primary_domain in SAN.  Why the SAN check matters: a previous
+    # certbot run could have created /etc/letsencrypt/live/$cert_name/
+    # before DNS was actually pointing at us — challenge failed but
+    # certbot still keeps the lineage directory, or a stale cert from
+    # a manual debug session may live there.  Without the SAN check
+    # we'd loop forever with "cert already present" while nginx keeps
+    # serving the wrong certificate (mismatched CN → browser shows
+    # ERR_CERT_COMMON_NAME_INVALID).
+    #
+    # webroot for challenges lives in the certbot_www volume, which
+    # nginx already serves under /.well-known/acme-challenge/ for all
+    # three RU domains (see nginx.conf :80 server-block).
+    cert_san_includes() {
+        # $1 = lineage name (e.g. ailookstudio.ru)
+        # $2 = expected DNS name (e.g. ailookstudio.ru)
+        local lineage="$1"
+        local expect="$2"
+        local cert_path="/etc/letsencrypt/live/$lineage/cert.pem"
+        # SubjectAltName format: "DNS:foo, DNS:bar".  We match the
+        # whole label to avoid partial matches (ailookstudio.ru must
+        # NOT match against ru.ailookstudio.ru).
+        docker run --rm -v /etc/letsencrypt:/etc/letsencrypt \
+            alpine/openssl x509 -in "$cert_path" -noout -ext subjectAltName 2>/dev/null \
+            | grep -oE 'DNS:[A-Za-z0-9.-]+' \
+            | grep -qx "DNS:$expect"
+    }
+
+    local need_issue=0
     if [ ! -d "/etc/letsencrypt/live/$cert_name" ]; then
+        need_issue=1
+    elif ! cert_san_includes "$cert_name" "$primary_domain"; then
+        echo "  [cut-over] existing cert at /etc/letsencrypt/live/$cert_name does NOT cover $primary_domain — deleting and re-issuing"
+        docker run --rm -v /etc/letsencrypt:/etc/letsencrypt \
+            certbot/certbot delete --cert-name "$cert_name" --non-interactive || true
+        need_issue=1
+    else
+        echo "  [cut-over] cert /etc/letsencrypt/live/$cert_name already covers $primary_domain"
+    fi
+
+    if [ "$need_issue" = "1" ]; then
         echo "  [cut-over] requesting Let's Encrypt cert for $primary_domain + $www_domain …"
         if ! docker run --rm \
                 -v /etc/letsencrypt:/etc/letsencrypt \
@@ -128,8 +165,6 @@ maybe_dns_cutover() {
             echo "  [cut-over] WARN: certbot failed — leaving cut-over for next deploy"
             return 0
         fi
-    else
-        echo "  [cut-over] cert /etc/letsencrypt/live/$cert_name already present"
     fi
 
     # 4. Drop the TLS server-block into the named volume nginx mounts
@@ -148,16 +183,41 @@ maybe_dns_cutover() {
         echo "  [cut-over] ERROR: nginx -t failed — manual intervention required"
         return 1
     fi
-    docker compose -f "$COMPOSE_FILE" exec -T nginx nginx -s reload
-
-    # 6. Public smoke test on the new domain.
-    sleep 2
-    local http_code
-    http_code=$(curl -sk -o /dev/null -w "%{http_code}" "https://$primary_domain/health" || echo "000")
-    if [ "$http_code" = "200" ]; then
-        echo "  [cut-over] ✅ https://$primary_domain/health → 200"
+    if [ "$need_issue" = "1" ]; then
+        # When the cert was just (re-)issued, do a full container
+        # restart so we don't accidentally keep stale file handles
+        # to the previous cert.pem (named volumes + nginx master
+        # process can hold the inode after a reload).
+        echo "  [cut-over] cert was (re-)issued — restarting nginx for clean fd state"
+        docker compose -f "$COMPOSE_FILE" restart nginx
     else
-        echo "  [cut-over] WARN: https://$primary_domain/health → $http_code (cert may still be warming up)"
+        docker compose -f "$COMPOSE_FILE" exec -T nginx nginx -s reload
+    fi
+
+    # 6. Public smoke test on the new domain.  We probe the cert
+    # by name (no -k) AND via --resolve to our own public IP so the
+    # check doesn't depend on whatever resolver this VPS happens to
+    # cache.  Two outcomes that matter:
+    #   * exit 0 + 200  → cert covers $primary_domain, nginx serves
+    #     it, everything healthy.
+    #   * exit 60       → cert/SNI mismatch (something is still
+    #     wrong even after our SAN re-issue branch).
+    sleep 2
+    local http_code curl_exit
+    # Capture both http_code and curl's exit code without tripping set -e.
+    if http_code=$(curl -s -o /dev/null -w "%{http_code}" \
+                    --resolve "$primary_domain:443:$public_ip" \
+                    "https://$primary_domain/health" 2>/dev/null); then
+        curl_exit=0
+    else
+        curl_exit=$?
+    fi
+    if [ "$http_code" = "200" ] && [ "$curl_exit" = "0" ]; then
+        echo "  [cut-over] ✅ https://$primary_domain/health → 200 (cert OK)"
+    elif [ "$curl_exit" = "60" ]; then
+        echo "  [cut-over] WARN: cert validation failed for https://$primary_domain (curl exit 60). Next deploy will retry after SAN check."
+    else
+        echo "  [cut-over] WARN: https://$primary_domain/health → http_code=$http_code curl_exit=$curl_exit"
     fi
     return 0
 }

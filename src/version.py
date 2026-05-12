@@ -5368,4 +5368,25 @@
 #          ``settings.yandex_client_id`` etc. with autouse fixture so
 #          the 503-guard added in 1.60.0 doesn't trip on CI (CI doesn't
 #          load the prod ``.env``, so the values were blank).
-APP_VERSION = "1.60.2"
+# 1.60.3 — RU edge ops fix: ``resolve_a`` in ``deploy/ru/update.sh``
+#          now asks 8.8.8.8 / 1.1.1.1 directly instead of the VPS's
+#          systemd-resolved.  Some VPS providers (Selectel in our
+#          case) cache apex A-records for far longer than the
+#          authoritative TTL, which caused ``maybe_dns_cutover`` to
+#          see the old Vercel-edge IP and silently skip certbot.
+# 1.60.4 — RU edge cert hardening: ``maybe_dns_cutover`` now checks
+#          the SAN of an existing ``/etc/letsencrypt/live/ailookstudio.ru``
+#          lineage.  If SAN doesn't include ``ailookstudio.ru`` (e.g.
+#          because a previous certbot run failed challenge but kept
+#          the lineage directory, leaving stale contents that nginx
+#          happily served as the default :443 cert) we
+#          ``certbot delete`` and re-issue, then full-restart nginx
+#          (instead of ``-s reload``) to drop any stale file handles
+#          on the old cert.pem inode.  Symptom this fixes:
+#          ``NET::ERR_CERT_COMMON_NAME_INVALID`` on
+#          https://ailookstudio.ru because nginx kept serving the
+#          ``ru.ailookstudio.ru`` cert even after the DNS cut-over.
+#          Smoke test now uses ``curl --resolve`` to the VPS public
+#          IP and refuses ``-k``, so a CN/SAN mismatch surfaces as a
+#          loud WARN instead of a green "200" via insecure curl.
+APP_VERSION = "1.60.4"
