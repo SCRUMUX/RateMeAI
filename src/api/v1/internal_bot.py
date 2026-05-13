@@ -76,7 +76,7 @@ async def _resolve_user_by_telegram_id(
         .join(UserIdentity, UserIdentity.user_id == User.id)
         .where(
             UserIdentity.provider == "telegram",
-            UserIdentity.provider_user_id == str(telegram_id),
+            UserIdentity.external_id == str(telegram_id),
         )
     )
     return via_identity.scalar_one_or_none()
