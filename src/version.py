@@ -5505,4 +5505,14 @@
 # 1.62.3 — CI deploy-ru: retry /health behind nginx; catalog/tasks
 #          HTTP probes no longer use curl -f under ``set -e`` (avoid
 #          silent exit 22 before readiness/auth diagnostics).
-APP_VERSION = "1.62.3"
+# 1.62.4 — RU edge 502-after-deploy hotfix.  ``up -d --build app``
+#          gives the new app container a fresh docker-bridge IP, but
+#          stock nginx upstream blocks resolve hostnames once at
+#          process startup — so nginx kept ``connect() failed (111)``
+#          to the OLD app IP until somebody restarted it by hand.
+#          update.sh now always ``docker compose restart nginx`` after
+#          rebuilding app, which forces a re-resolution of ``app``
+#          against docker's embedded DNS.  ru-diagnostic.yml gains a
+#          ``restart_nginx=yes`` switch so the same restart can be
+#          triggered out-of-band for already-broken hosts.
+APP_VERSION = "1.62.4"

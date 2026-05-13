@@ -99,6 +99,21 @@ docker compose -f "$COMPOSE_FILE" up -d --build app
 echo "--- nginx reconcile ---"
 docker compose -f "$COMPOSE_FILE" up -d nginx
 
+# 1.62.4 — ``up -d --build app`` above recreates the app container, so
+# it lands on a NEW IP in the docker bridge network.  nginx (which was
+# NOT recreated because its compose spec didn't change) still has the
+# OLD app IP cached in its upstream resolver from its own boot — and
+# stock nginx upstream blocks resolve hostnames once at startup, not
+# at request time.  Result on every deploy: nginx returns 502 with
+# ``connect() failed (111: Connection refused) upstream: http://OLD_IP:8000``
+# until the next time someone restarts nginx by hand.
+# Forcing a restart here is cheap (~1s, no downtime visible from CDN
+# retries) and deterministic: nginx re-resolves ``app`` against
+# docker's embedded DNS (127.0.0.11) and points at the freshly-built
+# container.
+echo "--- nginx restart (refresh upstream app DNS after app rebuild) ---"
+docker compose -f "$COMPOSE_FILE" restart nginx
+
 # ── 4. Wait for healthy backend ─────────────────────────────────
 echo "--- health check ---"
 HEALTHY=0
