@@ -684,12 +684,23 @@ jobs:
             echo "::warning::No --resolve pin (RU_SSH_HOST or DOMAIN missing); relying on runner DNS"
           fi
 
-          echo "=== Smoke test 1: /health with git SHA ==="
-          sleep 20
-          HEALTH=$(curl -sf $RESOLVE_FLAG "$DOMAIN/health" || echo "FAIL")
+          echo "=== Smoke test 1: /health with git SHA (retries) ==="
+          HEALTH="FAIL"
+          for attempt in $(seq 1 24); do
+            if [ "$attempt" -gt 1 ]; then
+              echo "  health attempt $attempt/24 (waiting for API behind nginx)..."
+              sleep 10
+            else
+              sleep 20
+            fi
+            HEALTH=$(curl -sf $RESOLVE_FLAG "$DOMAIN/health" || echo "FAIL")
+            if echo "$HEALTH" | grep -q '"ok"'; then
+              break
+            fi
+          done
           echo "  $HEALTH"
           if ! echo "$HEALTH" | grep -q '"ok"'; then
-            echo "::error::Health check failed"
+            echo "::error::Health check failed after retries (nginx 502 / API still down?)"
             FAIL=1
           fi
           if ! echo "$HEALTH" | grep -q "$SHORT_SHA"; then
@@ -704,7 +715,9 @@ jobs:
           fi
 
           echo "=== Smoke test 3: catalog API (no auth) ==="
-          HTTP_CODE=$(curl -sf $RESOLVE_FLAG -o /dev/null -w "%{http_code}" "$DOMAIN/api/v1/catalog/styles?mode=dating")
+          # Do not use curl -f here: with ``set -e`` a 4xx/5xx or connection
+          # error exits the whole step before later diagnostics run.
+          HTTP_CODE=$(curl -sS $RESOLVE_FLAG -o /dev/null -w "%{http_code}" "$DOMAIN/api/v1/catalog/styles?mode=dating" || echo "000")
           echo "  HTTP $HTTP_CODE"
           if [ "$HTTP_CODE" != "200" ]; then
             echo "::error::Catalog API returned $HTTP_CODE"
@@ -718,9 +731,9 @@ jobs:
           echo "  auth: ${AUTH_RESP:0:80}..."
           if echo "$AUTH_RESP" | grep -q "session_token"; then
             TOKEN=$(echo "$AUTH_RESP" | python3 -c "import sys,json; print(json.load(sys.stdin)['session_token'])")
-            TASKS_CODE=$(curl -sf $RESOLVE_FLAG -o /dev/null -w "%{http_code}" \
+            TASKS_CODE=$(curl -sS $RESOLVE_FLAG -o /dev/null -w "%{http_code}" \
               "$DOMAIN/api/v1/tasks?limit=1" \
-              -H "Authorization: Bearer $TOKEN")
+              -H "Authorization: Bearer $TOKEN" || echo "000")
             echo "  tasks: HTTP $TASKS_CODE"
             if [ "$TASKS_CODE" != "200" ]; then
               echo "::error::Tasks endpoint returned $TASKS_CODE (expected 200 — DB migration may have failed)"

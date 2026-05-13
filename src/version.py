@@ -5502,4 +5502,7 @@
 #          already had the key; the bot was empty → «internal key»
 #          after successful_payment). Default credit_packs_xtr raised
 #          to 5:127 / 10:227 / 20:427 / 50:927 stars.
-APP_VERSION = "1.62.2"
+# 1.62.3 — CI deploy-ru: retry /health behind nginx; catalog/tasks
+#          HTTP probes no longer use curl -f under ``set -e`` (avoid
+#          silent exit 22 before readiness/auth diagnostics).
+APP_VERSION = "1.62.3"
