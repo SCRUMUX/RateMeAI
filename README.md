@@ -13,19 +13,26 @@ AI-стилист, который анализирует фото и показ�
 Проект развёрнут в **двух независимых регионах** с одним codebase:
 
 * **Global** (Railway, `MARKET_ID=global`) — домен `ailookstudio.vercel.app`,
-  Telegram-бот `@AI_Look_Studio_bot`, платежи Xsolla.
+  Telegram-бот `@AI_Look_Studio_bot` (единственный, webhook, Telegram
+  Stars), платежи Xsolla для веба.
 * **RU edge** (VPS, `MARKET_ID=ru`) — домен `ailookstudio.ru`,
-  Telegram-бот `@RateMeAI_bot`, платежи YooKassa.
+  только веб-приложение, платежи YooKassa.  Бота на VPS нет начиная с
+  1.62.0 — РКН блокирует исходящий трафик к `api.telegram.org`, поэтому
+  polling из РФ невозможен; webhook-бот живёт на Railway и принимает
+  обновления одинаково для всех языков.
 
 Ключевые инварианты, которые надо знать перед любым изменением кода:
 
-1. **PII RU-юзеров никогда не покидает VPS.** Edge → primary вызовы
-   используют синтетический `internal_user_id` и `extra="forbid"` на
-   Pydantic-схеме (см. `RemoteAnalysisRequest` в
+1. **PII RU-юзеров никогда не покидает VPS** для веб-флоу. Edge →
+   primary вызовы используют синтетический `internal_user_id` и
+   `extra="forbid"` на Pydantic-схеме (см. `RemoteAnalysisRequest` в
    [src/api/v1/internal.py](src/api/v1/internal.py)).
-2. **Два Telegram-бота**, и `LanguageGuardMiddleware`
-   ([src/bot/middlewares/language_guard.py](src/bot/middlewares/language_guard.py))
-   отсекает кросс-региональные обращения **до** записи в БД.
+2. **Один Telegram-бот** на Railway. Лендинг-ссылки внутри бота
+   выбираются по `language_code` через `settings.resolve_landing_url`
+   ([src/config.py](src/config.py)).  Кросс-регион нужен только при
+   `link-token` redeem: RU edge тянет `image_credits` бота с Railway
+   через подписанный internal endpoint
+   ([src/api/v1/internal_bot.py](src/api/v1/internal_bot.py)).
 3. **Каждое фото сначала проходит через
    [`PrivacyLayer.sanitize_and_normalize`](src/services/privacy.py)**
    (EXIF/ICC strip), потом — в модель. Оригиналы хранятся в

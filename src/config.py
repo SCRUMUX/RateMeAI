@@ -10,17 +10,13 @@ class Settings(BaseSettings):
 
     # Telegram
     telegram_bot_token: str = ""
-    telegram_bot_username: str = "RateMeAI_bot"
-    # Two-region bot layout (v1.60+):
-    # * RU bot ``@RateMeAI_bot`` runs on the VPS (deployment_mode=edge).
-    # * Global bot ``@AI_Look_Studio_bot`` runs on Railway (deployment_mode=primary).
-    # ``peer_bot_username`` is the *other* region's bot — used by the
-    # language_guard middleware (src/bot/middlewares/language_guard.py)
-    # to redirect users that wrote to the wrong region (e.g. a
-    # ru-speaking user opens @AI_Look_Studio_bot — they get a short
-    # message with a ``t.me/{peer_bot_username}`` deep-link and the
-    # request is dropped *before* any DB write, so no PII crosses
-    # regions). Empty value disables the guard.
+    telegram_bot_username: str = "AI_Look_Studio_bot"
+    # ``peer_bot_username`` is a legacy field kept for backward-compat
+    # with older .env files.  In 1.60–1.61 the project ran two bots
+    # (RU on VPS + Global on Railway) and this name was used by the
+    # now-removed ``LanguageGuardMiddleware`` to redirect users across
+    # regions.  Since 1.62.0 there is only one bot
+    # (``@AI_Look_Studio_bot`` on Railway), so the value is ignored.
     peer_bot_username: str = ""
 
     # OpenRouter (LLM)
@@ -101,6 +97,11 @@ class Settings(BaseSettings):
     credit_packs: str = "5:227,10:427,20:727,50:1527"
     # Primary / Xsolla (USD), decimal prices allowed
     credit_packs_usd: str = "5:3.27,10:5.27,20:8.27,50:19.27"
+    # Telegram Stars (XTR) — used only inside the bot via sendInvoice.
+    # Format: ``credits:stars,credits:stars,…``.  Telegram requires
+    # integer star amounts.  Telegram takes a ~30% IAP fee, so prices
+    # account for the cut.  Adjust via env var ``CREDIT_PACKS_XTR``.
+    credit_packs_xtr: str = "5:25,10:45,20:85,50:200"
 
     # Xsolla Pay Station (primary deployment only)
     xsolla_merchant_id: str = ""
@@ -502,12 +503,15 @@ class Settings(BaseSettings):
     app_port: int = 8000
     api_base_url: str = "http://localhost:8000"
     web_base_url: str = ""
-    # Variant B: тексты бота, которые приглашают пользователя «зайди
-    # на сайт …», должны называть домен SPA, под который этот бот
-    # настроен. Для RU-бота это ``ailookstudio.ru``, для Global —
-    # ``ailookstudio.vercel.app`` (домен можно переопределить
-    # перед запуском бота). Если не задано — берём ``web_base_url``.
+    # 1.62.0 — the single bot routes "go to the website" links by the
+    # Telegram ``language_code`` of the sender.  RU-family locales get
+    # ``bot_web_landing_url_ru`` (ailookstudio.ru), everyone else
+    # ``bot_web_landing_url_default`` (ailookstudio.vercel.app).
+    # ``bot_web_landing_url`` is the pre-1.62 single-value form, kept
+    # as a fallback so a partial rollback works without env edits.
     bot_web_landing_url: str = ""
+    bot_web_landing_url_ru: str = "https://ailookstudio.ru"
+    bot_web_landing_url_default: str = "https://ailookstudio.vercel.app"
     bot_webhook_url: str = ""
     bot_webhook_secret: str = ""
 
@@ -566,14 +570,33 @@ class Settings(BaseSettings):
 
     @property
     def resolved_bot_web_landing_url(self) -> str:
-        """URL лендинга для текстов/кнопок бота.
+        """Legacy single-value landing URL (pre-1.62 fallback).
 
-        Возвращает ``bot_web_landing_url`` если задан, иначе
-        ``web_base_url`` (без trailing slash). Пустая строка =
-        фолбэк на хардкод "ailookstudio.ru" в местах вызова.
+        New call-sites should use :func:`resolve_landing_url` to get a
+        per-language URL.  We keep this property so older code paths
+        (e.g. partial rollbacks) keep working.
         """
         candidate = (self.bot_web_landing_url or self.web_base_url or "").strip()
         return candidate.rstrip("/")
+
+    def resolve_landing_url(self, language_code: str | None = None) -> str:
+        """Pick the landing URL by Telegram ``language_code``.
+
+        RU-family languages (ru / be / kk / uk / ky) → RU landing.
+        Empty / unknown / non-RU → default landing.
+
+        Falls back to :attr:`resolved_bot_web_landing_url` if either
+        of the per-language URLs is unset (covers the case where
+        someone partially rolls back env vars).
+        """
+        primary = (language_code or "").split("-", 1)[0].strip().lower()
+        ru_family = {"ru", "be", "kk", "uk", "ky"}
+        ru_url = (self.bot_web_landing_url_ru or "").strip().rstrip("/")
+        default_url = (self.bot_web_landing_url_default or "").strip().rstrip("/")
+        fallback = self.resolved_bot_web_landing_url
+        if primary in ru_family:
+            return ru_url or fallback or default_url
+        return default_url or fallback or ru_url
 
     @property
     def resolved_cms_follower_urls(self) -> list[str]:

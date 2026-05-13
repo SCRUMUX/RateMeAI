@@ -10,6 +10,7 @@ from src.api.v1.engagement import router as engagement_router
 from src.api.v1.catalog import router as catalog_router
 from src.api.v1.sse import router as sse_router
 from src.api.v1.internal import router as internal_router
+from src.api.v1.internal_bot import router as internal_bot_router
 from src.api.v1.consents import router as consents_router
 from src.api.v1.users_data import router as users_data_router
 from src.api.v1.admin import (
@@ -39,6 +40,9 @@ api_router.include_router(landing_router, prefix="/landing", tags=["landing"])
 api_router.include_router(scenarios_router, prefix="/scenarios", tags=["scenarios"])
 
 api_router.include_router(internal_router, prefix="/internal", tags=["internal"])
+api_router.include_router(
+    internal_bot_router, prefix="/internal/bot", tags=["internal-bot"]
+)
 
 api_router.include_router(admin_styles_router, prefix="/admin", tags=["admin"])
 api_router.include_router(admin_landing_router, prefix="/admin", tags=["admin"])

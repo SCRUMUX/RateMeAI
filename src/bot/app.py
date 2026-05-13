@@ -14,9 +14,8 @@ from redis.asyncio import Redis
 
 from src.config import settings
 from src.version import APP_VERSION
-from src.bot.handlers import start, photo, mode_select, fallback, link, consent
+from src.bot.handlers import start, photo, mode_select, fallback, link, consent, stars
 from src.bot.middleware import UserRegistrationMiddleware
-from src.bot.middlewares import LanguageGuardMiddleware
 
 logging.basicConfig(
     level=logging.INFO,
@@ -33,50 +32,28 @@ def create_bot() -> Bot:
 
 
 def _resolve_bot_api_base_url() -> str:
-    """Выбор бэкенда, к которому ходит бот.
+    """API endpoint the bot calls for auth / users / tasks.
 
-    Архитектура геосплита: на Railway (primary) живёт AI-часть, а auth /
-    payments / tasks / user storage держатся на RU-edge — потому что ЮKassa
-    умеет только российские IP и своя БД на RU хранит реальные балансы
-    пользователей. Поэтому бот обязан ходить на EDGE_API_URL, если он задан,
-    и edge сам проксирует AI-вызовы на Railway через INTERNAL_API_KEY.
-
-    Фолбек на API_BASE_URL нужен только для dev / локального запуска (когда
-    edge-сервера нет). В production без EDGE_API_URL бот работать не должен —
-    мы об этом громко пишем в лог.
+    Since 1.62.0 the bot lives only on Railway (single bot,
+    @AI_Look_Studio_bot), so it always talks to its own region via
+    ``settings.api_base_url``.  The previous EDGE_API_URL branch was
+    needed only while a separate RU bot existed on the VPS — that
+    service has been removed (RU egress to api.telegram.org is blocked
+    by РКН, so polling from RU never worked anyway).
     """
-    edge = (settings.edge_api_url or "").strip()
-    if edge:
-        return edge.rstrip("/")
-    if settings.is_production:
-        logger.error(
-            "EDGE_API_URL is empty in production — bot will fall back to "
-            "API_BASE_URL=%s. RUB top-ups still require EDGE_API_URL for ЮKassa; "
-            "configure PRIMARY_API_URL for USD (Xsolla) top-ups.",
-            settings.api_base_url,
-        )
     return settings.api_base_url.rstrip("/")
 
 
 def create_dispatcher(redis: Redis) -> Dispatcher:
     dp = Dispatcher()
     api_url = _resolve_bot_api_base_url()
-    # IMPORTANT: LanguageGuardMiddleware must run BEFORE
-    # UserRegistrationMiddleware. The latter calls /api/v1/auth/telegram
-    # which writes telegram_id / username / first_name into the local
-    # Postgres — exactly the PII we don't want to persist on the wrong
-    # region. The guard short-circuits cross-region traffic before any
-    # DB write happens. See src/bot/middlewares/language_guard.py for
-    # the decision matrix.
-    language_guard = LanguageGuardMiddleware()
-    dp.message.middleware(language_guard)
-    dp.callback_query.middleware(language_guard)
     dp.message.middleware(UserRegistrationMiddleware(api_url, redis))
     dp.callback_query.middleware(UserRegistrationMiddleware(api_url, redis))
 
     dp.include_router(start.router)
     dp.include_router(link.router)
     dp.include_router(consent.router)
+    dp.include_router(stars.router)
     dp.include_router(photo.router)
     dp.include_router(mode_select.router)
     dp.include_router(fallback.router)  # must be last — catch-all
@@ -132,11 +109,9 @@ async def main():
     )
     bot_api_url = _resolve_bot_api_base_url()
     logger.info(
-        "Bot traffic pinned to %s (edge_api_url=%s, api_base_url=%s) — "
-        "auth/payments/tasks live on RU-edge, AI is proxied to primary.",
+        "Bot traffic pinned to %s — single bot on Railway, all auth/"
+        "payments/tasks live in this region (since 1.62.0).",
         bot_api_url,
-        settings.edge_api_url or "<empty>",
-        settings.api_base_url,
     )
     bot = create_bot()
     redis = Redis.from_url(settings.redis_url, decode_responses=True)

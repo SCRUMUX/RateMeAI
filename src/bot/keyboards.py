@@ -222,19 +222,19 @@ def error_keyboard() -> InlineKeyboardMarkup:
 
 
 def topup_currency_keyboard() -> InlineKeyboardMarkup:
-    """Выбор валюты / региона оплаты перед списком пакетов (данные с /payments/packs)."""
+    """Top-up entry point — opens the Telegram Stars pack list.
+
+    1.62.0 — RUB/USD checkout flows were retired in the bot.  Stars
+    work on every Telegram client (incl. RU clients via Telegram
+    Premium IAP and Fragment.com), so we collapse the previous
+    currency picker into a single CTA.
+    """
     return InlineKeyboardMarkup(
         inline_keyboard=[
             [
                 InlineKeyboardButton(
-                    text="\U0001f1f7\U0001f1fa Оплата \u20bd (\u0420\u043e\u0441\u0441\u0438\u044f)",
-                    callback_data="topup_cur:rub",
-                )
-            ],
-            [
-                InlineKeyboardButton(
-                    text="\U0001f30d Pay USD (Worldwide)",
-                    callback_data="topup_cur:usd",
+                    text="\u2b50 \u041e\u043f\u043b\u0430\u0442\u0438\u0442\u044c \u0437\u0432\u0451\u0437\u0434\u0430\u043c\u0438 / Pay with Stars",
+                    callback_data="topup_stars",
                 )
             ],
             [InlineKeyboardButton(text="\U0001f4b0 Мой баланс", callback_data="balance")],
@@ -248,7 +248,7 @@ def topup_currency_keyboard() -> InlineKeyboardMarkup:
 
 
 def upgrade_keyboard() -> InlineKeyboardMarkup:
-    """Alias: показываем выбор валюты (пакеты подгружаются после выбора)."""
+    """Alias: Stars-only top-up entry."""
     return topup_currency_keyboard()
 
 

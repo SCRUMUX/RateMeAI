@@ -5430,4 +5430,67 @@
 #          invariant. Smoke tests now ``curl --resolve``-pin the
 #          domain to the VPS public IP so a stale GitHub-runner DNS
 #          cache (the 1.60 footgun) can't mask a real outage.
-APP_VERSION = "1.61.0"
+# 1.62.0 — One Telegram bot, Telegram Stars, per-language landing.
+#          The 1.60–1.61 two-bot layout (RU @RateMeAI_bot on the VPS in
+#          polling mode + Global @AI_Look_Studio_bot on Railway via
+#          webhook) is collapsed into a single bot — @AI_Look_Studio_bot
+#          on Railway, webhook only. Root cause: РКН blocks egress to
+#          api.telegram.org from RU hosting, which makes polling from
+#          the VPS impossible (1.61.0 service entered a restart loop
+#          with TelegramNetworkError). Webhook still works because
+#          Telegram opens the connection inbound from its side, not
+#          ours.  Changes by phase:
+#            * Phase A — emergency stop of ratemeai-bot-1 on the VPS
+#              via an extended ru-diagnostic.yml ``stop_bot`` input.
+#            * Phase B — docker-compose.ru.yml: bot service deleted.
+#              ci.yml: stops syncing TELEGRAM_BOT_TOKEN / BOT_WEBHOOK_URL
+#              into .env.ru and strips them on every deploy.
+#            * Phase C — src/bot/app.py::_resolve_bot_api_base_url
+#              always returns ``settings.api_base_url``; the
+#              EDGE_API_URL fork is removed.  src/bot/handlers/mode_select.py:
+#              all USD/RUB/EDGE/PRIMARY pack-callbacks (topup_cur:*,
+#              buy_rub:*, buy_usd:*, buy:*) and the matching session
+#              helpers (_ensure_edge_session / _ensure_primary_session
+#              and friends) are gone.
+#            * Phase D — src/bot/middlewares/language_guard.py deleted;
+#              dispatcher no longer registers it.  ``settings.peer_bot_username``
+#              kept for backward-compat but ignored.
+#            * Phase E — Telegram Stars: ``credit_packs_xtr`` env
+#              ("5:25,10:45,20:85,50:200"), get_credit_packs_xtr() +
+#              xtr_pack_by_quantity() helpers, new
+#              src/bot/handlers/stars.py with send_invoice /
+#              pre_checkout_query / successful_payment, plus
+#              src/services/payments/stars.py::record_stars_purchase
+#              (idempotent by telegram_payment_charge_id stored in
+#              CreditTransaction.payment_id with a ``stars:`` prefix).
+#              topup_currency_keyboard becomes a one-button "Pay with
+#              Telegram Stars" — XTR works on every Telegram client
+#              including RU users via Fragment.com / Premium IAP.
+#            * Phase F — per-language landing helper
+#              ``settings.resolve_landing_url(language_code)``:
+#              ru/be/kk/uk/ky → ailookstudio.ru, everyone else →
+#              ailookstudio.vercel.app.  src/bot/handlers/link.py and
+#              consent.py route through it.  CI syncs
+#              BOT_WEB_LANDING_URL_RU / _DEFAULT on Railway.
+#            * Phase G — cross-region link.  New internal endpoints on
+#              Railway (``src/api/v1/internal_bot.py``):
+#              ``POST /api/v1/internal/bot/stars/grant`` (called by
+#              the bot ``successful_payment`` handler) and
+#              ``GET /api/v1/internal/bot/users/{tg_id}/profile``
+#              (read-only, X-Internal-Key).  The RU edge ``claim-link``
+#              redeem (src/api/v1/users.py) calls the GET endpoint
+#              and mirrors the bot-side image_credits into the web
+#              user, dedupe-guarded by Redis ``bot_balance_merged:{tg_id}``.
+#            * Phase I — tests + docs.  Rewrote
+#              tests/test_bot/test_bot_routing.py (single-region),
+#              added tests/test_bot/test_stars_payments.py (payload
+#              round-trip + record_stars_purchase idempotency +
+#              landing URL resolver) and tests/test_api/test_internal_bot.py
+#              (auth + idempotency on the integration stack).
+#              ARCHITECTURE.md / README.md updated.
+#          External actions still required (Phase J):
+#            * BotFather → @RateMeAI_bot: description "Бот переехал в
+#              @AI_Look_Studio_bot".  Do NOT delete the bot — keeps
+#              the username reserved.  Broadcast is impossible
+#              because that bot can no longer reach api.telegram.org.
+APP_VERSION = "1.62.0"

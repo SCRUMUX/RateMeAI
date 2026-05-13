@@ -20,9 +20,13 @@ from src.bot.middleware import get_bot_auth_headers
 from src.config import settings
 
 
-def _landing_host_label() -> str:
-    """Domain string ("ailookstudio.ru") for the «Зайди на сайт …» prompt."""
-    base = settings.resolved_bot_web_landing_url
+def _landing_host_label(language_code: str | None = None) -> str:
+    """Domain string ("ailookstudio.ru") for the «Зайди на сайт …» prompt.
+
+    Per-language since 1.62.0: RU-family locales see ailookstudio.ru,
+    everyone else sees the default (ailookstudio.vercel.app).
+    """
+    base = settings.resolve_landing_url(language_code)
     if not base:
         return "ailookstudio.ru"
     return base.replace("https://", "").replace("http://", "").rstrip("/")
@@ -84,9 +88,10 @@ async def on_link_have_web(callback: CallbackQuery, redis: Redis):
     await callback.answer()
     user_id = callback.from_user.id
     await redis.set(_LINK_WAITING_KEY.format(user_id), "1", ex=_LINK_WAITING_TTL)
+    lang = getattr(callback.from_user, "language_code", None) if callback.from_user else None
     await callback.message.answer(
         "\U0001f310 *Привязка через сайт*\n\n"
-        f"1\ufe0f\u20e3 Зайди на сайт *{_landing_host_label()}*\n"
+        f"1\ufe0f\u20e3 Зайди на сайт *{_landing_host_label(lang)}*\n"
         "2\ufe0f\u20e3 Нажми на баланс вверху \u2192 *Получить код привязки*\n"
         "3\ufe0f\u20e3 Скопируй 6-значный код\n"
         "4\ufe0f\u20e3 *Отправь код прямо сюда в чат* \u2935\ufe0f\n\n"

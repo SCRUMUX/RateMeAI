@@ -297,43 +297,32 @@ jobs:
           rl_set API_BASE_URL="$GLOBAL_API_BASE_URL" -s bot -e production --skip-deploys
           rl_set API_BASE_URL="$GLOBAL_API_BASE_URL" -s worker -e production --skip-deploys
           rl_set WEB_BASE_URL="$GLOBAL_WEB_BASE_URL" -s app -e production --skip-deploys
-          # Variant B: Global-бот в Railway показывает в своих сообщениях
-          # (link.py, consent.py /privacy URL) ailookstudio.vercel.app —
-          # это и есть наш Global-лендинг. Переменная отдельная от
-          # WEB_BASE_URL, чтобы её можно было переопределять без побочек
-          # на остальных частях сервиса (return URLs платежей и т.п.).
+          # 1.62.0 — per-language landing URLs in the single bot.
+          # ailookstudio.ru is used for RU-family language_codes, the
+          # Vercel landing for everyone else.  The legacy single-value
+          # ``BOT_WEB_LANDING_URL`` is kept synced as a fallback for
+          # operators rolling back to <1.62.
+          rl_set BOT_WEB_LANDING_URL_RU="https://ailookstudio.ru" -s bot -e production --skip-deploys
+          rl_set BOT_WEB_LANDING_URL_RU="https://ailookstudio.ru" -s app -e production --skip-deploys
+          rl_set BOT_WEB_LANDING_URL_DEFAULT="$GLOBAL_WEB_BASE_URL" -s bot -e production --skip-deploys
+          rl_set BOT_WEB_LANDING_URL_DEFAULT="$GLOBAL_WEB_BASE_URL" -s app -e production --skip-deploys
           rl_set BOT_WEB_LANDING_URL="$GLOBAL_WEB_BASE_URL" -s bot -e production --skip-deploys
           rl_set BOT_WEB_LANDING_URL="$GLOBAL_WEB_BASE_URL" -s app -e production --skip-deploys
-          # Two-region bot routing: Railway runs @AI_Look_Studio_bot, so
-          # its peer (used by language_guard middleware for cross-region
-          # redirects) is the RU bot @RateMeAI_bot on the VPS.
-          rl_set PEER_BOT_USERNAME="RateMeAI_bot" -s bot -e production --skip-deploys
-          rl_set PEER_BOT_USERNAME="RateMeAI_bot" -s app -e production --skip-deploys
-          # Railway runs the Global bot. Pin TELEGRAM_BOT_USERNAME so the
-          # peer-bot logic on the edge stays consistent if someone wipes
-          # the variable in the Railway dashboard.
+          # 1.62.0 — single bot @AI_Look_Studio_bot on Railway. The
+          # legacy ``PEER_BOT_USERNAME`` field is ignored now (the
+          # language guard middleware was deleted), but we still pin
+          # the bot username so callers that depend on it (link.py)
+          # have a stable value.
           rl_set TELEGRAM_BOT_USERNAME="AI_Look_Studio_bot" -s bot -e production --skip-deploys
           rl_set TELEGRAM_BOT_USERNAME="AI_Look_Studio_bot" -s app -e production --skip-deploys
-          # YooKassa живёт только на RU-edge: закрепляем это на уровне инфры.
-          # Бот ходит к edge за /auth, /payments/*, /tasks и /analyze, edge сам
-          # проксирует AI на primary через INTERNAL_API_KEY. Без EDGE_API_URL
-          # бот упадёт на API_BASE_URL (Railway), где /payments/* возвращает 410.
-          if [ -n "$RU_PUBLIC_BASE_URL" ]; then
-            echo "Syncing EDGE_API_URL=$RU_PUBLIC_BASE_URL to bot service..."
-            rl_set EDGE_API_URL="$RU_PUBLIC_BASE_URL" -s bot -e production --skip-deploys
-          else
-            echo "::warning::RU_PUBLIC_BASE_URL not set — bot cannot route to RU edge"
-          fi
-          # 1.59.3 — bot routes USD top-ups to primary (Xsolla), so it
-          # needs PRIMARY_API_URL pointing at the Railway public host.
-          # GLOBAL_API_BASE_URL is the same value already used as the
-          # primary API base URL, so we reuse it.
-          if [ -n "$GLOBAL_API_BASE_URL" ]; then
-            echo "Syncing PRIMARY_API_URL=$GLOBAL_API_BASE_URL to bot service..."
-            rl_set PRIMARY_API_URL="$GLOBAL_API_BASE_URL" -s bot -e production --skip-deploys
-          else
-            echo "::warning::GLOBAL_API_BASE_URL not set — bot cannot route USD top-ups to primary"
-          fi
+          # 1.62.0 — EDGE_API_URL is no longer consumed by the bot
+          # (the single bot only talks to Railway).  We unset it on
+          # the bot service to avoid drift and only keep it on ``app``
+          # if needed by web admin tooling.
+          # 1.62.0 — drop EDGE_API_URL / PRIMARY_API_URL from the bot
+          # service.  The single bot now talks to its own region only.
+          railway variables delete EDGE_API_URL -s bot -e production 2>/dev/null || echo "  (EDGE_API_URL absent on bot — skipped)"
+          railway variables delete PRIMARY_API_URL -s bot -e production 2>/dev/null || echo "  (PRIMARY_API_URL absent on bot — skipped)"
           # Удаляем любые YOOKASSA_* с primary-сервисов: платежи живут только на
           # RU-edge (там свой .env.ru с live-кредами). Railway CLI запрещает
           # пустые значения ("Invalid variable format: KEY="), поэтому используем
@@ -497,19 +486,20 @@ jobs:
           # https://ailookstudio.ru.  Cert issuance is out-of-band via
           # the ``Bootstrap RU edge cert`` workflow.  update.sh is now
           # pure rebuild + restart — no DNS branching at runtime.
-          # RU Telegram bot @RateMeAI_bot token (separate from the
-          # Railway-side @AI_Look_Studio_bot).  Optional: when the
-          # GitHub secret is unset, the existing value already in
-          # .env.ru (set manually on the VPS) keeps working — same
-          # contract as the OAuth creds above.
-          RU_TELEGRAM_BOT_TOKEN: ${{ secrets.RU_TELEGRAM_BOT_TOKEN }}
+          # 1.62.0: RU-side Telegram bot service removed (РКН blocks
+          # egress to api.telegram.org from RU hosting).  All Telegram
+          # traffic now goes through the single @AI_Look_Studio_bot
+          # on Railway (webhook) with per-language routing inside.
+          # The RU_TELEGRAM_BOT_TOKEN GitHub secret is intentionally
+          # NOT consumed here anymore — left in place for historical
+          # reference / future re-introduction via a proxy if needed.
         with:
           host: ${{ secrets.RU_SSH_HOST }}
           username: ${{ secrets.RU_SSH_USER }}
           key: ${{ secrets.RU_SSH_KEY }}
           port: 22
           command_timeout: 10m
-          envs: DEPLOY_GIT_SHA,INTERNAL_API_KEY,GLOBAL_API_BASE_URL,RU_PUBLIC_BASE_URL,CMS_REPLICATION_SECRET,ADMIN_EMAILS,GOOGLE_CLIENT_ID,GOOGLE_CLIENT_SECRET,YANDEX_CLIENT_ID,YANDEX_CLIENT_SECRET,VK_ID_APP_ID,VK_ID_APP_SECRET,VK_SERVICE_TOKEN,RU_TELEGRAM_BOT_TOKEN
+          envs: DEPLOY_GIT_SHA,INTERNAL_API_KEY,GLOBAL_API_BASE_URL,RU_PUBLIC_BASE_URL,CMS_REPLICATION_SECRET,ADMIN_EMAILS,GOOGLE_CLIENT_ID,GOOGLE_CLIENT_SECRET,YANDEX_CLIENT_ID,YANDEX_CLIENT_SECRET,VK_ID_APP_ID,VK_ID_APP_SECRET,VK_SERVICE_TOKEN
           script: |
             export DEPLOY_GIT_SHA="${DEPLOY_GIT_SHA:0:12}"
             ENV_FILE="/opt/ratemeai/.env.ru"
@@ -543,16 +533,15 @@ jobs:
             # bot logs a "EDGE_API_URL is empty in production" warning
             # and ЮKassa RUB top-ups silently use the wrong return host.
             sync_env EDGE_API_URL "$RU_PUBLIC_BASE_URL"
-            # Variant B: тексты бота показывают этот URL ("Зайди на
-            # сайт …") и собирают /privacy. На RU edge — тот же
-            # домен, что и WEB_BASE_URL, но переменная отдельная,
-            # чтобы Global-бот мог указывать на ailookstudio.vercel.app.
-            sync_env BOT_WEB_LANDING_URL "$RU_PUBLIC_BASE_URL"
-            # Two-region bot routing: the RU edge runs @RateMeAI_bot,
-            # so its peer (used by language_guard for cross-redirects)
-            # is the Global bot @AI_Look_Studio_bot on Railway.
-            sync_env PEER_BOT_USERNAME "AI_Look_Studio_bot"
-            sync_env TELEGRAM_BOT_USERNAME "RateMeAI_bot"
+            # 1.62.0 — RU edge no longer runs a Telegram bot, so the
+            # bot-only env vars (BOT_WEB_LANDING_URL, PEER_BOT_USERNAME,
+            # TELEGRAM_BOT_USERNAME) are intentionally not synced from
+            # CI for the edge.  Web side ignores them.  We strip any
+            # leftovers from a previous deploy so the file stays clean.
+            sed -i '/^PEER_BOT_USERNAME=/d' "$ENV_FILE" 2>/dev/null || true
+            sed -i '/^TELEGRAM_BOT_TOKEN=/d' "$ENV_FILE" 2>/dev/null || true
+            sed -i '/^TELEGRAM_BOT_USERNAME=/d' "$ENV_FILE" 2>/dev/null || true
+            sed -i '/^BOT_WEB_LANDING_URL=/d' "$ENV_FILE" 2>/dev/null || true
             sync_env VITE_API_BASE_URL ""
             sync_env VITE_MARKET_ID ru
             sync_env VITE_WEB_ORIGIN "$RU_PUBLIC_BASE_URL"
@@ -625,21 +614,13 @@ jobs:
               sync_env VK_SERVICE_TOKEN "$VK_SERVICE_TOKEN"
               echo "VK_SERVICE_TOKEN synced to .env.ru"
             fi
-            # 1.61.0 — RU Telegram bot @RateMeAI_bot now runs as a docker
-            # service in polling mode on the VPS.  TELEGRAM_BOT_TOKEN
-            # must point at the RU bot's token (NOT the Railway-side
-            # @AI_Look_Studio_bot token).  We use a dedicated GitHub
-            # secret ``RU_TELEGRAM_BOT_TOKEN`` so the two regions can
-            # never collide.  If the secret is unset we leave the
-            # existing .env.ru value alone (operator-managed).
-            if [ -n "$RU_TELEGRAM_BOT_TOKEN" ]; then
-              sync_env TELEGRAM_BOT_TOKEN "$RU_TELEGRAM_BOT_TOKEN"
-              echo "TELEGRAM_BOT_TOKEN synced to .env.ru (RU bot)"
-            fi
-            # Polling mode invariant: BOT_WEBHOOK_URL must NOT be set
-            # for the RU bot — src/bot/app.py reads it as the switch
-            # between webhook (Railway) and polling (RU VPS).  Strip
-            # any stale line, never write one here.
+            # 1.62.0 — there is no bot on the RU VPS anymore.  All
+            # Telegram traffic is on Railway via the single
+            # @AI_Look_Studio_bot (webhook).  Strip any leftover
+            # TELEGRAM_BOT_TOKEN / BOT_WEBHOOK_URL from .env.ru so a
+            # stale value can never accidentally reanimate a polling
+            # loop on the VPS.
+            sed -i '/^TELEGRAM_BOT_TOKEN=/d' "$ENV_FILE" 2>/dev/null || true
             sed -i '/^BOT_WEBHOOK_URL=/d' "$ENV_FILE" 2>/dev/null || true
             # 1.55.4 — ADMIN_EMAILS provisioning is now CI-driven and
             # runs OUTSIDE update.sh. Why: in 1.55.2/1.55.3 the helper

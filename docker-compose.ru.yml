@@ -89,45 +89,13 @@ services:
     profiles:
       - build-only
 
-  # RU Telegram bot (@RateMeAI_bot) — polling mode.
-  # Why a separate service (not part of `app`): aiogram's long-polling
-  # loop blocks the event loop, so it must run in its own process. No
-  # public port exposed — talks outbound to api.telegram.org and inbound
-  # to the local `app` for auth/payments/tasks.
-  # Why polling (not webhook): the RU VPS already terminates TLS for
-  # public traffic and we don't want a second route surface for
-  # Telegram callbacks. BOT_WEBHOOK_URL is deliberately NOT set in
-  # .env.ru, which makes src/bot/app.py pick polling automatically.
-  bot:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    restart: unless-stopped
-    user: "root"
-    command: ["python", "-m", "src.bot.app"]
-    env_file:
-      - .env.ru
-    environment:
-      DEPLOYMENT_MODE: edge
-      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-ratemeai}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-ratemeai}
-      REDIS_URL: redis://redis:6379/0
-      STORAGE_LOCAL_PATH: /app/storage
-      APP_ENV: prod
-      DEPLOY_GIT_SHA: ${DEPLOY_GIT_SHA:-}
-      MARKET_ID: ru
-      SERVICE_ROLE: bot
-      COMPUTE_MODE: remote
-      CMS_ROLE: follower
-      # NB: BOT_WEBHOOK_URL intentionally unset → src/bot/app.py runs polling.
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-      app:
-        condition: service_healthy
-    volumes:
-      - app_storage:/app/storage
+  # 1.62.0 — RU Telegram bot service was removed from the VPS.
+  # Rationale: the RU VPS sits behind РКН-blocked egress to
+  # api.telegram.org (curl exit 28 from inside the container), so
+  # long-polling can never work here.  All Telegram traffic now lives
+  # on Railway via @AI_Look_Studio_bot (webhook), and per-language
+  # routing is done inside the single bot.  See docs/ARCHITECTURE.md
+  # for the migration plan.
 
   nginx:
     image: nginx:alpine

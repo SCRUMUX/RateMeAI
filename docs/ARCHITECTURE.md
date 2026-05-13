@@ -13,13 +13,14 @@
 
 | Параметр | Global (Railway) | RU edge (VPS) |
 |---|---|---|
-| Аудитория | Любой `language_code` ∉ {ru,be,kk,uk,ky} | `ru,be,kk,uk,ky` |
-| Домены SPA | `ailookstudio.vercel.app` | `ailookstudio.ru`, `www.ailookstudio.ru` (+ зеркало `ru.ailookstudio.ru` до cutover'а) |
+| Аудитория веба | Любой `language_code` ∉ {ru,be,kk,uk,ky} | `ru,be,kk,uk,ky` |
+| Домены SPA | `ailookstudio.vercel.app` | `ailookstudio.ru`, `www.ailookstudio.ru` |
 | Домен API | `https://app-production-6986.up.railway.app` | тот же, что и SPA |
-| Хостинг | Railway 3 сервиса (`app`, `worker`, `bot`) | VPS, `docker-compose.ru.yml` |
+| Хостинг | Railway 3 сервиса (`app`, `worker`, `bot`) | VPS, `docker-compose.ru.yml` (без `bot`) |
 | Postgres | Railway-managed | На том же VPS (`pgdata` volume) |
-| Telegram bot | `@AI_Look_Studio_bot` | `@RateMeAI_bot` |
-| Платёжный шлюз | Xsolla (USD/EUR) | YooKassa (RUB) |
+| Telegram bot | `@AI_Look_Studio_bot` (единственный, webhook) | бота нет — Telegram-трафик целиком на Railway |
+| Платёжный шлюз веба | Xsolla (USD/EUR) | YooKassa (RUB) |
+| Платёжный шлюз бота | Telegram Stars (XTR) | — |
 | Compute mode | `local` (генерация тут же) | `remote` (делегирует в Railway по `/internal/process-analysis`) |
 | CMS role | `editor` (хранит мастер контента) | `follower` (только читает, синк через HMAC) |
 
@@ -35,7 +36,7 @@
         │ Railway: app+worker+ │  │  VPS: nginx + app + db   │
         │ Postgres + Redis     │  │  + Redis (no worker)     │
         │ (MARKET_ID=global)   │  │  (MARKET_ID=ru, edge)    │
-        │ Bot:@AI_Look_Studio  │  │  Bot:@RateMeAI_bot       │
+        │ Bot:@AI_Look_Studio  │  │  (no bot service)        │
         └─────┬───────────┬────┘  └──────────┬───────────────┘
               │           │  HMAC-signed CMS push (editor→follower)
               │           └─────────────────►│
@@ -61,10 +62,14 @@
 * **OAuth/Telegram-логин** возможен только на том сервере, чей домен
   указан в whitelist'е провайдера. RU OAuth → `ailookstudio.ru/api/v1/auth/*`,
   Global → `ailookstudio.vercel.app/api/v1/auth/*` (через Railway).
-* **Telegram-ботов два**, и `LanguageGuardMiddleware`
-  ([src/bot/middlewares/language_guard.py](../src/bot/middlewares/language_guard.py))
-  отсекает кросс-региональные запросы **до**
-  `UserRegistrationMiddleware`. Нет ни одной записи в чужой регион.
+* **Telegram-бот единственный** (`@AI_Look_Studio_bot` на Railway,
+  webhook).  Все Telegram-юзеры — включая русскоязычных — обслуживаются
+  одним процессом; `language_code` влияет только на текстовые ссылки
+  (см. §4).  PII бота (`telegram_id`, `username`, `image_credits`,
+  `CreditTransaction`) лежит на Railway и из RU edge **не дублируется** —
+  RU edge только читает баланс при `link-token` redeem через подписанный
+  internal endpoint
+  ([src/api/v1/internal_bot.py](../src/api/v1/internal_bot.py)).
 * **Edge → primary вызов** (см. §3) использует синтетический
   `internal_user_id = uuid5("edge-proxy.<edge_task_id>")` и пустую
   `policy_flags{data_class="regional_photo", retention_policy="ephemeral",
@@ -154,38 +159,66 @@ framing, input_hints, source
 
 ---
 
-## 4. Маршрутизация ботов по языку
+## 4. Один бот + Telegram Stars + per-language лендинг
 
-Бот один на регион, но архитектурно они симметричны:
+С 1.62.0 в проекте один Telegram-бот — `@AI_Look_Studio_bot` на
+Railway, webhook-режим.  Polling из РФ невозможен (РКН блокирует
+egress на `api.telegram.org`), поэтому второй бот `@RateMeAI_bot` на
+VPS был снят с production.  Telegram сам открывает соединение к
+нашему webhook endpoint'у, что обходит блокировку для входящего
+трафика.
 
 ```text
-Telegram update ─▶ Bot
-  │
-  │   LanguageGuardMiddleware  (src/bot/middlewares/language_guard.py)
-  │     - читает settings.telegram_bot_username
-  │     - смотрит from_user.language_code
-  │     - если несоответствие региону → отвечает t.me/{peer_bot}
-  │       и АБОРТИТ chain. UserRegistrationMiddleware НЕ вызовется.
+Telegram update (любой language_code)
   │
   ▼
-  UserRegistrationMiddleware → POST /api/v1/auth/telegram → Postgres
+@AI_Look_Studio_bot (Railway, webhook)
+  │
+  │   UserRegistrationMiddleware → POST /api/v1/auth/telegram → Postgres (Railway)
+  │
+  ├── обычные хендлеры (фото, стиль, /balance …)
+  │
+  └── оплата:
+       topup_stars  → buy_xtr:{qty}  → bot.send_invoice(currency=XTR)
+                                       Telegram pre_checkout_query →
+                                       handler ревалидирует payload+price
+                                       по credit_packs_xtr.
+       successful_payment           → POST /api/v1/internal/bot/stars/grant
+                                       (X-Internal-Key, идемпотентно
+                                       по telegram_payment_charge_id).
 ```
 
-Регионы определяются константами в
-[language_guard.py](../src/bot/middlewares/language_guard.py):
+### Per-language лендинг
 
-* `RU_BOT_USERNAMES = {"ratemeai_bot"}`
-* `GLOBAL_BOT_USERNAMES = {"ai_look_studio_bot"}`
-* `RU_LANGUAGE_CODES = {"ru","be","kk","uk","ky"}`
+Тексты бота, которые ссылают на сайт (`link.py`, `consent.py`,
+privacy URL), используют helper
+`settings.resolve_landing_url(language_code)`:
 
-Чтобы middleware «знал», какой он бот, переменные окружения должны
-быть проставлены CI'ем:
+* `ru`/`be`/`kk`/`uk`/`ky` → `https://ailookstudio.ru`
+* всё остальное → `https://ailookstudio.vercel.app`
+
+Конкретные URL задаются через env: `BOT_WEB_LANDING_URL_RU` и
+`BOT_WEB_LANDING_URL_DEFAULT` (CI синкает оба на Railway).
+
+### Cross-region link TG ↔ web
+
+Когда юзер на `ailookstudio.ru` нажимает «привязать TG-аккаунт» и
+вводит `link-token`, `claim-link` на RU edge после успешного merge
+identity вызывает Railway-side
+`GET /api/v1/internal/bot/users/{tg_id}/profile` (X-Internal-Key,
+read-only), берёт оттуда `image_credits` бота и зачисляет их на
+web-юзера одной транзакцией `CreditTransaction(tx_type="link_merge")`.
+Дедупликация — через Redis ключ `ratemeai:bot_balance_merged:{tg_id}`.
 
 | Env var | Railway (Global) | VPS (RU) |
 |---|---|---|
-| `TELEGRAM_BOT_USERNAME` | `AI_Look_Studio_bot` | `RateMeAI_bot` |
-| `PEER_BOT_USERNAME` | `RateMeAI_bot` | `AI_Look_Studio_bot` |
-| `TELEGRAM_BOT_TOKEN` | новый токен от BotFather | `.env.ru` секрет |
+| `TELEGRAM_BOT_USERNAME` | `AI_Look_Studio_bot` | — (бота нет) |
+| `TELEGRAM_BOT_TOKEN` | webhook-токен от BotFather | — |
+| `BOT_WEBHOOK_URL` | публичный URL Railway-app | — |
+| `BOT_WEB_LANDING_URL_RU` | `https://ailookstudio.ru` | — (не использует) |
+| `BOT_WEB_LANDING_URL_DEFAULT` | `https://ailookstudio.vercel.app` | — |
+| `CREDIT_PACKS_XTR` | `5:25,10:45,20:85,50:200` | — |
+| `INTERNAL_API_KEY` | shared с RU edge | shared с Railway (нужен для link-merge) |
 
 ---
 

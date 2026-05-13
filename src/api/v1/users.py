@@ -871,7 +871,121 @@ async def claim_link(
         link_to_user=target_user,
     )
 
+    # 1.62.0 — Cross-region balance merge.  When the RU edge handles a
+    # Telegram claim-link, the bot user lives on Railway, not here, so
+    # the local CreditTransaction history does not include any Stars
+    # purchases.  We do a read-only pull of the bot-side profile and
+    # mirror the balance into this region.  No write happens on the
+    # Railway side (deferred to Phase H).
+    if (
+        settings.is_edge
+        and body.provider == "telegram"
+        and body.external_id
+    ):
+        try:
+            await _merge_bot_balance_from_primary(
+                db,
+                redis,
+                target_user=user,
+                telegram_id=body.external_id,
+            )
+        except Exception:
+            logger.exception(
+                "Cross-region bot balance merge failed for tg_id=%s user_id=%s",
+                body.external_id,
+                user.id,
+            )
+
     return await _claim_link_response(user, db, redis)
+
+
+_BOT_BALANCE_MERGED_KEY = "ratemeai:bot_balance_merged:{}"
+_BOT_BALANCE_MERGE_TTL = 7 * 24 * 3600  # 7 days — long enough to dedupe replays
+
+
+async def _merge_bot_balance_from_primary(
+    db: AsyncSession,
+    redis: Redis,
+    *,
+    target_user: User,
+    telegram_id: str,
+) -> None:
+    """Read Railway-side bot profile and add its credits to ``target_user``.
+
+    Idempotent via a Redis flag keyed on telegram_id.  No write
+    happens on Railway in this release; a follow-up Phase H will mark
+    the bot user as merged so duplicate credits become impossible
+    even if the Redis flag is lost.
+    """
+    import httpx
+    from src.models.db import CreditTransaction
+
+    dedupe_key = _BOT_BALANCE_MERGED_KEY.format(telegram_id)
+    if await redis.get(dedupe_key) is not None:
+        return
+
+    primary_base = (settings.remote_ai_backend_url or "").strip().rstrip("/")
+    if not primary_base:
+        logger.warning(
+            "REMOTE_AI_BACKEND_URL is empty — skipping bot balance merge for tg=%s",
+            telegram_id,
+        )
+        return
+    if not settings.internal_api_key:
+        logger.warning(
+            "INTERNAL_API_KEY is empty — skipping bot balance merge for tg=%s",
+            telegram_id,
+        )
+        return
+
+    url = f"{primary_base}/api/v1/internal/bot/users/{telegram_id}/profile"
+    async with httpx.AsyncClient(timeout=10.0) as client:
+        resp = await client.get(
+            url,
+            headers={"X-Internal-Key": settings.internal_api_key},
+        )
+
+    if resp.status_code == 404:
+        # No bot account → nothing to merge.  Mark dedupe so we don't
+        # retry on every link attempt.
+        await redis.set(dedupe_key, "0", ex=_BOT_BALANCE_MERGE_TTL)
+        return
+    if resp.status_code != 200:
+        logger.warning(
+            "Bot profile fetch from primary returned %s for tg=%s",
+            resp.status_code,
+            telegram_id,
+        )
+        return
+
+    try:
+        data = resp.json()
+    except ValueError:
+        return
+
+    bot_credits = int(data.get("image_credits") or 0)
+    if bot_credits <= 0:
+        await redis.set(dedupe_key, "0", ex=_BOT_BALANCE_MERGE_TTL)
+        return
+
+    target_user.image_credits = int(target_user.image_credits or 0) + bot_credits
+    db.add(
+        CreditTransaction(
+            user_id=target_user.id,
+            amount=bot_credits,
+            balance_after=target_user.image_credits,
+            tx_type="link_merge",
+            payment_id=f"link_merge:tg:{telegram_id}",
+        )
+    )
+    await db.commit()
+    await redis.set(dedupe_key, "1", ex=_BOT_BALANCE_MERGE_TTL)
+    logger.info(
+        "Bot balance merged from primary: tg=%s +%d credits → web_user=%s",
+        telegram_id,
+        bot_credits,
+        target_user.id,
+    )
 
 
 async def _claim_link_response(

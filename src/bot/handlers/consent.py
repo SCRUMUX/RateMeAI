@@ -41,15 +41,15 @@ CONSENT_REQUIRED_MESSAGE = (
 _PRIVACY_URL_FALLBACK = "https://ailookstudio.ru/privacy"
 
 
-def _resolve_privacy_url() -> str:
-    """Build privacy-policy URL from the bot's configured landing host.
+def _resolve_privacy_url(language_code: str | None = None) -> str:
+    """Build the privacy-policy URL from the bot landing host.
 
-    Variant B: RU bot points at ``ailookstudio.ru``, Global bot
-    points at ``ailookstudio.vercel.app``. We fall back to the
-    historical RU URL only when neither ``bot_web_landing_url`` nor
-    ``web_base_url`` is set (e.g. local dev).
+    Per-language since 1.62.0 — RU-family locales get the
+    ``ailookstudio.ru`` policy, everyone else the global one.  Falls
+    back to the historical RU URL when both per-language URLs are
+    empty (e.g. local dev).
     """
-    base = settings.resolved_bot_web_landing_url
+    base = settings.resolve_landing_url(language_code)
     if not base:
         return _PRIVACY_URL_FALLBACK
     return f"{base}/privacy"
@@ -58,9 +58,10 @@ def _resolve_privacy_url() -> str:
 def _consent_keyboard(
     missing: list[str],
     privacy_url: str | None = None,
+    language_code: str | None = None,
 ) -> InlineKeyboardMarkup:
     if privacy_url is None:
-        privacy_url = _resolve_privacy_url()
+        privacy_url = _resolve_privacy_url(language_code)
     buttons: list[list[InlineKeyboardButton]] = []
     if "data_processing" in missing:
         buttons.append(
@@ -175,9 +176,14 @@ async def ensure_consents(
     if not missing:
         return True
 
+    lang = (
+        getattr(message.from_user, "language_code", None)
+        if message.from_user
+        else None
+    )
     await message.answer(
         CONSENT_REQUIRED_MESSAGE,
-        reply_markup=_consent_keyboard(missing),
+        reply_markup=_consent_keyboard(missing, language_code=lang),
         parse_mode="Markdown",
     )
     return False
@@ -219,8 +225,9 @@ async def on_consent_grant(
 
     missing = state.get("missing") or []
     if missing:
+        lang = getattr(user, "language_code", None) if user else None
         await callback.message.edit_reply_markup(
-            reply_markup=_consent_keyboard(missing)
+            reply_markup=_consent_keyboard(missing, language_code=lang)
         )
         await callback.answer(
             "Согласие сохранено. Подтверди оставшиеся, чтобы продолжить.",
