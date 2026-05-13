@@ -61,6 +61,16 @@ jobs:
             echo "===== nginx running config (server_name / listen) ====="
             docker compose -f docker-compose.ru.yml exec -T nginx sh -c "nginx -T 2>/dev/null | grep -E 'server_name|listen [0-9]'" 2>&1 || true
             echo ""
+            echo "===== telegram API reachability (api.telegram.org from VPS) ====="
+            curl -s -o /dev/null -w "HTTP %{http_code} time_total=%{time_total}s\n" \
+                --max-time 10 "https://api.telegram.org/" 2>&1 || echo "  curl exit=$?"
+            echo "  (from inside bot container:)"
+            docker compose -f docker-compose.ru.yml exec -T bot \
+                python -c "import urllib.request, sys; req = urllib.request.Request('https://api.telegram.org/'); r = urllib.request.urlopen(req, timeout=10); print('  HTTP', r.status)" 2>&1 || echo "  bot-side reach failed (expected if Telegram is blocked)"
+            echo ""
+            echo "===== outbound IP / GeoIP hint ====="
+            curl -s --max-time 5 https://ifconfig.me 2>&1 | head -1
+            echo ""
             echo "===== .env.ru — bot-related keys (values masked) ====="
             sudo sh -c '
                 for key in TELEGRAM_BOT_TOKEN TELEGRAM_BOT_USERNAME BOT_WEBHOOK_URL PEER_BOT_USERNAME EDGE_API_URL; do
