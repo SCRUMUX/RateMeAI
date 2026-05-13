@@ -270,8 +270,13 @@ jobs:
           rl_set SERVICE_ROLE="bot" -s bot -e production --skip-deploys
           rl_set COMPUTE_MODE="local" -s bot -e production --skip-deploys
           if [ -n "$INTERNAL_API_KEY" ]; then
-            echo "Syncing INTERNAL_API_KEY to Railway app service..."
+            echo "Syncing INTERNAL_API_KEY to Railway app + bot..."
             rl_set INTERNAL_API_KEY="$INTERNAL_API_KEY" -s app -e production --skip-deploys
+            # 1.62.2 — bot calls POST /api/v1/internal/bot/stars/grant with
+            # X-Internal-Key after Telegram Stars successful_payment. Without
+            # this var on the bot service users see «Сервис не настроен
+            # (internal key)» even though app has the key.
+            rl_set INTERNAL_API_KEY="$INTERNAL_API_KEY" -s bot -e production --skip-deploys
           else
             echo "::warning::INTERNAL_API_KEY secret not set — edge→primary auth may break"
           fi
@@ -315,6 +320,8 @@ jobs:
           # have a stable value.
           rl_set TELEGRAM_BOT_USERNAME="AI_Look_Studio_bot" -s bot -e production --skip-deploys
           rl_set TELEGRAM_BOT_USERNAME="AI_Look_Studio_bot" -s app -e production --skip-deploys
+          # Telegram Stars pack grid (credits:stars). Source of truth for prod bot pricing.
+          rl_set CREDIT_PACKS_XTR="5:127,10:227,20:427,50:927" -s bot -e production --skip-deploys
           # 1.62.0 — EDGE_API_URL is no longer consumed by the bot
           # (the single bot only talks to Railway).  We unset it on
           # the bot service to avoid drift and only keep it on ``app``

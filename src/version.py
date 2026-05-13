@@ -5497,4 +5497,9 @@
 #          ``docker compose up app bot`` after 1.62.0 removed the
 #          ``bot`` service from docker-compose.ru.yml, causing CI
 #          deploy-ru to fail with ``no such service: bot``.
-APP_VERSION = "1.62.1"
+# 1.62.2 — Stars: deploy-backend now syncs INTERNAL_API_KEY and
+#          CREDIT_PACKS_XTR to the Railway ``bot`` service (the app
+#          already had the key; the bot was empty → «internal key»
+#          after successful_payment). Default credit_packs_xtr raised
+#          to 5:127 / 10:227 / 20:427 / 50:927 stars.
+APP_VERSION = "1.62.2"

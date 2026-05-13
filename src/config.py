@@ -101,7 +101,7 @@ class Settings(BaseSettings):
     # Format: ``credits:stars,credits:stars,…``.  Telegram requires
     # integer star amounts.  Telegram takes a ~30% IAP fee, so prices
     # account for the cut.  Adjust via env var ``CREDIT_PACKS_XTR``.
-    credit_packs_xtr: str = "5:25,10:45,20:85,50:200"
+    credit_packs_xtr: str = "5:127,10:227,20:427,50:927"
 
     # Xsolla Pay Station (primary deployment only)
     xsolla_merchant_id: str = ""
