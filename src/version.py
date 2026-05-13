@@ -5493,4 +5493,8 @@
 #              @AI_Look_Studio_bot".  Do NOT delete the bot — keeps
 #              the username reserved.  Broadcast is impossible
 #              because that bot can no longer reach api.telegram.org.
-APP_VERSION = "1.62.0"
+# 1.62.1 — RU deploy hotfix: deploy/ru/update.sh still ran
+#          ``docker compose up app bot`` after 1.62.0 removed the
+#          ``bot`` service from docker-compose.ru.yml, causing CI
+#          deploy-ru to fail with ``no such service: bot``.
+APP_VERSION = "1.62.1"

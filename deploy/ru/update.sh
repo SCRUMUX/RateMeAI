@@ -2,7 +2,7 @@
 set -euo pipefail
 
 # ────────────────────────────────────────────────────────────────
-# RU edge server deployment script (v1.61 — clean architecture).
+# RU edge server deployment script (v1.62 — no VPS bot).
 #
 # Contract:
 #   1. Cert is ALREADY in place at /etc/letsencrypt/live/ailookstudio.ru/
@@ -83,12 +83,12 @@ echo "--- fix storage permissions ---"
 docker run --rm -v ratemeai_app_storage:/app/storage alpine \
     sh -c "chmod -R 777 /app/storage 2>/dev/null; echo 'storage permissions fixed'" || true
 
-# ── 2. Rebuild and (re)start backend + bot (migrations run on app startup) ──
-# ``up -d --build`` recreates the container if the compose spec changed
-# (e.g. v1.61 introduced the new ``bot`` service / dropped nginx_extra_conf
-# volume).  No-op when nothing changed.
-echo "--- backend + bot build ---"
-docker compose -f "$COMPOSE_FILE" up -d --build app bot
+# ── 2. Rebuild and (re)start backend (migrations run on app startup) ──
+# 1.62.0 — the RU VPS no longer runs a ``bot`` service (Telegram bot
+# lives only on Railway).  ``up -d --build`` still recreates ``app`` if
+# the image / compose spec changed.
+echo "--- backend build ---"
+docker compose -f "$COMPOSE_FILE" up -d --build app
 
 # ── 3. Reconcile nginx with the current compose spec ─────────────
 # Why ``up -d nginx`` and not ``restart``: v1.61 removes the
@@ -115,7 +115,6 @@ done
 if [ "$HEALTHY" != "1" ]; then
     echo "ERROR: health check failed after 8 attempts"
     docker compose -f "$COMPOSE_FILE" logs --tail=40 app
-    docker compose -f "$COMPOSE_FILE" logs --tail=20 bot 2>/dev/null || true
     exit 1
 fi
 
