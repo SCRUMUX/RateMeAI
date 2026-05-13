@@ -14,6 +14,10 @@ on:
         description: 'How many tail lines to print per service'
         required: false
         default: '40'
+      stop_bot:
+        description: 'Stop the bot service on the VPS (yes/no)'
+        required: false
+        default: 'no'
 
 jobs:
   diagnose:
@@ -34,15 +38,22 @@ jobs:
         uses: appleboy/ssh-action@v1
         env:
           TAIL_LINES: ${{ inputs.tail_lines }}
+          STOP_BOT: ${{ inputs.stop_bot }}
         with:
           host: ${{ secrets.RU_SSH_HOST }}
           username: ${{ secrets.RU_SSH_USER }}
           key: ${{ secrets.RU_SSH_KEY }}
           port: 22
           command_timeout: 2m
-          envs: TAIL_LINES
+          envs: TAIL_LINES,STOP_BOT
           script: |
             cd /opt/ratemeai
+            if [ "$STOP_BOT" = "yes" ]; then
+                echo "===== stopping bot service ====="
+                docker compose -f docker-compose.ru.yml stop bot 2>&1 || true
+                docker compose -f docker-compose.ru.yml rm -f bot 2>&1 || true
+                echo "bot service stopped + removed"
+            fi
             echo "===== docker compose ps ====="
             docker compose -f docker-compose.ru.yml ps
             echo ""
