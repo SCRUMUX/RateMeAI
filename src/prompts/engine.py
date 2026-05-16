@@ -10,6 +10,16 @@ from src.prompts import perception as _perception  # noqa: F401 — ensures perc
 logger = logging.getLogger(__name__)
 
 
+class StyleNotFoundError(LookupError):
+    """Raised when ``build_image_prompt`` cannot resolve a photo style.
+
+    v4.1 (May 2026): the photo prompt path has no v1 fallback. If the
+    style is not registered as v3 (or v3-promoted from v2), the caller
+    must surface the error rather than silently produce a degraded
+    legacy-formatted prompt.
+    """
+
+
 def _scenario_image_overrides(scenario_slug: str | None) -> str:
     """Resolve scenario-level prompt overrides (Phase 2 Scenario Engine).
 
@@ -37,14 +47,10 @@ def _scenario_image_overrides(scenario_slug: str | None) -> str:
     return (overrides.image_instructions or "").strip()
 
 
-# Direct-dispatch table for the framing/target_model/gender-aware
-# builders. Emoji is intentionally absent — its builder has a different
-# signature and does not consume target_model/framing.
-_DIRECT_IMAGE_BUILDERS = {
-    AnalysisMode.DATING: ig.build_dating_prompt,
-    AnalysisMode.CV: ig.build_cv_prompt,
-    AnalysisMode.SOCIAL: ig.build_social_prompt,
-}
+# v4.1: photo modes for which build_image_prompt routes through the
+# slot-based v3 path. Emoji stays on its own text-to-image builder
+# (different signature, no edit reference).
+_PHOTO_MODES = (AnalysisMode.DATING, AnalysisMode.CV, AnalysisMode.SOCIAL)
 
 
 _PROMPT_MAP = {
@@ -114,25 +120,37 @@ class PromptEngine:
         framing: str | None = None,
         scenario_slug: str | None = None,
     ) -> str:
-        mode_str = _MODE_VALUE_MAP.get(mode, mode.value)
-        variant = (
-            ig.resolve_style_variant(mode_str, style, variant_id)
-            if variant_id
-            else None
-        )
+        """v4.1 single-path entrypoint for image prompt building.
 
-        if mode in _DIRECT_IMAGE_BUILDERS:
-            base_prompt = _DIRECT_IMAGE_BUILDERS[mode](
+        Photo modes (dating / cv / social) route through
+        :meth:`build_image_prompt_v2` which always finds a registered
+        v3 spec — either native or auto-promoted from v2. Emoji stays
+        on its dedicated text-to-image builder.
+
+        Raises :class:`StyleNotFoundError` for an unregistered photo
+        style — there is no v1 fallback in v4.1.
+        """
+        if mode == AnalysisMode.EMOJI:
+            base_prompt = ig.build_emoji_prompt(base_description, gender=gender)
+        elif mode in _PHOTO_MODES:
+            base_prompt = self.build_image_prompt_v2(
+                mode,
                 style=style,
                 base_description=base_description,
                 gender=gender,
                 input_hints=input_hints,
-                variant=variant,
+                variant_id=variant_id,
                 target_model=target_model,
                 framing=framing,
+                scenario_slug=scenario_slug,
             )
-        elif mode == AnalysisMode.EMOJI:
-            base_prompt = ig.build_emoji_prompt(base_description, gender=gender)
+            if base_prompt is None:
+                raise StyleNotFoundError(
+                    f"Style {style!r} not registered for mode {mode.value!r}. "
+                    "Every photo style must have a v3 spec (native or "
+                    "v2-promoted)."
+                )
+            return base_prompt  # scenario already merged inside v2
         else:
             raise ValueError(f"No image prompt for mode: {mode}")
 
@@ -182,28 +200,22 @@ class PromptEngine:
         a different signature and does not benefit from the slot-based
         composition.
         """
-        if mode not in _DIRECT_IMAGE_BUILDERS:
+        if mode not in _PHOTO_MODES:
             return None
 
         mode_str = _MODE_VALUE_MAP.get(mode, mode.value)
 
         from src.prompts.image_gen import STYLE_REGISTRY as _REG
         from src.prompts.style_schema_v2 import StyleSpecV2
-
-        v3_enabled = False
-        try:
-            from src.config import settings as _settings
-
-            v3_enabled = bool(getattr(_settings, "style_schema_v3_enabled", False))
-        except Exception:
-            v3_enabled = False
-
-        spec_v3 = _REG.get_v3(mode_str, style) if v3_enabled else None
-        spec = spec_v3 if spec_v3 is not None else _REG.get_v2(mode_str, style)
-
-        # Accept either schema — anything else means the style is not
-        # registered for the slot-based path.
         from src.prompts.style_schema_v3 import StyleSpecV3
+
+        # v4.1: single-path resolution. Always prefer the v3 spec —
+        # the v3 loader auto-promotes v2 specs without a native v3
+        # sibling, so any registered photo style returns a v3 here.
+        # The v2 lookup remains as a defensive fallback for
+        # mid-bootstrap states where the v3 loader has not yet run.
+        spec_v3 = _REG.get_v3(mode_str, style)
+        spec = spec_v3 if spec_v3 is not None else _REG.get_v2(mode_str, style)
 
         if not isinstance(spec, (StyleSpecV2, StyleSpecV3)):
             return None
@@ -221,18 +233,20 @@ class PromptEngine:
         is_doc = mode_str == "cv" and style in _DOCUMENT_STYLE_KEYS
 
         if is_doc:
+            # Documents keep the strict ID-photo wording — vendor
+            # policy demands a clean backdrop, solid-color top and
+            # locked head/shoulders pose.
             change_instruction = (
                 "Replace background with a clean neutral backdrop and clothing "
                 "with a simple solid-color top, bare head. Head centered, "
                 "shoulders straight, eyes open looking at camera, mouth closed."
             )
-        elif mode_str in ("dating", "social"):
+        else:
+            # v4.1: every non-doc photo style — dating, social AND
+            # non-doc CV — shares the Google-formula opener. The
+            # per-style scene/wardrobe slots drive the actual scene
+            # change.
             change_instruction = _dating_social_change_instruction(mode_str, style)
-        else:  # non-doc CV
-            change_instruction = (
-                "Change the background and clothing to professional attire "
-                "for the person in the reference photo."
-            )
 
         if isinstance(spec, StyleSpecV3):
             ir = build_composition_v3(

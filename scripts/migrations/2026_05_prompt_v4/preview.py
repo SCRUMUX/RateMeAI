@@ -66,12 +66,14 @@ def main() -> int:
     )
     args = parser.parse_args()
 
-    from src.config import settings
     from src.prompts.image_gen import STYLE_REGISTRY
+    from src.services.style_loader_v2 import register_v2_styles_from_json
     from src.services.style_loader_v3 import register_v3_styles_from_json
 
-    settings.style_schema_v3_enabled = True  # type: ignore[attr-defined]
-    settings.prompt_pipeline_v4_enabled = True  # type: ignore[attr-defined]
+    # v4.1: routing flags removed; both loaders are always-on. Order
+    # matters — v3 loader auto-promotes v2 specs without a native v3
+    # sibling, so we register v2 first.
+    register_v2_styles_from_json()
     register_v3_styles_from_json()
 
     spec = STYLE_REGISTRY.get_v3(args.mode, args.style)
@@ -101,19 +103,9 @@ def main() -> int:
 
     if args.compare:
         print()
-        print("=" * 80)
-        print("v1 rollback comparison (prompt_pipeline_v4_enabled = False)")
-        print("=" * 80)
-        settings.prompt_pipeline_v4_enabled = False  # type: ignore[attr-defined]
-        v1_prompt = _build_prompt(spec, mode=args.mode, style=args.style, seed=0)
-        print(f"\n--- v1 layout, seed=0 ({len(v1_prompt)} chars) ---")
-        print(v1_prompt)
-        print()
-        v4_len = len(prompts[0])
-        if v1_prompt:
-            reduction = (len(v1_prompt) - v4_len) / len(v1_prompt) * 100
-            print(f"v4 vs v1 length: {v4_len} vs {len(v1_prompt)} ({reduction:+.0f}%)")
-        settings.prompt_pipeline_v4_enabled = True  # type: ignore[attr-defined]
+        print(
+            "(v4.1: legacy v1 layout removed — --compare is now a no-op."
+        )
 
     return 0
 

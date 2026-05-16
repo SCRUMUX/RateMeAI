@@ -28,7 +28,6 @@ from __future__ import annotations
 
 import pytest
 
-from src.config import settings
 from src.models.enums import AnalysisMode
 from src.prompts.compression import compress_prompt
 from src.prompts.engine import PromptEngine
@@ -96,33 +95,26 @@ def _v3_loaded() -> list[dict]:
     raw = load_styles_from_json()
 
     # Take a snapshot so we don't pollute global state for tests that
-    # run after this module.
+    # run after this module. v4.1: the v2/v3 loaders are always-on
+    # (the gating flags were removed), so we just clear and reload.
     snap_v2 = dict(STYLE_REGISTRY._v2_by_key)
     snap_v3 = dict(STYLE_REGISTRY._v3_by_key)
+    snap_promoted = set(STYLE_REGISTRY._v3_promoted)
     STYLE_REGISTRY._v2_by_key.clear()
     STYLE_REGISTRY._v3_by_key.clear()
-
-    # Force the loaders to actually populate the registry regardless
-    # of the runtime feature-flag state. We restore the flag below.
-    prev_v2 = getattr(settings, "style_schema_v2_enabled", True)
-    prev_v3 = getattr(settings, "style_schema_v3_enabled", False)
-    prev_unified = getattr(settings, "unified_prompt_v2_enabled", True)
-    setattr(settings, "style_schema_v2_enabled", True)
-    setattr(settings, "style_schema_v3_enabled", True)
-    setattr(settings, "unified_prompt_v2_enabled", True)
+    STYLE_REGISTRY._v3_promoted.clear()
 
     register_v2_styles_from_json(raw)
     register_v3_styles_from_json(raw)
 
     yield raw
 
-    setattr(settings, "style_schema_v2_enabled", prev_v2)
-    setattr(settings, "style_schema_v3_enabled", prev_v3)
-    setattr(settings, "unified_prompt_v2_enabled", prev_unified)
     STYLE_REGISTRY._v2_by_key.clear()
     STYLE_REGISTRY._v3_by_key.clear()
+    STYLE_REGISTRY._v3_promoted.clear()
     STYLE_REGISTRY._v2_by_key.update(snap_v2)
     STYLE_REGISTRY._v3_by_key.update(snap_v3)
+    STYLE_REGISTRY._v3_promoted.update(snap_promoted)
 
 
 def _all_v3_styles(raw: list[dict]) -> list[tuple[str, str, tuple[str, ...]]]:

@@ -216,21 +216,13 @@ def register_v2_styles_from_json(
         raw_styles: pass an already-loaded list to avoid re-reading
             the JSON file (used by tests).
     """
-    try:
-        from src.config import settings
-    except Exception:
-        settings = None
-
     if raw_styles is None:
         from src.services.style_loader import load_styles_from_json
 
         raw_styles = load_styles_from_json()
 
-    if settings is not None and not getattr(
-        settings, "style_schema_v2_enabled", False
-    ):
-        logger.debug("style_loader_v2: flag off, skipping registration")
-        return 0
+    # v4.1: ``style_schema_v2_enabled`` flag removed — the v2 loader
+    # is always-on, it is the foundation of the single-path pipeline.
 
     from src.prompts.image_gen import STYLE_REGISTRY
 

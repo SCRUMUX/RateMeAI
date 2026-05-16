@@ -70,18 +70,18 @@ def _base_settings(mock_settings) -> None:
     # v1.24.2 contract: ab_test_enabled is the gate for the A/B path.
     mock_settings.ab_test_enabled = True
     mock_settings.ab_default_quality = "medium"
-    # style-schema-v2 migration flags — default OFF so these tests
-    # keep describing the v1 routing behaviour. Without these, the
-    # MagicMock would otherwise return truthy attribute mocks and
-    # silently flip the v2 branch on.
-    mock_settings.unified_prompt_v2_enabled = False
-    mock_settings.style_schema_v2_enabled = False
-    mock_settings.variation_engine_v2_enabled = False
+    # v4.1: routing flags removed; v3 path is the only path. The
+    # variation_engine_v2_enabled flag stays as a behavioural toggle
+    # for the composition builder.
+    mock_settings.variation_engine_v2_enabled = True
 
 
 def _build_executor(image_gen):
     prompt_engine = MagicMock()
     prompt_engine.build_image_prompt.return_value = "TEST_PROMPT"
+    # v4.1: executor.single_pass calls build_image_prompt_v2 directly;
+    # legacy build_image_prompt is no longer reached on the photo path.
+    prompt_engine.build_image_prompt_v2.return_value = "TEST_PROMPT"
     storage = MagicMock()
     storage.upload = AsyncMock(return_value=None)
     storage.get_url = AsyncMock(return_value="https://example/result.jpg")
@@ -200,7 +200,7 @@ async def test_single_pass_threads_framing_into_prompt_engine(mock_settings):
         framing="HALF_BODY",
     )
 
-    _, pe_kwargs = executor._prompt_engine.build_image_prompt.call_args
+    _, pe_kwargs = executor._prompt_engine.build_image_prompt_v2.call_args
     assert pe_kwargs.get("framing") == "half_body"
 
 
@@ -230,7 +230,7 @@ async def test_single_pass_drops_invalid_framing(mock_settings):
         framing="square",
     )
 
-    _, pe_kwargs = executor._prompt_engine.build_image_prompt.call_args
+    _, pe_kwargs = executor._prompt_engine.build_image_prompt_v2.call_args
     assert pe_kwargs.get("framing") == "half_body"
 
 
@@ -267,7 +267,7 @@ async def test_single_pass_merges_user_input_hints_over_quality_hints(mock_setti
         user_input_hints=user_hints,
     )
 
-    _, pe_kwargs = executor._prompt_engine.build_image_prompt.call_args
+    _, pe_kwargs = executor._prompt_engine.build_image_prompt_v2.call_args
     merged = pe_kwargs.get("input_hints") or {}
     assert merged.get("lighting") == "golden hour"
     assert merged.get("clothing_override") == "trench coat"

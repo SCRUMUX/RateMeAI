@@ -72,7 +72,8 @@ def _base_settings(mock_settings) -> None:
     mock_settings.gfpgan_preclean_enabled = False
     mock_settings.codeformer_enabled = False
     mock_settings.pulid_steps = 4
-    mock_settings.unified_prompt_v2_enabled = True
+    # v4.1: unified_prompt_v2_enabled flag removed; v3 path is now the
+    # single path executor.single_pass takes.
 
 
 class _RecordingPromptEngine:

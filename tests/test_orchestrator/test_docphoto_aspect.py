@@ -1,4 +1,4 @@
-"""Document-photo aspect ratio is now a *local* crop, not a Reve param.
+"""Document-photo aspect ratio is a local PIL crop, not a vendor param.
 
 v1.13.3 moved AR handling for document CV styles into local PIL
 post-processing (see src.services.postprocess.crop_to_aspect). These
@@ -7,12 +7,31 @@ tests cover:
   * the CV prompt builder still uses ID-style language for documents;
   * the document AR helper on the executor returns ``None`` for
     non-document styles so callers fall back to "no crop".
+
+v4.1 (May 2026): switched the prompt assertions from the removed
+``build_cv_prompt`` helper to ``PromptEngine.build_image_prompt`` —
+the only public entrypoint after the prompt-pipeline collapse.
 """
 
 from __future__ import annotations
 
+import pytest
+
+from src.models.enums import AnalysisMode
 from src.orchestrator.executor import _CV_DOCUMENT_ASPECT, _document_target_aspect
-from src.prompts.image_gen import build_cv_prompt, is_document_style
+from src.prompts.engine import PromptEngine
+from src.prompts.image_gen import is_document_style
+
+
+@pytest.fixture(scope="module", autouse=True)
+def _ensure_styles_loaded():
+    """Boot the v3 (with v2-promoted) registry before exercising prompts."""
+    from src.services.style_loader_v2 import register_v2_styles_from_json
+    from src.services.style_loader_v3 import register_v3_styles_from_json
+
+    register_v2_styles_from_json()
+    register_v3_styles_from_json()
+    yield
 
 
 def test_document_styles_have_explicit_aspect_ratio():
@@ -48,15 +67,19 @@ def test_cv_prompt_document_has_strict_instruction():
     # with DOC_QUALITY / DOC_PRESERVE anchors. They MUST keep the
     # ID-style language and MUST NOT leak the non-doc "professional
     # attire" change instruction.
-    doc_prompt = build_cv_prompt(style="photo_3x4", gender="male").lower()
+    engine = PromptEngine()
+    doc_prompt = engine.build_image_prompt(
+        AnalysisMode.CV, style="photo_3x4", gender="male"
+    ).lower()
     assert "id-style headshot" in doc_prompt
     assert "neutral" in doc_prompt
     assert "professional attire" not in doc_prompt
 
-    # v1.18: non-document CV styles run through the identity_scene
-    # branch (PuLID) when the key falls through to the default spec.
-    # v1.19: opener now says "reference subject" (not "reference
-    # person") — one mention avoids the duplicate-person failure mode.
-    normal_prompt = build_cv_prompt(style="ceo", gender="male").lower()
+    # Non-document CV style still routes through the v3 path. We
+    # assert the new v4.1 opener mentions the reference photo and the
+    # ID-style language stays clear of the non-doc prompt.
+    normal_prompt = engine.build_image_prompt(
+        AnalysisMode.CV, style="corporate", gender="male"
+    ).lower()
     assert "reference photo" in normal_prompt
     assert "id-style headshot" not in normal_prompt

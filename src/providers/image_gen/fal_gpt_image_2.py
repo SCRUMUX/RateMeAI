@@ -240,13 +240,25 @@ class FalGptImage2Edit(FalQueueClient, ImageGenProvider):
                 "(GPT Image 2 Edit is an image-to-image model)",
             )
         body = self._build_body(prompt, reference_image, params)
+        # v4.1: log the *full* prompt text + style + pipeline path
+        # tag. Without this we cannot verify in production that what
+        # the model receives matches what the prompt builder intended,
+        # which was the root reason v4.0 changes appeared invisible.
+        # The prompt is deterministic style + slot text, no PII (the
+        # user's photo goes via ``image_urls`` separately) — INFO
+        # level is safe.
+        params_dict = params or {}
         logger.info(
-            "FAL request model=%s prompt_len=%d quality=%s size=%s keys=%s",
+            "FAL request model=%s style=%s path=%s prompt_len=%d "
+            "quality=%s size=%s keys=%s prompt=%r",
             self._model,
+            params_dict.get("style") or "unknown",
+            params_dict.get("prompt_pipeline_path") or "unknown",
             len(prompt or ""),
             body.get("quality"),
             body.get("image_size"),
             sorted(body.keys()),
+            prompt,
         )
         return self._run_queue_sync(body)
 

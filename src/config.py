@@ -295,36 +295,20 @@ class Settings(BaseSettings):
     # ``quality=medium`` is the recommended starting tier to guarantee background details.
     ab_default_model: str = "gpt_image_2"
     # ------------------------------------------------------------------
-    # style-schema-v2 migration — PR1..PR4.
-    # Controls whether the StyleSpecV2 loader registers v2-tagged
-    # entries from data/styles.json (otherwise they are ignored and
-    # the v1 path handles everything). Default false so existing
-    # deployments keep loading exactly what they load today.
-    style_schema_v2_enabled: bool = True
-    # When true AND the resolved StyleSpec is a StyleSpecV2, the
-    # executor routes the prompt through
-    # ``PromptEngine.build_image_prompt_v2`` → composition_builder →
-    # per-model wrappers. Default false so the v2 prompt path is
-    # opt-in per environment.
-    unified_prompt_v2_enabled: bool = True
-    # When true the v2 composition builder uses VariationEngineV2 with
-    # separated weather / time_of_day / season / background channels
-    # instead of the legacy VariationEngine (which conflates weather
-    # with lighting). Has no effect when ``unified_prompt_v2_enabled``
-    # is false.
+    # variation_engine_v2_enabled stays as a behavioural flag for the
+    # composition builder — it controls whether the builder uses the
+    # multi-channel weather / time_of_day / season pools or the legacy
+    # single-channel VariationEngine. Always on in v4.1 (no legacy
+    # caller depends on the off path), kept here as a kill switch.
     variation_engine_v2_enabled: bool = True
     # ------------------------------------------------------------------
-    # style-schema-v3 — prompt-pipeline-overhaul (April 2026).
-    # Controls whether the StyleSpecV3 loader registers v3-tagged
-    # entries from data/styles.json and routes generation through the
-    # SlotSampler (random pick per channel by default; user-overridable
-    # via input_hints; immutable trigger pool ensures the headline
-    # motif always reaches the prompt).
-    # Default false because Stage 1 ships the schema additively;
-    # data/styles.json doesn't yet contain ``schema_version: 3`` rows.
-    # Stage 2 will flip the migration script's output to v3 and tests
-    # will set the flag explicitly.
-    style_schema_v3_enabled: bool = False
+    # v4.1 (May 2026): the runtime routing flags
+    # ``style_schema_v2_enabled``, ``unified_prompt_v2_enabled`` and
+    # ``style_schema_v3_enabled`` were REMOVED. The pipeline now has
+    # exactly one path: ``engine.build_image_prompt_v2`` → v3 spec
+    # (with v2-promoted spec auto-fallback for non-migrated styles)
+    # → ``composition_builder.build_composition_v3`` → per-model
+    # wrapper. There is no longer a v1 fallback for photo styles.
     # ------------------------------------------------------------------
     # prompt-pipeline-v4 (May 2026) — natural faces + diversity overhaul.
     # When True (default) the per-model wrappers use the new

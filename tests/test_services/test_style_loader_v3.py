@@ -16,7 +16,6 @@ from __future__ import annotations
 
 import pytest
 
-from src.config import settings
 from src.prompts.image_gen import STYLE_REGISTRY
 from src.prompts.style_schema_v3 import StyleSpecV3
 from src.services.style_loader_v3 import register_v3_styles_from_json
@@ -68,7 +67,6 @@ def _v3_entry(**overrides) -> dict:
 
 
 def test_loader_registers_only_schema_v3_entries(monkeypatch, _registry_isolated):
-    monkeypatch.setattr(settings, "style_schema_v3_enabled", True, raising=False)
     raw = [
         _v3_entry(),
         {"id": "v2_only", "mode": "social", "schema_version": 2},
@@ -81,17 +79,19 @@ def test_loader_registers_only_schema_v3_entries(monkeypatch, _registry_isolated
     assert spec.trigger_pool[0].startswith("Burj Khalifa")
 
 
-def test_loader_skips_when_flag_off(monkeypatch, _registry_isolated):
-    monkeypatch.setattr(settings, "style_schema_v3_enabled", False, raising=False)
+def test_loader_is_always_on_post_v4_1(monkeypatch, _registry_isolated):
+    """v4.1 (May 2026) removed the ``style_schema_v3_enabled`` flag —
+    the v3 loader is always-on, so a fresh raw entry is always
+    registered. The previous flag-off contract no longer applies.
+    """
     n = register_v3_styles_from_json([_v3_entry()])
-    assert n == 0
-    assert STYLE_REGISTRY.get_v3("social", "burj_khalifa") is None
+    assert n == 1
+    assert STYLE_REGISTRY.get_v3("social", "burj_khalifa") is not None
 
 
 def test_loader_rejects_entry_with_empty_trigger_pool(
     monkeypatch, _registry_isolated, caplog
 ):
-    monkeypatch.setattr(settings, "style_schema_v3_enabled", True, raising=False)
     bad = _v3_entry(trigger_pool=[], trigger="")
     with caplog.at_level("ERROR"):
         n = register_v3_styles_from_json([bad])
@@ -105,7 +105,6 @@ def test_loader_materialises_legacy_trigger_into_pool(
     """For backwards-compatibility during the migration: if a v3 entry
     forgot to populate ``trigger_pool`` but still carries a legacy
     ``trigger`` string, the loader synthesises a pool of one."""
-    monkeypatch.setattr(settings, "style_schema_v3_enabled", True, raising=False)
     entry = _v3_entry(trigger_pool=[], trigger="legacy mirror")
     n = register_v3_styles_from_json([entry])
     assert n == 1
@@ -117,7 +116,6 @@ def test_loader_materialises_legacy_trigger_into_pool(
 def test_loader_rejects_entry_without_scene_anchor(
     monkeypatch, _registry_isolated, caplog
 ):
-    monkeypatch.setattr(settings, "style_schema_v3_enabled", True, raising=False)
     bad = _v3_entry(scene_anchor="")
     with caplog.at_level("ERROR"):
         n = register_v3_styles_from_json([bad])
@@ -130,7 +128,6 @@ def test_loader_falls_back_to_base_scene_for_anchor(
 ):
     """``base_scene`` is the v2 spelling. When a v3 author re-uses the
     legacy field by mistake, the loader still picks it up."""
-    monkeypatch.setattr(settings, "style_schema_v3_enabled", True, raising=False)
     entry = _v3_entry()
     entry.pop("scene_anchor")
     entry["base_scene"] = "fallback anchor"
@@ -142,7 +139,6 @@ def test_loader_falls_back_to_base_scene_for_anchor(
 
 
 def test_loader_populates_ambient_pools(monkeypatch, _registry_isolated):
-    monkeypatch.setattr(settings, "style_schema_v3_enabled", True, raising=False)
     register_v3_styles_from_json([_v3_entry()])
     spec = STYLE_REGISTRY.get_v3("social", "burj_khalifa")
     assert isinstance(spec, StyleSpecV3)

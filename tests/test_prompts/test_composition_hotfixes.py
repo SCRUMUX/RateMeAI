@@ -80,7 +80,11 @@ def test_with_suffix_returns_empty_for_blank_input():
     assert _with_suffix("   ", "lighting", ("lighting",)) == ""
 
 
-def test_scene_line_no_lighting_stutter():
+def test_scene_line_narrative_lighting_no_stutter():
+    """v4.1 narrative scene_line(): the "lit by X" prefix never
+    duplicates an already-present "lighting" / "light" suffix in the
+    channel value.
+    """
     ir = CompositionIR(
         mode="dating",
         style_key="t",
@@ -90,25 +94,35 @@ def test_scene_line_no_lighting_stutter():
         weather="",
     )
     line = ir.scene_line()
+    assert "lit by warm tungsten light" in line.lower()
+    # No "light light" / "light lighting" stutter from the suffix
+    # appender.
     assert "light lighting" not in line.lower()
-    assert "warm tungsten light" in line
+    assert "lit by warm tungsten lighting" not in line.lower()
 
 
-def test_scene_line_no_weather_stutter():
+def test_scene_line_narrative_weather_during_morning():
+    """v4.1: weather + time_of_day combine into a single grammatical
+    fragment "during a <weather> <time_of_day>".
+    """
     ir = CompositionIR(
         mode="dating",
         style_key="t",
         change_instruction="",
         scene="park",
         lighting="",
-        weather="rainy weather",
+        weather="rainy",
+        time_of_day="morning",
     )
     line = ir.scene_line()
+    assert "during a rainy morning" in line.lower()
     assert "weather weather" not in line.lower()
-    assert "rainy weather" in line
 
 
-def test_scene_line_normal_appending_still_works():
+def test_scene_line_narrative_full_layout():
+    """v4.1: when lighting + weather + time + season are all set we
+    emit a narrative sentence rather than a comma-stack.
+    """
     ir = CompositionIR(
         mode="dating",
         style_key="t",
@@ -116,10 +130,15 @@ def test_scene_line_normal_appending_still_works():
         scene="park",
         lighting="warm",
         weather="clear",
+        time_of_day="morning",
+        season="autumn",
     )
     line = ir.scene_line()
-    assert "warm lighting" in line
-    assert "clear weather" in line
+    lower = line.lower()
+    assert lower.startswith("park")
+    assert "lit by warm" in lower
+    assert "during a clear morning" in lower
+    assert "in autumn" in lower
 
 
 # ---------- _ensure_trigger_in_scene --------------------------------------

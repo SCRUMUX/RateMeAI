@@ -541,12 +541,11 @@ class ImageGenerationExecutor:
             merged_hints = {**base_hints, **(user_input_hints or {})}
             input_hints = merged_hints or None
 
-            # style-schema-v2 migration PR1 — additive branch. The v2
-            # path is only taken when BOTH the feature flag is on AND
-            # the style has been registered as a StyleSpecV2; in every
-            # other case ``build_image_prompt_v2`` returns None and we
-            # fall through to the v1 path bit-for-bit unchanged.
-            prompt = None
+            # v4.1 (May 2026): single-path prompt pipeline. The v2 path
+            # is the only path — see [docs decision in v4.1 plan]. v1
+            # fallback is kept for emoji-only callers that use a
+            # different signature; for photo styles a missing spec is
+            # an error (caught by the caller).
             v2_substitutions: list[dict[str, str]] = []
             # ``resolved_slots`` is populated by the v3 path in
             # PromptEngine.build_image_prompt_v2 — the executor passes
@@ -554,33 +553,31 @@ class ImageGenerationExecutor:
             # actually rolled into ``result_dict["resolved_slots"]``
             # (and forward it to the frontend for badge rendering).
             resolved_slots: dict[str, object] = {}
-            if getattr(settings, "unified_prompt_v2_enabled", False):
-                prompt = self._prompt_engine.build_image_prompt_v2(
-                    mode,
-                    style=style,
-                    base_description=desc,
-                    gender=gender,
-                    input_hints=input_hints,
-                    variant_id=variant_id,
-                    target_model=ab_image_model,
-                    framing=framing_norm,
-                    out_substitutions=v2_substitutions,
-                    seed=seed,
-                    out_resolved_slots=resolved_slots,
-                    scenario_slug=scenario_slug,
-                )
+            prompt = self._prompt_engine.build_image_prompt_v2(
+                mode,
+                style=style,
+                base_description=desc,
+                gender=gender,
+                input_hints=input_hints,
+                variant_id=variant_id,
+                target_model=ab_image_model,
+                framing=framing_norm,
+                out_substitutions=v2_substitutions,
+                seed=seed,
+                out_resolved_slots=resolved_slots,
+                scenario_slug=scenario_slug,
+            )
 
+            # v4.1: derive path tag for INFO logging in FAL providers.
+            # ``resolved_slots`` is non-empty only on the v3 path, so
+            # its presence/absence is the most reliable in-process
+            # signal for which schema actually drove the prompt.
             if prompt is None:
-                # 1.32.0 — post-v2 cutover this branch should be
-                # unreachable for any registered style. Counter +
-                # warning let us decide whether the legacy code can be
-                # safely removed in 1.33.1. If you see this in prod
-                # logs, the style is either missing from the v2/v3
-                # registry or ``build_image_prompt_v2`` returned None
-                # for an unexpected reason — investigate before
-                # removing the fallback.
-                logger.warning(
-                    "v1_prompt_fallback_hit",
+                # Style is not registered for the slot-based path
+                # (no v3 spec, no v2 spec) — should be impossible after
+                # the v4.1 auto-promoter ran, so we fail loud.
+                logger.error(
+                    "prompt_build_failed_no_spec",
                     extra={
                         "mode": getattr(mode, "value", str(mode)),
                         "style": style,
@@ -592,17 +589,22 @@ class ImageGenerationExecutor:
                     mode=getattr(mode, "value", str(mode)),
                     style=style or "unknown",
                 ).inc()
-                prompt = self._prompt_engine.build_image_prompt(
-                    mode,
-                    style=style,
-                    base_description=desc,
-                    gender=gender,
-                    input_hints=input_hints,
-                    variant_id=variant_id,
-                    target_model=ab_image_model,
-                    framing=framing_norm,
-                    scenario_slug=scenario_slug,
+                raise RuntimeError(
+                    f"No StyleSpec registered for mode={mode.value!r} "
+                    f"style={style!r}. Run the v3 loader before "
+                    "executor.single_pass()."
                 )
+
+            prompt_pipeline_path = "v3" if resolved_slots else "v2"
+            # Distinguish auto-promoted v2 specs from native v3 in
+            # logs so we can tell which styles still need a hand-curated
+            # v3 entry.
+            if prompt_pipeline_path == "v3":
+                try:
+                    if STYLE_REGISTRY.is_v3_promoted(mode.value, style):
+                        prompt_pipeline_path = "v3_promoted"
+                except Exception:
+                    pass
 
             # v1.27.3 — surface soft-substitutions as a post-generation
             # notice. When the user typed a value the style didn't
@@ -644,6 +646,14 @@ class ImageGenerationExecutor:
             # LANCZOS upscale still happen locally in
             # ``_apply_local_postprocess``.
             extra: dict = {}
+
+            # v4.1: thread the style key + prompt-pipeline path tag
+            # into provider params so the FAL providers can include
+            # them in their INFO log. This is the only in-process
+            # signal we have for *which* code path produced the
+            # prompt that actually went to the model.
+            extra["style"] = style or "default"
+            extra["prompt_pipeline_path"] = prompt_pipeline_path
 
             # Output resolution per style. FLUX.2 Pro Edit honours
             # ``image_size`` with a concrete ``{width, height}`` dict —

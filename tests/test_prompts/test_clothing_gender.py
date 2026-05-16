@@ -17,7 +17,6 @@ from __future__ import annotations
 
 import pytest
 
-from src.config import settings
 from src.models.enums import AnalysisMode
 from src.prompts.engine import PromptEngine
 from src.prompts.image_gen import STYLE_REGISTRY
@@ -35,8 +34,6 @@ from src.services.style_loader_v2 import register_v2_styles_from_json
 
 @pytest.fixture
 def _v2_registered(monkeypatch):
-    monkeypatch.setattr(settings, "style_schema_v2_enabled", True, raising=False)
-    monkeypatch.setattr(settings, "unified_prompt_v2_enabled", True, raising=False)
     snapshot = dict(STYLE_REGISTRY._v2_by_key)
     STYLE_REGISTRY._v2_by_key.clear()
     register_v2_styles_from_json(load_styles_from_json())
@@ -118,19 +115,27 @@ def test_burj_khalifa_male_and_female_prompts_differ(_v2_registered):
 def test_non_gendered_style_yields_identical_prompts(_v2_registered):
     """A style whose clothing.default has the same value for male and
     female (e.g. ``london_eye``) must produce byte-identical prompts
-    for both genders so the back-compat path stays loss-less."""
+    for both genders so the back-compat path stays loss-less.
+
+    v4.1: the v3 sampler picks ambient slots randomly per call, so we
+    pass an explicit seed to lock the rolls. Gender does not feed the
+    sampler RNG — same seed therefore must yield the same prompt for
+    both genders when clothing is gender-neutral.
+    """
     engine = PromptEngine()
     male_prompt = engine.build_image_prompt_v2(
         mode=AnalysisMode.DATING,
         style="london_eye",
         gender="male",
         target_model="gpt_image_2",
+        seed=0,
     )
     female_prompt = engine.build_image_prompt_v2(
         mode=AnalysisMode.DATING,
         style="london_eye",
         gender="female",
         target_model="gpt_image_2",
+        seed=0,
     )
     assert male_prompt and female_prompt
     assert male_prompt == female_prompt

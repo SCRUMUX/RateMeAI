@@ -332,6 +332,12 @@ class StyleRegistry:
         # ``style_schema_v3_enabled`` flag is on and gracefully fall
         # back to v2 / v1 otherwise.
         self._v3_by_key: dict[tuple[str, str], object] = {}
+        # v4.1 (May 2026): track which v3 specs are auto-promoted from
+        # v2 (synthetic single-element trigger_pool, no curated ambient
+        # pools) vs natively authored v3. Used for the FAL-log
+        # ``path_tag`` so we can spot non-migrated styles in
+        # production logs.
+        self._v3_promoted: set[tuple[str, str]] = set()
 
     def register(self, spec: StyleSpec) -> None:
         self._by_key[(spec.mode, spec.key)] = spec
@@ -361,13 +367,31 @@ class StyleRegistry:
         Same pattern as :meth:`register_v2`. v3 specs are typed
         ``object`` to keep the registry module free of v3 imports.
         """
-        self._v3_by_key[(getattr(spec, "mode"), getattr(spec, "key"))] = spec
+        key = (getattr(spec, "mode"), getattr(spec, "key"))
+        self._v3_by_key[key] = spec
+        # Native v3 — drop the promoted marker if it was set by an
+        # earlier registration cycle.
+        self._v3_promoted.discard(key)
+
+    def register_v3_promoted(self, spec: object) -> None:
+        """Register a v2→v3 auto-promoted spec (v4.1).
+
+        Same storage as :meth:`register_v3` but flagged so the
+        executor can surface the difference in INFO logs.
+        """
+        key = (getattr(spec, "mode"), getattr(spec, "key"))
+        self._v3_by_key[key] = spec
+        self._v3_promoted.add(key)
 
     def get_v3(self, mode: str, key: str) -> object | None:
         return self._v3_by_key.get((mode, key))
 
     def has_v3(self, mode: str, key: str) -> bool:
         return (mode, key) in self._v3_by_key
+
+    def is_v3_promoted(self, mode: str, key: str) -> bool:
+        """True when the v3 spec for ``(mode, key)`` is v2-promoted."""
+        return (mode, key) in self._v3_promoted
 
     def keys_v3_for_mode(self, mode: str) -> list[str]:
         return [k for (m, k) in self._v3_by_key if m == mode]

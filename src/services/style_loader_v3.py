@@ -420,6 +420,86 @@ def _to_v3(raw: dict[str, Any]) -> StyleSpecV3 | None:
         return None
 
 
+def _promote_v2_to_v3(v2_spec: object) -> StyleSpecV3 | None:
+    """Synthesise a :class:`StyleSpecV3` from a :class:`StyleSpecV2`.
+
+    v4.1: every v2 spec that has no native v3 sibling is auto-promoted
+    so the runtime sees exactly one schema. The synthetic spec uses
+    a single-element ``trigger_pool`` (the v2 ``trigger`` or, as a
+    fallback, ``background.base``) so the slot sampler treats it
+    identically to a tiny native v3 spec — the only diversity loss
+    is that re-rolls always pick the same trigger phrase.
+    """
+    from src.prompts.style_schema_v2 import StyleSpecV2
+
+    if not isinstance(v2_spec, StyleSpecV2):
+        return None
+
+    bg = v2_spec.background
+    trigger = (v2_spec.trigger or "").strip() or (bg.base or "").strip()
+    if not trigger:
+        # No trigger and no scene anchor — refuse to promote so the
+        # caller can warn rather than register an empty spec the
+        # sampler would reject anyway.
+        return None
+    scene_anchor = (bg.base or trigger).strip()
+
+    weather_pool: tuple[str, ...] = ()
+    try:
+        if v2_spec.weather.enabled:
+            weather_pool = tuple(v2_spec.weather.allowed)
+    except Exception:
+        weather_pool = ()
+
+    ambient = AmbientPools(
+        lighting=tuple(v2_spec.context_slots.get("lighting", ())),
+        weather=weather_pool,
+        time_of_day=tuple(v2_spec.context_slots.get("time_of_day", ())),
+        season=tuple(v2_spec.context_slots.get("season", ())),
+    )
+
+    try:
+        return StyleSpecV3(
+            key=v2_spec.key,
+            mode=v2_spec.mode,
+            trigger_pool=(trigger,),
+            scene_anchor=scene_anchor,
+            background_lock=bg.lock,
+            ambient=ambient,
+            clothing=v2_spec.clothing,
+            quality_identity=v2_spec.quality_identity,
+            expression=v2_spec.expression,
+            needs_full_body=v2_spec.needs_full_body,
+            output_aspect=v2_spec.output_aspect,
+            generation_mode=v2_spec.generation_mode,
+        )
+    except ValueError as exc:
+        logger.warning(
+            "style_loader_v3: promote_v2 rejected %s — %s",
+            v2_spec.key,
+            exc,
+        )
+        return None
+
+
+def _auto_promote_v2_specs(registry: object) -> int:
+    """Register a v3-promoted variant for every v2 spec with no v3 sibling.
+
+    Returns the number of specs auto-promoted.
+    """
+    v2_map = getattr(registry, "_v2_by_key", {})
+    promoted_count = 0
+    for (mode, key), v2_spec in list(v2_map.items()):
+        if registry.has_v3(mode, key):  # type: ignore[attr-defined]
+            continue
+        v3_spec = _promote_v2_to_v3(v2_spec)
+        if v3_spec is None:
+            continue
+        registry.register_v3_promoted(v3_spec)  # type: ignore[attr-defined]
+        promoted_count += 1
+    return promoted_count
+
+
 def register_v3_styles_from_json(
     raw_styles: list[dict[str, Any]] | None = None,
 ) -> int:
@@ -434,21 +514,16 @@ def register_v3_styles_from_json(
         raw_styles: pre-loaded list to skip a JSON re-read (used by
             tests).
     """
-    try:
-        from src.config import settings
-    except Exception:
-        settings = None
-
     if raw_styles is None:
         from src.services.style_loader import load_styles_from_json
 
         raw_styles = load_styles_from_json()
 
-    if settings is not None and not getattr(
-        settings, "style_schema_v3_enabled", False
-    ):
-        logger.debug("style_loader_v3: flag off, skipping registration")
-        return 0
+    # v4.1: ``style_schema_v3_enabled`` flag removed — the v3 loader
+    # is always-on. After registering native v3 specs, every v2 spec
+    # without a v3 sibling is auto-promoted to a synthetic v3 spec
+    # (see ``_promote_v2_to_v3``) so the runtime has exactly one
+    # composition path.
 
     from src.prompts.image_gen import STYLE_REGISTRY
 
@@ -459,6 +534,12 @@ def register_v3_styles_from_json(
             continue
         STYLE_REGISTRY.register_v3(spec)
         registered += 1
+
+    promoted = _auto_promote_v2_specs(STYLE_REGISTRY)
+    if promoted:
+        logger.info(
+            "style_loader_v3: auto-promoted %d v2 specs to v3", promoted
+        )
 
     if registered:
         logger.info(

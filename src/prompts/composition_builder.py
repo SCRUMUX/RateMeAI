@@ -35,6 +35,11 @@ class CompositionIR:
     scene: str
     lighting: str = ""
     weather: str = ""
+    # v4.1: time_of_day and season are first-class IR fields so the
+    # narrative scene_line() can place them in dedicated grammatical
+    # slots instead of comma-stacking them into ``scene``.
+    time_of_day: str = ""
+    season: str = ""
     clothing: str = ""
     expression: str = ""
     framing_line: str = ""
@@ -66,27 +71,54 @@ class CompositionIR:
     resolved_slots: object | None = None
 
     def scene_line(self) -> str:
-        """Compose the single-sentence scene-and-environment description.
+        """Compose a narrative scene description.
 
-        Equivalent to ``VariationEngine.apply_variation`` output but
-        without an embedded clothing clause (clothing is a separate
-        IR field). Returns something like "Parisian boulevard, warm
-        sunset lighting, clear weather.".
+        v4.1: instead of the legacy comma-stack
+        ("<scene>, <lighting> lighting, <weather> weather, <season>"),
+        we emit a single narrative sentence following Google's Nano
+        Banana 2 prompting guide and OpenAI gpt-image-2 cookbook
+        recommendations:
 
-        Avoids the "X lighting lighting" / "X weather weather" stutter
-        that used to happen when authors put the noun inside the value
-        itself (e.g. ``lighting="warm tungsten light"``).
+            "<scene> lit by <lighting>, during a <weather> <time>
+            in <season>."
+
+        Empty channels are dropped from the sentence rather than
+        producing dangling commas. The v3 slot sampler always returns
+        non-empty ``scene``; if the caller hands us an empty ``scene``
+        we return an empty string.
         """
-        parts: list[str] = []
-        if self.scene:
-            parts.append(self.scene)
-        if self.lighting:
-            parts.append(_with_suffix(self.lighting, "lighting", ("lighting", "light")))
-        if self.weather:
-            parts.append(_with_suffix(self.weather, "weather", ("weather",)))
-        if not parts:
+        scene = (self.scene or "").strip()
+        if not scene:
             return ""
-        return ", ".join(p.strip() for p in parts if p and p.strip())
+
+        fragments: list[str] = []
+
+        lighting = (self.lighting or "").strip()
+        if lighting:
+            # "lit by <value>" — we keep the value as-is. Authors are
+            # free to write either "warm" or "warm tungsten lighting"
+            # / "warm tungsten light"; "lit by warm tungsten lighting"
+            # is a perfectly natural English phrase, so trimming a
+            # trailing "lighting"/"light" word would only lose detail
+            # without preventing any real stutter.
+            fragments.append(f"lit by {lighting}")
+
+        weather = (self.weather or "").strip()
+        time_of_day = (self.time_of_day or "").strip()
+        if weather and time_of_day:
+            fragments.append(f"during a {weather} {time_of_day}")
+        elif time_of_day:
+            fragments.append(f"during the {time_of_day}")
+        elif weather:
+            fragments.append(f"with {weather} weather")
+
+        season = (self.season or "").strip()
+        if season:
+            fragments.append(f"in {season}")
+
+        if not fragments:
+            return scene
+        return f"{scene}, " + " ".join(fragments)
 
 
 def _with_suffix(value: str, suffix_word: str, terminal_words: tuple[str, ...]) -> str:
@@ -385,18 +417,6 @@ def build_composition_v3(
     )
 
     scene_with_trigger = _ensure_trigger_in_scene(resolved.scene, resolved.trigger)
-    if resolved.time_of_day:
-        scene_with_trigger = (
-            f"{scene_with_trigger}, {resolved.time_of_day}"
-            if scene_with_trigger
-            else resolved.time_of_day
-        )
-    if resolved.season:
-        scene_with_trigger = (
-            f"{scene_with_trigger}, {resolved.season}"
-            if scene_with_trigger
-            else resolved.season
-        )
 
     framing_line, framing_requested = _resolve_framing_line(spec, framing)
     expression_line = _resolve_expression(spec.expression, dict(input_hints or {}))
@@ -407,6 +427,8 @@ def build_composition_v3(
         scene=scene_with_trigger,
         lighting=resolved.lighting,
         weather=resolved.weather,
+        time_of_day=resolved.time_of_day,
+        season=resolved.season,
         clothing=resolved.clothing,
         expression=expression_line,
         framing_line=framing_line,
@@ -489,12 +511,7 @@ def build_composition(
             substitutions=substitutions,
             rng=rng,
         )
-        scene_text = vr.scene
-        if vr.time_of_day:
-            scene_text = f"{scene_text}, {vr.time_of_day}" if scene_text else vr.time_of_day
-        if vr.season:
-            scene_text = f"{scene_text}, {vr.season}" if scene_text else vr.season
-        scene_text = _ensure_trigger_in_scene(scene_text, spec.trigger)
+        scene_text = _ensure_trigger_in_scene(vr.scene, spec.trigger)
         framing_line, framing_requested = _resolve_framing_line(spec, framing)
         expression_line = _resolve_expression(spec.expression, hints)
         return CompositionIR(
@@ -504,6 +521,8 @@ def build_composition(
             scene=scene_text,
             lighting=vr.lighting,
             weather=vr.weather,
+            time_of_day=vr.time_of_day,
+            season=vr.season,
             clothing=vr.clothing,
             expression=expression_line,
             framing_line=framing_line,

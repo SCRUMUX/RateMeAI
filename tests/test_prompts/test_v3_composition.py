@@ -22,7 +22,6 @@ from __future__ import annotations
 
 import pytest
 
-from src.config import settings
 from src.models.enums import AnalysisMode
 from src.prompts.composition_builder import build_composition_v3
 from src.prompts.engine import PromptEngine
@@ -158,11 +157,6 @@ def _registry_isolated():
 
 
 def test_engine_prefers_v3_when_flag_on(monkeypatch, _registry_isolated):
-    monkeypatch.setattr(settings, "style_schema_v3_enabled", True, raising=False)
-    monkeypatch.setattr(settings, "style_schema_v2_enabled", True, raising=False)
-    monkeypatch.setattr(
-        settings, "unified_prompt_v2_enabled", True, raising=False
-    )
 
     spec_v3 = _v3(key="z", mode="social")
     spec_v2 = _v2(key="z", mode="social")
@@ -190,11 +184,6 @@ def test_engine_prefers_v3_when_flag_on(monkeypatch, _registry_isolated):
 def test_engine_falls_back_to_v2_when_v3_missing(
     monkeypatch, _registry_isolated
 ):
-    monkeypatch.setattr(settings, "style_schema_v3_enabled", True, raising=False)
-    monkeypatch.setattr(settings, "style_schema_v2_enabled", True, raising=False)
-    monkeypatch.setattr(
-        settings, "unified_prompt_v2_enabled", True, raising=False
-    )
 
     STYLE_REGISTRY.register_v2(_v2(key="z", mode="social"))
 
@@ -219,8 +208,6 @@ def test_engine_falls_back_to_v2_when_v3_missing(
 def test_engine_returns_none_for_unknown_style(
     monkeypatch, _registry_isolated
 ):
-    monkeypatch.setattr(settings, "style_schema_v3_enabled", True, raising=False)
-    monkeypatch.setattr(settings, "style_schema_v2_enabled", True, raising=False)
 
     engine = PromptEngine()
     prompt = engine.build_image_prompt_v2(
@@ -269,11 +256,6 @@ def test_engine_forwards_full_resolved_slots_payload(
     were silently dropped because trigger/time/season got baked into
     the flattened ``scene`` string.
     """
-    monkeypatch.setattr(settings, "style_schema_v3_enabled", True, raising=False)
-    monkeypatch.setattr(settings, "style_schema_v2_enabled", True, raising=False)
-    monkeypatch.setattr(
-        settings, "unified_prompt_v2_enabled", True, raising=False
-    )
 
     STYLE_REGISTRY.register_v3(_v3_with_full_pools(key="z", mode="social"))
 
@@ -333,11 +315,6 @@ def test_engine_seeded_pipeline_is_deterministic(
     contract that lets the executor replay a generation with the
     same inputs and expect the same model-facing string.
     """
-    monkeypatch.setattr(settings, "style_schema_v3_enabled", True, raising=False)
-    monkeypatch.setattr(settings, "style_schema_v2_enabled", True, raising=False)
-    monkeypatch.setattr(
-        settings, "unified_prompt_v2_enabled", True, raising=False
-    )
 
     STYLE_REGISTRY.register_v3(_v3_with_full_pools(key="z", mode="social"))
 
@@ -372,11 +349,6 @@ def test_engine_user_overrides_partition_resolved_slots(
     NOT in ``random_picks``. UI badges read this partition to render
     a different visual hint for "user-pinned" vs "rolled".
     """
-    monkeypatch.setattr(settings, "style_schema_v3_enabled", True, raising=False)
-    monkeypatch.setattr(settings, "style_schema_v2_enabled", True, raising=False)
-    monkeypatch.setattr(
-        settings, "unified_prompt_v2_enabled", True, raising=False
-    )
 
     STYLE_REGISTRY.register_v3(_v3_with_full_pools(key="z", mode="social"))
 

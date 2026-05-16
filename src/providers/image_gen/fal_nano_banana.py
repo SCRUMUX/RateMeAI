@@ -256,15 +256,21 @@ class FalNanoBanana2Edit(FalQueueClient, ImageGenProvider):
                 "(Nano Banana 2 Edit is an image-to-image model)",
             )
         body = self._build_body(prompt, reference_image, params)
+        # v4.1: log the *full* prompt text + style + pipeline path
+        # tag. See FalGptImage2Edit for the rationale.
+        params_dict = params or {}
         logger.info(
-            "FAL request model=%s prompt_len=%d resolution=%s aspect=%s "
-            "thinking=%s keys=%s",
+            "FAL request model=%s style=%s path=%s prompt_len=%d "
+            "resolution=%s aspect=%s thinking=%s keys=%s prompt=%r",
             self._model,
+            params_dict.get("style") or "unknown",
+            params_dict.get("prompt_pipeline_path") or "unknown",
             len(prompt or ""),
             body.get("resolution"),
             body.get("aspect_ratio"),
             body.get("thinking_level", "none"),
             sorted(body.keys()),
+            prompt,
         )
         return self._run_queue_sync(body)
 
