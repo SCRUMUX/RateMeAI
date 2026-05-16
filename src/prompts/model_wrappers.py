@@ -1,28 +1,53 @@
-"""Per-model prompt wrappers for StyleSpecV2.
+"""Per-model prompt wrappers for StyleSpecV2 / V3.
 
-PR1 of the style-schema-v2 migration. Converts a :class:`CompositionIR`
-into the final string that goes on the wire to either GPT Image 2 Edit
-or Nano Banana 2 Edit.
+PR1 of the style-schema-v2 migration converted a :class:`CompositionIR`
+into the final string sent to GPT Image 2 Edit, Nano Banana 2 Edit or
+FLUX Kontext.
 
-Design
-------
-The default v1 tail (PRESERVE_PHOTO_FACE_ONLY + QUALITY_PHOTO +
-LIGHT_INTEGRATION_PHOTO + CAMERA_PHOTO + ANATOMY_PHOTO) is shared
-between both models. Per the PR1 plan we keep it as the byte-for-byte
-equivalent for styles whose v2 ``QualityBlock`` does not override it,
-and introduce split constants (``QUALITY_PHOTO_GPT`` / ``QUALITY_PHOTO_NANO``)
-that model-aware styles can opt into via
-``QualityBlock.per_model_tail``.
+v4 (May 2026) — prompt-pipeline-overhaul
+----------------------------------------
+The v1 tail layout (PRESERVE_PHOTO_FACE_ONLY + QUALITY_PHOTO +
+LIGHT_INTEGRATION_PHOTO + SCENE_BLEND_PHOTO + CAMERA_PHOTO +
+ANATOMY_PHOTO + per-model "1:7 head-to-body" addendum) was ~1100
+characters of fixed boilerplate appended at the very end of every
+prompt. Three problems with that:
 
-Resolution order for the tail:
+* Identity instructions arrived in the last third of the prompt, where
+  edit-models give them less attention than they deserve. The result
+  was the "вклеенное лицо" / pasted-on failure mode.
+* PRESERVE asked to keep skin tone while LIGHT_INTEGRATION /
+  SCENE_BLEND asked to match it to scene tone — internal contradiction
+  that the model resolved by re-grading the face.
+* The single fixed tail dominated the attention budget, leaving little
+  room for style variation across users.
+
+v4 reorders the prompt to "preserve-first" and trims the tail to two
+short blocks (PHOTOREAL_BLOCK + PASTED_ON_GUARD), following the OpenAI
+gpt-image-2 cookbook (section 5.2 "Virtual Try-On") and Google's
+Nano Banana 2 prompting guide. The v4 layout, in order:
+
+1. ``change_instruction``           — "Place the person …" opener
+2. ``IDENTITY_PRESERVE_BLOCK``      — facial features / bone / skin /
+                                       hair / pose-fits-scene
+3. ``scene`` + ``lighting`` + ``weather``
+4. ``clothing``
+5. ``expression``                   — natural-from-reference by default
+                                       (see composition_builder.py)
+6. ``framing_line`` + camera anchor
+7. ``PHOTOREAL_BLOCK``              — photoreal cues + 50mm/eye-level
+8. ``PASTED_ON_GUARD``              — "without looking pasted on"
+
+Behaviour is gated on ``settings.prompt_pipeline_v4_enabled`` so an
+operator can roll back to the v1 layout instantly if needed. Resolution
+order for the trailing tail is the same as before:
 
 1. ``ir.per_model_tail_map[model]`` — explicit per-model override on
-   the style. Highest priority.
-2. ``ir.quality_identity_base`` — style-level common tail (falls back
-   to the v1 constant block when empty).
-3. Default v1 constants — kept as a single authoritative source of
-   truth so a style that doesn't fill ``QualityBlock`` at all stays
-   bit-for-bit identical to its v1 sibling.
+   the style. Highest priority. Stage 4 of the v4 rollout zeroes these
+   out across ``data/styles.json`` so every style picks up the new
+   short defaults; until then we still honour any non-empty override.
+2. ``ir.quality_identity_base`` — style-level common tail.
+3. Default constants (``QUALITY_PHOTO_GPT`` / ``QUALITY_PHOTO_NANO`` /
+   ``QUALITY_PHOTO_FLUX``) — short v4 photoreal+pasted-on stack.
 
 Document styles bypass the whole tail and use the legacy DOC_PRESERVE /
 DOC_QUALITY + composition hint block — identity fidelity requirements
@@ -36,60 +61,82 @@ from src.prompts import image_gen as ig
 from src.prompts.composition_builder import CompositionIR
 
 
-# Per-model quality / identity tails. Through 1.32.1 these were
-# byte-for-byte identical so the "flag on, no v2 styles" parity test
-# could compare them; in 1.32.2 we differentiate them by appending
-# :data:`ig.SCENE_BLEND_PHOTO` (compositing-quality anchor) and let
-# each model surface its preferred phrasing first. The ordering still
-# leads with PRESERVE / QUALITY / LIGHT_INTEGRATION so existing
-# golden tests on those substrings keep passing; SCENE_BLEND is
-# inserted between LIGHT_INTEGRATION and CAMERA so the cinematography
-# block is contiguous (lights → wrap → camera → anatomy). Per-model
-# variants exist so a future PR can tune the wording for one model
-# without rebalancing the other.
-QUALITY_PHOTO_GPT = " ".join(
+# v4 short tails. PHOTOREAL_BLOCK + PASTED_ON_GUARD is the entire fixed
+# tail; identity-preserve has been hoisted to the top of the prompt by
+# the v4 ``_assemble`` reorder. Per-model variants kept as separate
+# names so a future PR can tune wording for a single model without
+# rebalancing the others.
+QUALITY_PHOTO_GPT = " ".join([ig.PHOTOREAL_BLOCK, ig.PASTED_ON_GUARD])
+QUALITY_PHOTO_NANO = " ".join([ig.PHOTOREAL_BLOCK, ig.PASTED_ON_GUARD])
+QUALITY_PHOTO_FLUX = " ".join([ig.PHOTOREAL_BLOCK, ig.PASTED_ON_GUARD])
+
+
+# v1.32 long tails — kept addressable for the rollback code-path below
+# (``prompt_pipeline_v4_enabled = False``). When v4 is on these are
+# ignored entirely.
+_QUALITY_PHOTO_GPT_V1 = " ".join(
     [
         ig.PRESERVE_PHOTO_FACE_ONLY,
         ig.QUALITY_PHOTO,
         ig.LIGHT_INTEGRATION_PHOTO,
-        ig.SCENE_BLEND_PHOTO,
+        ig.SCENE_BLEND_PHOTO_LEGACY,
         ig.CAMERA_PHOTO,
         ig.ANATOMY_PHOTO,
         "Ensure correct 1:7 head-to-body ratio, natural shoulders, and realistic body proportions. The face must not be oversized relative to the body.",
     ]
 )
 
-QUALITY_PHOTO_NANO = " ".join(
+_QUALITY_PHOTO_NANO_V1 = " ".join(
     [
         ig.PRESERVE_PHOTO_FACE_ONLY,
         ig.QUALITY_PHOTO,
         ig.LIGHT_INTEGRATION_PHOTO,
-        ig.SCENE_BLEND_PHOTO,
+        ig.SCENE_BLEND_PHOTO_LEGACY,
         ig.CAMERA_PHOTO,
         ig.ANATOMY_PHOTO,
     ]
 )
 
-# FLUX Kontext (BFL) prefers positive-framing-only narration. We
-# reuse the same anchor stack — SCENE_BLEND_PHOTO is already strictly
-# positive — but label the variant separately so a downstream PR can
-# split the wording without touching GPT/Nano consumers.
-QUALITY_PHOTO_FLUX = " ".join(
+_QUALITY_PHOTO_FLUX_V1 = " ".join(
     [
         ig.PRESERVE_PHOTO_FACE_ONLY,
         ig.QUALITY_PHOTO,
         ig.LIGHT_INTEGRATION_PHOTO,
-        ig.SCENE_BLEND_PHOTO,
+        ig.SCENE_BLEND_PHOTO_LEGACY,
         ig.CAMERA_PHOTO,
         ig.ANATOMY_PHOTO,
     ]
 )
 
-_MODEL_DEFAULT_TAIL = {
+
+_MODEL_DEFAULT_TAIL_V4 = {
     "gpt_image_2": QUALITY_PHOTO_GPT,
     "nano_banana_2": QUALITY_PHOTO_NANO,
     "flux_kontext": QUALITY_PHOTO_FLUX,
 }
+
+_MODEL_DEFAULT_TAIL_V1 = {
+    "gpt_image_2": _QUALITY_PHOTO_GPT_V1,
+    "nano_banana_2": _QUALITY_PHOTO_NANO_V1,
+    "flux_kontext": _QUALITY_PHOTO_FLUX_V1,
+}
+
+# Public alias retained so external callers / golden tests that import
+# ``_MODEL_DEFAULT_TAIL`` keep working. Always points at v4 — v1
+# rollback uses ``_MODEL_DEFAULT_TAIL_V1`` directly inside ``_resolve_tail``.
+_MODEL_DEFAULT_TAIL = _MODEL_DEFAULT_TAIL_V4
+
+
+def _v4_enabled() -> bool:
+    """Check whether the v4 prompt pipeline is active."""
+    try:
+        from src.config import settings
+
+        return bool(getattr(settings, "prompt_pipeline_v4_enabled", True))
+    except Exception:
+        # Defensive: in test contexts where settings aren't fully loaded
+        # we default to v4 so the new behaviour is what we exercise.
+        return True
 
 
 def _resolve_tail(ir: CompositionIR, model: str) -> str:
@@ -99,26 +146,32 @@ def _resolve_tail(ir: CompositionIR, model: str) -> str:
         return override
     if ir.quality_identity_base:
         return ir.quality_identity_base
-    return _MODEL_DEFAULT_TAIL.get(model, QUALITY_PHOTO_GPT)
+    table = _MODEL_DEFAULT_TAIL_V4 if _v4_enabled() else _MODEL_DEFAULT_TAIL_V1
+    return table.get(model, table["gpt_image_2"])
 
 
 def _assemble(ir: CompositionIR, *, tail: str) -> str:
+    """Assemble the wire-prompt from a :class:`CompositionIR`.
+
+    v4 uses a preserve-first ordering; v1 uses the legacy
+    ``[change → scene → clothing → expression → framing → tail]``
+    layout (selected when ``prompt_pipeline_v4_enabled`` is False).
+    Document styles share one path across both versions because
+    DOC_PRESERVE / DOC_QUALITY are vendor-policy and haven't changed.
+    """
     parts: list[str] = []
-
-    if ir.change_instruction:
-        parts.append(ir.change_instruction)
-
-    scene_line = ir.scene_line()
-    if scene_line:
-        parts.append(f"{scene_line}.")
-
-    if ir.clothing:
-        parts.append(f"Subject is wearing {ir.clothing}.")
-
-    if ir.expression:
-        parts.append(ir.expression)
+    v4 = _v4_enabled()
 
     if ir.is_document:
+        if ir.change_instruction:
+            parts.append(ir.change_instruction)
+        scene_line = ir.scene_line()
+        if scene_line:
+            parts.append(f"{scene_line}.")
+        if ir.clothing:
+            parts.append(f"Subject is wearing {ir.clothing}.")
+        if ir.expression:
+            parts.append(ir.expression)
         hint = ig._DOC_COMPOSITION_HINT.get(
             ir.style_key, "Centered head-and-shoulders framing."
         )
@@ -127,9 +180,46 @@ def _assemble(ir: CompositionIR, *, tail: str) -> str:
         parts.append(ig.DOC_QUALITY)
         parts.append(ig.CAMERA_PHOTO)
         parts.append(ig.ANATOMY_PHOTO)
-    else:
+    elif v4:
+        if ir.change_instruction:
+            parts.append(ir.change_instruction)
+        # Identity-preserve hoisted to the top so it sits in the first
+        # third of the prompt where edit-models pay most attention.
+        parts.append(ig.IDENTITY_PRESERVE_BLOCK)
+
+        scene_line = ir.scene_line()
+        if scene_line:
+            parts.append(f"{scene_line}.")
+
+        if ir.clothing:
+            parts.append(f"Subject is wearing {ir.clothing}.")
+
+        if ir.expression:
+            parts.append(ir.expression)
+
         if ir.framing_line:
             parts.append(ir.framing_line)
+
+        if tail:
+            parts.append(tail)
+    else:
+        # v1 fallback layout (rollback path).
+        if ir.change_instruction:
+            parts.append(ir.change_instruction)
+
+        scene_line = ir.scene_line()
+        if scene_line:
+            parts.append(f"{scene_line}.")
+
+        if ir.clothing:
+            parts.append(f"Subject is wearing {ir.clothing}.")
+
+        if ir.expression:
+            parts.append(ir.expression)
+
+        if ir.framing_line:
+            parts.append(ir.framing_line)
+
         if tail:
             parts.append(tail)
 

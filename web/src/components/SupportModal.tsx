@@ -18,7 +18,7 @@ interface Props {
   faq?: FaqItem[];
 }
 
-const DEFAULT_TELEGRAM_URL = 'https://t.me/ailookstudio_support';
+const DEFAULT_TELEGRAM_URL = 'https://t.me/AI_Look_Studio';
 // Variant B: support email is a per-build value driven by VITE_SUPPORT_EMAIL.
 // Falls back to the RU mailbox when the env var is missing so existing
 // deployments keep working without code changes.

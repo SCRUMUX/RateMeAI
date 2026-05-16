@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import re
 
 from aiogram import F, Router
 from aiogram.filters import BaseFilter, Command
@@ -19,17 +20,12 @@ from src.bot.keyboards import back_keyboard, link_waiting_keyboard, link_wizard_
 from src.bot.middleware import get_bot_auth_headers
 from src.config import settings
 
+# Mirror of ``_LINK_TOKEN_LENGTH`` in src/api/v1/users.py.  Duplicated
+# intentionally (not imported) to keep the bot package free of API-layer
+# coupling — if the length ever changes, this constant moves with it.
+_LINK_CODE_LENGTH = 6
+_LINK_CODE_RE = re.compile(rf"^[A-Za-z0-9]{{{_LINK_CODE_LENGTH}}}$")
 
-def _landing_host_label(language_code: str | None = None) -> str:
-    """Domain string ("ailookstudio.ru") for the «Зайди на сайт …» prompt.
-
-    Per-language since 1.62.0: RU-family locales see ailookstudio.ru,
-    everyone else sees the default (ailookstudio.vercel.app).
-    """
-    base = settings.resolve_landing_url(language_code)
-    if not base:
-        return "ailookstudio.ru"
-    return base.replace("https://", "").replace("http://", "").rstrip("/")
 
 router = Router()
 logger = logging.getLogger(__name__)
@@ -44,7 +40,13 @@ _LINK_WAITING_TTL = 600  # 10 min — same as link-token TTL
 
 
 class LinkCodeFilter(BaseFilter):
-    """Match non-command text messages when the user has an active link_waiting flag."""
+    """Match non-command text messages that look like a link code while
+    the user has an active link_waiting flag.
+
+    P2.1: tightened with a regex check so casual replies (``привет``,
+    long sentences) no longer get swallowed and returned to the user as
+    "code invalid".  Only ``[A-Za-z0-9]{6}`` strings actually pass.
+    """
 
     async def __call__(
         self, message: Message, redis: Redis | None = None, **kwargs
@@ -55,9 +57,12 @@ class LinkCodeFilter(BaseFilter):
             return False
         try:
             flag = await redis.get(_LINK_WAITING_KEY.format(message.from_user.id))
-            return flag is not None
         except Exception:
             return False
+        if flag is None:
+            return False
+        candidate = message.text.strip()
+        return _LINK_CODE_RE.match(candidate) is not None
 
 
 # ---------------------------------------------------------------------------
@@ -89,15 +94,16 @@ async def on_link_have_web(callback: CallbackQuery, redis: Redis):
     user_id = callback.from_user.id
     await redis.set(_LINK_WAITING_KEY.format(user_id), "1", ex=_LINK_WAITING_TTL)
     lang = getattr(callback.from_user, "language_code", None) if callback.from_user else None
+    landing_url = settings.resolve_landing_url(lang)
     await callback.message.answer(
         "\U0001f310 *Привязка через сайт*\n\n"
-        f"1\ufe0f\u20e3 Зайди на сайт *{_landing_host_label(lang)}*\n"
+        "1\ufe0f\u20e3 Открой сайт по кнопке ниже\n"
         "2\ufe0f\u20e3 Нажми на баланс вверху \u2192 *Получить код привязки*\n"
         "3\ufe0f\u20e3 Скопируй 6-значный код\n"
         "4\ufe0f\u20e3 *Отправь код прямо сюда в чат* \u2935\ufe0f\n\n"
         "Жду код...",
         parse_mode="Markdown",
-        reply_markup=link_waiting_keyboard(),
+        reply_markup=link_waiting_keyboard(landing_url=landing_url or None),
     )
 
 

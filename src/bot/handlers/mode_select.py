@@ -57,6 +57,16 @@ def _build_display_names() -> dict[str, dict[str, str]]:
 _STYLE_DISPLAY_NAMES: dict[str, dict[str, str]] = _build_display_names()
 _PROCESSING_LOCK = "ratemeai:processing:{}"
 _LOCK_TTL = 300
+
+# P1.1: short-lived locks against rapid double-taps on read-only / cheap
+# callbacks.  ``_PRE_ANALYZE_LOCK`` covers the expensive pre-analyze
+# LLM call (no credits, but billable), while ``_UI_NAV_LOCK`` debounces
+# pure UI navigation (styles paging / restyle) where the only damage
+# is an ``edit_reply_markup`` race.
+_PRE_ANALYZE_LOCK = "ratemeai:pre_analyze_lock:{}"
+_PRE_ANALYZE_LOCK_TTL = 60
+_UI_NAV_LOCK = "ratemeai:ui_nav_lock:{}"
+_UI_NAV_LOCK_TTL = 3
 DEPTH_KEY = "ratemeai:depth:{}:{}"
 
 # Task polling (_poll_task): must cover worker latency + DB commit lag + slow image gen (Replicate).
@@ -100,9 +110,24 @@ async def on_pick_style(callback: CallbackQuery, api_base_url: str, redis: Redis
     if not file_id:
         await callback.answer("Сначала отправь фото!", show_alert=True)
         return
+
+    # P1.1: guard against rapid double-taps on the scenario picker.
+    # The LLM pre-analysis is free for the user but billable for us;
+    # without the lock two quick clicks fire two parallel requests.
+    pre_lock_key = _PRE_ANALYZE_LOCK.format(user_id)
+    acquired = await redis.set(
+        pre_lock_key, "1", ex=_PRE_ANALYZE_LOCK_TTL, nx=True
+    )
+    if not acquired:
+        await callback.answer(
+            "Ещё анализирую предыдущий запрос\u2026", show_alert=True
+        )
+        return
+
     await callback.answer()
 
     if kind not in ("dating", "cv", "social"):
+        await redis.delete(pre_lock_key)
         await callback.message.answer(
             "Выбери направление:", reply_markup=scenario_keyboard()
         )
@@ -119,21 +144,49 @@ async def on_pick_style(callback: CallbackQuery, api_base_url: str, redis: Redis
         f"{header}\n\n\U0001f50d Анализирую твоё фото..."
     )
 
-    pre_analysis = await _call_pre_analyze(
-        callback.bot, api_base_url, user_id, file_id, kind, redis
-    )
-
-    if pre_analysis is None:
-        catalog = STYLE_CATALOG.get(kind, [])
-        hooks = [
-            f"\u2022 {label} \u2014 {hook}" for _key, label, hook, *_rest in catalog[:3]
-        ]
-        text = (
-            f"{header}\n\n"
-            "\U0001f680 *Что можно усилить:*\n"
-            + "\n".join(hooks)
-            + "\n\n*Выбери стиль:*"
+    try:
+        pre_analysis = await _call_pre_analyze(
+            callback.bot, api_base_url, user_id, file_id, kind, redis
         )
+
+        if pre_analysis is None:
+            catalog = STYLE_CATALOG.get(kind, [])
+            hooks = [
+                f"\u2022 {label} \u2014 {hook}"
+                for _key, label, hook, *_rest in catalog[:3]
+            ]
+            text = (
+                f"{header}\n\n"
+                "\U0001f680 *Что можно усилить:*\n"
+                + "\n".join(hooks)
+                + "\n\n*Выбери стиль:*"
+            )
+            try:
+                await status_msg.edit_text(
+                    text, parse_mode="Markdown", reply_markup=style_keyboard(kind)
+                )
+            except Exception:
+                await callback.message.answer(
+                    text, parse_mode="Markdown", reply_markup=style_keyboard(kind)
+                )
+            return
+
+        pre_id = pre_analysis.get("pre_analysis_id", "")
+        if pre_id:
+            await redis.set(PRE_ANALYSIS_REF_KEY.format(user_id), pre_id, ex=1800)
+
+        iq_block = pre_analysis.get("input_quality") or {}
+        try:
+            ratio = float(iq_block.get("face_area_ratio", 0.0) or 0.0)
+        except (TypeError, ValueError):
+            ratio = 0.0
+        if ratio > 0.0:
+            await redis.set(
+                FACE_AREA_RATIO_KEY.format(user_id), f"{ratio:.4f}", ex=_FACE_AREA_TTL
+            )
+
+        text = _format_pre_analysis_message(header, kind, user_id, pre_analysis)
+
         try:
             await status_msg.edit_text(
                 text, parse_mode="Markdown", reply_markup=style_keyboard(kind)
@@ -142,32 +195,8 @@ async def on_pick_style(callback: CallbackQuery, api_base_url: str, redis: Redis
             await callback.message.answer(
                 text, parse_mode="Markdown", reply_markup=style_keyboard(kind)
             )
-        return
-
-    pre_id = pre_analysis.get("pre_analysis_id", "")
-    if pre_id:
-        await redis.set(PRE_ANALYSIS_REF_KEY.format(user_id), pre_id, ex=1800)
-
-    iq_block = pre_analysis.get("input_quality") or {}
-    try:
-        ratio = float(iq_block.get("face_area_ratio", 0.0) or 0.0)
-    except (TypeError, ValueError):
-        ratio = 0.0
-    if ratio > 0.0:
-        await redis.set(
-            FACE_AREA_RATIO_KEY.format(user_id), f"{ratio:.4f}", ex=_FACE_AREA_TTL
-        )
-
-    text = _format_pre_analysis_message(header, kind, user_id, pre_analysis)
-
-    try:
-        await status_msg.edit_text(
-            text, parse_mode="Markdown", reply_markup=style_keyboard(kind)
-        )
-    except Exception:
-        await callback.message.answer(
-            text, parse_mode="Markdown", reply_markup=style_keyboard(kind)
-        )
+    finally:
+        await redis.delete(pre_lock_key)
 
 
 @router.callback_query(F.data.startswith("style:"))
@@ -449,12 +478,20 @@ async def on_mode_selected(callback: CallbackQuery, api_base_url: str, redis: Re
 async def on_restyle(callback: CallbackQuery, redis: Redis):
     """Show style keyboard for current mode."""
     mode = callback.data.split(":", 1)[1]
-    file_id = await redis.get(PHOTO_KEY.format(callback.from_user.id))
+    user_id = callback.from_user.id
+    file_id = await redis.get(PHOTO_KEY.format(user_id))
     if not file_id:
         await callback.answer(
             "Фото больше не доступно. Отправь новое!", show_alert=True
         )
         return
+
+    # P1.1: debounce rapid double-taps that otherwise spam edit_reply_markup.
+    nav_lock = _UI_NAV_LOCK.format(user_id)
+    if not await redis.set(nav_lock, "1", ex=_UI_NAV_LOCK_TTL, nx=True):
+        await callback.answer()
+        return
+
     await callback.answer()
     mode_headers = {
         "dating": "\U0001f495 Выбери образ:",
@@ -471,11 +508,18 @@ async def on_restyle(callback: CallbackQuery, redis: Redis):
 
 
 @router.callback_query(F.data.startswith("styles_page:"))
-async def on_styles_page(callback: CallbackQuery):
+async def on_styles_page(callback: CallbackQuery, redis: Redis):
     """Paginate through style options."""
     parts = callback.data.split(":")
     mode = parts[1]
     page = int(parts[2]) if len(parts) > 2 else 0
+    user_id = callback.from_user.id
+
+    nav_lock = _UI_NAV_LOCK.format(user_id)
+    if not await redis.set(nav_lock, "1", ex=_UI_NAV_LOCK_TTL, nx=True):
+        await callback.answer()
+        return
+
     await callback.answer()
     try:
         await callback.message.edit_reply_markup(

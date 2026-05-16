@@ -751,6 +751,9 @@ async def phone_send_code(
     body: PhoneOTPRequestBody,
     redis: Redis = Depends(get_redis),
 ):
+    if not settings.phone_auth_enabled:
+        raise HTTPException(status_code=503, detail="phone_auth_disabled")
+
     import random
 
     phone = body.phone.strip().lstrip("+")
@@ -769,6 +772,9 @@ async def phone_verify(
     db: AsyncSession = Depends(get_db),
     redis: Redis = Depends(get_redis),
 ):
+    if not settings.phone_auth_enabled:
+        raise HTTPException(status_code=503, detail="phone_auth_disabled")
+
     phone = body.phone.strip().lstrip("+")
     key = f"{_OTP_PREFIX}{phone}"
     stored_code = await redis.get(key)

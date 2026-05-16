@@ -52,6 +52,16 @@ async def cmd_start(message: Message, api_base_url: str, redis: Redis):
 
     await message.answer(text, parse_mode="Markdown", reply_markup=back_keyboard())
 
+    # First-contact UX: if the user still has missing consents, surface
+    # the one-click consent prompt right after the welcome message
+    # instead of waiting for them to upload a photo.  The middleware
+    # would catch the next event anyway, but doing this proactively
+    # makes the onboarding flow feel intentional rather than gated.
+    try:
+        await _maybe_show_consent_prompt(message, api_base_url, redis)
+    except Exception:
+        logger.debug("Could not run consent precheck on /start", exc_info=True)
+
 
 @router.message(Command("photo_help"))
 async def cmd_photo_help(message: Message):
@@ -139,6 +149,48 @@ async def cmd_balance(message: Message, api_base_url: str, redis: Redis):
         await message.answer(
             "\u274c Ошибка. Попробуй позже.", reply_markup=back_keyboard()
         )
+
+
+async def _maybe_show_consent_prompt(
+    message: Message, api_base_url: str, redis: Redis
+) -> None:
+    """Show the one-click consent prompt if the user still has missing kinds."""
+    from src.bot.middlewares.consent import CONSENT_OK_KEY, mark_consent_ok
+    from src.bot.handlers.consent import send_consent_prompt
+    from src.bot.middleware import get_bot_auth_headers
+
+    user = message.from_user
+    if user is None:
+        return
+
+    try:
+        cached = await redis.get(CONSENT_OK_KEY.format(user.id))
+    except Exception:
+        cached = None
+    if cached:
+        return
+
+    headers = await get_bot_auth_headers(redis, user.id)
+    if not headers:
+        return
+
+    try:
+        async with httpx.AsyncClient(timeout=5.0) as client:
+            resp = await client.get(
+                f"{api_base_url}/api/v1/users/me/consents", headers=headers
+            )
+        if resp.status_code != 200:
+            return
+        state = resp.json()
+    except Exception:
+        return
+
+    missing = state.get("missing") or []
+    if not missing:
+        await mark_consent_ok(redis, user.id)
+        return
+
+    await send_consent_prompt(message, missing)
 
 
 async def _get_balance_line(api_base_url: str, user, redis: Redis) -> str:

@@ -2,6 +2,8 @@ from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
 from src.services.style_catalog import STYLE_CATALOG
 
+SUPPORT_URL = "https://t.me/AI_Look_Studio"
+
 
 def scenario_keyboard() -> InlineKeyboardMarkup:
     """Primary 3-button scenario selection (no Rating in main flow)."""
@@ -102,6 +104,10 @@ def post_result_keyboard(
     content variant of the same style (``variant:*`` callback).
     """
     deep_link = f"https://t.me/{bot_username}?start=ref_{user_id}"
+    # P1.2: human-readable text shown when the user picks a chat to
+    # share with — Telegram drops both the text and the link into the
+    # message draft so recipients see a real description, not a bare URL.
+    share_text = f"Попробуй AI-стилиста: {deep_link}"
     rows = []
 
     if current_style and mode in ("dating", "cv", "social"):
@@ -182,7 +188,7 @@ def post_result_keyboard(
         [
             [
                 InlineKeyboardButton(
-                    text="\U0001f4e4 Друзьям", switch_inline_query=deep_link
+                    text="\U0001f4e4 Друзьям", switch_inline_query=share_text
                 ),
                 InlineKeyboardButton(
                     text="\U0001f4f8 Новое фото", callback_data="new_photo"
@@ -215,6 +221,12 @@ def error_keyboard() -> InlineKeyboardMarkup:
             [
                 InlineKeyboardButton(
                     text="\U0001f4f8 Новое фото", callback_data="new_photo"
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text="\u2709\ufe0f Поддержка",
+                    url=SUPPORT_URL,
                 )
             ],
         ]
@@ -253,11 +265,14 @@ def upgrade_keyboard() -> InlineKeyboardMarkup:
 
 
 def back_keyboard() -> InlineKeyboardMarkup:
+    # P2.2: «Новое фото» вместо «Загрузить фото» — callback не открывает
+    # выбор файла, а лишь просит пользователя прислать снимок вручную;
+    # старое название создавало ложное ожидание.
     return InlineKeyboardMarkup(
         inline_keyboard=[
             [
                 InlineKeyboardButton(
-                    text="\U0001f4f8 Загрузить фото", callback_data="new_photo"
+                    text="\U0001f4f8 Новое фото", callback_data="new_photo"
                 )
             ],
             [
@@ -294,9 +309,20 @@ def link_wizard_keyboard() -> InlineKeyboardMarkup:
     )
 
 
-def link_waiting_keyboard() -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup(
-        inline_keyboard=[
-            [InlineKeyboardButton(text="\u274c Отмена", callback_data="link_cancel")],
-        ]
+def link_waiting_keyboard(landing_url: str | None = None) -> InlineKeyboardMarkup:
+    """Keyboard shown while we wait for the user to paste their code.
+
+    When ``landing_url`` is provided, a clickable "Открыть сайт" button
+    is added so the user doesn't have to copy the domain out of the
+    text manually.  Falls back to a single Cancel button when no URL
+    is available (e.g. local dev with both landing URLs unset).
+    """
+    rows: list[list[InlineKeyboardButton]] = []
+    if landing_url:
+        rows.append(
+            [InlineKeyboardButton(text="\U0001f310 Открыть сайт", url=landing_url)]
+        )
+    rows.append(
+        [InlineKeyboardButton(text="\u274c Отмена", callback_data="link_cancel")]
     )
+    return InlineKeyboardMarkup(inline_keyboard=rows)

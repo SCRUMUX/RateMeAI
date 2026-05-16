@@ -1140,18 +1140,7 @@ export function adminDeleteUser(userId: string) {
   );
 }
 
-// -- Phone OTP --
-
-export function phoneSendCode(phone: string) {
-  return request<{ sent: boolean; phone: string; ttl: number }>('/api/v1/auth/phone/send-code', {
-    method: 'POST',
-    body: JSON.stringify({ phone }),
-  });
-}
-
-export function phoneVerify(phone: string, code: string, linkCode?: string) {
-  return request<ChannelAuthResponse>('/api/v1/auth/phone/verify', {
-    method: 'POST',
-    body: JSON.stringify({ phone, code, link_code: linkCode || '' }),
-  });
-}
+// Phone OTP API was removed from the web client because the backend
+// only logs OTP codes (no SMS provider).  The /auth/phone/* endpoints
+// remain on the API behind ``PHONE_AUTH_ENABLED=false`` (returns 503),
+// ready to be re-wired once an SMS provider is integrated.

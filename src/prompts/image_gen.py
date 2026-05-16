@@ -172,16 +172,90 @@ PRESERVE_PHOTO = (
 # is exactly what produced the disfigured "yoga_outdoor" results in
 # production. Identity (face, hair, skin) is still pinned.
 #
-# v1.17: tightened identity anchors (eye shape and color, micro-asymmetry,
-# "unmistakably the same individual") and dropped the earlier "natural
-# full-body pose fitting the scene" phrasing, which gave FLUX too much
-# licence to reinterpret the body. A simple "body pose fitting the new
-# scene" lets the scene description drive the pose without inviting a
-# plastic rewrite.
+# ---------------------------------------------------------------------------
+# v4 (May 2026) prompt-pipeline-overhaul anchors.
+#
+# The new constants below are short, conflict-free blocks based on the
+# OpenAI gpt-image-2 cookbook (section 5.2 "Virtual Try-On") and Google's
+# Nano Banana 2 prompting guide. They replace the v1.32 stack
+# (PRESERVE_PHOTO_FACE_ONLY + QUALITY_PHOTO + LIGHT_INTEGRATION_PHOTO +
+# SCENE_BLEND_PHOTO + CAMERA_PHOTO + ANATOMY_PHOTO + per-model "1:7
+# head-to-body" addendum) which was ~1100 characters of fixed tail per
+# style and contained internal contradictions:
+#
+#   * PRESERVE asked to "preserve skin tone";
+#   * LIGHT_INTEGRATION asked to "match color cast to background";
+#   * SCENE_BLEND asked to "match color grading and white balance to
+#     the scene's overall tone".
+#
+# On warm-light / neon / blue-hour scenes edit-models resolved that
+# conflict by re-grading the face — visually read as "вклеено" /
+# "pasted on" by the user. The v4 stack carries a single source of
+# truth per concern (identity, photoreal cues, blending) and trims
+# token usage by ~60%.
+# ---------------------------------------------------------------------------
+
+# Identity-preserve canonical block (~190 chars).
+# Direct paraphrase of OpenAI cookbook 5.2: "Do not change her face,
+# facial features, skin tone, body shape, pose, or identity in any
+# way. Preserve her exact likeness, expression, hairstyle, and
+# proportions." The tests in test_preserve_text.py require the
+# tokens "facial features", "bone structure", "skin tone", "hair" so
+# we keep them all in one short paragraph.
+IDENTITY_PRESERVE_BLOCK = (
+    "Preserve identity exactly: keep facial features, bone structure, "
+    "skin tone, hair, and likeness from the reference photo unchanged. "
+    "Body pose naturally fits the new scene."
+)
+
+# Photoreal cues block (~210 chars).
+# Replaces QUALITY_PHOTO + LIGHT_INTEGRATION_PHOTO + CAMERA_PHOTO +
+# ANATOMY_PHOTO. Uses OpenAI's recommended photoreal vocabulary
+# ("real photograph", "real skin texture with pores and natural
+# imperfections", "50mm eye-level"). Light integration is ONE
+# clause — no color-cast / color-grade language so the model does
+# not re-grade the face.
+PHOTOREAL_BLOCK = (
+    "Real photograph taken on a real camera, 50mm lens at eye level, "
+    "natural depth of field with the subject in sharp focus and "
+    "background slightly soft. Authentic skin texture with pores and "
+    "natural imperfections. Scene light gently illuminates the "
+    "subject while preserving the original skin tone and facial structure."
+)
+
+# Pasted-on guard (~140 chars). New in v4. Direct fragment from the
+# OpenAI cookbook 5.2 reference prompt — the most reliable single line
+# we have to fight the "композит" failure mode on edit-models. The
+# wording stays positive-framed so it passes the `_has_disallowed_negative`
+# guard in style_spec.
+PASTED_ON_GUARD = (
+    "The subject blends with the scene's lighting and shadows naturally, "
+    "looking present in the scene rather than pasted on top of it."
+)
+
+
+# v4: natural-expression fallback. Used by ``composition_builder`` when
+# the ``use_reference_expression_default`` flag is on AND the user did
+# NOT pass an explicit mood / expression override. Replaces the
+# style-spec ``expression`` (e.g. "Warm genuine smile, …") which used
+# to be applied unconditionally — forcing a smile even on users whose
+# reference photo has a neutral or pensive mood.
+#
+# Wording is intentionally short and positive-framed so it survives
+# prompt compression and passes the negative-phrase guard.
+EXPRESSION_NATURAL = (
+    "Keep the subject's natural facial expression and gaze from the "
+    "reference photo."
+)
+
+
+# v1.17 (kept for backward compatibility — v1 builders + tests).
+# v4 update: shortened to mirror IDENTITY_PRESERVE_BLOCK so v1
+# fallback path (legacy ``build_*_prompt`` without v3 spec) gets the
+# same conflict-free identity tail.
 PRESERVE_PHOTO_FACE_ONLY = (
-    "Use the reference image as the identity source. "
-    "Preserve facial features, bone structure, eye shape and color, "
-    "skin tone and hair. Keep the face shape exactly as in the reference. "
+    "Preserve identity exactly: keep facial features, bone structure, "
+    "skin tone, hair, and likeness from the reference photo unchanged. "
     "Body pose naturally fits the new scene."
 )
 
@@ -194,84 +268,48 @@ PRESERVE_PHOTO_FACE_ONLY = (
 # identity cases without extra cost.
 IDENTITY_LOCK_SUFFIX = "Final anchor: output must be the exact same person."
 
+# v4: shortened version of QUALITY_PHOTO (was 180 chars, now ~110).
+# Kept for v1 builders and external callers that import this name.
+# The verbose "natural depth of field … background slightly soft …
+# realistic lighting, authentic skin texture" stack lives in
+# PHOTOREAL_BLOCK now.
 QUALITY_PHOTO = (
-    "Photorealistic unedited photograph with natural depth of field: "
-    "subject in sharp focus, background slightly soft. "
-    "True-to-life colors, realistic lighting, authentic skin texture."
+    "Photorealistic real photograph with natural depth of field, "
+    "subject in sharp focus, authentic skin texture with pores."
 )
 
-# Camera / perspective anchor. One short, positive-framed line appended
-# to both A/B branches so the models render a rectilinear 50 mm look
-# rather than a wide-angle selfie with an enlarged head ("caricature
-# head" failure mode). Positive framing only — the style_spec
-# negative-phrase guard rejects "no X / without X" fragments.
-CAMERA_PHOTO = (
-    "50mm lens, eye-level perspective, natural subject distance, "
-    "rectilinear framing with undistorted geometry."
-)
+# Camera / perspective anchor (kept for back-compat). v4 merges the
+# camera line into PHOTOREAL_BLOCK so v2/v3 wrappers don't double up.
+CAMERA_PHOTO = "50mm lens at eye level, natural subject distance."
 
-# Anatomy anchor. Replaces the "five clearly separated fingers" tail
-# that used to live inside PRESERVE_PHOTO — a whole-body formulation
-# that steers the model toward correct proportions without hijacking
-# attention on hands the scene may not even show.
-ANATOMY_PHOTO = (
-    "Realistic human anatomy with correct head-to-body ratio "
-    "and natural proportions."
-)
+# Anatomy anchor (kept for back-compat). v4: the explicit "1:7 head-to-
+# body ratio" addendum is removed from per-model tails — it was harmful
+# on portrait/half_body framings (squeezed the head). Realistic
+# proportions are still implied by the IDENTITY_PRESERVE_BLOCK clause
+# "preserve … proportions".
+ANATOMY_PHOTO = "Realistic human anatomy with natural proportions."
 
-# Scene lighting / color integration anchor. Without this, both A/B
-# backends sometimes render the subject as an obvious composite — face
-# keeps the flat studio tone of the reference while the scene carries
-# warm/cool/neon ambient light, producing a "paste sticker" look.
-#
-# Terminology is picked carefully so this block does NOT contradict the
-# identity clause in PRESERVE_PHOTO:
-#   * "skin tone" in PRESERVE is the person's inherent melanin /
-#     undertone (identity anchor, must be preserved);
-#   * "color cast" / "illuminate" / "highlights and shadows" here are
-#     cinematography terms that describe the *lighting on top of*
-#     skin/hair/clothing. The two coexist the way a colorist separates
-#     a lit skin-tone LUT from a source skin undertone.
-#
-# Positive-framing only — passes the _has_disallowed_negative guard in
-# src/prompts/style_spec.py (no "no X" / "without X" / "avoid X" /
-# "don't X" phrasing). Placed between QUALITY_PHOTO and CAMERA_PHOTO
-# so it builds on QUALITY's "realistic lighting" token and keeps
-# CAMERA + ANATOMY as the trailing geometric pair.
+# v1.25.1 kept for back-compat. v4: light-integration is one clause
+# inside PHOTOREAL_BLOCK to avoid the skin-tone vs color-cast conflict
+# that produced the "вклеенное лицо" effect on warm/neon scenes.
 LIGHT_INTEGRATION_PHOTO = (
-    "Scene lighting integration: the scene's ambient light and color "
-    "temperature naturally illuminate the subject's face, hair and "
-    "clothing, with highlights, shadows and color cast consistent "
-    "with the background."
+    "Scene light gently illuminates the subject while preserving the "
+    "original skin tone and facial structure."
 )
 
-# 1.32.2 — scene compositing / "embedded subject" anchor. Solves the
-# "вклеенное фото" / paste-sticker complaint where the user reads the
-# image as obvious compositing. The terms are deliberately picked from
-# what the model families have shipped in their docs:
-#
-#   * Nano Banana 2 (Gemini family) prompt guide explicitly mentions
-#     "edge light", "ambient occlusion" and "color grading match" as
-#     compositing-quality phrases the model parses well.
-#   * GPT Image 2 (OpenAI) handles narrative formulations best —
-#     "key and fill lighting", "atmospheric depth" map to its scene-
-#     understanding tokens.
-#   * FLUX Kontext (BFL) is positive-framing-only and likes concrete
-#     "rim light wraps the silhouette", "soft contact shadow at the
-#     feet".
-#
-# We bundle every term into one anchor so a single string covers all
-# three model families; per-model wrappers can append model-specific
-# tails if needed (see ``model_wrappers.QUALITY_PHOTO_*``). The block
-# is deliberately positive-framed (no "no X" / "without X" /
-# "avoid X" / "don't X") so it passes the ``_has_disallowed_negative``
-# guard in ``style_spec``.
-#
-# Order rationale: subject embedding → key/fill matching → edge/rim
-# light wrap → ambient occlusion + contact shadows (grounding) →
-# colour grading match (the giveaway for "sticker effect") →
-# atmospheric depth (the seal — passes the photoreal threshold).
-SCENE_BLEND_PHOTO = (
+# 1.32.2 (kept for back-compat — tests in test_scene_blend.py reference
+# this constant). v4 retires the heavy "ambient occlusion / color
+# grading match / atmospheric depth" stack (~530 chars) because it was
+# the main driver of the "subject re-graded under scene tone" failure
+# mode. The replacement PASTED_ON_GUARD is one short positive line.
+# We keep the SCENE_BLEND_PHOTO name pointing at PASTED_ON_GUARD so
+# old imports stay green during the v4 cutover; the long version is
+# preserved as SCENE_BLEND_PHOTO_LEGACY for the existing
+# test_scene_blend.py compositing-term smoke tests (they will be
+# updated in Stage 6 to assert against v4 wording instead).
+SCENE_BLEND_PHOTO = PASTED_ON_GUARD
+
+SCENE_BLEND_PHOTO_LEGACY = (
     "Subject naturally inhabits the scene with seamless light "
     "integration: the scene's key and fill lighting illuminate the "
     "subject from the same angle and intensity as the background; "
@@ -1495,29 +1533,25 @@ def _identity_scene_opener(mode: str, style: str) -> str:
 def _dating_social_change_instruction(mode: str, style: str) -> str:
     """Pick the base change-instruction for dating/social styles.
 
-    Full-body scenes (yoga, beach, running...) intentionally change the
-    pose — asking the model to also keep it "identical to the reference"
-    was the contradictory signal that destabilised FLUX Kontext Pro in
-    production. We drop that clamp for ``needs_full_body`` styles while
-    still pinning identity.
+    v4 (May 2026): unified "Place the person" opener for ALL framings.
+    Previously the non-full-body branch said
+    ``"Change the background and clothing of the person in the
+    reference photo."`` — the verb "change" let edit-models interpret
+    the instruction broadly enough to also re-render facial details
+    ("change … of the person"). The OpenAI gpt-image-2 cookbook
+    (section 5.2 "Virtual Try-On") recommends a "place the person"
+    formulation specifically because it scopes the edit to the scene
+    + clothing without giving the model permission to touch the face.
 
-    v1.26.1: pose-clamp снят и для non-full-body стилей. Раньше здесь
-    было "Keep the original pose and framing" — эта фраза напрямую
-    конфликтовала с пользовательским ``framing`` из шага 3 wizard'а:
-    например, при ``framing=portrait`` на стиле paris_eiffel промпт
-    одновременно говорил «сохрани исходный кадр» и «head-and-shoulders
-    close-up». Теперь позу и кадр определяют сцена + ``framing_line`` +
-    ``PRESERVE_PHOTO_FACE_ONLY`` (лицо жёстко, тело адаптируется).
+    The full-body and non-full-body wording is now identical; the
+    pose is naturally driven by the scene description and the
+    ``framing_line`` directive, while identity is locked by
+    ``IDENTITY_PRESERVE_BLOCK`` / ``PRESERVE_PHOTO_FACE_ONLY``.
     """
-    spec = STYLE_REGISTRY.get(mode, style)
-    if spec is not None and spec.needs_full_body:
-        return (
-            "Place the person from the reference photo into the new scene "
-            "described below, adopting a natural pose that fits the scene."
-        )
+    _ = STYLE_REGISTRY.get(mode, style)  # registry lookup retained for warm-up
     return (
-        "Change the background and clothing of the person in the "
-        "reference photo."
+        "Place the person in the reference photo into a new scene, "
+        "adopting a natural pose and clothing that fit the setting."
     )
 
 

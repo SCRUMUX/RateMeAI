@@ -8,7 +8,6 @@ from aiogram.types import Message
 from redis.asyncio import Redis
 
 from src.bot.middleware import PHOTO_KEY
-from src.bot.handlers.consent import ensure_consents
 from src.bot.keyboards import scenario_keyboard, back_keyboard
 from src.bot.utils.photo import download_photo_bytes
 from src.services.input_quality import analyze_input_quality, InputQualityReport
@@ -129,8 +128,8 @@ async def handle_photo(message: Message, redis: Redis, api_base_url: str):
             "Photo received from user %s, file_id=%s", user_id, photo.file_id[:20]
         )
 
-        if not await ensure_consents(message, redis, api_base_url):
-            return
+        # Consent enforcement lives in ConsentMiddleware now; we reach
+        # this handler only when consents are already in place.
 
         report = await _run_preflight(message, photo.file_id)
         if report is None:
@@ -170,8 +169,7 @@ async def handle_document(message: Message, redis: Redis, api_base_url: str):
         content_type = message.document.mime_type or ""
         if content_type.startswith("image/"):
             user_id = message.from_user.id
-            if not await ensure_consents(message, redis, api_base_url):
-                return
+            # Consent enforcement is handled by ConsentMiddleware.
             report = await _run_preflight(message, message.document.file_id)
             if report is None:
                 return

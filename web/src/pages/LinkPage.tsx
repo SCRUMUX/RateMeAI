@@ -1,25 +1,16 @@
 import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useSearchParams, useNavigate } from 'react-router-dom';
-import { startOAuth, setToken } from '../lib/auth';
-import * as api from '../lib/api';
-import { useApp } from '../context/AppContext';
-import { humanizeApiError } from '../lib/sanitize';
+import { startOAuth } from '../lib/auth';
 
 export default function LinkPage() {
   const [params] = useSearchParams();
   const navigate = useNavigate();
-  const { loginWithToken } = useApp();
   const { t } = useTranslation('account');
   const initialCode = params.get('code') ?? '';
   const [code, setCode] = useState(initialCode);
   const [loading, setLoading] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState(false);
-
-  const [phoneInput, setPhoneInput] = useState('');
-  const [otpSent, setOtpSent] = useState(false);
-  const [otpCode, setOtpCode] = useState('');
 
   useEffect(() => {
     const c = params.get('code');
@@ -43,59 +34,6 @@ export default function LinkPage() {
       setLoading(null);
     }
   };
-
-  const handleSendOtp = async () => {
-    const digits = phoneInput.replace(/\D/g, '');
-    if (digits.length < 10) {
-      setError(t('linkPage.errors.phoneInvalid'));
-      return;
-    }
-    setLoading('phone');
-    setError(null);
-    try {
-      await api.phoneSendCode(digits);
-      setOtpSent(true);
-    } catch {
-      setError(t('linkPage.errors.otpFailed'));
-    } finally {
-      setLoading(null);
-    }
-  };
-
-  const handlePhoneVerify = async () => {
-    if (!isCodeValid) {
-      setError(t('linkPage.errors.enterCode'));
-      return;
-    }
-    const digits = phoneInput.replace(/\D/g, '');
-    setLoading('phone-verify');
-    setError(null);
-    try {
-      const res = await api.phoneVerify(digits, otpCode, trimmedCode);
-      if (res.session_token) {
-        setToken(res.session_token);
-        await loginWithToken(res.session_token, res.user_id ?? '', 'phone');
-        setSuccess(true);
-        setTimeout(() => navigate('/', { replace: true }), 2000);
-      }
-    } catch (e) {
-      setError(humanizeApiError(e, t('linkPage.errors.otpVerifyFailed')));
-    } finally {
-      setLoading(null);
-    }
-  };
-
-  if (success) {
-    return (
-      <div className="min-h-screen flex items-center justify-center p-6">
-        <div className="glass-card rounded-[var(--radius-12)] p-8 max-w-md w-full text-center">
-          <p className="text-lg font-medium text-[var(--color-success-base)]">
-            {t('linkPage.successTitle')}
-          </p>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="min-h-screen flex items-center justify-center p-6">
@@ -146,48 +84,6 @@ export default function LinkPage() {
           >
             {loading === 'vk-id' ? t('linkPage.redirecting') : t('linkPage.providers.vkId')}
           </button>
-
-          <div className="flex flex-col gap-2">
-            {!otpSent ? (
-              <div className="flex gap-2">
-                <input
-                  type="tel"
-                  value={phoneInput}
-                  onChange={(e) => { setPhoneInput(e.target.value); setError(null); }}
-                  placeholder={t('linkPage.phonePlaceholder')}
-                  className="flex-1 px-3 py-3 rounded-[var(--radius-8)] text-[14px] text-[var(--color-text-primary)] placeholder:text-[var(--color-text-muted)] outline-none bg-[var(--glass-surface)] border border-[var(--glass-border)]"
-                />
-                <button
-                  disabled={loading !== null}
-                  onClick={handleSendOtp}
-                  className="px-4 py-3 text-[14px] rounded-[var(--radius-8)] font-medium shrink-0 disabled:opacity-50"
-                  style={{ background: 'var(--color-success-base)', color: '#000', border: 'none' }}
-                >
-                  {loading === 'phone' ? '...' : t('linkPage.ctaSendCode')}
-                </button>
-              </div>
-            ) : (
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  value={otpCode}
-                  onChange={(e) => { setOtpCode(e.target.value); setError(null); }}
-                  placeholder={t('linkPage.otpPlaceholder')}
-                  maxLength={6}
-                  className="flex-1 px-3 py-3 rounded-[var(--radius-8)] text-[14px] text-[var(--color-text-primary)] placeholder:text-[var(--color-text-muted)] outline-none bg-[var(--glass-surface)] border border-[var(--glass-border)]"
-                />
-                <button
-                  disabled={!isCodeValid || loading !== null || otpCode.length < 4}
-                  onClick={handlePhoneVerify}
-                  className="px-5 py-3 text-[14px] rounded-[var(--radius-8)] font-medium shrink-0 disabled:opacity-50"
-                  style={{ background: 'var(--color-success-base)', color: '#000', border: 'none' }}
-                >
-                  {loading === 'phone-verify' ? '...' : t('linkPage.ctaVerify')}
-                </button>
-              </div>
-            )}
-          </div>
         </div>
 
         {error && <p className="text-[12px] text-[var(--color-danger)] text-center">{error}</p>}

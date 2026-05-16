@@ -32,6 +32,12 @@ _MAX_PHOTO_BYTES = 9 * 1024 * 1024
 _MAX_CAPTION_LEN = 1024
 _STORAGE_BASE = Path(settings.storage_local_path).resolve()
 
+# Marker written when a generation result is shown to the user.  Used by
+# the catch-all fallback to surface a post-result CTA (`share / topup`)
+# instead of the generic "send me a photo" reply right after a result.
+LAST_GEN_AT_KEY = "ratemeai:last_gen_at:{}"
+_LAST_GEN_AT_TTL = 600
+
 
 def _extract_storage_key(url_or_path: str) -> str | None:
     marker = "/storage/"
@@ -373,6 +379,21 @@ async def deliver_result(
     result = data.get("result", {})
     mode = data.get("mode", "rating")
     task_id = str(data.get("task_id", ""))
+
+    # Mark "we just showed a result" so the fallback handler can react
+    # to natural-language follow-ups ("nice!", "спасибо", emoji) with a
+    # contextual CTA instead of the generic "send me a photo" reply.
+    if redis is not None:
+        try:
+            import time as _time
+
+            await redis.set(
+                LAST_GEN_AT_KEY.format(user_id),
+                str(int(_time.time())),
+                ex=_LAST_GEN_AT_TTL,
+            )
+        except Exception:
+            logger.debug("Could not write last_gen_at marker", exc_info=True)
 
     gen_image_bytes: bytes | None = None
     if result.get("generated_image_url"):

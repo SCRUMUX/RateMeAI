@@ -325,6 +325,29 @@ class Settings(BaseSettings):
     # Stage 2 will flip the migration script's output to v3 and tests
     # will set the flag explicitly.
     style_schema_v3_enabled: bool = False
+    # ------------------------------------------------------------------
+    # prompt-pipeline-v4 (May 2026) — natural faces + diversity overhaul.
+    # When True (default) the per-model wrappers use the new
+    # preserve-first prompt ordering (change → IDENTITY_PRESERVE_BLOCK →
+    # scene → clothing → expression → framing → PHOTOREAL_BLOCK →
+    # PASTED_ON_GUARD) and the short v4 tails (~250 chars vs the v1
+    # ~1100-char SCENE_BLEND/ANATOMY/CAMERA stack). The v4 layout fixes
+    # the "вклеенное лицо" failure mode by hoisting identity to the
+    # first third of the prompt and removing the skin-tone-vs-scene-tone
+    # contradiction in the legacy tail. Set to False to instantly roll
+    # back to the v1 layout — useful if the v4 prompts regress on a
+    # specific style. Cost is unchanged either way (no extra FAL calls).
+    prompt_pipeline_v4_enabled: bool = True
+    # When True (default in v4) and the user did NOT pass an explicit
+    # mood / expression override, the composition builder emits
+    # ``EXPRESSION_NATURAL`` ("Keep the subject's natural facial
+    # expression and gaze from the reference photo.") instead of the
+    # style-spec ``expression`` string. This stops the pipeline from
+    # forcing a "warm genuine smile" on every photo regardless of the
+    # user's actual mood in the reference. Independent of
+    # ``prompt_pipeline_v4_enabled`` — both flags can be toggled
+    # separately for finer rollback granularity.
+    use_reference_expression_default: bool = True
     # Default quality tier for the A/B models when the web client does
     # not pass an explicit one. Minimum for production is medium.
     ab_default_quality: str = "medium"
@@ -443,6 +466,11 @@ class Settings(BaseSettings):
 
     # Sessions (Bearer tokens for web / mini apps)
     session_ttl_seconds: int = 86400
+
+    # Phone-OTP auth feature flag.  Default OFF — the /auth/phone/* API
+    # exists but no SMS provider is wired up yet (codes only land in
+    # logs).  Flip to True once a real SMS provider is integrated.
+    phone_auth_enabled: bool = False
 
     # CORS — extra origins for mini apps (comma-separated)
     cors_extra_origins: str = ""

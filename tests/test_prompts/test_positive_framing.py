@@ -105,20 +105,28 @@ def test_emoji_prompt_has_no_negative_framing() -> None:
 
 
 def test_change_instruction_focuses_on_composition() -> None:
-    """v1.25: identity vocabulary was moved out of the change line
-    into ``PRESERVE_PHOTO(_FACE_ONLY)`` to stop tripling the same
-    signal across three anchors. The change_instruction now carries
-    only the compositional delta (what to change + what to keep of
-    the framing), and the identity anchors (skin tone, head-to-body)
-    are asserted on the full prompt in
-    ``test_prompt_contains_identity_anchors``.
+    """v4 (May 2026): unified "Place the person …" opener for ALL
+    framings. The pre-v4 close-up branch used "Change the background
+    and clothing of the person …" — the verb "change" gave edit-models
+    permission to also alter facial details. The v4 wording (per
+    OpenAI gpt-image-2 cookbook §5.2) scopes the edit to the new scene
+    + clothing while the face stays locked by ``IDENTITY_PRESERVE_BLOCK``.
+
+    We still assert on three invariants common to every framing:
+
+    * the opener references the reference photo (identity anchor),
+    * it mentions a new scene (positions the edit as a placement),
+    * it mentions a natural pose (anti pose-clamp guard from v1.26.1).
+
+    Mentioning "background" or "clothing" explicitly is no longer a
+    contract — the new sentence reads naturally for both close-up and
+    full-body styles without those tokens.
     """
-    # Non-full-body style — should speak of background + clothing only.
     dating = ig._dating_social_change_instruction("dating", "studio_elegant")
     assert "reference photo" in dating
-    assert "background" in dating
-    assert "clothing" in dating
-    # Identity-scene / full-body — should phrase the scene placement.
+    assert "scene" in dating.lower() or "setting" in dating.lower()
+    assert "natural pose" in dating.lower()
+
     dating_full = ig._dating_social_change_instruction("dating", "yoga_outdoor")
     assert "reference photo" in dating_full
     assert "natural pose" in dating_full

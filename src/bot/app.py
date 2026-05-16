@@ -8,14 +8,24 @@ from urllib.parse import urlparse
 from aiogram import Bot, Dispatcher
 from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
-from aiogram.types import ErrorEvent
+from aiogram.types import BotCommand, ErrorEvent
 from aiohttp import web
 from redis.asyncio import Redis
 
 from src.config import settings
 from src.version import APP_VERSION
-from src.bot.handlers import start, photo, mode_select, fallback, link, consent, stars
+from src.bot.handlers import (
+    start,
+    photo,
+    mode_select,
+    fallback,
+    link,
+    consent,
+    stars,
+    info,
+)
 from src.bot.middleware import UserRegistrationMiddleware
+from src.bot.middlewares.consent import ConsentMiddleware
 
 logging.basicConfig(
     level=logging.INFO,
@@ -50,7 +60,14 @@ def create_dispatcher(redis: Redis) -> Dispatcher:
     dp.message.middleware(UserRegistrationMiddleware(api_url, redis))
     dp.callback_query.middleware(UserRegistrationMiddleware(api_url, redis))
 
+    # ConsentMiddleware runs AFTER registration so it can rely on a
+    # valid session token; it gates every event except whitelisted
+    # onboarding / info / support commands.
+    dp.message.middleware(ConsentMiddleware(api_url, redis))
+    dp.callback_query.middleware(ConsentMiddleware(api_url, redis))
+
     dp.include_router(start.router)
+    dp.include_router(info.router)  # /help, /support, /privacy
     dp.include_router(link.router)
     dp.include_router(consent.router)
     dp.include_router(stars.router)
@@ -78,6 +95,28 @@ def create_dispatcher(redis: Redis) -> Dispatcher:
         return True
 
     return dp
+
+
+async def setup_bot_commands(bot: Bot) -> None:
+    """Publish the visible command list (Telegram menu).
+
+    Hidden power-user shortcuts (``/emoji``, ``/rating``, ``/photo_help``)
+    are intentionally omitted — they remain available, just not surfaced
+    in the menu.
+    """
+    commands = [
+        BotCommand(command="start", description="Начать"),
+        BotCommand(command="balance", description="Баланс кредитов"),
+        BotCommand(command="link", description="Привязать аккаунт на сайте"),
+        BotCommand(command="help", description="Как пользоваться ботом"),
+        BotCommand(command="support", description="Связаться с поддержкой"),
+        BotCommand(command="privacy", description="Согласия и политика"),
+    ]
+    try:
+        await bot.set_my_commands(commands)
+        logger.info("Bot commands menu published: %d commands", len(commands))
+    except Exception:
+        logger.exception("Failed to publish bot commands menu")
 
 
 async def _health_handler(_request: web.Request) -> web.Response:
@@ -116,6 +155,8 @@ async def main():
     bot = create_bot()
     redis = Redis.from_url(settings.redis_url, decode_responses=True)
     dp = create_dispatcher(redis)
+
+    await setup_bot_commands(bot)
 
     if settings.bot_webhook_url:
         from aiogram.webhook.aiohttp_server import (

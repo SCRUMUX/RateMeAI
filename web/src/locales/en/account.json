@@ -26,7 +26,6 @@
     "openUrl": "Or open: {{url}}"
   },
   "linkPage": {
-    "successTitle": "Account linked successfully!",
     "title": "Link account",
     "description": "Enter the code from the bot or web app, then pick a linking method",
     "codeLabel": "Linking code",
@@ -39,16 +38,9 @@
       "vkId": "VK"
     },
     "redirecting": "Redirecting...",
-    "phonePlaceholder": "+1 (555) 123-4567",
-    "otpPlaceholder": "SMS code",
-    "ctaSendCode": "Code",
-    "ctaVerify": "OK",
     "errors": {
       "enterCode": "Enter the linking code",
-      "linkFailed": "Could not start linking.",
-      "phoneInvalid": "Enter a valid phone number",
-      "otpFailed": "Could not send the code.",
-      "otpVerifyFailed": "Invalid or expired code."
+      "linkFailed": "Could not start linking."
     },
     "back": "Back to home"
   }

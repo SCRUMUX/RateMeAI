@@ -286,6 +286,52 @@ def _variation_engine_v2_enabled() -> bool:
     return bool(getattr(settings, "variation_engine_v2_enabled", False))
 
 
+def _use_reference_expression_default() -> bool:
+    """Check the v4 ``use_reference_expression_default`` flag lazily.
+
+    Defaults to True so the v4 prompt pipeline drops the unconditional
+    style-spec smile and lets the reference photo's expression carry
+    through. Explicit user overrides ("Другой вариант" → mood) still
+    win.
+    """
+    try:
+        from src.config import settings
+    except Exception:
+        return True
+    return bool(getattr(settings, "use_reference_expression_default", True))
+
+
+def _resolve_expression(
+    spec_expression: str,
+    hints: dict[str, Any],
+) -> str:
+    """Pick the final expression line for the prompt.
+
+    Priority (highest first):
+
+    1. Explicit ``expression_override`` from the modal.
+    2. Explicit ``mood`` from the modal (free text).
+    3. ``EXPRESSION_NATURAL`` when ``use_reference_expression_default``
+       is on (default in v4).
+    4. ``spec_expression`` — legacy style-defined fixed expression
+       (kept for full rollback when the flag is off).
+
+    Returning an empty string is allowed and signals the wrapper to
+    skip the expression slot entirely.
+    """
+    from src.prompts.image_gen import EXPRESSION_NATURAL
+
+    override = str(hints.get("expression_override") or "").strip()
+    if override:
+        return override
+    mood = str(hints.get("mood") or "").strip()
+    if mood:
+        return mood
+    if _use_reference_expression_default():
+        return EXPRESSION_NATURAL
+    return spec_expression or ""
+
+
 def build_composition_v3(
     spec: object,
     *,
@@ -353,6 +399,7 @@ def build_composition_v3(
         )
 
     framing_line, framing_requested = _resolve_framing_line(spec, framing)
+    expression_line = _resolve_expression(spec.expression, dict(input_hints or {}))
     return CompositionIR(
         mode=mode,
         style_key=spec.key,
@@ -361,7 +408,7 @@ def build_composition_v3(
         lighting=resolved.lighting,
         weather=resolved.weather,
         clothing=resolved.clothing,
-        expression=spec.expression,
+        expression=expression_line,
         framing_line=framing_line,
         quality_identity_base=spec.quality_identity.base,
         per_model_tail_map=dict(spec.quality_identity.per_model_tail),
@@ -449,6 +496,7 @@ def build_composition(
             scene_text = f"{scene_text}, {vr.season}" if scene_text else vr.season
         scene_text = _ensure_trigger_in_scene(scene_text, spec.trigger)
         framing_line, framing_requested = _resolve_framing_line(spec, framing)
+        expression_line = _resolve_expression(spec.expression, hints)
         return CompositionIR(
             mode=mode,
             style_key=spec.key,
@@ -457,7 +505,7 @@ def build_composition(
             lighting=vr.lighting,
             weather=vr.weather,
             clothing=vr.clothing,
-            expression=spec.expression,
+            expression=expression_line,
             framing_line=framing_line,
             quality_identity_base=spec.quality_identity.base,
             per_model_tail_map=dict(spec.quality_identity.per_model_tail),
@@ -485,6 +533,7 @@ def build_composition(
         rng=rng,
     )
     framing_line, framing_requested = _resolve_framing_line(spec, framing)
+    expression_line = _resolve_expression(spec.expression, hints)
 
     return CompositionIR(
         mode=mode,
@@ -494,7 +543,7 @@ def build_composition(
         lighting=lighting,
         weather=weather,
         clothing=clothing,
-        expression=spec.expression,
+        expression=expression_line,
         framing_line=framing_line,
         quality_identity_base=spec.quality_identity.base,
         per_model_tail_map=dict(spec.quality_identity.per_model_tail),

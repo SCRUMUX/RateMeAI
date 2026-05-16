@@ -162,15 +162,22 @@ def test_flag_on_without_v2_migration_preserves_v1_output(
         ("social", "influencer_urban"),
     ],
 )
-def test_v2_matches_v1_for_neutral_inputs(monkeypatch, mode, style):
-    """v2 wraps v1 output with the same content PLUS the new
-    ``SCENE_BLEND_PHOTO`` anchor (1.32.2). v1 is frozen as the
-    deprecated fallback; v2 / v3 are the live path.
+def test_v2_carries_v4_anchors_for_neutral_inputs(monkeypatch, mode, style):
+    """v4 (May 2026) intentionally diverges the v2 wrapper from v1.
 
-    We assert byte-for-byte parity on the v1 substring AND that v2
-    contains the SCENE_BLEND anchor. The previous "exact equality"
-    contract was retired in 1.32.2 because v1 is now strictly a
-    legacy decommission path (see ``PROMPT_V1_FALLBACK`` metric).
+    Pre-v4 the contract was "v2 == v1 substring + SCENE_BLEND_PHOTO
+    + anatomy suffix" (byte-for-byte parity on the v1 portion). v4
+    rewrites the per-model wrapper into a preserve-first layout that
+    no longer mirrors the v1 narrative paragraph, so the strict-equality
+    contract is retired.
+
+    What we still guard:
+
+    * v2 path stays non-empty for every sample style.
+    * v2 path contains the v4 ``IDENTITY_PRESERVE_BLOCK`` and
+      ``PASTED_ON_GUARD`` anchors (preserve-first invariants).
+    * v1 path keeps producing a non-empty fallback prompt for the
+      legacy decommission path (``PROMPT_V1_FALLBACK`` metric).
     """
     v2 = _mirror_v1_as_v2(mode, style)
     STYLE_REGISTRY.register_v2(v2)
@@ -202,20 +209,17 @@ def test_v2_matches_v1_for_neutral_inputs(monkeypatch, mode, style):
         target_model="gpt_image_2",
         framing=None,
     )
-    # SCENE_BLEND_PHOTO and the anatomy suffix are the only diffs between v1 tail and v2 tail.
-    # Stripping them from v2 must yield the v1 output verbatim.
-    assert ig.SCENE_BLEND_PHOTO in via_v2, (
-        "v2 path should embed SCENE_BLEND_PHOTO anchor (1.32.2).\n"
+
+    assert via_v2, "v2 path produced empty prompt"
+    assert via_v1, "v1 fallback produced empty prompt"
+
+    assert ig.PASTED_ON_GUARD in via_v2, (
+        "v2 path should embed PASTED_ON_GUARD anchor (v4).\n"
         f"v2 output: {via_v2!r}"
     )
-    via_v2_stripped = via_v2.replace(" " + ig.SCENE_BLEND_PHOTO, "")
-    anatomy_suffix = " Ensure correct 1: 7 head-to-body ratio, natural shoulders, and realistic body proportions. The face must not be oversized relative to the body."
-    via_v2_stripped = via_v2_stripped.replace(anatomy_suffix, "")
-    anatomy_suffix_uncompressed = " Ensure correct 1:7 head-to-body ratio, natural shoulders, and realistic body proportions. The face must not be oversized relative to the body."
-    via_v2_stripped = via_v2_stripped.replace(anatomy_suffix_uncompressed, "")
-    assert via_v2_stripped == via_v1, (
-        f"\n--- v2 (stripped of SCENE_BLEND and anatomy suffix) ---\n{via_v2_stripped}"
-        f"\n--- v1 ---\n{via_v1}\n"
+    assert "facial features" in via_v2.lower(), (
+        "v2 path should embed IDENTITY_PRESERVE_BLOCK identity anchors (v4).\n"
+        f"v2 output: {via_v2!r}"
     )
 
 
@@ -225,11 +229,11 @@ def test_v2_matches_v1_for_neutral_inputs(monkeypatch, mode, style):
 
 
 @pytest.mark.parametrize("framing", ["portrait", "half_body", "full_body"])
-def test_v2_framing_parity(monkeypatch, framing):
-    """Framing directive must propagate identically. Same caveat as
-    :func:`test_v2_matches_v1_for_neutral_inputs` — v2 path also
-    embeds the 1.32.2 ``SCENE_BLEND_PHOTO`` anchor; we strip it
-    before comparing the v1 substring."""
+def test_v2_framing_directive_propagates(monkeypatch, framing):
+    """Framing directive from step-3 of the wizard must reach the v2
+    prompt. v4 dropped the strict v1↔v2 byte-for-byte parity contract
+    (the per-model layout was redesigned), so we only assert that the
+    user-selected framing token appears in the wrapped prompt."""
     v2 = _mirror_v1_as_v2("dating", "warm_outdoor")
     STYLE_REGISTRY.register_v2(v2)
 
@@ -241,22 +245,17 @@ def test_v2_framing_parity(monkeypatch, framing):
         framing=framing,
         target_model="gpt_image_2",
     )
-    via_v1 = ig.build_dating_prompt(
-        style="warm_outdoor",
-        base_description="",
-        gender="male",
-        input_hints=None,
-        variant=None,
-        target_model="gpt_image_2",
-        framing=framing,
+    assert via_v2, "v2 builder produced empty prompt"
+
+    expected_token = {
+        "portrait": "head-and-shoulders",
+        "half_body": "half-body",
+        "full_body": "full body",
+    }[framing]
+    assert expected_token in via_v2.lower(), (
+        f"framing={framing!r} did not propagate (looking for {expected_token!r}).\n"
+        f"v2 output: {via_v2!r}"
     )
-    assert ig.SCENE_BLEND_PHOTO in via_v2
-    via_v2_stripped = via_v2.replace(" " + ig.SCENE_BLEND_PHOTO, "")
-    anatomy_suffix = " Ensure correct 1: 7 head-to-body ratio, natural shoulders, and realistic body proportions. The face must not be oversized relative to the body."
-    via_v2_stripped = via_v2_stripped.replace(anatomy_suffix, "")
-    anatomy_suffix_uncompressed = " Ensure correct 1:7 head-to-body ratio, natural shoulders, and realistic body proportions. The face must not be oversized relative to the body."
-    via_v2_stripped = via_v2_stripped.replace(anatomy_suffix_uncompressed, "")
-    assert via_v2_stripped == via_v1
 
 
 # ---------------------------------------------------------------------------

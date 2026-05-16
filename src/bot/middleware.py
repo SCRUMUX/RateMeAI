@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import logging
 from typing import Any, Awaitable, Callable
 
@@ -20,7 +21,12 @@ def _bot_session_ttl() -> int:
     return max(settings.session_ttl_seconds - 3600, 3600)
 
 
-_MIN_REMAINING_TTL = 3600
+# P2.3: when the cached session token still has at least this much
+# time left we treat it as fresh — anything below triggers an async
+# refresh that does NOT block the current handler (previously we
+# blocked for 200-400ms on every event whose token was within 1h of
+# expiry, which felt sluggish on chatty conversations).
+_MIN_REMAINING_TTL = 1800
 
 
 async def get_bot_bearer_token(redis: Redis, telegram_id: int) -> str | None:
@@ -64,34 +70,36 @@ class UserRegistrationMiddleware(BaseMiddleware):
         if user:
             key = _BOT_SESSION_KEY.format(user.id)
             ttl = await self._redis.ttl(key)
-            needs_refresh = ttl < _MIN_REMAINING_TTL
 
-            if needs_refresh:
-                try:
-                    resp = await self._client.post(
-                        f"{self._api_base_url}/api/v1/auth/telegram",
-                        json={
-                            "telegram_id": user.id,
-                            "username": user.username,
-                            "first_name": user.first_name,
-                        },
-                    )
-                    if resp.status_code == 200:
-                        resp_data = resp.json()
-                        data["api_user"] = resp_data
-
-                        token = resp_data.get("session_token")
-                        if token:
-                            await self._redis.set(
-                                key,
-                                token,
-                                ex=_bot_session_ttl(),
-                            )
-                except Exception:
-                    logger.exception("Failed to register/refresh user %s", user.id)
+            if ttl <= 0:
+                # No token at all — must block, the very next handler
+                # will need authenticated headers.
+                await self._refresh_session(user, key)
+            elif ttl < _MIN_REMAINING_TTL:
+                # Token still valid; refresh in the background so the
+                # current handler doesn't wait on the API round-trip.
+                asyncio.create_task(self._refresh_session(user, key))
 
         data["api_base_url"] = self._api_base_url
         return await handler(event, data)
+
+    async def _refresh_session(self, user, key: str) -> None:
+        """Hit /auth/telegram, store the resulting session token."""
+        try:
+            resp = await self._client.post(
+                f"{self._api_base_url}/api/v1/auth/telegram",
+                json={
+                    "telegram_id": user.id,
+                    "username": user.username,
+                    "first_name": user.first_name,
+                },
+            )
+            if resp.status_code == 200:
+                token = resp.json().get("session_token")
+                if token:
+                    await self._redis.set(key, token, ex=_bot_session_ttl())
+        except Exception:
+            logger.exception("Failed to register/refresh user %s", user.id)
 
     async def close(self) -> None:
         await self._client.aclose()

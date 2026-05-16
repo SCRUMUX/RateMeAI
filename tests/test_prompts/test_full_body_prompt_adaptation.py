@@ -43,7 +43,11 @@ from src.prompts.image_gen import (
 def test_full_body_style_uses_face_only_preserve():
     prompt = build_dating_prompt(style="yoga_outdoor", gender="male")
     assert "original pose" not in prompt.lower()
-    assert "adopting a natural pose that fits the scene" in prompt
+    # v4 (May 2026): unified "Place the person … adopting a natural pose"
+    # opener for every framing. The wording dropped the "that fits the
+    # scene" tail in favour of "that fit the setting" so the same
+    # sentence reads naturally for both full-body and close-up styles.
+    assert "adopting a natural pose" in prompt.lower()
     assert "Photorealistic" in prompt
 
 

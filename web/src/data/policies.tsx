@@ -474,7 +474,7 @@ function RefundBodyRu() {
           <li>Напишите на{' '}
             <a className={inlineLink} href="mailto:support@ailookstudio.ru">support@ailookstudio.ru</a>{' '}
             или в{' '}
-            <a className={inlineLink} href="https://t.me/ailookstudio_support" target="_blank" rel="noopener noreferrer">Telegram-поддержку</a>.</li>
+            <a className={inlineLink} href="https://t.me/AI_Look_Studio" target="_blank" rel="noopener noreferrer">Telegram-поддержку</a>.</li>
           <li>Укажите номер операции (можно найти в письме от YooKassa) и причину возврата.</li>
           <li>Мы подтвердим обращение и инициируем возврат через платёжного провайдера.</li>
         </ol>
@@ -504,7 +504,7 @@ function RefundBodyRu() {
           E-mail:{' '}
           <a className={inlineLink} href="mailto:support@ailookstudio.ru">support@ailookstudio.ru</a>{' '}
           · Telegram:{' '}
-          <a className={inlineLink} href="https://t.me/ailookstudio_support" target="_blank" rel="noopener noreferrer">@ailookstudio_support</a>.
+          <a className={inlineLink} href="https://t.me/AI_Look_Studio" target="_blank" rel="noopener noreferrer">@AI_Look_Studio</a>.
         </p>
       </section>
     </>
@@ -913,7 +913,7 @@ function RefundBodyEn() {
           <li>Email{' '}
             <a className={inlineLink} href="mailto:support@ailookstudio.ru">support@ailookstudio.ru</a>{' '}
             or message{' '}
-            <a className={inlineLink} href="https://t.me/ailookstudio_support" target="_blank" rel="noopener noreferrer">Telegram support</a>.</li>
+            <a className={inlineLink} href="https://t.me/AI_Look_Studio" target="_blank" rel="noopener noreferrer">Telegram support</a>.</li>
           <li>Provide the transaction id (available in the payment confirmation email) and the reason for the refund.</li>
           <li>We acknowledge the request and trigger a refund through the payment provider.</li>
         </ol>
@@ -943,7 +943,7 @@ function RefundBodyEn() {
           E-mail:{' '}
           <a className={inlineLink} href="mailto:support@ailookstudio.ru">support@ailookstudio.ru</a>{' '}
           · Telegram:{' '}
-          <a className={inlineLink} href="https://t.me/ailookstudio_support" target="_blank" rel="noopener noreferrer">@ailookstudio_support</a>.
+          <a className={inlineLink} href="https://t.me/AI_Look_Studio" target="_blank" rel="noopener noreferrer">@AI_Look_Studio</a>.
         </p>
       </section>
     </>
