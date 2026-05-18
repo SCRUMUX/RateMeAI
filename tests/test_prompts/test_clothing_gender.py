@@ -87,17 +87,22 @@ def test_burj_khalifa_male_and_female_prompts_differ(_v2_registered):
     rendered prompt must reflect the gender override and not just the
     male phrasing for female users."""
     engine = PromptEngine()
+    # v1.62.5: pin slot sampler seed — without it the v3 sampler may
+    # pick a clothing slot variant that bypasses the FEMALE_OVERRIDES
+    # phrasing, and the test flips flaky on CI.
     male_prompt = engine.build_image_prompt_v2(
         mode=AnalysisMode.DATING,
         style="dubai_burj_khalifa",
         gender="male",
         target_model="gpt_image_2",
+        seed=42,
     )
     female_prompt = engine.build_image_prompt_v2(
         mode=AnalysisMode.DATING,
         style="dubai_burj_khalifa",
         gender="female",
         target_model="gpt_image_2",
+        seed=42,
     )
     assert male_prompt and female_prompt
     assert male_prompt != female_prompt, (
