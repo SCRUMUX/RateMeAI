@@ -5606,4 +5606,49 @@
 #              flipped to match the v1.59.5 contract (reader does NOT
 #              delete the gen_image key, /storage/{task_id} fallback
 #              needs it).
-APP_VERSION = "1.62.5"
+# 1.62.6 — CI deploy step tolerant to Railway's queued-deploy state.
+#
+#          Symptom: every push to main since 06:43 UTC on 2026-05-18
+#          failed at ``deploy-backend → Deploy Railway services
+#          (sequential)`` with the CLI output
+#            ``Deploying app...``
+#            ``Indexing... Uploading...``
+#            ``Deploys have been paused temporarily``
+#            ``Error: Process completed with exit code 1.``
+#          while Railway's own status page reported "Fully Operational"
+#          and the user confirmed the project was healthy in the
+#          Railway dashboard.
+#
+#          Root cause is a documented Railway platform behaviour: when
+#          the global build pool is saturated, free / trial-tier
+#          workspaces (and projects that still have a remaining trial
+#          balance) get their deploys *queued* until the high-demand
+#          window passes. The Railway help station puts it explicitly:
+#          "Queued deployments will automatically process once the
+#          pause lifts, no action required on your part."
+#          ``railway up -d``, however, exits with status 1 the moment
+#          the API returns the paused string — even though the deploy
+#          is already in the queue and will roll out automatically.
+#          Our CI used to treat that exit code as a fatal error and
+#          aborted the whole deploy job mid-way (only ``app`` got
+#          submitted, ``worker`` and ``bot`` never even tried).
+#
+#          Fix (``.github/workflows/ci.yml``):
+#          * ``deploy_with_retry()`` wrapper around each
+#            ``railway up -s <svc>`` call. Up to 5 attempts with
+#            exponential backoff; a ``paused temporarily`` response is
+#            treated as a SOFT success (the deploy is queued — break
+#            and continue to the next service). Hard CLI errors still
+#            fail the step after the retry budget.
+#          * Health check rewritten to actively verify the new commit
+#            SHA shows up on ``/health`` (``settings.deploy_git_sha``)
+#            within a ~25 min window, instead of the previous 6 min
+#            cap which was too tight for queued rollouts. The step
+#            still exits early on first match, so unaffected pushes
+#            still complete in under a minute.
+#
+#          No code-path changes. v1.62.5 generation-parity fixes are
+#          untouched; this is strictly a CI-side change to stop
+#          painting otherwise-successful deploys red on Railway's
+#          high-demand windows.
+APP_VERSION = "1.62.6"

@@ -369,35 +369,96 @@ jobs:
           fi
 
       - name: Deploy Railway services (sequential)
+        env:
+          SHORT_SHA_TARGET: ${{ github.sha }}
         run: |
           set -e
+          # v1.62.6: tolerate the "Deploys have been paused temporarily"
+          # response from ``railway up``. Per Railway's own help station
+          # this message is returned during platform-wide high-demand
+          # windows: the deploy is *accepted into the queue* and will
+          # process automatically once the pause lifts, "no action
+          # required on your part". The CLI nevertheless exits with
+          # status 1, which used to fail the whole CI run even though
+          # the deploy itself was healthy and on its way.
+          # The new wrapper retries each ``railway up`` a few times,
+          # treating a ``paused`` response as a soft signal (deploy in
+          # queue → continue), and only fails the step on an actual
+          # CLI error.
+          deploy_with_retry() {
+            local service="$1"
+            local attempt=1
+            local max_attempts=5
+            local delay=20
+            local out_file
+            out_file="$(mktemp)"
+            while [ "$attempt" -le "$max_attempts" ]; do
+              echo "[$service] railway up attempt $attempt/$max_attempts"
+              if railway up -s "$service" -d -e production 2>&1 | tee "$out_file"; then
+                rm -f "$out_file"
+                return 0
+              fi
+              if grep -qi "paused temporarily" "$out_file"; then
+                echo "::notice::Railway returned 'Deploys have been paused temporarily' for $service — deploy queued, treating as soft success"
+                rm -f "$out_file"
+                return 0
+              fi
+              if [ "$attempt" -lt "$max_attempts" ]; then
+                echo "::warning::$service deploy attempt $attempt failed (non-paused), retrying in ${delay}s"
+                sleep "$delay"
+                delay=$((delay * 2))
+              fi
+              attempt=$((attempt + 1))
+            done
+            echo "::error::railway up -s $service failed after $max_attempts attempts"
+            rm -f "$out_file"
+            return 1
+          }
           echo "Deploying app..."
-          railway up -s app -d -e production
+          deploy_with_retry app
           echo "Deploying worker..."
-          railway up -s worker -d -e production
+          deploy_with_retry worker
           echo "Deploying bot..."
-          railway up -s bot -d -e production
+          deploy_with_retry bot
 
       - name: Wait for Railway build & deploy
         run: sleep 180
 
       - name: Health check
+        env:
+          DEPLOY_SHA_FULL: ${{ github.sha }}
         run: |
           API_URL="${GLOBAL_API_BASE_URL}"
-          echo "Checking $API_URL/health ..."
-          for i in 1 2 3 4 5 6 7 8; do
+          SHORT_SHA="${DEPLOY_SHA_FULL:0:12}"
+          echo "Checking $API_URL/health, expecting commit=$SHORT_SHA ..."
+          # v1.62.6: extended polling window. When Railway queues the
+          # deploy due to platform high-demand the actual rollout can
+          # take several minutes longer than the usual sub-minute
+          # build-and-restart. The old 8 × 45 s budget (~6 min) was
+          # too short for the queued path. We now poll for up to
+          # ~25 min and explicitly look for the new commit SHA in
+          # /health so we don't false-positive on an older healthy
+          # container that has not been replaced yet. The step still
+          # exits early on the first match so happy-path deploys
+          # finish in under a minute.
+          MATCHED=0
+          for i in $(seq 1 34); do
             RESP=$(curl -sf "$API_URL/health" || echo "FAIL")
             echo "Attempt $i: $RESP"
-            if echo "$RESP" | grep -q '"ok"'; then
-              echo "Health check passed"
-              break
-            fi
-            if [ "$i" -eq 8 ]; then
-              echo "::error::Health check failed after 8 attempts"
-              exit 1
+            if echo "$RESP" | grep -q '"status"\s*:\s*"ok"'; then
+              if echo "$RESP" | grep -q "$SHORT_SHA"; then
+                echo "Health check passed: status=ok and commit=$SHORT_SHA"
+                MATCHED=1
+                break
+              fi
+              echo "Health OK but commit not yet $SHORT_SHA (queued deploy still rolling out)"
             fi
             sleep 45
           done
+          if [ "$MATCHED" -ne 1 ]; then
+            echo "::error::Health check did not observe commit $SHORT_SHA on /health within the polling window"
+            exit 1
+          fi
 
       # v1.24.1: post-deploy provider smoke removed from the deploy
       # pipeline entirely. Rationale:
