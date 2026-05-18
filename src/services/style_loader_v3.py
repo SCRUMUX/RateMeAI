@@ -378,7 +378,6 @@ def _to_v3(raw: dict[str, Any]) -> StyleSpecV3 | None:
 
     is_doc = key in _DOCUMENT_STYLE_KEYS
     aspect = "square_hd" if is_doc else "portrait_4_3"
-    gen_mode = "scene_preserve" if is_doc else "identity_scene"
 
     raw_channels = raw.get("available_channels") or []
     if isinstance(raw_channels, (list, tuple)):
@@ -415,7 +414,6 @@ def _to_v3(raw: dict[str, Any]) -> StyleSpecV3 | None:
             needs_full_body=detect_needs_full_body(key, mode),
             needs_torso=detect_needs_torso(key, mode),
             output_aspect=aspect,  # type: ignore[arg-type]
-            generation_mode=gen_mode,  # type: ignore[arg-type]
             available_channels=available_channels,
             location_type=location_type,
             coherence=_coherence_rules(raw.get("coherence"), key=key),
@@ -477,7 +475,6 @@ def _promote_v2_to_v3(v2_spec: object) -> StyleSpecV3 | None:
             needs_full_body=v2_spec.needs_full_body,
             needs_torso=getattr(v2_spec, "needs_torso", False),
             output_aspect=v2_spec.output_aspect,
-            generation_mode=v2_spec.generation_mode,
         )
     except ValueError as exc:
         logger.warning(

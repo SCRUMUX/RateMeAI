@@ -59,20 +59,11 @@ def _is_transient(exc: Exception) -> bool:
     # transient and must NOT be retried.
     real = _unwrap_exception(exc)
 
-    # Reve provider maintains its own retry loop (see
-    # ReveImageGen._generate_sync), including exponential backoff on 429
-    # and 5xx. Treating a ReveAPIError as worker-level "transient" layers
-    # a second retry on top and doubles the request count — which is
-    # exactly how a single user task bursts 3-6 calls into Reve's 100/min
-    # rate limit (see Reve logs at 16:06-16:07 on 2026-04-21). One retry
-    # layer is enough; worker accepts the provider's final verdict.
-    try:
-        from src.providers.image_gen.reve_provider import ReveAPIError
-
-        if isinstance(real, ReveAPIError):
-            return False
-    except Exception:
-        pass
+    # v1.64: ``ReveImageGen`` was retired; the worker-level transient
+    # carve-out for ``ReveAPIError`` is gone with it. Provider-level
+    # retry policies still apply (each FAL adapter maintains its own
+    # backoff on 429 / 5xx), so we deliberately do not re-classify
+    # provider errors here as transient.
 
     msg = str(real).lower()
     if isinstance(real, (TimeoutError, ConnectionError, OSError)):

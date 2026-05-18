@@ -66,7 +66,6 @@ def get_structured_specs() -> list[StructuredStyleSpec]:
         )
 
         is_doc = s["id"] in _DOCUMENT_STYLE_KEYS
-        gen_mode = "scene_preserve" if is_doc else "identity_scene"
         aspect = "square_hd" if is_doc else "portrait_4_3"
 
         # v1.26: раньше мы плющили per-channel dict в плоский список
@@ -105,7 +104,6 @@ def get_structured_specs() -> list[StructuredStyleSpec]:
             mode=s["mode"],
             needs_full_body=detect_needs_full_body(s["id"], s["mode"]),
             needs_torso=detect_needs_torso(s["id"], s["mode"]),
-            generation_mode=gen_mode,
             output_aspect=aspect,
         )
         specs.append(spec)

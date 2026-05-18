@@ -193,7 +193,7 @@ class AnalysisPipeline:
         # v1.21 A/B test — optional per-request override that routes
         # this single task to Nano Banana 2 Edit / GPT Image 2 Edit via
         # the structured prompt adapter. Missing / unknown values drop
-        # through to the default hybrid StyleRouter pipeline.
+        # through to the unified provider's default model.
         ab_image_model = (context or {}).get("image_model") or ""
         ab_image_quality = (context or {}).get("image_quality") or ""
         # TODO(gender-single-source): detected_gender is currently driven by the
@@ -230,8 +230,8 @@ class AnalysisPipeline:
             # the user's *original* face. Pre-restoring with GFPGAN
             # subtly re-renders facial features — the models then encode
             # a slightly altered identity and drift from the real user.
-            # Legacy StyleRouter keeps the preclean since PuLID benefits
-            # from sharper reference faces.
+            # v1.64: the A/B path IS the only path; the StyleRouter
+            # carve-out for the legacy GFPGAN preclean is gone.
             ab_active = bool(
                 getattr(settings, "ab_test_enabled", False) and ab_image_model
             )

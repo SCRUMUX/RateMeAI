@@ -15,15 +15,13 @@ PIPELINE_DURATION = Histogram(
 )
 
 # v1.20: renamed from ``REVE_CALLS`` / ``ratemeai_reve_calls_total``.
-# The ``REVE_CALLS`` alias is preserved for one release to keep existing
-# call sites (executor, advanced.execute_plan) importing the same symbol
-# while Grafana / Prometheus configs migrate to the new metric name.
+# v1.64: with the Reve provider retired the legacy alias is no longer
+# used; the metric stays under its current name.
 IMAGE_GEN_CALLS = Counter(
     "ratemeai_image_gen_calls_total",
     "Number of image-gen provider API calls (any backend)",
     labelnames=["mode", "step", "provider"],
 )
-REVE_CALLS = IMAGE_GEN_CALLS  # v1.20 alias, remove in v1.21
 
 FAL_CALLS = Counter(
     "ratemeai_fal_calls_total",
@@ -53,12 +51,19 @@ def estimate_image_gen_cost_usd(
 
     Centralises the per-provider cost maths so the executor and any
     reporting surface produce consistent numbers.
+
+    v1.64: with PuLID / Seedream / Reve retired the unified provider
+    always lands on GPT Image 2 or Nano Banana 2; the per-quality
+    table in ``_AB_COST_FIELDS`` is the source of truth — this helper
+    only handles the legacy ``provider_name``-only signature still
+    used in a few non-A/B code paths and conservatively returns the
+    GPT-2 medium price.
     """
     name = (provider_name or "").lower()
-    if "unified" in name or "stylerouter" in name:
-        # Unified provider defaults to GPT Image 2 cost if no specific route is known
-        return float(getattr(settings, "model_cost_gpt_image_2_medium", 0.06))
-    return settings.model_cost_reve
+    if "fal" in name and "nano" in name:
+        return float(getattr(settings, "model_cost_nano_banana_2", 0.02))
+    # Default (unified / gpt_image_2 / unknown) — GPT-2 medium.
+    return float(getattr(settings, "model_cost_gpt_image_2_medium", 0.06))
 
 
 # v1.21 A/B cost table — keyed by (model, quality). Consulted by the
@@ -183,49 +188,28 @@ COMPLETED_WITHOUT_IMAGE = Counter(
 )
 
 # ---------------------------------------------------------------------------
-# v1.18 — hybrid image-gen pipeline observability
+# Image-gen pipeline observability (v1.64 — FAL edit-only)
 # ---------------------------------------------------------------------------
 
-# Which backend actually served the request after StyleRouter routing.
-# ``backend``: pulid | seedream | fallback.
-# ``style_mode``: identity_scene | scene_preserve | unknown.
-# Divergence between requested mode (derived from StyleSpec) and actual
-# ``backend`` (e.g. a face-crop failure on identity_scene → fallback to
-# seedream) is visible here.
+# Which backend actually served the request. ``backend`` is one of:
+#   * ``gpt_image_2``     — FAL GPT Image 2 Edit (default)
+#   * ``nano_banana_2``   — FAL Nano Banana 2 Edit (A/B alternative)
+#
+# v1.64: the ``style_mode`` label and the legacy ``pulid``/``seedream``/
+# ``fallback`` backend values were removed when the StyleRouter and
+# specialised providers were retired.
 IMAGE_GEN_BACKEND = Counter(
     "ratemeai_image_gen_backend_total",
-    "Image-gen requests by chosen backend and requested style mode",
-    labelnames=["backend", "style_mode"],
+    "Image-gen requests by chosen backend",
+    labelnames=["backend"],
 )
 
-# Estimated per-image cost (USD) by backend. Primary budget signal for
-# the v1.18 hybrid pipeline — canary rollout gates on the p95/mean of
-# this histogram staying below $0.025.
+# Estimated per-image cost (USD) by backend. Primary budget signal.
 GENERATION_COST_USD = Histogram(
     "ratemeai_generation_cost_usd",
     "Estimated USD cost per image generation by backend",
     labelnames=["backend"],
     buckets=(0.005, 0.010, 0.015, 0.020, 0.025, 0.030, 0.040, 0.060, 0.100),
-)
-
-# Face-crop failures that forced the router to fall back from
-# identity_scene to scene_preserve. A climbing rate here indicates
-# either degraded detector availability or a traffic shift toward
-# photos without clear frontal faces.
-PULID_FACE_CROP_FAILED = Counter(
-    "ratemeai_pulid_face_crop_failed_total",
-    "Face-crop failures on identity_scene requests (by reason)",
-    labelnames=["reason"],
-)
-
-# Cases where the router swapped the requested generation_mode for
-# another one (crop failure, provider missing, retry escalation).
-# ``reason`` is a short code (face_crop_no_face, no_reference_image,
-# provider_missing, retry_escalate, ...).
-STYLE_MODE_OVERRIDE = Counter(
-    "ratemeai_style_mode_override_total",
-    "Router-initiated generation_mode overrides",
-    labelnames=["from_mode", "to_mode", "reason"],
 )
 
 
@@ -262,4 +246,18 @@ COMPOSITION_OVERRIDE_USED = Counter(
     "ratemeai_composition_override_used_total",
     "Composition safety bypassed via advanced override",
     labelnames=["composition_class", "style"],
+)
+
+# CSL Phase 1.5 (v1.64) — reference image geometric padding.
+# Increments once per ``ImageGenerationExecutor.single_pass`` whose
+# gate decided to call :func:`reference_preprocess.pad_reference_for_framing`
+# before handing bytes to the edit-model provider. ``framing`` is the
+# target framing key, ``composition_class`` is the CSL class that
+# triggered the gate. Rate of this metric vs. ``IMAGE_GEN_ATTEMPT_TOTAL``
+# = share of generations protected by geometric pre-correction; should
+# track the "tight-selfie" upload share.
+REFERENCE_PADDED = Counter(
+    "ratemeai_reference_padded_total",
+    "Reference images geometrically padded before edit-model invocation",
+    labelnames=["framing", "composition_class"],
 )

@@ -44,7 +44,7 @@
               │            POST /internal/process-analysis (edge→primary)
               │            anonymous user, ephemeral retention
               ▼
-        OpenAI / Replicate / external CDNs
+        OpenAI / FAL.ai / external CDNs
 ```
 
 ---
@@ -135,7 +135,8 @@ Railway primary (/api/v1/internal/process-analysis)
   │  Task.create (Postgres Railway) → ARQ enqueue
   ▼
 Worker (Railway)
-  │  OpenAI/Replicate generate
+  │  OpenAI VLM scoring + FAL edit-model image gen (v1.64: GPT Image 2
+  │  и Nano Banana 2 через UnifiedImageGenProvider)
   │  Возврат через GET /api/v1/internal/task/{id}/status — base64 + JSON
   ▼
 RU edge ←  base64 ← worker
@@ -397,6 +398,7 @@ identity-preserve-блок остались нетронутыми.
 | **W2. Block** | `COMPOSITION_SAFETY_ENABLED=true` | Hard-stop в SPA/bot/`/api/v1/analyze`. Override недоступен. | `composition_block_total` рост ≤ 2× baseline, NPS не упал > 3 п.п. |
 | **W3. Pose** | `BODY_LANDMARKS_ENABLED=true` | MediaPipe Pose уточняет эвристику. Сравниваем `source="pose"` vs `source="heuristic"` в Grafana. | Расхождение Pose↔heuristic < 15% по `composition_class_total`. |
 | **W4. Override** | `COMPOSITION_SAFETY_ADVANCED_OVERRIDE=true` | Пользователи-эксперты могут обойти CSL через UI/bot. | `composition_override_used_total / composition_block_total` ≤ 20% — если выше, надо ослабить политику, а не давать override. |
+| **W5. Anatomy fix** | `CSL_REFERENCE_PAD_ENABLED=true` (default) | Numerical composition anchor в промпте + геометрическое padding исходника для tight-selfie → half/full-body (§8.9). `reference_padded_total` начинает считать. | `proportions_natural` pass-rate (VLM gate) на `composition_class∈{face_closeup,unknown}` входах > 90% на 7-дневном окне. |
 
 **Откат**: ставим конкретный ENV-флаг в `false`. Никаких миграций или
 data-fix'ов не требуется — кеш `_csl` в Redis просто игнорится, а
@@ -409,13 +411,113 @@ data-fix'ов не требуется — кеш `_csl` в Redis просто и
   и может перезалить фото или выбрать portrait-style.
 - **`pre_analysis_id` отсутствует** в запросе на `/api/v1/analyze` →
   CSL hard-stop НЕ срабатывает (legacy путь). Защиту берёт на себя
-  `head_crop_proportion_lock` в prompt assembler.
+  numerical composition anchor в prompt assembler (§8.9) — гарантирует
+  корректные пропорции даже без CSL-классификации.
 - **Edge → primary**: `RemoteAnalysisRequest.skip_composition_safety`
   это **запрос** на override; primary всегда ре-валидирует против
   своего флага. Edge не может в одностороннем порядке «отключить» CSL.
 - **Wizard стейт переживает upload**: при `uploadPhoto()` SPA сбрасывает
   `skipCompositionSafety` в false (чтобы override от прошлого фото не
   утёк на новое).
+
+### 8.9 Anatomy fix one-pass (v1.64)
+
+**Проблема**: до v1.64 на `face_closeup` входах (selfie с лицом > 30%
+кадра) edit-модели (GPT Image 2 / Nano Banana 2) копировали layout
+исходника и выдавали «приклеенную голову» — лицо оставалось крупным,
+а тело гадалось вокруг. CSL ловила только заведомо запретные пары
+`(class, style)`, но **внутри** разрешённого framing'а (half/full-body
+на `face_closeup` blocked, но `portrait` пропускался и всё равно мог
+сгенерировать диспропорцию из-за tight-crop'а).
+
+Решение — **один проход**, без identity-retry и без второго прохода
+с outpaint'ом, через две независимые правки:
+
+#### 1. Numerical composition anchor в промпте
+
+[src/prompts/image_gen.py](../src/prompts/image_gen.py):
+`_COMPOSITION_NUMERICAL_HINT` — словарь `framing → directive` с явной
+численной долей лица в кадре:
+
+| framing | directive |
+|---|---|
+| `portrait` | face fills upper 25-30% of frame, eyes at upper third |
+| `half_body` | face fills upper 12-18% of frame, waist up |
+| `full_body` | face fills upper 6-9% of frame, head-to-toe |
+
+[src/prompts/model_wrappers.py](../src/prompts/model_wrappers.py):
+`_assemble` для non-document стилей вставляет этот hint **перед**
+`IDENTITY_PRESERVE_BLOCK`. Порядок принципиален — composition должна
+выигрывать в attention над identity-копированием.
+
+Параллельно из `IDENTITY_PRESERVE_BLOCK` убрана фраза «head and
+shoulders read as real human proportions» — она прямо конфликтовала с
+`half_body`/`full_body` директивами. Identity-блок теперь отвечает
+строго за лицо.
+
+#### 2. Reference padding для tight selfies
+
+[src/services/reference_preprocess.py](../src/services/reference_preprocess.py):
+`pad_reference_for_framing(image_bytes, face_bbox, framing,
+target_size)` — пересобирает исходник на новом холсте так, чтобы
+**лицо уже было в нужной пропорции** до того, как байты уходят в
+edit-модель. Алгоритм:
+
+1. Из `face_bbox` (InsightFace, доступен из `InputQualityReport`)
+   вычисляется текущая высота лица.
+2. По `_FRAMING_GEOMETRY[framing]` находится target face height
+   (28/15/8% canvas height) и target center Y (0.30/0.20/0.12).
+3. Исходник ресайзится так, чтобы лицо достигло target size, и
+   ставится на новый canvas. Пустые области заполняются
+   edge-blur'ом — нейтральный фон, который модель легко перепишет.
+4. Возвращаются JPEG-байты — провайдер их получает как обычный
+   `reference_image`.
+
+#### Гейт применения
+
+[src/orchestrator/executor.py](../src/orchestrator/executor.py) вызывает
+padding **только** когда:
+
+```python
+should_pad = (
+    settings.csl_reference_pad_enabled         # kill-switch
+    and not _is_document                        # документы не трогаем
+    and framing_norm in ("half_body", "full_body")
+    and (
+        composition_class in ("face_closeup", "unknown")
+        or face_area_ratio > settings.csl_face_closeup_face_ratio
+    )
+    and iq_bbox is not None                     # без bbox padding невозможен
+)
+```
+
+Любая ошибка `pad_reference_for_framing` → fallback на raw байты + log.
+Метрика [`reference_padded_total`](../src/metrics.py)
+`{framing, composition_class}` показывает фактический объём.
+
+#### Почему это работает за один проход
+
+- **Edit-модели** (GPT Image 2 / Nano Banana 2) сильно опираются на
+  layout reference'а. Если на reference'е лицо уже занимает 12%
+  кадра, модель **не** может «вернуть» его к 50% без явного промпта.
+- Numerical anchor + padded reference дают согласованный сигнал в
+  обоих каналах (text + image), а удаление конфликтной фразы из
+  identity-блока убирает остаточную тягу к head-and-shoulders.
+
+#### Что убрано вместе с v1.64
+
+PuLID (`fal-ai/pulid`), Seedream (`fal-ai/bytedance/seedream-v4`),
+Reve (`api.reve.com`), StyleRouter (legacy роутер по
+`generation_mode`), `src/services/face_crop.py` (нужен был только
+PuLID-провайдеру), `_SCENE_PRESERVE_STYLE_KEYS`,
+`detect_generation_mode`, `STYLE_MODE_OVERRIDE` метрика, `style_mode`
+лейбл из `IMAGE_GEN_BACKEND`. Эти ветки физически не выполнялись в
+проде после v1.21 (A/B-роутер всегда возвращал `gpt_image_2` /
+`nano_banana_2` **до** проверки `generation_mode` в
+`UnifiedImageGenProvider._pick_backend`), и держать ~7 файлов dead
+code'а не было смысла. После cleanup'а primary стек строго
+**FAL-only с двумя моделями** (GPT Image 2 Edit + Nano Banana 2 Edit),
+выбираемыми A/B-роутером в [src/providers/factory.py](../src/providers/factory.py).
 
 ---
 
@@ -444,4 +546,5 @@ data-fix'ов не требуется — кеш `_csl` в Redis просто и
 * Деплой: [.cursor/rules/deploy.mdc](../.cursor/rules/deploy.mdc)
 * CSL модули: [src/services/composition_safety.py](../src/services/composition_safety.py),
   [src/services/body_landmarks.py](../src/services/body_landmarks.py),
+  [src/services/reference_preprocess.py](../src/services/reference_preprocess.py),
   [scripts/calibrate_composition_thresholds.py](../scripts/calibrate_composition_thresholds.py)

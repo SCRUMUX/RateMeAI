@@ -172,9 +172,9 @@ def test_enhancement_level_pinned_to_one_for_photo_modes() -> None:
 
     For photo modes (dating/cv/social) ``enhancement_level`` only
     travels into the LLM analysis builder and perturbs
-    ``base_description`` unpredictably — that drift used to be hidden
-    by the StyleRouter + CodeFormer post-chain but surfaces on the
-    A/B path. Web pins it to ``1`` for the same reason
+    ``base_description`` unpredictably — that drift was masked by the
+    pre-v1.64 StyleRouter + CodeFormer post-chain but surfaces on the
+    unified A/B path. Web pins it to ``1`` for the same reason
     (``web/src/context/AppContext.tsx``). Emoji is the only mode
     where the depth ladder actually feeds
     ``ENHANCEMENT_LEVEL_MODIFIERS`` in the prompt template.

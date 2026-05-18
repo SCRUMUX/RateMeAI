@@ -319,8 +319,8 @@ def test_analyze_without_ab_fields_defaults_to_gpt_image_2_low(
 ):
     """v1.22: when the client omits both fields (old bot / curl),
     the endpoint still routes through A/B using the configured
-    defaults (``gpt_image_2`` / ``low``) rather than falling
-    through to the legacy StyleRouter.
+    defaults (``gpt_image_2`` / ``low``); pre-v1.64 the alternative
+    was the StyleRouter, now retired.
 
     v1.25: quality is always forced to ``medium`` server-side, so
     ``ab_default_quality`` is effectively a no-op for the response

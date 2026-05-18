@@ -5,7 +5,8 @@ arq==0.26.1
 sqlalchemy[asyncio]==2.0.36
 asyncpg==0.30.0
 redis==5.2.1
-# reve[all] requires Pillow>=12.1.1 (conflicts with pillow 11.x)
+# Pillow used by reference_preprocess (v1.64 canvas padding) and the
+# document AR crop / x2 LANCZOS upscale in the executor.
 pillow>=12.1.1,<13
 httpx==0.28.1
 pydantic-settings==2.7.1
@@ -14,7 +15,6 @@ python-multipart==0.0.20
 aiofiles==24.1.0
 tenacity==9.0.0
 yookassa==3.4.0
-reve[all]==0.1.2
 aioboto3==13.4.0
 # Privacy overhaul (v1.10): InsightFace/onnxruntime removed — identity-check
 # migrated to stateless VLM comparison (no local face embeddings). MediaPipe

@@ -49,24 +49,15 @@ _ASPECT_PIXEL_SIZE: dict[str, tuple[int, int]] = {
     "landscape_16_9": (1920, 1088),
 }
 
-# 1 MP variants for PuLID (identity_scene) — forcing 2 MP on PuLID
-# at low step counts was producing duplicate subjects ("floating body"
-# failure mode). PuLID / FLUX are happiest at ~1 MP, and Real-ESRGAN
-# restores the delivery resolution downstream.
-_PULID_PIXEL_SIZE: dict[str, tuple[int, int]] = {
-    "square_hd": (1024, 1024),
-    "portrait_4_3": (896, 1152),
-    "portrait_16_9": (768, 1344),
-    "landscape_4_3": (1152, 896),
-    "landscape_16_9": (1344, 768),
-}
+# v1.64 — ``_PULID_PIXEL_SIZE`` (1 MP variants for PuLID) was retired
+# alongside the PuLID provider. Edit-mode models run at the full
+# ``_ASPECT_PIXEL_SIZE`` table.
 
 
 def resolve_output_size(
     spec: StyleSpec | None,
     face_area_ratio: float | None = None,
     *,
-    generation_mode: str | None = None,
     framing: str | None = None,
 ) -> dict[str, int] | None:
     """Translate a style's ``output_aspect`` into a FAL ``image_size`` dict.
@@ -76,7 +67,7 @@ def resolve_output_size(
 
     v1.17 adaptive sizing: for ``needs_full_body`` styles with a tiny
     reference face (``face_area_ratio < 0.10``) we force the output
-    down to 1 MP ``square_hd``. At 2 MP FLUX.2 Pro Edit distributes its
+    down to 1 MP ``square_hd``. At 2 MP FAL edit-models distribute
     "attention budget" across the full-body scene and the face ends up
     soft; at 1 MP the model has to prioritise facial detail, and
     Real-ESRGAN restores the output resolution after the fact.
@@ -88,6 +79,9 @@ def resolve_output_size(
     for full-body × small-face cases. ``face_area_ratio=None`` (legacy
     callers / unit tests) also keeps the 2 MP behaviour regardless of
     the flag.
+
+    v1.64: ``generation_mode`` was removed from the signature; the
+    PuLID-only 1 MP table (``_PULID_PIXEL_SIZE``) is gone.
     """
     if spec is None:
         return None
@@ -95,12 +89,10 @@ def resolve_output_size(
     aspect: OutputAspect = getattr(spec, "output_aspect", "portrait_4_3")
 
     # v1.26: framing is a composition hint for the PROMPT, not for output
-    # aspect. Раньше ``portrait`` → ``square_hd``, ``half_body`` →
-    # ``portrait_4_3``, ``full_body`` → ``portrait_16_9`` жёстко переключали
-    # размер и ломали кадрирование (пользователь выбирал ракурс, а получал
-    # квадрат вместо портрета 4:3). Теперь размер определяется только
-    # стилем (``spec.output_aspect``) и PuLID-эвристиками ниже; композицию
-    # framing задаёт через директивы в ``PromptEngine._build_mode_prompt``.
+    # aspect. Earlier revisions had ``portrait`` → ``square_hd``, etc.,
+    # which broke users' expectations (they selected the framing and
+    # got the wrong canvas shape). Now ``framing`` only drives the
+    # numerical anchor + reference padding; size is style-only.
     _ = framing  # retained in signature for callers; intentionally unused.
 
     needs_full_body = bool(getattr(spec, "needs_full_body", False))
@@ -136,20 +128,9 @@ def resolve_output_size(
                 face_area_ratio,
             )
 
-    # v1.19 — identity_scene (PuLID) runs at ~1 MP. The 2 MP portrait
-    # path causes duplicate-subject artefacts; Real-ESRGAN x2 restores
-    # delivery resolution after generation.
-    effective_mode = generation_mode or getattr(
-        spec, "generation_mode", "identity_scene"
-    )
-    if effective_mode == "identity_scene":
-        size_table = _PULID_PIXEL_SIZE
-    else:
-        size_table = _ASPECT_PIXEL_SIZE
-
-    pixels = size_table.get(aspect)
+    pixels = _ASPECT_PIXEL_SIZE.get(aspect)
     if pixels is None:
-        pixels = size_table.get("portrait_4_3") or _ASPECT_PIXEL_SIZE["portrait_4_3"]
+        pixels = _ASPECT_PIXEL_SIZE["portrait_4_3"]
     w, h = pixels
     return {"width": w, "height": h}
 
@@ -182,18 +163,25 @@ def resolve_output_size(
 # PASTED_ON_GUARD block is removed.
 # ---------------------------------------------------------------------------
 
-# Identity-preserve canonical block (~330 chars).
+# Identity-preserve canonical block (v1.64, ~260 chars).
 # Brings back the v1.32 explicit anchors that v4.0 stripped:
 # face shape, eye shape and colour, hairline / hair colour,
-# skin undertone, body proportions. Wording is positive-framed
-# (no "unchanged", "pasted on", "rather than") so it passes the
-# `_has_disallowed_negative` guard.
+# skin undertone. Wording is positive-framed (no "unchanged",
+# "pasted on", "rather than") so it passes the
+# ``_has_disallowed_negative`` guard.
+#
+# v1.64: removed the "head and shoulders read as real human
+# proportions" tail. That phrase forced edit-models to copy the
+# reference's tight head-and-shoulders crop verbatim, conflicting
+# with non-portrait framings ("from the waist up", "full body").
+# Composition is now driven exclusively by
+# :data:`_COMPOSITION_NUMERICAL_HINT` (placed BEFORE this block by
+# ``model_wrappers._assemble``) — identity here is strictly about
+# the face, not about the body layout.
 IDENTITY_PRESERVE_BLOCK = (
     "Use the reference photo as the identity source — render the same "
     "person with identical face shape, eye shape and colour, nose, "
-    "mouth, jawline, hairline, hair colour and skin undertone. Body "
-    "pose adapts naturally to the new scene; head and shoulders read "
-    "as real human proportions."
+    "mouth, jawline, hairline, hair colour and skin undertone."
 )
 
 # Photoreal block (~340 chars).
@@ -1252,6 +1240,38 @@ _FRAMING_PROMPT_DIRECTIVES: dict[str, str] = {
     "full_body": (
         "Framing: full body head-to-toe, respectful framing, "
         "subject centered with natural negative space."
+    ),
+}
+
+
+# v1.64 — numerical composition anchor for non-document styles.
+#
+# The existing document path (``_DOC_COMPOSITION_HINT``) hands edit
+# models an explicit "face fills X% of frame" sentence and consistently
+# produces correct anatomical proportions. Non-document styles used to
+# rely on a vague prose framing line plus the identity-preserve block,
+# which on tight selfies caused the model to copy the input's head/
+# torso ratio verbatim ("glued head" pathology on career studio styles).
+#
+# This dict mirrors ``_DOC_COMPOSITION_HINT`` for portrait / half_body /
+# full_body. ``model_wrappers._assemble`` injects the relevant entry
+# BEFORE :data:`IDENTITY_PRESERVE_BLOCK` so the layout instruction sits
+# in the first third of the prompt, where edit models pay the most
+# attention. Wording is positive-framed; uses explicit upper-bound
+# percentages so the model treats them as a numeric layout target.
+_COMPOSITION_NUMERICAL_HINT: dict[str, str] = {
+    "portrait": (
+        "head-and-shoulders portrait, face fills upper 25-30% of frame, "
+        "eyes at upper third, shoulders span lower frame edge."
+    ),
+    "half_body": (
+        "medium shot from waist up, face fills upper 12-18% of frame, "
+        "both shoulders fully visible, torso to belt line."
+    ),
+    "full_body": (
+        "full body head-to-toe, face fills upper 6-9% of frame, "
+        "complete head/torso/legs/feet visible, centered with "
+        "vertical breathing room."
     ),
 }
 

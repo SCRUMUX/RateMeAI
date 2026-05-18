@@ -5651,4 +5651,164 @@
 #          untouched; this is strictly a CI-side change to stop
 #          painting otherwise-successful deploys red on Railway's
 #          high-demand windows.
-APP_VERSION = "1.62.6"
+# 1.64.0 — One-pass anatomy fix + deep dead-code cleanup.
+#
+#          Anatomy fix (closes long-standing "glued head" / oversized-head
+#          regression on tight selfies routed through career / corporate
+#          / formal_portrait styles):
+#          * ``src/prompts/image_gen.py`` — added
+#            ``_COMPOSITION_NUMERICAL_HINT`` (``portrait`` / ``half_body``
+#            / ``full_body`` → explicit "face fills X% of frame" directive).
+#            Removed conflicting "head and shoulders read as real human
+#            proportions" tail from ``IDENTITY_PRESERVE_BLOCK`` — it
+#            blocked half-body / full-body framings from honouring the
+#            new numerical anchor.
+#          * ``src/prompts/model_wrappers.py``:_assemble — inserts the
+#            numerical hint **before** ``IDENTITY_PRESERVE_BLOCK`` for
+#            non-document styles. Composition wins attention over
+#            identity-copy, which is what was missing on the regressed
+#            outputs.
+#          * ``src/prompts/composition_builder.py`` — new
+#            ``CompositionIR.framing`` field so model wrappers can pick
+#            the numerical hint without re-parsing ``framing_line``.
+#          * ``src/services/reference_preprocess.py`` (NEW) —
+#            ``pad_reference_for_framing(image_bytes, face_bbox,
+#            framing, target_size)``: re-positions the face on a fresh
+#            canvas at the geometry expected by the framing
+#            (face_height / face_center_y), edge-blur fill for empty
+#            regions. Hard-coded geometry table in
+#            ``_FRAMING_GEOMETRY``; portrait→28%/0.30,
+#            half_body→15%/0.20, full_body→8%/0.12.
+#          * ``src/orchestrator/executor.py`` — pad gate:
+#            ``settings.csl_reference_pad_enabled`` AND non-document
+#            AND framing ∈ {half_body, full_body} AND
+#            composition_class ∈ {face_closeup, unknown} (or
+#            face_area_ratio > csl_face_closeup_face_ratio) AND
+#            face_bbox is not None. Failure → fallback to raw
+#            reference + log. Removed the legacy
+#            ``head_crop_proportion_lock`` prompt-tail block (lines
+#            641-683 in v1.62.6); it duplicated the new anchor and
+#            sat in the worst attention position (after truncation).
+#          * ``src/config.py`` — new ``csl_reference_pad_enabled: bool
+#            = True`` setting (kill-switch is a no-op for loose-crop
+#            inputs because the gate is composition-class-bounded).
+#          * ``src/metrics.py`` — new
+#            ``REFERENCE_PADDED{framing, composition_class}`` Counter.
+#
+#          Deep dead-code cleanup (PuLID / Seedream / Reve / StyleRouter
+#          / face_crop / generation_mode were no-op'd by the A/B router
+#          since v1.21 — the A/B branch fires **before**
+#          ``generation_mode`` is consulted, so the third-leg providers
+#          never executed in prod):
+#          * Deleted files:
+#            ``src/providers/image_gen/fal_pulid.py``,
+#            ``src/providers/image_gen/fal_seedream.py``,
+#            ``src/providers/image_gen/reve_provider.py``,
+#            ``src/services/face_crop.py``.
+#          * ``src/providers/factory.py`` — removed
+#            ``_build_fal_pulid``, ``_build_fal_seedream``,
+#            ``_image_gen_provider_mode``, ``_image_gen_strategy``.
+#            ``_build_unified_provider`` now takes only ``model_a``
+#            and ``model_b``. ``get_image_gen`` is a single FAL-only
+#            path.
+#          * ``src/providers/image_gen/unified.py`` — collapsed
+#            ``__init__`` / ``_pick_backend`` / ``close`` to the
+#            two-model A/B contract. Removed ``routed_backend_var``
+#            ContextVar + ``get_routed_backend`` helper. Dropped
+#            ``style_mode`` label from ``IMAGE_GEN_BACKEND``.
+#          * ``src/prompts/style_spec.py`` — removed
+#            ``GenerationMode`` alias, ``StyleVariant.generation_mode``
+#            / ``StyleSpec.generation_mode`` fields,
+#            ``_SCENE_PRESERVE_STYLE_KEYS``, ``detect_generation_mode``,
+#            and the ``generation_mode`` arg from
+#            ``build_spec_from_legacy``.
+#          * ``src/prompts/style_schema_v2.py``,
+#            ``src/prompts/style_schema_v3.py`` — dropped
+#            ``generation_mode`` field.
+#          * ``src/services/style_loader.py``,
+#            ``src/services/style_loader_v2.py``,
+#            ``src/services/style_loader_v3.py`` — removed
+#            ``generation_mode`` read/write logic.
+#          * ``src/config.py`` — removed ``pulid_*``, ``seedream_*``,
+#            ``image_gen_strategy``, ``model_cost_reve``, ``reve_*``
+#            settings.
+#          * ``src/metrics.py`` — removed ``STYLE_MODE_OVERRIDE``
+#            metric (PuLID/Seedream fallback only). Removed
+#            ``REVE_CALLS`` alias. ``estimate_image_gen_cost_usd``
+#            now resolves only against GPT-2 / Nano Banana 2.
+#          * ``src/prompts/image_gen.py`` — removed
+#            ``_OUTPUT_ASPECT_TO_SIZE_PULID`` (1 MP variants for
+#            PuLID); ``resolve_output_size`` no longer takes
+#            ``generation_mode``. Every non-document style now
+#            resolves to 1280×1600 ``portrait_4_3``.
+#          * ``src/orchestrator/executor.py`` — removed
+#            ``extra["generation_mode"]`` assembly, the PuLID-specific
+#            retry escalation block (``pulid_mode`` / ``id_scale`` /
+#            ``num_inference_steps`` / ``guidance_scale``), and
+#            ``generation_mode`` / ``style_mode`` labels from metric
+#            calls. ``_estimate_backend_cost`` and
+#            ``_apply_codeformer_post`` no longer take
+#            ``generation_mode``. ``_apply_codeformer_post`` now
+#            runs on every edit-model output when CodeFormer is
+#            enabled (the gating-out branch was PuLID-only).
+#          * ``src/api/v1/internal.py`` —
+#            ``/diagnostics/image-gen-probe`` collapsed: removed
+#            ``mode`` (``identity_scene`` / ``scene_preserve``) and
+#            ``provider=styled_router`` knobs; always probes via the
+#            unified provider or an explicit A/B provider with the
+#            bundled 256×256 face fixture.
+#          * ``src/orchestrator/errors.py``,
+#            ``src/orchestrator/pipeline.py``,
+#            ``src/workers/tasks.py``,
+#            ``src/providers/image_gen/fal_nano_banana.py``,
+#            ``src/prompts/style_variants.py`` — purged
+#            ``ReveAPIError`` imports/handling and StyleRouter / PuLID
+#            references in comments.
+#          * ``requirements.txt`` — removed ``reve[all]==0.1.2``;
+#            Pillow constraint retained for ``reference_preprocess``.
+#          * Deleted tests:
+#            ``tests/test_providers/test_fal_pulid.py``,
+#            ``tests/test_providers/test_fal_seedream.py``,
+#            ``tests/test_providers/test_reve_image_gen.py``,
+#            ``tests/test_providers/test_reve_body.py``,
+#            ``tests/test_services/test_face_crop.py``,
+#            ``tests/test_orchestrator/test_executor_generation_mode.py``.
+#          * Updated tests:
+#            ``tests/test_providers/test_unified_provider.py``
+#            (two-model A/B contract only),
+#            ``tests/test_orchestrator/test_executor_ab_routing.py``,
+#            ``tests/test_orchestrator/test_executor_mask.py``,
+#            ``tests/test_orchestrator/test_pipeline.py``,
+#            ``tests/test_pre_analyze.py``,
+#            ``tests/test_orchestrator/test_executor_seed_and_resolved_slots.py``,
+#            ``tests/test_orchestrator/test_executor_identity_unverified.py``,
+#            ``tests/test_orchestrator/test_identity_retry.py``,
+#            ``tests/test_prompts/test_style_output_size.py``
+#            (PuLID 1 MP variant gone — full-body styles now resolve
+#            to 2 MP portrait), ``tests/test_api/test_diagnostics.py``
+#            (rewritten for the v1.64 probe endpoint),
+#            ``tests/test_bot/test_mode_select_form_data.py``,
+#            ``tests/test_api/test_analyze_ab.py``,
+#            ``tests/test_providers/test_fal_nano_banana.py``.
+#          * Added tests:
+#            ``tests/test_prompts/test_numerical_composition_anchor.py``,
+#            ``tests/test_services/test_reference_preprocess.py``,
+#            ``tests/test_orchestrator/test_executor_reference_padding.py``,
+#            ``tests/test_orchestrator/test_executor_head_crop_hint.py``
+#            (rewritten as a regression test for the removed prompt
+#            tail).
+#
+#          Documentation:
+#          * ``docs/ARCHITECTURE.md`` §8.9 "Anatomy fix one-pass (v1.64)"
+#            describing numerical anchor + reference padding flow.
+#          * ``docs/ARCHITECTURE.md`` §8.7 rollout table extended with
+#            W5 (Anatomy fix, ``CSL_REFERENCE_PAD_ENABLED=true``).
+#          * ``docs/ARCHITECTURE.md`` §3 sequence diagram updated:
+#            FAL.ai only on the AI delegation arrow.
+#          * ``docs/master_product_constitution.md`` §9.3 split into
+#            pre-gen / post-gen with a new "AnatomyHint" pre-gen
+#            entry; §9.3.2 added; §9.6 service architecture rewritten
+#            to current FAL-only state; §14 anti-patterns extended
+#            with "Identity-block, дублирующий composition" and
+#            "Несколько image-gen провайдеров под одним route'ом".
+APP_VERSION = "1.64.0"

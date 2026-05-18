@@ -1,4 +1,16 @@
-"""Unit tests for UnifiedImageGenProvider."""
+"""Unit tests for :class:`UnifiedImageGenProvider` (v1.64).
+
+v1.64 collapsed the unified provider to a two-model A/B router
+(GPT Image 2 Edit + Nano Banana 2 Edit). The historical PuLID /
+Seedream / Rave legs were retired alongside the StyleRouter and the
+``generation_mode`` fork; these tests pin the slimmer contract:
+
+* Default model: Model A (GPT Image 2).
+* Explicit override: ``params["image_model"]`` picks Model B
+  (Nano Banana 2) or stays on Model A.
+* Symmetric A↔B fallback when ``allow_cross_model_fallback`` is True
+  (default). Same policy for web and bot callers.
+"""
 
 import pytest
 from unittest.mock import AsyncMock
@@ -21,18 +33,10 @@ def mock_model_b():
 
 
 @pytest.fixture
-def mock_pulid():
-    provider = AsyncMock()
-    provider.generate.return_value = b"pulid_bytes"
-    return provider
-
-
-@pytest.fixture
-def unified_provider(mock_model_a, mock_model_b, mock_pulid):
+def unified_provider(mock_model_a, mock_model_b):
     return UnifiedImageGenProvider(
         model_a=mock_model_a,
         model_b=mock_model_b,
-        pulid=mock_pulid,
     )
 
 
@@ -53,12 +57,30 @@ async def test_routes_to_nano_banana_when_requested(unified_provider, mock_model
 
 
 @pytest.mark.asyncio
-async def test_routes_to_pulid_for_identity_scene(unified_provider, mock_pulid):
+async def test_routes_to_gpt_image_2_when_explicitly_requested(
+    unified_provider, mock_model_a, mock_model_b
+):
+    """Explicit ``image_model=gpt_image_2`` picks model_a, not model_b."""
     res = await unified_provider.generate(
-        "prompt", b"ref", params={"generation_mode": "identity_scene"}
+        "prompt", b"ref", params={"image_model": "gpt_image_2"}
     )
-    assert res == b"pulid_bytes"
-    mock_pulid.generate.assert_called_once()
+    assert res == b"model_a_bytes"
+    mock_model_a.generate.assert_called_once()
+    mock_model_b.generate.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_unknown_image_model_falls_back_to_default(
+    unified_provider, mock_model_a, mock_model_b
+):
+    """An unrecognised ``image_model`` value defaults to Model A — the
+    same fallback the legacy StyleRouter used."""
+    res = await unified_provider.generate(
+        "prompt", b"ref", params={"image_model": "made_up_v9"}
+    )
+    assert res == b"model_a_bytes"
+    mock_model_a.generate.assert_called_once()
+    mock_model_b.generate.assert_not_called()
 
 
 @pytest.mark.asyncio
@@ -72,24 +94,6 @@ async def test_fallback_to_model_b_on_model_a_failure(
     assert res == b"model_b_bytes"
     mock_model_a.generate.assert_called_once()
     mock_model_b.generate.assert_called_once()
-
-
-# ----------------------------------------------------------------------
-# v1.24.2 — explicit A/B routing + symmetric fallback
-# ----------------------------------------------------------------------
-
-
-@pytest.mark.asyncio
-async def test_routes_to_gpt_image_2_when_explicitly_requested(
-    unified_provider, mock_model_a, mock_model_b
-):
-    """Explicit ``image_model=gpt_image_2`` picks model_a, not model_b."""
-    res = await unified_provider.generate(
-        "prompt", b"ref", params={"image_model": "gpt_image_2"}
-    )
-    assert res == b"model_a_bytes"
-    mock_model_a.generate.assert_called_once()
-    mock_model_b.generate.assert_not_called()
 
 
 @pytest.mark.asyncio
@@ -129,38 +133,22 @@ async def test_symmetric_fallback_preserves_params(
 
 
 @pytest.mark.asyncio
-async def test_pulid_failure_does_not_fall_back(unified_provider, mock_pulid):
-    """Specialised providers (PuLID / Seedream / Rave) are not covered by
-    the A/B backstop — they re-raise as before."""
-    mock_pulid.generate.side_effect = RuntimeError("pulid down")
-
-    with pytest.raises(RuntimeError, match="pulid down"):
-        await unified_provider.generate(
-            "prompt", b"ref", params={"generation_mode": "identity_scene"}
-        )
-    mock_pulid.generate.assert_called_once()
-
-
-@pytest.mark.asyncio
-async def test_fallback_sets_routed_backend_to_other_model(
-    unified_provider, mock_model_b
+async def test_allow_cross_model_fallback_false_skips_retry(
+    unified_provider, mock_model_a, mock_model_b
 ):
-    """After a B→A fallback, ``get_routed_backend()`` must report ``gpt_image_2``
-    so downstream metrics / logs reflect the actual generator that produced
-    the bytes.
-    """
-    from src.providers.image_gen.unified import get_routed_backend
+    mock_model_a.generate.side_effect = RuntimeError("fail")
 
-    mock_model_b.generate.side_effect = Exception("NB2 transient error")
-    await unified_provider.generate(
-        "p", b"r", params={"image_model": "nano_banana_2"}
-    )
-    assert get_routed_backend() == "gpt_image_2"
-
-
-# ----------------------------------------------------------------------
-# Telegram + web parity: same A↔B fallback policy (allow_cross_model_fallback)
-# ----------------------------------------------------------------------
+    with pytest.raises(RuntimeError, match="fail"):
+        await unified_provider.generate(
+            "p",
+            b"r",
+            params={
+                "image_model": "gpt_image_2",
+                "allow_cross_model_fallback": False,
+            },
+        )
+    mock_model_a.generate.assert_called_once()
+    mock_model_b.generate.assert_not_called()
 
 
 @pytest.mark.asyncio
@@ -183,82 +171,3 @@ async def test_telegram_tagged_source_falls_back_a_to_b_on_gpt_failure(
     assert res == b"model_b_bytes"
     mock_model_a.generate.assert_called_once()
     mock_model_b.generate.assert_called_once()
-
-
-@pytest.mark.asyncio
-async def test_allow_cross_model_fallback_false_skips_retry(
-    unified_provider, mock_model_a, mock_model_b
-):
-    mock_model_a.generate.side_effect = RuntimeError("fail")
-
-    with pytest.raises(RuntimeError, match="fail"):
-        await unified_provider.generate(
-            "p",
-            b"r",
-            params={
-                "image_model": "gpt_image_2",
-                "allow_cross_model_fallback": False,
-            },
-        )
-    mock_model_a.generate.assert_called_once()
-    mock_model_b.generate.assert_not_called()
-
-
-@pytest.mark.asyncio
-async def test_symmetric_routed_backend_stays_gpt_image_2_when_fallback_disabled(
-    unified_provider, mock_model_a, mock_model_b
-):
-    from src.providers.image_gen.unified import get_routed_backend
-
-    mock_model_a.generate.side_effect = RuntimeError("OpenAI 503")
-
-    with pytest.raises(RuntimeError):
-        await unified_provider.generate(
-            "p",
-            b"r",
-            params={
-                "image_model": "gpt_image_2",
-                "allow_cross_model_fallback": False,
-            },
-        )
-    assert get_routed_backend() == "gpt_image_2"
-    mock_model_b.generate.assert_not_called()
-
-
-@pytest.mark.asyncio
-async def test_web_caller_still_falls_back_a_to_b_on_gpt_failure(
-    unified_provider, mock_model_a, mock_model_b
-):
-    """Transient GPT-2 error still produces an image from NB2 (default allow_fb)."""
-    mock_model_a.generate.side_effect = Exception("GPT-2 transient")
-
-    res = await unified_provider.generate(
-        "prompt", b"ref", params={"image_model": "gpt_image_2"}
-    )
-
-    assert res == b"model_b_bytes"
-    mock_model_a.generate.assert_called_once()
-    mock_model_b.generate.assert_called_once()
-
-
-@pytest.mark.asyncio
-async def test_bot_source_with_nano_banana_choice_still_falls_back_to_gpt(
-    unified_provider, mock_model_a, mock_model_b
-):
-    """Edge case: if some future client tags ``source=telegram_bot`` AND
-    explicitly picks Nano Banana 2 (today's bot does not, but the schema
-    allows it), the B→A fallback must still apply. The guard only
-    disables the A→B direction — falling forward to GPT-2 is always
-    safe for the bot contract.
-    """
-    mock_model_b.generate.side_effect = Exception("NB2 timeout")
-
-    res = await unified_provider.generate(
-        "prompt",
-        b"ref",
-        params={"image_model": "nano_banana_2", "source": "telegram_bot"},
-    )
-
-    assert res == b"model_a_bytes"
-    mock_model_b.generate.assert_called_once()
-    mock_model_a.generate.assert_called_once()

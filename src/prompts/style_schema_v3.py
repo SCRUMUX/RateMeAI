@@ -238,7 +238,6 @@ class StyleSpecV3:
         "landscape_4_3",
         "landscape_16_9",
     ] = "portrait_4_3"
-    generation_mode: Literal["identity_scene", "scene_preserve"] = "identity_scene"
 
     available_channels: tuple[str, ...] = ()
     """Explicit whitelist of channels the user may configure for this style.

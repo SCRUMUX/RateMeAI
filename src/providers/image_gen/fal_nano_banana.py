@@ -1,9 +1,9 @@
 """FAL.ai Nano Banana 2 Edit image-gen provider.
 
-Additive v1.21 A/B-test provider — wired next to (not instead of) the
-existing hybrid StyleRouter + PuLID / Seedream / FLUX.2 stack. Selected
-per-request when the web UI sends ``image_model="nano_banana_2"``;
-otherwise the default hybrid pipeline runs untouched.
+v1.21 A/B-test provider, promoted to a first-class production model
+in v1.64 alongside :class:`FalGptImage2Edit`. Selected per-request
+when the request payload sets ``image_model="nano_banana_2"``;
+otherwise the unified provider falls back to GPT Image 2 Edit.
 
 Model: ``fal-ai/nano-banana-2/edit`` (Google Gemini 3.1 Flash Image).
 Shares the FAL queue protocol (submit / poll / fetch / decode) with all

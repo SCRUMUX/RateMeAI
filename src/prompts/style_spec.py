@@ -14,17 +14,11 @@ from typing import Literal
 
 DepthOfField = Literal["deep", "shallow"]
 
-# v1.18 generation mode — controls which provider the StyleRouter
-# forwards the request to. See ``src/providers/image_gen/style_router.py``.
-# - ``identity_scene``: PuLID-style face-reference text-to-image. The
-#   scene is generated from scratch by the prompt; only the face is
-#   preserved from the input. Dramatically cheaper and sharper on
-#   face detail, but the original background is NOT kept.
-# - ``scene_preserve``: edit-based generation (Seedream v4 Edit). The
-#   original background, pose, and composition are kept; the model
-#   only adjusts wardrobe, lighting, or other requested deltas.
-#   Used for document / CV / strict social styles.
-GenerationMode = Literal["identity_scene", "scene_preserve"]
+# v1.64: ``GenerationMode`` was retired alongside the PuLID / Seedream
+# StyleRouter. Production runs a single FAL edit-mode path via
+# :class:`UnifiedImageGenProvider` (GPT Image 2 Edit / Nano Banana 2
+# Edit), so styles no longer distinguish ``identity_scene`` from
+# ``scene_preserve``. See ``docs/ARCHITECTURE.md`` for the rationale.
 
 # Output aspect presets used by the FLUX.2 Pro Edit provider.
 # ``square_hd`` is the only 1 MP preset we use (documents — fixed
@@ -128,7 +122,6 @@ class StructuredStyleSpec:
     # formal portraits). See StyleSpecV3.needs_torso for the contract.
     needs_torso: bool = False
     output_aspect: OutputAspect = "portrait_4_3"
-    generation_mode: GenerationMode = "identity_scene"
     variants: tuple[StyleVariant, ...] = field(default_factory=tuple)
 
     def variant_by_id(self, variant_id: str) -> StyleVariant | None:
@@ -172,18 +165,15 @@ class StyleSpec:
     # ``needs_full_body``: a tight head crop will only get a soft warning
     # for these (boardroom / luxury / linkedin_premium), not a hard block.
     needs_torso: bool = False
-    # Output aspect preset for the image-gen provider. FLUX.2 Pro Edit
-    # honours ``image_size`` with both a preset enum and a custom
+    # Output aspect preset for the image-gen provider. FAL edit models
+    # honour ``image_size`` with both a preset enum and a custom
     # ``{width, height}`` dict — the provider resolves the preset into
     # the correct pixel size (1 MP for documents, 2 MP for everything
     # else). See ``src/prompts/image_gen.resolve_output_size``.
     output_aspect: OutputAspect = "portrait_4_3"
-    # v1.18 hybrid pipeline: chooses PuLID (identity_scene — generate
-    # scene from scratch, face-locked) vs Seedream v4 Edit
-    # (scene_preserve — keep original composition). Default is
-    # ``identity_scene`` for creative styles; documents/CV headshots
-    # override to ``scene_preserve`` via ``detect_generation_mode``.
-    generation_mode: GenerationMode = "identity_scene"
+    # v1.64: ``generation_mode`` was removed alongside the PuLID /
+    # Seedream StyleRouter. The unified FAL pipeline does not branch on
+    # spec mode anymore.
     # Optional content variants that rotate via the "Другой вариант"
     # button in the bot. Document styles keep this empty — see
     # ``image_gen._DOCUMENT_STYLE_KEYS``.
@@ -663,56 +653,12 @@ _DOCUMENT_STYLE_KEYS: frozenset[str] = frozenset(
 )
 
 
-# Styles that MUST preserve the original photo's scene/background/
-# composition. Everything else defaults to ``identity_scene`` (PuLID).
-#
-# Members:
-#   - All document/CV styles (passport, visa, driver license, resume
-#     headshot) — the user uploads a specific pose/background and the
-#     crop must come from that exact photo, not a generated one.
-#   - ``social_clean`` family — the user wants their own feed look,
-#     not a re-imagined scene.
-#   - Emoji / cutout styles — the output is placed over the user's
-#     original context, so the composition must match.
-#
-# Any style not in this set is eligible for PuLID when the face crop
-# succeeds; the router still falls back to Seedream on a ``no_face``
-# crop failure (see ``src/providers/image_gen/style_router.py``).
-_SCENE_PRESERVE_STYLE_KEYS: frozenset[str] = frozenset(
-    {
-        # --- cv: all document styles ---
-        "photo_3x4",
-        "passport_rf",
-        "visa_eu",
-        "visa_schengen",
-        "visa_us",
-        "photo_4x6",
-        "driver_license",
-        # --- social: "keep my own photo" styles ---
-        "social_clean",
-        "feed_clean",
-        # --- emoji / cutout / sticker styles ---
-        "emoji_cutout",
-        "sticker_cutout",
-    }
-)
-
-
-def detect_generation_mode(key: str, mode: str) -> GenerationMode:
-    """Return the default ``generation_mode`` for a style.
-
-    Document styles and "keep my own photo" styles force
-    ``scene_preserve``; everything else (creative dating/social scenes,
-    lifestyle shots, sport, travel) defaults to ``identity_scene`` and
-    goes through PuLID for a cheaper, sharper face-locked generation.
-    """
-    if key in _SCENE_PRESERVE_STYLE_KEYS:
-        return "scene_preserve"
-    # Document styles on cv mode are also caught by _DOCUMENT_STYLE_KEYS
-    # (used elsewhere for sizing); keep the two sets in sync.
-    if mode == "cv" and key in _DOCUMENT_STYLE_KEYS:
-        return "scene_preserve"
-    return "identity_scene"
+# v1.64 — ``_SCENE_PRESERVE_STYLE_KEYS`` and ``detect_generation_mode``
+# were retired alongside the PuLID / Seedream StyleRouter. The unified
+# FAL pipeline (GPT Image 2 Edit / Nano Banana 2 Edit) never branches
+# on ``generation_mode``; document and "keep my own photo" styles are
+# kept clean via the dedicated ``_DOCUMENT_STYLE_KEYS`` set in
+# ``image_gen.py`` and the per-style scene wording.
 
 
 def detect_output_aspect(key: str, mode: str) -> OutputAspect:
@@ -749,7 +695,6 @@ def build_spec_from_legacy(
     depth_of_field: DepthOfField | None = None,
     variants: tuple[StyleVariant, ...] = (),
     output_aspect: OutputAspect | None = None,
-    generation_mode: GenerationMode | None = None,
 ) -> StructuredStyleSpec:
     """Create a StructuredStyleSpec from a legacy dict entry plus optional overrides."""
     bg, clothing_male = parse_legacy_style(style_text)
@@ -757,7 +702,6 @@ def build_spec_from_legacy(
     _clothing_female = clothing_female_override or adapt_female_clothing(clothing_male)
     _dof: DepthOfField = depth_of_field or detect_depth_of_field(bg)
     aspect: OutputAspect = output_aspect or detect_output_aspect(key, mode)
-    gen_mode: GenerationMode = generation_mode or detect_generation_mode(key, mode)
 
     # Determine type based on content
     type_ = StyleType.FLEXIBLE
@@ -814,5 +758,4 @@ def build_spec_from_legacy(
         needs_full_body=detect_needs_full_body(key, mode),
         needs_torso=detect_needs_torso(key, mode),
         output_aspect=aspect,
-        generation_mode=gen_mode,
     )

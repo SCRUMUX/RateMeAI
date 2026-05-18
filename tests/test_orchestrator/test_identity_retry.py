@@ -63,8 +63,6 @@ def _base_settings(mock_settings, *, retry_enabled: bool = True) -> None:
     mock_settings.identity_retry_max_attempts = 1
     mock_settings.real_esrgan_enabled = False
     mock_settings.pipeline_budget_max_usd = 0.10
-    mock_settings.model_cost_reve = 0.02
-    mock_settings.model_cost_replicate = 0.02
 
 
 def _build_executor(

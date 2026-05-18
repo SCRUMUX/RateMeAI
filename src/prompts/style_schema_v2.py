@@ -157,8 +157,8 @@ class StyleSpecV2:
 
     # Legacy-shaped helpers so the executor / postprocess code that
     # currently reads ``spec.needs_full_body`` / ``spec.output_aspect``
-    # / ``spec.generation_mode`` / ``spec.expression`` keeps working
-    # without branching on the schema version at every call site.
+    # / ``spec.expression`` keeps working without branching on the
+    # schema version at every call site.
     expression: str = ""
     needs_full_body: bool = False
     # CSL — see StyleSpecV3.needs_torso. Softer than ``needs_full_body``:
@@ -172,7 +172,6 @@ class StyleSpecV2:
         "landscape_4_3",
         "landscape_16_9",
     ] = "portrait_4_3"
-    generation_mode: Literal["identity_scene", "scene_preserve"] = "identity_scene"
 
     # Schema version — always 2 for instances of this class; kept as a
     # field so ``isinstance`` plus ``getattr(spec, "schema_version", 1)``

@@ -1,9 +1,9 @@
 """Unit tests for :class:`FalNanoBanana2Edit` (v1.21 A/B path).
 
 The wire protocol (queue submit → status poll → result fetch → decode)
-is identical to every other FAL queue provider (PuLID / FLUX / Seedream
-/ FLUX.2); it lives in :mod:`_fal_queue_base` and is already covered by
-those provider-specific tests. These tests focus on the bits that
+is identical to every other FAL queue provider; it lives in
+:mod:`_fal_queue_base` and is already covered by the queue-base tests.
+These tests focus on the bits that
 actually differ for Nano Banana 2 Edit:
 
 - ``image_urls`` is a list (single reference)

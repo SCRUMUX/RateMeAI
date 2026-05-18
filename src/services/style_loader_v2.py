@@ -188,7 +188,6 @@ def _to_v2(raw: dict[str, Any]) -> StyleSpecV2 | None:
         },
     )
 
-    gen_mode = "scene_preserve" if is_doc else "identity_scene"
     aspect = "square_hd" if is_doc else "portrait_4_3"
 
     return StyleSpecV2(
@@ -204,7 +203,6 @@ def _to_v2(raw: dict[str, Any]) -> StyleSpecV2 | None:
         needs_full_body=detect_needs_full_body(key, mode),
         needs_torso=detect_needs_torso(key, mode),
         output_aspect=aspect,  # type: ignore[arg-type]
-        generation_mode=gen_mode,  # type: ignore[arg-type]
     )
 
 

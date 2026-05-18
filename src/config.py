@@ -76,18 +76,6 @@ class Settings(BaseSettings):
     fal_request_timeout: float = 120.0
     fal_poll_interval: float = 1.0
 
-    # Reve (https://api.reve.com — /v1/image/edit only)
-    reve_api_token: str = ""
-    reve_api_host: str = "https://api.reve.com"
-    reve_version: str = "latest"
-    # Максимум HTTP-вызовов Reve на одну generate()-операцию. На 429 ретрай
-    # мы НЕ делаем: повторный запрос попадает в то же burst-окно Reve и
-    # только усугубляет rate-limit, а пользователю всё равно отдаётся
-    # "попробуйте ещё раз". Для 5xx/транспорта ретрай всё равно сработает
-    # через внешний worker-retry. Значение 1 = ровно один HTTP-запрос на
-    # generate().
-    reve_max_retries: int = 1
-
     # YooKassa payments
     yookassa_shop_id: str = ""
     yookassa_secret_key: str = ""
@@ -179,82 +167,29 @@ class Settings(BaseSettings):
     # ------------------------------------------------------------------
     # v1.18 hybrid image-gen pipeline — PuLID + Seedream v4 Edit + CodeFormer
     # ------------------------------------------------------------------
-    # Image-gen strategy.
-    #   - ``legacy``    — use ``image_gen_provider`` alone (v1.17 behaviour).
-    #   - ``hybrid``    — StyleRouter → PuLID (identity_scene) / Seedream
-    #                     (scene_preserve) / fallback (FLUX.2) per style.
-    #   - ``pulid_only``— route every request through PuLID regardless of
-    #                     style mode.
-    # v1.19: ``hybrid`` is the default. The ``legacy`` canary branch is
-    # kept only as a manual rollback escape hatch via env override.
-    image_gen_strategy: str = "hybrid"
-
-    # PuLID — identity-conditioned text-to-image (FLUX + ID adapter)
-    # https://fal.ai/models/fal-ai/pulid
+    # v1.64 — PuLID, Seedream and the StyleRouter were retired. The
+    # production path is FAL-only edit-mode with two A/B models
+    # (GPT Image 2 Edit + Nano Banana 2 Edit) selected per-request via
+    # ``image_model``. See ``src/providers/factory.py``.
     #
-    # v1.19.2 HOTFIX: fal-ai/pulid is strictly a Lightning model. The
-    # API schema caps ``num_inference_steps`` at 12 and
-    # ``guidance_scale`` at 1.5. v1.19.0 widened the defaults to
-    # 25 steps / CFG 3.5 "for quality" which caused FAL to reject
-    # every request with HTTP 422 (see smoke-test logs for v1.19.0 /
-    # v1.19.1 runs). The quality preset that works within the
-    # schema is ~8–12 steps at CFG 1.2–1.4 with id_scale 1.0. Cost
-    # remains ~$0.015 per image.
-    #
-    # DO NOT raise ``pulid_steps`` above 12 or ``pulid_guidance_scale``
-    # above 1.5 — the provider clamps them anyway and the tests in
-    # ``tests/test_providers/test_fal_pulid.py`` + ``tests/test_config.py``
-    # guard the defaults.
-    pulid_enabled: bool = True
-    pulid_model: str = "fal-ai/pulid"
-    # 0 = no identity lock, 1.0+ = very strong. PuLID paper runs at
-    # 1.0 for faithful portraits; the retry loop pushes to 1.2.
-    pulid_id_scale: float = 1.0
-    pulid_steps: int = 4
-    pulid_guidance_scale: float = 1.2
-    # ``fidelity`` (default) keeps face closer to reference. DO NOT
-    # switch to ``extreme style`` on retry — that knob is for artistic
-    # stylisation, not identity recovery. The retry path stays on
-    # ``fidelity`` and instead raises id_scale / steps / guidance.
-    pulid_mode: str = "fidelity"
-    # NOTE: ``pulid_max_sequence_length`` was added in v1.19.0 under
-    # the wrong assumption that fal-ai/pulid mirrors the FLUX.1
-    # text-to-image schema. It does not — PuLID's schema rejects the
-    # field with HTTP 422. Do NOT re-add; the constant is kept out of
-    # the request body in v1.19.1+.
-    #
-    # Retry-escalation knobs (used only when the VLM gate flags
-    # identity_match below the soft threshold). v1.19.2: previously
-    # ``pulid_retry_steps=35`` / ``pulid_retry_guidance_scale=5.0`` —
-    # both out of schema, so retries also 422-ed. Now capped at the
-    # top of Lightning range.
-    pulid_retry_id_scale: float = 1.2
-    pulid_retry_steps: int = 8
-    pulid_retry_guidance_scale: float = 1.4
-    # Flat cost estimate. PuLID on FAL bills per GPU-second; empirical
-    # mean at the 25-step quality config on H100 is ~$0.012–$0.018.
-    model_cost_fal_pulid: float = 0.015
-
-    # Seedream v4 Edit — image-to-image edit, 4 MP capable.
-    # https://fal.ai/models/fal-ai/bytedance/seedream/v4/edit
-    seedream_enabled: bool = True
-    seedream_model: str = "fal-ai/bytedance/seedream/v4/edit"
-    # ``standard`` (default) keeps the prompt close; ``fast`` rewrites
-    # more aggressively but can drift on identity.
-    seedream_enhance_prompt_mode: str = "standard"
-    # Flat $0.03 per image up to 4 MP.
-    model_cost_fal_seedream: float = 0.03
+    # Settings removed in v1.64 (kept here as historical anchors for
+    # ``git log -S`` searches; do NOT reintroduce):
+    #   * ``image_gen_strategy``     — single FAL path, no strategy fork.
+    #   * ``pulid_*`` (10 keys)      — PuLID provider gone.
+    #   * ``seedream_*`` (3 keys)    — Seedream provider gone.
 
     # CodeFormer — post-generation face polish.
     # https://fal.ai/models/fal-ai/codeformer
     #
-    # v1.19 policy: CodeFormer only runs for ``scene_preserve`` outputs
-    # (Seedream edits) — PuLID already outputs sharp 25-step faces and
-    # CodeFormer was **damaging** identity on those by rewriting
-    # features at fidelity=0.5. For Seedream edits a high fidelity
-    # (0.85) keeps the source face geometry while smoothing codec
-    # artefacts. ``codeformer_upscale_factor=1.0`` avoids double-paying
-    # for a resolution bump that Real-ESRGAN does later. Tiny faces
+    # v1.64 policy: CodeFormer runs on every edit-model output that
+    # survives the local post-processing (crop / x2 LANCZOS) when
+    # the gate fires (``codeformer_enabled`` + valid FAL key + face
+    # large enough). Pre-v1.64 the gate excluded ``identity_scene``
+    # (PuLID) outputs because the 25-step PuLID config produced
+    # already-sharp faces that CodeFormer @ fidelity=0.85 would
+    # reshape. With PuLID retired, that exclusion no longer applies.
+    # ``codeformer_upscale_factor=1.0`` avoids double-paying for a
+    # resolution bump that Real-ESRGAN does later. Tiny faces
     # (``face_area_ratio < codeformer_min_face_ratio``) skip the call
     # entirely — polish is invisible at that scale and costs $0.01+.
     codeformer_enabled: bool = True
@@ -266,10 +201,6 @@ class Settings(BaseSettings):
     # Skip CodeFormer when the detected face is tiny (face_area_ratio
     # below this) — polish is imperceptible and bills ~$0.01/call.
     codeformer_min_face_ratio: float = 0.05
-    # v1.19: disabled for identity_scene (PuLID). The 25-step quality
-    # config outputs sharp faces by itself and CodeFormer @ fidelity
-    # 0.85 was still nudging identity off on retries.
-    codeformer_for_identity_scene: bool = False
     # Skip CodeFormer on retry attempts (we already polished attempt 1
     # and don't want to pay twice when the retry is about identity,
     # not sharpness).
@@ -279,15 +210,16 @@ class Settings(BaseSettings):
     model_cost_fal_codeformer_per_mp: float = 0.0021
 
     # ------------------------------------------------------------------
-    # v1.21 A/B test — additive path for Nano Banana 2 Edit and
-    # GPT Image 2 Edit. When ``ab_test_enabled`` is True the /analyze
-    # endpoint accepts ``image_model`` + ``image_quality`` form fields
-    # and the executor routes such requests to the per-model provider
-    # via a structured 8-block prompt adapter instead of StyleRouter.
+    # v1.21 A/B test — FAL edit-mode models. When ``ab_test_enabled``
+    # is True the /analyze endpoint accepts ``image_model`` +
+    # ``image_quality`` form fields and the executor routes such
+    # requests to the per-model provider via a structured prompt
+    # adapter (``model_wrappers._assemble``).
     # v1.22: the A/B path is now the default for every web request.
-    # Flip ``AB_TEST_ENABLED=false`` on Railway to return all traffic
-    # to the legacy hybrid StyleRouter (PuLID / Seedream / FLUX.2) —
-    # that code path stays in the repo as a rollback safety net.
+    # v1.64: there is no longer a legacy StyleRouter alternative —
+    # the unified provider IS the path. Flip ``AB_TEST_ENABLED=false``
+    # only as a degraded "skip the form field" mode where the default
+    # model is used unconditionally.
     # ------------------------------------------------------------------
     ab_test_enabled: bool = True
     # Default A/B model when the client does not send ``image_model``
@@ -338,14 +270,13 @@ class Settings(BaseSettings):
     # Default quality tier for the A/B models when the web client does
     # not pass an explicit one. Minimum for production is medium.
     ab_default_quality: str = "medium"
-    # v1.23: identity-retry is intentionally DISABLED on the A/B path.
-    # The legacy retry loop re-runs the provider with PuLID-specific
-    # parameters (``pulid_mode``, ``id_scale``) that Nano Banana 2 and
-    # GPT Image 2 simply ignore — so the second call only burns budget
-    # and latency without actually improving the face. VLM quality
-    # scoring is still computed and logged for analytics, but it no
-    # longer triggers a re-generation. Legacy PuLID / StyleRouter path
-    # continues to honour ``identity_retry_enabled`` independently.
+    # v1.23 / v1.64: identity-retry stays DISABLED on the A/B (now sole)
+    # production path. The retired retry loop re-ran the provider with
+    # PuLID-specific knobs (``pulid_mode``, ``id_scale``) that Nano
+    # Banana 2 and GPT Image 2 simply ignore — so a retry only burned
+    # budget and latency without actually improving the face. VLM
+    # quality scoring is still computed and logged for analytics, but
+    # does not trigger re-generation.
     ab_identity_retry_enabled: bool = False
 
     # Nano Banana 2 Edit (Google Gemini 3.1 Flash Image).
@@ -428,11 +359,24 @@ class Settings(BaseSettings):
     # escape hatch.
     composition_safety_advanced_override: bool = False
 
+    # CSL Phase 1.5 (v1.64) — geometric reference padding for tight
+    # selfies. When True and the executor's gate passes (non-document
+    # style + half/full_body framing + face_closeup/unknown class OR
+    # face_area_ratio above ``csl_face_closeup_face_ratio``), the
+    # executor reshapes the reference image so the face already sits at
+    # the correct relative size for the requested framing before the
+    # bytes reach the edit-model provider. Implemented in
+    # :mod:`src.services.reference_preprocess`. Default ON because the
+    # gate itself is the no-op for loose-crop inputs.
+    csl_reference_pad_enabled: bool = True
+
     # Legacy prompt_strength (unused in edit mode)
     image_gen_strength: float = 0.45
 
-    # Model cost estimates (USD per call)
-    model_cost_reve: float = 0.02
+    # Model cost estimates (USD per call). v1.64 retired ``model_cost_reve``
+    # together with the Reve provider; the per-quality A/B numbers above
+    # (``model_cost_gpt_image_2_*``, ``model_cost_fal_nano_banana_*``) are
+    # the source of truth for ``BUDGET_OVERSPEND_TOTAL``.
     model_cost_gpt_image_2_medium: float = 0.06
     model_cost_gpt_image_2_high: float = 0.12
     model_cost_nano_banana_2: float = 0.02

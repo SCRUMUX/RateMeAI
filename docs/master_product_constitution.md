@@ -275,15 +275,17 @@ Input -> Orchestrator -> [IdentityPreservation -> SelectiveEdit -> ExpressionAdj
 
 Каждое фото проходит проверку:
 
-| Gate | Метрика | Действие при провале |
-|------|---------|---------------------|
-| InputQuality | разрешение, blur, число лиц, det_score | блок до генерации |
-| **CompositionSafety** | composition_class ∈ {face_closeup,…,full_body} vs needs_full_body/needs_torso | блок или warn до генерации (см. §9.3.1) |
-| FaceSimilarity | cosine similarity эмбеддингов (ArcFace) >= threshold | retry или rollback |
-| ArtifactDetection | Perceptual Artifact Ratio < threshold | локальная коррекция |
-| PhotorealismCheck | aesthetic score + no-AI-look validation | reject + re-generate |
+| Gate | Когда | Метрика | Действие при провале |
+|------|------|---------|---------------------|
+| InputQuality | pre-gen | разрешение, blur, число лиц, det_score | блок до генерации |
+| **CompositionSafety** | pre-gen | composition_class ∈ {face_closeup,…,full_body} vs needs_full_body/needs_torso | блок или warn до генерации (см. §9.3.1) |
+| **AnatomyHint** | pre-gen | framing-specific numerical anchor в промпте + reference padding для tight selfies (см. §9.3.2) | no-op: гейт всегда применяется к non-document стилям |
+| FaceSimilarity | post-gen | cosine similarity эмбеддингов (ArcFace) >= threshold | retry или rollback |
+| ArtifactDetection | post-gen | Perceptual Artifact Ratio < threshold | локальная коррекция |
+| PhotorealismCheck | post-gen | aesthetic score + no-AI-look validation | reject + re-generate |
 
-Если хоть один gate не пройден — результат не показывается пользователю.
+Если хоть один post-gen gate не пройден — результат не показывается
+пользователю.
 
 ### 9.3.1 Composition Safety Layer (anti-uncanny-valley)
 
@@ -307,6 +309,32 @@ Input -> Orchestrator -> [IdentityPreservation -> SelectiveEdit -> ExpressionAdj
 
 Подробности и rollout-план — [docs/ARCHITECTURE.md §8](ARCHITECTURE.md#8-composition-safety-layer-csl).
 
+### 9.3.2 AnatomyHint (one-pass anatomy fix, v1.64)
+
+CSL отвечает за `(class, style)` совместимость, но **внутри** разрешённой
+пары tight selfie всё равно мог дать «приклеенную голову» — edit-модель
+копировала layout исходника. AnatomyHint закрывает остаточный риск без
+второго прохода через две независимые правки:
+
+1. **Numerical composition anchor** — для каждого `framing` в промпт
+   подкладывается явная численная директива доли лица (`portrait`:
+   25-30%, `half_body`: 12-18%, `full_body`: 6-9%), помещённая
+   **перед** identity-блоком. Composition выигрывает в attention над
+   identity-копированием.
+2. **Reference padding** — для `composition_class ∈ {face_closeup,
+   unknown}` на `half/full_body` framing'е исходник геометрически
+   пересобирается на новом канвасе так, чтобы лицо **уже** было в
+   нужной пропорции до отправки в провайдер (`pad_reference_for_framing`).
+   Edit-модели опираются на layout reference'а — если он
+   «правильный», результат тоже корректный.
+
+Гейт применяется ко всем non-document стилям. Document-стили (CV, виза,
+паспорт) сохраняют собственный `_DOC_COMPOSITION_HINT` — он жёстче
+численного и историчен.
+
+Метрики: `reference_padded_total{framing, composition_class}` — фактический
+объём padding'а. Конкретные модули — [docs/ARCHITECTURE.md §8.9](ARCHITECTURE.md#89-anatomy-fix-one-pass-v164).
+
 ### 9.4 Разрешенные изменения
 
 - Свет, цвет, фон.
@@ -320,14 +348,24 @@ Input -> Orchestrator -> [IdentityPreservation -> SelectiveEdit -> ExpressionAdj
 - «Идеализация».
 - Любые изменения, снижающие узнаваемость.
 
-### 9.6 Сервисная архитектура (целевая)
+### 9.6 Сервисная архитектура (актуальная, v1.64)
 
 - **API Gateway** — входная точка, аутентификация, маршрутизация.
-- **Orchestrator Service** — планирование pipeline, генерация JSON-плана шагов.
-- **Model Router** — выбор модели (FLUX/fallback) по критериям cost/latency/quality.
-- **Image Workers** — выполнение конкретных шагов (inpainting, коррекция, генерация).
-- **Embedding Service** — вычисление face embeddings для identity gates.
-- **Metrics Service** — QA метрики (similarity, artifacts, aesthetics).
+- **Orchestrator Service** — планирование pipeline, сборка промпта,
+  одностадийный single-pass с локальной пост-обработкой.
+- **A/B Image Router** ([src/providers/image_gen/unified.py](../src/providers/image_gen/unified.py))
+  — выбор между двумя FAL edit-моделями: **GPT Image 2 Edit**
+  (default, `gpt_image_2`) и **Nano Banana 2 Edit** (`nano_banana_2`).
+  Других путей нет — PuLID, Seedream, Reve и StyleRouter retired в
+  v1.64.
+- **Reference Preprocess** ([src/services/reference_preprocess.py](../src/services/reference_preprocess.py))
+  — pad tight selfies для anti-glued-head (см. §9.3.2).
+- **CodeFormer / Real-ESRGAN** — face restoration и upscale поверх
+  edit-model output'а.
+- **InsightFace + MediaPipe** — face detection (`face_bbox`,
+  `det_score`), Pose (`shoulders/hips/knees visible` для CSL).
+- **VLM Quality Gate** — OpenRouter-based scoring (identity, aesthetics,
+  artifacts, proportions_natural).
 - **Storage** — промежуточные и финальные изображения с возможностью отката.
 
 ### 9.7 Контроль стоимости
@@ -441,6 +479,17 @@ Input -> Orchestrator -> [IdentityPreservation -> SelectiveEdit -> ExpressionAdj
 - **Расширять кадр без анатомических опорных точек** (huge head on
   hallucinated body) — за это отвечает Composition Safety Layer,
   обходить его без `composition_safety_advanced_override` запрещено.
+- **Identity-блок, дублирующий composition** — identity отвечает за
+  лицо (face shape, eye colour, jawline, hairline), композиция — за
+  каркас (face fills X% of frame, full body head-to-toe). Смешивать
+  запрещено: identity-фразы вроде «head and shoulders read as real
+  human proportions» обламывают numerical anchor для half/full-body
+  framing'ов и были одной из причин «приклеенной головы» до v1.64.
+- **Несколько image-gen провайдеров под одним route'ом** — A/B-роутер
+  должен быть однозначным (`gpt_image_2` или `nano_banana_2`),
+  никаких `generation_mode`-форков на третий бэкенд. Параллельные
+  PuLID/Seedream/Reve легги генерировали dead code, который никогда
+  не выполнялся в проде, и были вырезаны в v1.64.
 - Фейковый прогресс.
 - Нестабильный скор.
 - Критика и «оценка» пользователя как личности.

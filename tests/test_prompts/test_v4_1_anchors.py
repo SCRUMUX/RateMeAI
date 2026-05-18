@@ -1,13 +1,15 @@
-"""v4.1 single-path prompt anchors — production guarantees.
+"""v4.1 / v1.64 single-path prompt anchors — production guarantees.
 
-This is the tip of the v4.1 prompt-pipeline test pyramid: it walks the
+This is the tip of the prompt-pipeline test pyramid: it walks the
 entire registered photo catalog, builds each style's final prompt
 through the public :class:`PromptEngine` entrypoint, and asserts the
 core invariants the model relies on:
 
 * Identity anchors from :data:`IDENTITY_PRESERVE_BLOCK` are present
-  ("identical face shape, eye shape and colour", "head and shoulders
-  read as real human proportions").
+  ("identical face shape, eye shape and colour"). v1.64 dropped the
+  legacy "head and shoulders read as real human proportions" tail
+  because it conflicted with non-portrait framings; composition is now
+  driven exclusively by :data:`_COMPOSITION_NUMERICAL_HINT`.
 * Photoreal anchors from :data:`PHOTOREAL_BLOCK` are present
   ("50mm lens at eye level", "shallow depth of field").
 * The v4.1 wardrobe label ``"Wardrobe:"`` replaces the legacy
@@ -15,7 +17,7 @@ core invariants the model relies on:
 * No leftover negative-framed tokens (``unchanged``, ``pasted``,
   ``rather than``) — the v4.0 wording violated Google / OpenAI
   best-practices and is gone.
-* Prompt length stays in the 700-1500 char band — long enough to fit
+* Prompt length stays in the 650-1500 char band — long enough to fit
   scene + wardrobe + identity, short enough to leave attention budget
   for the user's reference image.
 
@@ -112,13 +114,20 @@ def test_v4_1_anchors_present(mode: AnalysisMode, style: str):
         "scene that fits the chosen setting." in prompt
     ), f"{mode.value}/{style}: opener missing\n{prompt!r}"
 
-    # Identity-preserve anchors.
+    # Identity-preserve anchors (v1.64: "head and shoulders read as
+    # real human proportions" tail removed — composition is now driven
+    # by ``_COMPOSITION_NUMERICAL_HINT`` only).
     assert (
         "identical face shape, eye shape and colour" in prompt
     ), f"{mode.value}/{style}: identity anchor missing\n{prompt!r}"
     assert (
-        "head and shoulders read as real human proportions" in prompt
-    ), f"{mode.value}/{style}: proportions anchor missing\n{prompt!r}"
+        "head and shoulders read as real human proportions" not in prompt
+    ), (
+        f"{mode.value}/{style}: v1.32 'head and shoulders read as real "
+        "human proportions' tail must not return — it conflicts with "
+        "non-portrait framings. Use _COMPOSITION_NUMERICAL_HINT instead.\n"
+        f"{prompt!r}"
+    )
 
     # Photoreal anchors.
     assert "50mm lens at eye level" in prompt, (
@@ -140,12 +149,13 @@ def test_v4_1_anchors_present(mode: AnalysisMode, style: str):
             f"{prompt!r}"
         )
 
-    # Length budget: 700-1500 characters covers identity + scene +
+    # Length budget: 650-1500 characters covers identity + scene +
     # wardrobe + photoreal block without bloating into the v1.32
-    # ~1100+ tail.
-    assert 700 <= len(prompt) <= 1500, (
+    # ~1100+ tail. v1.64 trimmed the identity tail (-60 chars) so the
+    # lower bound dropped to 650.
+    assert 650 <= len(prompt) <= 1500, (
         f"{mode.value}/{style}: prompt length {len(prompt)} outside "
-        f"[700,1500]\n{prompt!r}"
+        f"[650,1500]\n{prompt!r}"
     )
 
 

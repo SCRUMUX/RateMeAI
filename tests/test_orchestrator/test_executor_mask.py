@@ -1,15 +1,17 @@
-"""Integration test: single-pass Reve params + local post-processing (v1.13.3).
+"""Integration test: single-pass provider params + local post-processing.
 
-The executor must NOT leak any Reve-forbidden keys into the params dict
+Originally written for the Reve backend (v1.13.3); v1.64 retired Reve
+but the contract still holds for the FAL edit-only stack — the executor
+must NOT leak any legacy provider-forbidden keys into the params dict
 that reaches ``ImageGenProvider.generate``. Upscale and document AR are
-now handled locally via ``src.services.postprocess``:
+handled locally via ``src.services.postprocess``:
 
 1. ``mask_region`` / ``mask_image`` / ``postprocessing`` / ``aspect_ratio``
    / ``test_time_scaling`` are absent from the provider call.
 2. ``upscale_lanczos(factor=2)`` is invoked after generate when
    ``face_area_ratio >= 0.15``.
 3. ``crop_to_aspect`` is invoked for CV document styles only.
-4. Exactly ONE Reve call per single_pass (cost invariant).
+4. Exactly ONE provider call per single_pass (cost invariant).
 """
 
 from __future__ import annotations
@@ -25,7 +27,7 @@ from src.orchestrator.executor import ImageGenerationExecutor
 from src.services.input_quality import InputQualityReport
 
 
-_REVE_FORBIDDEN_KEYS = (
+_LEGACY_FORBIDDEN_KEYS = (
     "mask_region",
     "mask_image",
     "postprocessing",
@@ -70,7 +72,6 @@ def _base_settings(mock_settings) -> None:
     mock_settings.artifact_threshold = 0.05
     mock_settings.photorealism_enabled = False
     mock_settings.segmentation_enabled = False
-    mock_settings.model_cost_reve = 0.02
     mock_settings.pipeline_budget_max_usd = 0.10
     # v1.17.1: these flags default True in production, but this file
     # asserts the legacy PIL LANCZOS path — pin them off so the tests
@@ -111,9 +112,9 @@ def _build_executor(
 
 
 def _assert_no_forbidden_keys(params: dict) -> None:
-    for key in _REVE_FORBIDDEN_KEYS:
+    for key in _LEGACY_FORBIDDEN_KEYS:
         assert key not in params, (
-            f"forbidden Reve key {key!r} leaked into generate(params=...): {params!r}"
+            f"forbidden legacy key {key!r} leaked into generate(params=...): {params!r}"
         )
 
 

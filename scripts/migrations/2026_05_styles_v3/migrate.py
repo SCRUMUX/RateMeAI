@@ -74,7 +74,7 @@ CURATED_PATH = Path(__file__).resolve().parent / "curated.json"
 # Reuse the audit's lighting-vs-location classifier so we don't drift
 # from Phase-2 heuristics. ``audit_v2_styles`` lives next door.
 sys.path.insert(0, str(REPO_ROOT / "scripts" / "migrations" / "2026_04_prompt_quality"))
-from audit_v2_styles import classify_lighting_entry, LIGHTING_KW  # noqa: E402
+from audit_v2_styles import classify_lighting_entry  # noqa: E402
 
 
 # --- Phrase-level cleaners ------------------------------------------------

@@ -1,26 +1,23 @@
-"""Regression tests for the head-crop proportion lock in
-``ImageGenerationExecutor.single_pass``.
+"""Regression tests for the v1.64 removal of the executor-side
+head-crop proportion lock.
 
-Telegram bot clients are physically capped at ``message.photo[-1]``
-previews (~1280 px), which in practice are tight head-and-shoulders
-crops with ``face_area_ratio > 0.35``. Edit models (NB2 / GPT-2)
-preserve the head scale from the reference; on ``half_body`` /
-``full_body`` framings they then draw a torso/legs at a smaller scale
-around the same-sized head — the "oversized head, pasted face"
-failure mode users reported after the A/B cutover.
+The legacy ``head_crop_proportion_lock`` block in
+``ImageGenerationExecutor.single_pass`` appended a free-form
+"Composition note: the reference photo is a tight head-and-shoulders
+crop..." paragraph AFTER the wrapped + truncated prompt. In practice
+this had two failure modes:
 
-The executor injects a positive-framed proportion-lock paragraph into
-the prompt when all three conditions hold:
+1. The hint landed at the very END of the prompt — the worst zone
+   for edit-model attention.
+2. It duplicated ``_COMPOSITION_NUMERICAL_HINT`` (v1.64), which the
+   wrapper now injects BEFORE :data:`IDENTITY_PRESERVE_BLOCK` —
+   exactly where edit models pay the most attention.
 
-* ``face_area_ratio > 0.35`` (the same threshold the bot uses for the
-  pre-generation reference-compat warning, see
-  ``src/services/input_quality.py``);
-* ``framing`` is ``half_body`` or ``full_body``;
-* the style is NOT a document style (those always run ``portrait``).
-
-These tests lock the trigger conditions so a future refactor can't
-silently regress the guard. The hint is applied to the prompt that
-reaches ``image_gen.generate`` — that is the wire-level contract.
+These tests assert the old tail is GONE and the new numerical anchor
+shows up in the prompt sent to the provider for tight-selfie inputs.
+The wrapper-level coverage of the numerical anchor lives in
+:mod:`tests.test_prompts.test_numerical_composition_anchor`; this
+file focuses on the executor's contribution to the wire prompt.
 """
 
 from __future__ import annotations
@@ -36,7 +33,9 @@ from src.orchestrator.executor import ImageGenerationExecutor
 from src.services.input_quality import InputQualityReport
 
 
-_HINT_FRAGMENT = "Composition note: the reference photo is a tight head-and-shoulders"
+_LEGACY_HINT_FRAGMENT = (
+    "Composition note: the reference photo is a tight head-and-shoulders"
+)
 
 
 def _jpeg() -> bytes:
@@ -75,18 +74,19 @@ def _base_settings(mock_settings) -> None:
     mock_settings.artifact_threshold = 0.05
     mock_settings.photorealism_enabled = False
     mock_settings.segmentation_enabled = False
-    mock_settings.model_cost_reve = 0.02
-    mock_settings.model_cost_replicate = 0.02
     mock_settings.pipeline_budget_max_usd = 0.10
     mock_settings.identity_retry_enabled = False
     mock_settings.identity_retry_max_attempts = 1
     mock_settings.real_esrgan_enabled = False
     mock_settings.gfpgan_preclean_enabled = False
     mock_settings.codeformer_enabled = False
-    mock_settings.pulid_steps = 4
     mock_settings.ab_test_enabled = True
     mock_settings.ab_default_quality = "medium"
     mock_settings.variation_engine_v2_enabled = True
+    # v1.64 — disable reference padding so this regression suite stays
+    # focused on the prompt path. Padding has its own integration test
+    # in test_executor_reference_padding.py.
+    mock_settings.csl_reference_pad_enabled = False
 
 
 def _build_executor(image_gen):
@@ -131,14 +131,11 @@ def _prompt_sent_to_provider(image_gen) -> str:
 
 @pytest.mark.asyncio
 @patch("src.orchestrator.executor.settings")
-async def test_head_crop_hint_injected_on_half_body_with_tight_crop(mock_settings):
-    """``face_area_ratio > 0.35`` + ``half_body`` framing on a non-doc
-    style must inject the proportion-lock paragraph into the prompt.
-
-    This is the exact failure mode that hit Telegram bot users after
-    the A/B cutover — Telegram previews are tight crops, the bot
-    defaulted to ``half_body`` framing, and the edit model produced
-    an over-large head on a small torso.
+async def test_legacy_head_crop_tail_not_appended(mock_settings):
+    """v1.64: the executor-level paragraph tail is gone. Composition
+    correction is now handled by the wrapper-level numerical anchor
+    (see ``_COMPOSITION_NUMERICAL_HINT``) which is positioned at the
+    TOP of the prompt, not at the bottom.
     """
     _base_settings(mock_settings)
     image_gen = MagicMock()
@@ -161,17 +158,17 @@ async def test_head_crop_hint_injected_on_half_body_with_tight_crop(mock_setting
     )
 
     prompt = _prompt_sent_to_provider(image_gen)
-    assert _HINT_FRAGMENT in prompt, (
-        "Head-crop proportion lock missing from the prompt even though "
-        f"face_area_ratio=0.45 > 0.35 and framing=half_body. Prompt: {prompt!r}"
+    assert _LEGACY_HINT_FRAGMENT not in prompt, (
+        "v1.63 executor-side head-crop tail must not return; "
+        "composition is the wrapper's numerical anchor job now.\n"
+        f"Prompt: {prompt!r}"
     )
 
 
 @pytest.mark.asyncio
 @patch("src.orchestrator.executor.settings")
-async def test_head_crop_hint_injected_on_full_body_with_tight_crop(mock_settings):
-    """Same trigger applies to ``full_body`` framing — the head/torso
-    proportion mismatch is even more visible at full body."""
+async def test_legacy_head_crop_tail_not_appended_full_body(mock_settings):
+    """Same regression guard for ``full_body`` framing."""
     _base_settings(mock_settings)
     image_gen = MagicMock()
     image_gen.generate = AsyncMock(return_value=_png())
@@ -193,111 +190,4 @@ async def test_head_crop_hint_injected_on_full_body_with_tight_crop(mock_setting
     )
 
     prompt = _prompt_sent_to_provider(image_gen)
-    assert _HINT_FRAGMENT in prompt
-
-
-@pytest.mark.asyncio
-@patch("src.orchestrator.executor.settings")
-async def test_head_crop_hint_skipped_for_portrait_framing(mock_settings):
-    """``portrait`` framing already matches the head-shot reference —
-    the proportion lock would be redundant and could over-anchor the
-    model on the original framing. Skip it."""
-    _base_settings(mock_settings)
-    image_gen = MagicMock()
-    image_gen.generate = AsyncMock(return_value=_png())
-    executor = _build_executor(image_gen)
-
-    await executor.single_pass(
-        mode=AnalysisMode.DATING,
-        style="motorcycle",
-        image_bytes=_jpeg(),
-        result_dict={"base_description": "test"},
-        user_id="u1",
-        task_id="t1",
-        trace={"decisions": [], "steps": {}},
-        gender="male",
-        input_quality=_report_with_face_ratio(0.45),
-        ab_image_model="gpt_image_2",
-        ab_image_quality="medium",
-        framing="portrait",
-    )
-
-    prompt = _prompt_sent_to_provider(image_gen)
-    assert _HINT_FRAGMENT not in prompt, (
-        "Head-crop hint must not fire on portrait framing — the "
-        "reference framing already matches."
-    )
-
-
-@pytest.mark.asyncio
-@patch("src.orchestrator.executor.settings")
-async def test_head_crop_hint_skipped_when_face_small(mock_settings):
-    """Web uploads with a wide-shot reference (``face_area_ratio
-    well below 0.35``) don't suffer the proportion clash — skip the
-    hint so we don't add prompt budget for nothing."""
-    _base_settings(mock_settings)
-    image_gen = MagicMock()
-    image_gen.generate = AsyncMock(return_value=_png())
-    executor = _build_executor(image_gen)
-
-    await executor.single_pass(
-        mode=AnalysisMode.DATING,
-        style="motorcycle",
-        image_bytes=_jpeg(),
-        result_dict={"base_description": "test"},
-        user_id="u1",
-        task_id="t1",
-        trace={"decisions": [], "steps": {}},
-        gender="male",
-        input_quality=_report_with_face_ratio(0.15),
-        ab_image_model="gpt_image_2",
-        ab_image_quality="medium",
-        framing="half_body",
-    )
-
-    prompt = _prompt_sent_to_provider(image_gen)
-    assert _HINT_FRAGMENT not in prompt
-
-
-@pytest.mark.asyncio
-@patch("src.orchestrator.executor.settings")
-async def test_head_crop_hint_uses_positive_framing_only(mock_settings):
-    """The hint passes through the same positive-framing validator as
-    every StyleSpec field — no ``no/without/avoid/don't`` tokens. This
-    is the regression detector for ``_has_disallowed_negative`` in
-    ``src/prompts/style_spec.py``: if a future maintainer rewrites the
-    hint with negative phrasing it will fail the bot validator the
-    moment someone tries to promote it into a StyleSpec.
-    """
-    _base_settings(mock_settings)
-    image_gen = MagicMock()
-    image_gen.generate = AsyncMock(return_value=_png())
-    executor = _build_executor(image_gen)
-
-    await executor.single_pass(
-        mode=AnalysisMode.DATING,
-        style="motorcycle",
-        image_bytes=_jpeg(),
-        result_dict={"base_description": "test"},
-        user_id="u1",
-        task_id="t1",
-        trace={"decisions": [], "steps": {}},
-        gender="male",
-        input_quality=_report_with_face_ratio(0.50),
-        ab_image_model="gpt_image_2",
-        ab_image_quality="medium",
-        framing="half_body",
-    )
-
-    prompt = _prompt_sent_to_provider(image_gen)
-    hint_start = prompt.find(_HINT_FRAGMENT)
-    assert hint_start >= 0
-    hint = prompt[hint_start:]
-
-    from src.prompts.style_spec import _has_disallowed_negative
-
-    assert not _has_disallowed_negative(hint), (
-        "Head-crop hint contains negative framing tokens "
-        "(no/without/avoid/don't); rewrite in positive form. "
-        f"Hint: {hint!r}"
-    )
+    assert _LEGACY_HINT_FRAGMENT not in prompt

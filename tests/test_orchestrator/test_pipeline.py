@@ -71,8 +71,6 @@ def test_execute_rating_mode(mock_nsfw, mock_norm, mock_face, mock_settings):
     mock_settings.multi_pass_enabled = False
     mock_settings.identity_threshold = 0.85
     mock_settings.identity_max_retries = 2
-    mock_settings.model_cost_reve = 0.02
-    mock_settings.model_cost_replicate = 0.05
 
     pipeline, llm, storage = _build_pipeline()
 
@@ -124,8 +122,6 @@ def test_execute_dating_with_image_gen(mock_nsfw, mock_norm, mock_face, mock_set
     mock_settings.multi_pass_enabled = False
     mock_settings.identity_threshold = 0.85
     mock_settings.identity_max_retries = 2
-    mock_settings.model_cost_reve = 0.02
-    mock_settings.model_cost_replicate = 0.05
 
     pipeline, llm, storage = _build_pipeline()
 
@@ -177,8 +173,6 @@ def test_skip_image_gen_without_credits(mock_nsfw, mock_norm, mock_face, mock_se
     mock_settings.multi_pass_enabled = False
     mock_settings.identity_threshold = 0.85
     mock_settings.identity_max_retries = 2
-    mock_settings.model_cost_reve = 0.02
-    mock_settings.model_cost_replicate = 0.05
 
     pipeline, llm, storage = _build_pipeline()
 
@@ -223,8 +217,6 @@ def test_execute_social_with_image_gen(mock_nsfw, mock_norm, mock_face, mock_set
     mock_settings.multi_pass_enabled = False
     mock_settings.identity_threshold = 0.85
     mock_settings.identity_max_retries = 2
-    mock_settings.model_cost_reve = 0.02
-    mock_settings.model_cost_replicate = 0.05
 
     pipeline, llm, storage = _build_pipeline()
 
@@ -276,8 +268,6 @@ def test_pipeline_trace_recorded(mock_nsfw, mock_norm, mock_face, mock_settings)
     mock_settings.multi_pass_enabled = False
     mock_settings.identity_threshold = 0.85
     mock_settings.identity_max_retries = 2
-    mock_settings.model_cost_reve = 0.02
-    mock_settings.model_cost_replicate = 0.05
 
     pipeline, llm, storage = _build_pipeline()
 
@@ -335,8 +325,6 @@ def test_delta_error_flagged_on_failure(mock_nsfw, mock_norm, mock_face, mock_se
     mock_settings.multi_pass_enabled = False
     mock_settings.identity_threshold = 0.85
     mock_settings.identity_max_retries = 2
-    mock_settings.model_cost_reve = 0.02
-    mock_settings.model_cost_replicate = 0.05
 
     pipeline, llm, storage = _build_pipeline()
     storage.download = AsyncMock(side_effect=Exception("storage down"))
@@ -433,8 +421,6 @@ def test_decisions_logged_in_trace(mock_nsfw, mock_norm, mock_face, mock_setting
     mock_settings.multi_pass_enabled = False
     mock_settings.identity_threshold = 0.85
     mock_settings.identity_max_retries = 2
-    mock_settings.model_cost_reve = 0.02
-    mock_settings.model_cost_replicate = 0.05
 
     pipeline, llm, storage = _build_pipeline()
 
@@ -514,8 +500,6 @@ def test_ab_path_records_face_prerestore_without_crashing(
     mock_settings.identity_max_retries = 2
     mock_settings.ab_test_enabled = True
     mock_settings.gfpgan_preclean_enabled = True
-    mock_settings.model_cost_reve = 0.02
-    mock_settings.model_cost_replicate = 0.05
 
     pipeline, llm, storage = _build_pipeline()
 

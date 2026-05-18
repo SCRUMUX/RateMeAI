@@ -163,8 +163,6 @@ def test_pipeline_uses_cached_pre_analysis(
     mock_settings.multi_pass_enabled = False
     mock_settings.identity_threshold = 0.85
     mock_settings.identity_max_retries = 2
-    mock_settings.model_cost_reve = 0.02
-    mock_settings.model_cost_replicate = 0.05
 
     cached = {
         "dating_score": 7.5,
@@ -214,8 +212,6 @@ def test_pipeline_cache_miss_runs_llm(mock_nsfw, mock_norm, mock_face, mock_sett
     mock_settings.multi_pass_enabled = False
     mock_settings.identity_threshold = 0.85
     mock_settings.identity_max_retries = 2
-    mock_settings.model_cost_reve = 0.02
-    mock_settings.model_cost_replicate = 0.05
 
     pipeline, redis_mock = _build_pipeline_with_redis(cached_pre=None)
 

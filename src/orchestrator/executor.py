@@ -23,7 +23,6 @@ from src.metrics import (
     IMAGE_GEN_BACKEND,
     IMAGE_GEN_CALLS,
     PROMPT_V1_FALLBACK,
-    STYLE_MODE_OVERRIDE,
     estimate_image_gen_cost_usd,
 )
 from src.models.enums import AnalysisMode
@@ -40,9 +39,9 @@ from src.services.postprocess import (
 
 # Target aspect ratio for CV document styles. Applied *locally* after
 # generation via PIL (see src.services.postprocess.crop_to_aspect) —
-# none of the currently wired FAL edit models (FLUX.2, Seedream,
-# PuLID) accept an arbitrary aspect_ratio knob, so we enforce it
-# ourselves after the generation step.
+# none of the currently wired FAL edit models (GPT Image 2 Edit,
+# Nano Banana 2 Edit) accept an arbitrary aspect_ratio knob, so we
+# enforce it ourselves after the generation step.
 _CV_DOCUMENT_ASPECT: dict[str, str] = {
     "photo_3x4": "3:4",  # 30×40 мм
     "passport_rf": "3:4",  # 35×45 мм ≈ 3:4
@@ -188,61 +187,26 @@ def _apply_local_postprocess(
 
 def _estimate_backend_cost(
     provider_name: str,
-    generation_mode: str,
     *,
     image_size: dict | None = None,
     routed_backend: str | None = None,
 ) -> tuple[str, float]:
     """Estimate per-call cost *and* label the effective backend.
 
-    v1.20: for StyleRouter deployments we now read ``routed_backend``
-    — the real label set by ``StyleRouter.generate()`` via a
-    ContextVar — instead of guessing from ``generation_mode``. That
-    way, when the router degrades ``identity_scene → scene_preserve``
-    (face-crop failure), the Prometheus label and the cost math
-    reflect the Seedream call that actually ran, not the PuLID one
-    we asked for.
-
-    For legacy direct-provider setups (no StyleRouter, no ContextVar)
-    we fall back to ``estimate_image_gen_cost_usd`` keyed off the
-    provider class name.
+    v1.64: collapsed to the FAL edit-only path. ``routed_backend``
+    (when set) wins over the provider class name; otherwise the cost
+    estimator keys off the class name (GPT Image 2 vs Nano Banana 2).
     """
     cls = (provider_name or "").lower()
     routed = (routed_backend or "").strip().lower()
-    if cls == "stylerouter":
-        if routed == "pulid":
-            backend = "pulid"
-            cost = float(getattr(settings, "model_cost_fal_pulid", 0.006))
-        elif routed == "seedream":
-            backend = "seedream"
-            cost = float(getattr(settings, "model_cost_fal_seedream", 0.03))
-        elif routed == "fallback":
-            backend = "fallback"
-            cost = float(
-                estimate_image_gen_cost_usd(
-                    "FalFlux2ImageGen",
-                    image_size=image_size,
-                )
-            )
-        else:
-            # Router has not run yet (e.g. unit tests without a real
-            # request) — derive from the *requested* mode as before
-            # so legacy test expectations still hold.
-            if (generation_mode or "").strip() == "scene_preserve":
-                backend = "seedream"
-                cost = float(getattr(settings, "model_cost_fal_seedream", 0.03))
-            else:
-                backend = "pulid"
-                cost = float(getattr(settings, "model_cost_fal_pulid", 0.006))
-        return backend, cost
-
-    backend = cls or "fallback"
-    if "pulid" in cls:
-        backend = "pulid"
-    elif "seedream" in cls:
-        backend = "seedream"
-    elif "flux" in cls:
-        backend = "fallback"
+    if routed in ("gpt_image_2", "nano_banana_2"):
+        backend = routed
+    elif "nano" in cls or "banana" in cls:
+        backend = "nano_banana_2"
+    elif "gpt" in cls:
+        backend = "gpt_image_2"
+    else:
+        backend = cls or "fallback"
     cost = float(estimate_image_gen_cost_usd(provider_name, image_size=image_size))
     return backend, cost
 
@@ -250,26 +214,17 @@ def _estimate_backend_cost(
 async def _apply_codeformer_post(
     raw: bytes,
     *,
-    generation_mode: str | None = None,
     face_area_ratio: float | None = None,
     is_retry: bool = False,
 ) -> tuple[bytes, bool]:
     """Run CodeFormer face polish after the main generator.
 
-    v1.19 gating:
+    v1.64 gating:
 
-    - Skips identity_scene (PuLID) by default (``codeformer_for_identity_scene``
-      flag). The 25-step PuLID preset outputs sharp faces by itself and
-      CodeFormer was nudging identity off.
     - Skips tiny faces (``face_area_ratio < codeformer_min_face_ratio``)
       — polish is imperceptible at that scale.
     - Skips retry calls by default (``codeformer_on_retry``) — the
       retry is about identity recovery, not sharpness.
-
-    v1.18+ — FLUX Lightning (under PuLID) and Seedream-edit both
-    produce slightly soft faces. CodeFormer re-sharpens facial
-    features while ``fidelity`` (~0.5) keeps the identity from
-    drifting toward the "perfect face" restoration extreme.
 
     Returns ``(bytes, applied)`` where ``applied`` indicates whether
     CodeFormer actually ran (False = feature disabled, no API key, or
@@ -278,18 +233,6 @@ async def _apply_codeformer_post(
     if not raw or len(raw) <= 100:
         return raw, False
     if not bool(getattr(settings, "codeformer_enabled", False)):
-        return raw, False
-
-    if generation_mode == "identity_scene" and not bool(
-        getattr(
-            settings,
-            "codeformer_for_identity_scene",
-            False,
-        )
-    ):
-        logger.debug(
-            "CodeFormer skipped: identity_scene (PuLID handles face)",
-        )
         return raw, False
 
     if is_retry and not bool(
@@ -628,59 +571,34 @@ class ImageGenerationExecutor:
             if variant_id:
                 result_dict["variant_id"] = variant_id
 
-            # Face area ratio drives three decisions:
-            #   - whether to upscale x2 (bad idea for tiny faces, amplifies artefacts)
+            # Face area ratio drives two decisions:
+            #   - whether to upscale x2 (bad idea for tiny faces,
+            #     amplifies artefacts)
             #   - how strict HAIR protection should be
-            #   - whether to inject the head-crop proportion lock (below)
+            #
+            # v1.64: the legacy "head_crop_proportion_lock" prompt tail
+            # (a paragraph appended AFTER truncate, instructing the
+            # model to "rescale head and shoulders") was removed. It
+            # dropped to the worst attention zone in edit-model prompts
+            # and duplicated the new numerical anchor that
+            # ``model_wrappers._assemble`` now injects BEFORE
+            # ``IDENTITY_PRESERVE_BLOCK`` (see
+            # ``_COMPOSITION_NUMERICAL_HINT`` in
+            # ``src/prompts/image_gen.py``). Tight selfies are now
+            # additionally normalised geometrically by
+            # ``reference_preprocess.pad_reference_for_framing`` when
+            # ``CSL_REFERENCE_PAD_ENABLED=true``.
             face_area_ratio = (
                 float(getattr(input_quality, "face_area_ratio", 0.0) or 0.0)
                 if input_quality is not None
                 else 0.0
             )
 
-            # Head-crop proportion lock (channel-agnostic).
-            #
-            # Telegram bot clients are physically limited to
-            # ``message.photo[-1]`` previews (~1280 px), which is a tight
-            # head-and-shoulders crop in practice. On non-portrait styles
-            # (``half_body`` / ``full_body``) edit models preserve the
-            # head scale from the reference and draw a torso/legs at a
-            # smaller scale around it — the "oversized head, pasted face"
-            # failure mode the user reported after the A/B cutover.
-            # A similar — milder — issue can hit web uploads when the
-            # source photo is itself a head-crop. We gate on
-            # ``face_area_ratio > 0.35`` (matches the
-            # ``check_style_reference_compat`` heuristic used by the bot
-            # before pre-generation) and skip document styles since they
-            # always run ``portrait`` framing anyway. The wording is
-            # positive-framed so it passes the ``_has_disallowed_negative``
-            # guard if it ever ends up in a StyleSpec validator path.
             try:
                 from src.prompts.image_gen import is_document_style as _is_doc
                 _is_document = bool(_is_doc(style or ""))
             except Exception:
                 _is_document = False
-            if (
-                not _is_document
-                and framing_norm in ("half_body", "full_body")
-                and face_area_ratio > 0.35
-            ):
-                prompt = (
-                    prompt
-                    + "\n\nComposition note: the reference photo is a tight "
-                    "head-and-shoulders crop. Rescale head and shoulders to "
-                    "match the new framing so head, shoulders and torso read "
-                    "as real human proportions in the final image. Keep the "
-                    "same facial geometry and identity from the reference."
-                )
-                logger.info(
-                    "head_crop_proportion_lock_applied mode=%s style=%s "
-                    "framing=%s face_area_ratio=%.3f",
-                    mode.value,
-                    style or "default",
-                    framing_norm,
-                    face_area_ratio,
-                )
 
             # Provider ``extra`` payload. Provider-specific whitelists
             # apply: FalFlux2ImageGen accepts ``image_size`` + ``seed``,
@@ -700,54 +618,35 @@ class ImageGenerationExecutor:
             extra["style"] = style or "default"
             extra["prompt_pipeline_path"] = prompt_pipeline_path
 
-            # Output resolution per style. FLUX.2 Pro Edit honours
+            # Output resolution per style. FAL edit-models honour
             # ``image_size`` with a concrete ``{width, height}`` dict —
             # we pin each style to its target aspect (2 MP portrait for
-            # headshot/full-body, 1 MP square for documents). Legacy
-            # Kontext / Seedream providers silently ignore the key.
+            # headshot/full-body, 1 MP square for documents).
             spec = STYLE_REGISTRY.get(mode.value, style)
-            # v1.18 hybrid pipeline: thread the StyleSpec generation mode
-            # through ``params`` so :class:`StyleRouter` can route to
-            # PuLID (identity_scene) vs Seedream (scene_preserve). The
-            # field is ignored by legacy non-routing providers.
-            generation_mode = (
-                getattr(
-                    spec,
-                    "generation_mode",
-                    "identity_scene",
-                )
-                if spec is not None
-                else "identity_scene"
-            )
-            extra["generation_mode"] = generation_mode
 
             # v1.20: pass the face bbox discovered by the input-quality
-            # gate through to StyleRouter → face_crop so we don't
-            # re-run MediaPipe for the same image. Routers / providers
-            # that don't understand the key strip it; see
-            # :meth:`StyleRouter.generate`.
+            # gate through so downstream services (including the v1.64
+            # reference padder) don't re-run MediaPipe for the same image.
             iq_bbox = getattr(input_quality, "face_bbox", None)
             if iq_bbox is not None:
                 extra["face_bbox"] = iq_bbox
 
-            # v1.19+: identity_scene (PuLID) runs at 1 MP to avoid
-            # duplicate-subject artefacts; scene_preserve stays at 2 MP.
-            # Legacy FAL providers silently ignore ``image_size``.
+            # v1.64: ``resolve_output_size`` no longer branches on
+            # ``generation_mode``; the FAL edit pipeline runs at the
+            # style's target ``output_aspect``.
             output_size = resolve_output_size(
                 spec,
                 face_area_ratio=face_area_ratio or None,
-                generation_mode=generation_mode,
                 framing=framing_norm,
             )
             if output_size:
                 extra["image_size"] = output_size
                 mp = (output_size["width"] * output_size["height"]) / 1_000_000
                 logger.info(
-                    "image_size resolved mode=%s style=%s gen_mode=%s "
+                    "image_size resolved mode=%s style=%s "
                     "size=%dx%d (~%.2f MP)",
                     mode.value,
                     style or "default",
-                    generation_mode,
                     output_size["width"],
                     output_size["height"],
                     mp,
@@ -770,20 +669,8 @@ class ImageGenerationExecutor:
                 "x2" if will_upscale else "no",
                 doc_ar or "none",
             )
-            # v1.20: reset the router backend ContextVar before each
-            # call so leftover state from a previous request in the
-            # same worker cannot poison the cost label.
-            try:
-                from src.providers.image_gen.unified import (
-                    routed_backend_var,
-                )
-
-                routed_backend_var.set("")
-            except Exception:
-                pass
             # v1.21 A/B: inject ``quality`` into the provider params so
             # FalNanoBanana2Edit / FalGptImage2Edit pick the right tier.
-            # Hybrid StyleRouter silently ignores the key.
             if ab_active:
                 # v1.24.2: propagate the caller-selected A/B model into the
                 # provider params so ``UnifiedImageGenProvider._pick_backend``
@@ -811,53 +698,120 @@ class ImageGenerationExecutor:
                         output_size["width"],
                         output_size["height"],
                     )
-                # v1.23: strip the legacy ``generation_mode`` key for
-                # the A/B path — NB2 / GPT-2 don't understand PuLID vs
-                # Seedream semantics, and keeping it around makes
-                # observability harder (looks like we're still routing
-                # through StyleRouter).
-                extra.pop("generation_mode", None)
+                # v1.64: ``generation_mode`` is gone — no key to strip.
+
+            # CSL Phase 1.5 (v1.64) — geometric reference padding.
+            #
+            # Tight-selfie inputs (face_area_ratio > 0.35, or CSL class
+            # ``face_closeup``/``unknown``) drag edit-models into
+            # copying their head/torso ratio verbatim. Numerical anchor
+            # in the prompt nudges the model in the right direction but
+            # cannot fully overcome the spatial signal from the
+            # reference itself. ``pad_reference_for_framing`` solves
+            # the spatial half deterministically: it re-positions the
+            # face on a canvas that ALREADY matches the target framing,
+            # so the edit-model only has to repaint clothing /
+            # background.
+            #
+            # Gated on:
+            #   * ``csl_reference_pad_enabled`` (kill-switch).
+            #   * non-document style (doc styles run portrait + fixed
+            #     vendor-policy composition).
+            #   * ``half_body`` / ``full_body`` framing (portrait
+            #     already matches the typical selfie crop).
+            #   * tight crop: explicit class OR face_area_ratio > threshold.
+            #   * face_bbox available (no bbox → no recompose possible).
+            reference_for_provider = image_bytes
+            composition_class = (
+                getattr(input_quality, "composition_class", "unknown")
+                if input_quality is not None
+                else "unknown"
+            )
+            should_pad = (
+                getattr(settings, "csl_reference_pad_enabled", False)
+                and not _is_document
+                and framing_norm in ("half_body", "full_body")
+                and (
+                    composition_class in ("face_closeup", "unknown")
+                    or face_area_ratio > getattr(
+                        settings, "csl_face_closeup_face_ratio", 0.35,
+                    )
+                )
+                and iq_bbox is not None
+            )
+            if should_pad:
+                try:
+                    from src.metrics import REFERENCE_PADDED
+                    from src.services.reference_preprocess import (
+                        pad_reference_for_framing,
+                    )
+
+                    target_size_tuple: tuple[int, int]
+                    if output_size:
+                        target_size_tuple = (
+                            int(output_size["width"]),
+                            int(output_size["height"]),
+                        )
+                    else:
+                        target_size_tuple = (1280, 1600)
+
+                    reference_for_provider = pad_reference_for_framing(
+                        image_bytes,
+                        face_bbox=tuple(iq_bbox),
+                        framing=framing_norm,
+                        target_size=target_size_tuple,
+                    )
+                    REFERENCE_PADDED.labels(
+                        framing=framing_norm,
+                        composition_class=composition_class,
+                    ).inc()
+                    logger.info(
+                        "reference_padding_applied mode=%s style=%s "
+                        "framing=%s composition_class=%s "
+                        "face_area_ratio=%.3f",
+                        mode.value,
+                        style or "default",
+                        framing_norm,
+                        composition_class,
+                        face_area_ratio,
+                    )
+                except Exception as exc:
+                    logger.warning(
+                        "reference_padding_failed mode=%s style=%s err=%s "
+                        "— falling back to raw reference",
+                        mode.value,
+                        style or "default",
+                        exc,
+                    )
+                    reference_for_provider = image_bytes
 
             with _trace_step(trace, "image_gen"):
                 raw = await image_gen.generate(
                     prompt,
-                    reference_image=image_bytes,
+                    reference_image=reference_for_provider,
                     params=extra or None,
                 )
             generation_attempts = 1
-            # v1.20: snapshot the routed backend *immediately* after
-            # generate() so a retry call below cannot overwrite the
-            # first-pass label before we read it.
-            try:
-                from src.providers.image_gen.unified import (
-                    get_routed_backend,
-                )
-
-                first_pass_backend = get_routed_backend()
-            except Exception:
-                first_pass_backend = ""
+            # v1.64: the legacy router ContextVar (``routed_backend_var``)
+            # was retired; the unified provider now picks the backend
+            # deterministically from ``params["image_model"]`` so the
+            # first-pass label is just the request value.
+            first_pass_backend = str(extra.get("image_model", "")).strip().lower()
 
             codeformer_applied = False
             if raw and len(raw) > 100:
                 raw = _apply_local_postprocess(raw, mode, style, face_area_ratio)
-                # v1.19: CodeFormer only runs for scene_preserve paths
-                # (Seedream edits) and only when the face is large
-                # enough to show polish. identity_scene outputs from
-                # PuLID are already sharp at 25 steps.
-                # v1.23: on the A/B path we DO NOT run CodeFormer /
-                # Real-ESRGAN. Nano Banana 2 and GPT Image 2 already
-                # emit clean, sharp faces at native resolution (1K–4K
-                # for NB2, up to 2560 for GPT-2). CodeFormer subtly
-                # re-renders facial features — exactly what we spent
-                # the A/B model budget trying to avoid. Real-ESRGAN
-                # x2 on an already-4K image only adds compression
-                # artefacts and doubles FAL spend. The legacy
-                # StyleRouter path keeps both stages for PuLID /
-                # Seedream outputs that were trained at 1 MP.
+                # v1.23 / v1.64: on the A/B path (the only path now) we
+                # DO NOT run CodeFormer / Real-ESRGAN. Nano Banana 2 and
+                # GPT Image 2 already emit clean, sharp faces at native
+                # resolution (1K–4K for NB2, up to 2560 for GPT-2).
+                # CodeFormer subtly re-renders facial features — exactly
+                # what we spent the A/B model budget trying to avoid.
+                # Real-ESRGAN x2 on an already-4K image only adds
+                # compression artefacts and doubles FAL spend.
                 if not ab_active:
                     raw, cf_applied = await _apply_codeformer_post(
                         raw,
-                        generation_mode=generation_mode,
                         face_area_ratio=face_area_ratio or None,
                         is_retry=False,
                     )
@@ -875,15 +829,7 @@ class ImageGenerationExecutor:
 
             fal_model: str | None = None
             if provider_name.lower() == "unifiedimagegenprovider":
-                if first_pass_backend == "pulid":
-                    fal_model = getattr(settings, "pulid_model", "fal-ai/pulid")
-                elif first_pass_backend == "seedream":
-                    fal_model = getattr(
-                        settings,
-                        "seedream_model",
-                        "fal-ai/bytedance/seedream/v4/edit",
-                    )
-                elif first_pass_backend == "nano_banana_2":
+                if first_pass_backend == "nano_banana_2":
                     fal_model = getattr(
                         settings, "nano_banana_model", "fal-ai/nano-banana-2/edit"
                     )
@@ -1013,76 +959,18 @@ class ImageGenerationExecutor:
                         # zero case that some back-ends treat as "use
                         # default seed".
                         retry_params["seed"] = secrets.randbits(31) | 1
-                        # v1.18: if PuLID's identity lock failed hard
-                        # (<5.0), escalate to the strongest knob combo
-                        # the model exposes: ``mode=extreme style`` +
-                        # ``id_scale=1.0``. These are both clamped by
-                        # the provider, so overshooting is safe.
-                        soft_threshold = float(
-                            settings.identity_match_soft_threshold or 0.0
-                        )
-                        is_identity_scene = generation_mode == "identity_scene"
-                        if (
-                            is_identity_scene
-                            and identity_match > 0.0
-                            and identity_match < soft_threshold
-                        ):
-                            # v1.19 retry escalation (FIXED).
-                            #
-                            # The v1.18 retry flipped PuLID into
-                            # ``mode="extreme style"`` — but per the
-                            # fal-ai/pulid schema that mode *weakens*
-                            # identity in favour of stylisation, which
-                            # is the opposite of what we want on an
-                            # identity_match failure. Stay on
-                            # ``fidelity`` and instead push id_scale,
-                            # steps and guidance higher.
-                            retry_params["pulid_mode"] = "fidelity"
-                            retry_params["id_scale"] = float(
-                                getattr(
-                                    settings,
-                                    "pulid_retry_id_scale",
-                                    1.2,
-                                )
-                            )
-                            retry_params["num_inference_steps"] = int(
-                                getattr(
-                                    settings,
-                                    "pulid_retry_steps",
-                                    8,
-                                )
-                            )
-                            retry_params["guidance_scale"] = float(
-                                getattr(
-                                    settings,
-                                    "pulid_retry_guidance_scale",
-                                    1.4,
-                                )
-                            )
-                            logger.info(
-                                "PuLID retry strengthened task=%s "
-                                "mode=fidelity id_scale=%.2f steps=%d "
-                                "guidance=%.2f",
-                                task_id,
-                                retry_params["id_scale"],
-                                retry_params["num_inference_steps"],
-                                retry_params["guidance_scale"],
-                            )
-                            try:
-                                STYLE_MODE_OVERRIDE.labels(
-                                    from_mode="identity_scene",
-                                    to_mode="identity_scene",
-                                    reason="retry_escalate_pulid",
-                                ).inc()
-                            except Exception:
-                                pass
+                        # v1.64: the PuLID-specific retry escalation
+                        # (``pulid_mode`` / ``id_scale`` / step / CFG
+                        # nudges) was removed when the PuLID provider
+                        # was retired. Edit-mode retries simply re-run
+                        # the same provider with a fresh seed.
                         retry_identity = 0.0
                         retry_check_failed = False
                         try:
                             with _trace_step(trace, "image_gen_retry"):
                                 retry_raw = await image_gen.generate(
                                     prompt,
-                                    reference_image=image_bytes,
+                                    reference_image=reference_for_provider,
                                     params=retry_params,
                                 )
                             generation_attempts += 1
@@ -1096,7 +984,6 @@ class ImageGenerationExecutor:
                                 )
                                 retry_raw, cf_applied_r = await _apply_codeformer_post(
                                     retry_raw,
-                                    generation_mode=generation_mode,
                                     face_area_ratio=(face_area_ratio or None),
                                     is_retry=True,
                                 )
@@ -1105,34 +992,15 @@ class ImageGenerationExecutor:
                                     retry_raw,
                                     face_area_ratio,
                                 )
-                                # v1.20: retry counter keyed on the
-                                # *routed* backend so PuLID retries
-                                # also land in Grafana. Falls back to
-                                # the legacy class-name check for
-                                # non-router provider setups.
-                                try:
-                                    from src.providers.image_gen.unified import (
-                                        get_routed_backend,
-                                    )
-
-                                    retry_backend = get_routed_backend()
-                                except Exception:
-                                    retry_backend = ""
+                                # v1.64: the unified provider picks the
+                                # backend deterministically from
+                                # ``params["image_model"]``; the retry
+                                # uses the same backend as the first
+                                # pass, so we re-use ``first_pass_backend``.
+                                retry_backend = first_pass_backend
                                 retry_fal_model: str | None = None
                                 if provider_name.lower() == "unifiedimagegenprovider":
-                                    if retry_backend == "pulid":
-                                        retry_fal_model = getattr(
-                                            settings,
-                                            "pulid_model",
-                                            "fal-ai/pulid",
-                                        )
-                                    elif retry_backend == "seedream":
-                                        retry_fal_model = getattr(
-                                            settings,
-                                            "seedream_model",
-                                            "fal-ai/bytedance/seedream/v4/edit",
-                                        )
-                                    elif retry_backend == "nano_banana_2":
+                                    if retry_backend == "nano_banana_2":
                                         retry_fal_model = getattr(
                                             settings,
                                             "nano_banana_model",
@@ -1340,20 +1208,10 @@ class ImageGenerationExecutor:
                 result_dict["generated_image_url"] = gen_url
                 result_dict["image_url"] = gen_url
 
-                # v1.20: read the *real* routed backend label from
-                # the StyleRouter ContextVar (falling back to the
-                # requested generation_mode only when the router did
-                # not run, e.g. legacy direct-provider setups). This
-                # keeps the budget math honest even when the router
-                # degrades identity_scene → scene_preserve mid-call.
-                try:
-                    from src.providers.image_gen.unified import (
-                        get_routed_backend,
-                    )
-
-                    routed_label = first_pass_backend or get_routed_backend()
-                except Exception:
-                    routed_label = first_pass_backend or ""
+                # v1.64: backend label is whatever the request asked
+                # for via ``image_model`` — captured in ``first_pass_backend``
+                # at the top of this block.
+                routed_label = first_pass_backend or ""
                 if ab_active:
                     from src.metrics import (
                         ab_backend_label,
@@ -1373,25 +1231,15 @@ class ImageGenerationExecutor:
                 else:
                     backend_label, per_call_cost = _estimate_backend_cost(
                         provider_name,
-                        generation_mode,
                         image_size=extra.get("image_size"),
                         routed_backend=routed_label,
                     )
                 estimated_cost = per_call_cost * max(1, generation_attempts)
 
-                # v1.20: IMAGE_GEN_BACKEND is now emitted exclusively
-                # by :class:`StyleRouter` — see ``_record_backend``.
-                # For legacy direct-provider deployments (no router)
-                # we still publish the metric here so dashboards keep
-                # working during a gradual cutover.
-                if provider_name.lower() != "stylerouter":
-                    try:
-                        IMAGE_GEN_BACKEND.labels(
-                            backend=backend_label,
-                            style_mode=generation_mode or "unknown",
-                        ).inc()
-                    except Exception:
-                        pass
+                try:
+                    IMAGE_GEN_BACKEND.labels(backend=backend_label).inc()
+                except Exception:
+                    pass
                 try:
                     GENERATION_COST_USD.labels(
                         backend=backend_label,
@@ -1404,7 +1252,6 @@ class ImageGenerationExecutor:
                     "mode": mode.value,
                     "provider": provider_name,
                     "backend": backend_label,
-                    "generation_mode": generation_mode,
                     "identity_match": round(identity_match, 2),
                     "generation_attempts": generation_attempts,
                     "pipeline_type": "single_pass_edit",
@@ -1503,10 +1350,9 @@ class ImageGenerationExecutor:
                     "budget_usd": settings.pipeline_budget_max_usd,
                 }
                 logger.info(
-                    "Image generated backend=%s gen_mode=%s key=%s "
+                    "Image generated backend=%s key=%s "
                     "identity_match=%.2f cost=$%.4f",
                     backend_label,
-                    generation_mode,
                     gkey,
                     identity_match,
                     estimated_cost + esrgan_cost + codeformer_cost,

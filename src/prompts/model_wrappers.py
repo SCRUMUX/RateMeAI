@@ -1,32 +1,48 @@
 """Per-model prompt wrappers for StyleSpecV3.
 
-v4.1 (May 2026) — single-path prompt pipeline
----------------------------------------------
+v4.1 / v1.64 — single-path prompt pipeline
+-------------------------------------------
 Stages of the prompt:
 
-1. ``change_instruction``           — Google-formula opener
-                                       ("Using the reference photo, render
-                                       the same person in a new scene…")
-2. ``IDENTITY_PRESERVE_BLOCK``      — explicit identity anchors
-                                       (face shape, eye shape and colour,
-                                       hairline, skin undertone, body
-                                       proportions). Hoisted to the top
-                                       so edit-models pay attention to
-                                       it before the scene-change part.
-3. narrative scene line             — "<scene> lit by X during a Y
-                                       morning in Z." (composed in
-                                       :meth:`CompositionIR.scene_line`)
-4. wardrobe                         — "Wardrobe: <clothing>."
-5. ``expression``                   — natural-from-reference by default
-                                       (see composition_builder.py)
-6. ``framing_line``                 — camera composition hint
-7. ``PHOTOREAL_BLOCK``              — single camera/DoF block, single
-                                       materiality clause, single
-                                       lighting-integration clause.
+1. ``change_instruction``                 — Google-formula opener
+                                             ("Using the reference photo,
+                                             render the same person in a
+                                             new scene…")
+2. ``_COMPOSITION_NUMERICAL_HINT``        — numerical layout target
+                                             ("face fills upper X% of
+                                             frame"). v1.64: mirrors the
+                                             document-path hint so
+                                             edit-models stop copying
+                                             tight-selfie head/torso
+                                             ratios verbatim. Goes
+                                             BEFORE identity so layout
+                                             wins attention.
+3. ``IDENTITY_PRESERVE_BLOCK``            — explicit identity anchors
+                                             (face shape, eye shape and
+                                             colour, hairline, skin
+                                             undertone). v1.64 trimmed
+                                             the "head and shoulders
+                                             read as real human
+                                             proportions" tail because
+                                             it conflicted with the
+                                             numerical hint above.
+4. narrative scene line                   — "<scene> lit by X during a Y
+                                             morning in Z." (composed in
+                                             :meth:`CompositionIR.scene_line`)
+5. wardrobe                               — "Wardrobe: <clothing>."
+6. ``expression``                         — natural-from-reference by
+                                             default (see
+                                             composition_builder.py)
+7. ``framing_line``                       — short framing reminder
+8. ``PHOTOREAL_BLOCK``                    — single camera/DoF block,
+                                             single materiality clause,
+                                             single lighting-integration
+                                             clause.
 
 Document styles use a separate vendor-policy path with DOC_PRESERVE /
 DOC_QUALITY and a fixed composition hint — identity fidelity
-requirements there are not negotiable.
+requirements there are not negotiable. The non-document numerical
+hint mirrors that approach.
 
 Tail resolution order:
 
@@ -101,8 +117,21 @@ def _assemble(ir: CompositionIR, *, tail: str) -> str:
     else:
         if ir.change_instruction:
             parts.append(ir.change_instruction)
-        # Identity-preserve hoisted to the top so it sits in the first
-        # third of the prompt where edit-models pay most attention.
+
+        # v1.64 — numerical composition anchor BEFORE identity. Mirrors
+        # the document-path ``_DOC_COMPOSITION_HINT`` so edit-models
+        # receive an explicit "face fills upper X% of frame" target and
+        # stop replicating the tight-selfie head/torso ratio. Placed in
+        # the first third of the prompt where edit-models pay most
+        # attention.
+        if ir.framing and ir.framing in ig._COMPOSITION_NUMERICAL_HINT:
+            parts.append(
+                f"Composition: {ig._COMPOSITION_NUMERICAL_HINT[ir.framing]}"
+            )
+
+        # Identity-preserve sits right after the layout target so the
+        # face stays anchored to the reference while the body fits the
+        # numerical composition.
         parts.append(ig.IDENTITY_PRESERVE_BLOCK)
 
         scene_line = ir.scene_line()

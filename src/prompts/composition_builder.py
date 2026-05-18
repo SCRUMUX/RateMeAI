@@ -43,6 +43,12 @@ class CompositionIR:
     clothing: str = ""
     expression: str = ""
     framing_line: str = ""
+    # v1.64 — raw framing key ("portrait" / "half_body" / "full_body" or
+    # None). Kept alongside the human-readable ``framing_line`` so the
+    # model wrapper can look up the numerical composition hint
+    # (``_COMPOSITION_NUMERICAL_HINT`` in ``image_gen.py``) without
+    # re-parsing the line.
+    framing: str | None = None
     # Quality / identity anchors collected from the style spec. The
     # model wrapper decides whether to append the common block,
     # override it with a per-model tail, or substitute the legacy
@@ -432,6 +438,7 @@ def build_composition_v3(
         clothing=resolved.clothing,
         expression=expression_line,
         framing_line=framing_line,
+        framing=(framing or None),
         quality_identity_base=spec.quality_identity.base,
         per_model_tail_map=dict(spec.quality_identity.per_model_tail),
         is_document=is_document,
@@ -526,6 +533,7 @@ def build_composition(
             clothing=vr.clothing,
             expression=expression_line,
             framing_line=framing_line,
+            framing=(framing or None),
             quality_identity_base=spec.quality_identity.base,
             per_model_tail_map=dict(spec.quality_identity.per_model_tail),
             is_document=is_document,
@@ -564,6 +572,7 @@ def build_composition(
         clothing=clothing,
         expression=expression_line,
         framing_line=framing_line,
+        framing=(framing or None),
         quality_identity_base=spec.quality_identity.base,
         per_model_tail_map=dict(spec.quality_identity.per_model_tail),
         is_document=is_document,

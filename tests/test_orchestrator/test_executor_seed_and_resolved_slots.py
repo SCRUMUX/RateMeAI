@@ -63,8 +63,6 @@ def _base_settings(mock_settings) -> None:
     mock_settings.artifact_threshold = 0.05
     mock_settings.photorealism_enabled = False
     mock_settings.segmentation_enabled = False
-    mock_settings.model_cost_reve = 0.02
-    mock_settings.model_cost_replicate = 0.02
     mock_settings.pipeline_budget_max_usd = 0.10
     mock_settings.identity_retry_enabled = False
     mock_settings.identity_retry_max_attempts = 1

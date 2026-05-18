@@ -57,9 +57,10 @@ def _v(
 # hand-written variants so every (mode, style) ships at least six
 # conceptually distinct variants. These are deliberately abstract
 # (lighting × time-of-day × camera) so they combine safely with any
-# background description; the StyleRouter still uses the style's
-# primary background and the PuLID / Seedream branches handle identity
-# themselves. Each entry gets a unique concept_signature prefixed with
+# background description; the FAL edit-mode provider still uses the
+# style's primary background and the identity-preserve block in the
+# prompt anchors the face.
+# Each entry gets a unique concept_signature prefixed with
 # ``rot_`` so tests can tell "synthesised rotation" apart from a
 # hand-authored variant.
 _ROTATION_POOL: tuple[StyleVariant, ...] = (

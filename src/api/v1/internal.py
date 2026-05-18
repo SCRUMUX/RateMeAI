@@ -132,10 +132,11 @@ class RemoteAnalysisRequest(BaseModel):
     trace_id: str = ""
     policy_flags: dict[str, Any] = Field(default_factory=dict)
     artifact_refs: dict[str, str] = Field(default_factory=dict)
-    # v1.22: A/B image-gen selection forwarded from the edge server.
-    # Missing / unknown values fall back to ``settings.ab_default_model``
-    # / ``settings.ab_default_quality`` so edge traffic always hits
-    # Nano Banana 2 or GPT Image 2, never the legacy StyleRouter.
+    # v1.22 / v1.64: A/B image-gen selection forwarded from the edge
+    # server. Missing / unknown values fall back to
+    # ``settings.ab_default_model`` / ``settings.ab_default_quality``
+    # so edge traffic always hits Nano Banana 2 or GPT Image 2 via the
+    # unified FAL provider.
     image_model: str = ""
     image_quality: str = ""
     # v1.26: user-selected framing (portrait / half_body / full_body) и
@@ -908,13 +909,9 @@ async def synthetic_analyze(
 
 @router.post("/diagnostics/image-gen-probe")
 async def image_gen_probe(
-    mode: str = Query(
-        "scene_preserve",
-        pattern="^(identity_scene|scene_preserve)$",
-    ),
     provider: str = Query(
-        "styled_router",
-        pattern="^(styled_router|nano_banana_2|gpt_image_2)$",
+        "unified",
+        pattern="^(unified|nano_banana_2|gpt_image_2)$",
     ),
     quality: str = Query(
         "low",
@@ -923,25 +920,18 @@ async def image_gen_probe(
     _key: str = Depends(_verify_internal_key),
 ):
     """Fire one ``image_gen.generate`` call to verify the image-gen
-    provider (and, in hybrid strategy, the matching StyleRouter branch)
-    is reachable from the primary backend.
+    provider is reachable from the primary backend.
 
-    Rationale: the analyze stage is covered by ``provider-probe`` +
-    ``synthetic-analyze``. The image-gen side has two independent code
-    paths in the v1.18+ hybrid pipeline — PuLID (identity_scene) and
-    Seedream v4 Edit (scene_preserve) — and a regression in either is
-    invisible unless both are probed on every deploy.
+    v1.64: collapsed to the FAL edit-only path. ``provider=unified``
+    (default) probes whichever model the ``UnifiedImageGenProvider``
+    routes to (GPT Image 2 by default, Nano Banana 2 when requested);
+    ``provider=nano_banana_2|gpt_image_2`` probes the explicit
+    A/B provider directly. The legacy ``styled_router`` /
+    ``identity_scene`` / ``scene_preserve`` probe modes were retired
+    alongside the PuLID / Seedream providers.
 
-    * ``mode=scene_preserve`` (default) — uses the synthetic solid-colour
-      JPEG. That's fine for Seedream / FLUX.2, neither of which runs a
-      face-embedding step.
-    * ``mode=identity_scene`` — uses a bundled 256×256 JPEG with a
-      clearly detectable face so fal-ai/pulid's facexlib preprocessor
-      doesn't trip ``no face detected`` and so the schema / auth /
-      wire-protocol side of PuLID is actually exercised.
-
-    The probe passes ``params={"generation_mode": mode}`` so a
-    StyleRouter provider selects the correct backend.
+    Uses a bundled 256×256 JPEG with a clearly detectable face so the
+    edit-model's face-detector doesn't trip ``no face detected``.
     """
     import time as _time
     from src.providers.factory import (
@@ -955,11 +945,7 @@ async def image_gen_probe(
         _http_status_of as _http_status,
     )
 
-    # v1.21 A/B: ``provider=nano_banana_2|gpt_image_2`` routes the probe
-    # through the new A/B-path providers, bypassing the default
-    # StyleRouter. ``provider=styled_router`` (default) keeps the
-    # pre-v1.21 behaviour.
-    if provider == "styled_router":
+    if provider == "unified":
         image_gen = _get_image_gen()
     else:
         try:
@@ -967,27 +953,19 @@ async def image_gen_probe(
         except Exception as exc:
             return {
                 "ok": False,
-                "mode": mode,
                 "provider": provider,
                 "exc_type": "InitError",
                 "error_message": f"AB provider init failed: {exc}",
             }
     provider_name = type(image_gen).__name__
 
-    if mode == "identity_scene":
-        from src.api.v1._fixtures.probe_face import probe_face_jpeg
+    from src.api.v1._fixtures.probe_face import probe_face_jpeg
 
-        reference = probe_face_jpeg()
-        prompt = (
-            "The same person, now standing in a sunlit park with soft "
-            "golden-hour light, shallow depth of field. Do not render text."
-        )
-    else:
-        reference = _synthetic_test_jpeg(512)
-        prompt = (
-            "A neutral portrait placeholder in soft daylight, centred "
-            "composition, calm and professional mood. Do not render text."
-        )
+    reference = probe_face_jpeg()
+    prompt = (
+        "The same person, now standing in a sunlit park with soft "
+        "golden-hour light, shallow depth of field. Do not render text."
+    )
 
     guard_ctx = {
         "policy_flags": build_policy_flags(
@@ -998,9 +976,9 @@ async def image_gen_probe(
         )
     }
 
-    params: dict = {"generation_mode": mode}
-    if provider != "styled_router":
-        params["quality"] = quality
+    params: dict = {"quality": quality}
+    if provider in ("nano_banana_2", "gpt_image_2"):
+        params["image_model"] = provider
 
     t0 = _time.monotonic()
     try:
@@ -1013,10 +991,9 @@ async def image_gen_probe(
         took_ms = int((_time.monotonic() - t0) * 1000)
         return {
             "ok": True,
-            "mode": mode,
             "provider": provider_name,
             "provider_key": provider,
-            "quality": quality if provider != "styled_router" else None,
+            "quality": quality,
             "took_ms": took_ms,
             "bytes": len(out) if isinstance(out, (bytes, bytearray)) else 0,
         }
@@ -1032,10 +1009,9 @@ async def image_gen_probe(
                 body = ""
         return {
             "ok": False,
-            "mode": mode,
             "provider": provider_name,
             "provider_key": provider,
-            "quality": quality if provider != "styled_router" else None,
+            "quality": quality,
             "took_ms": took_ms,
             "exc_type": type(original).__name__,
             "http_status": _http_status(original),
