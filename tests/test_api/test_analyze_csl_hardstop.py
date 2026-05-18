@@ -12,7 +12,6 @@ input photo is a tight face-closeup.
 
 from __future__ import annotations
 
-import asyncio
 import io
 import json
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -48,20 +47,33 @@ def _auth(token: str) -> dict[str, str]:
     return {"Authorization": f"Bearer {token}", **_CONSENT_HEADERS}
 
 
-async def _write_cache(client, pre_analysis_id: str, csl_meta: dict) -> None:
+def _write_cache(pre_analysis_id: str, csl_meta: dict) -> None:
     """Seed Redis with a fake ``preanalysis_cache`` entry so the hard-stop
-    finds CSL metadata. Mirrors what ``/api/v1/pre-analyze`` writes."""
+    finds CSL metadata. Mirrors what ``/api/v1/pre-analyze`` writes.
+
+    Uses a synchronous Redis client to avoid the ``Future attached to a
+    different loop`` collision between ``asyncio.run`` and the FastAPI
+    ``TestClient``'s own event loop (the one ``app.state.redis`` is
+    bound to). The bytes we write are read back by ``analyze.py`` via
+    its async client without issue because Redis itself is a single
+    server and the wire protocol is loop-agnostic.
+    """
+    import redis as _redis_sync
+
     from src.config import settings
     from src.utils.redis_keys import preanalysis_cache_key
 
-    redis = client.app.state.redis
-    key = preanalysis_cache_key(pre_analysis_id, settings.resolved_market_id)
-    payload = {
-        "first_impression": "stub",
-        "score": 7.5,
-        "_csl": csl_meta,
-    }
-    await redis.set(key, json.dumps(payload), ex=600)
+    client = _redis_sync.Redis.from_url(settings.redis_url, decode_responses=True)
+    try:
+        key = preanalysis_cache_key(pre_analysis_id, settings.resolved_market_id)
+        payload = {
+            "first_impression": "stub",
+            "score": 7.5,
+            "_csl": csl_meta,
+        }
+        client.set(key, json.dumps(payload), ex=600)
+    finally:
+        client.close()
 
 
 @patch("src.api.v1.analyze._get_arq", new_callable=AsyncMock)
@@ -82,16 +94,13 @@ def test_analyze_blocks_full_body_for_face_closeup_input(
     token = _register_user(client, telegram_id=999801)
 
     pre_id = "csl-pre-1"
-    asyncio.run(
-        _write_cache(
-            client,
-            pre_id,
-            {
-                "composition_class": "face_closeup",
-                "allowed_framings": ["portrait"],
-                "face_area_ratio": 0.45,
-            },
-        )
+    _write_cache(
+        pre_id,
+        {
+            "composition_class": "face_closeup",
+            "allowed_framings": ["portrait"],
+            "face_area_ratio": 0.45,
+        },
     )
 
     r = client.post(
@@ -130,16 +139,13 @@ def test_analyze_allows_portrait_on_face_closeup_input(
     token = _register_user(client, telegram_id=999802)
     pre_id = "csl-pre-2"
 
-    asyncio.run(
-        _write_cache(
-            client,
-            pre_id,
-            {
-                "composition_class": "face_closeup",
-                "allowed_framings": ["portrait"],
-                "face_area_ratio": 0.45,
-            },
-        )
+    _write_cache(
+        pre_id,
+        {
+            "composition_class": "face_closeup",
+            "allowed_framings": ["portrait"],
+            "face_area_ratio": 0.45,
+        },
     )
 
     r = client.post(
@@ -179,16 +185,13 @@ def test_analyze_advanced_override_bypasses_hard_stop(
     token = _register_user(client, telegram_id=999803)
     pre_id = "csl-pre-3"
 
-    asyncio.run(
-        _write_cache(
-            client,
-            pre_id,
-            {
-                "composition_class": "face_closeup",
-                "allowed_framings": ["portrait"],
-                "face_area_ratio": 0.45,
-            },
-        )
+    _write_cache(
+        pre_id,
+        {
+            "composition_class": "face_closeup",
+            "allowed_framings": ["portrait"],
+            "face_area_ratio": 0.45,
+        },
     )
 
     r = client.post(
@@ -228,16 +231,13 @@ def test_analyze_skip_flag_ignored_when_override_disabled(
     token = _register_user(client, telegram_id=999804)
     pre_id = "csl-pre-4"
 
-    asyncio.run(
-        _write_cache(
-            client,
-            pre_id,
-            {
-                "composition_class": "face_closeup",
-                "allowed_framings": ["portrait"],
-                "face_area_ratio": 0.45,
-            },
-        )
+    _write_cache(
+        pre_id,
+        {
+            "composition_class": "face_closeup",
+            "allowed_framings": ["portrait"],
+            "face_area_ratio": 0.45,
+        },
     )
 
     r = client.post(
