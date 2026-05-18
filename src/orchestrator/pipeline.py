@@ -308,10 +308,9 @@ class AnalysisPipeline:
             except Exception:  # pragma: no cover — defensive
                 scenario_slug_value = None
 
-            # v1.59.6: pipe through the caller-identity tag so the
-            # A/B provider can disable silent A→B fallback for bot
-            # traffic (см. UnifiedImageGenProvider.generate).
-            caller_source = str((context or {}).get("source") or "").strip().lower()
+            # v1.59.6+: ``allow_cross_model_fallback`` is unified across channels
+            # (see task context). ``source`` stays on the context for analytics only.
+            allow_fb = bool((context or {}).get("allow_cross_model_fallback", True))
 
             with _trace_step(trace, "generate_image"):
                 await self._executor.single_pass(
@@ -331,7 +330,7 @@ class AnalysisPipeline:
                     user_input_hints=user_hints,
                     seed=seed,
                     scenario_slug=scenario_slug_value,
-                    caller_source=caller_source,
+                    allow_cross_model_fallback=allow_fb,
                 )
 
             if result_dict.get("generated_image_url") and mode in (

@@ -16,8 +16,13 @@ from src.models.schemas import TaskResponse, TaskHistoryItem, TaskHistoryRespons
 from src.api.deps import get_db, get_current_user, get_redis
 from src.services.task_contract import get_market_id
 from src.utils.redis_keys import gen_image_cache_keys
+from src.utils.storage_url import normalize_storage_url
 
 router = APIRouter()
+
+
+def _normalize_storage_url(url: str) -> str:
+    return normalize_storage_url(url, settings.api_base_url)
 
 _storage_dir = Path(settings.storage_local_path).resolve()
 
@@ -62,23 +67,6 @@ def _project_resolved_slots(raw: object) -> dict | None:
             text = text[: _RESOLVED_SLOT_MAX_LEN].rstrip() + "…"
         out[key] = text
     return out or None
-
-
-def _normalize_storage_url(url: str) -> str:
-    """Rewrite any storage URL to use current api_base_url.
-
-    Handles URLs stored in DB with outdated base (e.g. http://localhost:8000).
-    """
-    if not url:
-        return ""
-    m = _STORAGE_PATH_RE.search(url)
-    if m:
-        base = settings.api_base_url.rstrip("/")
-        return f"{base}{m.group(0)}"
-    if url.startswith("http"):
-        return url
-    base = settings.api_base_url.rstrip("/")
-    return f"{base}/storage/{url.lstrip('/')}"
 
 
 def _extract_history_score_after(result: dict, mode: str) -> float | None:
@@ -272,6 +260,10 @@ async def get_task(
         # — изображение он тянет напрямую через ``/storage/`` endpoint,
         # — поэтому всегда стрипаем поле из исходящего TaskResponse.
         result_view.pop("generated_image_b64", None)
+        if not result_view.get("_purged_at"):
+            for uk in ("generated_image_url", "image_url", "generated_image_path"):
+                if result_view.get(uk):
+                    result_view[uk] = _normalize_storage_url(str(result_view[uk]))
         if result_view.get("_purged_at"):
             for k in (
                 "generated_image_url",

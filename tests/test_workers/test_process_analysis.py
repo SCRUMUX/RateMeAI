@@ -151,6 +151,50 @@ async def test_process_analysis_completes_task():
 
 
 @pytest.mark.asyncio
+async def test_process_analysis_uses_executor_stash_when_storage_download_fails():
+    """Worker re-read can fail across volumes; in-memory stash from executor must work."""
+    task_id = uuid.uuid4()
+    user_id = uuid.uuid4()
+    task = _FakeTask(task_id, user_id, context={"credit_pre_reserved": True})
+    user = _FakeUser(user_id)
+    stub = _jpeg_stub()
+    pipeline_result = {
+        "score": 7.5,
+        "generated_image_url": f"http://test/storage/generated/{user_id}/{task_id}.jpg",
+        "_generation_stash_jpeg": stub,
+    }
+    ctx, _db = _build_ctx(task, user, pipeline_result=pipeline_result)
+    ctx["storage"].download = AsyncMock(side_effect=FileNotFoundError("ephemeral miss"))
+
+    await process_analysis(ctx, str(task_id))
+
+    assert task.status == TaskStatus.COMPLETED.value
+    assert task.result.get("has_generated_image") is True
+    assert task.result.get("generated_image_b64")
+    assert "_generation_stash_jpeg" not in (task.result or {})
+
+
+@pytest.mark.asyncio
+async def test_process_analysis_strips_url_when_staging_bytes_unavailable():
+    task_id = uuid.uuid4()
+    user_id = uuid.uuid4()
+    task = _FakeTask(task_id, user_id, context={"credit_pre_reserved": True})
+    user = _FakeUser(user_id)
+    pipeline_result = {
+        "score": 7.0,
+        "generated_image_url": f"http://test/storage/generated/{user_id}/{task_id}.jpg",
+    }
+    ctx, _db = _build_ctx(task, user, pipeline_result=pipeline_result)
+    ctx["storage"].download = AsyncMock(side_effect=RuntimeError("disk"))
+
+    await process_analysis(ctx, str(task_id))
+
+    assert task.result.get("generated_image_url") in (None, "")
+    assert task.result.get("has_generated_image") is False
+    assert task.result.get("image_gen_error") == "artifact_staging_failed"
+
+
+@pytest.mark.asyncio
 async def test_process_analysis_no_credits_skip_gen():
     """When skip_image_gen, task should complete without image."""
     task_id = uuid.uuid4()

@@ -487,7 +487,7 @@ class ImageGenerationExecutor:
         user_input_hints: dict | None = None,
         seed: int | None = None,
         scenario_slug: str | None = None,
-        caller_source: str = "",
+        allow_cross_model_fallback: bool = True,
     ) -> None:
         if mode not in (
             AnalysisMode.CV,
@@ -628,14 +628,59 @@ class ImageGenerationExecutor:
             if variant_id:
                 result_dict["variant_id"] = variant_id
 
-            # Face area ratio drives two decisions:
+            # Face area ratio drives three decisions:
             #   - whether to upscale x2 (bad idea for tiny faces, amplifies artefacts)
             #   - how strict HAIR protection should be
+            #   - whether to inject the head-crop proportion lock (below)
             face_area_ratio = (
                 float(getattr(input_quality, "face_area_ratio", 0.0) or 0.0)
                 if input_quality is not None
                 else 0.0
             )
+
+            # Head-crop proportion lock (channel-agnostic).
+            #
+            # Telegram bot clients are physically limited to
+            # ``message.photo[-1]`` previews (~1280 px), which is a tight
+            # head-and-shoulders crop in practice. On non-portrait styles
+            # (``half_body`` / ``full_body``) edit models preserve the
+            # head scale from the reference and draw a torso/legs at a
+            # smaller scale around it — the "oversized head, pasted face"
+            # failure mode the user reported after the A/B cutover.
+            # A similar — milder — issue can hit web uploads when the
+            # source photo is itself a head-crop. We gate on
+            # ``face_area_ratio > 0.35`` (matches the
+            # ``check_style_reference_compat`` heuristic used by the bot
+            # before pre-generation) and skip document styles since they
+            # always run ``portrait`` framing anyway. The wording is
+            # positive-framed so it passes the ``_has_disallowed_negative``
+            # guard if it ever ends up in a StyleSpec validator path.
+            try:
+                from src.prompts.image_gen import is_document_style as _is_doc
+                _is_document = bool(_is_doc(style or ""))
+            except Exception:
+                _is_document = False
+            if (
+                not _is_document
+                and framing_norm in ("half_body", "full_body")
+                and face_area_ratio > 0.35
+            ):
+                prompt = (
+                    prompt
+                    + "\n\nComposition note: the reference photo is a tight "
+                    "head-and-shoulders crop. Rescale head and shoulders to "
+                    "match the new framing so head, shoulders and torso read "
+                    "as real human proportions in the final image. Keep the "
+                    "same facial geometry and identity from the reference."
+                )
+                logger.info(
+                    "head_crop_proportion_lock_applied mode=%s style=%s "
+                    "framing=%s face_area_ratio=%.3f",
+                    mode.value,
+                    style or "default",
+                    framing_norm,
+                    face_area_ratio,
+                )
 
             # Provider ``extra`` payload. Provider-specific whitelists
             # apply: FalFlux2ImageGen accepts ``image_size`` + ``seed``,
@@ -751,11 +796,7 @@ class ImageGenerationExecutor:
                 extra["quality"] = ab_image_quality or getattr(
                     settings, "ab_default_quality", "medium"
                 )
-                # v1.59.6: forward the caller-identity tag so the
-                # provider can refuse the silent A→B fallback for
-                # tagged traffic (currently only Telegram bot).
-                if caller_source:
-                    extra["source"] = caller_source
+                extra["allow_cross_model_fallback"] = allow_cross_model_fallback
                 # v1.23: derive a Nano Banana 2 aspect_ratio enum from
                 # the resolved StyleSpec output_size. NB2 does NOT
                 # accept a raw ``{width, height}`` — it needs an enum
@@ -1291,6 +1332,9 @@ class ImageGenerationExecutor:
                 raw = inject_exif_only(raw)
 
                 gkey = f"generated/{user_id}/{task_id}.jpg"
+                # Ephemeral same-process copy so the worker can stage Redis/DB
+                # without a second disk read (app/worker disks differ on Railway).
+                result_dict["_generation_stash_jpeg"] = bytes(raw)
                 await self._storage.upload(gkey, raw)
                 gen_url = await self._storage.get_url(gkey)
                 result_dict["generated_image_url"] = gen_url

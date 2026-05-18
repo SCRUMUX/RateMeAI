@@ -58,6 +58,40 @@ _STYLE_DISPLAY_NAMES: dict[str, dict[str, str]] = _build_display_names()
 _PROCESSING_LOCK = "ratemeai:processing:{}"
 _LOCK_TTL = 300
 
+
+def _framing_for_style(mode: str, style: str) -> str:
+    """Pick the composition framing used by /analyze and the prompt engine.
+
+    Telegram clients never expose a "ракурс" picker, so without this the
+    executor falls back to its compatibility default (``half_body``) which
+    is wrong for two of the three photo modes:
+
+    * Telegram reference images are always ``message.photo[-1]`` previews
+      (≤1280 px), and in practice that is a tight head-and-shoulders crop.
+      ``half_body`` instructs the edit model to draw a torso around the
+      same-sized head, which produces the "oversized head, pasted face"
+      failure mode reported by users.
+    * Web clients default to ``portrait`` (head and shoulders) — see
+      ``web/src/context/AppContext.tsx``. Aligning the bot with the web
+      default closes the most visible quality gap between the channels.
+
+    The exceptions are styles that explicitly require a visible torso /
+    legs (``StyleSpec.needs_full_body``) — those keep ``full_body`` so
+    the prompt and the reference framing both agree the body must be
+    drawn. Document styles always run ``portrait``.
+    """
+    try:
+        from src.prompts.image_gen import STYLE_REGISTRY, is_document_style
+
+        if is_document_style(style):
+            return "portrait"
+        spec = STYLE_REGISTRY.get(mode, style)
+        if spec is not None and getattr(spec, "needs_full_body", False):
+            return "full_body"
+    except Exception:
+        logger.debug("framing_resolve_failed mode=%s style=%s", mode, style)
+    return "portrait"
+
 # P1.1: short-lived locks against rapid double-taps on read-only / cheap
 # callbacks.  ``_PRE_ANALYZE_LOCK`` covers the expensive pre-analyze
 # LLM call (no credits, but billable), while ``_UI_NAV_LOCK`` debounces
@@ -716,31 +750,45 @@ async def _submit_analysis(
 
         from src.orchestrator.enhancement_matrix import level_for_depth
 
-        enh_level = level_for_depth(depth).level
+        # ``enhancement_level`` only changes the image prompt directly for
+        # ``emoji`` (via ``ENHANCEMENT_LEVEL_MODIFIERS`` in
+        # ``src/prompts/image_gen.py``). For photo modes it travels into
+        # the LLM analysis builder and perturbs ``base_description``
+        # unpredictably on each repeat — that is one of the regressions
+        # that started showing up after the A/B cutover, since the
+        # downstream pipeline no longer absorbs prompt drift the way
+        # PuLID + CodeFormer did. Web pins it to ``1`` for photo
+        # generations; mirror that here and keep the depth-based ladder
+        # only for emoji where it actually affects the prompt template.
+        if mode == "emoji":
+            enh_level = level_for_depth(depth).level
+        else:
+            enh_level = 1
 
-        # v1.27.2: bot is an *always-GPT client* by design — Telegram UI
-        # has no Premium/NB2 picker, so we declare the model at the call
-        # site instead of relying on ``settings.ab_default_model``. That
-        # default is correct on a clean deploy, but a manual Railway
-        # dashboard tweak to ``AB_DEFAULT_MODEL`` (or flipping
-        # ``AB_TEST_ENABLED=false``, which falls back to PuLID) would
-        # silently route bot traffic away from GPT with no source-control
-        # trace. The web client retains the Premium toggle and remains
-        # the only path that can opt into Nano Banana 2.
-        #
-        # v1.59.6: also tag ``source="telegram_bot"`` so that the
-        # ``UnifiedImageGenProvider`` catch-fallback (A↔B on provider
-        # error) NEVER drifts bot traffic onto Nano Banana 2. Without
-        # this tag, a transient GPT Image 2 failure (FAL queue timeout,
-        # OpenAI 5xx, OpenAI content-policy on the face) would silently
-        # downgrade the response to NB2 and the user got identity-drift
-        # they did not ask for. The web client does not set this flag
-        # so its B-on-A-error backstop continues to work.
+        # Telegram has no "ракурс" picker, so without these two fields the
+        # executor falls back to ``framing='half_body'`` (see
+        # ``src/orchestrator/executor.py``) which clashes with the tight
+        # Telegram preview reference. We pick framing from the StyleSpec
+        # exactly the same way the web modal does and forward it both as
+        # the top-level form field (kept for analytics + edge fan-out)
+        # and inside ``input_hints`` (where ``executor.single_pass``
+        # reads it via ``modal_framing``).
+        framing = _framing_for_style(mode, style)
+        input_hints_payload = {"framing": framing}
+
+        # Image model + quality: omit ``image_model`` so ``/analyze`` applies
+        # the same ``apply_ab_test_context_fields`` defaults as anonymous web
+        # clients (`settings.ab_default_model`, server-locked ``medium`` tier).
+        # Tag the task for analytics; generation policy is channel-agnostic
+        # (`allow_cross_model_image_fallback` on settings).
+        import json as _json
+
         form_data = {
             "mode": mode,
             "enhancement_level": str(enh_level),
-            "image_model": "gpt_image_2",
             "source": "telegram_bot",
+            "framing": framing,
+            "input_hints": _json.dumps(input_hints_payload, separators=(",", ":")),
         }
         if style:
             form_data["style"] = style

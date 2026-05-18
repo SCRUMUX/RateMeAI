@@ -5515,4 +5515,95 @@
 #          against docker's embedded DNS.  ru-diagnostic.yml gains a
 #          ``restart_nginx=yes`` switch so the same restart can be
 #          triggered out-of-band for already-broken hosts.
-APP_VERSION = "1.62.4"
+# 1.62.5 — Telegram-bot generation quality parity with the web client.
+#
+#          Symptom users reported after the A/B cutover (v1.22): web
+#          generations on GPT Image 2 / Nano Banana 2 look natural,
+#          while the same models in the bot produce an "oversized head,
+#          pasted face" result. The web continues to work even on full-
+#          body styles, so the regression cannot be blamed on the
+#          underlying edit model — both channels run the same provider,
+#          the same ``image_quality=medium``, the same StyleSpec-derived
+#          ``image_size``/``aspect_ratio`` and the same GFPGAN-/Code
+#          Former-skipped A/B post-chain. The only difference left is
+#          the request payload the bot sends to ``/api/v1/analyze`` and
+#          the reference image the model receives:
+#
+#          1) ``framing`` was never forwarded by the bot, so the
+#             executor fell back to its compatibility default
+#             ``half_body`` (src/orchestrator/executor.py:framing_norm).
+#             Web clients default to ``portrait`` (head & shoulders) —
+#             see web/src/context/AppContext.tsx. Telegram references
+#             from ``message.photo[-1]`` are tight head-and-shoulders
+#             previews (max ~1280 px), and edit models preserve the
+#             head scale from the reference: drawing a torso around a
+#             same-sized head on ``half_body`` framing is exactly the
+#             "oversized head" failure mode. Fix: new
+#             ``_framing_for_style`` helper in
+#             src/bot/handlers/mode_select.py picks framing from the
+#             StyleSpec (``needs_full_body`` → ``full_body``, document
+#             styles → ``portrait``, otherwise → ``portrait``) and the
+#             bot forwards it both as a top-level form field and
+#             inside ``input_hints`` so executor.modal_framing reads
+#             the same value the web modal would. fal-ai / Google's
+#             NB2 prompting guide and the OpenAI GPT Image 2 cookbook
+#             both call out "match reference framing to desired output
+#             framing" as the primary lever against head/torso
+#             proportion drift.
+#
+#          2) ``enhancement_level`` was bumped per Telegram repeat
+#             (``level_for_depth(depth)`` → 1, 2, 3, 4) but for photo
+#             modes that value only travels into the LLM analysis
+#             builder and perturbs ``base_description`` — the
+#             ``ENHANCEMENT_LEVEL_MODIFIERS`` map in
+#             src/prompts/image_gen.py only applies to ``emoji``. On
+#             the old StyleRouter pipeline the prompt drift was
+#             absorbed by PuLID + CodeFormer; on NB2 / GPT-2 it shows
+#             through unpredictably. Bot now pins ``enhancement_level
+#             = 1`` for ``dating``/``cv``/``social`` (matches the web
+#             pin) and keeps the depth ladder only for ``emoji`` where
+#             it actually drives the prompt template.
+#
+#          3) Head-crop proportion lock restored in the prompt. v1.14.2
+#             shipped a "head-crop framing hint injected when a full-
+#             body style meets a tight crop" guard. The A/B cutover
+#             (v1.22) bypassed all StyleRouter / PuLID branches, and
+#             with them that hint was no longer reached. The executor
+#             now appends a positive-framed proportion-lock paragraph
+#             ("Rescale head and shoulders to match the new framing so
+#             head, shoulders and torso read as real human proportions
+#             …") to the prompt when ``face_area_ratio > 0.35`` and
+#             framing is ``half_body``/``full_body`` and the style is
+#             not a document style. This is the same threshold the bot
+#             already uses for the pre-generation reference-compat
+#             warning (src/services/input_quality.py), so the trigger
+#             aligns with the existing UX warning. Wording is positive-
+#             framed only and passes ``_has_disallowed_negative`` in
+#             src/prompts/style_spec.py.
+#
+#          Scenario_slug forwarding from the bot was considered and
+#          dropped — ``image_instructions`` in data/scenarios.json is
+#          only populated for visa scenarios, not for core
+#          ``dating-photo``/``resume-photo``/``career`` slugs that
+#          Telegram users would map to, so plumbing the field through
+#          would add complexity for zero prompt-side effect.
+#
+#          Cost neutrality: all three fixes change ``/analyze`` payload
+#          and the in-process prompt string only; FAL call count, model
+#          tier, ``image_quality``/``image_size`` and ``aspect_ratio``
+#          are untouched. Per-request cost stays identical.
+#
+#          Tests:
+#            * tests/test_bot/test_mode_select_form_data.py rewritten
+#              (5 cases): form_data carries framing/input_hints, no
+#              image_model pin, framing is dynamic, input_hints is a
+#              json.dumps call, enhancement_level=1 for photo only.
+#            * tests/test_orchestrator/test_executor_head_crop_hint.py
+#              new (5 cases): hint injected on half_body/full_body
+#              with tight crop, skipped on portrait framing or when
+#              face is small, wording stays positive-framed.
+#            * tests/test_bot/test_results_redis_scope.py — assertion
+#              flipped to match the v1.59.5 contract (reader does NOT
+#              delete the gen_image key, /storage/{task_id} fallback
+#              needs it).
+APP_VERSION = "1.62.5"

@@ -159,56 +159,67 @@ async def test_fallback_sets_routed_backend_to_other_model(
 
 
 # ----------------------------------------------------------------------
-# v1.59.6 — caller-identity guard: bot traffic must NEVER drift to NB2
+# Telegram + web parity: same A↔B fallback policy (allow_cross_model_fallback)
 # ----------------------------------------------------------------------
 
 
 @pytest.mark.asyncio
-async def test_bot_source_does_not_fall_back_to_nano_banana_on_gpt_failure(
+async def test_telegram_tagged_source_falls_back_a_to_b_on_gpt_failure(
     unified_provider, mock_model_a, mock_model_b
 ):
-    """Regression: when the Telegram bot picks GPT Image 2 and the call
-    raises, the unified provider MUST propagate the exception instead of
-    silently retrying on Nano Banana 2.
+    """Bot-tagged traffic uses the same cross-model fallback as web."""
+    mock_model_a.generate.side_effect = Exception("GPT-2 transient")
 
-    Why: the bot is a contractually "always-GPT" client (Telegram has no
-    Premium picker, ``src/bot/handlers/mode_select.py`` hard-codes
-    ``image_model=gpt_image_2``). Pre-v1.59.6 the symmetric A→B fallback
-    kicked in on any GPT-2 hiccup (FAL timeout, OpenAI 5xx, content
-    policy on the face), the request was re-run on NB2 with a prompt
-    built for GPT-2, and the user got back an image with drifted
-    identity. The user-reported incident on 2026-05-10 ~19:24 UTC was
-    one of these.
-    """
-    boom = RuntimeError("GPT Image 2 transient FAL timeout")
-    mock_model_a.generate.side_effect = boom
+    res = await unified_provider.generate(
+        "prompt",
+        b"ref",
+        params={
+            "image_model": "gpt_image_2",
+            "source": "telegram_bot",
+            "allow_cross_model_fallback": True,
+        },
+    )
 
-    with pytest.raises(RuntimeError, match="GPT Image 2 transient FAL timeout"):
+    assert res == b"model_b_bytes"
+    mock_model_a.generate.assert_called_once()
+    mock_model_b.generate.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_allow_cross_model_fallback_false_skips_retry(
+    unified_provider, mock_model_a, mock_model_b
+):
+    mock_model_a.generate.side_effect = RuntimeError("fail")
+
+    with pytest.raises(RuntimeError, match="fail"):
         await unified_provider.generate(
-            "prompt",
-            b"ref",
-            params={"image_model": "gpt_image_2", "source": "telegram_bot"},
+            "p",
+            b"r",
+            params={
+                "image_model": "gpt_image_2",
+                "allow_cross_model_fallback": False,
+            },
         )
-
     mock_model_a.generate.assert_called_once()
     mock_model_b.generate.assert_not_called()
 
 
 @pytest.mark.asyncio
-async def test_bot_source_routed_backend_stays_gpt_image_2_on_failure(
+async def test_symmetric_routed_backend_stays_gpt_image_2_when_fallback_disabled(
     unified_provider, mock_model_a, mock_model_b
 ):
-    """After the guard re-raises, ``get_routed_backend()`` must still
-    report ``gpt_image_2`` — we never actually started running NB2, so
-    cost metrics / Grafana dashboards must not show a phantom NB2 hit.
-    """
     from src.providers.image_gen.unified import get_routed_backend
 
     mock_model_a.generate.side_effect = RuntimeError("OpenAI 503")
 
     with pytest.raises(RuntimeError):
         await unified_provider.generate(
-            "p", b"r", params={"image_model": "gpt_image_2", "source": "telegram_bot"}
+            "p",
+            b"r",
+            params={
+                "image_model": "gpt_image_2",
+                "allow_cross_model_fallback": False,
+            },
         )
     assert get_routed_backend() == "gpt_image_2"
     mock_model_b.generate.assert_not_called()
@@ -218,11 +229,7 @@ async def test_bot_source_routed_backend_stays_gpt_image_2_on_failure(
 async def test_web_caller_still_falls_back_a_to_b_on_gpt_failure(
     unified_provider, mock_model_a, mock_model_b
 ):
-    """The guard MUST be scoped to ``source=telegram_bot`` only. A web
-    client (no ``source`` tag or any other value) must keep getting the
-    legacy A→B backstop so a transient GPT-2 error still produces a
-    user-visible image, even if it is from NB2.
-    """
+    """Transient GPT-2 error still produces an image from NB2 (default allow_fb)."""
     mock_model_a.generate.side_effect = Exception("GPT-2 transient")
 
     res = await unified_provider.generate(

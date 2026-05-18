@@ -294,6 +294,9 @@ class Settings(BaseSettings):
     # (old bot builds, edge proxy, curl, tests). GPT Image 2 at
     # ``quality=medium`` is the recommended starting tier to guarantee background details.
     ab_default_model: str = "gpt_image_2"
+    # When True, UnifiedImageGen retries the other A/B model on transient
+    # failures (same policy for web, bot, and internal callers).
+    allow_cross_model_image_fallback: bool = True
     # ------------------------------------------------------------------
     # variation_engine_v2_enabled stays as a behavioural flag for the
     # composition builder — it controls whether the builder uses the

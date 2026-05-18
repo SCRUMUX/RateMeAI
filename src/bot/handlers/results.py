@@ -25,12 +25,23 @@ from src.config import settings
 from src.services.enhancement_advisor import build_enhancement_preview
 from src.utils.text_sanitize import sanitize_llm_text
 from src.utils.redis_keys import gen_image_cache_keys
+from src.utils.storage_url import normalize_storage_url
 
 logger = logging.getLogger(__name__)
 
 _MAX_PHOTO_BYTES = 9 * 1024 * 1024
 _MAX_CAPTION_LEN = 1024
 _STORAGE_BASE = Path(settings.storage_local_path).resolve()
+
+
+def _normalize_task_result_image_urls(result: dict) -> None:
+    """Rewrite storage URLs to the current public API base (Railway deploy drift)."""
+    base = settings.api_base_url
+    for k in ("generated_image_url", "image_url"):
+        v = result.get(k)
+        if v:
+            result[k] = normalize_storage_url(str(v), base)
+
 
 # Marker written when a generation result is shown to the user.  Used by
 # the catch-all fallback to surface a post-result CTA (`share / topup`)
@@ -120,7 +131,11 @@ async def _send_photo_safe(
                     )
 
     if not sent:
-        logger.error("All photo delivery methods failed for: %s", url_or_path)
+        logger.error(
+            "telegram_delivery: all photo methods failed url=%s chat_id=%s",
+            url_or_path[:200] if url_or_path else "",
+            chat_id,
+        )
         return False
 
     if full_text:
@@ -158,12 +173,6 @@ async def _fetch_gen_image_from_redis(
             b64 = await redis.get(cache_key)
             if not b64:
                 continue
-            try:
-                await redis.delete(cache_key)
-            except Exception:
-                logger.debug(
-                    "Failed to delete Redis key %s after read", cache_key, exc_info=True
-                )
             data = base64.b64decode(b64)
             logger.info(
                 "Loaded generated image from Redis for task %s via %s (%d bytes)",
@@ -377,8 +386,15 @@ async def deliver_result(
     api_base_url: str = "",
 ):
     result = data.get("result", {})
+    _normalize_task_result_image_urls(result)
     mode = data.get("mode", "rating")
     task_id = str(data.get("task_id", ""))
+    logger.debug(
+        "telegram_delivery: task_id=%s market_id=%s has_url=%s",
+        task_id,
+        settings.resolved_market_id,
+        bool((result.get("generated_image_url") or result.get("image_url"))),
+    )
 
     # Mark "we just showed a result" so the fallback handler can react
     # to natural-language follow-ups ("nice!", "спасибо", emoji) with a
@@ -667,6 +683,12 @@ async def _send_enhanced(
             bot, chat_id, img, caption=caption, reply_markup=kb, full_text=full_text
         ):
             return
+        logger.warning(
+            "telegram_delivery: URL path failed mode=%s user=%s url=%s",
+            mode,
+            user_id,
+            (img or "")[:160],
+        )
 
     await bot.send_message(chat_id, text, parse_mode="Markdown", reply_markup=kb)
 
@@ -918,5 +940,10 @@ async def _send_emoji(
             bot, chat_id, img, caption=caption, reply_markup=kb, full_text=full_text
         ):
             return
+        logger.warning(
+            "telegram_delivery: emoji URL path failed user=%s url=%s",
+            user_id,
+            (img or "")[:160],
+        )
 
     await bot.send_message(chat_id, text, parse_mode="Markdown", reply_markup=kb)

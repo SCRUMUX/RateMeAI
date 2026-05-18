@@ -30,6 +30,10 @@ from src.config import settings
 from src.models.db import CreditTransaction, Task, User, UserIdentity
 from src.models.enums import AnalysisMode, TaskStatus
 from src.api.deps import get_db, get_redis
+from src.services.analysis_request import (
+    apply_ab_test_context_fields,
+    is_whitelisted_task_source_telegram,
+)
 from src.services.task_contract import build_policy_flags, build_task_context
 
 
@@ -247,28 +251,12 @@ async def process_analysis_remote(
     ctx["skip_credit_deduct"] = True
     ctx["defer_delta_scoring"] = True
 
-    # v1.22: mirror the /analyze A/B fallback here so edge traffic
-    # (RU-edge → primary) routes through Nano Banana 2 / GPT Image 2
-    # just like direct primary traffic. Empty / unknown values resolve
-    # to settings.ab_default_model / settings.ab_default_quality
-    # (typically ``gpt_image_2`` + ``low``). When AB_TEST_ENABLED is
-    # false the block is skipped entirely and the legacy hybrid
-    # StyleRouter takes over — same rollback knob as on /analyze.
-    if settings.ab_test_enabled:
-        _AB_MODELS = {"nano_banana_2", "gpt_image_2"}
-        _AB_QUALITIES = {"low", "medium", "high"}
-        im = (request.image_model or "").strip().lower()
-        iq = (request.image_quality or "").strip().lower()
-        if im not in _AB_MODELS:
-            im = getattr(settings, "ab_default_model", "gpt_image_2")
-            if im not in _AB_MODELS:
-                im = "gpt_image_2"
-        if iq not in _AB_QUALITIES:
-            iq = getattr(settings, "ab_default_quality", "low")
-            if iq not in _AB_QUALITIES:
-                iq = "low"
-        ctx["image_model"] = im
-        ctx["image_quality"] = iq
+    apply_ab_test_context_fields(ctx, image_model=request.image_model, settings=settings)
+    ctx["allow_cross_model_fallback"] = settings.allow_cross_model_image_fallback
+
+    # Persist whitelisted ``source`` tag (e.g. Telegram) for analytics.
+    if is_whitelisted_task_source_telegram(request.source or ""):
+        ctx["source"] = "telegram_bot"
 
     # v1.26: положить framing и input_hints в task ``ctx`` — оттуда их
     # достаёт ``pipeline._execute_inner`` и передаёт в executor/promp engine.
@@ -276,12 +264,6 @@ async def process_analysis_remote(
         ctx["framing"] = request.framing.strip()
     if isinstance(request.input_hints, dict) and request.input_hints:
         ctx["input_hints"] = dict(request.input_hints)
-
-    # v1.59.6: persist whitelisted ``source`` tag (currently only the
-    # Telegram bot) — the executor / UnifiedImageGenProvider read it
-    # to refuse the silent A→B fallback for bot traffic.
-    if (request.source or "").strip().lower() == "telegram_bot":
-        ctx["source"] = "telegram_bot"
 
     ctx = build_task_context(
         ctx,

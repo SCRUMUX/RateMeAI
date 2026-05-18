@@ -22,6 +22,10 @@ from src.services.consent import (
     snapshot_for_task,
 )
 from src.services.privacy import PrivacyLayer
+from src.services.analysis_request import (
+    apply_ab_test_context_fields,
+    is_whitelisted_task_source_telegram,
+)
 from src.services.task_contract import (
     build_policy_flags,
     build_task_context,
@@ -342,10 +346,6 @@ async def _fail_edge_task(
         )
 
 
-AB_MODELS_ALLOWED = frozenset({"nano_banana_2", "gpt_image_2"})
-AB_QUALITIES_ALLOWED = frozenset({"low", "medium", "high"})
-
-
 @router.post("", response_model=TaskCreated, status_code=202)
 async def create_analysis(
     request: Request,
@@ -364,11 +364,8 @@ async def create_analysis(
     framing: str = Form(""),
     input_hints: str = Form(""),
     seed: str = Form(""),
-    # v1.59.6: ``source`` is an optional caller-identity tag. Currently
-    # only the Telegram bot sets it (to ``"telegram_bot"``) so the A/B
-    # provider can refuse the silent A→B fallback for bot traffic; see
-    # ``UnifiedImageGenProvider.generate``. Unknown / empty values are
-    # treated as web clients (default behaviour, fallback allowed).
+    # Optional caller tag (``telegram_bot`` whitelisted) for analytics —
+    # generation policy uses ``allow_cross_model_fallback`` on the task.
     source: str = Form(""),
     user: User = Depends(check_credits_with_consent),
     db: AsyncSession = Depends(get_db),
@@ -434,38 +431,13 @@ async def create_analysis(
         ctx["credit_pre_reserved"] = True
     if mode in (AnalysisMode.DATING, AnalysisMode.CV, AnalysisMode.SOCIAL):
         ctx["defer_delta_scoring"] = True
-    # v1.59.6: keep ``source`` in the task context so the executor and
-    # the A/B provider can disable the silent NB2 fallback for callers
-    # that explicitly declared themselves (currently only the bot). We
-    # only persist a whitelisted value to prevent log injection / DB
-    # bloat from arbitrary user-controlled strings.
-    if (source or "").strip().lower() == "telegram_bot":
+    if is_whitelisted_task_source_telegram(source):
         ctx["source"] = "telegram_bot"
 
-    # v1.22: A/B path is now the default. If the client did not send
-    # ``image_model`` (old bot build, edge proxy, curl, etc.) we fall
-    # back to ``settings.ab_default_model`` / ``settings.ab_default_quality``
-    # so the executor always routes through the new providers. The old
-    # hybrid StyleRouter only takes over when ``AB_TEST_ENABLED=false``
-    # is flipped on Railway — that's the documented emergency rollback
-    # and keeps this endpoint one env-var away from pre-v1.22 behaviour.
-    if settings.ab_test_enabled:
-        im = (image_model or "").strip().lower()
-        if im not in AB_MODELS_ALLOWED:
-            im = getattr(settings, "ab_default_model", "gpt_image_2")
-            if im not in AB_MODELS_ALLOWED:
-                im = "gpt_image_2"
-        # v1.25: quality tier is locked to the production-optimal
-        # ``medium`` on the server regardless of what the client sends.
-        # Both A/B models (NB2 / GPT Image 2) produce Full-HD-class
-        # output at this tier; ``low`` lacks background detail, ``high``
-        # only raises cost without perceptible face-quality gain. The
-        # form parameter ``image_quality`` is kept for contract
-        # compatibility (edge→primary hop, older clients) but its value
-        # no longer drives routing.
-        iq = "medium"
-        ctx["image_model"] = im
-        ctx["image_quality"] = iq
+    # A/B image model + locked server-side quality tier (shared with internal/edge).
+    apply_ab_test_context_fields(ctx, image_model=image_model, settings=settings)
+    # Same cross-model fallback policy for all channels unless overridden later.
+    ctx["allow_cross_model_fallback"] = settings.allow_cross_model_image_fallback
 
     consent_snapshot = getattr(user, "_consents_snapshot", None) or {}
     if consent_snapshot:

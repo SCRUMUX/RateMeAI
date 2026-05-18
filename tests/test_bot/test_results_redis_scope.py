@@ -67,8 +67,15 @@ async def test_bot_reader_picks_up_scoped_key_written_by_worker(
 
     got = await _fetch_gen_image_from_redis(fake_redis, task_id)
     assert got == payload
-    assert scoped_key not in fake_redis._store, (
-        "reader должен удалить ключ после чтения"
+    # Контракт обновлён в 1.59.5 (fix-redis-delete): reader НЕ удаляет ключ,
+    # потому что тот же ключ читает ``/storage/{task_id}`` фоллбэк-роут
+    # (когда send_photo вернулся с ошибкой и мы пытаемся положить картинку
+    # как HTTPS-урл). TTL у ключа короткий — 15 минут (privacy_stash_ttl),
+    # уборка происходит сама.
+    assert scoped_key in fake_redis._store, (
+        "reader НЕ должен удалять ключ после чтения — его читает также "
+        "/storage/{task_id} фоллбэк-роут, и удаление до фоллбэка ломает "
+        "доставку в Telegram при retry."
     )
 
 
