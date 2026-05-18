@@ -128,6 +128,8 @@ async def pre_analyze(
         ],
         blocking_issues=[],
         face_area_ratio=quality_report.face_area_ratio,
+        composition_class=quality_report.composition_class,
+        allowed_framings=list(quality_report.allowed_framings),
     )
 
     if settings.uses_remote_ai:
@@ -188,6 +190,16 @@ async def pre_analyze(
 
     humanize_result_scores(result_dict, pre_id)
     result_dict["_scores_humanized"] = True
+    # Composition Safety Layer — persist the classifier output alongside
+    # the LLM result so /api/v1/analyze can run a server-side hard-stop
+    # on the requested ``framing`` even after the front-end picker was
+    # bypassed. Key intentionally underscore-prefixed: it is internal
+    # metadata, not part of the public PreAnalysisResponse schema.
+    result_dict["_csl"] = {
+        "composition_class": quality_report.composition_class,
+        "allowed_framings": list(quality_report.allowed_framings),
+        "face_area_ratio": quality_report.face_area_ratio,
+    }
 
     try:
         await redis.set(

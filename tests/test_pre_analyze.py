@@ -291,6 +291,43 @@ def test_format_pre_analysis_message_no_opportunities():
 # ── PreAnalysisResponse schema ──
 
 
+def test_input_quality_public_exposes_csl_fields():
+    """Composition Safety Layer (CSL) must be visible to the wizard /
+    SPA so framing buttons and style cards can be greyed out before the
+    user even tries to submit. The frontend reads
+    ``input_quality.composition_class`` + ``input_quality.allowed_framings``
+    out of the pre-analyze response."""
+    from src.models.schemas import InputQualityPublic
+
+    payload = InputQualityPublic(
+        can_generate=True,
+        blocking_issues=[],
+        soft_warnings=[],
+        face_area_ratio=0.45,
+        composition_class="face_closeup",
+        allowed_framings=["portrait"],
+    )
+    d = payload.model_dump()
+    assert d["composition_class"] == "face_closeup"
+    assert d["allowed_framings"] == ["portrait"]
+    assert d["face_area_ratio"] == 0.45
+
+
+def test_input_quality_report_to_public_propagates_csl():
+    """Sanity: writing CSL onto the internal report and then serializing
+    must produce the same wire format the SPA expects (round-trip)."""
+
+    rep = InputQualityReport(
+        can_generate=True,
+        face_area_ratio=0.45,
+        composition_class="face_closeup",
+        allowed_framings=["portrait"],
+    )
+    d = rep.to_public_dict()
+    assert d["composition_class"] == "face_closeup"
+    assert d["allowed_framings"] == ["portrait"]
+
+
 def test_pre_analysis_response_schema():
     from src.models.schemas import PreAnalysisResponse
 

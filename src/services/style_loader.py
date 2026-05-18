@@ -59,7 +59,11 @@ def get_structured_specs() -> list[StructuredStyleSpec]:
         except ValueError:
             type_val = StyleType.FLEXIBLE
 
-        from src.prompts.style_spec import _DOCUMENT_STYLE_KEYS, detect_needs_full_body
+        from src.prompts.style_spec import (
+            _DOCUMENT_STYLE_KEYS,
+            detect_needs_full_body,
+            detect_needs_torso,
+        )
 
         is_doc = s["id"] in _DOCUMENT_STYLE_KEYS
         gen_mode = "scene_preserve" if is_doc else "identity_scene"
@@ -100,6 +104,7 @@ def get_structured_specs() -> list[StructuredStyleSpec]:
             key=s["id"],
             mode=s["mode"],
             needs_full_body=detect_needs_full_body(s["id"], s["mode"]),
+            needs_torso=detect_needs_torso(s["id"], s["mode"]),
             generation_mode=gen_mode,
             output_aspect=aspect,
         )

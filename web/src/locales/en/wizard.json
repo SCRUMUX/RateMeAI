@@ -129,6 +129,12 @@
     "framingPortrait": "Portrait",
     "framingHalf": "Half body",
     "framingFull": "Full body",
+    "framingLocked": "Your photo doesn't show the torso — this framing is locked. Upload a photo where shoulders and torso are visible.",
+    "framingLockedUnknown": "We couldn't determine the photo composition — only portrait framing is available.",
+    "compositionFaceCloseup": "Only the face is visible in the photo — body generation may produce unnatural proportions. Portrait styles are available.",
+    "compositionUnknown": "We couldn't determine the photo composition — only portrait styles are available.",
+    "styleLockedComposition": "This style needs a photo with shoulders and torso visible.",
+    "styleRiskyComposition": "This style expects a visible torso — on a tight face crop the result may be unstable.",
     "noPhotoForParams": "Upload a photo to view the parameters",
     "recommended": "Recommended styles",
     "generateCta": "Generate",
@@ -142,8 +148,18 @@
     "close": "Close",
     "lockedAfter": "Available after {{count}} generations",
     "lockedSoon": "Coming soon",
+    "lockedComposition": "Upload a photo with shoulders and torso visible to unlock",
     "soonBadge": "Soon",
+    "compositionBadge": "Needs torso",
     "empty": "No styles available"
+  },
+  "advancedSettings": {
+    "title": "Advanced settings",
+    "close": "Close",
+    "warning": "Generating a body from a tight portrait can produce unrealistic proportions and anatomical errors — the face may end up grafted onto someone else's shoulders.",
+    "skipLabel": "Disable composition check",
+    "skipHelp": "Allow generating any style regardless of the source photo's composition.",
+    "confirm": "Done"
   },
   "styleSettings": {
     "title": "Style settings",

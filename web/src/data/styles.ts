@@ -8,6 +8,14 @@ export interface StyleItem {
   param: 'warmth' | 'presence' | 'appeal' | 'trust' | 'competence' | 'hireability';
   deltaRange: [number, number];
   unlock_after_generations?: number;
+  /** Composition Safety Layer — style demands a visible torso + legs
+   * in the upload (yoga, beach, running, etc.). Locked in style
+   * pickers when ``compositionClass`` is FACE_CLOSEUP / PORTRAIT /
+   * UNKNOWN. */
+  needs_full_body?: boolean;
+  /** CSL — style demands a visible bust / shoulders. Surfaced as a
+   * soft warning (not a lock) on tight head-crop uploads. */
+  needs_torso?: boolean;
 }
 
 export interface ScoreParam {

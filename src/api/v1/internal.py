@@ -148,6 +148,13 @@ class RemoteAnalysisRequest(BaseModel):
     # Whitelist is currently {"telegram_bot"}; any other value is
     # treated the same as empty (web-client default).
     source: str = ""
+    # Composition Safety Layer — see src/services/composition_safety.py.
+    # When True the edge forwards the user's "advanced override" intent
+    # so the primary skips the framing/style hard-stop. The primary's
+    # ``settings.composition_safety_advanced_override`` still acts as
+    # the deployment-level kill-switch: the field is ignored unless
+    # the override flag is enabled on the primary.
+    skip_composition_safety: bool = False
 
 
 class RemoteAnalysisResponse(BaseModel):
@@ -264,6 +271,16 @@ async def process_analysis_remote(
         ctx["framing"] = request.framing.strip()
     if isinstance(request.input_hints, dict) and request.input_hints:
         ctx["input_hints"] = dict(request.input_hints)
+
+    # Composition Safety Layer — edge already validated against its own
+    # pre-analysis copy (or the user opted into advanced override). The
+    # primary still checks ``composition_safety_advanced_override`` so a
+    # rogue edge cannot grant itself a bypass on a deployment that hasn't
+    # opted in.
+    if request.skip_composition_safety and bool(
+        getattr(settings, "composition_safety_advanced_override", False)
+    ):
+        ctx["composition_safety_skipped"] = True
 
     ctx = build_task_context(
         ctx,

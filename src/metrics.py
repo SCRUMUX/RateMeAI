@@ -227,3 +227,39 @@ STYLE_MODE_OVERRIDE = Counter(
     "Router-initiated generation_mode overrides",
     labelnames=["from_mode", "to_mode", "reason"],
 )
+
+
+# ---------------------------------------------------------------------------
+# Composition Safety Layer (CSL) — see src/services/composition_safety.py.
+# ---------------------------------------------------------------------------
+
+# Per-classification counter. ``source`` is ``heuristic`` (Phase 1
+# face-bbox classifier) or ``pose`` (Phase 2 MediaPipe Pose, behind
+# ``settings.body_landmarks_enabled``). Skewed source distribution
+# (e.g. heuristic >> pose during rollout) is the signal we watch when
+# enabling the Pose detector.
+COMPOSITION_CLASS = Counter(
+    "ratemeai_composition_class_total",
+    "Composition class detected on pre-analyze, by classifier source",
+    labelnames=["composition_class", "source"],
+)
+
+# Style-pick attempts blocked by the CSL policy. ``composition_class``
+# is the upload's class, ``style`` is the key the user tried to pick.
+# Used to: (a) measure the actual impact of CSL on the funnel, (b)
+# spot styles whose ``needs_full_body`` flag is mis-curated.
+COMPOSITION_BLOCK = Counter(
+    "ratemeai_composition_block_total",
+    "Style requests blocked by composition policy",
+    labelnames=["composition_class", "style"],
+)
+
+# Advanced-override (Phase 3) usage. Increments once per generation
+# request that successfully bypassed CSL because the user opted in via
+# the advanced-settings modal. A high override rate vs. ``block``
+# means users disagree with the policy — calibration signal.
+COMPOSITION_OVERRIDE_USED = Counter(
+    "ratemeai_composition_override_used_total",
+    "Composition safety bypassed via advanced override",
+    labelnames=["composition_class", "style"],
+)

@@ -75,6 +75,26 @@ interface AppState {
   imageModel: api.AbImageModel;
   imageQuality: api.AbImageQuality;
   framing: string;
+  /**
+   * Composition Safety Layer — see src/services/composition_safety.py.
+   * Mirrors ``preAnalysis.input_quality.composition_class`` so style /
+   * framing pickers can read a single source of truth. Defaults to
+   * ``'unknown'`` (= portrait-only policy) until pre-analyze returns.
+   */
+  compositionClass: string;
+  /**
+   * CSL — framings the user may safely pick. Defaults to all three
+   * before pre-analyze returns so the picker isn't artificially
+   * gated for the wizard's "upload-first" flow.
+   */
+  allowedFramings: string[];
+  /**
+   * CSL — user opted into the "Advanced settings" override. When
+   * true, the generation call forwards ``skip_composition_safety=true``
+   * to the API. The flag resets every time a new photo is uploaded
+   * so a stale opt-in does not bleed into the next session.
+   */
+  skipCompositionSafety: boolean;
 }
 
 interface AppActions {
@@ -107,6 +127,12 @@ interface AppActions {
   revokeConsents: (kinds: string[]) => Promise<void>;
   setImageModel: (m: api.AbImageModel) => void;
   setImageQuality: (q: api.AbImageQuality) => void;
+  /**
+   * CSL — flip the advanced-override flag. Components that surface
+   * the toggle (``AdvancedSettingsModal``) call this; ``uploadPhoto``
+   * resets it back to ``false``.
+   */
+  setSkipCompositionSafety: (v: boolean) => void;
 }
 
 const Ctx = createContext<(AppState & AppActions) | null>(null);
@@ -209,8 +235,48 @@ export function AppProvider({ children }: { children: ReactNode }) {
       }
     } catch { /* localStorage unavailable */ }
   }, []);
-  const [framing, setFraming] = useState<string>('portrait');
-  
+  const [framing, setFramingState] = useState<string>('portrait');
+  const [skipCompositionSafety, setSkipCompositionSafety] = useState<boolean>(false);
+
+  // Derived from preAnalysis.input_quality so the rest of the UI never
+  // has to dig through optional chaining. Defaults to the fully-open
+  // set before pre-analyze completes — the wizard's earliest screens
+  // need to render *something* (style cards, framing buttons) and we
+  // don't want to hide every full-body style on initial paint just
+  // because the analysis hasn't returned yet.
+  const compositionClass = useMemo<string>(() => {
+    return preAnalysis?.input_quality?.composition_class || 'unknown';
+  }, [preAnalysis]);
+  const allowedFramings = useMemo<string[]>(() => {
+    const fromAnalysis = preAnalysis?.input_quality?.allowed_framings;
+    if (Array.isArray(fromAnalysis) && fromAnalysis.length > 0) {
+      return fromAnalysis;
+    }
+    // No analysis yet → keep the picker fully open so the user isn't
+    // surprised by a half-disabled UI on the upload screen.
+    return ['portrait', 'half_body', 'full_body'];
+  }, [preAnalysis]);
+
+  // CSL — keep ``framing`` inside the allowed set. Whenever the analysis
+  // produces a more restrictive policy and the current pick is no
+  // longer valid, snap it to the safest framing (portrait > half_body
+  // > full_body order matches the policy's preference for the safest
+  // crop).
+  const setFraming = useCallback((f: string) => {
+    setFramingState(f);
+  }, []);
+  useEffect(() => {
+    if (!framing) return;
+    if (allowedFramings.includes(framing)) return;
+    for (const preferred of ['portrait', 'half_body', 'full_body']) {
+      if (allowedFramings.includes(preferred)) {
+        setFramingState(preferred);
+        return;
+      }
+    }
+    setFramingState(allowedFramings[0] || 'portrait');
+  }, [allowedFramings, framing]);
+
   const setImageModel = useCallback((m: api.AbImageModel) => {
     setImageModelState(m);
     try { localStorage.setItem('ailook_ab_model', m); }
@@ -288,6 +354,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
           param: (s.meta?.param as any) || 'appeal',
           deltaRange: (s.meta?.delta_range as any) || [0.1, 0.3],
           unlock_after_generations: s.unlock_after_generations || 0,
+          needs_full_body: Boolean(s.needs_full_body),
+          needs_torso: Boolean(s.needs_torso),
         };
       });
       setCatalogStyles(prev => ({ ...prev, [mode]: mapped }));
@@ -342,6 +410,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
           param: (s.meta?.param as any) || 'appeal',
           deltaRange: (s.meta?.delta_range as any) || [0.1, 0.3],
           unlock_after_generations: s.unlock_after_generations || 0,
+          needs_full_body: Boolean(s.needs_full_body),
+          needs_torso: Boolean(s.needs_torso),
         };
       });
       setScenarioStyles(prev => ({ ...prev, [scenarioBucketSlug]: mapped }));
@@ -452,6 +522,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setAfterPerception(null);
     setGenerationMode(null);
     setPreAnalyzeLoading(false);
+    // CSL — fresh upload must invalidate the advanced-override choice
+    // so a one-shot opt-in cannot bleed into the next photo session.
+    setSkipCompositionSafety(false);
   }, []);
 
   const runPreAnalyze = useCallback(async () => {
@@ -971,6 +1044,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
           framing,
           inputHints,
           seed,
+          skipCompositionSafety,
         },
       );
       setCurrentTask({ taskId: res.task_id, status: res.status, result: null });
@@ -1031,6 +1105,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     // прилетает параметром в generate() из StyleSettingsModal, так что
     // его в deps держать не нужно.
     framing,
+    skipCompositionSafety,
   ]);
 
   const share = useCallback(async () => {
@@ -1078,6 +1153,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     effectiveStyleList, effectiveApiMode, hasRealAuth, canAccessApp,
     consentState,
     imageModel, imageQuality, framing,
+    compositionClass, allowedFramings, skipCompositionSafety,
     syncScenarioFromRoute,
     setActiveCategory, setSelectedStyleKey, uploadPhoto, runPreAnalyze,
     generate, share, refreshBalance, clearError, setError, clearGeneratedImage, clearNoCreditsError,
@@ -1085,6 +1161,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     loginWithOAuth, loginWithToken, logout, refreshIdentities,
     fetchConsents, grantConsents, revokeConsents,
     setImageModel, setImageQuality, setFraming,
+    setSkipCompositionSafety,
   };
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;

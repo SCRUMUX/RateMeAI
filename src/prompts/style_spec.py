@@ -124,6 +124,9 @@ class StructuredStyleSpec:
     key: str = ""
     mode: str = ""
     needs_full_body: bool = False
+    # CSL: softer "needs a visible torso" hint (luxury, boardroom,
+    # formal portraits). See StyleSpecV3.needs_torso for the contract.
+    needs_torso: bool = False
     output_aspect: OutputAspect = "portrait_4_3"
     generation_mode: GenerationMode = "identity_scene"
     variants: tuple[StyleVariant, ...] = field(default_factory=tuple)
@@ -165,6 +168,10 @@ class StyleSpec:
     # drifts and destroys identity. Bot uses this flag to surface a
     # pre-generation warning and give the user a choice to reupload.
     needs_full_body: bool = False
+    # CSL — see StructuredStyleSpec/StyleSpecV3.needs_torso. Softer than
+    # ``needs_full_body``: a tight head crop will only get a soft warning
+    # for these (boardroom / luxury / linkedin_premium), not a hard block.
+    needs_torso: bool = False
     # Output aspect preset for the image-gen provider. FLUX.2 Pro Edit
     # honours ``image_size`` with both a preset enum and a custom
     # ``{width, height}`` dict — the provider resolves the preset into
@@ -597,6 +604,49 @@ def detect_needs_full_body(key: str, mode: str) -> bool:
     return key in _NEEDS_FULL_BODY_KEYS
 
 
+# CSL: styles that compose around the upper torso / shoulders — luxury
+# suits, formal portraits, premium LinkedIn-style headshots, restaurant
+# / bar tablescapes that frame the bust. A FACE_CLOSEUP upload doesn't
+# block these (the edit model can still produce a reasonable bust),
+# but the result is less stable than on a true PORTRAIT-class upload,
+# so we surface a soft "may look unnatural" warning. Hand-curated by
+# the product team; mirrors _NEEDS_FULL_BODY_KEYS in spirit.
+_NEEDS_TORSO_KEYS: frozenset[str] = frozenset(
+    {
+        # dating
+        "luxury",
+        "studio_elegant",
+        "rooftop_city",
+        "restaurant",
+        "bar_lounge",
+        # cv non-document
+        "corporate",
+        "boardroom",
+        "formal_portrait",
+        "legal_finance",
+        "speaker_stage",
+        # social
+        "linkedin_premium",
+        "mirror_aesthetic",
+    }
+)
+
+
+def detect_needs_torso(key: str, mode: str) -> bool:
+    """Return True when the style frames the bust / upper torso.
+
+    Used by the Composition Safety Layer to mark a (style, upload) pair
+    as *risky* (soft warn) instead of fully *forbidden* — see
+    :mod:`src.services.composition_safety` for the policy matrix.
+    """
+    # ``needs_full_body`` implies ``needs_torso`` — a beach / yoga style
+    # also expects a visible bust, so the warning path stays consistent
+    # even if the operator forgets to list the key in both sets.
+    if key in _NEEDS_FULL_BODY_KEYS:
+        return True
+    return key in _NEEDS_TORSO_KEYS
+
+
 # Document styles have strict composition requirements (passport / visa /
 # license). Fixed to 1 MP square so we spend less on stylistic detail
 # the spec won't use anyway.
@@ -762,6 +812,7 @@ def build_spec_from_legacy(
         mode=mode,
         variants=variants,
         needs_full_body=detect_needs_full_body(key, mode),
+        needs_torso=detect_needs_torso(key, mode),
         output_aspect=aspect,
         generation_mode=gen_mode,
     )

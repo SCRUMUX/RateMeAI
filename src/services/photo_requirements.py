@@ -42,6 +42,23 @@ class IssueCode:
     # alone cannot know which style the user will pick.
     FACE_TOO_TIGHT_FOR_BODY_SHOT = "face_too_tight_for_body_shot"
 
+    # Composition Safety Layer (CSL) — see src/services/composition_safety.py.
+    # These codes are emitted by the style/reference compatibility check
+    # (and, for FRAMING_NOT_ALLOWED, by /api/v1/analyze) based on the
+    # ``composition_class`` produced during pre-analyze.
+    #
+    # Severities:
+    #   COMPOSITION_FACE_CLOSEUP  → warn (informational, on face_closeup uploads)
+    #   COMPOSITION_UNKNOWN       → warn (informational, when detector failed)
+    #   STYLE_RISKY_FOR_COMPOSITION → warn (torso-required style on tight crop)
+    #   STYLE_FORBIDDEN_FOR_COMPOSITION → block (full-body style on face/portrait)
+    #   FRAMING_NOT_ALLOWED       → block (server-side hard-stop on /analyze)
+    COMPOSITION_FACE_CLOSEUP = "composition_face_closeup"
+    COMPOSITION_UNKNOWN = "composition_unknown"
+    STYLE_FORBIDDEN_FOR_COMPOSITION = "style_forbidden_for_composition"
+    STYLE_RISKY_FOR_COMPOSITION = "style_risky_for_composition"
+    FRAMING_NOT_ALLOWED = "framing_not_allowed"
+
 
 # Russian-language texts for each code.
 # Keep short and actionable: user sees these directly on UI/bot.
@@ -98,6 +115,26 @@ _ISSUE_TEXTS_RU: dict[str, dict[str, str]] = {
     IssueCode.FACE_TOO_TIGHT_FOR_BODY_SHOT: {
         "message": "Выбранный стиль предполагает видимое тело, а на фото только лицо крупным планом.",
         "suggestion": "Для стабильного результата загрузите фото, где видны плечи и корпус, или выберите портретный стиль.",
+    },
+    IssueCode.COMPOSITION_FACE_CLOSEUP: {
+        "message": "На фото только лицо — генерация тела может дать неестественные пропорции.",
+        "suggestion": "Доступны портретные стили. Чтобы открыть полнотельные образы, загрузите фото, где видны плечи и торс.",
+    },
+    IssueCode.COMPOSITION_UNKNOWN: {
+        "message": "Не удалось определить композицию фото — доступны только портретные стили.",
+        "suggestion": "Загрузите чёткое фото с видимым лицом, чтобы открыть стили в полный рост.",
+    },
+    IssueCode.STYLE_FORBIDDEN_FOR_COMPOSITION: {
+        "message": "Для генерации в полный рост необходимо, чтобы на исходном изображении был виден торс или пропорции тела.",
+        "suggestion": "Загрузите фото с плечами и корпусом или выберите портретный стиль.",
+    },
+    IssueCode.STYLE_RISKY_FOR_COMPOSITION: {
+        "message": "Выбранный стиль рассчитан на видимый торс — на крупном лицевом портрете результат может быть нестабильным.",
+        "suggestion": "Для более естественного результата загрузите фото с плечами или выберите портретный стиль.",
+    },
+    IssueCode.FRAMING_NOT_ALLOWED: {
+        "message": "Выбранный кадр недоступен для этого фото.",
+        "suggestion": "Снова откройте выбор кадра — доступные варианты обновились по результатам анализа.",
     },
 }
 
@@ -156,6 +193,26 @@ _ISSUE_TEXTS_EN: dict[str, dict[str, str]] = {
     IssueCode.FACE_TOO_TIGHT_FOR_BODY_SHOT: {
         "message": "The chosen style needs a visible body, but the photo is a tight face crop.",
         "suggestion": "Upload a photo with shoulders and torso visible, or pick a portrait style.",
+    },
+    IssueCode.COMPOSITION_FACE_CLOSEUP: {
+        "message": "Only the face is visible in the photo — body generation may produce unnatural proportions.",
+        "suggestion": "Portrait styles are available. To unlock full-body looks, upload a photo where shoulders and torso are visible.",
+    },
+    IssueCode.COMPOSITION_UNKNOWN: {
+        "message": "We couldn't determine the photo composition — only portrait styles are available.",
+        "suggestion": "Upload a clear photo with a visible face to unlock full-body styles.",
+    },
+    IssueCode.STYLE_FORBIDDEN_FOR_COMPOSITION: {
+        "message": "Full-body generation requires the source image to show the torso or body proportions.",
+        "suggestion": "Upload a photo showing shoulders and torso, or pick a portrait style.",
+    },
+    IssueCode.STYLE_RISKY_FOR_COMPOSITION: {
+        "message": "The chosen style expects a visible torso — on a tight face crop the result may be unstable.",
+        "suggestion": "For a more natural result, upload a photo with shoulders visible or pick a portrait style.",
+    },
+    IssueCode.FRAMING_NOT_ALLOWED: {
+        "message": "The chosen framing is not available for this photo.",
+        "suggestion": "Reopen the framing picker — the available options were updated based on the photo analysis.",
     },
 }
 

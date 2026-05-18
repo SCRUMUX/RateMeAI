@@ -78,6 +78,19 @@ class InputQualityReport:
     # reuse the MediaPipe detection from this pass instead of
     # re-running it (1 detect per request instead of up to 3).
     face_bbox: tuple[int, int, int, int] | None = None
+    # Composition Safety Layer (CSL) — classifier output.
+    # ``composition_class`` is one of ``CompositionClass`` values, kept
+    # as a plain string for trivial JSON / Redis round-trips. The
+    # ``allowed_framings`` list mirrors the per-class policy from
+    # :mod:`src.services.composition_safety` and is exposed to UIs so
+    # they can disable framing buttons that would otherwise drive an
+    # edit model into the "head crop → full body" failure mode.
+    # ``body_landmarks_detected`` records whether the Phase 2
+    # MediaPipe Pose detector actually fired (False on the Phase 1
+    # heuristic-only path).
+    composition_class: str = "unknown"
+    allowed_framings: list[str] = field(default_factory=lambda: ["portrait"])
+    body_landmarks_detected: bool = False
 
     @property
     def blocking(self) -> list[InputQualityIssue]:
@@ -98,6 +111,9 @@ class InputQualityReport:
             "can_generate": self.can_generate,
             "soft_warnings": [i.to_dict() for i in self.soft_warnings],
             "blocking_issues": [i.to_dict() for i in self.blocking],
+            "face_area_ratio": self.face_area_ratio,
+            "composition_class": self.composition_class,
+            "allowed_framings": list(self.allowed_framings),
         }
 
     def to_prompt_hints(self) -> dict[str, Any]:
@@ -472,9 +488,90 @@ def analyze_input_quality(image_bytes: bytes) -> InputQualityReport:
     if 0 <= report.hair_bg_contrast < 0.08:
         report.issues.append(_issue(IssueCode.HAIR_BG_SIMILAR, "warn"))
 
+    # ------------------------------------------------------------------
+    # Composition Safety Layer — Phase 1 (heuristic).
+    #
+    # Runs on the success path, after face detection produced a bbox.
+    # Early-return branches (invalid image, missing detector, NO_FACE)
+    # keep the dataclass defaults composition_class=unknown /
+    # allowed_framings=["portrait"] — the fail-closed-safe policy.
+    #
+    # Phase 2 (MediaPipe Pose) plugs in here behind
+    # settings.body_landmarks_enabled and refines the heuristic with
+    # shoulders/hips/knees visibility.
+    # ------------------------------------------------------------------
+    try:
+        from src.services.composition_safety import (
+            CompositionClass,
+            allowed_framings as _csl_allowed_framings,
+            classify_heuristic as _csl_classify,
+        )
+
+        composition_cls: CompositionClass = _csl_classify(
+            report.face_bbox,
+            report.face_area_ratio,
+            report.width,
+            report.height,
+            face_closeup_face_ratio=float(
+                getattr(settings, "csl_face_closeup_face_ratio", 0.35)
+            ),
+            face_closeup_space_below=float(
+                getattr(settings, "csl_face_closeup_space_below", 1.0)
+            ),
+            portrait_face_ratio=float(
+                getattr(settings, "csl_portrait_face_ratio", 0.18)
+            ),
+            portrait_space_below=float(
+                getattr(settings, "csl_portrait_space_below", 2.0)
+            ),
+            half_body_face_ratio=float(
+                getattr(settings, "csl_half_body_face_ratio", 0.06)
+            ),
+            half_body_space_below=float(
+                getattr(settings, "csl_half_body_space_below", 4.0)
+            ),
+        )
+        composition_source = "heuristic"
+
+        if bool(getattr(settings, "body_landmarks_enabled", False)):
+            try:
+                from src.services.body_landmarks import (
+                    classify_from_landmarks as _pose_classify,
+                    detect_landmarks as _pose_detect,
+                )
+
+                landmarks = _pose_detect(arr_rgb)
+                if landmarks is not None:
+                    composition_cls = _pose_classify(landmarks)
+                    composition_source = "pose"
+                    report.body_landmarks_detected = True
+            except Exception:
+                logger.debug(
+                    "CSL: body_landmarks detector failed, keeping heuristic",
+                    exc_info=True,
+                )
+
+        report.composition_class = composition_cls.value
+        report.allowed_framings = _csl_allowed_framings(composition_cls)
+
+        try:
+            from src.metrics import COMPOSITION_CLASS
+
+            COMPOSITION_CLASS.labels(
+                composition_class=composition_cls.value,
+                source=composition_source,
+            ).inc()
+        except Exception:
+            pass
+    except Exception:
+        logger.warning(
+            "CSL: composition classifier raised, keeping defaults",
+            exc_info=True,
+        )
+
     logger.info(
         "InputQuality: face_area=%.3f center_off=%.2f yaw=%.1f blur_f=%.0f blur_full=%.0f "
-        "hair_bg=%.2f n_faces=%d can_gen=%s blocks=%s warns=%s",
+        "hair_bg=%.2f n_faces=%d can_gen=%s composition=%s allowed=%s blocks=%s warns=%s",
         report.face_area_ratio,
         report.face_center_offset,
         report.yaw,
@@ -483,6 +580,8 @@ def analyze_input_quality(image_bytes: bytes) -> InputQualityReport:
         report.hair_bg_contrast,
         report.num_faces,
         report.can_generate,
+        report.composition_class,
+        report.allowed_framings,
         [i.code for i in report.blocking],
         [i.code for i in report.soft_warnings],
     )
@@ -505,26 +604,75 @@ def check_style_reference_compat(
     face_area_ratio: float,
     mode: str,
     style_key: str,
+    composition_class: str | None = None,
 ) -> InputQualityIssue | None:
-    """Return a soft warning issue if the (reference × style) combo is risky.
+    """Return a soft / blocking issue if the (reference × style) combo is risky.
 
-    This is a **bot-side** check run after the user has picked both a photo
-    and a style — it cannot be done during the initial input_quality pass
-    because we do not know the style yet. Intentionally returns a single
-    optional ``warn``-severity issue rather than mutating a report: the
-    caller decides how to surface it (inline keyboard with accept/reupload
-    in the Telegram bot, banner on web, etc.).
+    This is a **bot-side** (or wizard-side) check run after the user has
+    picked both a photo and a style — it cannot be done during the
+    initial input_quality pass because we do not know the style yet.
+
+    Composition Safety Layer (Phase 1):
+        When ``composition_class`` is explicitly provided (one of
+        :class:`CompositionClass` values **including ``"unknown"``**),
+        CSL drives a hard block / soft warn / OK decision via the policy
+        table in :mod:`src.services.composition_safety`.
+
+        When ``composition_class`` is ``None`` (legacy callers that
+        haven't migrated to passing the class yet), only the original
+        face-area-ratio heuristic runs. New callers MUST pass
+        ``composition_class`` so they benefit from CSL — ``unknown``
+        is the safest explicit value (fail-closed).
+
+    Severity contract:
+        * ``"block"`` — UI must refuse the generation and prompt the
+          user to either reupload the photo or pick a portrait-class
+          style. The advanced-override flow (Phase 3) is the only way
+          past this.
+        * ``"warn"`` — UI keeps the style selectable and shows a soft
+          notice that the result may look unnatural.
+        * ``None`` — combination is fine.
     """
     # Local import to avoid circular import at module load:
     # src.prompts.image_gen imports src.services.style_catalog which — indirectly
     # through other modules — can re-enter input_quality during startup.
     from src.prompts.image_gen import STYLE_REGISTRY
+    from src.services.composition_safety import (
+        CompositionClass,
+        is_style_forbidden,
+        is_style_risky,
+    )
 
     spec = STYLE_REGISTRY.get(mode, style_key)
-    if spec is None or not spec.needs_full_body:
+    if spec is None:
         return None
 
-    if face_area_ratio <= FACE_TOO_TIGHT_FOR_BODY_THRESHOLD:
-        return None
+    if composition_class is not None:
+        cls = CompositionClass.parse(composition_class)
 
-    return _issue(IssueCode.FACE_TOO_TIGHT_FOR_BODY_SHOT, "warn")
+        if is_style_forbidden(cls, spec):
+            try:
+                from src.metrics import COMPOSITION_BLOCK
+
+                COMPOSITION_BLOCK.labels(
+                    composition_class=cls.value,
+                    style=style_key,
+                ).inc()
+            except Exception:
+                pass
+            return _issue(IssueCode.STYLE_FORBIDDEN_FOR_COMPOSITION, "block")
+
+        if is_style_risky(cls, spec):
+            return _issue(IssueCode.STYLE_RISKY_FOR_COMPOSITION, "warn")
+
+    # Legacy fallback — kept so callers that don't (yet) pass
+    # composition_class still see the original face-too-tight warning
+    # on full-body styles. The CSL path above strictly subsumes this
+    # for callers that do pass composition_class.
+    if (
+        getattr(spec, "needs_full_body", False)
+        and face_area_ratio > FACE_TOO_TIGHT_FOR_BODY_THRESHOLD
+    ):
+        return _issue(IssueCode.FACE_TOO_TIGHT_FOR_BODY_SHOT, "warn")
+
+    return None

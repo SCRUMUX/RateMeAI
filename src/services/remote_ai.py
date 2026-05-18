@@ -74,6 +74,7 @@ class RemoteAIService:
         framing: str = "",
         input_hints: dict[str, Any] | None = None,
         source: str = "",
+        skip_composition_safety: bool = False,
     ) -> str:
         """Submit an analysis task to the primary backend. Returns remote task ID."""
         payload = {
@@ -115,6 +116,10 @@ class RemoteAIService:
             # tagged requests so bot traffic never drifts onto NB2 on a
             # GPT Image 2 error. Older primaries ignore unknown fields.
             "source": source or "",
+            # Composition Safety Layer override — forwarded from edge so
+            # the primary can decide whether to honour it (depends on
+            # ``settings.composition_safety_advanced_override`` there).
+            "skip_composition_safety": bool(skip_composition_safety),
         }
         try:
             resp = await self._client.post(
@@ -288,6 +293,7 @@ class RemoteAIService:
         framing: str = "",
         input_hints: dict[str, Any] | None = None,
         source: str = "",
+        skip_composition_safety: bool = False,
         on_poll: Any | None = None,
     ) -> dict[str, Any]:
         """Submit a task and wait for it to complete. Returns full result."""
@@ -312,6 +318,7 @@ class RemoteAIService:
             framing=framing,
             input_hints=input_hints,
             source=source,
+            skip_composition_safety=skip_composition_safety,
         )
         return await self.poll_result(remote_id, on_poll=on_poll)
 

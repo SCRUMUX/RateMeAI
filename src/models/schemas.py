@@ -304,6 +304,16 @@ class InputQualityPublic(BaseModel):
     # FLUX Kontext Pro and we warn the user explicitly.
     face_area_ratio: float = 0.0
 
+    # Composition Safety Layer (CSL) — see src/services/composition_safety.py.
+    # Both fields are optional in the wire format so older clients (and
+    # legacy bot deployments without CSL UI) continue to work without
+    # caring about them. ``composition_class`` is one of the
+    # CompositionClass values; ``allowed_framings`` lists the
+    # framings that are safe to surface in pickers for this upload —
+    # the fail-closed-safe default (UNKNOWN) is ``["portrait"]``.
+    composition_class: str = "unknown"
+    allowed_framings: list[str] = Field(default_factory=lambda: ["portrait"])
+
 
 class VisaComplianceItem(BaseModel):
     """One bullet of a visa/document compliance checklist.

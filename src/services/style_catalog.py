@@ -133,6 +133,7 @@ STYLE_CATALOG: _BotCatalogProxy = _BotCatalogProxy()
 
 def get_catalog_json(mode: str) -> list[dict]:
     """Return catalog for a mode as JSON-friendly list of dicts."""
+    from src.prompts.style_spec import detect_needs_full_body, detect_needs_torso
     from src.services.style_loader import load_styles_from_json
 
     styles = load_styles_from_json()
@@ -140,13 +141,23 @@ def get_catalog_json(mode: str) -> list[dict]:
 
     for s in styles:
         if s.get("mode") == mode and not _is_scenario_only(s):
+            sid = s["id"]
+            smode = s.get("mode", mode)
             items.append(
                 {
-                    "key": s["id"],
-                    "label": s.get("display_label", s["id"]),
+                    "key": sid,
+                    "label": s.get("display_label", sid),
                     "hook": s.get("hook_text", ""),
                     "meta": s.get("meta", {}),
                     "unlock_after_generations": s.get("unlock_after_generations", 0),
+                    # Composition Safety Layer — expose the two
+                    # composition requirements so the web UI can lock /
+                    # warn the style icon based on the user's pre-analyze
+                    # composition_class. Always-on, regardless of
+                    # schema_version, because legacy clients ignore
+                    # unknown keys harmlessly.
+                    "needs_full_body": detect_needs_full_body(sid, smode),
+                    "needs_torso": detect_needs_torso(sid, smode),
                 }
             )
 
@@ -160,20 +171,25 @@ def get_scenario_styles_json(scenario: str) -> list[dict]:
     web app can fetch e.g. document-format styles for ``/dokumenty``
     without polluting the main ``cv`` catalog.
     """
+    from src.prompts.style_spec import detect_needs_full_body, detect_needs_torso
     from src.services.style_loader import load_styles_from_json
 
     items: list[dict] = []
     for s in load_styles_from_json():
         if s.get("scenario") != scenario:
             continue
+        sid = s["id"]
+        smode = s.get("mode") or ""
         items.append(
             {
-                "key": s["id"],
-                "label": s.get("display_label", s["id"]),
+                "key": sid,
+                "label": s.get("display_label", sid),
                 "hook": s.get("hook_text", ""),
                 "meta": s.get("meta", {}),
                 "unlock_after_generations": s.get("unlock_after_generations", 0),
                 "mode": s.get("mode"),
+                "needs_full_body": detect_needs_full_body(sid, smode),
+                "needs_torso": detect_needs_torso(sid, smode),
             }
         )
     return items
@@ -280,6 +296,7 @@ def get_catalog_json_v2(mode: str) -> list[dict]:
     (``1`` or ``2``) so the UI can decide whether to render legacy
     ``allowed_variations`` or the new slot-based controls for that style.
     """
+    from src.prompts.style_spec import detect_needs_full_body, detect_needs_torso
     from src.services.style_loader import load_styles_from_json
 
     styles = load_styles_from_json()
@@ -287,14 +304,18 @@ def get_catalog_json_v2(mode: str) -> list[dict]:
     for s in styles:
         if s.get("mode") != mode or _is_scenario_only(s):
             continue
+        sid = s["id"]
+        smode = s.get("mode", mode)
         items.append(
             {
-                "key": s["id"],
-                "label": s.get("display_label", s["id"]),
+                "key": sid,
+                "label": s.get("display_label", sid),
                 "hook": s.get("hook_text", ""),
                 "meta": s.get("meta", {}),
                 "unlock_after_generations": s.get("unlock_after_generations", 0),
                 "schema_version": int(s.get("schema_version") or 1),
+                "needs_full_body": detect_needs_full_body(sid, smode),
+                "needs_torso": detect_needs_torso(sid, smode),
             }
         )
     return items
@@ -302,21 +323,26 @@ def get_catalog_json_v2(mode: str) -> list[dict]:
 
 def get_scenario_styles_json_v2(scenario: str) -> list[dict]:
     """Return styles tagged with ``scenario == <scenario>`` enriched with v2 flag."""
+    from src.prompts.style_spec import detect_needs_full_body, detect_needs_torso
     from src.services.style_loader import load_styles_from_json
 
     items: list[dict] = []
     for s in load_styles_from_json():
         if s.get("scenario") != scenario:
             continue
+        sid = s["id"]
+        smode = s.get("mode") or ""
         items.append(
             {
-                "key": s["id"],
-                "label": s.get("display_label", s["id"]),
+                "key": sid,
+                "label": s.get("display_label", sid),
                 "hook": s.get("hook_text", ""),
                 "meta": s.get("meta", {}),
                 "unlock_after_generations": s.get("unlock_after_generations", 0),
                 "mode": s.get("mode"),
                 "schema_version": int(s.get("schema_version") or 1),
+                "needs_full_body": detect_needs_full_body(sid, smode),
+                "needs_torso": detect_needs_torso(sid, smode),
             }
         )
     return items

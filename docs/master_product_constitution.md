@@ -277,11 +277,35 @@ Input -> Orchestrator -> [IdentityPreservation -> SelectiveEdit -> ExpressionAdj
 
 | Gate | Метрика | Действие при провале |
 |------|---------|---------------------|
+| InputQuality | разрешение, blur, число лиц, det_score | блок до генерации |
+| **CompositionSafety** | composition_class ∈ {face_closeup,…,full_body} vs needs_full_body/needs_torso | блок или warn до генерации (см. §9.3.1) |
 | FaceSimilarity | cosine similarity эмбеддингов (ArcFace) >= threshold | retry или rollback |
 | ArtifactDetection | Perceptual Artifact Ratio < threshold | локальная коррекция |
 | PhotorealismCheck | aesthetic score + no-AI-look validation | reject + re-generate |
 
 Если хоть один gate не пройден — результат не показывается пользователю.
+
+### 9.3.1 Composition Safety Layer (anti-uncanny-valley)
+
+Фото-вход классифицируется до сборки промпта на 4 шкалы кадра:
+`face_closeup → portrait → half_body → full_body`. Стиль может
+объявлять о своих требованиях через два флага в
+`StyleSpecV3`: `needs_full_body` (требует ноги) и `needs_torso` (требует
+плечи/торс). Политика — fail-closed safe: если детектор вернул
+`unknown`, действует тот же режим, что для `face_closeup`.
+
+| Правило | Эффект |
+|---|---|
+| `needs_full_body=True` + класс ∈ {face_closeup, portrait, unknown} | hard-block (UI прячет кадр и стиль, сервер отдаёт 400 `framing_not_allowed`) |
+| `needs_torso=True` + класс ∈ {face_closeup, unknown} | warn (стиль остаётся выбираемым, показывается мягкое предупреждение) |
+| advanced override включён + клиент подтвердил | блок ослабляется, `composition_override_used` инкрементится |
+
+Архитектурная защита — двухуровневая: SPA/бот блокируют опции в UI,
+а `/api/v1/analyze` независимо проверяет `framing` против кеша
+`pre_analysis` в Redis. Curl-обход невозможен без явного override,
+явный override регистрируется в метриках.
+
+Подробности и rollout-план — [docs/ARCHITECTURE.md §8](ARCHITECTURE.md#8-composition-safety-layer-csl).
 
 ### 9.4 Разрешенные изменения
 
@@ -414,6 +438,9 @@ Input -> Orchestrator -> [IdentityPreservation -> SelectiveEdit -> ExpressionAdj
 - Арт-стили вместо реализма.
 - Перегруженные интерфейсы.
 - Каталог ради каталога.
+- **Расширять кадр без анатомических опорных точек** (huge head on
+  hallucinated body) — за это отвечает Composition Safety Layer,
+  обходить его без `composition_safety_advanced_override` запрещено.
 - Фейковый прогресс.
 - Нестабильный скор.
 - Критика и «оценка» пользователя как личности.

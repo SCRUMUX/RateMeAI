@@ -1,0 +1,18 @@
+# Calibration photos are NOT committed to the repo.
+# Only the JSON labels file is versioned; actual JPEGs live on the
+# operator's workstation. Place them at the relative_path stated in
+# composition_labels.json before running:
+#
+#     python -m scripts.calibrate_composition_thresholds
+#
+# This keeps the repo small AND prevents accidental upload of
+# personally identifiable photographs.
+
+*.jpg
+*.jpeg
+*.png
+*.webp
+
+# But we DO keep the labels manifest under version control.
+!composition_labels.json
+!.gitignore

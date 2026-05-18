@@ -489,21 +489,38 @@ export default function StyleSettingsModal({ open, onClose, styleId, initialHint
                       </button>
                       {options!.framing!.map((opt) => {
                         const active = (hints.framing ?? '') === opt;
+                        // Composition Safety Layer — gate the choice
+                        // by the upload's composition_class. We keep
+                        // the chip visible (so the user sees what
+                        // they're missing) but disable it and show a
+                        // tooltip explaining the lock.
+                        const allowed = app.allowedFramings.includes(opt);
+                        const lockTitle = app.compositionClass === 'unknown'
+                          ? t('style.framingLockedUnknown')
+                          : t('style.framingLocked');
                         return (
                           <button
                             key={opt}
                             type="button"
-                            onClick={() => setHints((h) => ({
-                              ...h,
-                              framing: active ? '' : opt,
-                            }))}
+                            disabled={!allowed}
+                            title={!allowed ? lockTitle : undefined}
+                            onClick={() => {
+                              if (!allowed) return;
+                              setHints((h) => ({
+                                ...h,
+                                framing: active ? '' : opt,
+                              }));
+                            }}
                             className={`px-[var(--space-12)] py-[var(--space-4)] rounded-[var(--radius-pill)] text-[12px] leading-[16px] font-medium transition-all ${
                               active
                                 ? 'glass-btn-primary text-white'
-                                : 'glass-btn-ghost text-[var(--color-text-secondary)]'
+                                : allowed
+                                  ? 'glass-btn-ghost text-[var(--color-text-secondary)]'
+                                  : 'glass-btn-ghost text-[var(--color-text-muted)] opacity-50 cursor-not-allowed'
                             }`}
                           >
                             {labelFor(t, 'framing', opt)}
+                            {!allowed && <span aria-hidden className="ml-[2px]">🔒</span>}
                           </button>
                         );
                       })}

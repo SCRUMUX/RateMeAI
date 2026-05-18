@@ -161,6 +161,10 @@ class StyleSpecV2:
     # without branching on the schema version at every call site.
     expression: str = ""
     needs_full_body: bool = False
+    # CSL — see StyleSpecV3.needs_torso. Softer than ``needs_full_body``:
+    # a tight head-crop upload only raises a soft warning for these
+    # styles, never a hard block.
+    needs_torso: bool = False
     output_aspect: Literal[
         "portrait_4_3",
         "portrait_16_9",

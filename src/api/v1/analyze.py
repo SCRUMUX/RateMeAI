@@ -84,6 +84,7 @@ async def _handle_edge_analysis(
     framing: str = "",
     input_hints: dict | None = None,
     source: str = "",
+    skip_composition_safety: bool = False,
 ) -> None:
     """In edge mode: proxy the AI task to the primary Railway backend.
 
@@ -172,6 +173,15 @@ async def _handle_edge_analysis(
                 # to NB2 on a GPT-2 error for bot traffic, defeating
                 # the entire point of this guard.
                 source=(task_context or {}).get("source", "") or source,
+                # Composition Safety Layer: forward the override choice
+                # so the primary can decide whether to bypass its own
+                # framing/style hard-stop. Stored in task_context by the
+                # edge endpoint when the user opted in via the advanced
+                # settings flow.
+                skip_composition_safety=bool(
+                    (task_context or {}).get("composition_safety_skipped", False)
+                    or skip_composition_safety
+                ),
                 on_poll=_edge_progress,
             )
 
@@ -364,6 +374,12 @@ async def create_analysis(
     framing: str = Form(""),
     input_hints: str = Form(""),
     seed: str = Form(""),
+    # Composition Safety Layer — when set to "true" by an advanced UI,
+    # the server bypasses the framing / style hard-stop for this
+    # request. Honoured only if ``settings.composition_safety_advanced_override``
+    # is True on this deployment, so a client cannot enable it on its
+    # own. Counted via the ``COMPOSITION_OVERRIDE_USED`` metric.
+    skip_composition_safety: bool = Form(False),
     # Optional caller tag (``telegram_bot`` whitelisted) for analytics —
     # generation policy uses ``allow_cross_model_fallback`` on the task.
     source: str = Form(""),
@@ -411,6 +427,90 @@ async def create_analysis(
         ctx["variant_id"] = variant_id.strip()
     if framing.strip():
         ctx["framing"] = framing.strip()
+
+    # ------------------------------------------------------------------
+    # Composition Safety Layer — server-side hard-stop.
+    #
+    # Without this block a malicious / out-of-date client could send a
+    # framing that the front-end picker hid, and the prompt pipeline
+    # would happily generate "huge head on hallucinated body". We
+    # validate against the policy attached to the pre-analyze cache
+    # entry (written in src/api/v1/pre_analyze.py under the ``_csl``
+    # key). Requests without ``pre_analysis_id`` are accepted: they
+    # follow the legacy executor path where head_crop_proportion_lock
+    # is still the last line of defence.
+    # ``skip_composition_safety`` honours the advanced-override flow
+    # (Phase 3); we silently ignore it when the deployment hasn't
+    # opted in so a client cannot enable the override on its own.
+    # ------------------------------------------------------------------
+    effective_skip_csl = bool(
+        skip_composition_safety
+        and getattr(settings, "composition_safety_advanced_override", False)
+    )
+    if pre_analysis_id.strip() and framing.strip() and not effective_skip_csl:
+        try:
+            from src.utils.redis_keys import preanalysis_cache_keys
+
+            cached_raw = None
+            for key in preanalysis_cache_keys(
+                pre_analysis_id.strip(), settings.resolved_market_id
+            ):
+                cached_raw = await redis.get(key)
+                if cached_raw is not None:
+                    break
+
+            if cached_raw is not None:
+                import json as _json
+
+                cached_data = _json.loads(
+                    cached_raw.decode() if isinstance(cached_raw, bytes) else cached_raw
+                )
+                csl_meta = cached_data.get("_csl") or {}
+                composition_class = str(csl_meta.get("composition_class") or "unknown")
+                allowed = list(csl_meta.get("allowed_framings") or ["portrait"])
+                requested_framing = framing.strip().lower()
+                if requested_framing and requested_framing not in allowed:
+                    try:
+                        from src.metrics import COMPOSITION_BLOCK
+
+                        COMPOSITION_BLOCK.labels(
+                            composition_class=composition_class,
+                            style=style.strip() or "unknown",
+                        ).inc()
+                    except Exception:
+                        pass
+                    raise HTTPException(
+                        status_code=400,
+                        detail={
+                            "code": "framing_not_allowed",
+                            "message": (
+                                "Выбранный кадр недоступен для этого фото "
+                                "(composition_class=%s)." % composition_class
+                            ),
+                            "composition_class": composition_class,
+                            "allowed_framings": allowed,
+                        },
+                    )
+        except HTTPException:
+            raise
+        except Exception:
+            logger.exception(
+                "CSL hard-stop: failed to validate framing against pre_analysis_id=%s",
+                pre_analysis_id,
+            )
+
+    if effective_skip_csl:
+        ctx["composition_safety_skipped"] = True
+        try:
+            from src.metrics import COMPOSITION_OVERRIDE_USED
+
+            COMPOSITION_OVERRIDE_USED.labels(
+                composition_class="unknown",
+                style=style.strip() or "unknown",
+            ).inc()
+        except Exception:
+            pass
+
     if input_hints.strip():
         import json
 
@@ -530,6 +630,10 @@ async def create_analysis(
                 input_hints=ctx.get("input_hints") or None,
                 # v1.59.6: bot-only fallback guard tag.
                 source=ctx.get("source", ""),
+                # CSL — propagate advanced-override decision to edge proxy.
+                skip_composition_safety=bool(
+                    ctx.get("composition_safety_skipped", False)
+                ),
             ),
             name=f"edge-analysis-{task.id}",
         )

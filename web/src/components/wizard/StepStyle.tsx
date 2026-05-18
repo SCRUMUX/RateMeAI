@@ -4,7 +4,11 @@ import { COMING_SOON_CATEGORIES, getMockDelta } from '../../data/styles';
 import { useApp } from '../../context/AppContext';
 import ProgressBar from './ProgressBar';
 import StylesSheet from './StylesSheet';
-import { computeLockedKeys } from './lockedStyles';
+import {
+  computeCompositionLockedKeys,
+  computeCompositionRiskyKeys,
+  computeLockedKeys,
+} from './lockedStyles';
 import { PARAM_LABELS, computeStyleDeltas } from './shared';
 
 interface Props {
@@ -26,9 +30,18 @@ export default function StepStyle({ onNext }: Props) {
 
   const [sheetOpen, setSheetOpen] = useState(false);
 
-  const lockedKeys = useMemo(
-    () => computeLockedKeys(styles, app.taskHistoryCount),
-    [styles, app.taskHistoryCount],
+  // Composition Safety Layer locks merge with the unlock-by-generations
+  // set so the picker treats both blockers identically. Risky styles
+  // (CSL soft warnings) are tracked separately because the user can
+  // still pick them — we only show a notice.
+  const lockedKeys = useMemo(() => {
+    const unlockLocked = computeLockedKeys(styles, app.taskHistoryCount);
+    const cslLocked = computeCompositionLockedKeys(styles, app.compositionClass);
+    return new Set<string>([...unlockLocked, ...cslLocked]);
+  }, [styles, app.taskHistoryCount, app.compositionClass]);
+  const riskyKeys = useMemo(
+    () => computeCompositionRiskyKeys(styles, app.compositionClass),
+    [styles, app.compositionClass],
   );
 
   const selectedStyle = styles.find(s => s.key === app.selectedStyleKey) ?? styles[0];
@@ -96,6 +109,30 @@ export default function StepStyle({ onNext }: Props) {
         </p>
       </div>
 
+      {/* Composition Safety Layer — informational banner. Shown only
+          when the upload sits in one of the constrained categories so
+          users understand why some framings / styles are locked. */}
+      {!isComingSoon && (app.compositionClass === 'face_closeup' || app.compositionClass === 'unknown') && (
+        <div className="gradient-border-card glass-card rounded-[var(--radius-12)] p-[var(--space-12)] flex items-start gap-[var(--space-8)] text-[12px] leading-[16px] text-[var(--color-text-secondary)]">
+          <span aria-hidden className="text-[16px] leading-none">💡</span>
+          <span>
+            {app.compositionClass === 'unknown'
+              ? t('style.compositionUnknown')
+              : t('style.compositionFaceCloseup')}
+          </span>
+        </div>
+      )}
+
+      {/* CSL warning when the *currently selected* style is risky for
+          the upload (soft warn, not a block). Keeps the user moving
+          but flags the trade-off before they tap Generate. */}
+      {!isComingSoon && selectedStyle && riskyKeys.has(selectedStyle.key) && (
+        <div className="gradient-border-card glass-card rounded-[var(--radius-12)] p-[var(--space-12)] flex items-start gap-[var(--space-8)] text-[12px] leading-[16px] text-[var(--color-warning-base)]">
+          <span aria-hidden className="text-[16px] leading-none">⚠️</span>
+          <span>{t('style.styleRiskyComposition')}</span>
+        </div>
+      )}
+
       {isComingSoon ? (
         comingSoonBlock
       ) : hasStyles ? (
@@ -114,24 +151,39 @@ export default function StepStyle({ onNext }: Props) {
                 {selectedStyle.desc}
               </p>
               
-              {/* Framing selector */}
+              {/* Framing selector — Composition Safety Layer gates the
+                  options here based on the pre-analyze composition_class.
+                  Disabled buttons keep their slot in the row (we don't
+                  hide them outright) so users see what they unlock by
+                  reuploading a wider crop. */}
               <div className="flex flex-col gap-[var(--space-8)] pt-[var(--space-4)] border-t border-[var(--glass-border-soft)]">
                 <span className="text-[12px] leading-[16px] text-[var(--color-text-muted)]">{t('style.framingTitle')}</span>
                 <div className="flex bg-[var(--glass-surface-soft)] p-1 rounded-[var(--radius-8)]">
-                  {FRAMING_OPTIONS.map((opt) => (
-                    <button
-                      key={opt.id}
-                      type="button"
-                      onClick={() => app.setFraming(opt.id)}
-                      className={`flex-1 py-[var(--space-6)] text-[13px] leading-[18px] font-medium rounded-[var(--radius-6)] transition-all ${
-                        app.framing === opt.id
-                          ? 'bg-[var(--color-surface-2)] text-[var(--color-text-primary)] shadow-sm'
-                          : 'text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)]'
-                      }`}
-                    >
-                      {opt.label}
-                    </button>
-                  ))}
+                  {FRAMING_OPTIONS.map((opt) => {
+                    const allowed = app.allowedFramings.includes(opt.id);
+                    const lockReason = app.compositionClass === 'unknown'
+                      ? t('style.framingLockedUnknown')
+                      : t('style.framingLocked');
+                    return (
+                      <button
+                        key={opt.id}
+                        type="button"
+                        disabled={!allowed}
+                        title={!allowed ? lockReason : undefined}
+                        onClick={() => allowed && app.setFraming(opt.id)}
+                        className={`flex-1 py-[var(--space-6)] text-[13px] leading-[18px] font-medium rounded-[var(--radius-6)] transition-all ${
+                          app.framing === opt.id
+                            ? 'bg-[var(--color-surface-2)] text-[var(--color-text-primary)] shadow-sm'
+                            : allowed
+                              ? 'text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)]'
+                              : 'text-[var(--color-text-muted)] opacity-40 cursor-not-allowed'
+                        }`}
+                      >
+                        {opt.label}
+                        {!allowed && <span aria-hidden className="ml-[2px]">🔒</span>}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
             </div>

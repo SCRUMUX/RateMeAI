@@ -1,0 +1,31 @@
+{
+  "$schema": "https://example.com/ratemeai/composition_labels.schema.json",
+  "version": 1,
+  "description": "Hand-labeled composition classes for the CSL calibration dataset. Add one entry per photo placed in this folder. Photos are NOT committed to git (see data/seed_photos/.gitignore) — keep your local files matching the relative_path field. Re-run scripts/calibrate_composition_thresholds.py after every label change.",
+  "labels": [
+    {
+      "id": "example_face_closeup_001",
+      "relative_path": "face_closeup/example_001.jpg",
+      "ground_truth": "face_closeup",
+      "notes": "Tight head crop, shoulders not visible (Telegram avatar)."
+    },
+    {
+      "id": "example_portrait_001",
+      "relative_path": "portrait/example_001.jpg",
+      "ground_truth": "portrait",
+      "notes": "Head + shoulders, no torso (LinkedIn headshot)."
+    },
+    {
+      "id": "example_half_body_001",
+      "relative_path": "half_body/example_001.jpg",
+      "ground_truth": "half_body",
+      "notes": "Head to waist, no legs visible (cafe scene)."
+    },
+    {
+      "id": "example_full_body_001",
+      "relative_path": "full_body/example_001.jpg",
+      "ground_truth": "full_body",
+      "notes": "Full body, head to feet (beach scene)."
+    }
+  ]
+}

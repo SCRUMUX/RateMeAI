@@ -16,6 +16,7 @@ from src.bot.keyboards import (
     style_keyboard,
     STYLE_CATALOG,
 )
+from src.config import settings
 from src.services.enhancement_advisor import build_enhancement_preview
 from src.services.input_quality import check_style_reference_compat
 from src.utils.text_sanitize import sanitize_llm_text
@@ -27,6 +28,16 @@ PRE_ANALYSIS_REF_KEY = "ratemeai:preanalysis_ref:{}"
 # read at style-selection time for the style × reference compat check.
 FACE_AREA_RATIO_KEY = "ratemeai:face_area:{}"
 _FACE_AREA_TTL = 1800  # matches pre-analysis cache
+
+# Composition Safety Layer — composition_class of the last uploaded
+# photo (CompositionClass value: face_closeup | portrait | half_body
+# | full_body | unknown). Populated alongside FACE_AREA_RATIO_KEY on
+# successful pre-analyze and consumed by _framing_for_style /
+# _maybe_warn_style_reference_mismatch to decide which framing /
+# styles are allowed without a fresh /pre-analyze call. TTL mirrors
+# the pre-analysis cache so the two never get out of sync.
+COMPOSITION_CLASS_KEY = "ratemeai:composition_class:{}"
+_COMPOSITION_CLASS_TTL = 1800
 
 LAST_GEN_KEY = "ratemeai:last_gen:{}"
 
@@ -59,7 +70,34 @@ _PROCESSING_LOCK = "ratemeai:processing:{}"
 _LOCK_TTL = 300
 
 
-def _framing_for_style(mode: str, style: str) -> str:
+async def _read_composition_class(
+    redis: Redis | None, user_id: int | str
+) -> str:
+    """Read the cached ``composition_class`` for this user from Redis.
+
+    Returns the CompositionClass *value string* (``portrait`` /
+    ``half_body`` / ``full_body`` / ``face_closeup`` / ``unknown``).
+    Defaults to ``unknown`` on any read failure — the policy table
+    treats UNKNOWN as the most constrained bucket, so a transient
+    Redis outage cannot accidentally unlock full-body styles.
+    """
+    if redis is None:
+        return "unknown"
+    try:
+        raw = await redis.get(COMPOSITION_CLASS_KEY.format(user_id))
+    except Exception:
+        return "unknown"
+    if raw is None:
+        return "unknown"
+    return raw.decode() if isinstance(raw, bytes) else str(raw)
+
+
+async def _framing_for_style(
+    mode: str,
+    style: str,
+    redis: Redis | None = None,
+    user_id: int | str | None = None,
+) -> str:
     """Pick the composition framing used by /analyze and the prompt engine.
 
     Telegram clients never expose a "ракурс" picker, so without this the
@@ -75,22 +113,50 @@ def _framing_for_style(mode: str, style: str) -> str:
       ``web/src/context/AppContext.tsx``. Aligning the bot with the web
       default closes the most visible quality gap between the channels.
 
-    The exceptions are styles that explicitly require a visible torso /
-    legs (``StyleSpec.needs_full_body``) — those keep ``full_body`` so
-    the prompt and the reference framing both agree the body must be
-    drawn. Document styles always run ``portrait``.
+    Composition Safety Layer:
+        The choice is intersected with the per-class ``allowed_framings``
+        policy (see :mod:`src.services.composition_safety`). If the style
+        prefers ``full_body`` but the user's photo is classified as
+        FACE_CLOSEUP / PORTRAIT / UNKNOWN, we degrade to the safest
+        framing the policy allows (``portrait`` first, then
+        ``half_body``). This is the bot's mirror of the web wizard's
+        framing picker filter.
+
+    Document styles always run ``portrait`` regardless of CSL — their
+    composition is fixed by the document format.
     """
     try:
         from src.prompts.image_gen import STYLE_REGISTRY, is_document_style
+        from src.services.composition_safety import (
+            CompositionClass,
+            allowed_framings,
+        )
 
         if is_document_style(style):
             return "portrait"
+
+        cls_raw = await _read_composition_class(redis, user_id) if user_id is not None else "unknown"
+        cls = CompositionClass.parse(cls_raw)
+        allowed = allowed_framings(cls)
+
         spec = STYLE_REGISTRY.get(mode, style)
-        if spec is not None and getattr(spec, "needs_full_body", False):
+        needs_fb = bool(spec is not None and getattr(spec, "needs_full_body", False))
+
+        # Style preference intersected with composition policy. We do
+        # not fall back to "the style asked for full_body so let's send
+        # full_body anyway" — the policy is authoritative.
+        if needs_fb and "full_body" in allowed:
             return "full_body"
+        # Prefer portrait when allowed (the safest framing for any
+        # edit-model + reference combo) ahead of half_body / full_body.
+        for choice in ("portrait", "half_body", "full_body"):
+            if choice in allowed:
+                return choice
+        # ``allowed`` is guaranteed non-empty by the policy table.
+        return allowed[0]
     except Exception:
         logger.debug("framing_resolve_failed mode=%s style=%s", mode, style)
-    return "portrait"
+        return "portrait"
 
 # P1.1: short-lived locks against rapid double-taps on read-only / cheap
 # callbacks.  ``_PRE_ANALYZE_LOCK`` covers the expensive pre-analyze
@@ -218,6 +284,17 @@ async def on_pick_style(callback: CallbackQuery, api_base_url: str, redis: Redis
             await redis.set(
                 FACE_AREA_RATIO_KEY.format(user_id), f"{ratio:.4f}", ex=_FACE_AREA_TTL
             )
+
+        # Composition Safety Layer — persist composition_class so style
+        # picking and framing pickers can run their CSL checks without
+        # re-querying the backend. Default to ``unknown`` (fail-closed-
+        # safe) when the field is missing or malformed.
+        composition_class = str(iq_block.get("composition_class") or "unknown")
+        await redis.set(
+            COMPOSITION_CLASS_KEY.format(user_id),
+            composition_class,
+            ex=_COMPOSITION_CLASS_TTL,
+        )
 
         text = _format_pre_analysis_message(header, kind, user_id, pre_analysis)
 
@@ -402,6 +479,99 @@ async def on_confirm_risk(callback: CallbackQuery, api_base_url: str, redis: Red
     )
 
 
+# Composition Safety Layer — Phase 3 advanced override callback.
+#
+# Two-step opt-in so a stray double-tap can't bypass the policy: the
+# first click shows an explicit "this can produce anatomically wrong
+# bodies" warning + a confirmation button; the second click flips
+# ``COMPOSITION_OVERRIDE_KEY`` to ``1`` in Redis and re-enters
+# ``_submit_analysis`` with ``skip_composition_safety=True``.
+# ``_submit_analysis`` reads the flag and forwards it as a form field
+# on the /analyze call (or via task_context for the edge proxy path).
+COMPOSITION_OVERRIDE_KEY = "ratemeai:composition_override:{}"
+_COMPOSITION_OVERRIDE_TTL = 600
+
+
+@router.callback_query(F.data.startswith("override_csl:"))
+async def on_override_csl(callback: CallbackQuery, api_base_url: str, redis: Redis):
+    """First click on the CSL override button — show the confirmation prompt."""
+    if not bool(getattr(settings, "composition_safety_advanced_override", False)):
+        await callback.answer(
+            "Эта функция временно отключена.",
+            show_alert=True,
+        )
+        return
+
+    parts = callback.data.split(":")
+    mode = parts[1] if len(parts) > 1 else ""
+    style = parts[2] if len(parts) > 2 else ""
+    if not mode or not style:
+        await callback.answer()
+        return
+
+    await callback.answer()
+    keyboard = InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text="\u2705 Понял, всё равно сгенерировать",
+                    callback_data=f"override_csl_go:{mode}:{style}",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text="\u21a9 Назад",
+                    callback_data="reupload_photo",
+                )
+            ],
+        ]
+    )
+    await callback.message.answer(
+        "\u26a0\ufe0f *Расширенные настройки*\n\n"
+        "Генерация тела с крупного портрета может привести к "
+        "нереалистичным пропорциям и анатомическим ошибкам — "
+        "лицо может «прилипнуть» к чужим плечам.\n\n"
+        "Если уверены, что хотите попробовать — нажмите ниже.",
+        parse_mode="Markdown",
+        reply_markup=keyboard,
+    )
+
+
+@router.callback_query(F.data.startswith("override_csl_go:"))
+async def on_override_csl_go(callback: CallbackQuery, api_base_url: str, redis: Redis):
+    """Second click — set the override flag and submit the analysis."""
+    if not bool(getattr(settings, "composition_safety_advanced_override", False)):
+        await callback.answer(
+            "Эта функция временно отключена.",
+            show_alert=True,
+        )
+        return
+
+    parts = callback.data.split(":")
+    mode = parts[1] if len(parts) > 1 else ""
+    style = parts[2] if len(parts) > 2 else ""
+    if not mode or not style:
+        await callback.answer()
+        return
+
+    user_id = callback.from_user.id
+    try:
+        await redis.set(
+            COMPOSITION_OVERRIDE_KEY.format(user_id),
+            "1",
+            ex=_COMPOSITION_OVERRIDE_TTL,
+        )
+    except Exception:
+        logger.exception("CSL override: failed to write flag for user %s", user_id)
+
+    await callback.answer()
+    try:
+        await callback.message.edit_reply_markup(reply_markup=None)
+    except Exception:
+        pass
+    await _submit_analysis(callback, api_base_url, redis, mode, style)
+
+
 @router.callback_query(F.data == "reupload_photo")
 async def on_reupload_photo(callback: CallbackQuery, redis: Redis):
     """User chose to reupload photo — clear cached photo + pre-analysis."""
@@ -411,6 +581,8 @@ async def on_reupload_photo(callback: CallbackQuery, redis: Redis):
         PRE_ANALYSIS_REF_KEY.format(user_id),
         FACE_AREA_RATIO_KEY.format(user_id),
         RISK_ACCEPTED_KEY.format(user_id),
+        COMPOSITION_CLASS_KEY.format(user_id),
+        COMPOSITION_OVERRIDE_KEY.format(user_id),
     )
     await callback.answer()
     try:
@@ -463,34 +635,60 @@ async def _maybe_warn_style_reference_mismatch(
         return False
 
     raw = await redis.get(FACE_AREA_RATIO_KEY.format(user_id))
-    if not raw:
-        return False
     try:
-        ratio = float(raw.decode() if isinstance(raw, bytes) else raw)
+        ratio = float(raw.decode() if isinstance(raw, bytes) else raw) if raw else 0.0
     except (TypeError, ValueError):
-        return False
+        ratio = 0.0
 
-    issue = check_style_reference_compat(ratio, mode, style)
+    # Composition Safety Layer — fold the cached composition_class into
+    # the compatibility check. A FACE_CLOSEUP × needs_full_body pairing
+    # now returns a ``block``-severity issue (STYLE_FORBIDDEN_FOR_COMPOSITION)
+    # which we surface without a "продолжить с риском" escape — the user
+    # must reupload (Phase 3 will add an explicit advanced-override
+    # entry behind a feature flag).
+    composition_class = await _read_composition_class(redis, user_id)
+    issue = check_style_reference_compat(
+        ratio, mode, style, composition_class=composition_class
+    )
     if issue is None:
         return False
 
     await callback.answer()
-    keyboard = InlineKeyboardMarkup(
-        inline_keyboard=[
-            [
-                InlineKeyboardButton(
-                    text="\U0001f4f7 Загрузить другое фото",
-                    callback_data="reupload_photo",
-                )
-            ],
+    keyboard_rows: list[list[InlineKeyboardButton]] = [
+        [
+            InlineKeyboardButton(
+                text="\U0001f4f7 Загрузить другое фото",
+                callback_data="reupload_photo",
+            )
+        ],
+    ]
+    # Only soft warnings get a "продолжить с риском" affordance. Hard
+    # blocks (CSL: ``style_forbidden_for_composition``) refuse to let
+    # the user bypass the policy from the bot UI — that path will move
+    # to the advanced-override keyboard once Phase 3 ships behind
+    # ``settings.composition_safety_advanced_override``.
+    is_block = issue.severity == "block"
+    if not is_block:
+        keyboard_rows.append(
             [
                 InlineKeyboardButton(
                     text="\u26a0\ufe0f Продолжить с риском",
                     callback_data=f"confirm_risk:{mode}:{style}",
                 )
-            ],
-        ]
-    )
+            ]
+        )
+    if is_block and bool(
+        getattr(settings, "composition_safety_advanced_override", False)
+    ):
+        keyboard_rows.append(
+            [
+                InlineKeyboardButton(
+                    text="\u26a0\ufe0f Расширенные настройки",
+                    callback_data=f"override_csl:{mode}:{style}",
+                )
+            ]
+        )
+    keyboard = InlineKeyboardMarkup(inline_keyboard=keyboard_rows)
     text = (
         f"\u26a0\ufe0f *{issue.message}*\n\n"
         f"{issue.suggestion}\n\n"
@@ -773,7 +971,7 @@ async def _submit_analysis(
         # the top-level form field (kept for analytics + edge fan-out)
         # and inside ``input_hints`` (where ``executor.single_pass``
         # reads it via ``modal_framing``).
-        framing = _framing_for_style(mode, style)
+        framing = await _framing_for_style(mode, style, redis=redis, user_id=user_id)
         input_hints_payload = {"framing": framing}
 
         # Image model + quality: omit ``image_model`` so ``/analyze`` applies
@@ -800,6 +998,24 @@ async def _submit_analysis(
             if isinstance(pre_id, bytes):
                 pre_id = pre_id.decode()
             form_data["pre_analysis_id"] = pre_id
+
+        # Composition Safety Layer override — forward the one-shot flag
+        # left by ``on_override_csl_go``. The API ignores it unless the
+        # deployment opted in via ``composition_safety_advanced_override``;
+        # we always send it as a string so FastAPI's bool parser accepts
+        # both "true"/"false" and 1/0 consistently.
+        try:
+            override_flag = await redis.get(
+                COMPOSITION_OVERRIDE_KEY.format(user_id)
+            )
+        except Exception:
+            override_flag = None
+        if override_flag:
+            form_data["skip_composition_safety"] = "true"
+            try:
+                await redis.delete(COMPOSITION_OVERRIDE_KEY.format(user_id))
+            except Exception:
+                pass
 
         auth_headers = await _get_api_headers(
             redis, user_id, analyze_api, callback.from_user

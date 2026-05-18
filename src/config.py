@@ -397,6 +397,37 @@ class Settings(BaseSettings):
     input_min_blur_face: float = 40.0
     input_min_blur_full: float = 60.0
 
+    # ------------------------------------------------------------------
+    # Composition Safety Layer (CSL) — see src/services/composition_safety.py.
+    # ------------------------------------------------------------------
+    # Master kill-switch. Off → input_quality still runs but the
+    # classifier output is forced to UNKNOWN (= fail-closed-safe
+    # ``["portrait"]`` policy); UI continues to receive the field and
+    # hides full-body styles. Default ON because CSL ships at warn-only
+    # for the first rollout phase.
+    composition_safety_enabled: bool = True
+    # Phase 2 toggle. When True the heuristic result is refined by
+    # MediaPipe Pose (shoulders / hips / knees). Off by default until
+    # the Phase 4 calibration confirms Pose is at least as good as the
+    # heuristic across the seed dataset.
+    body_landmarks_enabled: bool = False
+    # CSL heuristic thresholds. Mirrored from
+    # src.services.composition_safety.classify_heuristic defaults — exposed
+    # here so the Phase 4 calibration script can override them via env
+    # without touching code.
+    csl_face_closeup_face_ratio: float = 0.35
+    csl_face_closeup_space_below: float = 1.0
+    csl_portrait_face_ratio: float = 0.18
+    csl_portrait_space_below: float = 2.0
+    csl_half_body_face_ratio: float = 0.06
+    csl_half_body_space_below: float = 4.0
+    # Phase 3 advanced override. When True the server honours the
+    # ``skip_composition_safety=true`` form field on /api/v1/analyze and
+    # the bot / web reveal the "Advanced settings" entry. Off by default
+    # — the override exists for power users / QA, not as a default
+    # escape hatch.
+    composition_safety_advanced_override: bool = False
+
     # Legacy prompt_strength (unused in edit mode)
     image_gen_strength: float = 0.45
 

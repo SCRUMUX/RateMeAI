@@ -60,6 +60,11 @@ ALLOWED_KEYS: frozenset[str] = frozenset(
         "framing",
         "input_hints",
         "source",
+        # Composition Safety Layer (Phase 3) — advanced-override flag.
+        # Edge propagates the user's explicit consent to bypass the
+        # CSL hard-stop; primary re-validates the override against its
+        # own ``composition_safety_advanced_override`` flag.
+        "skip_composition_safety",
     }
 )
 

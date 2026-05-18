@@ -223,6 +223,14 @@ class StyleSpecV3:
 
     expression: str = ""
     needs_full_body: bool = False
+    # Composition Safety Layer (CSL) — see src/services/composition_safety.py.
+    # ``needs_torso`` is a softer requirement than ``needs_full_body``: the
+    # style expects the source photo to show shoulders / upper chest so
+    # the edit model can paint a luxury outfit, boardroom suit etc. on
+    # top of a real torso instead of hallucinating one. On uploads
+    # classified as FACE_CLOSEUP or UNKNOWN we surface a "risky" warning
+    # for such styles (not a hard block).
+    needs_torso: bool = False
     output_aspect: Literal[
         "portrait_4_3",
         "portrait_16_9",

@@ -351,6 +351,18 @@ export interface InputQualityPublic {
   can_generate: boolean;
   soft_warnings: InputQualityIssue[];
   blocking_issues: InputQualityIssue[];
+  /** Face area divided by image area (0..1). Powers style × reference
+   * compatibility heuristics on the client. */
+  face_area_ratio?: number;
+  /** Composition Safety Layer — one of
+   * ``face_closeup`` / ``portrait`` / ``half_body`` / ``full_body`` /
+   * ``unknown``. ``unknown`` triggers the fail-closed-safe policy
+   * (portrait-only framings, full-body styles hidden). */
+  composition_class?: string;
+  /** Framings the user may safely pick given the upload's composition.
+   * Defaults to ``['portrait']`` on older backends that don't report
+   * the CSL fields yet. */
+  allowed_framings?: string[];
 }
 
 export interface VisaComplianceItem {
@@ -416,6 +428,14 @@ export interface AnalyzeOptions {
    * not get rolled again on a regen.
    */
   seed?: number;
+  /**
+   * Composition Safety Layer override — when true, the wizard's
+   * "Advanced settings" toggle asked the server to skip the
+   * framing / style hard-stop. The server still requires
+   * ``settings.composition_safety_advanced_override=True`` on the
+   * deployment, so a client cannot bypass CSL on its own.
+   */
+  skipCompositionSafety?: boolean;
 }
 
 export function analyze(
@@ -437,6 +457,9 @@ export function analyze(
   if (options.inputHints) fd.append('input_hints', JSON.stringify(options.inputHints));
   if (options.seed != null && Number.isFinite(options.seed)) {
     fd.append('seed', String(Math.trunc(options.seed)));
+  }
+  if (options.skipCompositionSafety) {
+    fd.append('skip_composition_safety', 'true');
   }
   fd.append('image_model', options.imageModel ?? 'gpt_image_2');
   fd.append('image_quality', options.imageQuality ?? 'low');
@@ -552,6 +575,15 @@ export interface CatalogStyleEntry {
   meta: Record<string, unknown>;
   unlock_after_generations: number;
   schema_version: 1 | 2;
+  /** Composition Safety Layer — style requires a visible torso + legs
+   * (beach, yoga, running, etc.). Locked from the picker when the
+   * upload's ``composition_class`` is FACE_CLOSEUP / PORTRAIT /
+   * UNKNOWN. */
+  needs_full_body?: boolean;
+  /** Composition Safety Layer — style requires a visible torso /
+   * shoulders (luxury suit, boardroom, formal portrait). Soft-warned
+   * on tight head-crop uploads but still selectable. */
+  needs_torso?: boolean;
 }
 
 export interface CatalogStylesResponse {

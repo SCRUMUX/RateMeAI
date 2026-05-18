@@ -125,7 +125,11 @@ def _to_v2(raw: dict[str, Any]) -> StyleSpecV2 | None:
         logger.warning("style_loader_v2: missing required field %s in %r", exc, raw)
         return None
 
-    from src.prompts.style_spec import _DOCUMENT_STYLE_KEYS, detect_needs_full_body
+    from src.prompts.style_spec import (
+        _DOCUMENT_STYLE_KEYS,
+        detect_needs_full_body,
+        detect_needs_torso,
+    )
 
     is_doc = key in _DOCUMENT_STYLE_KEYS
 
@@ -198,6 +202,7 @@ def _to_v2(raw: dict[str, Any]) -> StyleSpecV2 | None:
         quality_identity=quality_identity,
         expression=str(raw.get("expression") or ""),
         needs_full_body=detect_needs_full_body(key, mode),
+        needs_torso=detect_needs_torso(key, mode),
         output_aspect=aspect,  # type: ignore[arg-type]
         generation_mode=gen_mode,  # type: ignore[arg-type]
     )

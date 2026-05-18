@@ -81,9 +81,19 @@ export default function StylesSheet({ open, onClose, styles, selectedKey, locked
               {ordered.map((s) => {
                 const locked = lockedKeys.has(s.key);
                 const selected = !locked && s.key === selectedKey;
-                const lockBadge = s.unlock_after_generations
-                  ? t('stylesSheet.lockedAfter', { count: s.unlock_after_generations })
-                  : t('stylesSheet.lockedSoon');
+                // Composition Safety Layer takes precedence: when the
+                // style is locked specifically because the user's photo
+                // is a tight face crop we show a "upload wider photo"
+                // hint instead of the generation-count unlock label.
+                // ``unlock_after_generations === 0`` differentiates the
+                // CSL-locked case from the slow-unlock cluster — only
+                // CSL styles end up locked with a 0 threshold.
+                const isCslLock = locked && s.needs_full_body && !s.unlock_after_generations;
+                const lockBadge = isCslLock
+                  ? t('stylesSheet.lockedComposition')
+                  : s.unlock_after_generations
+                    ? t('stylesSheet.lockedAfter', { count: s.unlock_after_generations })
+                    : t('stylesSheet.lockedSoon');
                 return (
                   <button
                     key={s.key}
@@ -120,7 +130,7 @@ export default function StylesSheet({ open, onClose, styles, selectedKey, locked
                     )}
                     {locked && (
                       <span className="px-[var(--space-8)] py-[var(--space-4)] rounded-[var(--radius-pill)] text-[11px] leading-[14px] text-[var(--color-text-muted)] font-medium bg-[var(--glass-surface-strong)] shrink-0">
-                        {t('stylesSheet.soonBadge')}
+                        {isCslLock ? t('stylesSheet.compositionBadge') : t('stylesSheet.soonBadge')}
                       </span>
                     )}
                   </button>

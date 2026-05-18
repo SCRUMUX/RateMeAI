@@ -287,7 +287,139 @@ Whitelist общий — `ADMIN_EMAILS` GitHub-секрет, который CI �
 
 ---
 
-## 8. Известные риски и ограничения
+## 8. Composition Safety Layer (CSL)
+
+Композиционно-аномальные результаты — дорогой брак: «огромная голова на
+выдуманном теле» рейтит хуже «плохого селфи». CSL — это **upstream-гейт**
+между загрузкой фото и сборкой промпта, который классифицирует исходник
+по 4 шкалам и заранее отрезает несовместимые комбинации `(кадр, стиль)`.
+Логика разнесена по слоям так, чтобы текущий prompt assembler
+([src/prompts/image_gen.py](../src/prompts/image_gen.py)) и
+identity-preserve-блок остались нетронутыми.
+
+### 8.1 Архитектура
+
+```text
+┌───────────────────────┐    ┌──────────────────────────┐
+│ /api/v1/pre-analyze   │    │ /api/v1/analyze          │
+│ ─ analyze_input_quality│    │ ─ hard-stop по framing   │
+│   • InsightFace bbox  │    │   (server-side validation│
+│   • CSL heuristic     │    │   against Redis cache)   │
+│   • Pose (Phase 2)    │    │                          │
+│ → InputQualityReport  │    │ → 400 framing_not_allowed│
+│   .composition_class  │    │   или 202 + worker       │
+│   .allowed_framings   │    └──────────────────────────┘
+└──────────┬────────────┘
+           │ Redis: ratemeai:preanalysis:<id> { _csl: {...} }
+           ▼
+┌───────────────────────┐
+│ Wizard (SPA) и Bot    │
+│ ─ framing buttons     │
+│ ─ stylelock badges    │
+│ ─ "Risky" warnings    │
+│ ─ Advanced override   │
+└───────────────────────┘
+```
+
+### 8.2 Классы и политика
+
+`CompositionClass` (см. [src/services/composition_safety.py](../src/services/composition_safety.py)):
+
+| Класс | Что в кадре | Разрешённый framing | Запретные стили (`needs_full_body`) | Риск (`needs_torso`) |
+|-------|-------------|---------------------|--------------------------------------|----------------------|
+| `face_closeup` | Только лицо | `portrait` | block | warn |
+| `portrait` | Лицо + плечи | `portrait`, `half_body` | block | OK |
+| `half_body` | До пояса | все | OK | OK |
+| `full_body` | До ног | все | OK | OK |
+| `unknown` | детектор не уверен | `portrait` (fail-closed safe) | block | warn |
+
+### 8.3 Phase 1 — эвристика
+
+Базовый классификатор `classify_heuristic` использует `face_area_ratio`,
+позицию bbox и `space_below` (свободное место под лицом в единицах высоты
+лица). Пороги вынесены в ENV-переменные `CSL_*` (см.
+[src/config.py](../src/config.py)). По дефолту:
+- `face_closeup_face_ratio=0.30`, `face_closeup_space_below=1.0` →
+  лицо ≥ 30% кадра ИЛИ под лицом меньше одной его высоты;
+- `portrait_face_ratio=0.18`, `portrait_space_below=2.0`;
+- `half_body_space_below=4.0`.
+
+### 8.4 Phase 2 — MediaPipe Pose
+
+Включается `BODY_LANDMARKS_ENABLED=true`. Lazy-load в
+[src/services/body_landmarks.py](../src/services/body_landmarks.py).
+Возвращает флаги `shoulders_visible / hips_visible / knees_visible`,
+по которым `classify_from_landmarks` уточняет результат эвристики.
+Любая ошибка (нет wheel, нет GLIBC, native crash) → `None` и fallback
+на эвристику. Кеш детектора poison-on-fail — второго `import mediapipe`
+не будет.
+
+### 8.5 Phase 3 — Advanced override
+
+Гейт ослабляется только если **оба** условия выполнены:
+- ENV `COMPOSITION_SAFETY_ADVANCED_OVERRIDE=true` на сервере;
+- клиент явно посылает `skip_composition_safety=true` (SPA — через
+  модалку [AdvancedSettingsModal.tsx](../web/src/components/wizard/AdvancedSettingsModal.tsx),
+  бот — через двухкнопочный `on_override_csl`/`on_override_csl_go`).
+
+Сервер пишет `ctx["composition_safety_skipped"] = True` и инкрементит
+`composition_override_used`. На edge→primary флаг прокидывается через
+`RemoteAnalysisRequest.skip_composition_safety` — primary ре-валидирует
+его против собственного `composition_safety_advanced_override`, чтобы
+клиент не мог "пройти" override на VPS, если на Railway он выключен.
+
+### 8.6 Метрики и калибровка
+
+Три счётчика в [src/metrics.py](../src/metrics.py):
+
+| Metric | Лейблы | Семантика |
+|---|---|---|
+| `composition_class_total` | `composition_class`, `source` | Сколько классификаций каждой категории сделано. `source` ∈ `heuristic|pose`. |
+| `composition_block_total` | `composition_class`, `style` | Сколько раз CSL отказал в стиле для класса. Срабатывание = «политика мешает пользователю» — алертим, если конкретный стиль > 30%. |
+| `composition_override_used_total` | `composition_class` | Сколько раз advanced override был принят. Низкий процент = политика откалибрована корректно. |
+
+Калибровка порогов — оффлайн через
+[scripts/calibrate_composition_thresholds.py](../scripts/calibrate_composition_thresholds.py).
+Сид-датасет лежит в [data/seed_photos/composition_labels.json](../data/seed_photos/composition_labels.json).
+Сами фото в git **не** коммитим (см.
+`data/seed_photos/.gitignore`) — оператор кладёт JPEG'и локально и
+запускает скрипт.
+
+### 8.7 Rollout (warn → block → pose → override)
+
+Поэтапная раскатка через ENV-флаги. Каждый шаг живёт ≥ 7 дней с
+наблюдением за `composition_block_total` и user-feedback NPS до
+перехода на следующий.
+
+| Фаза | Флаги | Что включено | Критерий перехода |
+|---|---|---|---|
+| **W1. Warn-only** | `COMPOSITION_SAFETY_ENABLED=false` | CSL классифицирует и пишет метрики, но UI показывает только мягкое предупреждение. Никаких блокировок. | `composition_class_total` стабилен ≥ 3 дня, нет 5xx из-за `analyze_input_quality`. |
+| **W2. Block** | `COMPOSITION_SAFETY_ENABLED=true` | Hard-stop в SPA/bot/`/api/v1/analyze`. Override недоступен. | `composition_block_total` рост ≤ 2× baseline, NPS не упал > 3 п.п. |
+| **W3. Pose** | `BODY_LANDMARKS_ENABLED=true` | MediaPipe Pose уточняет эвристику. Сравниваем `source="pose"` vs `source="heuristic"` в Grafana. | Расхождение Pose↔heuristic < 15% по `composition_class_total`. |
+| **W4. Override** | `COMPOSITION_SAFETY_ADVANCED_OVERRIDE=true` | Пользователи-эксперты могут обойти CSL через UI/bot. | `composition_override_used_total / composition_block_total` ≤ 20% — если выше, надо ослабить политику, а не давать override. |
+
+**Откат**: ставим конкретный ENV-флаг в `false`. Никаких миграций или
+data-fix'ов не требуется — кеш `_csl` в Redis просто игнорится, а
+старый prompt assembler принимает любой `framing` как раньше.
+
+### 8.8 Failure modes и инварианты
+
+- **Детектор недоступен** → `composition_class=unknown` → `allowed_framings=["portrait"]`
+  (fail-closed safe). Пользователь видит "Composition cannot be detected"
+  и может перезалить фото или выбрать portrait-style.
+- **`pre_analysis_id` отсутствует** в запросе на `/api/v1/analyze` →
+  CSL hard-stop НЕ срабатывает (legacy путь). Защиту берёт на себя
+  `head_crop_proportion_lock` в prompt assembler.
+- **Edge → primary**: `RemoteAnalysisRequest.skip_composition_safety`
+  это **запрос** на override; primary всегда ре-валидирует против
+  своего флага. Edge не может в одностороннем порядке «отключить» CSL.
+- **Wizard стейт переживает upload**: при `uploadPhoto()` SPA сбрасывает
+  `skipCompositionSafety` в false (чтобы override от прошлого фото не
+  утёк на новое).
+
+---
+
+## 9. Известные риски и ограничения
 
 * **`internal_user_id` коллизии**: uuid5 от `edge_task_id` детерминирован.
   Несколько одинаковых retry-задач → один User. Это OK, потому что у
@@ -304,9 +436,12 @@ Whitelist общий — `ADMIN_EMAILS` GitHub-секрет, который CI �
 
 ---
 
-## 9. Ссылки
+## 10. Ссылки
 
 * План: [.cursor/plans/two-region_clean_architecture_e2849f1e.plan.md](../.cursor/plans/two-region_clean_architecture_e2849f1e.plan.md)
 * External checklist: [docs/VARIANT_B_EXTERNAL_CHECKLIST.md](VARIANT_B_EXTERNAL_CHECKLIST.md)
 * DNS runbook: [docs/DNS_CUTOVER_RUNBOOK.md](DNS_CUTOVER_RUNBOOK.md)
 * Деплой: [.cursor/rules/deploy.mdc](../.cursor/rules/deploy.mdc)
+* CSL модули: [src/services/composition_safety.py](../src/services/composition_safety.py),
+  [src/services/body_landmarks.py](../src/services/body_landmarks.py),
+  [scripts/calibrate_composition_thresholds.py](../scripts/calibrate_composition_thresholds.py)

@@ -180,3 +180,159 @@ def test_to_prompt_hints_roundtrip():
     assert h["face_area_ratio"] == 0.08
     assert h["yaw"] == 30.0
     assert h["hair_bg_contrast"] == 0.05
+
+
+# ---------------------------------------------------------------------------
+# Composition Safety Layer (CSL) integration
+# ---------------------------------------------------------------------------
+
+
+def test_face_closeup_is_classified_and_exposed_publicly():
+    # Very large centered face → CSL heuristic should classify as FACE_CLOSEUP.
+    face = _mock_face(bbox=(100, 100, 700, 700))  # 600×600 in 800×800 frame
+    with patch.object(iq, "_detect_faces", return_value=[face]):
+        rep = iq.analyze_input_quality(_sharp_noise_bytes(800, 800))
+    assert rep.composition_class == "face_closeup"
+    assert rep.allowed_framings == ["portrait"]
+
+    public = rep.to_public_dict()
+    assert public["composition_class"] == "face_closeup"
+    assert public["allowed_framings"] == ["portrait"]
+
+
+def test_half_body_input_unlocks_full_body_framing():
+    # Small-ish face high in a tall frame → plenty of body room below.
+    # face_h = 200, image_h = 1200, fy2 = 400 → space_below ≈ 4.0 face-heights.
+    face = _mock_face(bbox=(200, 200, 600, 400))
+    with patch.object(iq, "_detect_faces", return_value=[face]):
+        rep = iq.analyze_input_quality(_sharp_noise_bytes(800, 1200))
+    # The exact class depends on calibration but it must NOT collapse to
+    # face_closeup and MUST permit at least portrait + half_body.
+    assert rep.composition_class != "face_closeup"
+    assert "portrait" in rep.allowed_framings
+    assert "half_body" in rep.allowed_framings
+
+
+def test_invalid_input_falls_back_to_unknown_composition():
+    rep = iq.analyze_input_quality(b"not an image")
+    assert rep.composition_class == "unknown"
+    # Fail-closed safe: UNKNOWN must restrict the user to portrait only.
+    assert rep.allowed_framings == ["portrait"]
+
+
+def test_no_face_keeps_composition_unknown():
+    with (
+        patch.object(iq, "_detect_faces", return_value=[]),
+        patch.object(iq, "_mp_available", True),
+    ):
+        rep = iq.analyze_input_quality(_sharp_noise_bytes(800, 800))
+    assert rep.composition_class == "unknown"
+    assert rep.allowed_framings == ["portrait"]
+
+
+class _FakeSpec:
+    def __init__(self, *, needs_full_body: bool = False, needs_torso: bool = False) -> None:
+        self.needs_full_body = needs_full_body
+        self.needs_torso = needs_torso
+
+
+class _FakeRegistry:
+    def __init__(self, spec) -> None:
+        self._spec = spec
+
+    def get(self, _mode: str, _key: str):
+        return self._spec
+
+
+def test_check_style_reference_compat_blocks_full_body_on_face_closeup(monkeypatch):
+    spec = _FakeSpec(needs_full_body=True, needs_torso=True)
+    monkeypatch.setattr(
+        "src.prompts.image_gen.STYLE_REGISTRY",
+        _FakeRegistry(spec),
+        raising=True,
+    )
+    issue = iq.check_style_reference_compat(
+        face_area_ratio=0.5,
+        mode="dating",
+        style_key="any_full_body_style",
+        composition_class="face_closeup",
+    )
+    assert issue is not None
+    assert issue.code == IssueCode.STYLE_FORBIDDEN_FOR_COMPOSITION
+    assert issue.severity == "block"
+
+
+def test_check_style_reference_compat_warns_for_torso_on_face_closeup(monkeypatch):
+    spec = _FakeSpec(needs_full_body=False, needs_torso=True)
+    monkeypatch.setattr(
+        "src.prompts.image_gen.STYLE_REGISTRY",
+        _FakeRegistry(spec),
+        raising=True,
+    )
+    issue = iq.check_style_reference_compat(
+        face_area_ratio=0.5,
+        mode="dating",
+        style_key="torso_style",
+        composition_class="face_closeup",
+    )
+    assert issue is not None
+    assert issue.code == IssueCode.STYLE_RISKY_FOR_COMPOSITION
+    assert issue.severity == "warn"
+
+
+def test_check_style_reference_compat_allows_full_body_for_full_body_input(monkeypatch):
+    spec = _FakeSpec(needs_full_body=True, needs_torso=True)
+    monkeypatch.setattr(
+        "src.prompts.image_gen.STYLE_REGISTRY",
+        _FakeRegistry(spec),
+        raising=True,
+    )
+    issue = iq.check_style_reference_compat(
+        face_area_ratio=0.05,
+        mode="dating",
+        style_key="any_full_body_style",
+        composition_class="full_body",
+    )
+    assert issue is None
+
+
+def test_check_style_reference_compat_falls_back_to_face_ratio_heuristic(monkeypatch):
+    """When composition_class is not provided (legacy callers), the
+    original face_area_ratio heuristic must still catch tight closeups
+    on full-body styles."""
+    spec = _FakeSpec(needs_full_body=True, needs_torso=False)
+    monkeypatch.setattr(
+        "src.prompts.image_gen.STYLE_REGISTRY",
+        _FakeRegistry(spec),
+        raising=True,
+    )
+    issue = iq.check_style_reference_compat(
+        face_area_ratio=iq.FACE_TOO_TIGHT_FOR_BODY_THRESHOLD + 0.05,
+        mode="dating",
+        style_key="any_full_body_style",
+        composition_class=None,
+    )
+    assert issue is not None
+    assert issue.code == IssueCode.FACE_TOO_TIGHT_FOR_BODY_SHOT
+    assert issue.severity == "warn"
+
+
+def test_check_style_reference_compat_unknown_class_is_fail_closed(monkeypatch):
+    """Sanity: explicitly passing ``composition_class='unknown'`` must
+    fail-closed (block full-body styles) — the CSL design treats UNKNOWN
+    as the same risk class as FACE_CLOSEUP."""
+    spec = _FakeSpec(needs_full_body=True, needs_torso=True)
+    monkeypatch.setattr(
+        "src.prompts.image_gen.STYLE_REGISTRY",
+        _FakeRegistry(spec),
+        raising=True,
+    )
+    issue = iq.check_style_reference_compat(
+        face_area_ratio=0.05,
+        mode="dating",
+        style_key="any_full_body_style",
+        composition_class="unknown",
+    )
+    assert issue is not None
+    assert issue.code == IssueCode.STYLE_FORBIDDEN_FOR_COMPOSITION
+    assert issue.severity == "block"
