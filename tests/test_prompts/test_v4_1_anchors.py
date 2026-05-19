@@ -139,11 +139,20 @@ def test_v4_1_anchors_present(mode: AnalysisMode, style: str):
 
     # Photoreal anchors. v1.65 replaced the ``50mm lens at eye level``
     # selfie-perspective wording with ``85mm portrait lens at chest
-    # height`` — the canonical portrait-photography lens that
-    # compresses perspective and renders natural head-to-body
-    # proportions.
-    assert "85mm portrait lens" in prompt, (
+    # height``. v1.66 then dropped the word ``portrait`` from the lens
+    # descriptor (``85mm short-telephoto lens``) — keeping a second
+    # ``portrait`` mention in the prompt acted as a recency-bias
+    # headshot pull on edit models, fighting the cinematic
+    # composition anchor that explicitly calls for a ``bust shot``.
+    assert "85mm short-telephoto lens" in prompt, (
         f"{mode.value}/{style}: 85mm camera anchor missing\n{prompt!r}"
+    )
+    assert "85mm portrait lens" not in prompt, (
+        f"{mode.value}/{style}: legacy v1.65 lens descriptor "
+        "``85mm portrait lens`` must not return — v1.66 renamed it to "
+        "``85mm short-telephoto lens`` to remove the recency-bias "
+        "headshot pull from the second ``portrait`` mention.\n"
+        f"{prompt!r}"
     )
     assert "50mm lens at eye level" not in prompt, (
         f"{mode.value}/{style}: legacy 50mm anchor must not return — "

@@ -182,7 +182,7 @@ IDENTITY_PRESERVE_BLOCK = (
     "and skin undertone."
 )
 
-# Photoreal block (v1.65, ~340 chars).
+# Photoreal block (v1.66, ~340 chars).
 # v1.65 swapped the camera anchor from ``50mm lens at eye level`` to
 # ``85mm portrait lens at chest height``. The 50mm-at-eye-level pair
 # is the canonical "selfie perspective" wording — on tight-selfie
@@ -190,17 +190,28 @@ IDENTITY_PRESERVE_BLOCK = (
 # enlarged-head geometry of the input verbatim. 85mm at chest height
 # is the canonical portrait-photography setup that compresses
 # perspective and renders natural head-to-body proportions.
+#
+# v1.66 dropped the word ``portrait`` from the lens descriptor
+# (``85mm portrait lens`` → ``85mm short-telephoto lens``). The second
+# ``portrait`` mention in the prompt (the first is the framing
+# directive in the cinematic anchor above) acted as a recency cue on
+# edit models: even after the cinematic anchor instructed ``bust shot``
+# the trailing ``portrait lens`` token pulled the model toward a
+# tighter headshot crop. ``short-telephoto`` describes the same lens
+# in technically-correct terms (85mm sits between standard and
+# telephoto) without re-introducing the framing word.
 # Single camera/DoF block, single materiality clause, single
 # light-integration clause. Mentions skin tone exactly once (in the
 # identity block above we say "skin undertone" — here we focus on
 # lighting integration without re-grading the face).
 PHOTOREAL_BLOCK = (
-    "Photo style: 85mm portrait lens at chest height, shallow depth of "
-    "field with the subject in sharp focus and background softly out "
-    "of focus. Authentic skin texture with visible pores and small "
-    "natural imperfections. The scene's ambient light grounds the "
-    "subject with consistent direction, matching colour temperature, "
-    "and soft contact shadows where the body meets the ground."
+    "Photo style: 85mm short-telephoto lens at chest height, shallow "
+    "depth of field with the subject in sharp focus and background "
+    "softly out of focus. Authentic skin texture with visible pores "
+    "and small natural imperfections. The scene's ambient light "
+    "grounds the subject with consistent direction, matching colour "
+    "temperature, and soft contact shadows where the body meets the "
+    "ground."
 )
 
 
@@ -1207,6 +1218,28 @@ def is_document_style(style: str) -> bool:
     return (style or "").strip() in _DOCUMENT_STYLE_KEYS
 
 
+# v1.66 — studio-portrait exempt whitelist. These styles are by-design
+# tight headshots / bust-shots taken in a controlled studio environment,
+# so the "portrait pose directives" that v1.66 strips from career and
+# lifestyle styles (``composed gaze``, ``Rembrandt lighting``, etc.)
+# are legitimate here and must be preserved. The whitelist also makes
+# them exempt from style-lint rules ``EXPRESSION_PORTRAIT_LEAK`` and
+# ``SCENE_POSE_LEAK`` and from the CV-mode reference-padding boost —
+# studio portraits are the one place where a tighter crop is the
+# intended creative output.
+_STUDIO_PORTRAIT_STYLE_KEYS: frozenset[str] = frozenset(
+    {
+        "formal_portrait",
+        "studio_elegant",
+    }
+)
+
+
+def is_studio_portrait_style(style: str) -> bool:
+    """True для студийно-портретных стилей, освобождённых от нормализации v1.66."""
+    return (style or "").strip() in _STUDIO_PORTRAIT_STYLE_KEYS
+
+
 _DOC_COMPOSITION_HINT: dict[str, str] = {
     "photo_3x4": "3:4 portrait framing, face fills 50-60% of the frame, small margin above the head.",
     "passport_rf": "7:9 portrait framing, frontal pose, face fills 50-60% of the frame.",
@@ -1268,10 +1301,12 @@ _FRAMING_PROMPT_DIRECTIVES: dict[str, str] = {
 #   default on FAL Nano Banana 2 / GPT Image 2 Edit.
 # * Cinematic shot vocabulary (``bust shot`` / ``medium waist-up shot``
 #   / ``full-length standing shot``) instead of percentage targets.
-# * Physical lens specification: ``85mm portrait lens`` for portrait /
-#   half_body (perspective compression — the canonical fix for the
-#   "huge head, tiny shoulders" pathology), ``35mm`` for full_body
-#   (wide enough to capture head-to-toe without distortion).
+# * Physical lens specification: ``85mm short-telephoto lens`` for
+#   portrait / half_body (perspective compression — the canonical fix
+#   for the "huge head, tiny shoulders" pathology), ``35mm`` for
+#   full_body (wide enough to capture head-to-toe without distortion).
+#   v1.66 dropped the word ``portrait`` from the lens descriptor; the
+#   second ``portrait`` mention created a recency-bias headshot pull.
 # * One positive-framed proportions clause ``natural human head-to-body
 #   scale`` (does not violate ``_has_disallowed_negative`` and reads
 #   well to the model).
@@ -1283,16 +1318,16 @@ _FRAMING_PROMPT_DIRECTIVES: dict[str, str] = {
 _COMPOSITION_NUMERICAL_HINT: dict[str, str] = {
     "portrait": (
         "Reframe the reference into a head-and-shoulders bust shot "
-        "taken with an 85mm portrait lens at chest height, the head "
-        "occupying the upper quarter of the canvas with the shoulders "
-        "spanning the lower frame edge at natural human head-to-body "
-        "scale."
+        "taken with an 85mm short-telephoto lens at chest height, "
+        "the head occupying the upper quarter of the canvas with the "
+        "shoulders spanning the lower frame edge at natural human "
+        "head-to-body scale."
     ),
     "half_body": (
         "Reframe the reference into a medium waist-up shot taken with "
-        "an 85mm portrait lens at chest height, both shoulders fully "
-        "visible and the torso extending to the belt line at natural "
-        "human head-to-body scale."
+        "an 85mm short-telephoto lens at chest height, both shoulders "
+        "fully visible and the torso extending to the belt line at "
+        "natural human head-to-body scale."
     ),
     "full_body": (
         "Reframe the reference into a full-length standing shot taken "

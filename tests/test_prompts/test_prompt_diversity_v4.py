@@ -139,8 +139,10 @@ def test_ten_seeds_all_carry_v4_1_anchors(style):
         # PHOTOREAL_BLOCK contributes the camera + DoF block. v1.65
         # swapped the camera anchor from ``50mm lens at eye level`` to
         # ``85mm portrait lens at chest height`` — the anti-selfie
-        # perspective fix.
-        assert "85mm portrait lens" in prompt, (
+        # perspective fix. v1.66 renamed it to ``85mm short-telephoto
+        # lens`` to remove the second ``portrait`` mention that was
+        # acting as a recency-bias headshot pull.
+        assert "85mm short-telephoto lens" in prompt, (
             f"{style!r} seed={s}: PHOTOREAL_BLOCK missing\n{prompt!r}"
         )
         # Wardrobe: prefix is the v4.1 replacement for "Subject is

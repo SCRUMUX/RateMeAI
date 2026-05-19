@@ -335,21 +335,42 @@ CSL отвечает за `(class, style)` совместимость, но **в
    пустого / невалидного framing'а; выбор делается CSL-aware с
    приоритетом «document → user pick (если allowed) → needs_full_body
    boost → first allowed → fail-closed-safe portrait».
-4. **Reference padding** (v1.64 + v1.65 расширение) — для
-   `composition_class ∈ {face_closeup, unknown}` ИЛИ `face_area_ratio
-   > 0.28` (новый порог `csl_reference_pad_face_ratio`) на любом
-   non-document framing'е (`portrait`, `half_body`, `full_body`)
+4. **Reference padding** (v1.64 + v1.65 расширение + v1.66 CV boost) —
+   для `composition_class ∈ {face_closeup, unknown}` ИЛИ
+   `face_area_ratio > 0.28` (порог `csl_reference_pad_face_ratio`) на
+   любом non-document framing'е (`portrait`, `half_body`, `full_body`)
    исходник геометрически пересобирается на новом канвасе так, чтобы
    лицо **уже** было в нужной пропорции до отправки в провайдер
-   (`pad_reference_for_framing`). v1.65 расширил gate на `portrait`
-   — самый частый кейс default-framing'а в вебе и боте.
+   (`pad_reference_for_framing`). v1.65 расширил gate на `portrait`.
+   v1.66 добавил отдельный, более мягкий порог для CV-режима
+   (`csl_reference_pad_face_ratio_cv = 0.22`), потому что CV-юзеры
+   массово грузят passport-стиль селфи прямо на границе
+   `face_closeup`/`portrait`. Studio-portrait стили (`formal_portrait`,
+   `studio_elegant`) от boost'а освобождены.
+5. **Style Catalog Normalization** (v1.66) — JSON-данные стилей не
+   должны нести скрытые portrait-pose директивы (`authoritative`,
+   `composed gaze`, `leadership gaze`, `gravitas`, `executive vision`,
+   `timeless authority`, `leather chair`, `behind a desk`,
+   `webcam-friendly framing`) на non-studio стилях. Эти токены
+   семантически перетягивают edit-модель в headshot crop и побеждают
+   cinematic anchor из-за recency bias. Студийно-портретные стили
+   (whitelist `_STUDIO_PORTRAIT_STYLE_KEYS = {formal_portrait,
+   studio_elegant}`) и документы — exempt: для них portrait-pose
+   phrasing легитимна. CI-защита: lint-правила
+   `EXPRESSION_PORTRAIT_LEAK` / `SCENE_POSE_LEAK` (error) и
+   `WARDROBE_TIGHT_SUIT` (warning) в
+   [`src/services/style_lint.py`](../src/services/style_lint.py)
+   блокируют возврат токенов.
 
 Дополнительно: `PHOTOREAL_BLOCK` сменил `50mm lens at eye level`
-(канонический «selfie perspective») на `85mm portrait lens at chest
-height` — это **обязательный** стандарт для всех non-document
-стилей: один центральный photoreal block, никаких style-level
-переопределений в `quality_identity.base` / `per_model_tail` (lint
-`QI_BASE_NONEMPTY` / `QI_PER_MODEL_TAIL_NONEMPTY` запрещает).
+(канонический «selfie perspective») на `85mm short-telephoto lens at
+chest height` (v1.65 → v1.66; в v1.65 использовалось `85mm portrait
+lens`, но дублирующее слово `portrait` в промпте создавало
+recency-bias headshot pull). Это **обязательный** стандарт для всех
+non-document стилей: один центральный photoreal block, никаких
+style-level переопределений в `quality_identity.base` /
+`per_model_tail` (lint `QI_BASE_NONEMPTY` /
+`QI_PER_MODEL_TAIL_NONEMPTY` запрещает).
 
 Гейт применяется ко всем non-document стилям. Document-стили (CV, виза,
 паспорт) сохраняют собственный `_DOC_COMPOSITION_HINT` — он жёстче

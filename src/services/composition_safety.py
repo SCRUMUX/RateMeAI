@@ -238,6 +238,7 @@ def resolve_effective_framing(
     composition_class: CompositionClass | str,
     spec: Any,
     is_document: bool,
+    is_studio_portrait: bool = False,
 ) -> str:
     """Pick the final framing for a generation using CSL classification.
 
@@ -254,16 +255,22 @@ def resolve_effective_framing(
     1. Document style → always ``portrait``. Document styles
        (passport / visa / 3x4 photos) have a fixed vendor-policy
        framing that does not negotiate.
-    2. ``user_framing`` if the policy permits it for this composition
+    2. Studio-portrait style → always ``portrait``. v1.66: explicit
+       studio headshot/bust-shot styles (``formal_portrait``,
+       ``studio_elegant``) are by-design tight portraits — the
+       resolver pins them to ``portrait`` regardless of CSL
+       classification or user pick, mirroring the document-style
+       behaviour.
+    3. ``user_framing`` if the policy permits it for this composition
        class (``user_framing in allowed_framings(composition_class)``).
        Respecting an explicit user pick is the friendliest behaviour.
-    3. Style's ``needs_full_body`` if ``full_body`` is in
+    4. Style's ``needs_full_body`` if ``full_body`` is in
        ``allowed_framings`` — full-body styles deserve full-body
        framing whenever the upload supports it.
-    4. First entry of ``allowed_framings`` in canonical preference
+    5. First entry of ``allowed_framings`` in canonical preference
        order (portrait → half_body → full_body). This gives a sane
        default for every composition class.
-    5. Fail-closed-safe: ``portrait``. Reached only when the policy
+    6. Fail-closed-safe: ``portrait``. Reached only when the policy
        table is misconfigured; ``portrait`` is the safest output any
        edit model can produce for any reference photo.
 
@@ -279,11 +286,14 @@ def resolve_effective_framing(
         is_document: True when the requested style is a document
             style. Document styles are short-circuited to ``portrait``
             regardless of every other signal.
+        is_studio_portrait: True when the requested style is in the
+            ``_STUDIO_PORTRAIT_STYLE_KEYS`` whitelist. Studio-portrait
+            styles are short-circuited to ``portrait`` (v1.66).
 
     Returns:
         One of ``"portrait"`` / ``"half_body"`` / ``"full_body"``.
     """
-    if is_document:
+    if is_document or is_studio_portrait:
         return "portrait"
 
     allowed = allowed_framings(composition_class)

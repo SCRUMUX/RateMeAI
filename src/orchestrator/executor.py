@@ -478,6 +478,14 @@ class ImageGenerationExecutor:
         except Exception:
             _is_document = False
 
+        try:
+            from src.prompts.image_gen import (
+                is_studio_portrait_style as _is_studio_portrait,
+            )
+            _is_studio_portrait_style = bool(_is_studio_portrait(style or ""))
+        except Exception:
+            _is_studio_portrait_style = False
+
         user_picked_framing = (
             modal_framing
             if modal_framing in ("portrait", "half_body", "full_body")
@@ -499,6 +507,7 @@ class ImageGenerationExecutor:
             composition_class=composition_class_for_resolver,
             spec=spec_for_framing,
             is_document=_is_document,
+            is_studio_portrait=_is_studio_portrait_style,
         )
         result_dict["resolved_framing"] = framing_norm
         if user_picked_framing:
@@ -789,15 +798,37 @@ class ImageGenerationExecutor:
             # is a soft local PIL operation, so it can be triggered on
             # uploads that are technically PORTRAIT-class but still
             # tight enough to mis-anchor the head/torso ratio.
-            is_tight = (
-                composition_class in ("face_closeup", "unknown")
-                or face_area_ratio > float(
+            #
+            # v1.66 — CV-mode boost. CV users upload "passport-style"
+            # selfies far more often than dating/social users; the
+            # ``face_closeup`` boundary sits right at the typical CV
+            # upload (face_area_ratio ≈ 0.22..0.30). We lower the
+            # threshold to ``csl_reference_pad_face_ratio_cv`` (0.22)
+            # for mode=cv only — and only for non-studio-portrait
+            # styles, since studio portraits are by-design tight
+            # headshots and padding would fight the intended crop.
+            pad_threshold = float(
+                getattr(
+                    settings,
+                    "csl_reference_pad_face_ratio",
+                    0.28,
+                )
+            )
+            mode_value = getattr(mode, "value", str(mode))
+            if (
+                mode_value == "cv"
+                and not _is_studio_portrait_style
+            ):
+                pad_threshold = float(
                     getattr(
                         settings,
-                        "csl_reference_pad_face_ratio",
-                        0.28,
+                        "csl_reference_pad_face_ratio_cv",
+                        0.22,
                     )
                 )
+            is_tight = (
+                composition_class in ("face_closeup", "unknown")
+                or face_area_ratio > pad_threshold
             )
             should_pad = (
                 getattr(settings, "csl_reference_pad_enabled", False)

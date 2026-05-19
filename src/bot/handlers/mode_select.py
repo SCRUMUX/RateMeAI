@@ -122,7 +122,11 @@ async def _framing_for_style(
     in both entrypoints atomically.
     """
     try:
-        from src.prompts.image_gen import STYLE_REGISTRY, is_document_style
+        from src.prompts.image_gen import (
+            STYLE_REGISTRY,
+            is_document_style,
+            is_studio_portrait_style,
+        )
         from src.services.composition_safety import resolve_effective_framing
 
         cls_raw = (
@@ -136,6 +140,7 @@ async def _framing_for_style(
             composition_class=cls_raw,
             spec=spec,
             is_document=is_document_style(style),
+            is_studio_portrait=is_studio_portrait_style(style),
         )
     except Exception:
         logger.debug("framing_resolve_failed mode=%s style=%s", mode, style)

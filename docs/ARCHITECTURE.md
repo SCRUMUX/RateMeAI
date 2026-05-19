@@ -400,6 +400,7 @@ identity-preserve-блок остались нетронутыми.
 | **W4. Override** | `COMPOSITION_SAFETY_ADVANCED_OVERRIDE=true` | Пользователи-эксперты могут обойти CSL через UI/bot. | `composition_override_used_total / composition_block_total` ≤ 20% — если выше, надо ослабить политику, а не давать override. |
 | **W5. Anatomy fix** | `CSL_REFERENCE_PAD_ENABLED=true` (default) | Numerical composition anchor в промпте + геометрическое padding исходника для tight-selfie → half/full-body (§8.9). `reference_padded_total` начинает считать. | `proportions_natural` pass-rate (VLM gate) на `composition_class∈{face_closeup,unknown}` входах > 90% на 7-дневном окне. |
 | **W6. Anatomy v1.65** | `CSL_REFERENCE_PAD_ENABLED=true` (default), `CSL_REFERENCE_PAD_FACE_RATIO=0.28` (default) | Cinematic-vocabulary numerical anchor (`Reframe the reference into …` + `85mm portrait lens` / `35mm lens`), сжатый `IDENTITY_PRESERVE_BLOCK` (4 anchors), positive-framed proportions clause в opener; padding gate расширен на `framing=portrait`; жёсткий `half_body` fallback в executor заменён на CSL-aware auto-resolver (§8.9). Soft warning по `proportions_natural=false` без retry. | `proportions_natural` pass-rate на `framing=portrait` + `face_area_ratio>0.28` входах > 92%; `reference_padded_total{framing="portrait"}` начал расти (ранее = 0); жалоб «голова больше тела» на support ≤ 1% от total за 7 дней. |
+| **W7. Style Catalog Normalization v1.66** | `CSL_REFERENCE_PAD_ENABLED=true` (default), `CSL_REFERENCE_PAD_FACE_RATIO_CV=0.22` (default) | Однопроходная JSON-миграция `data/styles.json` (см. `scripts/migrations/2026_05_styles_v4_anatomy/`): убраны portrait-pose директивы из `expression`/`scene_anchor`/`background.base` у 33 non-studio стилей (CV+dating+social); studio-portrait whitelist `_STUDIO_PORTRAIT_STYLE_KEYS = {formal_portrait, studio_elegant}` освобождён от нормализации; `85mm portrait lens` → `85mm short-telephoto lens` снимает дублирующий portrait-recency cue; CV-mode padding порог понижен до 0.22; lint правила `EXPRESSION_PORTRAIT_LEAK` / `SCENE_POSE_LEAK` / `WARDROBE_TIGHT_SUIT` защищают каталог от регрессий. | `proportions_natural` pass-rate на CV-стилях ≥ pass-rate на dating/social в течение 3 дней (раньше отставал на ~10 п.п.); жалобы «голова больше тела» на CV/career стилях ≤ 0.5% от total за 7 дней. |
 
 **Откат**: ставим конкретный ENV-флаг в `false`. Никаких миграций или
 data-fix'ов не требуется — кеш `_csl` в Redis просто игнорится, а
@@ -550,6 +551,55 @@ v1.65 расширил gate на `portrait` (главный фикс скрин�
 добавляет user-facing notice «На фото пропорции тела могут выглядеть
 необычно. Попробуй фото, где видно плечи и часть торса.» —
 **без retry**, фото отдаём как есть. Стоимость = $0.
+
+#### 5. Style Catalog Normalization (v1.66)
+
+После раскатки v1.65 одна аномалия осталась: на CV/career стилях
+(`legal_finance`, `boardroom`, `corporate`, `decision_moment`,
+`speaker_stage`, `intellectual`, …) пропорции по-прежнему ломались,
+тогда как на lifestyle/sport стилях (`gym_fitness`, `dating_park`,
+`hiking`) — нет. Корневая причина: `expression`/`scene_anchor` в
+`data/styles.json` кодировали **скрытые portrait-pose директивы**
+(`Authoritative steady expression`, `distinguished gravitas`,
+`leadership gaze`, `executive vision`, `leather chair`, `behind a
+desk`, `webcam-friendly framing`), которые семантически конкурировали
+с cinematic-якорем v1.65 и побеждали из-за recency bias.
+
+v1.66 нормализует каталог одним проходом через
+[`scripts/migrations/2026_05_styles_v4_anatomy/migrate.py`](../scripts/migrations/2026_05_styles_v4_anatomy/migrate.py):
+
+* **33 non-studio стиля** получили переписанные `expression`/
+  `scene_anchor`/`background.base`: portrait-pose токены заменены на
+  lifestyle-формулировки (`Confident relaxed expression, settled
+  direct gaze, natural mouth line, shoulders visible in frame`).
+* **Studio-portrait whitelist** `_STUDIO_PORTRAIT_STYLE_KEYS =
+  {formal_portrait, studio_elegant}` в
+  [`src/prompts/image_gen.py`](../src/prompts/image_gen.py) — у этих
+  стилей portrait-pose phrasing легитимна (по дизайну headshot
+  + Rembrandt) и сохраняется как есть.
+* **PHOTOREAL_BLOCK** переписан: `85mm portrait lens` →
+  `85mm short-telephoto lens`. Дублирующее слово `portrait` в
+  промпте создавало recency-bias headshot pull, который перевешивал
+  cinematic `bust shot` anchor.
+* **CV-mode padding boost**: `csl_reference_pad_face_ratio_cv = 0.22`
+  (vs default 0.28) специально для CV-режима — паспорт-стиль селфи
+  чаще лежат прямо на границе `face_closeup`/`portrait`. Studio-portrait
+  стили освобождены от boost'а (они и должны быть tight headshot).
+* **Lint-защита**: новые правила `EXPRESSION_PORTRAIT_LEAK` /
+  `SCENE_POSE_LEAK` (error-severity) и `WARDROBE_TIGHT_SUIT`
+  (warning) в [`src/services/style_lint.py`](../src/services/style_lint.py)
+  блокируют возврат токенов в CI. Exempt-список совпадает со studio-
+  whitelist + document keys.
+* **Resolver short-circuit**: studio-portrait стили теперь принудительно
+  возвращают `framing=portrait` из `resolve_effective_framing`
+  (зеркало document-style behaviour) — даже если CSL классифицирует
+  upload как `full_body`.
+
+Стоимость генерации не меняется: все правки — token-substitution
+равной длины или короче, CV-padding boost — это preprocess.
+
+Резервная копия `data/styles.json.bak.v165` создаётся автоматически
+при первом запуске миграции; rollback = `cp .bak.v165 styles.json`.
 
 #### Почему это работает за один проход
 

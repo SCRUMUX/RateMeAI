@@ -51,6 +51,7 @@ Severity is either ``"error"`` (blocks save in strict admin mode) or
 
 from __future__ import annotations
 
+import re
 from typing import Any, TypedDict
 
 from src.prompts.style_schema_v3 import (
@@ -62,6 +63,114 @@ from src.prompts.style_schema_v3 import (
     LOCATION_TYPE_DOCUMENT,
     LOCATION_TYPE_INDOOR,
     LOCATION_TYPES,
+)
+
+
+# v1.66 — exempt-whitelist for the anatomy-cleanup lint rules below.
+# Studio portrait styles are by-design tight headshots, and document
+# styles have a fixed vendor-policy framing — both legitimately carry
+# the "portrait pose directives" we strip from everything else.
+#
+# Inlined rather than re-imported from src.prompts.image_gen to avoid a
+# style_lint → image_gen → style_loader import cycle when the linter
+# runs over a partially-loaded module graph during admin save.
+_LINT_STUDIO_PORTRAIT_STYLE_KEYS: frozenset[str] = frozenset(
+    {
+        "formal_portrait",
+        "studio_elegant",
+    }
+)
+_LINT_DOCUMENT_STYLE_KEYS: frozenset[str] = frozenset(
+    {
+        "photo_3x4",
+        "passport_rf",
+        "visa_eu",
+        "visa_schengen",
+        "visa_us",
+        "photo_4x6",
+        "driver_license",
+    }
+)
+_LINT_ANATOMY_EXEMPT: frozenset[str] = (
+    _LINT_STUDIO_PORTRAIT_STYLE_KEYS | _LINT_DOCUMENT_STYLE_KEYS
+)
+
+
+# v1.66 — EXPRESSION_PORTRAIT_LEAK. Semantic-conflict catalog: tokens
+# that read as "render a tight studio portrait" to edit models, in
+# direct competition with the v1.65 ``bust shot at natural human
+# head-to-body scale`` cinematic anchor. The list is intentionally
+# minimal (only canonical portrait-pose phrasing) so it never fires on
+# legitimate lifestyle expressions like ``confident smile`` or
+# ``relaxed gaze``.
+_EXPRESSION_PORTRAIT_LEAK_RE = re.compile(
+    r"\b("
+    r"authoritative"
+    r"|composed\s+gaze"
+    r"|composed\s+brow"
+    r"|composed\s+mouth"
+    r"|composed\s+still"
+    r"|composed\s+worldly"
+    r"|composed\s+decisive"
+    r"|steady\s+leadership"
+    r"|leadership\s+gaze"
+    r"|executive\s+vision"
+    r"|timeless\s+authority"
+    r"|distinguished\s+gravitas"
+    r"|gravitas"
+    r"|commanding\s+charismatic"
+    r"|piercing"
+    r"|polished\s+still\s+mouth"
+    r"|steady\s+composed"
+    r"|composed\s+powerful"
+    r"|elevated\s+sophisticated\s+still"
+    r")\b",
+    re.IGNORECASE,
+)
+
+
+# v1.66 — SCENE_POSE_LEAK. Catches scene fragments that encode an
+# implicit pose ("sit in a leather chair", "behind a desk",
+# "webcam-friendly framing"). These make edit models compress the
+# torso and enlarge the head relative to the visible body. Rembrandt
+# lighting is whitelisted only when followed by ``lighting`` (the
+# legitimate cinematography term) — the bare ``Rembrandt`` token is
+# treated as a portrait-pose cue (it implies a studio headshot setup).
+_SCENE_POSE_LEAK_RE = re.compile(
+    r"\b("
+    r"behind\s+(?:a|the)\s+desk"
+    r"|leather\s+chair"
+    r"|webcam-?friendly"
+    r"|behind\s+(?:a|the)?\s*monitor"
+    r"|seated\s+(?:in|behind|at)\s+(?:a|the)\s+(?:leather|chair|desk)"
+    r"|Rembrandt(?!\s+lighting)"
+    r")\b",
+    re.IGNORECASE,
+)
+
+
+# v1.66 — WARDROBE_TIGHT_SUIT. Warn (not error) when a tailored-suit
+# clothing string lacks an explicit shoulder cue. Without one, edit
+# models tend to draw the suit silhouette too narrow at the
+# shoulders, which makes the head look oversized. The migration script
+# auto-appends ``, well-fitted across the shoulders`` for these — this
+# lint protects against future admin edits that strip the cue.
+_WARDROBE_SUIT_PATTERN = re.compile(
+    r"\b("
+    r"three-piece\s+suit"
+    r"|tailored\s+\w*\s*suit"
+    r"|navy\s+suit"
+    r"|charcoal\s+suit"
+    r"|formal\s+suit"
+    r"|dark\s+formal\s+suit"
+    r"|tailored\s+dark\s+suit"
+    r")\b",
+    re.IGNORECASE,
+)
+_WARDROBE_SHOULDER_CUE_PATTERN = re.compile(
+    r"\b(shoulders?|shoulder\s+line|well-fitted\s+across\s+the\s+shoulders|"
+    r"natural\s+shoulder)\b",
+    re.IGNORECASE,
 )
 
 
@@ -339,6 +448,114 @@ def lint_style(raw: dict[str, Any]) -> list[LintIssue]:
                         detail={"models": non_empty},
                     )
                 )
+
+    # v1.66 anatomy lint — three rules with a shared exempt-whitelist
+    # for studio-portrait / document styles (the only legitimate
+    # carriers of tight-portrait / studio-pose vocabulary in the
+    # catalog).
+    style_id = str(raw.get("id") or "").strip()
+    anatomy_exempt = style_id in _LINT_ANATOMY_EXEMPT
+
+    if not anatomy_exempt:
+        expression = raw.get("expression")
+        if isinstance(expression, str) and expression.strip():
+            leaks = sorted({
+                m.group(0).lower()
+                for m in _EXPRESSION_PORTRAIT_LEAK_RE.finditer(expression)
+            })
+            if leaks:
+                issues.append(
+                    LintIssue(
+                        code="EXPRESSION_PORTRAIT_LEAK",
+                        severity="error",
+                        message=(
+                            f"expression contains studio-portrait tokens "
+                            f"{leaks!r}; these compete with the v1.65 "
+                            "cinematic composition anchor and produce "
+                            "oversized-head artefacts on edit models. "
+                            "Use lifestyle phrasing (``open``, ``relaxed``, "
+                            "``natural``, ``confident``) instead, or add "
+                            "the style to ``_STUDIO_PORTRAIT_STYLE_KEYS`` "
+                            "if it really is a studio headshot."
+                        ),
+                        field="expression",
+                        detail={"tokens": leaks},
+                    )
+                )
+
+        scene_pose_sources: list[tuple[str, str]] = []
+        for scene_field in ("scene_anchor", "base_scene"):
+            scene_value = raw.get(scene_field)
+            if isinstance(scene_value, str) and scene_value.strip():
+                scene_pose_sources.append((scene_field, scene_value))
+        bg = raw.get("background")
+        if isinstance(bg, dict):
+            bg_base = bg.get("base")
+            if isinstance(bg_base, str) and bg_base.strip():
+                scene_pose_sources.append(("background.base", bg_base))
+
+        for field_name, scene_value in scene_pose_sources:
+            pose_leaks = sorted({
+                m.group(0).lower()
+                for m in _SCENE_POSE_LEAK_RE.finditer(scene_value)
+            })
+            if pose_leaks:
+                issues.append(
+                    LintIssue(
+                        code="SCENE_POSE_LEAK",
+                        severity="error",
+                        message=(
+                            f"{field_name} contains implicit-pose tokens "
+                            f"{pose_leaks!r} ({'leather chair' if 'leather chair' in pose_leaks else 'see tokens'} "
+                            "and similar cues make edit models compress "
+                            "the torso and enlarge the head). Describe "
+                            "the SPACE only, not how the subject is "
+                            "positioned inside it."
+                        ),
+                        field=field_name,
+                        detail={"tokens": pose_leaks},
+                    )
+                )
+
+        clothing_sources: list[tuple[str, str]] = []
+        default_clothing = raw.get("default_clothing")
+        if isinstance(default_clothing, str) and default_clothing.strip():
+            clothing_sources.append(("default_clothing", default_clothing))
+        clothing_block = raw.get("clothing")
+        if isinstance(clothing_block, dict):
+            default_block = clothing_block.get("default")
+            if isinstance(default_block, dict):
+                for gender_key in ("male", "female", "neutral"):
+                    value = default_block.get(gender_key)
+                    if isinstance(value, str) and value.strip():
+                        clothing_sources.append(
+                            (f"clothing.default.{gender_key}", value)
+                        )
+
+        seen_wardrobe_warning = False
+        for field_name, value in clothing_sources:
+            if not _WARDROBE_SUIT_PATTERN.search(value):
+                continue
+            if _WARDROBE_SHOULDER_CUE_PATTERN.search(value):
+                continue
+            if seen_wardrobe_warning:
+                break  # one warning per style is enough
+            seen_wardrobe_warning = True
+            issues.append(
+                LintIssue(
+                    code="WARDROBE_TIGHT_SUIT",
+                    severity="warning",
+                    message=(
+                        f"{field_name} mentions a tailored suit without "
+                        "an explicit shoulder cue; append "
+                        "``, well-fitted across the shoulders`` so the "
+                        "edit model does not draw an over-narrow "
+                        "silhouette (which makes the head look oversized)."
+                    ),
+                    field=field_name,
+                    detail={"value": value},
+                )
+            )
 
     ambient_raw = raw.get("ambient") if isinstance(raw.get("ambient"), dict) else {}
     pools: dict[str, list[str]] = {

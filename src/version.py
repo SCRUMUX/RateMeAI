@@ -5951,4 +5951,112 @@
 #          * Quality tier, ``thinking_level``, image_size,
 #            aspect_ratio, identity_retry, CodeFormer, Real-ESRGAN:
 #            untouched.
-APP_VERSION = "1.65.0"
+# 1.66.0 — Style Catalog Normalization. The v1.65 prompt-assembly fix
+#          made the wire prompt consistent across styles, but a follow-
+#          up production audit found that CV/career styles (legal_finance,
+#          boardroom, corporate, decision_moment, speaker_stage,
+#          intellectual, video_call …) still produced "giant head"
+#          artefacts despite identical inputs, while lifestyle/sport
+#          styles (gym_fitness, dating_park, hiking) did not. Root
+#          cause: the *style data* in ``data/styles.json`` carried
+#          hidden portrait-pose directives:
+#
+#            * ``expression`` fields encoded a studio-headshot mood:
+#              ``Authoritative steady expression, distinguished gravitas,
+#              composed gaze``, ``steady leadership gaze``, ``executive
+#              vision``, ``timeless authority``, ``commanding charismatic
+#              presence``. Edit models read those as "render this person
+#              as a cropped studio portrait" and they overrode the v1.65
+#              cinematic anchor through recency bias.
+#            * ``scene_anchor`` / ``base_scene`` encoded implicit poses
+#              (``leather chair``, ``behind a desk``, ``webcam-friendly
+#              framing``) that made models compress the torso.
+#            * Tailored-suit ``default_clothing`` strings lacked an
+#              explicit shoulder cue, which made edit models draw an
+#              over-narrow silhouette and exaggerated the head.
+#
+#          Scope: 33 non-studio styles across all three modes
+#          (CV, dating, social). Studio-portrait styles
+#          (``formal_portrait``, ``studio_elegant``) and document styles
+#          (``photo_3x4``, ``passport_rf``, ``visa_eu`` / ``visa_us``,
+#          ``photo_4x6``, ``driver_license``) are exempt — those genres
+#          are by-design tight headshots.
+#
+#          Implementation:
+#          * ``scripts/migrations/2026_05_styles_v4_anatomy/migrate.py``
+#            — one-shot, idempotent, token-level JSON migration. Writes
+#            a backup to ``data/styles.json.bak.v165`` on first run.
+#            Migration log lands in ``MIGRATION_LOG.md`` alongside the
+#            script.
+#          * ``src/prompts/image_gen.py``:
+#              - New ``_STUDIO_PORTRAIT_STYLE_KEYS`` frozenset +
+#                ``is_studio_portrait_style`` helper (mirrors the
+#                existing ``_DOCUMENT_STYLE_KEYS`` pattern).
+#              - ``PHOTOREAL_BLOCK`` renamed the lens descriptor from
+#                ``85mm portrait lens`` to ``85mm short-telephoto lens``
+#                (and the matching string in ``_COMPOSITION_NUMERICAL_HINT``).
+#                The duplicate ``portrait`` mention in the prompt was
+#                acting as a recency-bias headshot pull that fought the
+#                cinematic ``bust shot`` anchor.
+#          * ``src/services/composition_safety.py``:
+#              - ``resolve_effective_framing`` gained an
+#                ``is_studio_portrait`` kwarg (default False) that
+#                short-circuits to ``portrait``, mirroring the existing
+#                ``is_document`` branch. Callers (executor +
+#                ``bot/handlers/mode_select``) pass the new flag.
+#          * ``src/orchestrator/executor.py``:
+#              - CV-mode reference-padding boost. ``mode=cv`` +
+#                non-studio style now uses
+#                ``settings.csl_reference_pad_face_ratio_cv`` (0.22)
+#                instead of the default 0.28. CV users upload
+#                passport-style selfies far more often than dating /
+#                social users; the boost catches the
+#                ``face_area_ratio ≈ 0.22..0.28`` band that the v1.65
+#                threshold missed. Studio-portrait styles do NOT inherit
+#                the boost — they're meant to be tight crops.
+#          * ``src/config.py``:
+#              - New ``csl_reference_pad_face_ratio_cv: float = 0.22``.
+#          * ``src/services/style_lint.py``:
+#              - Three new rules with a shared exempt-whitelist:
+#                ``EXPRESSION_PORTRAIT_LEAK`` (error),
+#                ``SCENE_POSE_LEAK`` (error), ``WARDROBE_TIGHT_SUIT``
+#                (warning). The catalog test
+#                ``tests/test_prompts/test_style_catalog_clean.py``
+#                pins the migrated form so a future admin edit can't
+#                silently regress.
+#
+#          Tests:
+#          * New ``tests/test_prompts/test_style_catalog_clean.py``
+#            walks every catalog entry and asserts the v1.66 invariants.
+#          * New ``tests/test_services/test_style_lint_v166.py`` covers
+#            the three new rules end-to-end (positive + exempt branches).
+#          * New ``tests/test_orchestrator/test_executor_padding_cv_mode.py``
+#            pins the CV-mode boost matrix: pads at 0.25 for
+#            ``legal_finance`` (CV) but not for ``warm_outdoor`` (dating)
+#            or ``formal_portrait`` (studio whitelist).
+#          * ``test_v4_1_anchors.py`` / ``test_prompt_diversity_v4.py``
+#            / ``test_prompt_anatomy_catalog.py`` updated for the new
+#            ``85mm short-telephoto lens`` token; the legacy
+#            ``85mm portrait lens`` is now asserted absent.
+#          * ``test_resolve_effective_framing.py`` extended with
+#            studio-portrait short-circuit cases.
+#
+#          Documentation:
+#          * ``docs/ARCHITECTURE.md`` §8.9 gained a new subsection 5
+#            ("Style Catalog Normalization (v1.66)"); §8.7 rollout
+#            table gained row W7.
+#          * ``docs/master_product_constitution.md`` §9.3 updated to
+#            forbid portrait-pose tokens in expression / scene_anchor /
+#            background.base on non-studio styles, and to document the
+#            CV-mode padding boost.
+#
+#          Cost guarantee:
+#          * JSON normalisation: $0 (text edit of equal-or-shorter
+#            length, no extra prompt tokens).
+#          * Studio whitelist short-circuit: $0.
+#          * CV-mode padding boost: $0 (preprocess, same as v1.65 path).
+#          * Lens-token rename: $0 (substring substitution).
+#          * Quality tier, ``thinking_level``, image_size,
+#            aspect_ratio, identity_retry, CodeFormer, Real-ESRGAN,
+#            VLM gate budget: untouched.
+APP_VERSION = "1.66.0"

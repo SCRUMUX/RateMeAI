@@ -160,7 +160,7 @@
     "type": "scene_locked",
     "base_scene": "modern Dubai boulevard with Burj Khalifa landmark illuminated at blue hour, glass reflections, warm amber city lights, luxury urban atmosphere",
     "default_clothing": "fitted dark shirt, tailored trousers, luxury watch, polished modern style",
-    "expression": "Open modern gaze, subtle confident smile, cosmopolitan natural eyes.",
+    "expression": "Composed modern gaze, subtle power smile, cosmopolitan confident eyes.",
     "allowed_variations": {
       "lighting": [
         "warm sunset reflections on polished stone",
@@ -628,7 +628,7 @@
     "type": "flexible",
     "base_scene": "Piazza San Marco at golden hour, historic Venetian architecture, warm amber light, canal water reflections in distance",
     "default_clothing": "elegant smart-casual, fitted blazer, quality leather shoes, refined style",
-    "expression": "Romantic open expression, warm charming smile, elegant European gaze.",
+    "expression": "Romantic composed expression, warm charming smile, elegant European gaze.",
     "allowed_variations": {
       "lighting": [
         "soft warm morning light on marble",
@@ -954,7 +954,7 @@
     "type": "flexible",
     "base_scene": "Thames embankment with London Eye in background, grey-blue London sky with golden patches, river reflections",
     "default_clothing": "tailored overcoat or trench, dark scarf, smart casual British layers",
-    "expression": "Thoughtful open expression, subtle warm smile, elegant understated eyes.",
+    "expression": "Thoughtful composed expression, subtle warm smile, elegant understated eyes.",
     "allowed_variations": {
       "lighting": [
         "soft cool afternoon daylight",
@@ -1115,7 +1115,7 @@
     "type": "scene_locked",
     "base_scene": "minimalist Tokyo street with Tokyo Tower in background, cherry blossoms or clean urban aesthetic, diffused light",
     "default_clothing": "minimal Japanese-inspired outfit, clean dark fitted layers",
-    "expression": "Calm open gaze, subtle confident expression, relaxed mouth line.",
+    "expression": "Calm composed gaze, subtle confident expression, minimalist refined mouth.",
     "allowed_variations": {
       "lighting": [
         "soft afternoon light, pink cherry accents",
@@ -1262,7 +1262,7 @@
     "type": "flexible",
     "base_scene": "Marina Bay Sands and Singapore skyline at night, illuminated reflections on water, modern futuristic architecture",
     "default_clothing": "smart fitted shirt, tailored dark trousers, polished modern shoes",
-    "expression": "Open confident gaze, sophisticated subtle smile, relaxed eyes.",
+    "expression": "Polished confident gaze, subtle sophisticated smile, composed worldly eyes.",
     "allowed_variations": {
       "lighting": [
         "warm sunset sidelight, reflective water",
@@ -1881,7 +1881,7 @@
     "type": "flexible",
     "base_scene": "Times Square with vibrant billboards and neon lights, bustling atmosphere, sharp vibrant night street scene with teal and magenta neon reflections on pavement",
     "default_clothing": "streetwear layers, statement jacket, fitted dark pants, designer sneakers",
-    "expression": "Bold confident expression, open urban gaze, effortless cool look.",
+    "expression": "Bold confident expression, steady urban gaze, effortless cool look.",
     "allowed_variations": {
       "lighting": [
         "vivid neon color with warm accent glow",
@@ -2215,7 +2215,7 @@
     "type": "scene_locked",
     "base_scene": "Westminster with Big Ben landmark visible in sharp detail, classic London overcast light, Thames embankment visible",
     "default_clothing": "classic British smart-casual, tailored jacket, polished accessories",
-    "expression": "Open British elegance, subtle confident smile, refined worldly gaze.",
+    "expression": "Composed British elegance, subtle confident smile, refined worldly gaze.",
     "allowed_variations": {
       "lighting": [
         "warm afternoon sidelight on stonework",
@@ -3270,7 +3270,7 @@
     "type": "flexible",
     "base_scene": "luxury hotel lobby with marble floor, warm amber ambient lighting, modern reception area visible, luggage nearby",
     "default_clothing": "travel-smart outfit, fitted blazer or quality jacket, polished casual look",
-    "expression": "Warm confident smile, polished traveler gaze, natural open expression.",
+    "expression": "Warm confident smile, polished traveler gaze, composed expression.",
     "allowed_variations": {
       "lighting": [
         "warm amber ambient light with crystal accents",
@@ -3393,7 +3393,7 @@
     "type": "flexible",
     "base_scene": "first-class airport lounge or luxury resort entrance, marble and brass details, warm ambient lighting, premium interior",
     "default_clothing": "elevated travel outfit, quality fabrics, leather accessories, luxury watch",
-    "expression": "Open confident expression, subtle assured smile, elevated relaxed brow.",
+    "expression": "Composed confident expression, subtle assured smile, elevated still brow.",
     "allowed_variations": {
       "lighting": [
         "bright afternoon sunlight, polished fuselage",
@@ -3516,7 +3516,7 @@
     "type": "flexible",
     "base_scene": "stepping out of luxury car, door open, city backdrop, natural light catching the scene, polished car interior visible",
     "default_clothing": "tailored smart outfit, polished shoes, clean confident style",
-    "expression": "Confident open gaze, purposeful relaxed expression, natural mouth line.",
+    "expression": "Confident direct gaze, purposeful composed expression, polished still mouth.",
     "allowed_variations": {
       "lighting": [
         "warm amber canopy light",
@@ -3635,7 +3635,7 @@
     "type": "flexible",
     "base_scene": "luxury sedan or sports car parked on sunlit city boulevard, warm golden reflections on polished paint, urban architecture visible behind",
     "default_clothing": "fitted dark jeans, crisp white crew-neck t-shirt, leather watch, aviator sunglasses pushed up on head",
-    "expression": "Direct assured gaze, subtle half-smile, relaxed brow and natural mouth.",
+    "expression": "Direct assured gaze, subtle half-smile, relaxed brow and steady mouth.",
     "allowed_variations": {
       "lighting": [
         "warm golden reflections on polished paint",
@@ -4370,7 +4370,7 @@
     "type": "flexible",
     "base_scene": "rooftop terrace at blue hour, city skyline rendered in sharp legible detail with warm lights, modern glass railing, ambient string lights",
     "default_clothing": "dark fitted blazer over black tee, tailored trousers, minimalist watch",
-    "expression": "Open sophisticated gaze, subtle confident smile, relaxed mouth line.",
+    "expression": "Composed sophisticated gaze, subtle confident smile, polished still mouth.",
     "allowed_variations": {
       "lighting": [
         "deep blue sky with warm city lights",
@@ -6357,7 +6357,7 @@
     "type": "flexible",
     "base_scene": "matte-black motorcycle parked on empty road at golden hour, open landscape behind, warm rim light",
     "default_clothing": "fitted leather jacket over plain tee, dark denim, motorcycle boots",
-    "expression": "Direct confident gaze, calm rugged brow, natural closed-mouth line.",
+    "expression": "Strong direct gaze, calm rugged brow, bold closed-mouth line.",
     "allowed_variations": {
       "lighting": [
         "warm golden-hour backlight, calm sea behind",
@@ -6641,7 +6641,7 @@
     "type": "flexible",
     "base_scene": "contemporary art gallery, white walls with large paintings visible, track lighting creating directional light",
     "default_clothing": "smart turtleneck or fitted dark shirt, tailored trousers, minimalist style",
-    "expression": "Intellectual open expression, subtle confident gaze, cultured relaxed mouth.",
+    "expression": "Intellectual composed expression, subtle confident gaze, cultured refined mouth.",
     "allowed_variations": {
       "lighting": [
         "warm track lighting on paintings",
@@ -7034,7 +7034,7 @@
     "type": "flexible",
     "base_scene": "modern airport terminal or departure lounge, large windows with aircraft visible, clean bright interior",
     "default_clothing": "travel-smart outfit, fitted jacket, comfortable trousers, carry-on bag nearby",
-    "expression": "Easy natural smile, open relaxed gaze, confident open expression.",
+    "expression": "Easy composed smile, composed worldly gaze, confident worldly expression.",
     "allowed_variations": {
       "lighting": [
         "warm ambient light with bright daylight outside",
@@ -7957,8 +7957,8 @@
     "mode": "cv",
     "type": "flexible",
     "base_scene": "modern corner office, floor-to-ceiling windows with diffused diffused daylight, neutral beige wall, clean minimalist interior",
-    "default_clothing": "tailored formal charcoal suit, crisp white shirt, subtle tie or silk scarf, well-fitted across the shoulders",
-    "expression": "Confident open gaze, professional natural half-smile, relaxed mouth line.",
+    "default_clothing": "tailored formal charcoal suit, crisp white shirt, subtle tie or silk scarf",
+    "expression": "Trustworthy direct gaze, professional confident half-smile, composed still mouth.",
     "allowed_variations": {
       "lighting": [
         "diffused warm daylight with soft fill",
@@ -8004,9 +8004,9 @@
     },
     "clothing": {
       "default": {
-        "male": "tailored formal charcoal suit, crisp white shirt, subtle tie or silk scarf, well-fitted across the shoulders",
-        "female": "tailored formal charcoal suit, crisp white shirt, subtle tie or silk scarf, well-fitted across the shoulders",
-        "neutral": "tailored formal charcoal suit, crisp white shirt, subtle tie or silk scarf, well-fitted across the shoulders"
+        "male": "tailored formal charcoal suit, crisp white shirt, subtle tie or silk scarf",
+        "female": "tailored formal charcoal suit, crisp white shirt, subtle tie or silk scarf",
+        "neutral": "tailored formal charcoal suit, crisp white shirt, subtle tie or silk scarf"
       },
       "allowed": [],
       "gender_neutral": true
@@ -8075,9 +8075,9 @@
     "id": "boardroom",
     "mode": "cv",
     "type": "flexible",
-    "base_scene": "executive boardroom interior, polished dark table edge across the background, large screen or whiteboard visible, soft even overhead lighting",
-    "default_clothing": "navy suit, power tie, pocket square, cufflinks, well-fitted across the shoulders",
-    "expression": "Confident open expression, relaxed direct gaze, natural brow, shoulders visible in frame.",
+    "base_scene": "executive boardroom, polished dark table, leather chairs, large screen or whiteboard behind, even overhead lighting",
+    "default_clothing": "navy suit, power tie, pocket square, cufflinks",
+    "expression": "Authoritative composed expression, steady leadership gaze, strong confident brow.",
     "allowed_variations": {
       "lighting": [
         "even warm overhead lighting",
@@ -8114,7 +8114,7 @@
     "schema_version": 3,
     "trigger": "boardroom",
     "background": {
-      "base": "executive boardroom interior, polished dark table edge across the background, large screen or whiteboard visible, soft even overhead lighting",
+      "base": "executive boardroom, polished dark table, leather chairs, large screen or whiteboard behind, even overhead lighting",
       "lock": "semi",
       "overrides_allowed": [
         "executive boardroom with dark polished table",
@@ -8124,9 +8124,9 @@
     },
     "clothing": {
       "default": {
-        "male": "navy suit, power tie, pocket square, cufflinks, well-fitted across the shoulders",
-        "female": "navy suit, power tie, pocket square, cufflinks, well-fitted across the shoulders",
-        "neutral": "navy suit, power tie, pocket square, cufflinks, well-fitted across the shoulders"
+        "male": "navy suit, power tie, pocket square, cufflinks",
+        "female": "navy suit, power tie, pocket square, cufflinks",
+        "neutral": "navy suit, power tie, pocket square, cufflinks"
       },
       "allowed": [],
       "gender_neutral": true
@@ -8158,9 +8158,9 @@
       "per_model_tail": {}
     },
     "trigger_pool": [
-      "executive boardroom interior, polished dark table edge across the background, large screen or whiteboard visible"
+      "executive boardroom, polished dark table, leather chairs, large screen or whiteboard behind"
     ],
-    "scene_anchor": "executive boardroom interior, polished dark table edge across the background, large screen or whiteboard visible",
+    "scene_anchor": "executive boardroom, polished dark table, leather chairs, large screen or whiteboard behind",
     "scene_overrides": [
       "executive boardroom with dark polished table",
       "glass-walled boardroom with city view",
@@ -8320,8 +8320,8 @@
     "mode": "cv",
     "type": "flexible",
     "base_scene": "modern office with floor-to-ceiling glass wall, city panorama behind, clean architectural lines, natural daylight streaming in",
-    "default_clothing": "tailored suit or smart business attire, confident professional silhouette, well-fitted across the shoulders",
-    "expression": "Open confident gaze, modern relaxed brow, natural expression.",
+    "default_clothing": "tailored suit or smart business attire, confident professional silhouette",
+    "expression": "Composed powerful gaze, modern executive steady brow, confident expression.",
     "allowed_variations": {
       "lighting": [
         "warm golden-hour backlight, soft interior fill",
@@ -8369,9 +8369,9 @@
     },
     "clothing": {
       "default": {
-        "male": "tailored suit or smart business attire, confident professional silhouette, well-fitted across the shoulders",
-        "female": "tailored suit or smart business attire, confident professional silhouette, well-fitted across the shoulders",
-        "neutral": "tailored suit or smart business attire, confident professional silhouette, well-fitted across the shoulders"
+        "male": "tailored suit or smart business attire, confident professional silhouette",
+        "female": "tailored suit or smart business attire, confident professional silhouette",
+        "neutral": "tailored suit or smart business attire, confident professional silhouette"
       },
       "allowed": [],
       "gender_neutral": true
@@ -8690,7 +8690,7 @@
     "id": "video_call",
     "mode": "cv",
     "type": "flexible",
-    "base_scene": "clean home office interior, ring light or monitor glow on the subject, neat bookshelves visible behind, even lighting",
+    "base_scene": "clean home office with ring light or monitor glow, neat bookshelves behind, webcam-friendly framing, even lighting",
     "default_clothing": "professional fitted shirt, crisp collar, clean grooming visible above desk",
     "expression": "Engaged expression, warm professional smile, confident screen presence, trustworthy soft eyes.",
     "allowed_variations": {
@@ -8729,7 +8729,7 @@
     "schema_version": 3,
     "trigger": "video",
     "background": {
-      "base": "clean home office interior, ring light or monitor glow on the subject, neat bookshelves visible behind, even lighting",
+      "base": "clean home office with ring light or monitor glow, neat bookshelves behind, webcam-friendly framing, even lighting",
       "lock": "semi",
       "overrides_allowed": [
         "clean home office with ring light and monitor",
@@ -8775,9 +8775,9 @@
       "per_model_tail": {}
     },
     "trigger_pool": [
-      "clean home office interior, ring light or monitor glow on the subject, neat bookshelves visible behind"
+      "clean home office with ring light or monitor glow, neat bookshelves behind, webcam-friendly framing"
     ],
-    "scene_anchor": "clean home office interior, ring light or monitor glow on the subject, neat bookshelves visible behind",
+    "scene_anchor": "clean home office with ring light or monitor glow, neat bookshelves behind, webcam-friendly framing",
     "scene_overrides": [
       "clean home office with ring light and monitor",
       "home office with neat bookshelves behind",
@@ -9432,7 +9432,7 @@
     "type": "flexible",
     "base_scene": "modern office corridor or glass-walled lobby, bright clean environment, meeting rooms visible behind, professional workspace atmosphere",
     "default_clothing": "fresh professional attire, straightened collar, polished ready-for-action look",
-    "expression": "Focused open gaze, subtle prepared smile, relaxed mouth line.",
+    "expression": "Focused composed gaze, subtle prepared smile, polished professional still mouth.",
     "allowed_variations": {
       "lighting": [
         "bright even cool daylight",
@@ -9552,8 +9552,8 @@
     "mode": "cv",
     "type": "flexible",
     "base_scene": "standing at large window overlooking cityscape, contemplative atmosphere, warm rim light from window, cityscape in sharp focus through the window",
-    "default_clothing": "tailored dark suit against bright window, face evenly lit, executive presence, well-fitted across the shoulders",
-    "expression": "Open thoughtful expression, relaxed brow, natural forward presence.",
+    "default_clothing": "tailored dark suit against bright window, face evenly lit, executive presence",
+    "expression": "Strong thoughtful expression, composed decisive brow, executive vision.",
     "allowed_variations": {
       "lighting": [
         "warm rim light with cool city outside",
@@ -9602,9 +9602,9 @@
     },
     "clothing": {
       "default": {
-        "male": "tailored dark suit against bright window, face evenly lit, executive presence, well-fitted across the shoulders",
-        "female": "tailored dark suit against bright window, face evenly lit, executive presence, well-fitted across the shoulders",
-        "neutral": "tailored dark suit against bright window, face evenly lit, executive presence, well-fitted across the shoulders"
+        "male": "tailored dark suit against bright window, face evenly lit, executive presence",
+        "female": "tailored dark suit against bright window, face evenly lit, executive presence",
+        "neutral": "tailored dark suit against bright window, face evenly lit, executive presence"
       },
       "allowed": [],
       "gender_neutral": true
@@ -9680,7 +9680,7 @@
     "type": "flexible",
     "base_scene": "premium airport or hotel business lounge, marble and leather surfaces, warm lighting, laptop and documents on table",
     "default_clothing": "business-casual travel outfit, quality fabrics, polished accessories",
-    "expression": "Open traveler expression, confident relaxed smile, premium natural gaze.",
+    "expression": "Composed traveler expression, confident relaxed smile, premium professional gaze.",
     "allowed_variations": {
       "lighting": [
         "warm ambient amber light",
@@ -9800,8 +9800,8 @@
     "mode": "cv",
     "type": "flexible",
     "base_scene": "conference stage, podium with microphone, presentation screen clearly visible behind, warm stage key light from above keeping both speaker and screen readable",
-    "default_clothing": "tailored suit with open-collar shirt, confident speaker style, well-fitted across the shoulders",
-    "expression": "Engaging open expression, animated relaxed brow, natural forward presence.",
+    "default_clothing": "tailored suit with open-collar shirt, confident speaker style",
+    "expression": "Engaging animated expression, commanding charismatic presence, confident forward gaze.",
     "allowed_variations": {
       "lighting": [
         "warm stage key with soft rim",
@@ -9849,9 +9849,9 @@
     },
     "clothing": {
       "default": {
-        "male": "tailored suit with open-collar shirt, confident speaker style, well-fitted across the shoulders",
-        "female": "tailored suit with open-collar shirt, confident speaker style, well-fitted across the shoulders",
-        "neutral": "tailored suit with open-collar shirt, confident speaker style, well-fitted across the shoulders"
+        "male": "tailored suit with open-collar shirt, confident speaker style",
+        "female": "tailored suit with open-collar shirt, confident speaker style",
+        "neutral": "tailored suit with open-collar shirt, confident speaker style"
       },
       "allowed": [],
       "gender_neutral": true
@@ -10182,7 +10182,7 @@
     "type": "flexible",
     "base_scene": "classic library or bookstore, warm amber ambient lighting, books and wooden shelves behind, academic atmosphere",
     "default_clothing": "turtleneck or fitted quality shirt, subtle glasses, refined academic style",
-    "expression": "Open thoughtful gaze, contemplative natural expression, scholarly relaxed brow.",
+    "expression": "Thoughtful composed gaze, deep contemplative expression, scholarly refined brow.",
     "allowed_variations": {
       "lighting": [
         "warm reading lamp with ambient amber fill",
@@ -10668,9 +10668,9 @@
     "id": "legal_finance",
     "mode": "cv",
     "type": "flexible",
-    "base_scene": "wood-panelled office interior, law books on shelves, warm ambient desk lamp glow, soft daylight wash",
-    "default_clothing": "three-piece suit, silk tie, pocket square, classic luxury watch, well-fitted across the shoulders",
-    "expression": "Confident relaxed expression, settled direct gaze, natural mouth line, shoulders visible in frame.",
+    "base_scene": "wood-paneled office or library, law books on shelves, warm ambient desk lamp, leather chair",
+    "default_clothing": "three-piece suit, silk tie, pocket square, classic luxury watch",
+    "expression": "Authoritative steady expression, distinguished gravitas, composed gaze.",
     "allowed_variations": {
       "lighting": [
         "warm desk-lamp light with ambient fill",
@@ -10707,10 +10707,10 @@
     "schema_version": 3,
     "trigger": "legal",
     "background": {
-      "base": "wood-panelled office interior, law books on shelves, warm ambient desk lamp glow, soft daylight wash",
+      "base": "wood-paneled office or library, law books on shelves, warm ambient desk lamp, leather chair",
       "lock": "semi",
       "overrides_allowed": [
-        "wood-panelled office interior with soft daylight wash",
+        "wood-paneled office with leather chair",
         "law-book archive shelves behind desk",
         "marble chamber room with heritage details",
         "city-view executive office"
@@ -10718,9 +10718,9 @@
     },
     "clothing": {
       "default": {
-        "male": "three-piece suit, silk tie, pocket square, classic luxury watch, well-fitted across the shoulders",
-        "female": "three-piece suit, silk tie, pocket square, classic luxury watch, well-fitted across the shoulders",
-        "neutral": "three-piece suit, silk tie, pocket square, classic luxury watch, well-fitted across the shoulders"
+        "male": "three-piece suit, silk tie, pocket square, classic luxury watch",
+        "female": "three-piece suit, silk tie, pocket square, classic luxury watch",
+        "neutral": "three-piece suit, silk tie, pocket square, classic luxury watch"
       },
       "allowed": [],
       "gender_neutral": true
@@ -10752,11 +10752,11 @@
       "per_model_tail": {}
     },
     "trigger_pool": [
-      "wood-panelled office interior, law books on shelves, soft daylight wash"
+      "wood-paneled office or library, law books on shelves, leather chair"
     ],
-    "scene_anchor": "wood-panelled office interior, law books on shelves, soft daylight wash",
+    "scene_anchor": "wood-paneled office or library, law books on shelves, leather chair",
     "scene_overrides": [
-      "wood-panelled office interior with soft daylight wash",
+      "wood-paneled office with leather chair",
       "law-book archive shelves behind desk",
       "marble chamber room with heritage details",
       "city-view executive office"
@@ -11870,7 +11870,7 @@
     "type": "flexible",
     "base_scene": "clean modern minimalist room, indirect lighting, neutral walls, warm ambient glow, polished interior",
     "default_clothing": "curated outfit with clean lines, one statement piece, polished silhouette",
-    "expression": "Calm confident gaze, effortless polished smile, open expression.",
+    "expression": "Calm confident gaze, effortless polished still mouth, composed expression.",
     "allowed_variations": {
       "lighting": [
         "soft warm ambient light",
@@ -11999,7 +11999,7 @@
     "type": "flexible",
     "base_scene": "modern elevator interior, stainless steel or mirrored walls, even overhead lighting, clean minimal space",
     "default_clothing": "fitted smart outfit, clean sharp silhouette, polished aesthetic",
-    "expression": "Direct open gaze, minimal natural expression, sharp modern relaxed brow.",
+    "expression": "Direct gaze, composed minimal expression, sharp modern still brow.",
     "allowed_variations": {
       "lighting": [
         "even overhead cool light",
@@ -12672,7 +12672,7 @@
     "type": "semi_locked",
     "base_scene": "pure white or light beige minimalist studio, clean even lighting, Scandinavian aesthetic",
     "default_clothing": "monochrome fitted outfit, one statement accessory, clean lines",
-    "expression": "Calm confident gaze, serene sophisticated smile, poised expression.",
+    "expression": "Calm confident gaze, serene sophisticated still mouth, poised expression.",
     "allowed_variations": {
       "lighting": [
         "bright even diffused key light",
@@ -12934,7 +12934,7 @@
     "type": "flexible",
     "base_scene": "city street at night with neon signs, vibrant pink-blue-purple reflections on wet pavement, sharp vibrant neon-lit street scene with readable signage",
     "default_clothing": "dark streetwear, leather jacket or fitted dark outfit, reflective elements",
-    "expression": "Direct open gaze, bold edgy relaxed mouth, bold confident expression.",
+    "expression": "Intense direct gaze, bold edgy steady mouth, bold confident expression.",
     "allowed_variations": {
       "lighting": [
         "vivid neon with reflective rain",
@@ -14248,7 +14248,7 @@
     "type": "flexible",
     "base_scene": "standing before massive floor-to-ceiling window with dramatic city panorama, soft rim light from the window, face clearly lit from front, dramatic scale",
     "default_clothing": "minimal dark outfit against bright cityscape, face evenly lit",
-    "expression": "Contemplative open expression, calm direct gaze, relaxed natural brow.",
+    "expression": "Contemplative expression, profound calm gaze, grand-scale composed brow.",
     "allowed_variations": {
       "lighting": [
         "warm directional interior light with cool city outside",
@@ -14402,7 +14402,7 @@
     "type": "flexible",
     "base_scene": "urban street with dynamic energy, caught walking dynamically, sense of movement and energy",
     "default_clothing": "stylish casual outfit with flowing jacket or coat, dynamic movement",
-    "expression": "Confident forward gaze, dynamic purposeful stride, bold open expression.",
+    "expression": "Confident forward gaze, dynamic purposeful stride, bold expression.",
     "allowed_variations": {
       "lighting": [
         "warm afternoon sidelight",
@@ -14978,7 +14978,7 @@
     "type": "flexible",
     "base_scene": "high-rise interior with floor-to-ceiling windows, city lights below at night rendered with crisp distant detail, dramatic metropolitan atmosphere, warm interior accent light",
     "default_clothing": "elegant dark outfit against glowing city skyline, face clearly visible",
-    "expression": "Open serene expression, elevated sophisticated smile, calm gaze.",
+    "expression": "Composed serene expression, elevated sophisticated still mouth, calm gaze.",
     "allowed_variations": {
       "lighting": [
         "warm interior accent with deep blue sky",
@@ -15595,7 +15595,7 @@
     "type": "flexible",
     "base_scene": "visually curated setting with cohesive color palette, architectural lines or nature patterns, balanced composition",
     "default_clothing": "color-coordinated outfit matching the background palette",
-    "expression": "Editorial confident expression, polished natural smile, striking gaze.",
+    "expression": "Editorial confident expression, polished still mouth, striking gaze.",
     "allowed_variations": {
       "lighting": [
         "soft even balanced lighting",

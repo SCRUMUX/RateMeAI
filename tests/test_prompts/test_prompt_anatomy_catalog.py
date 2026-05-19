@@ -11,16 +11,23 @@ Invariants for non-document styles:
 
 * ``Reframe the reference into`` is present — the cinematic-vocabulary
   layout directive that replaces v1.64's percentage targets.
-* Either ``85mm portrait lens`` (portrait + half_body) or ``35mm lens``
-  (full_body) is present — the physical lens spec is the canonical
-  anti-selfie-perspective fix.
+* Either ``85mm short-telephoto lens`` (portrait + half_body) or
+  ``35mm lens`` (full_body) is present — the physical lens spec is
+  the canonical anti-selfie-perspective fix. v1.66 renamed the
+  short-tele lens from ``85mm portrait lens`` to drop the duplicate
+  ``portrait`` mention that was acting as a recency-bias headshot pull.
 * The identity anchor ``identical face shape, eye shape and colour``
   is present.
 * The legacy ``50mm lens at eye level`` anchor is absent.
+* The legacy v1.65 ``85mm portrait lens`` descriptor is absent
+  (renamed in v1.66).
 * The v1.63 head-and-shoulders identity tail
   ``head and shoulders read as real human proportions`` is absent.
 * The ``Framing: head-and-shoulders close-up`` token from the
   v1.64-era ``framing_line`` is absent — duplicate framing signal.
+* v1.66 portrait-pose semantic leaks (``leadership gaze``,
+  ``gravitas``, ``behind a desk``, ``leather chair``) are absent
+  outside the studio-portrait whitelist.
 * Length stays in ``[650, 1550]`` characters.
 
 Document styles bypass ``_COMPOSITION_NUMERICAL_HINT`` and use
@@ -39,10 +46,30 @@ from src.prompts.engine import PromptEngine
 from src.prompts.image_gen import (
     _COMPOSITION_NUMERICAL_HINT,
     _DOCUMENT_STYLE_KEYS,
+    _STUDIO_PORTRAIT_STYLE_KEYS,
     STYLE_REGISTRY,
 )
 from src.services.style_loader_v2 import register_v2_styles_from_json
 from src.services.style_loader_v3 import register_v3_styles_from_json
+
+
+# v1.66 — portrait-pose tokens that must NOT leak into the wire prompt
+# for non-studio styles. These are the semantic-conflict cluster that
+# the v1.66 style-catalog normalization stripped from
+# ``data/styles.json``; the test pins the catalog so the migration
+# can't silently regress.
+_V166_POSE_LEAK_TOKENS: tuple[str, ...] = (
+    "authoritative steady",
+    "leadership gaze",
+    "distinguished gravitas",
+    "executive vision",
+    "timeless authority",
+    "commanding charismatic",
+    "leather chair",
+    "behind a desk",
+    "behind the desk",
+    "webcam-friendly",
+)
 
 
 _FRAMINGS: tuple[str, ...] = ("portrait", "half_body", "full_body")
@@ -116,10 +143,12 @@ def test_v1_65_anatomy_invariants(mode: AnalysisMode, style: str, framing: str):
     )
 
     if framing in ("portrait", "half_body"):
-        assert "85mm portrait lens" in prompt, (
-            f"{label}: 85mm portrait lens anchor missing for "
+        assert "85mm short-telephoto lens" in prompt, (
+            f"{label}: 85mm short-telephoto lens anchor missing for "
             "portrait/half_body — required by v1.65 to suppress the "
-            "selfie-perspective head enlargement\n"
+            "selfie-perspective head enlargement (renamed in v1.66 "
+            "from ``85mm portrait lens`` to drop the duplicate "
+            "``portrait`` recency cue)\n"
             f"{prompt!r}"
         )
     else:
@@ -138,6 +167,23 @@ def test_v1_65_anatomy_invariants(mode: AnalysisMode, style: str, framing: str):
         f"{label}: legacy 50mm-at-eye-level anchor must be gone\n"
         f"{prompt!r}"
     )
+    assert "85mm portrait lens" not in prompt, (
+        f"{label}: legacy v1.65 ``85mm portrait lens`` descriptor "
+        "must not return — v1.66 renamed it to ``85mm short-telephoto "
+        "lens`` to remove the duplicate ``portrait`` mention\n"
+        f"{prompt!r}"
+    )
+
+    if style not in _STUDIO_PORTRAIT_STYLE_KEYS:
+        lower_prompt = prompt.lower()
+        for token in _V166_POSE_LEAK_TOKENS:
+            assert token not in lower_prompt, (
+                f"{label}: v1.66 portrait-pose token {token!r} leaked "
+                "into the wire prompt — the style-catalog "
+                "normalization (migrate.py) must strip these from "
+                "non-studio styles\n"
+                f"{prompt!r}"
+            )
     assert "head and shoulders read as real human proportions" not in prompt, (
         f"{label}: v1.63 head-and-shoulders identity tail must not "
         "return — it conflicts with non-portrait framings\n"

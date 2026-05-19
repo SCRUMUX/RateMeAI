@@ -380,6 +380,14 @@ class Settings(BaseSettings):
     # without the upload being technically a face_closeup.
     csl_reference_pad_face_ratio: float = 0.28
 
+    # v1.66 — CV-mode-only override of the padding threshold. CV users
+    # routinely upload "passport-style" selfies that fall right above
+    # the portrait/face_closeup boundary, so we lower the trigger for
+    # mode=cv (excluding studio-portrait styles, which are intended
+    # tight headshots). Studio whitelist is enforced in the executor
+    # via :func:`src.prompts.image_gen.is_studio_portrait_style`.
+    csl_reference_pad_face_ratio_cv: float = 0.22
+
     # Legacy prompt_strength (unused in edit mode)
     image_gen_strength: float = 0.45
 

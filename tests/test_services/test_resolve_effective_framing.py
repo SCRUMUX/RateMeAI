@@ -175,3 +175,37 @@ def test_spec_none_does_not_crash():
         )
         == "portrait"
     )
+
+
+@pytest.mark.parametrize("user_framing", [None, "", "portrait", "half_body", "full_body"])
+def test_studio_portrait_short_circuits_to_portrait(user_framing):
+    """v1.66 — studio-portrait styles (``formal_portrait``,
+    ``studio_elegant``) are by-design tight headshots. The resolver
+    pins them to ``portrait`` regardless of user pick, CSL
+    classification, or ``needs_full_body`` — mirroring the
+    document-style short-circuit branch."""
+    assert (
+        resolve_effective_framing(
+            user_framing=user_framing,
+            composition_class=CompositionClass.FULL_BODY,
+            spec=_Spec(needs_full_body=True),
+            is_document=False,
+            is_studio_portrait=True,
+        )
+        == "portrait"
+    )
+
+
+def test_studio_portrait_default_false_preserves_legacy_path():
+    """The ``is_studio_portrait`` parameter is optional and defaults
+    to ``False`` — callers that haven't been migrated keep behaving
+    exactly as in v1.65."""
+    assert (
+        resolve_effective_framing(
+            user_framing="full_body",
+            composition_class=CompositionClass.FULL_BODY,
+            spec=_Spec(needs_full_body=True),
+            is_document=False,
+        )
+        == "full_body"
+    )

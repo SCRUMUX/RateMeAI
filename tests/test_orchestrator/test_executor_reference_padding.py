@@ -81,6 +81,7 @@ def _base_settings(mock_settings) -> None:
     mock_settings.csl_reference_pad_enabled = True
     mock_settings.csl_face_closeup_face_ratio = 0.35
     mock_settings.csl_reference_pad_face_ratio = 0.28
+    mock_settings.csl_reference_pad_face_ratio_cv = 0.22
 
 
 def _build_executor(image_gen):
