@@ -6321,4 +6321,29 @@
 #            ``resetGeneration`` call on the same path.
 #
 #          Zero backend changes, zero prompt changes, zero new flags.
-APP_VERSION = "1.70.2"
+# 1.70.3 — Prompt-pipeline dead-code cleanup (Stage 3 of audit fix-up).
+#          The v1.70 anatomy cleanup emptied two of the head-anchor
+#          dicts (``_COMPOSITION_NUMERICAL_HINT`` and
+#          ``_FACE_AREA_ANCHOR_BY_FRAMING``) to ``{}`` but left the
+#          ``if ir.framing in <empty_dict>: …`` branches in
+#          ``model_wrappers._assemble``. Those branches were 100%
+#          unreachable in production — every framing key missed the
+#          empty dict and the body never executed.
+#
+#          This patch drops both unreachable branches (19 lines) and
+#          rewrites the file-level and function-level docstrings so
+#          they document the assembly order that actually ships
+#          today. The dicts and their feature flags
+#          (``numerical_percent_anchor_enabled``,
+#          ``photoreal_by_framing_enabled``) are deliberately kept
+#          in ``image_gen``/``config`` as REGRESSION MARKERS — the
+#          ``tests/test_prompts/`` suite asserts they stay empty, so
+#          a future PR cannot silently re-introduce the v1.65/v1.68
+#          head-cue cluster without breaking a guard test.
+#
+#          Behaviour is BYTE-FOR-BYTE identical to 1.70.2 — every
+#          framing × every model already produced the same wire
+#          prompt because the deleted branches never ran. Verified
+#          locally with the 30-style golden fixtures and the full
+#          2466-test suite (0 failures).
+APP_VERSION = "1.70.3"

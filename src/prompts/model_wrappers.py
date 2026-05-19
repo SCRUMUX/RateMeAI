@@ -2,35 +2,40 @@
 
 v1.67 — composition-first / identity-tail pipeline
 ---------------------------------------------------
-Stages of the wire prompt (non-document styles):
+v1.70 — cinematic head-anchor cluster removed (see
+``image_gen._COMPOSITION_NUMERICAL_HINT``).
+v1.71 — unreachable assembler branches dropped (the underlying dicts
+were emptied in v1.70).
+
+Stages of the wire prompt (non-document styles), as they ship today:
 
 1. ``change_instruction``                 — Google-formula opener
                                              ("Using the reference photo,
                                              render the same person in a
                                              new scene…").
-2. ``_COMPOSITION_NUMERICAL_HINT``        — cinematic layout directive
-                                             ("Reframe the reference into
-                                             a head-and-shoulders bust
-                                             shot taken with an 85mm
-                                             short-telephoto lens …").
-                                             Owns the early-attention
-                                             budget that edit-models
-                                             weigh heavily.
-3. narrative scene line                   — "<scene> lit by X during a Y
+2. narrative scene line                   — "<scene> lit by X during a Y
                                              morning in Z." (composed in
                                              :meth:`CompositionIR.scene_line`)
-4. wardrobe                               — "Wardrobe: <clothing>."
+3. wardrobe                               — "Wardrobe: <clothing>."
                                              Body-geometry cue.
+4. ``_POSE_BY_FRAMING``                   — relaxed-pose body geometry
+                                             directive. Gated on
+                                             ``settings.pose_hint_enabled``
+                                             (default True in v1.69+).
 5. ``expression``                         — natural-from-reference by
                                              default (see
                                              composition_builder.py).
-6. ``PHOTOREAL_BLOCK``                    — single camera/DoF block
-                                             (``85mm short-telephoto lens
-                                             at chest height``), single
-                                             materiality clause, single
-                                             lighting-integration
-                                             clause.
-7. ``IDENTITY_PRESERVE_BLOCK``            — identity anchors at the
+6. ``PHOTOREAL_BLOCK``                    — skin-texture + light-match
+                                             anchors. v1.70 dropped the
+                                             lens / DoF tokens that
+                                             over-anchored portrait
+                                             perspective.
+7. ``LIGHT_MATCH_CLAUSE``                 — separate clause, gated on
+                                             ``light_match_clause_enabled``
+                                             (default False in v1.70 —
+                                             the instruction is dissolved
+                                             into ``PHOTOREAL_BLOCK``).
+8. ``IDENTITY_PRESERVE_BLOCK``            — identity anchors at the
                                              very tail. v1.67 demoted
                                              identity from "between
                                              composition anchor and
@@ -45,17 +50,22 @@ Stages of the wire prompt (non-document styles):
                                              instruction to copy the
                                              reference head/torso ratio.
 
+Historical: stage 2 used to be ``_COMPOSITION_NUMERICAL_HINT`` (a
+"Reframe the reference into a head-and-shoulders bust shot …" line)
+and there was a v1.68 numeric face-area anchor at the prompt head.
+Both were emptied in v1.70 (audit:
+``docs/ANATOMY_INVESTIGATION.md``) — the geometric half of those
+doctrines still ships via ``reference_preprocess``, the textual half
+was found to dominate the prompt with head-cues.
+
 v1.65 removed the standalone ``framing_line`` stage from the wire
-prompt: it duplicated the framing signal already delivered by
-``_COMPOSITION_NUMERICAL_HINT`` and the camera setup in
-``PHOTOREAL_BLOCK``. ``framing_line`` is still computed on
-:class:`CompositionIR` for IR inspection / test tooling, just not
-emitted into the final prompt.
+prompt; ``framing_line`` is still computed on :class:`CompositionIR`
+for IR inspection / test tooling, just not emitted into the final
+prompt.
 
 Document styles use a separate vendor-policy path with DOC_PRESERVE /
 DOC_QUALITY and a fixed composition hint — identity fidelity
-requirements there are not negotiable. The non-document numerical
-hint mirrors that approach.
+requirements there are not negotiable.
 
 Tail resolution order:
 
@@ -126,19 +136,24 @@ def _assemble(ir: CompositionIR, *, tail: str) -> str:
     """Assemble the wire-prompt from a :class:`CompositionIR`.
 
     v1.67 — composition-first / identity-tail ordering.
+    v1.70 — cinematic head-anchors removed (see ``_COMPOSITION_NUMERICAL_HINT``
+    docstring); v1.71 also dropped the unreachable assembler branches.
 
     Order of stages for non-document styles:
 
     1. ``change_instruction`` opener (Google-formula "Using the
        reference photo, render the same person in a new scene…").
-    2. ``_COMPOSITION_NUMERICAL_HINT`` — cinematic anchor (bust shot /
-       waist-up / full-length) with explicit lens spec. Owns the
-       early-attention budget that edit-models weigh heavily.
-    3. Scene line — narrative environment.
-    4. Wardrobe — explicit body geometry cue.
+    2. Scene line — narrative environment.
+    3. Wardrobe — explicit body geometry cue.
+    4. ``_POSE_BY_FRAMING`` — relaxed-pose body-geometry directive,
+       gated on ``settings.pose_hint_enabled``.
     5. Expression — facial expression / gaze.
-    6. ``PHOTOREAL_BLOCK`` — camera, DoF, materiality, lighting.
-    7. ``IDENTITY_PRESERVE_BLOCK`` — identity anchors at the very
+    6. ``PHOTOREAL_BLOCK`` — skin texture + light-match anchors
+       (lens / DoF removed in v1.70).
+    7. ``LIGHT_MATCH_CLAUSE`` — gated on
+       ``settings.light_match_clause_enabled`` (default False in v1.70
+       because the clause is dissolved into ``PHOTOREAL_BLOCK``).
+    8. ``IDENTITY_PRESERVE_BLOCK`` — identity anchors at the very
        tail. v1.67 demoted identity from "between composition anchor
        and scene" to the end so the recency-bias channel reinforces
        composition, and so the geometric reading of "identical face
@@ -166,45 +181,26 @@ def _assemble(ir: CompositionIR, *, tail: str) -> str:
         parts.append(ig.DOC_PRESERVE)
         parts.append(ig.DOC_QUALITY)
     else:
-        # v1.68 — P1.4: quantitative face-area anchor at the VERY
-        # head of the prompt. Behind ``numerical_percent_anchor_enabled``
-        # so Phase 2 rollout can enable it on top of the Phase 1
-        # geometry fix. Document styles get their own
-        # ``_DOC_COMPOSITION_HINT`` so they bypass this branch.
-        if ir.framing and ir.framing in ig._FACE_AREA_ANCHOR_BY_FRAMING:
-            try:
-                from src.config import settings as _settings
-                _anchor_on = bool(
-                    getattr(_settings, "numerical_percent_anchor_enabled", False)
-                )
-            except Exception:
-                _anchor_on = False
-            if _anchor_on:
-                parts.append(ig._FACE_AREA_ANCHOR_BY_FRAMING[ir.framing])
+        # v1.70 anchor cleanup:
+        # * ``_FACE_AREA_ANCHOR_BY_FRAMING`` (gated on
+        #   ``numerical_percent_anchor_enabled``) was emptied to ``{}``;
+        #   the v1.71 cleanup drops the now-unreachable
+        #   ``if ir.framing in ig._FACE_AREA_ANCHOR_BY_FRAMING`` branch
+        #   from this assembler.
+        # * ``_COMPOSITION_NUMERICAL_HINT`` ("Reframe the reference
+        #   into a bust shot …") was emptied to ``{}`` because the
+        #   geometric half of the anchor still ships via
+        #   ``reference_preprocess`` and the textual half was found
+        #   in the audit to dominate the prompt with head-cues. The
+        #   v1.71 cleanup drops the now-unreachable
+        #   ``if ir.framing in ig._COMPOSITION_NUMERICAL_HINT`` branch.
+        # The two ``_*_BY_FRAMING`` dicts and their feature flags are
+        # kept in ``image_gen``/``config`` as regression markers — tests
+        # in ``tests/test_prompts/`` assert they stay empty so a
+        # re-introduction is caught instantly.
 
         if ir.change_instruction:
             parts.append(ir.change_instruction)
-
-        # v1.65 — cinematic composition anchor BEFORE identity. Mirrors
-        # the document-path ``_DOC_COMPOSITION_HINT`` so edit-models
-        # receive an explicit ``Reframe the reference into …`` directive
-        # with cinematic shot vocabulary (``bust shot`` / ``waist-up
-        # shot`` / ``full-length standing shot``). v1.68 dropped the
-        # in-anchor lens spec (PHOTOREAL_BLOCK owns it now). This stops
-        # them replicating the tight-selfie head/torso ratio.
-        #
-        # v1.67 — composition anchor stays first AND is no longer
-        # immediately followed by identity. The previous layout sandwiched
-        # identity ("identical face shape …") between the cinematic
-        # anchor and the scene/wardrobe block, which empirically pulled
-        # edit-models toward copying the reference head size verbatim
-        # (the "identical" token reads geometrically). Identity is now
-        # demoted to the very tail of the prompt, after PHOTOREAL_BLOCK,
-        # so recency bias works for composition rather than against it.
-        if ir.framing and ir.framing in ig._COMPOSITION_NUMERICAL_HINT:
-            parts.append(
-                f"Composition: {ig._COMPOSITION_NUMERICAL_HINT[ir.framing]}"
-            )
 
         scene_line = ir.scene_line()
         if scene_line:
