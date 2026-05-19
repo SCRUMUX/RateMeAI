@@ -22,12 +22,12 @@ installs that don't carry MediaPipe simply skip the test —
 ``pytest.importorskip`` rather than a hard fail keeps the local
 dev loop fast.
 
-The synthetic face used here is the same colour-rectangle / blurred
-background construction as in ``test_pad_reference_geometry.py`` —
-MediaPipe's BlazeFace short-range model picks up the skin-coloured
-rectangle reliably enough at 640×640 to be a valid stand-in for a
-photographic face, without dragging a binary JPEG fixture into the
-repo.
+The input image is the bundled 256×256 StyleGAN portrait used by
+the existing ``/diagnostics/image-gen-probe`` CI workflow (see
+:mod:`src.api.v1._fixtures.probe_face`). Reusing it keeps the test
+suite hermetic — no external assets, no real-person privacy
+concerns, and the same face MediaPipe is exercised on in production
+diagnostics.
 """
 
 from __future__ import annotations
@@ -38,8 +38,9 @@ import pytest
 
 mp = pytest.importorskip("mediapipe", reason="MediaPipe not installed")
 np = pytest.importorskip("numpy", reason="numpy not installed")
-from PIL import Image, ImageFilter  # noqa: E402
+from PIL import Image  # noqa: E402
 
+from src.api.v1._fixtures.probe_face import probe_face_jpeg  # noqa: E402
 from src.services.reference_preprocess import (  # noqa: E402
     _FRAMING_GEOMETRY,
     pad_reference_for_framing,
@@ -47,33 +48,18 @@ from src.services.reference_preprocess import (  # noqa: E402
 
 
 # ---------------------------------------------------------------------------
-# Synthetic input.
+# Test fixture — the bundled 256×256 StyleGAN portrait.
 # ---------------------------------------------------------------------------
-
-
-def _build_synthetic_face_image(
-    *,
-    width: int = 640,
-    height: int = 640,
-    face_bbox: tuple[int, int, int, int],
-    face_colour: tuple[int, int, int] = (212, 175, 145),
-) -> bytes:
-    """Return a JPEG containing a skin-coloured rectangle on a blurred
-    pastel background. The rectangle is what MediaPipe detects.
-    """
-    img = Image.new("RGB", (width, height), color=(180, 195, 220))
-    img = img.filter(ImageFilter.GaussianBlur(radius=8.0))
-
-    pixels = img.load()
-    x1, y1, x2, y2 = face_bbox
-    for x in range(x1, x2):
-        for y in range(y1, y2):
-            if 0 <= x < width and 0 <= y < height:
-                pixels[x, y] = face_colour
-
-    buf = io.BytesIO()
-    img.save(buf, format="JPEG", quality=95)
-    return buf.getvalue()
+#
+# Reusing :func:`probe_face_jpeg` from the existing diagnostics
+# fixture keeps the test suite hermetic (no external assets, no
+# real-person privacy concerns — the image is a CC0
+# ``thispersondoesnotexist`` sample) and consistent with the rest of
+# the CI probe matrix. We do NOT hard-code a source bbox — instead
+# we first run MediaPipe on the raw fixture to extract its bbox,
+# pad with that, then re-detect on the padded output. This makes
+# the test resilient to any future bbox-tightening change in the
+# detector itself.
 
 
 def _detect_face_bbox_mediapipe(raw: bytes) -> tuple[int, int, int, int]:
@@ -127,15 +113,16 @@ def test_padded_face_lands_at_target_geometry(framing: str):
 
     Tolerances:
       * Face centre Y-position: ±5% of canvas height. MediaPipe
-        BlazeFace's bbox is slightly tighter than the original
-        rectangle, so a strict 2% bound would be flaky.
+        BlazeFace's bbox is slightly tighter than the visible face,
+        so a strict 2% bound would be flaky.
       * Face height ratio: ±0.04 absolute. Same reason — BlazeFace
         crops the chin a bit.
     """
-    raw = _build_synthetic_face_image(face_bbox=(220, 240, 420, 440))
+    raw = probe_face_jpeg()
+    source_bbox = _detect_face_bbox_mediapipe(raw)
     padded = pad_reference_for_framing(
         raw,
-        face_bbox=(220, 240, 420, 440),
+        face_bbox=source_bbox,
         framing=framing,
     )
     detected = _detect_face_bbox_mediapipe(padded)
