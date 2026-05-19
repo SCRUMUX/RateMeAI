@@ -138,8 +138,17 @@ export default function AppPage({ scenarioSlugOverride, onBackToLanding }: AppPa
       // ``resetGeneration`` calls under the "Ещё стиль" / "Ещё фото"
       // buttons in StepGenerate — clicking a step pill in the StepBar
       // is semantically the same "I want to redo from here" intent.
-      if (stepIdx < currentIdx && app.generatedImageUrl) {
-        app.resetGeneration();
+      if (stepIdx < currentIdx) {
+        if (app.generatedImageUrl) app.resetGeneration();
+        // v1.71 (F8): also prune the visited-step memory so the
+        // StepBar doesn't keep showing checkmarks on steps the user
+        // hasn't traversed yet on this fresh pass. Keeps the completed
+        // set in sync with the actual forward progress after a redo.
+        const allowed = new Set<WizardStepId>();
+        for (const s of visitedSteps.current) {
+          if (STEP_ORDER.indexOf(s) <= stepIdx) allowed.add(s);
+        }
+        visitedSteps.current = allowed;
       }
       goToStep(step);
     }

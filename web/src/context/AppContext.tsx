@@ -337,6 +337,21 @@ export function AppProvider({ children }: { children: ReactNode }) {
     return catalogStyles[activeCategory] || STYLES_BY_CATEGORY[activeCategory] || [];
   }, [scenarioDef, scenarioBucketSlug, scenarioStyles, activeCategory, catalogStyles]);
 
+  // v1.71 (F1): snap selectedStyleKey when the active style list changes
+  // and the previously chosen key is no longer in it. Without this, the
+  // wizard kept a stale ``selectedStyleKey`` from a different mode /
+  // scenario, the UI silently fell back to ``effectiveStyleList[0]`` for
+  // display, but ``generate()`` still sent the stale key downstream —
+  // which then either 404'd on style_loader or generated under the wrong
+  // style. Resetting to ``''`` lets the user pick a style explicitly;
+  // StepStyle handles the empty case with its own fallback.
+  useEffect(() => {
+    if (!selectedStyleKey) return;
+    if (effectiveStyleList.length === 0) return;
+    const valid = effectiveStyleList.some((s) => s.key === selectedStyleKey);
+    if (!valid) setSelectedStyleKey('');
+  }, [effectiveStyleList, selectedStyleKey]);
+
   useEffect(() => {
     const mode = effectiveApiMode;
     if (!mode) return;
@@ -714,7 +729,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
     stopDeltaRefresh();
   }, [stopDeltaRefresh]);
 
-  const verifyImageUrl = useCallback(async (url: string, retries = 3, delayMs = 2000): Promise<boolean> => {
+  // v1.71 (F7): trimmed retries 3->2 and delay 2000ms->1200ms.
+  // Worst-case wait drops from 0+2+4 = 6s to 0+1.2 = 1.2s before refund.
+  // The previous 6s window was masking R2 propagation glitches that
+  // virtually never recover after the first retry — when the URL is
+  // bad it stays bad, and 6s of "loading" felt like a hang. Refund
+  // path is unchanged.
+  const verifyImageUrl = useCallback(async (url: string, retries = 2, delayMs = 1200): Promise<boolean> => {
     for (let i = 0; i < retries; i++) {
       try {
         const ok = await new Promise<boolean>((resolve) => {

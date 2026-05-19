@@ -6295,4 +6295,30 @@
 #
 #          Frontend-only patch: zero backend changes, zero prompt
 #          changes, zero new flags. No DB or contract changes.
-APP_VERSION = "1.70.1"
+# 1.70.2 — Wizard UX polish (Stage 2 of audit fix-up).
+#          Three independent frontend-only patches:
+#          * F1: snap ``selectedStyleKey`` to ``''`` when the
+#            ``effectiveStyleList`` no longer contains it. Previously
+#            switching mode/scenario kept the stale key — the UI fell
+#            back to ``effectiveStyleList[0]`` for display but
+#            ``generate()`` still sent the dead key downstream, which
+#            either 404'd inside ``style_loader`` or rendered the
+#            wrong style. Implemented as a small ``useEffect`` in
+#            ``AppContext`` next to the ``effectiveStyleList``
+##            memo.
+#          * F7: trim ``verifyImageUrl`` from ``retries=3,
+#            delayMs=2000`` (worst-case 6s "hang" before refund) to
+#            ``retries=2, delayMs=1200`` (worst-case 1.2s). When an
+#            R2/CDN URL is bad it stays bad — the extra 4.8s of
+#            retries virtually never recovered and felt like a
+#            stalled UI. Refund path is unchanged.
+#          * F8: when ``handleStepClick`` navigates BACK in the
+#            wizard, prune ``visitedSteps`` to ``<= stepIdx`` so the
+#            StepBar no longer shows checkmarks on steps the user
+#            hasn't traversed on this fresh pass. Keeps the
+#            "completed" set in sync with actual forward progress
+#            after a redo, complementing the 1.70.1
+#            ``resetGeneration`` call on the same path.
+#
+#          Zero backend changes, zero prompt changes, zero new flags.
+APP_VERSION = "1.70.2"
