@@ -10,8 +10,10 @@ this had two failure modes:
 1. The hint landed at the very END of the prompt — the worst zone
    for edit-model attention.
 2. It duplicated ``_COMPOSITION_NUMERICAL_HINT`` (v1.64), which the
-   wrapper now injects BEFORE :data:`IDENTITY_PRESERVE_BLOCK` —
-   exactly where edit models pay the most attention.
+   wrapper now injects at the START of the prompt. v1.67 then moved
+   :data:`IDENTITY_PRESERVE_BLOCK` to the END (after
+   ``PHOTOREAL_BLOCK``) so composition owns the early-attention slot
+   and identity owns the recency-bias slot.
 
 These tests assert the old tail is GONE and the new numerical anchor
 shows up in the prompt sent to the provider for tight-selfie inputs.

@@ -163,23 +163,28 @@ def resolve_output_size(
 # PASTED_ON_GUARD block is removed.
 # ---------------------------------------------------------------------------
 
-# Identity-preserve canonical block (v1.65, ~180 chars).
+# Identity-preserve canonical block (v1.67, ~170 chars).
 # v1.65 trimmed from 9 face anchors to 4: face shape, eye shape /
-# colour, hairline, skin undertone. The other facets (nose / mouth /
-# jawline / hair colour) are visually copied from the reference by
-# edit-model attention; repeating them in the prompt only steals
-# attention budget away from composition. Wording stays positive-
-# framed (no "unchanged" / "pasted on" / "rather than") so it
-# passes the ``_has_disallowed_negative`` guard.
+# colour, hairline, skin undertone. v1.67 drops "face shape" too —
+# audit of v1.66 generations showed that the geometric reading of
+# "identical face shape" was pulling edit-models toward copying the
+# reference head/torso ratio (the "huge head" pathology). The
+# remaining anchors (eyes / hairline / skin undertone) are purely
+# textural — they carry identity without imposing a geometric
+# constraint on the head's relative size in the frame. Wording
+# stays positive-framed (no "unchanged" / "pasted on" / "rather
+# than") so it passes the ``_has_disallowed_negative`` guard.
 #
-# v1.64 removed the "head and shoulders read as real human
-# proportions" tail; v1.65 keeps that contract — composition is
-# driven exclusively by :data:`_COMPOSITION_NUMERICAL_HINT` which
-# is placed BEFORE this block by ``model_wrappers._assemble``.
+# v1.67 also relocates this block: ``model_wrappers._assemble`` now
+# appends it as the LAST sentence of the prompt (after
+# ``PHOTOREAL_BLOCK``), so recency bias reinforces composition
+# rather than identity geometry. The cinematic anchor
+# (``_COMPOSITION_NUMERICAL_HINT``) is still emitted FIRST and owns
+# the early-attention budget.
 IDENTITY_PRESERVE_BLOCK = (
-    "Use the reference photo as the identity source — render the same "
-    "person with identical face shape, eye shape and colour, hairline "
-    "and skin undertone."
+    "Use the reference photo as the identity source — preserve the same "
+    "person's facial features: eye shape and colour, hairline, skin "
+    "undertone."
 )
 
 # Photoreal block (v1.66, ~340 chars).

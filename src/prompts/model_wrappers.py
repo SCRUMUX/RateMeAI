@@ -1,51 +1,49 @@
 """Per-model prompt wrappers for StyleSpecV3.
 
-v4.1 / v1.65 — single-path prompt pipeline
--------------------------------------------
-Stages of the prompt:
+v1.67 — composition-first / identity-tail pipeline
+---------------------------------------------------
+Stages of the wire prompt (non-document styles):
 
 1. ``change_instruction``                 — Google-formula opener
                                              ("Using the reference photo,
                                              render the same person in a
-                                             new scene…"). v1.65 appends
-                                             a positive-framed proportions
-                                             clause so the very first
-                                             sentence carries an anatomy
-                                             goal.
+                                             new scene…").
 2. ``_COMPOSITION_NUMERICAL_HINT``        — cinematic layout directive
                                              ("Reframe the reference into
                                              a head-and-shoulders bust
                                              shot taken with an 85mm
-                                             portrait lens …"). v1.65
-                                             swapped percentage targets
-                                             for cinematic shot
-                                             vocabulary + explicit
-                                             physical lens — the
-                                             canonical fix for the
-                                             "huge head, tiny shoulders"
-                                             pathology. Goes BEFORE
-                                             identity so layout wins
-                                             attention.
-3. ``IDENTITY_PRESERVE_BLOCK``            — 4 explicit identity anchors
-                                             (face shape, eye shape and
-                                             colour, hairline, skin
-                                             undertone). v1.65 trimmed
-                                             from 9 anchors so attention
-                                             budget stays available for
-                                             composition.
-4. narrative scene line                   — "<scene> lit by X during a Y
+                                             short-telephoto lens …").
+                                             Owns the early-attention
+                                             budget that edit-models
+                                             weigh heavily.
+3. narrative scene line                   — "<scene> lit by X during a Y
                                              morning in Z." (composed in
                                              :meth:`CompositionIR.scene_line`)
-5. wardrobe                               — "Wardrobe: <clothing>."
-6. ``expression``                         — natural-from-reference by
+4. wardrobe                               — "Wardrobe: <clothing>."
+                                             Body-geometry cue.
+5. ``expression``                         — natural-from-reference by
                                              default (see
-                                             composition_builder.py)
-7. ``PHOTOREAL_BLOCK``                    — single camera/DoF block
-                                             (``85mm portrait lens at
-                                             chest height``), single
+                                             composition_builder.py).
+6. ``PHOTOREAL_BLOCK``                    — single camera/DoF block
+                                             (``85mm short-telephoto lens
+                                             at chest height``), single
                                              materiality clause, single
                                              lighting-integration
                                              clause.
+7. ``IDENTITY_PRESERVE_BLOCK``            — identity anchors at the
+                                             very tail. v1.67 demoted
+                                             identity from "between
+                                             composition anchor and
+                                             scene" to the end. Recency
+                                             bias now reinforces
+                                             composition, and the
+                                             softened wording ("preserve
+                                             the same person's facial
+                                             features") stops edit-
+                                             models reading "identical
+                                             face shape" as a geometric
+                                             instruction to copy the
+                                             reference head/torso ratio.
 
 v1.65 removed the standalone ``framing_line`` stage from the wire
 prompt: it duplicated the framing signal already delivered by
@@ -105,9 +103,25 @@ def _resolve_tail(ir: CompositionIR, model: str) -> str:
 def _assemble(ir: CompositionIR, *, tail: str) -> str:
     """Assemble the wire-prompt from a :class:`CompositionIR`.
 
-    v4.1: single layout — preserve-first ordering. Identity sits in the
-    first third of the prompt where edit-models pay most attention;
-    scene/wardrobe/expression follow; ``PHOTOREAL_BLOCK`` closes.
+    v1.67 — composition-first / identity-tail ordering.
+
+    Order of stages for non-document styles:
+
+    1. ``change_instruction`` opener (Google-formula "Using the
+       reference photo, render the same person in a new scene…").
+    2. ``_COMPOSITION_NUMERICAL_HINT`` — cinematic anchor (bust shot /
+       waist-up / full-length) with explicit lens spec. Owns the
+       early-attention budget that edit-models weigh heavily.
+    3. Scene line — narrative environment.
+    4. Wardrobe — explicit body geometry cue.
+    5. Expression — facial expression / gaze.
+    6. ``PHOTOREAL_BLOCK`` — camera, DoF, materiality, lighting.
+    7. ``IDENTITY_PRESERVE_BLOCK`` — identity anchors at the very
+       tail. v1.67 demoted identity from "between composition anchor
+       and scene" to the end so the recency-bias channel reinforces
+       composition, and so the geometric reading of "identical face
+       shape" no longer overrides the composition directive.
+
     Document styles use a separate vendor-policy layout because
     DOC_PRESERVE / DOC_QUALITY are not negotiable.
     """
@@ -138,19 +152,21 @@ def _assemble(ir: CompositionIR, *, tail: str) -> str:
         # receive an explicit ``Reframe the reference into …`` directive
         # with cinematic shot vocabulary (``bust shot`` / ``waist-up
         # shot`` / ``full-length standing shot``) and a physical lens
-        # spec (``85mm portrait lens`` / ``35mm``). This stops them
-        # replicating the tight-selfie head/torso ratio. Placed in the
-        # first third of the prompt where edit-models pay most
-        # attention.
+        # spec (``85mm short-telephoto lens`` / ``35mm``). This stops
+        # them replicating the tight-selfie head/torso ratio.
+        #
+        # v1.67 — composition anchor stays first AND is no longer
+        # immediately followed by identity. The previous layout sandwiched
+        # identity ("identical face shape …") between the cinematic
+        # anchor and the scene/wardrobe block, which empirically pulled
+        # edit-models toward copying the reference head size verbatim
+        # (the "identical" token reads geometrically). Identity is now
+        # demoted to the very tail of the prompt, after PHOTOREAL_BLOCK,
+        # so recency bias works for composition rather than against it.
         if ir.framing and ir.framing in ig._COMPOSITION_NUMERICAL_HINT:
             parts.append(
                 f"Composition: {ig._COMPOSITION_NUMERICAL_HINT[ir.framing]}"
             )
-
-        # Identity-preserve sits right after the layout target so the
-        # face stays anchored to the reference while the body fits the
-        # cinematic composition.
-        parts.append(ig.IDENTITY_PRESERVE_BLOCK)
 
         scene_line = ir.scene_line()
         if scene_line:
@@ -171,6 +187,20 @@ def _assemble(ir: CompositionIR, *, tail: str) -> str:
 
         if tail:
             parts.append(tail)
+
+        # v1.67 — identity-preserve at the tail. Empirical audit of
+        # v1.66 generations showed that placing identity right after
+        # the composition anchor leaked "identical face" into the
+        # geometric channel: edit-models interpreted "identical face
+        # shape" as "match the head/torso ratio of the reference",
+        # which over-rode the cinematic composition directive.
+        # Anchoring identity LAST keeps the strongest face-feature
+        # signal close to the model's decoding step (recency bias),
+        # while letting the composition directive own the early-
+        # attention budget. Wording is also softened from
+        # "identical face shape" to "the same person's facial
+        # features" so the cue is identity-only, not geometric.
+        parts.append(ig.IDENTITY_PRESERVE_BLOCK)
 
     prompt = " ".join(p.strip() for p in parts if p and p.strip())
 

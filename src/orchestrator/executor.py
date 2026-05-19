@@ -807,11 +807,25 @@ class ImageGenerationExecutor:
             # for mode=cv only — and only for non-studio-portrait
             # styles, since studio portraits are by-design tight
             # headshots and padding would fight the intended crop.
+            #
+            # v1.67 — gate widened. Audit of v1.66 traffic showed the
+            # "huge head" pathology persists on standard half-body
+            # uploads with ``face_area_ratio ≈ 0.10..0.17`` which fell
+            # under the 0.28 default (and the 0.22 CV boost). The
+            # PORTRAIT and HALF_BODY composition classes are now
+            # explicit padding triggers — anything that isn't a true
+            # FULL_BODY (sub-0.06 face, ample space below) is
+            # geometrically normalised. The default ``pad_threshold``
+            # is lowered to 0.10 so even loose-portrait uploads still
+            # short-circuit through the ratio path. Studio-portrait
+            # styles are excluded by the framing gate (they resolve
+            # to ``portrait`` framing where padding still applies but
+            # the canvas keeps the tight bust shot they require).
             pad_threshold = float(
                 getattr(
                     settings,
                     "csl_reference_pad_face_ratio",
-                    0.28,
+                    0.10,
                 )
             )
             mode_value = getattr(mode, "value", str(mode))
@@ -823,11 +837,12 @@ class ImageGenerationExecutor:
                     getattr(
                         settings,
                         "csl_reference_pad_face_ratio_cv",
-                        0.22,
+                        0.10,
                     )
                 )
             is_tight = (
-                composition_class in ("face_closeup", "unknown")
+                composition_class
+                in ("face_closeup", "portrait", "half_body", "unknown")
                 or face_area_ratio > pad_threshold
             )
             should_pad = (

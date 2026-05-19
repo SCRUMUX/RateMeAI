@@ -16,8 +16,10 @@ Invariants for non-document styles:
   the canonical anti-selfie-perspective fix. v1.66 renamed the
   short-tele lens from ``85mm portrait lens`` to drop the duplicate
   ``portrait`` mention that was acting as a recency-bias headshot pull.
-* The identity anchor ``identical face shape, eye shape and colour``
-  is present.
+* The identity anchor ``preserve the same person's facial features``
+  is present (v1.67 wording; the legacy ``identical face shape, eye
+  shape and colour`` phrase is explicitly forbidden because edit-models
+  read "face shape" as a geometric constraint).
 * The legacy ``50mm lens at eye level`` anchor is absent.
 * The legacy v1.65 ``85mm portrait lens`` descriptor is absent
   (renamed in v1.66).
@@ -159,8 +161,20 @@ def test_v1_65_anatomy_invariants(mode: AnalysisMode, style: str, framing: str):
             f"{prompt!r}"
         )
 
-    assert "identical face shape, eye shape and colour" in prompt, (
-        f"{label}: IDENTITY_PRESERVE_BLOCK anchor missing\n{prompt!r}"
+    assert "preserve the same person's facial features" in prompt, (
+        f"{label}: IDENTITY_PRESERVE_BLOCK anchor missing (v1.67 wording)\n"
+        f"{prompt!r}"
+    )
+    assert "eye shape and colour" in prompt, (
+        f"{label}: identity textural anchor 'eye shape and colour' "
+        "missing\n"
+        f"{prompt!r}"
+    )
+    assert "identical face shape" not in prompt, (
+        f"{label}: legacy 'identical face shape' anchor must not return — "
+        "v1.67 dropped 'face shape' because edit-models read it as a "
+        "geometric constraint that copied the reference head/torso ratio\n"
+        f"{prompt!r}"
     )
 
     assert "50mm lens at eye level" not in prompt, (

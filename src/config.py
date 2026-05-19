@@ -378,7 +378,18 @@ class Settings(BaseSettings):
     # with above-typical face size — that is the most common
     # tight-selfie regime where the "huge head" pathology shows up
     # without the upload being technically a face_closeup.
-    csl_reference_pad_face_ratio: float = 0.28
+    #
+    # v1.67 — lowered 0.28 → 0.10 across all modes. Audit of v1.66
+    # production traffic showed the "huge head" pathology persists on
+    # standard half-body uploads (face_area_ratio ≈ 0.10..0.17,
+    # composition_class=PORTRAIT) because they fell under the 0.28
+    # gate. Padding is a local PIL op with no FAL cost and no latency
+    # impact, so the new default fires on virtually every non-full-body
+    # upload — the upload that *does not need* padding (true full-body
+    # at 0.05 face_area_ratio) is excluded by the framing gate, and
+    # studio-portrait styles short-circuit to ``portrait`` framing
+    # which intentionally keeps a tight crop.
+    csl_reference_pad_face_ratio: float = 0.10
 
     # v1.66 — CV-mode-only override of the padding threshold. CV users
     # routinely upload "passport-style" selfies that fall right above
@@ -386,7 +397,12 @@ class Settings(BaseSettings):
     # mode=cv (excluding studio-portrait styles, which are intended
     # tight headshots). Studio whitelist is enforced in the executor
     # via :func:`src.prompts.image_gen.is_studio_portrait_style`.
-    csl_reference_pad_face_ratio_cv: float = 0.22
+    #
+    # v1.67 — collapsed to the same 0.10 default. The CV-specific
+    # override is retained for forward-compatibility but no longer
+    # diverges from the main threshold; both modes need the same low
+    # gate after the audit.
+    csl_reference_pad_face_ratio_cv: float = 0.10
 
     # Legacy prompt_strength (unused in edit mode)
     image_gen_strength: float = 0.45

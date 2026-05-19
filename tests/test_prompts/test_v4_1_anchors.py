@@ -1,4 +1,4 @@
-"""v4.1 / v1.65 single-path prompt anchors — production guarantees.
+"""v4.1 / v1.67 single-path prompt anchors — production guarantees.
 
 This is the tip of the prompt-pipeline test pyramid: it walks the
 entire registered photo catalog, builds each style's final prompt
@@ -6,10 +6,13 @@ through the public :class:`PromptEngine` entrypoint, and asserts the
 core invariants the model relies on:
 
 * Identity anchors from :data:`IDENTITY_PRESERVE_BLOCK` are present
-  ("identical face shape, eye shape and colour"). v1.64 dropped the
-  legacy "head and shoulders read as real human proportions" tail
-  because it conflicted with non-portrait framings; composition is now
-  driven exclusively by :data:`_COMPOSITION_NUMERICAL_HINT`.
+  ("preserve the same person's facial features: eye shape and colour"
+  in v1.67). v1.67 dropped the "face shape" anchor because edit-models
+  read it as a geometric constraint that copied the reference head /
+  torso ratio (the "huge head" pathology). v1.64 dropped the legacy
+  "head and shoulders read as real human proportions" tail because it
+  conflicted with non-portrait framings; composition is now driven
+  exclusively by :data:`_COMPOSITION_NUMERICAL_HINT`.
 * Photoreal anchors from :data:`PHOTOREAL_BLOCK` are present. v1.65
   swapped the camera anchor from ``50mm lens at eye level`` to
   ``85mm portrait lens`` to break the "selfie perspective" pattern
@@ -122,12 +125,23 @@ def test_v4_1_anchors_present(mode: AnalysisMode, style: str):
         in prompt
     ), f"{mode.value}/{style}: opener missing\n{prompt!r}"
 
-    # Identity-preserve anchors (v1.64: "head and shoulders read as
-    # real human proportions" tail removed — composition is now driven
-    # by ``_COMPOSITION_NUMERICAL_HINT`` only).
+    # Identity-preserve anchors (v1.67: "face shape" anchor removed —
+    # edit-models read it as a geometric constraint on the head/torso
+    # ratio. v1.64: "head and shoulders read as real human
+    # proportions" tail removed — composition is now driven by
+    # ``_COMPOSITION_NUMERICAL_HINT`` only).
     assert (
-        "identical face shape, eye shape and colour" in prompt
+        "preserve the same person's facial features" in prompt
     ), f"{mode.value}/{style}: identity anchor missing\n{prompt!r}"
+    assert (
+        "eye shape and colour" in prompt
+    ), f"{mode.value}/{style}: identity textural anchors missing\n{prompt!r}"
+    assert "identical face shape" not in prompt, (
+        f"{mode.value}/{style}: legacy v1.65 'identical face shape' "
+        "anchor must not return — it pulled edit-models toward copying "
+        "the reference head/torso ratio (the 'huge head' pathology).\n"
+        f"{prompt!r}"
+    )
     assert (
         "head and shoulders read as real human proportions" not in prompt
     ), (

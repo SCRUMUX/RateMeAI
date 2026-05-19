@@ -6059,4 +6059,108 @@
 #          * Quality tier, ``thinking_level``, image_size,
 #            aspect_ratio, identity_retry, CodeFormer, Real-ESRGAN,
 #            VLM gate budget: untouched.
-APP_VERSION = "1.66.0"
+# 1.67.0 — Anatomy fix v3: padding gate + identity-tail. Production
+#          audit of v1.66 generations confirmed that the "huge head"
+#          pathology persists on standard half-body uploads (mirror_aesthetic,
+#          legal_finance, executive_portrait at typical user shapes),
+#          even though gym_fitness and similar body-cued styles produce
+#          natural proportions. Root cause is structural, not stylistic:
+#
+#          1. **Padding gate dead-zone.** v1.65/v1.66 padding fired on
+#             ``composition_class in ("face_closeup", "unknown") OR
+#             face_area_ratio > 0.28``. The most common upload shape —
+#             head-and-shoulders selfie with ``face_area_ratio ≈
+#             0.10..0.17`` and ``composition_class = PORTRAIT`` — fell
+#             through BOTH gates. With the reference unmodified the
+#             edit-model copied its head/torso ratio verbatim, and the
+#             cinematic ``Reframe …`` prompt directive could not
+#             override that strong visual signal.
+#          2. **Identity-block placement.** v1.65 placed
+#             ``IDENTITY_PRESERVE_BLOCK`` immediately after the
+#             cinematic anchor, with wording ``identical face shape, eye
+#             shape and colour …``. Edit-models read ``identical face
+#             shape`` geometrically — as "match the reference head's
+#             relative size in the frame" — which directly fought the
+#             composition anchor. Identity won this conflict because of
+#             its position (early-attention) and emphatic word
+#             (``identical``).
+#
+#          Fix:
+#
+#          * ``src/config.py``: ``csl_reference_pad_face_ratio`` lowered
+#            0.28 → 0.10; ``csl_reference_pad_face_ratio_cv`` lowered
+#            0.22 → 0.10 (boost collapsed into the main threshold —
+#            both modes need the same low gate).
+#          * ``src/orchestrator/executor.py``: ``is_tight`` widened
+#            from ``composition_class in ("face_closeup", "unknown")``
+#            to ``composition_class in ("face_closeup", "portrait",
+#            "half_body", "unknown")``. Effect: padding now fires on
+#            every non-FULL_BODY upload routed through portrait /
+#            half_body / full_body framings (document and studio
+#            portrait styles remain exempt by the framing gate and the
+#            studio-portrait short-circuit respectively).
+#          * ``src/prompts/image_gen.py``:
+#              - ``IDENTITY_PRESERVE_BLOCK`` rewritten. Drop "face
+#                shape" anchor (geometric reading). Reword to
+#                "Use the reference photo as the identity source —
+#                preserve the same person's facial features: eye shape
+#                and colour, hairline, skin undertone." Identity is
+#                textural now (eyes / hairline / skin undertone),
+#                non-geometric.
+#          * ``src/prompts/model_wrappers.py``:
+#              - ``_assemble`` reorders anchors. Identity moved from
+#                "between composition anchor and scene" to the very
+#                tail (after ``PHOTOREAL_BLOCK``). Composition owns
+#                the early-attention budget; identity owns the
+#                recency-bias slot. The doc-style branch is unchanged
+#                (vendor policy is non-negotiable).
+#
+#          Tests:
+#          * ``test_executor_reference_padding.py``: pinned new gate.
+#            Two new regression tests:
+#              - ``test_pad_fires_on_typical_half_body_upload_v167`` —
+#                face_area_ratio=0.13 + composition_class="portrait"
+#                MUST trigger padding (THE main fix).
+#              - ``test_pad_fires_on_half_body_class_at_low_ratio_v167`` —
+#                HALF_BODY class triggers padding even at ratio 0.07.
+#            ``test_pad_skipped_on_loose_portrait_under_threshold`` was
+#            inverted (now ``test_pad_fires_on_portrait_class_under_old_threshold``)
+#            because v1.67 explicitly DOES pad portrait-class uploads.
+#            ``test_pad_skipped_when_face_small`` renamed to
+#            ``test_pad_skipped_only_for_true_full_body`` and adjusted
+#            to use composition_class=full_body + face_area_ratio=0.05
+#            (the only path that still skips padding under v1.67).
+#          * ``test_executor_padding_cv_mode.py`` deleted — v1.66 CV
+#            boost collapsed into the main threshold in v1.67, so the
+#            mode-divergence semantics it pinned no longer apply.
+#          * ``test_v4_1_anchors.py``, ``test_prompt_diversity_v4.py``,
+#            ``test_prompt_anatomy_catalog.py``,
+#            ``test_numerical_composition_anchor.py``: updated to the
+#            new identity wording (``preserve the same person's facial
+#            features``) and to forbid the legacy ``identical face
+#            shape`` token.
+#
+#          Documentation:
+#          * ``docs/ARCHITECTURE.md`` §8.7 rollout table gained row
+#            W8 ("Padding Gate + Identity-Tail v1.67"); §8.9 gained a
+#            new subsection 6 ("Padding Gate Audit & Identity Tail
+#            (v1.67)") detailing the structural diagnosis and the
+#            three-rivet fix.
+#          * ``docs/master_product_constitution.md`` §9.3 updated:
+#            point 4 ("Reference padding") rewritten to reflect the
+#            v1.67 gate (padding fires on every non-full-body
+#            upload); IDENTITY_PRESERVE_BLOCK description updated to
+#            the new wording.
+#
+#          Cost guarantee:
+#          * Padding is a local PIL preprocessing step — no FAL cost,
+#            no extra roundtrip. The gate expansion just shifts MORE
+#            uploads through that no-cost path.
+#          * Prompt reorder: same tokens, just shuffled — identical
+#            token count, no compression-budget impact.
+#          * Identity wording change: ``-9 chars`` net (slightly
+#            shorter), no cost impact.
+#          * No model/quality/tier/size change. The 5–6.5¢ per image
+#            average (gpt_image_2 medium) inherited from v1.66 stays
+#            put.
+APP_VERSION = "1.67.0"

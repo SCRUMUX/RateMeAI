@@ -129,12 +129,18 @@ def test_ten_seeds_all_carry_v4_1_anchors(style):
 
     for s in range(10):
         prompt = _build_prompt(style, mode="dating", seed=s)
-        # Identity anchors live in IDENTITY_PRESERVE_BLOCK — the
-        # canonical "identical face shape, eye shape and colour"
-        # phrase locks v4.1 wording without coupling to the full
-        # block (which would reject minor whitespace tweaks).
-        assert "identical face shape, eye shape and colour" in prompt, (
+        # Identity anchors live in IDENTITY_PRESERVE_BLOCK. v1.67
+        # softened the wording from "identical face shape, eye shape
+        # and colour" to "preserve the same person's facial features:
+        # eye shape and colour …" — the geometric "face shape" anchor
+        # was dropped because edit-models read it as a constraint on
+        # the head/torso ratio.
+        assert "preserve the same person's facial features" in prompt, (
             f"{style!r} seed={s}: IDENTITY_PRESERVE_BLOCK missing\n{prompt!r}"
+        )
+        assert "eye shape and colour" in prompt, (
+            f"{style!r} seed={s}: identity textural anchors missing\n"
+            f"{prompt!r}"
         )
         # PHOTOREAL_BLOCK contributes the camera + DoF block. v1.65
         # swapped the camera anchor from ``50mm lens at eye level`` to

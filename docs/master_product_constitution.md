@@ -319,34 +319,56 @@ CSL отвечает за `(class, style)` совместимость, но **в
 1. **Cinematic composition anchor** (v1.65) — для каждого `framing` в
    промпт подкладывается явный `Reframe the reference into …` оператор
    с cinematic shot vocabulary (`bust shot` / `waist-up shot` / `full-
-   length standing shot`) и физическим объективом (`85mm portrait
+   length standing shot`) и физическим объективом (`85mm short-telephoto
    lens` для portrait/half_body, `35mm lens` для full_body). Этот
-   блок помещается **перед** identity-блоком — composition выигрывает
-   в attention над identity-копированием. Стандарт: **никаких
-   процентных таргетов или дублирующих framing-фраз** — wire-prompt
-   несёт один и только один framing-сигнал.
-2. **Сжатый identity block** (v1.65) — `IDENTITY_PRESERVE_BLOCK` ужат
-   до 4 facial anchors (face shape, eye shape/colour, hairline, skin
-   undertone). Освободившийся attention budget уходит на cinematic
-   composition.
+   блок ставится **первым** в промпте — composition владеет
+   early-attention слотом. Стандарт: **никаких процентных таргетов
+   или дублирующих framing-фраз** — wire-prompt несёт один и только
+   один framing-сигнал.
+2. **Identity-tail block** (v1.67) — `IDENTITY_PRESERVE_BLOCK`
+   переехал в самый конец промпта (после `PHOTOREAL_BLOCK`) и
+   переписан так, чтобы быть **чисто текстурным**, а не геометрическим:
+   *"preserve the same person's facial features: eye shape and colour,
+   hairline, skin undertone"*. До v1.67 формулировка содержала
+   `identical face shape` сразу после cinematic anchor —
+   edit-модели читали "identical face shape" геометрически и
+   копировали head/torso ratio референса, перекрывая cinematic
+   composition. v1.67 разводит эти два сигнала по разным концам
+   промпта (composition в начало, identity в хвост — закон recency
+   bias работает на композицию) и убирает геометрические слова из
+   identity-блока.
 3. **Auto-framing resolver** (v1.65) — `resolve_effective_framing` в
    [`src/services/composition_safety.py`](../src/services/composition_safety.py)
    — единый источник истины. Никакого хардкода `half_body` для
    пустого / невалидного framing'а; выбор делается CSL-aware с
-   приоритетом «document → user pick (если allowed) → needs_full_body
-   boost → first allowed → fail-closed-safe portrait».
-4. **Reference padding** (v1.64 + v1.65 расширение + v1.66 CV boost) —
-   для `composition_class ∈ {face_closeup, unknown}` ИЛИ
-   `face_area_ratio > 0.28` (порог `csl_reference_pad_face_ratio`) на
-   любом non-document framing'е (`portrait`, `half_body`, `full_body`)
-   исходник геометрически пересобирается на новом канвасе так, чтобы
-   лицо **уже** было в нужной пропорции до отправки в провайдер
-   (`pad_reference_for_framing`). v1.65 расширил gate на `portrait`.
-   v1.66 добавил отдельный, более мягкий порог для CV-режима
-   (`csl_reference_pad_face_ratio_cv = 0.22`), потому что CV-юзеры
-   массово грузят passport-стиль селфи прямо на границе
-   `face_closeup`/`portrait`. Studio-portrait стили (`formal_portrait`,
-   `studio_elegant`) от boost'а освобождены.
+   приоритетом «document → studio-portrait → user pick (если
+   allowed) → needs_full_body boost → first allowed → fail-closed-safe
+   portrait».
+4. **Reference padding (v1.67 широкий гейт)** — геометрическая
+   нормализация исходника на канвасе целевого framing'а до отправки в
+   edit-модель (`pad_reference_for_framing`). Гейт сработает на
+   **любом** non-document, non-full-body аплоаде:
+   - framing ∈ `{portrait, half_body, full_body}`,
+   - `composition_class ∈ {face_closeup, portrait, half_body, unknown}`
+     **или** `face_area_ratio > csl_reference_pad_face_ratio` (0.10).
+   Эволюция гейта:
+   - v1.64 завёл padding только для `face_closeup/unknown` + `> 0.35`.
+   - v1.65 добавил `portrait` framing и `> 0.28` ratio threshold.
+   - v1.66 ввёл `csl_reference_pad_face_ratio_cv = 0.22` для CV.
+   - **v1.67** опустил оба порога до `0.10` и расширил
+     composition_class trigger на `portrait` и `half_body`. Аудит
+     v1.66 продакшна показал, что типичный half-body аплоад
+     (`face_area_ratio ≈ 0.10..0.17`, `composition_class = PORTRAIT`)
+     проваливался мимо обоих гейтов, и edit-модель копировала layout
+     референса один-в-один. Единственный путь, который теперь
+     минует padding — это true full-body аплоад
+     (`composition_class = FULL_BODY`, маленькое лицо, много места
+     под подбородком). Document-стили (`passport_rf`, `visa_*`,
+     `photo_3x4` и т.д.) минуют гейт по framing-gate (`not _is_document`).
+     Studio-portrait стили (`formal_portrait`, `studio_elegant`)
+     резолвятся в `portrait` framing и подпадают под общий гейт —
+     padding на них работает, но канвас сохраняет правильный
+     tight-bust crop, который для этих стилей и нужен.
 5. **Style Catalog Normalization** (v1.66) — JSON-данные стилей не
    должны нести скрытые portrait-pose директивы (`authoritative`,
    `composed gaze`, `leadership gaze`, `gravitas`, `executive vision`,

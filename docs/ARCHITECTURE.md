@@ -401,6 +401,7 @@ identity-preserve-блок остались нетронутыми.
 | **W5. Anatomy fix** | `CSL_REFERENCE_PAD_ENABLED=true` (default) | Numerical composition anchor в промпте + геометрическое padding исходника для tight-selfie → half/full-body (§8.9). `reference_padded_total` начинает считать. | `proportions_natural` pass-rate (VLM gate) на `composition_class∈{face_closeup,unknown}` входах > 90% на 7-дневном окне. |
 | **W6. Anatomy v1.65** | `CSL_REFERENCE_PAD_ENABLED=true` (default), `CSL_REFERENCE_PAD_FACE_RATIO=0.28` (default) | Cinematic-vocabulary numerical anchor (`Reframe the reference into …` + `85mm portrait lens` / `35mm lens`), сжатый `IDENTITY_PRESERVE_BLOCK` (4 anchors), positive-framed proportions clause в opener; padding gate расширен на `framing=portrait`; жёсткий `half_body` fallback в executor заменён на CSL-aware auto-resolver (§8.9). Soft warning по `proportions_natural=false` без retry. | `proportions_natural` pass-rate на `framing=portrait` + `face_area_ratio>0.28` входах > 92%; `reference_padded_total{framing="portrait"}` начал расти (ранее = 0); жалоб «голова больше тела» на support ≤ 1% от total за 7 дней. |
 | **W7. Style Catalog Normalization v1.66** | `CSL_REFERENCE_PAD_ENABLED=true` (default), `CSL_REFERENCE_PAD_FACE_RATIO_CV=0.22` (default) | Однопроходная JSON-миграция `data/styles.json` (см. `scripts/migrations/2026_05_styles_v4_anatomy/`): убраны portrait-pose директивы из `expression`/`scene_anchor`/`background.base` у 33 non-studio стилей (CV+dating+social); studio-portrait whitelist `_STUDIO_PORTRAIT_STYLE_KEYS = {formal_portrait, studio_elegant}` освобождён от нормализации; `85mm portrait lens` → `85mm short-telephoto lens` снимает дублирующий portrait-recency cue; CV-mode padding порог понижен до 0.22; lint правила `EXPRESSION_PORTRAIT_LEAK` / `SCENE_POSE_LEAK` / `WARDROBE_TIGHT_SUIT` защищают каталог от регрессий. | `proportions_natural` pass-rate на CV-стилях ≥ pass-rate на dating/social в течение 3 дней (раньше отставал на ~10 п.п.); жалобы «голова больше тела» на CV/career стилях ≤ 0.5% от total за 7 дней. |
+| **W8. Padding Gate + Identity-Tail v1.67** | `CSL_REFERENCE_PAD_ENABLED=true` (default), `CSL_REFERENCE_PAD_FACE_RATIO=0.10` (default), `CSL_REFERENCE_PAD_FACE_RATIO_CV=0.10` (default) | Аудит v1.66 продакшна показал, что половина uploads (типичные head-and-shoulders с `face_area_ratio ≈ 0.10..0.17`, `composition_class=PORTRAIT`) проваливалась мимо padding-гейта (0.28 / 0.22) — edit-модель копировала reference layout. v1.67 расширяет гейт: composition_class trigger теперь `{face_closeup, portrait, half_body, unknown}` (раньше `{face_closeup, unknown}`), ratio threshold опущен до `0.10` для обоих режимов (CV boost схлопнулся в main threshold). Параллельно `IDENTITY_PRESERVE_BLOCK` (1) перенесён в самый хвост промпта (после `PHOTOREAL_BLOCK`) — composition владеет early-attention, identity владеет recency-bias slot'ом; (2) переписан как чисто текстурный (`preserve the same person's facial features: eye shape and colour, hairline, skin undertone`), без слова `face shape` — последнее edit-модели читали геометрически как «копируй head/torso ratio». | `reference_padded_total{composition_class="portrait"}` начал расти (ранее ≈ 0 на не-CV mode); `proportions_natural` pass-rate на portrait+half_body uploads > 95% на 7-дневном окне; жалобы «голова больше тела» / «вклеенное лицо» в support ≤ 0.2% от total за 7 дней. |
 
 **Откат**: ставим конкретный ENV-флаг в `false`. Никаких миграций или
 data-fix'ов не требуется — кеш `_csl` в Redis просто игнорится, а
@@ -601,15 +602,88 @@ v1.66 нормализует каталог одним проходом чере
 Резервная копия `data/styles.json.bak.v165` создаётся автоматически
 при первом запуске миграции; rollback = `cp .bak.v165 styles.json`.
 
+#### 6. Padding Gate Audit & Identity Tail (v1.67)
+
+После выкладки v1.66 production-аудит подтвердил, что «огромная
+голова» **остаётся** на стандартных half-body аплоадах
+(`mirror_aesthetic`, `legal_finance`, `executive_portrait`),
+хотя `gym_fitness` и подобные body-cued стили выдают правильные
+пропорции. Корневая диагностика — **структурная**, не контентная:
+
+1. **Padding gate dead-zone.** v1.65/v1.66 padding активировался при
+   `composition_class ∈ {face_closeup, unknown}` ИЛИ `face_area_ratio
+   > 0.28` (или `> 0.22` для CV). Самая частая форма аплоада —
+   полупортрет с `face_area_ratio ≈ 0.10..0.17` и `composition_class
+   = PORTRAIT` — проваливалась мимо **обоих** триггеров. Без padding
+   edit-модель получала сырой reference и копировала его head/torso
+   ratio один-в-один; cinematic `Reframe …` директива не могла
+   победить визуальный сигнал.
+2. **Identity-block placement.** v1.65 ставил
+   `IDENTITY_PRESERVE_BLOCK` сразу после cinematic anchor, со
+   формулировкой `identical face shape, eye shape and colour …`.
+   Edit-модели читали `identical face shape` **геометрически** — как
+   «сохрани относительный размер головы из reference в кадре» —
+   что напрямую конфликтовало с composition-якорем. Identity
+   побеждал из-за позиции (early-attention) и emphatic слова
+   (`identical`).
+
+Контрольное наблюдение из аудита: `gym_fitness` работал без
+проблем потому, что его `default_clothing` содержит **обязательную
+body-геометрию** (`athletic tank top, athletic shorts, training
+shoes`) — модель физически не может нарисовать `shoes`, не
+расширив кадр на ноги, и пропорции выправляются автоматически.
+Стили с слабыми body-cues (`mirror_aesthetic`: *"curated outfit with
+clean lines, one statement piece"*) такой страховки не имеют.
+
+v1.67 закрывает обе структурные дыры — без нового FAL-роундтрипа и
+без правок контента стилей:
+
+* **Padding gate расширен** (`src/orchestrator/executor.py`,
+  `src/config.py`):
+  - `is_tight` теперь включает `composition_class ∈ {face_closeup,
+    portrait, half_body, unknown}` (раньше только `{face_closeup,
+    unknown}`).
+  - `csl_reference_pad_face_ratio` и `csl_reference_pad_face_ratio_cv`
+    оба опущены до `0.10` (раньше 0.28 / 0.22). CV-boost схлопнулся
+    в main threshold — оба режима нуждались в одинаково низком гейте.
+  - Единственный путь, который теперь минует padding — это true
+    `FULL_BODY` композиционный класс (лицо < 6% кадра, много места
+    под подбородком). Document-стили освобождены отдельно по
+    `framing` gate; studio-portrait стили резолвятся в `portrait`
+    framing и padding для них работает в нужном tight-bust режиме.
+* **Identity-tail reorder** (`src/prompts/model_wrappers.py`):
+  `IDENTITY_PRESERVE_BLOCK` перенесён из «после composition anchor»
+  в самый конец промпта, после `PHOTOREAL_BLOCK`. Composition теперь
+  владеет early-attention слотом, identity — recency-bias слотом.
+* **Identity wording rewrite** (`src/prompts/image_gen.py`):
+  `IDENTITY_PRESERVE_BLOCK` переписан как чисто-текстурный:
+  `"preserve the same person's facial features: eye shape and
+  colour, hairline, skin undertone"`. Слово `face shape` (геометрия)
+  удалено; слово `identical` (emphatic geometric copy cue) заменено
+  на нейтральный `preserve`.
+
+Стоимость генерации не меняется: padding — локальный PIL preprocess,
+prompt reorder сохраняет тот же набор токенов, identity rewrite
+короче на 9 символов. Default A/B model и quality tier
+(`gpt_image_2` / `medium`, $0.06/image) не трогаются.
+
+Регрессионная защита: новые тесты
+`test_pad_fires_on_typical_half_body_upload_v167` и
+`test_pad_fires_on_half_body_class_at_low_ratio_v167` в
+[`tests/test_orchestrator/test_executor_reference_padding.py`](../tests/test_orchestrator/test_executor_reference_padding.py)
+пинят оба плеча гейта. Прежний `test_executor_padding_cv_mode.py`
+(v1.66) удалён — он пинил CV-vs-default divergence, которой
+после v1.67 больше нет.
+
 #### Почему это работает за один проход
 
 - **Edit-модели** (GPT Image 2 / Nano Banana 2) сильно опираются на
   layout reference'а. Если на reference'е лицо уже занимает 12%
   кадра, модель **не** может «вернуть» его к 50% без явного промпта.
-- Cinematic anchor (`Reframe …`, `85mm portrait lens`) + padded
+- Cinematic anchor (`Reframe …`, `85mm short-telephoto lens`) + padded
   reference дают согласованный сигнал в обоих каналах (text + image),
-  а удаление конфликтной фразы из identity-блока + дубля `framing_line`
-  убирает остаточную тягу к head-and-shoulders.
+  а identity-tail с текстурными якорями убирает остаточную тягу к
+  head-and-shoulders, не загораживая composition.
 
 #### Что убрано вместе с v1.64
 

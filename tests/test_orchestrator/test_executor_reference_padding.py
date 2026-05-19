@@ -1,17 +1,27 @@
-"""Integration tests for the v1.64 + v1.65 reference-padding gate in
-``ImageGenerationExecutor.single_pass``.
+"""Integration tests for the v1.64 + v1.65 + v1.67 reference-padding
+gate in ``ImageGenerationExecutor.single_pass``.
 
-The gate triggers on the "tight-selfie + non-doc + portrait/half/
-full body" cohort. v1.65 expanded the framing axis from
-``(half_body, full_body)`` to ``(portrait, half_body, full_body)``
-and decoupled the "tight" threshold from the CSL classification
-threshold by introducing ``settings.csl_reference_pad_face_ratio``
-(0.28; CSL FACE_CLOSEUP stays at 0.35).
+The gate triggers on the "non-doc + portrait/half/full body framing +
+non-full-body composition class (or face_area_ratio above threshold)"
+cohort. v1.65 expanded the framing axis from ``(half_body, full_body)``
+to ``(portrait, half_body, full_body)`` and decoupled the "tight"
+threshold from the CSL classification threshold by introducing
+``settings.csl_reference_pad_face_ratio`` (was 0.28; v1.67 lowered to
+0.10). v1.67 also widened the composition_class trigger from
+``("face_closeup", "unknown")`` to
+``("face_closeup", "portrait", "half_body", "unknown")``: audit of
+v1.66 traffic showed the "huge head" pathology persists on standard
+half-body uploads with ``face_area_ratio ≈ 0.10..0.17`` because they
+fell under the 0.28 default.
+
+The only path that now skips padding is a true FULL_BODY upload
+(face below 0.10 AND ample space below the chin) — that geometry
+is already what the model would render, padding would be a no-op.
 
 These tests pin the exact gate matrix so a future refactor cannot
-silently widen it (e.g. running padding on every request, which
-would distort loose portraits) or silently narrow it (skipping the
-gate when it ought to fire).
+silently widen it (e.g. padding document styles, which run a fixed
+vendor-policy crop) or silently narrow it (skipping the gate when
+it ought to fire).
 
 We patch ``pad_reference_for_framing`` to a sentinel so the test asserts
 on the boolean "was it called" — geometry correctness is covered by
@@ -80,8 +90,8 @@ def _base_settings(mock_settings) -> None:
     mock_settings.variation_engine_v2_enabled = True
     mock_settings.csl_reference_pad_enabled = True
     mock_settings.csl_face_closeup_face_ratio = 0.35
-    mock_settings.csl_reference_pad_face_ratio = 0.28
-    mock_settings.csl_reference_pad_face_ratio_cv = 0.22
+    mock_settings.csl_reference_pad_face_ratio = 0.10
+    mock_settings.csl_reference_pad_face_ratio_cv = 0.10
 
 
 def _build_executor(image_gen):
@@ -224,16 +234,20 @@ async def test_pad_fires_on_portrait_class_above_pad_threshold(mock_settings, mo
 @pytest.mark.asyncio
 @patch("src.services.reference_preprocess.pad_reference_for_framing")
 @patch("src.orchestrator.executor.settings")
-async def test_pad_skipped_on_loose_portrait_under_threshold(mock_settings, mock_pad):
-    """v1.65: loose portrait upload (face_area_ratio below 0.28 + class
-    PORTRAIT) should NOT be padded — the geometry already matches a
-    normal head-and-shoulders shot.
+async def test_pad_fires_on_portrait_class_under_old_threshold(mock_settings, mock_pad):
+    """v1.67: loose portrait upload (face_area_ratio 0.20, class
+    PORTRAIT) NOW triggers padding.
 
-    Pinning the lower edge of the gate so a future tweak cannot turn
-    padding into an "every request" operation that distorts already-
-    correct portraits.
+    Pre-v1.67 this case was a regression hole: the 0.28 ratio gate +
+    "face_closeup, unknown" class gate excluded portrait-class uploads,
+    so a typical half-body selfie (face ~0.10..0.20) was sent to the
+    edit-model unmodified — and the model copied the reference layout
+    one-to-one, producing the "huge head" pathology. v1.67 widens
+    both gates: PORTRAIT and HALF_BODY classes are now explicit
+    triggers, and the ratio gate is lowered to 0.10.
     """
     _base_settings(mock_settings)
+    mock_pad.return_value = b"PADDED_LOOSE_PORTRAIT"
     image_gen = MagicMock()
     image_gen.generate = AsyncMock(return_value=_png())
     executor = _build_executor(image_gen)
@@ -253,7 +267,7 @@ async def test_pad_skipped_on_loose_portrait_under_threshold(mock_settings, mock
         framing="portrait",
     )
 
-    assert mock_pad.call_count == 0
+    assert mock_pad.call_count == 1
 
 
 @pytest.mark.asyncio
@@ -288,9 +302,17 @@ async def test_pad_skipped_when_kill_switch_off(mock_settings, mock_pad):
 @pytest.mark.asyncio
 @patch("src.services.reference_preprocess.pad_reference_for_framing")
 @patch("src.orchestrator.executor.settings")
-async def test_pad_skipped_when_face_small(mock_settings, mock_pad):
-    """Loose-crop input (face_area_ratio low, composition_class
-    ``portrait``) does not need padding."""
+async def test_pad_skipped_only_for_true_full_body(mock_settings, mock_pad):
+    """v1.67: a true full-body upload (face_area_ratio 0.05 + class
+    FULL_BODY) is the only path that still skips padding.
+
+    The classifier marks full-body when the face is small AND there's
+    ample space below the chin — that geometry already matches the
+    cinematic full-length-standing-shot target, so padding would be a
+    no-op (worse: it would re-crop a valid full-body upload). We pin
+    this lower edge so a future tweak cannot turn padding into an
+    "every request" operation.
+    """
     _base_settings(mock_settings)
     image_gen = MagicMock()
     image_gen.generate = AsyncMock(return_value=_png())
@@ -305,10 +327,12 @@ async def test_pad_skipped_when_face_small(mock_settings, mock_pad):
         task_id="t1",
         trace={"decisions": [], "steps": {}},
         gender="male",
-        input_quality=_report(face_area_ratio=0.12, composition_class="portrait"),
+        # face_area 0.05 is below the 0.10 pad threshold, AND class is
+        # FULL_BODY so neither gate fires.
+        input_quality=_report(face_area_ratio=0.05, composition_class="full_body"),
         ab_image_model="gpt_image_2",
         ab_image_quality="medium",
-        framing="half_body",
+        framing="full_body",
     )
 
     assert mock_pad.call_count == 0
@@ -369,6 +393,94 @@ async def test_pad_fires_on_unknown_class_with_high_face_ratio(mock_settings, mo
         ab_image_model="gpt_image_2",
         ab_image_quality="medium",
         framing="full_body",
+    )
+
+    assert mock_pad.call_count == 1
+
+
+@pytest.mark.asyncio
+@patch("src.services.reference_preprocess.pad_reference_for_framing")
+@patch("src.orchestrator.executor.settings")
+async def test_pad_fires_on_typical_half_body_upload_v167(mock_settings, mock_pad):
+    """v1.67 regression guard — THE fix for the "huge head" pathology.
+
+    The most common production upload shape is a half-body or
+    head-and-shoulders photo with ``face_area_ratio`` around 0.10..0.17
+    and ``composition_class`` = PORTRAIT. Before v1.67 this combination
+    fell through every gate: ratio < 0.28, class not in
+    ``("face_closeup", "unknown")``. The edit-model received the raw
+    reference and copied its head/torso ratio verbatim — the user-
+    facing pathology where every output had a disproportionately
+    enlarged head, regardless of style.
+
+    v1.67 widens the composition_class gate to include PORTRAIT and
+    HALF_BODY explicitly AND lowers the ratio threshold to 0.10. This
+    test pins both halves of the fix.
+    """
+    _base_settings(mock_settings)
+    mock_pad.return_value = b"PADDED_TYPICAL_HALF_BODY"
+    image_gen = MagicMock()
+    image_gen.generate = AsyncMock(return_value=_png())
+    executor = _build_executor(image_gen)
+
+    await executor.single_pass(
+        mode=AnalysisMode.DATING,
+        style="motorcycle",
+        image_bytes=_jpeg(),
+        result_dict={"base_description": "test"},
+        user_id="u1",
+        task_id="t1",
+        trace={"decisions": [], "steps": {}},
+        gender="male",
+        # face_area=0.13 is exactly the median half-body upload shape
+        # and the audit-confirmed "huge head" trigger before v1.67.
+        input_quality=_report(face_area_ratio=0.13, composition_class="portrait"),
+        ab_image_model="gpt_image_2",
+        ab_image_quality="medium",
+        framing="portrait",
+    )
+
+    assert mock_pad.call_count == 1, (
+        "v1.67 regression: a typical half-body portrait upload "
+        "(face_area_ratio=0.13, class=portrait) MUST trigger padding. "
+        "If this assertion fires, the 'huge head' pathology will return."
+    )
+    _, call_kwargs = image_gen.generate.await_args
+    assert call_kwargs["reference_image"] == b"PADDED_TYPICAL_HALF_BODY"
+
+
+@pytest.mark.asyncio
+@patch("src.services.reference_preprocess.pad_reference_for_framing")
+@patch("src.orchestrator.executor.settings")
+async def test_pad_fires_on_half_body_class_at_low_ratio_v167(mock_settings, mock_pad):
+    """v1.67: HALF_BODY composition class is also an explicit padding
+    trigger, even if face_area_ratio is well below 0.10.
+
+    A half-body upload (face ~0.07, plenty of torso visible) still
+    benefits from geometric normalisation when the requested framing
+    is ``portrait`` — the canvas needs to be re-cropped to put the
+    face in the right relative slot. Padding handles that locally
+    without an extra FAL roundtrip.
+    """
+    _base_settings(mock_settings)
+    mock_pad.return_value = b"PADDED_HALF_BODY_CLASS"
+    image_gen = MagicMock()
+    image_gen.generate = AsyncMock(return_value=_png())
+    executor = _build_executor(image_gen)
+
+    await executor.single_pass(
+        mode=AnalysisMode.DATING,
+        style="motorcycle",
+        image_bytes=_jpeg(),
+        result_dict={"base_description": "test"},
+        user_id="u1",
+        task_id="t1",
+        trace={"decisions": [], "steps": {}},
+        gender="male",
+        input_quality=_report(face_area_ratio=0.07, composition_class="half_body"),
+        ab_image_model="gpt_image_2",
+        ab_image_quality="medium",
+        framing="portrait",
     )
 
     assert mock_pad.call_count == 1

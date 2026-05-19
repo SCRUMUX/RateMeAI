@@ -114,9 +114,12 @@ def test_numerical_anchor_present_in_prompt(framing: str):
 @pytest.mark.parametrize("framing", ["portrait", "half_body", "full_body"])
 def test_numerical_anchor_precedes_identity_block(framing: str):
     """Layout target must win attention over identity-copy — that's
-    the whole point of v1.64. If a future refactor flips the order,
-    the model is back to "match the reference layout, then copy the
-    face" and the oversized-head pathology returns.
+    the whole point of v1.64. v1.67 reinforces this: identity is
+    moved to the TAIL of the prompt so the gap between the composition
+    anchor and the identity block is as large as possible. If a future
+    refactor flips the order, the model is back to "match the reference
+    layout, then copy the face" and the oversized-head pathology
+    returns.
     """
     style = _pick_non_doc_style()
     engine = PromptEngine()
@@ -125,7 +128,7 @@ def test_numerical_anchor_precedes_identity_block(framing: str):
     )
 
     hint_pos = prompt.find(_COMPOSITION_NUMERICAL_HINT[framing])
-    identity_pos = prompt.find("identical face shape, eye shape and colour")
+    identity_pos = prompt.find("preserve the same person's facial features")
     assert hint_pos >= 0
     assert identity_pos >= 0
     assert hint_pos < identity_pos, (
