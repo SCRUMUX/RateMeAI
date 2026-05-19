@@ -160,7 +160,7 @@ def _assemble(ir: CompositionIR, *, tail: str) -> str:
         if ir.expression:
             parts.append(ir.expression)
         hint = ig._DOC_COMPOSITION_HINT.get(
-            ir.style_key, "Centered head-and-shoulders framing."
+            ir.style_key, "Centered framing."
         )
         parts.append(f"Composition: {hint}")
         parts.append(ig.DOC_PRESERVE)

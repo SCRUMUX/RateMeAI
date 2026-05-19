@@ -142,14 +142,17 @@ def test_ten_seeds_all_carry_v4_1_anchors(style):
             f"{style!r} seed={s}: identity textural anchors missing\n"
             f"{prompt!r}"
         )
-        # PHOTOREAL_BLOCK contributes the camera + DoF block. v1.65
-        # swapped the camera anchor from ``50mm lens at eye level`` to
-        # ``85mm portrait lens at chest height`` — the anti-selfie
-        # perspective fix. v1.66 renamed it to ``85mm short-telephoto
-        # lens`` to remove the second ``portrait`` mention that was
-        # acting as a recency-bias headshot pull.
-        assert "85mm short-telephoto lens" in prompt, (
-            f"{style!r} seed={s}: PHOTOREAL_BLOCK missing\n{prompt!r}"
+        # v1.70 — PHOTOREAL_BLOCK no longer carries a lens descriptor.
+        # We assert on the skin-texture anchor instead, which is the
+        # canonical surviving signal.
+        assert "Authentic skin texture" in prompt, (
+            f"{style!r} seed={s}: PHOTOREAL_BLOCK skin-texture anchor "
+            f"missing\n{prompt!r}"
+        )
+        assert "85mm" not in prompt, (
+            f"{style!r} seed={s}: v1.69 lens descriptor leaked back "
+            "in — v1.70 removed lens spec entirely.\n"
+            f"{prompt!r}"
         )
         # Wardrobe: prefix is the v4.1 replacement for "Subject is
         # wearing X" — locks the narrative-style wardrobe label.

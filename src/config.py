@@ -431,8 +431,15 @@ class Settings(BaseSettings):
     # (``bust shot`` / ``waist-up``); this flag adds an additional
     # quantitative cue (``Face fills approximately 25% of the frame
     # area``) at the prompt head, where edit-models pay the most
-    # attention. v1.69 — flipped to True by default.
-    numerical_percent_anchor_enabled: bool = True
+    # attention.
+    #
+    # v1.70 — flipped back to ``False`` by default. The audit
+    # (``docs/ANATOMY_INVESTIGATION.md`` F1, F4) found the anchor
+    # duplicated ``_COMPOSITION_NUMERICAL_HINT`` and helped over-anchor
+    # the prompt on portrait crops. v1.70 also empties the underlying
+    # dict so even with the flag back on the block is a no-op — the
+    # flag stays here as a back-compat hatch.
+    numerical_percent_anchor_enabled: bool = False
     # P1.5 — extend ``_STUDIO_PORTRAIT_STYLE_KEYS`` beyond the two
     # legacy styles to all career-class portraits where tight crop is
     # the intended creative output. When True the wider whitelist
@@ -450,8 +457,14 @@ class Settings(BaseSettings):
     # to explicitly instruct the model to match the subject's lighting
     # to the scene's ambient light (colour temperature, direction,
     # softness). Counters the "studio key light on a sunset terrace"
-    # failure mode. v1.69 — flipped to True by default.
-    light_match_clause_enabled: bool = True
+    # failure mode.
+    #
+    # v1.70 — flipped back to ``False`` by default. The light-match
+    # instruction is now dissolved into the shorter ``PHOTOREAL_BLOCK``
+    # ("The lighting matches the scene's ambient light in direction,
+    # colour temperature, and softness."), so the separate clause is
+    # redundant. Flag preserved for back-compat / instant rollback.
+    light_match_clause_enabled: bool = False
     # P2.10 — emit a per-framing pose hint after wardrobe. Anchors a
     # relaxed natural posture so the model does not default to
     # symmetrical "hero stance" framing on full_body or stiff

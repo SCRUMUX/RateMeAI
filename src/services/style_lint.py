@@ -193,6 +193,59 @@ _DOUBLED_WORD_RE = re.compile(r"\b(\w+)\s+\1\b", re.IGNORECASE)
 # recipes; edit models tend to render a hybrid that satisfies neither.
 # Warning-severity (not error) because the scene-narrative often needs
 # the lighting cue for coherence — curator may legitimately keep it.
+# v1.70 — NO_HEAD_TOKEN_IN_PROMPT.
+#
+# Defensive lint for the wire prompt. After the v1.70 cleanup the
+# non-document prompt pipeline carries ZERO mentions of "head",
+# "bust shot", "upper third" etc. The historical audit (see
+# ``docs/ANATOMY_INVESTIGATION.md`` F1) attributed the "huge head"
+# pathology to a 5:1 ratio of portrait-anchor cues vs body-anchor
+# cues in the wire prompt. The clean-up reduced that ratio to 0:1;
+# this lint ensures that future edits to ``image_gen.py``,
+# ``model_wrappers.py`` or ``data/styles.json`` cannot re-introduce
+# the forbidden tokens silently.
+#
+# Document styles (passport / visa / driver's licence) are exempt
+# because their format requires a tight head-and-shoulders headshot
+# by law; ``DOC_PRESERVE`` deliberately retains the phrasing.
+#
+# Public entrypoint: :func:`forbidden_head_tokens_in_prompt`. The
+# golden-prompt test sweeps every fixture through this function and
+# asserts the returned list is empty for non-document styles.
+_PROMPT_FORBIDDEN_HEAD_TOKENS: tuple[str, ...] = (
+    "head-and-shoulders",
+    "bust shot",
+    "upper third",
+    "upper fifth",
+    "upper quarter",
+    "head occupying",
+    "head-to-body",
+    "head subtly turned",
+    "head-to-shoulders",
+)
+
+
+def forbidden_head_tokens_in_prompt(
+    prompt: str,
+    *,
+    style_id: str | None = None,
+) -> list[str]:
+    """Return the head-portrait tokens that appear in ``prompt``.
+
+    Document styles (passport / visa / driver's licence / id-style
+    headshots) are exempt because their vendor policy requires the
+    tight head-and-shoulders framing. For every other style the
+    returned list must be empty after the v1.70 cleanup.
+
+    Case-insensitive substring scan against
+    :data:`_PROMPT_FORBIDDEN_HEAD_TOKENS`.
+    """
+    if style_id and style_id.strip() in _LINT_DOCUMENT_STYLE_KEYS:
+        return []
+    haystack = (prompt or "").lower()
+    return [t for t in _PROMPT_FORBIDDEN_HEAD_TOKENS if t in haystack]
+
+
 _SCENE_LIGHTING_TOKENS: tuple[str, ...] = (
     "golden sunset",
     "warm sunset",

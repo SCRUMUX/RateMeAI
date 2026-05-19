@@ -1,56 +1,41 @@
-"""v1.65 catalog-wide anatomy invariants.
+"""v1.70 catalog-wide anatomy invariants.
 
-The "huge head, tiny shoulders" pathology is a per-prompt problem,
-but the fix is a global one: every prompt produced by the catalog
-MUST carry the v1.65 anatomy contract, regardless of which mode /
-style the user picks. This test parametrises over the entire
-registered v3 catalog × every framing the policy can route to,
-and asserts the invariants below for each final prompt.
+The v1.70 audit (``docs/ANATOMY_INVESTIGATION.md``) reversed the
+direction of this test. Up to v1.69 the invariants asserted the
+PRESENCE of head/lens/anchor tokens (``Reframe the reference into``,
+``85mm short-telephoto lens``, etc.) because the doctrine was "more
+anchors = better anatomy". The audit found the opposite: every added
+anchor over v1.64..v1.69 increased the portrait-cue ratio in the wire
+prompt without compensating gain, and the resulting prompt over-
+anchored the model on tight head shots.
 
-Invariants for non-document styles:
+v1.70 removes those anchors entirely. The non-document wire prompt
+must now be **free** of:
 
-* ``Reframe the reference into`` is present — the cinematic-vocabulary
-  layout directive that replaces v1.64's percentage targets.
-* The framing-appropriate lens descriptor is present in
-  :data:`PHOTOREAL_BLOCK` / :data:`_PHOTOREAL_BY_FRAMING`. v1.68 P2.8
-  shipped the per-framing photoreal map, v1.69 flipped its flag on by
-  default, so the lens spec now varies with the requested shot:
-    * ``portrait`` → ``85mm short-telephoto lens``
-    * ``half_body`` → ``50-70mm normal-to-short-telephoto lens``
-    * ``full_body`` → ``35-50mm normal-wide lens``
-  The cinematic anchor (``_COMPOSITION_NUMERICAL_HINT``) is lens-
-  agnostic; the photoreal block is the SINGLE source of truth for the
-  lens spec.
-* The identity anchor ``preserve the same person's facial features``
-  is present (v1.67 wording; the legacy ``identical face shape, eye
-  shape and colour`` phrase is explicitly forbidden because edit-models
-  read "face shape" as a geometric constraint).
-* The legacy ``50mm lens at eye level`` anchor is absent.
-* The legacy v1.65 ``85mm portrait lens`` descriptor is absent
-  (renamed in v1.66).
-* The v1.63 head-and-shoulders identity tail
-  ``head and shoulders read as real human proportions`` is absent.
-* The ``Framing: head-and-shoulders close-up`` token from the
-  v1.64-era ``framing_line`` is absent — duplicate framing signal.
-* v1.66 portrait-pose semantic leaks (``leadership gaze``,
-  ``gravitas``, ``behind a desk``, ``leather chair``) are absent
-  outside the studio-portrait whitelist.
-* Length stays in ``[650, 1800]`` characters. v1.69 (May 2026)
-  widened the upper bound from 1550 → 1800 to accommodate the three
-  prompt-level fixes that flipped on by default in v1.69:
-  ``_FACE_AREA_ANCHOR_BY_FRAMING`` (~60 chars head slot),
-  ``_POSE_BY_FRAMING`` (~120 chars after wardrobe), and
-  ``LIGHT_MATCH_CLAUSE`` (~200 chars before identity), plus headroom
-  for the longest scene_anchor + override combinations
-  (``glass_wall_pose``, ``near_car``). The lower bound is unchanged —
-  a shrink below 650 still indicates a regression in the assembly
-  path.
+* ``head-and-shoulders``, ``bust shot``, ``upper third`` / ``upper
+  fifth`` / ``upper quarter`` of the canvas — the
+  ``_COMPOSITION_NUMERICAL_HINT`` cluster.
+* ``head occupying`` / ``head-to-body`` / ``head-to-shoulders`` /
+  ``head subtly turned`` — residual head-anchor wording.
+* ``85mm`` / ``50-70mm`` / ``35-50mm`` lens descriptors — removed
+  from ``PHOTOREAL_BLOCK`` in v1.70 (skin texture + light match
+  only).
+* ``shallow depth of field`` — removed with the lens.
+* ``Anchor: the face occupies`` — face-area anchor removed.
 
-Document styles bypass ``_COMPOSITION_NUMERICAL_HINT`` and use
-``_DOC_COMPOSITION_HINT`` instead. Their invariants:
+Document styles (passport / visa / driver's licence) still legitimately
+carry head-and-shoulders wording via ``DOC_PRESERVE``. They are
+exempt from the cleanup and assert their own invariants below.
 
-* Identity is carried by ``DOC_QUALITY`` (``id-style headshot``).
-* ``_COMPOSITION_NUMERICAL_HINT`` strings do NOT leak in.
+Identity preservation (``preserve the same person's facial features``,
+``eye shape and colour``) MUST stay — identity is the only anchor we
+never wanted to remove.
+
+Length: the cleanup brings the typical non-document wire prompt
+from ~1450 chars to ~600 chars. We pin a generous ``[300, 1100]``
+band — values outside it indicate either a regression (anchor block
+came back) or a catastrophic style-data shrink (scene_anchor went
+empty).
 """
 
 from __future__ import annotations
@@ -60,11 +45,11 @@ import pytest
 from src.models.enums import AnalysisMode
 from src.prompts.engine import PromptEngine
 from src.prompts.image_gen import (
-    _COMPOSITION_NUMERICAL_HINT,
     _DOCUMENT_STYLE_KEYS,
     _STUDIO_PORTRAIT_STYLE_KEYS,
     STYLE_REGISTRY,
 )
+from src.services.style_lint import forbidden_head_tokens_in_prompt
 from src.services.style_loader_v2 import register_v2_styles_from_json
 from src.services.style_loader_v3 import register_v3_styles_from_json
 
@@ -85,6 +70,17 @@ _V166_POSE_LEAK_TOKENS: tuple[str, ...] = (
     "behind a desk",
     "behind the desk",
     "webcam-friendly",
+)
+
+
+# v1.70 — lens descriptors that must NOT appear in non-document prompts.
+_V170_LENS_LEAK_TOKENS: tuple[str, ...] = (
+    "85mm short-telephoto",
+    "85mm portrait lens",
+    "50mm lens at eye level",
+    "50-70mm normal-to-short-telephoto",
+    "35-50mm normal-wide",
+    "shallow depth of field",
 )
 
 
@@ -143,8 +139,8 @@ def _doc_styles() -> list[str]:
     "mode,style", _photo_pairs(), ids=lambda v: str(v),
 )
 @pytest.mark.parametrize("framing", _FRAMINGS)
-def test_v1_65_anatomy_invariants(mode: AnalysisMode, style: str, framing: str):
-    """Catalog × framings — anatomy contract MUST hold everywhere."""
+def test_v1_70_anatomy_invariants(mode: AnalysisMode, style: str, framing: str):
+    """Catalog x framings — v1.70 anatomy contract MUST hold everywhere."""
     engine = PromptEngine()
     prompt = engine.build_image_prompt(
         mode, style=style, gender="male", framing=framing,
@@ -152,60 +148,39 @@ def test_v1_65_anatomy_invariants(mode: AnalysisMode, style: str, framing: str):
 
     label = f"{mode.value}/{style}/framing={framing}"
 
-    assert "Reframe the reference into" in prompt, (
-        f"{label}: cinematic Reframe operator missing — "
-        "_COMPOSITION_NUMERICAL_HINT may have been overridden\n"
+    # v1.70 — head-cue defensive check. Reuses the public lint helper
+    # so both this test and ``test_no_head_cues`` exercise the same
+    # token list.
+    head_leaks = forbidden_head_tokens_in_prompt(prompt, style_id=style)
+    assert not head_leaks, (
+        f"{label}: forbidden head-portrait tokens leaked into the wire "
+        f"prompt: {head_leaks!r}. v1.70 removed all head-anchor clauses; "
+        "re-introducing one is almost always a regression.\n"
         f"{prompt!r}"
     )
 
-    # v1.68 P2.8 / v1.69 — the photoreal block is now framing-aware.
-    # Each framing pins a focal length that maps to its cinematic
-    # anchor (portrait = tight chest-up bust, full_body = wide
-    # standing shot). The cinematic anchor itself stays lens-agnostic
-    # (one strong lens cue per prompt). The map below mirrors
-    # ``_PHOTOREAL_BY_FRAMING`` in ``src.prompts.image_gen``.
-    _expected_lens_by_framing: dict[str, str] = {
-        "portrait": "85mm short-telephoto lens",
-        "half_body": "50-70mm normal-to-short-telephoto lens",
-        "full_body": "35-50mm normal-wide lens",
-    }
-    expected_lens = _expected_lens_by_framing[framing]
-    assert expected_lens in prompt, (
-        f"{label}: framing-appropriate lens {expected_lens!r} missing — "
-        "v1.68 P2.8 / v1.69 makes PHOTOREAL_BLOCK framing-aware; each "
-        "framing must carry exactly the lens descriptor that matches "
-        "its cinematic anchor\n"
-        f"{prompt!r}"
-    )
-    # Guard against the static 85mm leaking into half_body / full_body
-    # prompts after the per-framing block lands.
-    if framing != "portrait":
-        assert "85mm short-telephoto lens" not in prompt, (
-            f"{label}: portrait-class lens descriptor leaked into a "
-            f"non-portrait framing — PHOTOREAL_BLOCK is now per-framing "
-            "and the portrait lens must stay in portrait shots only\n"
+    for token in _V170_LENS_LEAK_TOKENS:
+        assert token not in prompt, (
+            f"{label}: lens/DoF descriptor {token!r} leaked back into "
+            "the wire prompt — v1.70 removed lens + shallow DoF from "
+            "PHOTOREAL_BLOCK; only ``natural skin texture`` and "
+            "``lighting matches the scene`` survive.\n"
             f"{prompt!r}"
         )
-    # v1.68 — the cinematic anchor must NOT carry a lens descriptor;
-    # this guards against future edits silently re-introducing the
-    # duplicate. PHOTOREAL_BLOCK ships the lens spec exactly once.
-    from src.prompts.image_gen import _COMPOSITION_NUMERICAL_HINT
-    assert "lens" not in _COMPOSITION_NUMERICAL_HINT[framing], (
-        f"{label}: cinematic composition anchor for framing="
-        f"{framing!r} re-introduced a lens descriptor — v1.68 keeps "
-        "the lens spec only in PHOTOREAL_BLOCK to avoid the "
-        "duplicate-mention over-anchor.\n"
-        f"_COMPOSITION_NUMERICAL_HINT[{framing!r}]="
-        f"{_COMPOSITION_NUMERICAL_HINT[framing]!r}"
+
+    assert "Anchor: the face occupies" not in prompt, (
+        f"{label}: face-area anchor leaked back in — "
+        "_FACE_AREA_ANCHOR_BY_FRAMING is empty in v1.70.\n"
+        f"{prompt!r}"
     )
 
+    # Identity must still be there — it's the one anchor we never removed.
     assert "preserve the same person's facial features" in prompt, (
         f"{label}: IDENTITY_PRESERVE_BLOCK anchor missing (v1.67 wording)\n"
         f"{prompt!r}"
     )
     assert "eye shape and colour" in prompt, (
-        f"{label}: identity textural anchor 'eye shape and colour' "
-        "missing\n"
+        f"{label}: identity textural anchor 'eye shape and colour' missing\n"
         f"{prompt!r}"
     )
     assert "identical face shape" not in prompt, (
@@ -215,14 +190,9 @@ def test_v1_65_anatomy_invariants(mode: AnalysisMode, style: str, framing: str):
         f"{prompt!r}"
     )
 
-    assert "50mm lens at eye level" not in prompt, (
-        f"{label}: legacy 50mm-at-eye-level anchor must be gone\n"
-        f"{prompt!r}"
-    )
-    assert "85mm portrait lens" not in prompt, (
-        f"{label}: legacy v1.65 ``85mm portrait lens`` descriptor "
-        "must not return — v1.66 renamed it to ``85mm short-telephoto "
-        "lens`` to remove the duplicate ``portrait`` mention\n"
+    # v1.70 — skin texture survives.
+    assert "Authentic skin texture" in prompt, (
+        f"{label}: PHOTOREAL_BLOCK skin-texture anchor missing.\n"
         f"{prompt!r}"
     )
 
@@ -236,39 +206,33 @@ def test_v1_65_anatomy_invariants(mode: AnalysisMode, style: str, framing: str):
                 "non-studio styles\n"
                 f"{prompt!r}"
             )
-    assert "head and shoulders read as real human proportions" not in prompt, (
-        f"{label}: v1.63 head-and-shoulders identity tail must not "
-        "return — it conflicts with non-portrait framings\n"
-        f"{prompt!r}"
-    )
-    assert "Framing: head-and-shoulders close-up" not in prompt, (
-        f"{label}: ``framing_line`` duplicate must not leak into the "
-        "wire prompt — v1.65 dropped it\n"
-        f"{prompt!r}"
-    )
 
-    assert 650 <= len(prompt) <= 1800, (
-        f"{label}: prompt length {len(prompt)} outside [650,1800]\n"
+    assert 300 <= len(prompt) <= 1100, (
+        f"{label}: prompt length {len(prompt)} outside [300,1100] — "
+        "either an anchor block came back (regression) or the style "
+        "data collapsed (scene/wardrobe gone).\n"
         f"{prompt!r}"
     )
 
 
 @pytest.mark.parametrize("style", _doc_styles())
-def test_document_styles_skip_non_doc_numerical_hint(style: str):
-    """Document styles use ``_DOC_COMPOSITION_HINT``, not the v1.65
-    cinematic anchor. None of the cinematic strings should leak into
-    a document prompt."""
+def test_document_styles_keep_doc_anchors(style: str):
+    """Document styles legitimately retain head-and-shoulders wording
+    via ``DOC_PRESERVE`` / ``DOC_QUALITY``; they bypass the v1.70
+    cleanup intentionally because passport / visa / driver's licence
+    formats are vendor-specified tight headshots."""
     engine = PromptEngine()
     prompt = engine.build_image_prompt(
         AnalysisMode.CV, style=style, gender="male", framing="portrait",
     )
 
-    for fragment in _COMPOSITION_NUMERICAL_HINT.values():
-        assert fragment not in prompt, (
-            f"cv/{style}: document prompt MUST NOT contain non-doc "
-            f"composition hint {fragment!r}\n{prompt!r}"
-        )
-
     assert "id-style headshot" in prompt.lower(), (
         f"cv/{style}: DOC_QUALITY identity anchor missing\n{prompt!r}"
+    )
+
+    # Lint helper auto-exempts document styles — sanity-check that path.
+    assert forbidden_head_tokens_in_prompt(prompt, style_id=style) == [], (
+        f"cv/{style}: lint helper failed to exempt document style — "
+        "this would block legitimate visa/passport prompts.\n"
+        f"{prompt!r}"
     )

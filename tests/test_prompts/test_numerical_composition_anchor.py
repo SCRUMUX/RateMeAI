@@ -1,42 +1,29 @@
-"""v1.64 / v1.65 numerical composition anchor — production guarantees.
+"""v1.70 — numerical composition anchor removed.
 
 Background
 ----------
 
-After the A/B cutover to GPT Image 2 Edit / Nano Banana 2 Edit, the
-"identity_scene" path (PuLID, full-frame regeneration from a face crop)
-stopped firing in production: ``UnifiedImageGenProvider._pick_backend``
-prioritised the requested model over ``generation_mode``. Edit models,
-fed a tight-selfie reference, copied the input's head/torso ratio
-verbatim and produced "oversized head, pasted face" artefacts on
-half_body / full_body framings — most visible on career studio styles
-with a minimalist scene description.
+The v1.64..v1.69 pipeline injected a cinematic head-anchor
+(``Reframe the reference into a head-and-shoulders bust shot ...``)
+into the wire prompt via :data:`_COMPOSITION_NUMERICAL_HINT`. The
+v1.70 audit (``docs/ANATOMY_INVESTIGATION.md`` F1, F4) attributed the
+"oversized head" pathology to that anchor and the four other
+head-cues it stacked with. The cleanup replaces the dict with an
+empty mapping so the ``model_wrappers._assemble`` branch falls
+through and the head-cue never reaches the wire prompt.
 
-Document styles never had this problem because their wrapper appends a
-``Composition: ... face fills X% of frame ...`` sentence directly
-(:data:`src.prompts.image_gen._DOC_COMPOSITION_HINT`). v1.64 mirrored
-that mechanism for non-document styles via
-:data:`src.prompts.image_gen._COMPOSITION_NUMERICAL_HINT`, injected by
-``model_wrappers._assemble`` BEFORE :data:`IDENTITY_PRESERVE_BLOCK`.
+The geometric half of the doctrine survives in
+``reference_preprocess.pad_reference_for_framing`` — the canvas is
+still padded so the face lands at the correct relative size for the
+requested framing. The textual half is gone.
 
-v1.65 rewrote the contents of that dict to use cinematic vocabulary
-(explicit ``Reframe the reference into …`` operator + cinematic shot
-names + physical lens specification) instead of percentage targets.
-The assertions below intentionally read the live ``_COMPOSITION_NUMERICAL_HINT``
-dict so the test stays in sync with whatever wording the constant holds.
+These tests pin the negative contract:
 
-These tests lock the contract:
-
-* The hint string appears in the final prompt for every non-doc
-  framing.
-* It is positioned BEFORE the identity-preserve block (layout target
-  wins attention over identity-copy).
-* It does NOT appear when ``framing`` is left unset — the legacy
-  no-framing path keeps its older behaviour for callers that do not
-  thread a framing key through (defensive: avoids regressing the
-  bot's "framing=None" default).
-* Document styles still use their own ``_DOC_COMPOSITION_HINT`` —
-  the new dict must not leak into the document wrapper branch.
+* ``_COMPOSITION_NUMERICAL_HINT`` is empty (``{}``).
+* No wire prompt for any framing carries a ``Composition: Reframe …``
+  sentence.
+* Identity remains the last block — the tail-attention slot.
+* Document styles continue to use their own ``_DOC_COMPOSITION_HINT``.
 """
 
 from __future__ import annotations
@@ -78,91 +65,58 @@ def _register_all_styles():
 
 
 def _pick_non_doc_style() -> str:
-    """Return the first registered v3 non-doc dating style.
-
-    Concrete style choice doesn't matter — the numerical anchor is
-    injected by the wrapper, which is style-agnostic. We just need a
-    registered key so ``build_image_prompt_v2`` returns a non-None
-    prompt.
-    """
     for (mode_str, key), _spec in STYLE_REGISTRY._v3_by_key.items():
         if mode_str == "dating" and key not in _DOCUMENT_STYLE_KEYS:
             return key
     raise RuntimeError("No non-doc dating styles registered")
 
 
+def test_numerical_anchor_dict_is_empty():
+    """v1.70 — the dict must be empty so ``_assemble`` skips the block."""
+    assert _COMPOSITION_NUMERICAL_HINT == {}, (
+        "v1.70 expected _COMPOSITION_NUMERICAL_HINT to be empty; "
+        f"got {_COMPOSITION_NUMERICAL_HINT!r}. Any re-introduction is a "
+        "regression — the head-anchor wording belongs in DOC_PRESERVE "
+        "only (document styles)."
+    )
+
+
 @pytest.mark.parametrize("framing", ["portrait", "half_body", "full_body"])
-def test_numerical_anchor_present_in_prompt(framing: str):
-    """Each known framing emits its ``Composition: ...`` sentence."""
+def test_no_composition_reframe_sentence_in_wire_prompt(framing: str):
+    """No framing produces a ``Composition: Reframe …`` sentence anymore."""
     style = _pick_non_doc_style()
     engine = PromptEngine()
     prompt = engine.build_image_prompt(
         AnalysisMode.DATING, style=style, gender="male", framing=framing,
     )
-
-    expected_hint = _COMPOSITION_NUMERICAL_HINT[framing]
-    assert expected_hint in prompt, (
-        f"framing={framing!r} numerical anchor missing.\n"
-        f"Expected fragment: {expected_hint!r}\n"
-        f"Prompt: {prompt!r}"
+    assert "Reframe the reference into" not in prompt, (
+        f"framing={framing!r}: v1.69 ``Reframe the reference into`` "
+        "directive returned to the wire prompt — the entire purpose of "
+        "v1.70 is that this clause is gone.\nPrompt: " + repr(prompt)
     )
-    assert f"Composition: {expected_hint}" in prompt, (
-        f"framing={framing!r} numerical anchor lost its 'Composition: ' prefix"
-    )
-
-
-@pytest.mark.parametrize("framing", ["portrait", "half_body", "full_body"])
-def test_numerical_anchor_precedes_identity_block(framing: str):
-    """Layout target must win attention over identity-copy — that's
-    the whole point of v1.64. v1.67 reinforces this: identity is
-    moved to the TAIL of the prompt so the gap between the composition
-    anchor and the identity block is as large as possible. If a future
-    refactor flips the order, the model is back to "match the reference
-    layout, then copy the face" and the oversized-head pathology
-    returns.
-    """
-    style = _pick_non_doc_style()
-    engine = PromptEngine()
-    prompt = engine.build_image_prompt(
-        AnalysisMode.DATING, style=style, gender="male", framing=framing,
-    )
-
-    hint_pos = prompt.find(_COMPOSITION_NUMERICAL_HINT[framing])
-    identity_pos = prompt.find("preserve the same person's facial features")
-    assert hint_pos >= 0
-    assert identity_pos >= 0
-    assert hint_pos < identity_pos, (
-        f"framing={framing!r} numerical anchor at {hint_pos} must come "
-        f"BEFORE identity block at {identity_pos}.\nPrompt: {prompt!r}"
+    assert "Composition: Reframe" not in prompt, (
+        f"framing={framing!r}: ``Composition: Reframe`` sentence "
+        "returned.\nPrompt: " + repr(prompt)
     )
 
 
 def test_no_numerical_anchor_when_framing_unset():
-    """Calling ``build_image_prompt`` without ``framing`` (legacy bot
-    default) keeps the older path: no numerical anchor injected.
-
-    This is the regression guard — the bot relies on framing-less calls
-    for some user flows; adding an unconditional anchor would change
-    the wire prompt for every existing user.
-    """
+    """Same negative contract for the legacy framing=None path."""
     style = _pick_non_doc_style()
     engine = PromptEngine()
     prompt = engine.build_image_prompt(
         AnalysisMode.DATING, style=style, gender="male",
     )
-
-    for fragment in _COMPOSITION_NUMERICAL_HINT.values():
-        assert fragment not in prompt, (
-            f"framing=None must skip numerical anchor, but found "
-            f"{fragment!r} in prompt: {prompt!r}"
-        )
+    assert "Reframe the reference into" not in prompt, (
+        "framing=None: ``Reframe the reference into`` directive "
+        "leaked.\nPrompt: " + repr(prompt)
+    )
 
 
-def test_numerical_anchor_skipped_for_document_styles():
-    """Document styles use their own ``_DOC_COMPOSITION_HINT`` —
-    the wrapper's doc branch never references
-    :data:`_COMPOSITION_NUMERICAL_HINT`.
-    """
+def test_document_styles_skip_non_doc_anchor():
+    """Document styles still use ``_DOC_COMPOSITION_HINT``. They must
+    not pick up any v1.69-era cinematic anchor wording even if the
+    dict ever gets repopulated."""
     doc_styles = [
         key for key in _DOCUMENT_STYLE_KEYS
         if STYLE_REGISTRY.get_v3("cv", key) is not None
@@ -174,22 +128,21 @@ def test_numerical_anchor_skipped_for_document_styles():
     prompt = engine.build_image_prompt(
         AnalysisMode.CV, style=doc_styles[0], gender="male", framing="portrait",
     )
-
-    portrait_hint = _COMPOSITION_NUMERICAL_HINT["portrait"]
-    assert portrait_hint not in prompt, (
-        "Document path must use _DOC_COMPOSITION_HINT, not the v1.64 "
-        "non-doc numerical anchor.\nPrompt: " + repr(prompt)
+    assert "Reframe the reference into" not in prompt
+    # Document path still uses _DOC_COMPOSITION_HINT — sanity-check the
+    # ``Composition:`` prefix is there (it's part of _assemble's doc
+    # branch wording).
+    assert "Composition:" in prompt, (
+        f"cv/{doc_styles[0]}: document prompt lost its `Composition:` "
+        f"prefix — _DOC_COMPOSITION_HINT may not be firing.\n"
+        f"Prompt: {prompt!r}"
     )
 
 
 def test_identity_block_does_not_dictate_composition():
-    """v1.64 trimmed the "head and shoulders read as real human
-    proportions" tail from :data:`IDENTITY_PRESERVE_BLOCK`. If a
-    future maintainer adds it back, this test fires loudly — the
-    tail conflicts with non-portrait framings ("waist up", "full
-    body") and was one of the root causes of the v1.63 oversized-
-    head regression.
-    """
+    """Carry-over from v1.64: identity block must not re-acquire the
+    head-and-shoulders proportions tail that was the original v1.63
+    regression."""
     forbidden_tails = (
         "head and shoulders read",
         "real human proportions",
@@ -198,6 +151,5 @@ def test_identity_block_does_not_dictate_composition():
     for fragment in forbidden_tails:
         assert fragment not in IDENTITY_PRESERVE_BLOCK, (
             f"IDENTITY_PRESERVE_BLOCK must not contain {fragment!r}; "
-            "composition is the numerical anchor's job, identity is "
-            "strictly about the face."
+            "identity is strictly about the face."
         )

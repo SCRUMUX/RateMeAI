@@ -131,6 +131,8 @@
     "framingFull": "Full body",
     "framingLocked": "Your photo doesn't show the torso — this framing is locked. Upload a photo where shoulders and torso are visible.",
     "framingLockedUnknown": "We couldn't determine the photo composition — only portrait framing is available.",
+    "framingManualHintHalf": "For the best result, upload a photo where the shoulders and torso are visible.",
+    "framingManualHintFull": "For the best result, upload a full-length photo or at least one showing the legs to the knee.",
     "compositionFaceCloseup": "Only the face is visible in the photo — body generation may produce unnatural proportions. Portrait styles are available.",
     "compositionUnknown": "We couldn't determine the photo composition — only portrait styles are available.",
     "styleLockedComposition": "This style needs a photo with shoulders and torso visible.",

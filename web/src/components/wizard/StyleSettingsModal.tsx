@@ -525,6 +525,23 @@ export default function StyleSettingsModal({ open, onClose, styleId, initialHint
                         );
                       })}
                     </div>
+                    {/* v1.70 — manual framing hint. When the user picks
+                        half_body or full_body explicitly (i.e. not the
+                        default auto-resolver), we remind them that the
+                        edit model relies on a matching reference shape:
+                        if the upload is a tight selfie, requesting a
+                        full-body framing will reproduce the "huge head"
+                        pathology because the model has nothing to scale
+                        the body against. The text is in-flow (not a
+                        tooltip) so it shows up the moment the chip is
+                        clicked. */}
+                    {(hints.framing === 'half_body' || hints.framing === 'full_body') && (
+                      <p className="text-[12px] leading-[16px] text-[var(--color-text-muted)] mt-[var(--space-4)]">
+                        {hints.framing === 'half_body'
+                          ? t('style.framingManualHintHalf')
+                          : t('style.framingManualHintFull')}
+                      </p>
+                    )}
                   </div>
                 )}
 

@@ -1,22 +1,22 @@
-"""v1.68 P2.8 — per-framing photoreal block (focal length by framing).
+"""v1.70 — PHOTOREAL_BLOCK now lens-agnostic.
 
-The legacy ``PHOTOREAL_BLOCK`` pinned every framing to 85mm + shallow
-DoF. That combination is correct for ``portrait`` only — ``half_body``
-reads better at 50-70mm + moderate DoF and ``full_body`` at 35-50mm
-+ deeper DoF (the scene context must stay sharp behind the subject).
+The v1.68 P2.8 per-framing block was removed in v1.70 (audit:
+``docs/ANATOMY_INVESTIGATION.md`` F3). The block no longer carries
+focal length or DoF; ``_PHOTOREAL_BY_FRAMING`` is retained for
+import-compatibility but every entry points at the single
+``PHOTOREAL_BLOCK`` so ``photoreal_by_framing_enabled`` is a no-op.
 
-These tests pin three contracts:
+Contracts pinned here:
 
-* When ``settings.photoreal_by_framing_enabled`` is True, the
-  prompt's photoreal tail contains the FRAMING-SPECIFIC focal
-  length (85 / 50-70 / 35-50).
-* When the flag is False the legacy single-block tail fires for
-  every framing — the wire prompt is byte-for-byte unchanged from
-  the v1.67 baseline.
-* The legacy ``PHOTOREAL_BLOCK`` and the new
-  ``_PHOTOREAL_BY_FRAMING["portrait"]`` carry the SAME focal length
-  ("85mm"), so portrait users see no behavioural change when the
-  flag flips — only half_body / full_body shift.
+* ``PHOTOREAL_BLOCK`` contains the skin-texture anchor and the
+  light-match instruction (the only two clauses that survived the
+  v1.70 cleanup).
+* ``PHOTOREAL_BLOCK`` does NOT contain ``85mm`` / ``50-70mm`` /
+  ``35-50mm`` lens descriptors or ``shallow depth of field``.
+* Every entry of ``_PHOTOREAL_BY_FRAMING`` is identical to
+  ``PHOTOREAL_BLOCK`` — the per-framing dict is now a stub.
+* The flag ``photoreal_by_framing_enabled`` is effectively a no-op:
+  ON and OFF produce the same wire prompt for every framing.
 """
 
 from __future__ import annotations
@@ -65,63 +65,62 @@ def _pick_non_doc_style() -> str:
     raise RuntimeError("No non-doc dating styles registered")
 
 
-_EXPECTED_LENSES: dict[str, str] = {
-    "portrait": "85mm short-telephoto",
-    "half_body": "50-70mm",
-    "full_body": "35-50mm",
-}
+def test_photoreal_block_no_lens_or_dof():
+    """``PHOTOREAL_BLOCK`` must not carry lens / DoF wording in v1.70."""
+    forbidden = (
+        "85mm",
+        "50mm",
+        "35mm",
+        "50-70mm",
+        "35-50mm",
+        "short-telephoto",
+        "normal-wide",
+        "shallow depth of field",
+        "deeper depth of field",
+        "moderate depth of field",
+    )
+    for token in forbidden:
+        assert token not in PHOTOREAL_BLOCK, (
+            f"PHOTOREAL_BLOCK still contains {token!r} after v1.70 "
+            "cleanup. Lens / DoF wording was removed because it "
+            "over-anchored portrait perspective.\nBlock: "
+            f"{PHOTOREAL_BLOCK!r}"
+        )
 
 
+def test_photoreal_block_carries_skin_and_light_anchors():
+    """The two clauses that survived the v1.70 cleanup must be there."""
+    assert "Authentic skin texture" in PHOTOREAL_BLOCK
+    assert "lighting matches the scene" in PHOTOREAL_BLOCK
+
+
+def test_per_framing_dict_is_no_op():
+    """Every entry of ``_PHOTOREAL_BY_FRAMING`` equals ``PHOTOREAL_BLOCK``
+    after v1.70 (the per-framing lens map was collapsed)."""
+    for framing in ("portrait", "half_body", "full_body"):
+        assert _PHOTOREAL_BY_FRAMING[framing] == PHOTOREAL_BLOCK, (
+            f"_PHOTOREAL_BY_FRAMING[{framing!r}] diverged from the "
+            "single PHOTOREAL_BLOCK. v1.70 collapsed the dict — any "
+            "divergence is a regression.\nGot: "
+            f"{_PHOTOREAL_BY_FRAMING[framing]!r}\n"
+            f"Expected: {PHOTOREAL_BLOCK!r}"
+        )
+
+
+@pytest.mark.parametrize("flag", [True, False])
 @pytest.mark.parametrize("framing", ["portrait", "half_body", "full_body"])
-def test_photoreal_block_uses_framing_specific_lens_when_flag_on(
-    framing: str, monkeypatch
-):
-    monkeypatch.setattr(settings, "photoreal_by_framing_enabled", True)
+def test_flag_is_no_op_on_wire_prompt(flag: bool, framing: str, monkeypatch):
+    """``photoreal_by_framing_enabled`` produces the same prompt either way."""
+    monkeypatch.setattr(settings, "photoreal_by_framing_enabled", flag)
     style = _pick_non_doc_style()
     prompt = PromptEngine().build_image_prompt(
         AnalysisMode.DATING, style=style, gender="male", framing=framing,
     )
-    expected_lens = _EXPECTED_LENSES[framing]
-    assert expected_lens in prompt, (
-        f"framing={framing!r}: expected lens fragment {expected_lens!r} "
-        f"missing.\nPrompt: {prompt!r}"
-    )
-
-
-def test_half_body_prompt_does_not_carry_portrait_only_lens(monkeypatch):
-    """Negative guard: half_body must NOT carry ``85mm`` once the
-    framing-specific block fires — that was the whole point of the
-    refactor. ``portrait`` keeps 85mm because the new portrait entry
-    is identical to the legacy block.
-    """
-    monkeypatch.setattr(settings, "photoreal_by_framing_enabled", True)
-    style = _pick_non_doc_style()
-    prompt = PromptEngine().build_image_prompt(
-        AnalysisMode.DATING, style=style, gender="male", framing="half_body",
-    )
     assert "85mm" not in prompt, (
-        "half_body framing must use the 50-70mm block; "
-        f"85mm leaked.\nPrompt: {prompt!r}"
+        f"flag={flag} framing={framing!r}: lens descriptor leaked.\n"
+        f"Prompt: {prompt!r}"
     )
-
-
-def test_legacy_block_used_when_flag_off(monkeypatch):
-    """Flag OFF: every framing uses ``PHOTOREAL_BLOCK`` verbatim."""
-    monkeypatch.setattr(settings, "photoreal_by_framing_enabled", False)
-    style = _pick_non_doc_style()
-    for framing in ("portrait", "half_body", "full_body"):
-        prompt = PromptEngine().build_image_prompt(
-            AnalysisMode.DATING, style=style, gender="male", framing=framing,
-        )
-        assert "85mm" in prompt, (
-            f"framing={framing!r} with flag OFF must use legacy "
-            f"PHOTOREAL_BLOCK (85mm).\nPrompt: {prompt!r}"
-        )
-
-
-def test_portrait_entry_is_lens_consistent_with_legacy_block():
-    """The new portrait entry must carry 85mm so portrait users see
-    no behavioural change when the flag flips.
-    """
-    assert "85mm short-telephoto" in _PHOTOREAL_BY_FRAMING["portrait"]
-    assert "85mm short-telephoto" in PHOTOREAL_BLOCK
+    assert "Authentic skin texture" in prompt, (
+        f"flag={flag} framing={framing!r}: skin-texture anchor missing.\n"
+        f"Prompt: {prompt!r}"
+    )

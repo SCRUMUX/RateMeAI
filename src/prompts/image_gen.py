@@ -233,64 +233,37 @@ LIGHT_MATCH_CLAUSE = (
 # light-integration clause. Mentions skin tone exactly once (in the
 # identity block above we say "skin undertone" — here we focus on
 # lighting integration without re-grading the face).
+# v1.70 — lens spec and shallow DoF removed. Edit-models (Nano Banana 2,
+# GPT Image 2) on FAL routinely interpreted the explicit lens token
+# (``85mm short-telephoto lens at chest height``) as a recency cue for
+# headshot perspective, which compounded with the cinematic composition
+# anchor and the per-framing pose hint to over-anchor the prompt on
+# portrait crops. The lens/DoF lines were removed; we now only describe
+# what makes a photo look real (skin texture + lighting integration)
+# and let the model pick the camera setup that fits the scene. See
+# docs/ANATOMY_INVESTIGATION.md F1 / F3 for the audit reasoning.
 PHOTOREAL_BLOCK = (
-    "Photo style: 85mm short-telephoto lens at chest height, shallow "
-    "depth of field with the subject in sharp focus and background "
-    "softly out of focus. Authentic skin texture with visible pores "
-    "and small natural imperfections. The scene's ambient light "
-    "grounds the subject with consistent direction, matching colour "
-    "temperature, and soft contact shadows where the body meets the "
-    "ground."
+    "Authentic skin texture with visible pores and small natural "
+    "imperfections. The lighting matches the scene's ambient light in "
+    "direction, colour temperature, and softness."
 )
 
 
-# v1.68 — P2.8 per-framing photoreal block.
+# v1.70 — per-framing block collapsed.
 #
-# The legacy ``PHOTOREAL_BLOCK`` above pinned every framing to an
-# 85mm short-telephoto and a shallow DoF — that combination is
-# correct for ``portrait`` but actively wrong for ``half_body``
-# (50-70mm reads more like a real waist-up snapshot, with mid-DoF
-# context still legible) and especially ``full_body`` (a 35-50mm
-# eye-level walk-up is what real candids look like, with a deeper
-# DoF so the scene context stays sharp behind the subject).
-#
-# Mapping rationale — focal length matches the cinematic anchor:
-#   * portrait   — 85mm short-telephoto, shallow DoF.
-#   * half_body  — 50-70mm normal-to-short-telephoto, moderate DoF.
-#   * full_body  — 35-50mm normal-wide, deeper DoF, scene context.
-#
-# Skin-texture and lighting-integration clauses are identical
-# across framings — they are body-agnostic photoreal anchors, not
-# lens choices. Gated by ``settings.photoreal_by_framing_enabled``;
-# off → ``model_wrappers._assemble`` keeps emitting the legacy block.
+# The v1.68 per-framing dict carried three different lens specs
+# (85mm / 50-70mm / 35-50mm) plus per-framing DoF directives. The
+# v1.70 audit (docs/ANATOMY_INVESTIGATION.md) concluded that lens
+# tokens are not a useful lever against the "huge head" pathology —
+# they only over-anchored portrait perspective without compensating
+# benefit. The dict is preserved for backward compatibility with
+# imports and ``settings.photoreal_by_framing_enabled``; all three
+# entries now point at the single :data:`PHOTOREAL_BLOCK` so the
+# flag becomes a no-op.
 _PHOTOREAL_BY_FRAMING: dict[str, str] = {
-    "portrait": (
-        "Photo style: 85mm short-telephoto lens at chest height, "
-        "shallow depth of field with the subject in sharp focus and "
-        "background softly out of focus. Authentic skin texture with "
-        "visible pores and small natural imperfections. The scene's "
-        "ambient light grounds the subject with consistent direction, "
-        "matching colour temperature, and soft contact shadows where "
-        "the body meets the ground."
-    ),
-    "half_body": (
-        "Photo style: 50-70mm normal-to-short-telephoto lens at chest "
-        "height, moderate depth of field with the subject in sharp "
-        "focus while the scene context stays legible. Authentic skin "
-        "texture with visible pores and small natural imperfections. "
-        "The scene's ambient light grounds the subject with consistent "
-        "direction, matching colour temperature, and soft contact "
-        "shadows where the body meets the ground."
-    ),
-    "full_body": (
-        "Photo style: 35-50mm normal-wide lens at eye-level, deeper "
-        "depth of field so the full scene context stays sharp behind "
-        "the subject. Authentic skin texture with visible pores and "
-        "small natural imperfections. The scene's ambient light "
-        "grounds the subject with consistent direction, matching "
-        "colour temperature, and soft contact shadows where the body "
-        "meets the ground."
-    ),
+    "portrait": PHOTOREAL_BLOCK,
+    "half_body": PHOTOREAL_BLOCK,
+    "full_body": PHOTOREAL_BLOCK,
 }
 
 
@@ -1391,14 +1364,14 @@ def _truncate(prompt: str) -> str:
 # на композицию промпта: короткая директива в текст + ничего в размер.
 # Размер изображения по-прежнему задаёт стиль (spec.output_aspect).
 _FRAMING_PROMPT_DIRECTIVES: dict[str, str] = {
-    "portrait": "Framing: head-and-shoulders close-up, eyes at upper third.",
+    "portrait": "Framing: natural waist-up snapshot.",
     "half_body": (
         "Framing: half-body composition from the waist up, "
         "hands may be partially visible."
     ),
     "full_body": (
-        "Framing: full body head-to-toe, respectful framing, "
-        "subject centered with natural negative space."
+        "Framing: complete body in frame, subject centered with "
+        "natural negative space."
     ),
 }
 
@@ -1452,29 +1425,17 @@ _FRAMING_PROMPT_DIRECTIVES: dict[str, str] = {
 # :data:`IDENTITY_PRESERVE_BLOCK` so the layout instruction sits in
 # the first third of the prompt, where edit models pay the most
 # attention.
-_COMPOSITION_NUMERICAL_HINT: dict[str, str] = {
-    "portrait": (
-        "Reframe the reference into a head-and-shoulders bust shot "
-        "taken at chest height, the head occupying roughly the upper "
-        "third of the canvas height with eyes near the upper-third "
-        "line and the shoulders spanning the lower frame edge at "
-        "natural human head-to-body scale."
-    ),
-    "half_body": (
-        "Reframe the reference into a medium waist-up shot taken at "
-        "chest height, the head occupying roughly the upper fifth of "
-        "the canvas height with both shoulders fully visible and the "
-        "torso extending to the belt line at natural human "
-        "head-to-body scale."
-    ),
-    "full_body": (
-        "Reframe the reference into a full-length standing shot taken "
-        "from a slight low angle, the head occupying roughly an eighth "
-        "of the canvas height with the torso, legs and feet all "
-        "visible centred in the frame at natural human head-to-body "
-        "scale."
-    ),
-}
+# v1.70 — cinematic head-anchor removed. The v1.65 textual anchor
+# ("Reframe the reference into a head-and-shoulders bust shot ...
+# head occupying roughly the upper third") was the strongest of the
+# 5 head-cues we counted in the audit. After v1.70 the geometric
+# half of the doctrine still ships via ``reference_preprocess``
+# (it physically lays out the canvas with the face at the correct
+# relative size for the requested framing) — the textual half is
+# no longer needed because the model receives the same intent
+# spatially without competing tokens. ``_assemble`` falls back to
+# omitting this block when the framing key is missing.
+_COMPOSITION_NUMERICAL_HINT: dict[str, str] = {}
 
 
 # v1.68 — P2.10 per-framing pose hint.
@@ -1494,7 +1455,7 @@ _COMPOSITION_NUMERICAL_HINT: dict[str, str] = {
 _POSE_BY_FRAMING: dict[str, str] = {
     "portrait": (
         "Pose: relaxed natural posture, shoulders slightly angled, "
-        "head subtly turned off the central axis."
+        "subject turned slightly off the central axis."
     ),
     "half_body": (
         "Pose: relaxed standing pose with a slight weight shift, "
@@ -1537,11 +1498,15 @@ _POSE_BY_FRAMING: dict[str, str] = {
 #   full_body: face_height_ratio=0.08 → area ≈ 0.5-1%.
 #
 # Rounded to user-friendly cohorts so the text is short and crisp.
-_FACE_AREA_ANCHOR_BY_FRAMING: dict[str, str] = {
-    "portrait": "Anchor: the face occupies about 6% of the frame area.",
-    "half_body": "Anchor: the face occupies about 2.5% of the frame area.",
-    "full_body": "Anchor: the face occupies about 1% of the frame area.",
-}
+# v1.70 — face-area anchor removed. The v1.68 P1.4 anchor
+# ("Anchor: the face occupies about 6% of the frame area") duplicated
+# the cinematic ``_COMPOSITION_NUMERICAL_HINT`` (now also gone) in
+# the numeric channel. Removing both leaves geometric anchoring to
+# ``reference_preprocess.pad_reference_for_framing`` which lays out
+# the canvas spatially. Dict preserved for backward compat and the
+# ``numerical_percent_anchor_enabled`` flag — empty value means the
+# block is silently skipped by ``model_wrappers._assemble``.
+_FACE_AREA_ANCHOR_BY_FRAMING: dict[str, str] = {}
 
 
 def _framing_directive(framing: str | None) -> str:
@@ -1602,19 +1567,19 @@ def _dating_social_change_instruction(mode: str, style: str) -> str:
     so the per-style scene/wardrobe/expression slots can drive those
     aspects without competing with a fixed sentence.
 
-    v1.65 (May 2026) appended a positive-framed proportions clause
-    ``Recompose the body so head, shoulders and torso read at natural
-    human proportions``. This complements
-    :data:`_COMPOSITION_NUMERICAL_HINT` (which carries the cinematic
-    framing detail) and gives the model an explicit anatomy goal in
-    the very first sentence — the position with the highest attention
-    weight on FAL Nano Banana 2 / GPT Image 2 Edit.
+    v1.70 (May 2026) — dropped the v1.65 ``Recompose the body so
+    head, shoulders and torso read at natural human proportions``
+    tail. The clause was the only place where the opener mentioned
+    ``head`` explicitly; after the audit (docs/ANATOMY_INVESTIGATION.md)
+    we settle on a body-only formulation that pushes the model toward
+    natural proportions without giving it a geometric anchor for the
+    head's size in the frame.
     """
     _ = STYLE_REGISTRY.get(mode, style)  # registry lookup retained for warm-up
     return (
         "Using the reference photo, render the same person in a new "
-        "scene that fits the chosen setting. Recompose the body so "
-        "head, shoulders and torso read at natural human proportions."
+        "scene that fits the chosen setting. Show the subject "
+        "naturally with realistic body proportions."
     )
 
 
@@ -1641,12 +1606,12 @@ def resolve_style_variant(
 # ---------------------------------------------------------------------------
 
 _STEP_CHANGE: dict[str, str] = {
-    "background_edit": "Change the background to {description} while maintaining facial features, skin tone and head-to-body proportions, keeping clothing and pose of the person in the reference photo.",
-    "clothing_edit": "Change the clothing to {description} while maintaining facial features, skin tone and head-to-body proportions, keeping the original background and pose.",
+    "background_edit": "Change the background to {description} while maintaining facial features, skin tone and body proportions, keeping clothing and pose of the person in the reference photo.",
+    "clothing_edit": "Change the clothing to {description} while maintaining facial features, skin tone and body proportions, keeping the original background and pose.",
     "lighting_adjust": "Adjust the lighting and color grading to {description} while maintaining facial features and skin tone of the person in the reference photo.",
     "expression_hint": "Apply subtle expression adjustment toward {description} while maintaining facial features and skin tone.",
     "skin_correction": "Apply minor skin tone refinement and blemish cleanup while maintaining facial features and skin undertone of the person in the reference photo.",
-    "style_overall": "Apply overall style enhancement toward {description} while maintaining facial features, skin tone and head-to-body proportions.",
+    "style_overall": "Apply overall style enhancement toward {description} while maintaining facial features, skin tone and body proportions.",
 }
 
 STEP_TEMPLATES: dict[str, str] = {

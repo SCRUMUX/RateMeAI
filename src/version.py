@@ -6163,4 +6163,113 @@
 #          * No model/quality/tier/size change. The 5–6.5¢ per image
 #            average (gpt_image_2 medium) inherited from v1.66 stays
 #            put.
-APP_VERSION = "1.67.0"
+# v1.70.0 (May 2026): Anatomy Cleanup — drop all head-anchor clauses.
+#          The v1.65..v1.69 doctrine accreted FIVE head-cues into the
+#          non-document wire prompt (cinematic ``head-and-shoulders
+#          bust shot``, face-area percentage anchor, ``head subtly
+#          turned`` pose hint, ``head, shoulders and torso`` opener
+#          tail, ``head-to-body proportions`` multi-pass clauses) plus
+#          per-framing lens specs and a separate light-match clause.
+#          The May 2026 audit (docs/ANATOMY_INVESTIGATION.md) showed
+#          that the head/body cue ratio in the wire prompt had crept
+#          to 5:1 — which over-anchored portrait perspective on every
+#          framing and reproduced the "huge head, tiny shoulders"
+#          pathology on tight-selfie references. ``gym_fitness``
+#          worked as the control because its ``clothing.default``
+#          already showed the shoulder line (``fitted athletic tank
+#          top``).
+#
+#          v1.70 reverses the direction. Every head-cue clause is
+#          deleted; the wire prompt is now 500–700 chars (was ~1450)
+#          and carries only: opener + scene + wardrobe + (per-framing
+#          pose, head-free) + expression + skin texture + light match
+#          + identity preserve. The catalog migration v5 appends
+#          ``, shoulder line visible`` to ~114 non-sport, non-doc,
+#          non-studio styles so the model receives the body
+#          geometry from the wardrobe channel (the only one that
+#          actually controls torso scaling under FAL edit models).
+#
+#          Touchpoints (8 in prompt code):
+#          * ``src/prompts/image_gen.py``:
+#              - ``_COMPOSITION_NUMERICAL_HINT`` → ``{}`` (was 3 entries
+#                of cinematic ``Reframe ... bust shot ... head
+#                occupying upper third`` wording).
+#              - ``_FACE_AREA_ANCHOR_BY_FRAMING`` → ``{}`` (was 3
+#                ``Anchor: the face occupies ...`` strings).
+#              - ``_POSE_BY_FRAMING["portrait"]`` rewritten without
+#                "head" (``subject turned slightly off the central
+#                axis`` instead of ``head subtly turned off ...``).
+#              - ``_FRAMING_PROMPT_DIRECTIVES``: portrait dropped
+#                ``head-and-shoulders close-up``; full_body dropped
+#                ``head-to-toe``.
+#              - ``_dating_social_change_instruction`` opener tail
+#                changed from ``Recompose the body so head, shoulders
+#                and torso read at natural human proportions.`` to
+#                ``Show the subject naturally with realistic body
+#                proportions.``
+#              - ``PHOTOREAL_BLOCK`` collapsed: lens + DoF wording
+#                removed; only skin texture + light-match instruction
+#                survive. ``_PHOTOREAL_BY_FRAMING`` becomes a stub
+#                pointing at the single block.
+#              - ``_STEP_CHANGE`` clauses: ``head-to-body proportions``
+#                → ``body proportions``.
+#          * ``src/prompts/model_wrappers.py``:
+#              - ``_assemble`` document fallback changed from
+#                ``Centered head-and-shoulders framing.`` to
+#                ``Centered framing.`` (document styles still receive
+#                the doc hint when present; only the fallback wording
+#                changed).
+#          * ``src/config.py``:
+#              - ``numerical_percent_anchor_enabled``: True → False.
+#              - ``light_match_clause_enabled``: True → False
+#                (clause dissolved into PHOTOREAL_BLOCK).
+#
+#          Defensive lint:
+#          * ``src/services/style_lint.py`` — new
+#            ``forbidden_head_tokens_in_prompt`` helper backing the
+#            ``NO_HEAD_TOKEN_IN_PROMPT`` rule. Used by the new
+#            ``test_no_head_cues.py`` to sweep every registered style
+#            × every framing on CI.
+#
+#          Catalog migration:
+#          * ``scripts/migrations/2026_05_styles_v5_shoulders/migrate.py``
+#            appends ``, shoulder line visible`` to ``default_clothing``
+#            and ``clothing.default.{male,female,neutral}`` for 114
+#            non-sport, non-document, non-studio-portrait styles.
+#            Idempotent (a re-run finds the cue and leaves the field
+#            alone). Backup written to
+#            ``data/styles.json.bak.v169``.
+#
+#          UX:
+#          * ``web/src/components/wizard/StyleSettingsModal.tsx``
+#            shows an inline hint under the framing chip-row when the
+#            user manually picks "По пояс" or "В полный рост". Two new
+#            keys in ``wizard.json`` (ru/en): ``framingManualHintHalf``
+#            and ``framingManualHintFull``. The auto-framing path is
+#            unchanged (no hint is shown when the wizard chose the
+#            framing).
+#
+#          Tests:
+#          * Deleted: ``test_percent_anchor.py``,
+#            ``test_numerical_hint_matches_geometry.py``,
+#            ``test_executor_head_crop_hint.py``.
+#          * Rewritten: ``test_prompt_anatomy_catalog.py``,
+#            ``test_photoreal_by_framing.py``,
+#            ``test_no_lens_duplication.py``,
+#            ``test_v4_1_anchors.py``, ``test_prompt_diversity_v4.py``,
+#            ``test_numerical_composition_anchor.py``,
+#            ``test_positive_framing.py`` — every assertion now
+#            FORBIDS the head/lens/DoF tokens instead of requiring
+#            them.
+#          * New: ``test_no_head_cues.py`` — sweeps every photo style
+#            × framing and asserts the lint helper returns no leaks.
+#          * Goldens: all 30 fixtures in
+#            ``tests/fixtures/golden_prompts/*.txt`` regenerated.
+#
+#          Cost guarantee:
+#          * Prompt is now shorter (-50%, ~750 fewer chars on
+#            average) — slight compression-budget gain, no FAL cost
+#            change. No model / quality / tier / size change.
+#          * Migration is a one-shot JSON edit + one-line APP_VERSION
+#            bump.
+APP_VERSION = "1.70.0"

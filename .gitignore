@@ -28,3 +28,10 @@ _diag/
 # (scripts/migrate_styles_v1_to_v2.py dumps timestamped snapshots here)
 data/.styles_backup/
 
+# v1.70 — shoulder migration backup. The migration script in
+# scripts/migrations/2026_05_styles_v5_shoulders writes the pre-run
+# snapshot to data/styles.json.bak.v169 (and analogous files for
+# future runs). The live data/styles.json is the source of truth;
+# backups are local-only.
+data/styles.json.bak.*
+

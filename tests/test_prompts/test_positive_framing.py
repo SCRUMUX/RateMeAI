@@ -128,18 +128,18 @@ def test_emoji_prompt_has_no_negative_framing() -> None:
 
 
 def test_change_instruction_uses_google_formula() -> None:
-    """v4.1: a single Google-formula opener for all photo modes.
+    """v4.1 + v1.70: single Google-formula opener for all photo modes.
 
-    v1.65 appended a positive-framed proportions clause
-    ``Recompose the body so head, shoulders and torso read at
-    natural human proportions`` to the opener so the very first
-    sentence carries an anatomy directive — the highest-attention
-    position on FAL Nano Banana 2 / GPT Image 2 Edit.
+    v1.70 replaced the v1.65 head-anchor tail (``Recompose the body
+    so head, shoulders and torso read at natural human proportions.``)
+    with a head-free formulation that asks for natural body
+    proportions without giving the model a geometric anchor for the
+    head size in the frame.
     """
     expected = (
         "Using the reference photo, render the same person in a new "
-        "scene that fits the chosen setting. Recompose the body so "
-        "head, shoulders and torso read at natural human proportions."
+        "scene that fits the chosen setting. Show the subject "
+        "naturally with realistic body proportions."
     )
     for mode in ("dating", "cv", "social"):
         for style in ("studio_elegant", "yoga_outdoor", "corporate"):

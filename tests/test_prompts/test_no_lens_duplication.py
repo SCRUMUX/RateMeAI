@@ -1,22 +1,17 @@
-"""v1.68 — lens-spec duplication guard.
+"""v1.70 — lens-spec absence guard.
 
-The pre-v1.68 prompt pipeline mentioned the lens descriptor
-``85mm short-telephoto lens at chest height`` in TWO places:
+The pre-v1.70 prompt pipeline carried a lens descriptor
+(``85mm short-telephoto lens at chest height``) inside
+``PHOTOREAL_BLOCK``. After the audit
+(``docs/ANATOMY_INVESTIGATION.md`` F3) we concluded that the lens
+token contributed to over-anchoring portrait perspective without
+delivering a measurable benefit; v1.70 removed it.
 
-1. :data:`src.prompts.image_gen._COMPOSITION_NUMERICAL_HINT` (the
-   cinematic composition anchor, emitted first).
-2. :data:`src.prompts.image_gen.PHOTOREAL_BLOCK` (the photoreal
-   camera/DoF block, emitted at the tail).
-
-Two copies of the same lens token over-anchored a headshot
-perspective on every framing — even full_body shots ended up with
-a tighter perspective than the cinematic anchor's ``full-length
-standing shot`` directive asked for. v1.68 keeps the lens spec
-**only** in ``PHOTOREAL_BLOCK``; the cinematic anchor is now
-lens-agnostic.
-
-These tests pin that contract so a future maintainer can't silently
-re-introduce the duplicate.
+The original ``test_no_lens_duplication`` test asserted at-most-one
+mention of ``85mm`` per wire prompt. The v1.70 contract is
+stronger: there must be ZERO lens descriptors in any non-document
+wire prompt, and ``PHOTOREAL_BLOCK`` itself must not carry the token
+either.
 """
 
 from __future__ import annotations
@@ -28,8 +23,8 @@ import pytest
 from src.models.enums import AnalysisMode
 from src.prompts.engine import PromptEngine
 from src.prompts.image_gen import (
-    _COMPOSITION_NUMERICAL_HINT,
     _DOCUMENT_STYLE_KEYS,
+    PHOTOREAL_BLOCK,
     STYLE_REGISTRY,
 )
 from src.services.style_loader_v2 import register_v2_styles_from_json
@@ -65,58 +60,28 @@ def _pick_non_doc_dating_style() -> str:
     raise RuntimeError("No non-doc dating styles registered")
 
 
-@pytest.mark.parametrize("framing", ["portrait", "half_body", "full_body"])
-def test_cinematic_anchor_does_not_carry_lens_token(framing: str):
-    """The cinematic composition anchor must NOT contain a lens
-    descriptor — that role belongs to ``PHOTOREAL_BLOCK``."""
-    hint = _COMPOSITION_NUMERICAL_HINT[framing]
-    assert "lens" not in hint, (
-        f"framing={framing!r}: cinematic anchor re-introduced a "
-        f"lens descriptor — v1.68 keeps the lens spec only in "
-        f"PHOTOREAL_BLOCK to avoid the duplicate-mention over-anchor.\n"
-        f"_COMPOSITION_NUMERICAL_HINT[{framing!r}]={hint!r}"
-    )
-    # Belt-and-braces: explicitly forbid common focal-length tokens.
-    for token in ("85mm", "50mm", "35mm", "70mm"):
-        assert token not in hint, (
-            f"framing={framing!r}: cinematic anchor carries focal length "
-            f"{token!r} — must live in PHOTOREAL_BLOCK only.\n"
-            f"_COMPOSITION_NUMERICAL_HINT[{framing!r}]={hint!r}"
+def test_photoreal_block_has_no_lens_token():
+    """``PHOTOREAL_BLOCK`` must not contain any focal-length descriptor."""
+    for token in ("85mm", "50mm", "35mm", "70mm", "lens"):
+        assert token not in PHOTOREAL_BLOCK, (
+            f"PHOTOREAL_BLOCK still contains {token!r} — v1.70 removed "
+            "the lens spec entirely.\nBlock: " + repr(PHOTOREAL_BLOCK)
         )
 
 
 @pytest.mark.parametrize("framing", ["portrait", "half_body", "full_body"])
-def test_wire_prompt_mentions_85mm_exactly_once(framing: str):
-    """In the final wire prompt the substring ``85mm`` must appear
-    at most once across every non-document framing — that single
-    mention lives in :data:`PHOTOREAL_BLOCK`.
-
-    A count of 2+ means the duplicate has returned: the cinematic
-    anchor is once again carrying its own lens token. Counter the
-    audit and the production rollout immediately.
-    """
+def test_wire_prompt_carries_no_lens_descriptor(framing: str):
+    """Final wire prompt must not contain any focal-length token."""
     style = _pick_non_doc_dating_style()
     engine = PromptEngine()
     prompt = engine.build_image_prompt(
         AnalysisMode.DATING, style=style, gender="male", framing=framing,
     )
-    count_85mm = len(re.findall(r"\b85mm\b", prompt))
-    assert count_85mm <= 1, (
-        f"framing={framing!r}: ``85mm`` token appears {count_85mm} "
-        f"times in the wire prompt — v1.68 dedupe expects exactly 1 "
-        f"mention (the one in PHOTOREAL_BLOCK).\n{prompt!r}"
-    )
-
-
-def test_photoreal_block_keeps_lens_spec():
-    """``PHOTOREAL_BLOCK`` is the new single source of truth for the
-    lens descriptor. The token must still be present there — if a
-    future edit drops it entirely, the dedup would be a regression
-    (we'd lose the anti-selfie-perspective fix from v1.65)."""
-    from src.prompts.image_gen import PHOTOREAL_BLOCK
-
-    assert "85mm short-telephoto lens" in PHOTOREAL_BLOCK, (
-        "PHOTOREAL_BLOCK must keep the 85mm short-telephoto lens "
-        "anchor — it is the canonical fix for the selfie-perspective "
-        "head-enlargement pathology."
-    )
+    for token in (r"\b85mm\b", r"\b50mm\b", r"\b35mm\b", r"\b70mm\b"):
+        matches = re.findall(token, prompt)
+        assert not matches, (
+            f"framing={framing!r}: lens token {token!r} found "
+            f"{len(matches)} times in the wire prompt. v1.70 removed "
+            "all lens descriptors from PHOTOREAL_BLOCK.\n"
+            f"{prompt!r}"
+        )

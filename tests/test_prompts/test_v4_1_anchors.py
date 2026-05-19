@@ -115,15 +115,22 @@ def test_v4_1_anchors_present(mode: AnalysisMode, style: str):
     engine = PromptEngine()
     prompt = engine.build_image_prompt(mode, style=style, gender="male")
 
-    # Opener (Google formula). v1.65 appended a positive-framed
-    # ``Recompose the body …`` clause so the opener also carries an
-    # anatomy directive — the assertion below covers both halves.
+    # Opener (Google formula). v1.70 replaced the v1.65 head-anchor
+    # tail (``Recompose the body so head, shoulders and torso read at
+    # natural human proportions.``) with a head-free formulation that
+    # asks for natural body proportions without giving the model a
+    # geometric anchor for the head size.
     assert (
         "Using the reference photo, render the same person in a new "
-        "scene that fits the chosen setting. Recompose the body so "
-        "head, shoulders and torso read at natural human proportions."
+        "scene that fits the chosen setting. Show the subject naturally "
+        "with realistic body proportions."
         in prompt
     ), f"{mode.value}/{style}: opener missing\n{prompt!r}"
+    assert "Recompose the body so head, shoulders and torso" not in prompt, (
+        f"{mode.value}/{style}: v1.65 head-anchor opener returned — "
+        "v1.70 removed the ``head, shoulders and torso`` clause.\n"
+        f"{prompt!r}"
+    )
 
     # Identity-preserve anchors (v1.67: "face shape" anchor removed —
     # edit-models read it as a geometric constraint on the head/torso
@@ -151,31 +158,31 @@ def test_v4_1_anchors_present(mode: AnalysisMode, style: str):
         f"{prompt!r}"
     )
 
-    # Photoreal anchors. v1.65 replaced the ``50mm lens at eye level``
-    # selfie-perspective wording with ``85mm portrait lens at chest
-    # height``. v1.66 then dropped the word ``portrait`` from the lens
-    # descriptor (``85mm short-telephoto lens``) — keeping a second
-    # ``portrait`` mention in the prompt acted as a recency-bias
-    # headshot pull on edit models, fighting the cinematic
-    # composition anchor that explicitly calls for a ``bust shot``.
-    assert "85mm short-telephoto lens" in prompt, (
-        f"{mode.value}/{style}: 85mm camera anchor missing\n{prompt!r}"
+    # v1.70 — lens / DoF descriptors removed from PHOTOREAL_BLOCK. The
+    # block now carries only the skin-texture anchor and the
+    # light-match instruction (see docs/ANATOMY_INVESTIGATION.md F3).
+    assert "Authentic skin texture" in prompt, (
+        f"{mode.value}/{style}: skin-texture anchor missing\n{prompt!r}"
+    )
+    assert "85mm short-telephoto lens" not in prompt, (
+        f"{mode.value}/{style}: v1.69 ``85mm short-telephoto lens`` "
+        "anchor must not return — v1.70 removed the entire lens spec "
+        "from PHOTOREAL_BLOCK.\n"
+        f"{prompt!r}"
     )
     assert "85mm portrait lens" not in prompt, (
-        f"{mode.value}/{style}: legacy v1.65 lens descriptor "
-        "``85mm portrait lens`` must not return — v1.66 renamed it to "
-        "``85mm short-telephoto lens`` to remove the recency-bias "
-        "headshot pull from the second ``portrait`` mention.\n"
+        f"{mode.value}/{style}: legacy v1.65 ``85mm portrait lens`` "
+        "must not return.\n"
         f"{prompt!r}"
     )
     assert "50mm lens at eye level" not in prompt, (
-        f"{mode.value}/{style}: legacy 50mm anchor must not return — "
-        "it is the canonical 'selfie perspective' wording and "
-        "reintroduces the huge-head pathology.\n"
+        f"{mode.value}/{style}: legacy 50mm anchor must not return.\n"
         f"{prompt!r}"
     )
-    assert "shallow depth of field" in prompt, (
-        f"{mode.value}/{style}: DoF anchor missing\n{prompt!r}"
+    assert "shallow depth of field" not in prompt, (
+        f"{mode.value}/{style}: v1.69 ``shallow depth of field`` anchor "
+        "must not return — v1.70 removed lens + DoF together.\n"
+        f"{prompt!r}"
     )
 
     # Wardrobe label replaces legacy "Subject is wearing".
