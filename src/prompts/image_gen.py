@@ -18,9 +18,7 @@ from src.prompts.style_spec import (
     StyleRegistry,
     StyleSpec,
     StyleVariant,
-    build_spec_from_legacy,
 )
-from src.prompts.style_variants import STYLE_VARIANTS
 
 logger = logging.getLogger(__name__)
 
@@ -1200,55 +1198,33 @@ try:
     except Exception as _v3_exc:  # noqa: BLE001 — additive path must never break v2
         logger.warning("style_loader_v3 failed: %s", _v3_exc)
 except Exception as e:
-    logger.error(f"Failed to load styles from JSON: {e}")
-    # Fallback to legacy loading if JSON fails
-    for _key, _text in DATING_STYLES.items():
-        _pers = DATING_PERSONALITIES.get(_key, "")
-        _ovr = _STYLE_OVERRIDES.get(("dating", _key), {})
-        STYLE_REGISTRY.register(
-            build_spec_from_legacy(
-                _key,
-                "dating",
-                _text,
-                _pers,
-                clothing_female_override=_ovr.get("clothing_female_override", ""),
-                edit_compatible=_ovr.get("edit_compatible", True),
-                complexity=_ovr.get("complexity", "simple"),
-                variants=STYLE_VARIANTS.get(("dating", _key), ()),
-            )
-        )
-
-    for _key, _text in CV_STYLES.items():
-        _pers = CV_PERSONALITIES.get(_key, "")
-        _ovr = _STYLE_OVERRIDES.get(("cv", _key), {})
-        STYLE_REGISTRY.register(
-            build_spec_from_legacy(
-                _key,
-                "cv",
-                _text,
-                _pers,
-                clothing_female_override=_ovr.get("clothing_female_override", ""),
-                edit_compatible=_ovr.get("edit_compatible", True),
-                complexity=_ovr.get("complexity", "simple"),
-                variants=STYLE_VARIANTS.get(("cv", _key), ()),
-            )
-        )
-
-    for _key, _text in SOCIAL_STYLES.items():
-        _pers = SOCIAL_PERSONALITIES.get(_key, "")
-        _ovr = _STYLE_OVERRIDES.get(("social", _key), {})
-        STYLE_REGISTRY.register(
-            build_spec_from_legacy(
-                _key,
-                "social",
-                _text,
-                _pers,
-                clothing_female_override=_ovr.get("clothing_female_override", ""),
-                edit_compatible=_ovr.get("edit_compatible", True),
-                complexity=_ovr.get("complexity", "simple"),
-                variants=STYLE_VARIANTS.get(("social", _key), ()),
-            )
-        )
+    # v1.71 (Stage 7 of audit fix-up): the legacy
+    # ``DATING_STYLES`` / ``CV_STYLES`` / ``SOCIAL_STYLES`` hardcoded
+    # fallback was retired. The data was last touched in 2025 and
+    # would silently re-register STALE specs if ``styles.json``
+    # failed to load — which is exactly the kind of "ship the wrong
+    # styles to users while the real ones are broken" failure mode
+    # we want to catch loudly. Fail fast instead: a missing or
+    # corrupt ``styles.json`` is a deploy-blocking error that must
+    # be visible to the operator, not silently masked.
+    #
+    # The hardcoded dicts themselves (``DATING_STYLES``, ``CV_STYLES``,
+    # ``SOCIAL_STYLES``, ``DATING_PERSONALITIES``,
+    # ``CV_PERSONALITIES``, ``SOCIAL_PERSONALITIES``,
+    # ``_STYLE_OVERRIDES``) are kept in this module for now: one
+    # hygiene test (``test_style_spec_hygiene``) still reads
+    # ``_STYLE_OVERRIDES``, and ``style_lint`` imports a couple of
+    # the personality dicts. A dedicated cleanup PR can drop them
+    # entirely once those consumers are migrated.
+    logger.critical(
+        "style_registry_bootstrap_failed",
+        extra={"error": str(e), "phase": "load_styles_from_json"},
+    )
+    raise RuntimeError(
+        "Failed to bootstrap the style registry from data/styles.json. "
+        "This is a deploy-blocking error: the service cannot generate "
+        "images without a valid style catalogue."
+    ) from e
 
 
 # ---------------------------------------------------------------------------

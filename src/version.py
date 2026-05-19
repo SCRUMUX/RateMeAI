@@ -6403,4 +6403,34 @@
 #          loop, post-processing, persist / metric) touch the
 #          critical retry / VLM gate path and are intentionally
 #          deferred to a dedicated PR with full goldens.
-APP_VERSION = "1.70.5"
+# 1.70.6 — Fail-fast on broken styles.json (Stage 7 of audit fix-up).
+#          The legacy hardcoded fallback in ``image_gen`` —
+#          ``DATING_STYLES`` / ``CV_STYLES`` / ``SOCIAL_STYLES`` re-
+#          registered via ``build_spec_from_legacy`` when JSON load
+#          raised — was retired. The data was last touched in 2025
+#          and would silently ship STALE specs to users while the
+#          real catalogue was broken. The new behaviour escalates
+#          a missing or corrupt ``data/styles.json`` into a
+#          ``RuntimeError`` at import time, logged at ``CRITICAL``
+#          with the original exception chained.
+#
+#          Companion cleanup in ``prompts/engine.py``: the
+#          ``_MODE_STYLE_DICTS`` and ``_MODE_PERSONALITY_DICTS``
+#          module-level maps were dead code (defined here, consumed
+#          nowhere in ``src/``). Removed.
+#
+#          Unused imports follow-on: ``build_spec_from_legacy`` and
+#          ``STYLE_VARIANTS`` were imported only by the deleted
+#          fallback and are dropped from ``image_gen``'s import
+#          block. ``image_gen`` itself still exports the legacy
+#          ``DATING_STYLES`` / ``DATING_PERSONALITIES`` / etc. dicts
+#          because ``style_lint`` and ``test_style_spec_hygiene``
+#          read a few of them — eliminating those big literals is
+#          a separate, larger cleanup PR.
+#
+#          Happy-path behaviour identical to 1.70.5 — JSON loads
+#          fine in every prod / staging / test environment we
+#          touch. The only visible change is that a future deploy
+#          with a broken styles.json will refuse to start instead
+#          of silently downgrading to last-year's catalogue.
+APP_VERSION = "1.70.6"

@@ -61,17 +61,12 @@ _PROMPT_MAP = {
     AnalysisMode.EMOJI: emoji.build_prompt,
 }
 
-_MODE_STYLE_DICTS: dict[AnalysisMode, dict[str, str]] = {
-    AnalysisMode.DATING: ig.DATING_STYLES,
-    AnalysisMode.CV: ig.CV_STYLES,
-    AnalysisMode.SOCIAL: ig.SOCIAL_STYLES,
-}
-
-_MODE_PERSONALITY_DICTS: dict[AnalysisMode, dict[str, str]] = {
-    AnalysisMode.DATING: ig.DATING_PERSONALITIES,
-    AnalysisMode.CV: ig.CV_PERSONALITIES,
-    AnalysisMode.SOCIAL: ig.SOCIAL_PERSONALITIES,
-}
+# v1.71 (Stage 7 of audit fix-up): ``_MODE_STYLE_DICTS`` and
+# ``_MODE_PERSONALITY_DICTS`` were removed — they were defined here
+# but had no consumers anywhere in ``src/`` (verified with ripgrep).
+# The legacy hardcoded style dicts in ``image_gen`` are still kept
+# for now because they still feed a couple of secondary callers,
+# but the engine-level mapping was pure dead code.
 
 _MODE_VALUE_MAP: dict[AnalysisMode, str] = {
     AnalysisMode.DATING: "dating",
