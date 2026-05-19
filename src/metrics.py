@@ -261,3 +261,41 @@ REFERENCE_PADDED = Counter(
     "Reference images geometrically padded before edit-model invocation",
     labelnames=["framing", "composition_class"],
 )
+
+
+# ---------------------------------------------------------------------------
+# v1.68 — image-quality systemic fix observability.
+# ---------------------------------------------------------------------------
+
+# Tracks which version of the reference padding geometry actually ran.
+# ``version`` is ``v1`` (legacy ``x,y,w,h`` interpretation, kept for
+# rollback only) or ``v2`` (correct ``x1,y1,x2,y2`` interpretation).
+# Rate of v1 vs v2 in production = primary "did the fix ship?" signal.
+PADDING_GEOMETRY_VERSION = Counter(
+    "ratemeai_padding_geometry_version_total",
+    "Reference padding executions by geometry interpretation version",
+    labelnames=["version", "framing"],
+)
+
+# Fires once per wire prompt where the lens descriptor ``85mm`` appears
+# more than once. v1.68 expects this counter to stay at 0 in
+# production — a non-zero rate means a future edit re-introduced
+# a duplicate lens token (the audit found ``85mm short-telephoto``
+# in both ``_COMPOSITION_NUMERICAL_HINT`` and ``PHOTOREAL_BLOCK``).
+PROMPT_DUPLICATE_LENS_WARN = Counter(
+    "ratemeai_prompt_duplicate_lens_total",
+    "Wire prompts where the lens descriptor token repeated",
+    labelnames=["mode", "framing"],
+)
+
+# Optional re-detect after :func:`pad_reference_for_framing`. Observes
+# the achieved ratio (real face height / canvas height) so we can
+# validate that the padded reference actually lands on the geometry
+# target (~0.28 for portrait, ~0.15 for half_body, ~0.08 for full_body).
+# Wide bucketing — we only care about staying inside the right band.
+FACE_DETECTION_AFTER_PAD = Histogram(
+    "ratemeai_face_detection_after_pad_ratio",
+    "Face-height ratio measured on the padded reference (post-detect)",
+    labelnames=["framing"],
+    buckets=(0.04, 0.06, 0.08, 0.10, 0.12, 0.15, 0.18, 0.22, 0.28, 0.35, 0.45),
+)

@@ -404,6 +404,57 @@ class Settings(BaseSettings):
     # gate after the audit.
     csl_reference_pad_face_ratio_cv: float = 0.10
 
+    # ------------------------------------------------------------------
+    # v1.68 — image-quality systemic fix (May 2026).
+    # Six independent feature flags, each gating one piece of the audit
+    # remediation plan. Default values are chosen so that:
+    #   * ``csl_padding_v2_enabled`` ships ON (it fixes a contract
+    #     bug — the legacy x,y,w,h interpretation of an x1,y1,x2,y2
+    #     tuple was outright incorrect; rolling forward is the safer
+    #     default). Set to False to fall back to the legacy path.
+    #   * All other flags ship OFF; they introduce new prompt content
+    #     or new policy that needs ~24-48h of manual QA between phases.
+    # Each phase of the rollout flips the matching flag(s) to True
+    # after its QA window passes.
+    # ------------------------------------------------------------------
+    # P0.1 — fix ``pad_reference_for_framing`` to interpret ``face_bbox``
+    # as ``(x1, y1, x2, y2)`` (the format actually produced by
+    # ``input_quality.analyze_input_quality``). The legacy code
+    # destructured the tuple as ``(x, y, w, h)``, which mis-computed
+    # the face centre and scale on every call. Kill-switch: set to
+    # False to fall back to the legacy interpretation.
+    csl_padding_v2_enabled: bool = True
+    # P1.4 — prepend a percentage face-area anchor to the very first
+    # position of the prompt (early-attention slot). The cinematic
+    # ``_COMPOSITION_NUMERICAL_HINT`` covers the qualitative side
+    # (``bust shot`` / ``waist-up``); this flag adds an additional
+    # quantitative cue (``Face fills approximately 25% of the frame
+    # area``) at the prompt head, where edit-models pay the most
+    # attention.
+    numerical_percent_anchor_enabled: bool = False
+    # P1.5 — extend ``_STUDIO_PORTRAIT_STYLE_KEYS`` beyond the two
+    # legacy styles to all career-class portraits where tight crop is
+    # the intended creative output. When True the wider whitelist
+    # forces ``portrait`` framing policy for the listed styles.
+    studio_portrait_whitelist_v2: bool = False
+    # P2.8 — switch ``PHOTOREAL_BLOCK`` from a single static string
+    # to a per-framing dict (portrait → 85mm short-telephoto, half_body
+    # → 50-70mm moderate DoF, full_body → 35-50mm deeper DoF). Each
+    # framing gets the lens that maps to the cinematic anchor for that
+    # shot. Off → legacy single-block behaviour.
+    photoreal_by_framing_enabled: bool = False
+    # P2.9 — insert ``LIGHT_MATCH_CLAUSE`` before ``IDENTITY_PRESERVE_BLOCK``
+    # to explicitly instruct the model to match the subject's lighting
+    # to the scene's ambient light (colour temperature, direction,
+    # softness). Counters the "studio key light on a sunset terrace"
+    # failure mode.
+    light_match_clause_enabled: bool = False
+    # P2.10 — emit a per-framing pose hint after wardrobe. Anchors a
+    # relaxed natural posture so the model does not default to
+    # symmetrical "hero stance" framing on full_body or stiff
+    # passport-style framing on portrait.
+    pose_hint_enabled: bool = False
+
     # Legacy prompt_strength (unused in edit mode)
     image_gen_strength: float = 0.45
 
