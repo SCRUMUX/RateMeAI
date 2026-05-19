@@ -1,0 +1,109 @@
+name: Diag — Image Quality Nightly
+
+# v1.68 P3.13 — nightly drift-tracking for the image-quality pipeline.
+#
+# Fires the existing ``/api/v1/internal/diagnostics/image-gen-probe``
+# endpoint across the production provider matrix (gpt_image_2 +
+# nano_banana_2, two quality tiers each) once per day at 03:00 UTC,
+# plus on manual dispatch. The endpoint returns a small JSON payload
+# describing whichever the provider it routed to; we save each one
+# as an artifact so a human can scrub the week's runs without
+# triggering a real generation by hand.
+#
+# Why we don't fail the workflow on a non-ok probe: edit-model
+# providers are stochastic enough that a single 5xx is not signal,
+# and the existing ``Diag — Image Gen Probe`` workflow already
+# alerts on per-call failures. This workflow is strictly about
+# detecting slow drift over days/weeks — keeping it warning-only
+# prevents alert fatigue.
+#
+# v1.68 plan deliberately scoped this workflow to use the existing
+# probe endpoint (one synthetic 256×256 face) — the richer "5
+# inputs × 4 styles × 2 models = 40 generations" matrix in the
+# plan would require a new API surface that accepts arbitrary
+# style keys, which is out of scope for Phase 4 (tests/CI only,
+# no production risk).
+
+on:
+  schedule:
+    - cron: "0 3 * * *"  # 03:00 UTC daily
+  workflow_dispatch:
+
+jobs:
+  diag:
+    runs-on: ubuntu-latest
+    env:
+      API_URL: ${{ secrets.RAILWAY_API_URL }}
+      INTERNAL_API_KEY: ${{ secrets.INTERNAL_API_KEY }}
+    strategy:
+      fail-fast: false
+      matrix:
+        provider: [gpt_image_2, nano_banana_2]
+        quality: [low, medium]
+    steps:
+      - name: Validate secrets
+        run: |
+          ok=true
+          [ -z "$API_URL" ] && { echo "::error::RAILWAY_API_URL missing"; ok=false; }
+          [ -z "$INTERNAL_API_KEY" ] && { echo "::error::INTERNAL_API_KEY missing"; ok=false; }
+          [ "$ok" = true ] || exit 1
+
+      - name: Fire image-gen probe (${{ matrix.provider }} / ${{ matrix.quality }})
+        run: |
+          set -e
+          mkdir -p artifacts
+          URL="${API_URL}/api/v1/internal/diagnostics/image-gen-probe?provider=${{ matrix.provider }}&quality=${{ matrix.quality }}"
+          FILE="artifacts/${{ matrix.provider }}__${{ matrix.quality }}.json"
+          HTTP_CODE=$(curl -s -X POST -o "$FILE" -w "%{http_code}" \
+            -H "x-internal-key: ${INTERNAL_API_KEY}" \
+            -H "accept: application/json" \
+            --max-time 240 \
+            "$URL")
+          echo "HTTP $HTTP_CODE"
+          cat "$FILE"
+          if [ "$HTTP_CODE" != "200" ]; then
+            echo "::warning::Probe ${{ matrix.provider }}/${{ matrix.quality }} returned HTTP $HTTP_CODE (drift tracking continues)"
+          fi
+
+      - name: Append summary line
+        run: |
+          python3 - <<'PY'
+          import json
+          import os
+          import pathlib
+          provider = "${{ matrix.provider }}"
+          quality = "${{ matrix.quality }}"
+          path = pathlib.Path(f"artifacts/{provider}__{quality}.json")
+          if not path.exists():
+              line = f"* `{provider}` / `{quality}`: **no payload**"
+          else:
+              try:
+                  data = json.loads(path.read_text() or "{}")
+              except Exception as exc:
+                  line = f"* `{provider}` / `{quality}`: parse error `{exc}`"
+              else:
+                  ok = bool(data.get("ok"))
+                  took = data.get("took_ms")
+                  bytes_ = data.get("bytes")
+                  exc_type = data.get("exc_type")
+                  bits = [f"ok=`{ok}`"]
+                  if took is not None:
+                      bits.append(f"took_ms=`{took}`")
+                  if bytes_ is not None:
+                      bits.append(f"bytes=`{bytes_}`")
+                  if exc_type:
+                      bits.append(f"exc=`{exc_type}`")
+                  line = f"* `{provider}` / `{quality}`: " + ", ".join(bits)
+          step_summary = os.environ.get("GITHUB_STEP_SUMMARY")
+          if step_summary:
+              with open(step_summary, "a", encoding="utf-8") as fh:
+                  fh.write(line + "\n")
+          print(line)
+          PY
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: diag-image-quality-${{ matrix.provider }}-${{ matrix.quality }}
+          path: artifacts/
+          retention-days: 30
