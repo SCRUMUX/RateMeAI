@@ -1306,15 +1306,31 @@ _FRAMING_PROMPT_DIRECTIVES: dict[str, str] = {
 #   default on FAL Nano Banana 2 / GPT Image 2 Edit.
 # * Cinematic shot vocabulary (``bust shot`` / ``medium waist-up shot``
 #   / ``full-length standing shot``) instead of percentage targets.
-# * Physical lens specification: ``85mm short-telephoto lens`` for
-#   portrait / half_body (perspective compression — the canonical fix
-#   for the "huge head, tiny shoulders" pathology), ``35mm`` for
-#   full_body (wide enough to capture head-to-toe without distortion).
-#   v1.66 dropped the word ``portrait`` from the lens descriptor; the
-#   second ``portrait`` mention created a recency-bias headshot pull.
 # * One positive-framed proportions clause ``natural human head-to-body
 #   scale`` (does not violate ``_has_disallowed_negative`` and reads
 #   well to the model).
+#
+# v1.68 (May 2026) — two corrections from the audit:
+#
+#   1. Geometry/text alignment. The wording previously said ``upper
+#      quarter of the canvas`` (~25%) for portrait while
+#      :data:`src.services.reference_preprocess._FRAMING_GEOMETRY`
+#      lays out 28% face height with the centre at 30% (i.e. roughly
+#      the upper third). The mismatch put text and the padded canvas
+#      in disagreement, which edit-models resolved by averaging — the
+#      "head too small" complement of the "head too large" pathology
+#      seen on tight selfies. Wording updated to ``upper third of the
+#      canvas height`` etc. so the two doctrines describe the same
+#      target.
+#   2. Lens dedup. The block carried ``85mm short-telephoto lens at
+#      chest height`` while :data:`PHOTOREAL_BLOCK` repeated the same
+#      ``85mm short-telephoto lens at chest height``. Two mentions of
+#      the same lens token over-anchored the headshot perspective on
+#      half-body / full-body framings. The cinematic anchor now stays
+#      lens-agnostic ("a portrait bust shot taken at chest height" /
+#      "a medium waist-up shot at chest height" / "a full-length
+#      standing shot from a slight low angle") and ``PHOTOREAL_BLOCK``
+#      remains the single source of truth for the lens spec.
 #
 # ``model_wrappers._assemble`` injects the relevant entry BEFORE
 # :data:`IDENTITY_PRESERVE_BLOCK` so the layout instruction sits in
@@ -1323,22 +1339,24 @@ _FRAMING_PROMPT_DIRECTIVES: dict[str, str] = {
 _COMPOSITION_NUMERICAL_HINT: dict[str, str] = {
     "portrait": (
         "Reframe the reference into a head-and-shoulders bust shot "
-        "taken with an 85mm short-telephoto lens at chest height, "
-        "the head occupying the upper quarter of the canvas with the "
-        "shoulders spanning the lower frame edge at natural human "
-        "head-to-body scale."
+        "taken at chest height, the head occupying roughly the upper "
+        "third of the canvas height with eyes near the upper-third "
+        "line and the shoulders spanning the lower frame edge at "
+        "natural human head-to-body scale."
     ),
     "half_body": (
-        "Reframe the reference into a medium waist-up shot taken with "
-        "an 85mm short-telephoto lens at chest height, both shoulders "
-        "fully visible and the torso extending to the belt line at "
-        "natural human head-to-body scale."
+        "Reframe the reference into a medium waist-up shot taken at "
+        "chest height, the head occupying roughly the upper fifth of "
+        "the canvas height with both shoulders fully visible and the "
+        "torso extending to the belt line at natural human "
+        "head-to-body scale."
     ),
     "full_body": (
         "Reframe the reference into a full-length standing shot taken "
-        "with a 35mm lens from a slight low angle, head, torso, legs "
-        "and feet all visible centered in the frame at natural human "
-        "head-to-body scale."
+        "from a slight low angle, the head occupying roughly an eighth "
+        "of the canvas height with the torso, legs and feet all "
+        "visible centred in the frame at natural human head-to-body "
+        "scale."
     ),
 }
 

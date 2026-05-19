@@ -11,11 +11,15 @@ Invariants for non-document styles:
 
 * ``Reframe the reference into`` is present — the cinematic-vocabulary
   layout directive that replaces v1.64's percentage targets.
-* Either ``85mm short-telephoto lens`` (portrait + half_body) or
-  ``35mm lens`` (full_body) is present — the physical lens spec is
-  the canonical anti-selfie-perspective fix. v1.66 renamed the
-  short-tele lens from ``85mm portrait lens`` to drop the duplicate
-  ``portrait`` mention that was acting as a recency-bias headshot pull.
+* ``85mm short-telephoto lens`` is present (lives in
+  :data:`PHOTOREAL_BLOCK`, which is appended to every photo prompt).
+  v1.68 (May 2026) — the lens descriptor was de-duplicated: it used
+  to appear in both the cinematic anchor and ``PHOTOREAL_BLOCK``,
+  which over-anchored a headshot perspective on every framing. The
+  cinematic anchor is now lens-agnostic; ``PHOTOREAL_BLOCK`` is the
+  single source of truth for the lens spec. (P2.8 will eventually
+  make ``PHOTOREAL_BLOCK`` itself framing-aware — at that point this
+  test can split portrait/half_body vs full_body again.)
 * The identity anchor ``preserve the same person's facial features``
   is present (v1.67 wording; the legacy ``identical face shape, eye
   shape and colour`` phrase is explicitly forbidden because edit-models
@@ -144,22 +148,31 @@ def test_v1_65_anatomy_invariants(mode: AnalysisMode, style: str, framing: str):
         f"{prompt!r}"
     )
 
-    if framing in ("portrait", "half_body"):
-        assert "85mm short-telephoto lens" in prompt, (
-            f"{label}: 85mm short-telephoto lens anchor missing for "
-            "portrait/half_body — required by v1.65 to suppress the "
-            "selfie-perspective head enlargement (renamed in v1.66 "
-            "from ``85mm portrait lens`` to drop the duplicate "
-            "``portrait`` recency cue)\n"
-            f"{prompt!r}"
-        )
-    else:
-        assert "35mm lens" in prompt, (
-            f"{label}: 35mm lens anchor missing for full_body — "
-            "required by v1.65 to capture head-to-toe without "
-            "perspective distortion\n"
-            f"{prompt!r}"
-        )
+    # v1.68 — lens lives exclusively in ``PHOTOREAL_BLOCK``; the
+    # cinematic anchor is lens-agnostic to avoid the double-mention
+    # that previously over-anchored a headshot perspective. ``85mm
+    # short-telephoto lens`` therefore appears in every prompt
+    # regardless of framing. Once P2.8 ships and PHOTOREAL_BLOCK
+    # becomes framing-aware (35-50mm for full_body), this branch
+    # will split again.
+    assert "85mm short-telephoto lens" in prompt, (
+        f"{label}: 85mm short-telephoto lens anchor missing — "
+        "v1.68 keeps the lens spec only in PHOTOREAL_BLOCK so it "
+        "appears in every prompt regardless of framing\n"
+        f"{prompt!r}"
+    )
+    # v1.68 — the cinematic anchor must NOT carry a lens descriptor;
+    # this guards against future edits silently re-introducing the
+    # duplicate. PHOTOREAL_BLOCK ships the lens spec exactly once.
+    from src.prompts.image_gen import _COMPOSITION_NUMERICAL_HINT
+    assert "lens" not in _COMPOSITION_NUMERICAL_HINT[framing], (
+        f"{label}: cinematic composition anchor for framing="
+        f"{framing!r} re-introduced a lens descriptor — v1.68 keeps "
+        "the lens spec only in PHOTOREAL_BLOCK to avoid the "
+        "duplicate-mention over-anchor.\n"
+        f"_COMPOSITION_NUMERICAL_HINT[{framing!r}]="
+        f"{_COMPOSITION_NUMERICAL_HINT[framing]!r}"
+    )
 
     assert "preserve the same person's facial features" in prompt, (
         f"{label}: IDENTITY_PRESERVE_BLOCK anchor missing (v1.67 wording)\n"

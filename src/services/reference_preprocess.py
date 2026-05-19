@@ -25,28 +25,60 @@ Geometry is gated by the caller (see ``executor`` ``should_pad``
 decision) — this module trusts that its inputs are already filtered
 to the "tight selfie + portrait/half/full body" cohort.
 
-v1.65 alignment
----------------
+v1.68 (May 2026) — bbox contract fix
+-------------------------------------
+
+Up to v1.67 :func:`pad_reference_for_framing` destructured the
+``face_bbox`` argument as ``(x, y, w, h)``, but its only producer
+(:func:`src.services.input_quality.analyze_input_quality`) has always
+emitted ``(x1, y1, x2, y2)``. The mismatch silently scrambled the
+face-height and face-centre computations on every call:
+
+* The legacy code read ``fh = y2`` as if it were "face height in
+  pixels", when in reality it is "distance from the top of the
+  image to the chin" — typically 1.5×-3× the real face height.
+* This made the uniform scale factor undershoot the target, so the
+  face landed *too small* on the canvas; combined with a wrong
+  centre offset (``face_cy = y1 + y2/2``) it drifted toward the top
+  of the canvas.
+
+The net effect on tight selfies was the opposite of what padding
+was designed to deliver: instead of normalising head/body ratio,
+the operation handed edit-models a near-original tight crop with a
+distinctive empty halo around the head. Edit-models reacted by
+reproducing the visible "glued head" artefact almost verbatim.
+
+The fix is gated by ``settings.csl_padding_v2_enabled`` (default
+True) so the legacy interpretation remains available as a 30-second
+rollback while the corrected code bakes in production.
+
+v1.65 / v1.68 alignment
+------------------------
 
 The textual doctrine (``_COMPOSITION_NUMERICAL_HINT`` in
 ``src.prompts.image_gen``) and the geometric doctrine
 (``_FRAMING_GEOMETRY`` below) describe the same target layout from
 two angles:
 
-* Textual side: ``Reframe the reference into a head-and-shoulders
-  bust shot taken with an 85mm portrait lens at chest height, the
-  head occupying the upper quarter of the canvas…`` —
-  ``face_height_ratio=0.28`` is exactly "upper quarter of the
-  canvas".
-* Half body side: prompt says ``medium waist-up shot``, ``both
+* Textual side (v1.68): ``Reframe the reference into a
+  head-and-shoulders bust shot taken at chest height, the head
+  occupying roughly the upper third of the canvas height …`` —
+  ``face_height_ratio=0.28`` is exactly "upper third of the
+  canvas height".
+* Half body side: prompt says ``medium waist-up shot``, ``head
+  occupying roughly the upper fifth of the canvas height``, ``both
   shoulders fully visible``, ``torso extending to the belt line``;
   ``face_height_ratio=0.15`` + ``face_center_y_ratio=0.20`` lays
   out exactly that on the canvas.
-* Full body side: prompt says ``full-length standing shot…35mm
-  lens from a slight low angle, head, torso, legs and feet all
-  visible centered in the frame``;
+* Full body side: prompt says ``full-length standing shot from a
+  slight low angle, head occupying roughly an eighth of the canvas
+  height, torso, legs and feet all visible centred in the frame``;
   ``face_height_ratio=0.08`` + ``face_center_y_ratio=0.12`` lays
   out exactly that.
+
+The lens spec lives in ``PHOTOREAL_BLOCK`` only (v1.68 dedupe);
+this anchor stays lens-agnostic so the model doesn't receive two
+copies of the same lens token.
 
 Prompt and reference push the model in the same direction; they
 must stay co-curated when either side is tuned.
@@ -115,11 +147,19 @@ def pad_reference_for_framing(
 
     Args:
         image_bytes: raw JPEG / PNG bytes of the user reference.
-        face_bbox: ``(x, y, w, h)`` face bounding box in input image
-            coordinates, as produced by
+        face_bbox: ``(x1, y1, x2, y2)`` face bounding box in input
+            image coordinates (top-left and bottom-right corners),
+            as produced by
             :func:`src.services.input_quality.analyze_input_quality`.
-            ``w`` and ``h`` must be > 0; the caller is responsible
-            for validating the detection.
+            ``x2 > x1`` and ``y2 > y1`` is required.
+
+            .. note:: v1.68 (May 2026) — the legacy implementation
+               destructured this tuple as ``(x, y, w, h)``, which
+               silently produced wildly wrong scale + centre on every
+               call (the "huge head, glued on" pathology). The fix is
+               gated by ``settings.csl_padding_v2_enabled`` so the
+               legacy interpretation remains available as a rollback
+               while the corrected version bakes in production.
         framing: ``"portrait" | "half_body" | "full_body"``. Anything
             else raises ``ValueError``.
         target_size: ``(width, height)`` of the output canvas. The
@@ -142,7 +182,33 @@ def pad_reference_for_framing(
             f"{sorted(_FRAMING_GEOMETRY)}"
         )
 
-    fx, fy, fw, fh = face_bbox
+    # v1.68 — gated bbox-format fix. The legacy branch interpreted the
+    # tuple as ``(x, y, w, h)`` while
+    # :class:`src.services.input_quality.InputQualityReport` always
+    # produces ``(x1, y1, x2, y2)``. The v2 branch reads the tuple
+    # correctly. Default is v2 (the fix); flip
+    # ``csl_padding_v2_enabled=false`` to fall back if the corrected
+    # geometry produces unforeseen regressions on a specific style.
+    try:
+        from src.config import settings as _settings
+        _use_v2 = bool(getattr(_settings, "csl_padding_v2_enabled", True))
+    except Exception:
+        _use_v2 = True
+
+    if _use_v2:
+        x1, y1, x2, y2 = face_bbox
+        fw = x2 - x1
+        fh = y2 - y1
+        face_cx_src = x1 + fw / 2.0
+        face_cy_src = y1 + fh / 2.0
+        version_label = "v2"
+    else:
+        # Legacy interpretation kept verbatim for rollback parity.
+        fx, fy, fw, fh = face_bbox
+        face_cx_src = fx + fw / 2.0
+        face_cy_src = fy + fh / 2.0
+        version_label = "v1"
+
     if fw <= 0 or fh <= 0:
         raise ValueError(
             f"Degenerate face_bbox={face_bbox!r}; width/height must be > 0"
@@ -164,8 +230,8 @@ def pad_reference_for_framing(
     scaled = src.resize((new_w, new_h), Image.LANCZOS)
 
     # Face centre in the scaled image.
-    scaled_face_cx = int(round((fx + fw / 2.0) * scale))
-    scaled_face_cy = int(round((fy + fh / 2.0) * scale))
+    scaled_face_cx = int(round(face_cx_src * scale))
+    scaled_face_cy = int(round(face_cy_src * scale))
 
     # --- Stage 3a: build edge-blur background ----------------------------
     # We stretch the scaled image to cover the full canvas at low
@@ -187,9 +253,20 @@ def pad_reference_for_framing(
     canvas.save(out, format="JPEG", quality=92)
     padded = out.getvalue()
 
+    try:
+        from src.metrics import PADDING_GEOMETRY_VERSION
+
+        PADDING_GEOMETRY_VERSION.labels(
+            version=version_label,
+            framing=framing,
+        ).inc()
+    except Exception:
+        pass
+
     logger.info(
-        "reference_padded framing=%s in=(%dx%d) out=(%dx%d) scale=%.3f "
-        "paste=(%d,%d) face_target_h=%d",
+        "reference_padded version=%s framing=%s in=(%dx%d) out=(%dx%d) "
+        "scale=%.3f paste=(%d,%d) face_target_h=%d face_src_h=%d",
+        version_label,
         framing,
         src.width,
         src.height,
@@ -199,5 +276,6 @@ def pad_reference_for_framing(
         paste_x,
         paste_y,
         target_face_h_px,
+        int(fh),
     )
     return padded
