@@ -499,49 +499,160 @@ class ImageGenerationExecutor:
         self._get_identity_service = identity_svc_getter
         self._get_gate_runner = gate_runner_getter
 
-    async def single_pass(
+    def _build_prompt(
         self,
+        *,
         mode: AnalysisMode,
         style: str,
-        image_bytes: bytes,
+        gender: str,
+        variant_id: str,
+        ab_image_model: str,
+        framing_norm: str,
+        seed: int | None,
+        scenario_slug: str | None,
+        input_quality: Any | None,
+        user_input_hints: dict | None,
         result_dict: dict,
-        user_id: str,
-        task_id: str,
-        trace: dict,
-        gender: str = "male",
-        input_quality: Any | None = None,
-        variant_id: str = "",
-        ab_image_model: str = "",
-        ab_image_quality: str = "",
-        framing: str | None = None,
-        user_input_hints: dict | None = None,
-        seed: int | None = None,
-        scenario_slug: str | None = None,
-        allow_cross_model_fallback: bool = True,
-    ) -> None:
-        if mode not in (
-            AnalysisMode.CV,
-            AnalysisMode.EMOJI,
-            AnalysisMode.DATING,
-            AnalysisMode.SOCIAL,
-        ):
-            return
-        if self._image_gen is None:
-            return
+    ) -> tuple[str, str]:
+        """Build the wire prompt for the requested style via PromptEngine v2.
 
-        # v1.21 A/B path — resolve a per-request provider + structured
-        # prompt instead of the default hybrid StyleRouter. When the
-        # feature flag is off or the requested model isn't whitelisted,
-        # we silently fall through to the default path: the default
-        # hybrid pipeline is bit-for-bit untouched.
-        ab_active = bool(getattr(settings, "ab_test_enabled", False) and ab_image_model)
-        image_gen: ImageGenProvider = self._image_gen
+        Pure-ish extract from ``single_pass`` (v1.71 refactor). Side
+        effects: appends substitution notices into
+        ``result_dict["generation_warnings"]`` and writes
+        ``result_dict["resolved_slots"]`` / ``result_dict["variant_id"]``
+        — all behaviours the existing pipeline contract already
+        produces.
 
-        # v1.26: framing приходит из task context (см. pipeline._execute_inner),
-        # а не из result_dict — LLM анализ никогда не кладёт framing в свой
-        # ответ, так что старое чтение result_dict.get("framing") всегда
-        # было пустым и frame-selector на UI ничего не менял. Нормализуем
-        # значение один раз, дальше его подсасывает PromptEngine.
+        Returns:
+            Tuple of ``(prompt, prompt_pipeline_path)``. Raises
+            ``RuntimeError`` when no StyleSpec is registered for
+            ``(mode, style)``.
+        """
+        desc = str(result_dict.get("base_description", ""))
+        # v1.26: base hints берём из input_quality (lighting/blur/etc.
+        # из гейта качества), а пользовательские hints мерджим сверху
+        # — пользовательский выбор перекрывает эвристики, но если
+        # пользователь не трогал поле, оно остаётся из анализа. До
+        # этого user_input_hints молча терялись: executor просто
+        # перезаписывал их ``input_quality.to_prompt_hints()``.
+        base_hints = (
+            input_quality.to_prompt_hints() if input_quality is not None else {}
+        ) or {}
+        merged_hints = {**base_hints, **(user_input_hints or {})}
+        input_hints = merged_hints or None
+
+        # v4.1 (May 2026): single-path prompt pipeline. The v2 path
+        # is the only path — see [docs decision in v4.1 plan]. v1
+        # fallback is kept for emoji-only callers that use a
+        # different signature; for photo styles a missing spec is
+        # an error (caught by the caller).
+        v2_substitutions: list[dict[str, str]] = []
+        # ``resolved_slots`` is populated by the v3 path in
+        # PromptEngine.build_image_prompt_v2 — the executor passes
+        # in a fresh dict so it can persist what the slot sampler
+        # actually rolled into ``result_dict["resolved_slots"]``
+        # (and forward it to the frontend for badge rendering).
+        resolved_slots: dict[str, object] = {}
+        prompt = self._prompt_engine.build_image_prompt_v2(
+            mode,
+            style=style,
+            base_description=desc,
+            gender=gender,
+            input_hints=input_hints,
+            variant_id=variant_id,
+            target_model=ab_image_model,
+            framing=framing_norm,
+            out_substitutions=v2_substitutions,
+            seed=seed,
+            out_resolved_slots=resolved_slots,
+            scenario_slug=scenario_slug,
+        )
+
+        if prompt is None:
+            # Style is not registered for the slot-based path
+            # (no v3 spec, no v2 spec) — should be impossible after
+            # the v4.1 auto-promoter ran, so we fail loud.
+            logger.error(
+                "prompt_build_failed_no_spec",
+                extra={
+                    "mode": getattr(mode, "value", str(mode)),
+                    "style": style,
+                    "variant_id": variant_id,
+                    "ab_image_model": ab_image_model,
+                },
+            )
+            PROMPT_V1_FALLBACK.labels(
+                mode=getattr(mode, "value", str(mode)),
+                style=style or "unknown",
+            ).inc()
+            raise RuntimeError(
+                f"No StyleSpec registered for mode={mode.value!r} "
+                f"style={style!r}. Run the v3 loader before "
+                "executor.single_pass()."
+            )
+
+        # v4.1: derive path tag for INFO logging in FAL providers.
+        # ``resolved_slots`` is non-empty only on the v3 path, so
+        # its presence/absence is the most reliable in-process
+        # signal for which schema actually drove the prompt.
+        prompt_pipeline_path = "v3" if resolved_slots else "v2"
+        # Distinguish auto-promoted v2 specs from native v3 in
+        # logs so we can tell which styles still need a hand-curated
+        # v3 entry.
+        if prompt_pipeline_path == "v3":
+            try:
+                if STYLE_REGISTRY.is_v3_promoted(mode.value, style):
+                    prompt_pipeline_path = "v3_promoted"
+            except Exception:
+                pass
+
+        # v1.27.3 — surface soft-substitutions as a post-generation
+        # notice. When the user typed a value the style didn't
+        # recognise (e.g. "Эверест" in scene_override on Times Square),
+        # composition_builder picks a random whitelist value AND
+        # records it here; we translate the record into RU and
+        # append to result_dict.generation_warnings so the web
+        # client can show a small notice on the result screen.
+        if v2_substitutions:
+            bucket = result_dict.setdefault("generation_warnings", [])
+            for sub in v2_substitutions:
+                bucket.append(_format_substitution_notice_ru(sub))
+
+        # Persist the v3 slot roll for the frontend badges and for
+        # the "Другой вариант" anti-repeat logic. We always write
+        # the dict (even when empty) so consumers can branch on
+        # presence without a key check.
+        if resolved_slots:
+            result_dict["resolved_slots"] = dict(resolved_slots)
+
+        if variant_id:
+            result_dict["variant_id"] = variant_id
+
+        return prompt, prompt_pipeline_path
+
+    def _resolve_framing(
+        self,
+        *,
+        mode: AnalysisMode,
+        style: str,
+        framing: str | None,
+        user_input_hints: dict | None,
+        input_quality: Any | None,
+        result_dict: dict,
+    ) -> tuple[str, bool, bool, str]:
+        """Pick the final framing through the CSL resolver.
+
+        Pure-ish extract from ``single_pass`` (v1.71 refactor). The
+        only side effects are writing ``resolved_framing`` /
+        ``user_picked_framing`` into ``result_dict`` and emitting the
+        ``framing_resolved`` INFO log — both observable behaviours
+        that the existing pipeline contract depends on.
+
+        Returns:
+            Tuple of
+            ``(framing_norm, is_document, is_studio_portrait_style,
+            user_picked_framing)``.
+        """
         # v1.27.3: «Другой вариант» — framing из модалки перебивает
         # framing шага «Выберите стиль». Если модалка явно прислала
         # framing в input_hints, он побеждает; пустое поле модалки
@@ -616,106 +727,88 @@ class ImageGenerationExecutor:
             framing_norm,
         )
 
+        return framing_norm, _is_document, _is_studio_portrait_style, user_picked_framing
+
+    async def single_pass(
+        self,
+        mode: AnalysisMode,
+        style: str,
+        image_bytes: bytes,
+        result_dict: dict,
+        user_id: str,
+        task_id: str,
+        trace: dict,
+        gender: str = "male",
+        input_quality: Any | None = None,
+        variant_id: str = "",
+        ab_image_model: str = "",
+        ab_image_quality: str = "",
+        framing: str | None = None,
+        user_input_hints: dict | None = None,
+        seed: int | None = None,
+        scenario_slug: str | None = None,
+        allow_cross_model_fallback: bool = True,
+    ) -> None:
+        if mode not in (
+            AnalysisMode.CV,
+            AnalysisMode.EMOJI,
+            AnalysisMode.DATING,
+            AnalysisMode.SOCIAL,
+        ):
+            return
+        if self._image_gen is None:
+            return
+
+        # v1.21 A/B path — resolve a per-request provider + structured
+        # prompt instead of the default hybrid StyleRouter. When the
+        # feature flag is off or the requested model isn't whitelisted,
+        # we silently fall through to the default path: the default
+        # hybrid pipeline is bit-for-bit untouched.
+        ab_active = bool(getattr(settings, "ab_test_enabled", False) and ab_image_model)
+        image_gen: ImageGenProvider = self._image_gen
+
+        # v1.26: framing приходит из task context (см. pipeline._execute_inner),
+        # а не из result_dict — LLM анализ никогда не кладёт framing в свой
+        # ответ, так что старое чтение result_dict.get("framing") всегда
+        # было пустым и frame-selector на UI ничего не менял.
+        # v1.71 (Stage 6 refactor): the 75-line framing-resolution block
+        # below was extracted into :meth:`_resolve_framing`. Behaviour
+        # is byte-for-byte unchanged — same writes to ``result_dict``,
+        # same ``framing_resolved`` INFO log, same return shape.
+        (
+            framing_norm,
+            _is_document,
+            _is_studio_portrait_style,
+            user_picked_framing,
+        ) = self._resolve_framing(
+            mode=mode,
+            style=style,
+            framing=framing,
+            user_input_hints=user_input_hints,
+            input_quality=input_quality,
+            result_dict=result_dict,
+        )
+
         try:
-            desc = str(result_dict.get("base_description", ""))
-            # v1.26: base hints берём из input_quality (lighting/blur/etc.
-            # из гейта качества), а пользовательские hints мерджим сверху
-            # — пользовательский выбор перекрывает эвристики, но если
-            # пользователь не трогал поле, оно остаётся из анализа. До
-            # этого user_input_hints молча терялись: executor просто
-            # перезаписывал их ``input_quality.to_prompt_hints()``.
-            base_hints = (
-                input_quality.to_prompt_hints() if input_quality is not None else {}
-            ) or {}
-            merged_hints = {**base_hints, **(user_input_hints or {})}
-            input_hints = merged_hints or None
-
-            # v4.1 (May 2026): single-path prompt pipeline. The v2 path
-            # is the only path — see [docs decision in v4.1 plan]. v1
-            # fallback is kept for emoji-only callers that use a
-            # different signature; for photo styles a missing spec is
-            # an error (caught by the caller).
-            v2_substitutions: list[dict[str, str]] = []
-            # ``resolved_slots`` is populated by the v3 path in
-            # PromptEngine.build_image_prompt_v2 — the executor passes
-            # in a fresh dict so it can persist what the slot sampler
-            # actually rolled into ``result_dict["resolved_slots"]``
-            # (and forward it to the frontend for badge rendering).
-            resolved_slots: dict[str, object] = {}
-            prompt = self._prompt_engine.build_image_prompt_v2(
-                mode,
+            # v1.71 (Stage 6 refactor): the 100-line prompt-build block
+            # (PromptEngine.build_image_prompt_v2 + path tag + soft
+            # substitution warnings + resolved_slots persistence) was
+            # extracted into :meth:`_build_prompt`. Behaviour is
+            # byte-for-byte unchanged — same writes to ``result_dict``,
+            # same RuntimeError on missing spec, same path tag rules.
+            prompt, prompt_pipeline_path = self._build_prompt(
+                mode=mode,
                 style=style,
-                base_description=desc,
                 gender=gender,
-                input_hints=input_hints,
                 variant_id=variant_id,
-                target_model=ab_image_model,
-                framing=framing_norm,
-                out_substitutions=v2_substitutions,
+                ab_image_model=ab_image_model,
+                framing_norm=framing_norm,
                 seed=seed,
-                out_resolved_slots=resolved_slots,
                 scenario_slug=scenario_slug,
+                input_quality=input_quality,
+                user_input_hints=user_input_hints,
+                result_dict=result_dict,
             )
-
-            # v4.1: derive path tag for INFO logging in FAL providers.
-            # ``resolved_slots`` is non-empty only on the v3 path, so
-            # its presence/absence is the most reliable in-process
-            # signal for which schema actually drove the prompt.
-            if prompt is None:
-                # Style is not registered for the slot-based path
-                # (no v3 spec, no v2 spec) — should be impossible after
-                # the v4.1 auto-promoter ran, so we fail loud.
-                logger.error(
-                    "prompt_build_failed_no_spec",
-                    extra={
-                        "mode": getattr(mode, "value", str(mode)),
-                        "style": style,
-                        "variant_id": variant_id,
-                        "ab_image_model": ab_image_model,
-                    },
-                )
-                PROMPT_V1_FALLBACK.labels(
-                    mode=getattr(mode, "value", str(mode)),
-                    style=style or "unknown",
-                ).inc()
-                raise RuntimeError(
-                    f"No StyleSpec registered for mode={mode.value!r} "
-                    f"style={style!r}. Run the v3 loader before "
-                    "executor.single_pass()."
-                )
-
-            prompt_pipeline_path = "v3" if resolved_slots else "v2"
-            # Distinguish auto-promoted v2 specs from native v3 in
-            # logs so we can tell which styles still need a hand-curated
-            # v3 entry.
-            if prompt_pipeline_path == "v3":
-                try:
-                    if STYLE_REGISTRY.is_v3_promoted(mode.value, style):
-                        prompt_pipeline_path = "v3_promoted"
-                except Exception:
-                    pass
-
-            # v1.27.3 — surface soft-substitutions as a post-generation
-            # notice. When the user typed a value the style didn't
-            # recognise (e.g. "Эверест" in scene_override on Times Square),
-            # composition_builder picks a random whitelist value AND
-            # records it here; we translate the record into RU and
-            # append to result_dict.generation_warnings so the web
-            # client can show a small notice on the result screen.
-            if v2_substitutions:
-                bucket = result_dict.setdefault("generation_warnings", [])
-                for sub in v2_substitutions:
-                    bucket.append(_format_substitution_notice_ru(sub))
-
-            # Persist the v3 slot roll for the frontend badges and for
-            # the "Другой вариант" anti-repeat logic. We always write
-            # the dict (even when empty) so consumers can branch on
-            # presence without a key check.
-            if resolved_slots:
-                result_dict["resolved_slots"] = dict(resolved_slots)
-
-            if variant_id:
-                result_dict["variant_id"] = variant_id
 
             # Face area ratio drives two decisions:
             #   - whether to upscale x2 (bad idea for tiny faces,

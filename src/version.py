@@ -6374,4 +6374,33 @@
 #          silently bring the v1.65/v1.68 head-cue cluster back.
 #
 #          Wire prompt: byte-for-byte identical to 1.70.3.
-APP_VERSION = "1.70.4"
+# 1.70.5 — executor.single_pass partial decomposition (Stage 6 of
+#          audit fix-up). Two pure-ish extracts from the 1100+ line
+#          monolith:
+#
+#          * :meth:`ImageGenerationExecutor._resolve_framing` — owns
+#            the CSL-aware framing pick. Reads ``framing`` /
+#            ``user_input_hints`` / ``input_quality``, writes
+#            ``result_dict["resolved_framing"]`` (and
+#            ``user_picked_framing`` when present), emits the
+#            ``framing_resolved`` INFO log, and returns
+#            ``(framing_norm, is_document, is_studio_portrait_style,
+#            user_picked_framing)``. ~75 lines lifted.
+#          * :meth:`ImageGenerationExecutor._build_prompt` — owns
+#            the v2 prompt build. Wraps
+#            ``PromptEngine.build_image_prompt_v2`` plus the path-tag
+#            derivation (v2 / v3 / v3_promoted), the
+#            substitution-warning bucket and the
+#            ``resolved_slots`` / ``variant_id`` persistence. Raises
+#            ``RuntimeError`` on a missing StyleSpec (same as before).
+#            ~100 lines lifted.
+#
+#          Behaviour is BYTE-FOR-BYTE identical — same writes to
+#          ``result_dict``, same metrics, same error path, same log
+#          lines. Verified locally with the full 2568-test backend
+#          suite (0 failures). The five remaining decomposition
+#          candidates (provider params, reference padding, retry
+#          loop, post-processing, persist / metric) touch the
+#          critical retry / VLM gate path and are intentionally
+#          deferred to a dedicated PR with full goldens.
+APP_VERSION = "1.70.5"
