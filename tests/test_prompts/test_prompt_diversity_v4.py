@@ -136,8 +136,11 @@ def test_ten_seeds_all_carry_v4_1_anchors(style):
         assert "identical face shape, eye shape and colour" in prompt, (
             f"{style!r} seed={s}: IDENTITY_PRESERVE_BLOCK missing\n{prompt!r}"
         )
-        # PHOTOREAL_BLOCK contributes the camera + DoF block.
-        assert "50mm lens at eye level" in prompt, (
+        # PHOTOREAL_BLOCK contributes the camera + DoF block. v1.65
+        # swapped the camera anchor from ``50mm lens at eye level`` to
+        # ``85mm portrait lens at chest height`` — the anti-selfie
+        # perspective fix.
+        assert "85mm portrait lens" in prompt, (
             f"{style!r} seed={s}: PHOTOREAL_BLOCK missing\n{prompt!r}"
         )
         # Wardrobe: prefix is the v4.1 replacement for "Subject is

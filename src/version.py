@@ -5811,4 +5811,144 @@
 #            to current FAL-only state; §14 anti-patterns extended
 #            with "Identity-block, дублирующий composition" and
 #            "Несколько image-gen провайдеров под одним route'ом".
-APP_VERSION = "1.64.0"
+# 1.65.0 — Anatomy Prompt Fix. The v1.64 numerical-anchor wording
+#          ("face fills upper 25-30% of frame") improved the
+#          "huge head" pathology on document-style edits but only
+#          partially closed it on portrait/half/full body styles —
+#          edit models treat numeric layout strings as weak signals
+#          when they compete with the visual cue of a tight-selfie
+#          reference. v1.65 replaces percentage targets with
+#          cinematic-vocabulary directives that the supervised
+#          training data of FAL Nano Banana 2 / GPT Image 2 Edit
+#          actually recognises, simplifies the identity-preserve
+#          block so the freed attention budget goes to composition,
+#          extends the geometric reference-padding gate to cover the
+#          most common request shape ("framing=portrait + tight
+#          selfie"), and replaces the hardcoded ``half_body``
+#          fallback with a CSL-aware auto-framing resolver shared
+#          across the executor and the bot. Zero added FAL spend,
+#          zero new model calls, zero quality-tier escalation.
+#
+#          Prompt contract changes
+#          (``src/prompts/image_gen.py`` + ``src/prompts/model_wrappers.py``):
+#          * ``_COMPOSITION_NUMERICAL_HINT`` rewritten to use an
+#            explicit ``Reframe the reference into …`` operator plus
+#            cinematic shot vocabulary (``bust shot`` / ``waist-up
+#            shot`` / ``full-length standing shot``) and a physical
+#            lens specification (``85mm portrait lens`` for
+#            portrait/half_body, ``35mm`` for full_body). This is the
+#            primary lever against edit-models defaulting to "copy
+#            the reference's head/torso ratio".
+#          * ``IDENTITY_PRESERVE_BLOCK`` trimmed from 9 anchors to 4
+#            (face shape, eye shape/colour, hairline, skin undertone)
+#            so attention budget shifts from "copy 9 facial details"
+#            to "respect the cinematic composition above".
+#          * ``PHOTOREAL_BLOCK`` camera anchor swapped from ``50mm
+#            lens at eye level`` (the canonical "selfie perspective"
+#            wording) to ``85mm portrait lens at chest height`` (the
+#            canonical portrait-photography setup that compresses
+#            perspective and renders natural head-to-body
+#            proportions).
+#          * Opener ``_dating_social_change_instruction`` appended a
+#            positive-framed ``Recompose the body so head, shoulders
+#            and torso read at natural human proportions`` clause so
+#            the very first sentence carries an anatomy directive.
+#          * ``model_wrappers._assemble`` no longer appends
+#            ``ir.framing_line`` to the wire prompt — the cinematic
+#            composition hint + the camera spec in ``PHOTOREAL_BLOCK``
+#            already carry the framing signal; the duplicate line was
+#            giving edit-models contradictory directives. The
+#            ``framing_line`` attribute stays on ``CompositionIR``
+#            for IR inspection / test tooling.
+#
+#          CSL auto-framing
+#          (``src/services/composition_safety.py`` +
+#          ``src/orchestrator/executor.py`` +
+#          ``src/bot/handlers/mode_select.py``):
+#          * New ``resolve_effective_framing`` is the single source of
+#            truth for "what framing should this generation actually
+#            run with". Priority: document → user pick (if allowed) →
+#            ``needs_full_body`` boost (if allowed) → first canonical
+#            framing in ``allowed_framings`` → fail-closed-safe
+#            ``portrait``.
+#          * ``executor.single_pass`` removed the hardcoded
+#            ``half_body`` fallback for invalid / missing framing
+#            requests and routes through the resolver instead. Writes
+#            ``resolved_framing`` and ``user_picked_framing`` to
+#            ``result_dict`` for UI surfacing and observability.
+#          * ``bot.handlers.mode_select._framing_for_style``
+#            collapsed to a thin wrapper over the resolver so the
+#            Telegram-only UX shares the priority matrix with the
+#            web wizard.
+#
+#          Reference-padding gate
+#          (``src/orchestrator/executor.py`` + ``src/config.py``):
+#          * ``should_pad`` now admits ``framing=portrait`` (the
+#            previous gate fired only on half_body / full_body, so
+#            the most common request shape — default portrait + tight
+#            selfie — went unpadded).
+#          * Threshold for "tight enough to pad" decoupled from the
+#            CSL FACE_CLOSEUP threshold (0.35) via a new config knob
+#            ``csl_reference_pad_face_ratio`` (default 0.28): padding
+#            is a soft local PIL operation, so it fires on portrait-
+#            class uploads with above-typical face size where the
+#            "huge head" pathology shows up without the upload being
+#            technically face_closeup.
+#
+#          Catalog-wide tests + lint
+#          (``tests/`` + ``src/services/style_lint.py``):
+#          * New ``tests/test_prompts/test_prompt_anatomy_catalog.py``
+#            parametrises every registered v3 style × framing and
+#            asserts the v1.65 contract end-to-end: ``Reframe the
+#            reference into`` present, ``85mm portrait lens`` /
+#            ``35mm lens`` present (per framing), legacy ``50mm lens
+#            at eye level`` absent, identity anchor present, prompt
+#            length within ``[650, 1550]``.
+#          * New ``tests/test_services/test_resolve_effective_framing.py``
+#            covers every branch of the priority matrix (document,
+#            allowed user pick, needs_full_body boost, fail-closed-
+#            safe).
+#          * Updated ``test_v4_1_anchors.py``,
+#            ``test_prompt_diversity_v4.py``,
+#            ``test_executor_reference_padding.py``,
+#            ``test_executor_ab_routing.py``,
+#            ``test_positive_framing.py`` for the new wording / new
+#            resolver behaviour.
+#          * ``style_lint.py`` extended with ``SCENE_FRAMING_LEAK``
+#            (scene_anchor / base_scene contains framing tokens),
+#            ``QI_BASE_NONEMPTY`` and ``QI_PER_MODEL_TAIL_NONEMPTY``
+#            (style-level quality overrides competing with the
+#            central PHOTOREAL_BLOCK). ``preview_lint.py`` shows 0
+#            dirty styles on the live ``data/styles.json``.
+#
+#          Observability
+#          (``src/orchestrator/executor.py``):
+#          * New INFO log ``framing_resolved`` carries ``user_picked``
+#            and ``resolved_framing`` so we can measure how often the
+#            auto-picker overrides a missing / invalid user pick.
+#          * VLM ``proportions_natural=false`` now surfaces a soft
+#            user-facing notice ("На фото пропорции тела могут
+#            выглядеть необычно. Попробуй фото, где видно плечи и
+#            часть торса.") on the result screen. No retry — zero
+#            extra cost.
+#
+#          Documentation:
+#          * ``docs/ARCHITECTURE.md`` §8.9 rewritten for the v1.65
+#            cinematic hint + extended padding gate + auto-framing
+#            resolver flow; §8.7 rollout table extended with W6
+#            ("Anatomy v1.65").
+#          * ``docs/master_product_constitution.md`` §9.3 updated to
+#            require cinematic vocabulary in composition hints and
+#            forbid duplicate framing-phrases across prompt stages.
+#
+#          Cost guarantee (every line audited):
+#          * PIL padding: $0 (local, +50-200 ms only on tight selfies
+#            already in the gate).
+#          * Auto-framing resolver: $0.
+#          * Prompt rewrite: $0 (same resolution / quality / model).
+#          * VLM ``proportions_natural`` warning: $0 (uses the
+#            existing single-pass VLM call, no retry).
+#          * Quality tier, ``thinking_level``, image_size,
+#            aspect_ratio, identity_retry, CodeFormer, Real-ESRGAN:
+#            untouched.
+APP_VERSION = "1.65.0"

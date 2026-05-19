@@ -20,6 +20,17 @@ The lint rules cover the four concrete defects the user flagged on
 
 * ``TRIGGER_DIRTY`` — trigger pool entry contains framing / lighting /
   weather words that should live in their own channel pool.
+* ``SCENE_FRAMING_LEAK`` (v1.65) — ``scene_anchor`` contains framing
+  tokens. Framing is delivered exclusively by the central
+  :data:`_COMPOSITION_NUMERICAL_HINT`; framing words in the scene
+  description duplicate the signal and produce contradictory
+  directives.
+* ``QI_BASE_NONEMPTY`` (v1.65) — ``quality_identity.base`` is
+  non-empty. The v4.1 pipeline funnels every photo style through the
+  central :data:`PHOTOREAL_BLOCK`; per-style quality overrides
+  compete with the curated 85mm-lens anchors.
+* ``QI_PER_MODEL_TAIL_NONEMPTY`` (v1.65) — same logic for per-model
+  tail overrides.
 * ``INDOOR_SEASON`` / ``INDOOR_WEATHER`` — indoor styles must not
   expose season / weather (those make no sense indoors).
 * ``DOCUMENT_AMBIENT`` — document styles should not expose any ambient
@@ -78,6 +89,31 @@ _FRAMING_TOKENS: tuple[str, ...] = (
     "from above",
     "low angle",
     "high angle",
+    "bird's eye",
+    "birds eye",
+)
+
+
+# v1.65 — SCENE_FRAMING_LEAK uses a narrower set than _FRAMING_TOKENS
+# because ``from above`` / ``low angle`` / ``high angle`` are routinely
+# used in scene descriptions to describe LIGHT direction
+# (``warm light from above``) or stage geometry, not camera angle.
+# Flagging them would produce noisy false positives on otherwise-clean
+# styles. The list below is strictly composition / shot-size vocabulary
+# that has no legitimate non-camera meaning.
+_SCENE_FRAMING_TOKENS: tuple[str, ...] = (
+    "full-length",
+    "full length",
+    "tall standing",
+    "head-to-toe",
+    "head to toe",
+    "full body",
+    "full-body",
+    "headshot",
+    "head shot",
+    "close-up",
+    "close up",
+    "wide shot",
     "bird's eye",
     "birds eye",
 )
@@ -217,6 +253,92 @@ def lint_style(raw: dict[str, Any]) -> list[LintIssue]:
                     detail={"index": idx, "value": trig, "tokens": leaks},
                 )
             )
+
+    # v1.65 — ``SCENE_FRAMING_LEAK``. The scene description is meant to
+    # describe the WHERE (landmark / setting), not the HOW (framing /
+    # lens). When framing tokens leak into it they end up in the wire
+    # prompt twice (once via ``_COMPOSITION_NUMERICAL_HINT``, once via
+    # the scene line) and edit models receive contradictory directives
+    # — the failure mode that drove the v1.65 anatomy fix in the first
+    # place.
+    #
+    # We check both ``scene_anchor`` (v3 native) and ``base_scene`` (v2
+    # / legacy admin entries) because :func:`migrate._apply` accepts
+    # either as the source of truth for the resolved anchor.
+    for scene_field in ("scene_anchor", "base_scene"):
+        scene_value = raw.get(scene_field)
+        if not isinstance(scene_value, str) or not scene_value.strip():
+            continue
+        framing_leaks = _hits(scene_value, _SCENE_FRAMING_TOKENS)
+        if framing_leaks:
+            issues.append(
+                LintIssue(
+                    code="SCENE_FRAMING_LEAK",
+                    severity="warning",
+                    message=(
+                        f"{scene_field} = {scene_value!r} contains "
+                        f"framing tokens {framing_leaks!r}; framing is "
+                        "delivered by _COMPOSITION_NUMERICAL_HINT, not by "
+                        "the scene description. Move these to a framing "
+                        "field or strip them."
+                    ),
+                    field=scene_field,
+                    detail={"tokens": framing_leaks},
+                )
+            )
+
+    # v1.65 — ``QI_BASE_NONEMPTY`` / ``QI_PER_MODEL_TAIL_NONEMPTY``.
+    # The v4.1 prompt pipeline funnels every photo style through the
+    # central :data:`PHOTOREAL_BLOCK`. Non-empty ``quality_identity.base``
+    # or ``quality_identity.per_model_tail`` overrides on a style means
+    # the style ships with bespoke quality wording that competes with
+    # the centrally-curated v1.65 ``85mm portrait lens`` /
+    # ``shallow depth of field`` anchors. The May 2026 v4 migration
+    # already zeroed these fields across all ~100 styles; this lint
+    # protects future admin edits from undoing that.
+    quality_identity = raw.get("quality_identity")
+    if isinstance(quality_identity, dict):
+        base = quality_identity.get("base")
+        if isinstance(base, str) and base.strip():
+            issues.append(
+                LintIssue(
+                    code="QI_BASE_NONEMPTY",
+                    severity="warning",
+                    message=(
+                        "quality_identity.base is non-empty; v4.1 funnels "
+                        "every style through the central PHOTOREAL_BLOCK "
+                        "(85mm portrait lens, shallow DoF). Style-level "
+                        "overrides compete with the curated anchors and "
+                        "should be left empty."
+                    ),
+                    field="quality_identity.base",
+                    detail={"length": len(base)},
+                )
+            )
+
+        per_model = quality_identity.get("per_model_tail")
+        if isinstance(per_model, dict):
+            non_empty = sorted(
+                k for k, v in per_model.items()
+                if isinstance(v, str) and v.strip()
+            )
+            if non_empty:
+                issues.append(
+                    LintIssue(
+                        code="QI_PER_MODEL_TAIL_NONEMPTY",
+                        severity="warning",
+                        message=(
+                            f"quality_identity.per_model_tail has "
+                            f"non-empty entries for models {non_empty!r}; "
+                            "v4.1 routes every photo style through the "
+                            "central PHOTOREAL_BLOCK so per-model overrides "
+                            "should stay empty until a curation PR "
+                            "re-introduces them deliberately."
+                        ),
+                        field="quality_identity.per_model_tail",
+                        detail={"models": non_empty},
+                    )
+                )
 
     ambient_raw = raw.get("ambient") if isinstance(raw.get("ambient"), dict) else {}
     pools: dict[str, list[str]] = {

@@ -399,6 +399,7 @@ identity-preserve-блок остались нетронутыми.
 | **W3. Pose** | `BODY_LANDMARKS_ENABLED=true` | MediaPipe Pose уточняет эвристику. Сравниваем `source="pose"` vs `source="heuristic"` в Grafana. | Расхождение Pose↔heuristic < 15% по `composition_class_total`. |
 | **W4. Override** | `COMPOSITION_SAFETY_ADVANCED_OVERRIDE=true` | Пользователи-эксперты могут обойти CSL через UI/bot. | `composition_override_used_total / composition_block_total` ≤ 20% — если выше, надо ослабить политику, а не давать override. |
 | **W5. Anatomy fix** | `CSL_REFERENCE_PAD_ENABLED=true` (default) | Numerical composition anchor в промпте + геометрическое padding исходника для tight-selfie → half/full-body (§8.9). `reference_padded_total` начинает считать. | `proportions_natural` pass-rate (VLM gate) на `composition_class∈{face_closeup,unknown}` входах > 90% на 7-дневном окне. |
+| **W6. Anatomy v1.65** | `CSL_REFERENCE_PAD_ENABLED=true` (default), `CSL_REFERENCE_PAD_FACE_RATIO=0.28` (default) | Cinematic-vocabulary numerical anchor (`Reframe the reference into …` + `85mm portrait lens` / `35mm lens`), сжатый `IDENTITY_PRESERVE_BLOCK` (4 anchors), positive-framed proportions clause в opener; padding gate расширен на `framing=portrait`; жёсткий `half_body` fallback в executor заменён на CSL-aware auto-resolver (§8.9). Soft warning по `proportions_natural=false` без retry. | `proportions_natural` pass-rate на `framing=portrait` + `face_area_ratio>0.28` входах > 92%; `reference_padded_total{framing="portrait"}` начал расти (ранее = 0); жалоб «голова больше тела» на support ≤ 1% от total за 7 дней. |
 
 **Откат**: ставим конкретный ENV-флаг в `false`. Никаких миграций или
 data-fix'ов не требуется — кеш `_csl` в Redis просто игнорится, а
@@ -420,42 +421,78 @@ data-fix'ов не требуется — кеш `_csl` в Redis просто и
   `skipCompositionSafety` в false (чтобы override от прошлого фото не
   утёк на новое).
 
-### 8.9 Anatomy fix one-pass (v1.64)
+### 8.9 Anatomy fix one-pass (v1.64 → v1.65)
 
 **Проблема**: до v1.64 на `face_closeup` входах (selfie с лицом > 30%
 кадра) edit-модели (GPT Image 2 / Nano Banana 2) копировали layout
 исходника и выдавали «приклеенную голову» — лицо оставалось крупным,
 а тело гадалось вокруг. CSL ловила только заведомо запретные пары
-`(class, style)`, но **внутри** разрешённого framing'а (half/full-body
-на `face_closeup` blocked, но `portrait` пропускался и всё равно мог
-сгенерировать диспропорцию из-за tight-crop'а).
+`(class, style)`, но **внутри** разрешённого framing'а оставались
+диспропорции. v1.64 решил это для `half_body` / `full_body` через
+численный anchor + reference padding, но `framing=portrait` (дефолт
+веба и большинства бот-сценариев) всё ещё ловил пограничные tight-
+selfie кейсы.
 
-Решение — **один проход**, без identity-retry и без второго прохода
-с outpaint'ом, через две независимые правки:
+**v1.65** закрывает оставшийся разрыв через четыре согласованных
+изменения:
 
-#### 1. Numerical composition anchor в промпте
+#### 1. Cinematic composition anchor (v1.65 prompt rewrite)
 
 [src/prompts/image_gen.py](../src/prompts/image_gen.py):
-`_COMPOSITION_NUMERICAL_HINT` — словарь `framing → directive` с явной
-численной долей лица в кадре:
+`_COMPOSITION_NUMERICAL_HINT` переписан с процентных таргетов на
+cinematic vocabulary с явным `Reframe …` оператором и физическим
+объективом:
 
 | framing | directive |
 |---|---|
-| `portrait` | face fills upper 25-30% of frame, eyes at upper third |
-| `half_body` | face fills upper 12-18% of frame, waist up |
-| `full_body` | face fills upper 6-9% of frame, head-to-toe |
+| `portrait` | Reframe the reference into a head-and-shoulders bust shot taken with an 85mm portrait lens at chest height, the head occupying the upper quarter of the canvas… |
+| `half_body` | Reframe the reference into a medium waist-up shot taken with an 85mm portrait lens at chest height, both shoulders fully visible and the torso extending to the belt line… |
+| `full_body` | Reframe the reference into a full-length standing shot taken with a 35mm lens from a slight low angle, head, torso, legs and feet all visible centered in the frame… |
 
 [src/prompts/model_wrappers.py](../src/prompts/model_wrappers.py):
 `_assemble` для non-document стилей вставляет этот hint **перед**
 `IDENTITY_PRESERVE_BLOCK`. Порядок принципиален — composition должна
-выигрывать в attention над identity-копированием.
+выигрывать в attention над identity-копированием. v1.65 убрал также
+стадию `framing_line` из wire-prompt — она дублировала сигнал и
+давала edit-моделям противоречивые директивы.
 
-Параллельно из `IDENTITY_PRESERVE_BLOCK` убрана фраза «head and
-shoulders read as real human proportions» — она прямо конфликтовала с
-`half_body`/`full_body` директивами. Identity-блок теперь отвечает
-строго за лицо.
+Параллельно:
 
-#### 2. Reference padding для tight selfies
+* `IDENTITY_PRESERVE_BLOCK` сжат с 9 anchors до 4 (face shape, eye
+  shape/colour, hairline, skin undertone) — освободившийся attention
+  budget уходит на cinematic composition выше.
+* `PHOTOREAL_BLOCK` сменил `50mm lens at eye level` (канонический
+  «selfie perspective») на `85mm portrait lens at chest height`
+  (канонический portrait-photography setup, который сжимает
+  перспективу и даёт естественные пропорции).
+* Opener `_dating_social_change_instruction` получил positive-framed
+  proportions clause `Recompose the body so head, shoulders and
+  torso read at natural human proportions` — первое предложение
+  теперь несёт anatomy-директиву, что важнее всего на FAL Nano
+  Banana 2 / GPT Image 2 Edit (highest-attention позиция).
+
+#### 2. Auto-framing resolver (v1.65)
+
+[src/services/composition_safety.py](../src/services/composition_safety.py):
+новая функция `resolve_effective_framing` — единый источник истины
+для «какой framing на самом деле уйдёт в модель». Используется и в
+executor'е, и в боте.
+
+Приоритет:
+
+1. Document style → `portrait` (vendor policy, не торгуется).
+2. `user_framing`, если он in `allowed_framings(composition_class)`.
+3. `spec.needs_full_body` → `full_body`, если он in allowed.
+4. Первый канонический framing в `(portrait, half_body, full_body)`,
+   который in allowed.
+5. Fail-closed-safe → `portrait`.
+
+[src/orchestrator/executor.py](../src/orchestrator/executor.py)
+больше не хардкодит `half_body` для пустого / невалидного framing'а
+— решение принимает resolver. `result_dict["resolved_framing"]` и
+`user_picked_framing` пишутся для UI и observability.
+
+#### 3. Reference padding для tight selfies (v1.64 + v1.65 расширение)
 
 [src/services/reference_preprocess.py](../src/services/reference_preprocess.py):
 `pad_reference_for_framing(image_bytes, face_bbox, framing,
@@ -473,36 +510,56 @@ edit-модель. Алгоритм:
 4. Возвращаются JPEG-байты — провайдер их получает как обычный
    `reference_image`.
 
-#### Гейт применения
+Числа в `_FRAMING_GEOMETRY` синхронизированы с текстовой доктриной
+выше: `face_height_ratio=0.28` ≡ «upper quarter of the canvas» в
+портретном anchor'е и т.д.
+
+#### Гейт применения (v1.65)
 
 [src/orchestrator/executor.py](../src/orchestrator/executor.py) вызывает
 padding **только** когда:
 
 ```python
+is_tight = (
+    composition_class in ("face_closeup", "unknown")
+    or face_area_ratio > settings.csl_reference_pad_face_ratio   # 0.28
+)
 should_pad = (
     settings.csl_reference_pad_enabled         # kill-switch
     and not _is_document                        # документы не трогаем
-    and framing_norm in ("half_body", "full_body")
-    and (
-        composition_class in ("face_closeup", "unknown")
-        or face_area_ratio > settings.csl_face_closeup_face_ratio
-    )
+    and framing_norm in ("portrait", "half_body", "full_body")
+    and is_tight
     and iq_bbox is not None                     # без bbox padding невозможен
 )
 ```
 
+v1.65 расширил gate на `portrait` (главный фикс скриншотов — раньше
+самый частый кейс «дефолт portrait + tight selfie» не паддился) и
+выделил отдельный, более мягкий порог `csl_reference_pad_face_ratio`
+(0.28) — он не зависит от CSL FACE_CLOSEUP threshold (0.35), так
+что padding срабатывает на portrait-class загрузках с выше-средним
+лицом, где «огромная голова» проявляется без формального FACE_CLOSEUP.
+
 Любая ошибка `pad_reference_for_framing` → fallback на raw байты + log.
 Метрика [`reference_padded_total`](../src/metrics.py)
 `{framing, composition_class}` показывает фактический объём.
+
+#### 4. Soft VLM warning (v1.65)
+
+Когда VLM-gate возвращает `proportions_natural=false`, executor
+добавляет user-facing notice «На фото пропорции тела могут выглядеть
+необычно. Попробуй фото, где видно плечи и часть торса.» —
+**без retry**, фото отдаём как есть. Стоимость = $0.
 
 #### Почему это работает за один проход
 
 - **Edit-модели** (GPT Image 2 / Nano Banana 2) сильно опираются на
   layout reference'а. Если на reference'е лицо уже занимает 12%
   кадра, модель **не** может «вернуть» его к 50% без явного промпта.
-- Numerical anchor + padded reference дают согласованный сигнал в
-  обоих каналах (text + image), а удаление конфликтной фразы из
-  identity-блока убирает остаточную тягу к head-and-shoulders.
+- Cinematic anchor (`Reframe …`, `85mm portrait lens`) + padded
+  reference дают согласованный сигнал в обоих каналах (text + image),
+  а удаление конфликтной фразы из identity-блока + дубля `framing_line`
+  убирает остаточную тягу к head-and-shoulders.
 
 #### Что убрано вместе с v1.64
 

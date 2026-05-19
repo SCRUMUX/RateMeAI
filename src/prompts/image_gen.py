@@ -163,36 +163,41 @@ def resolve_output_size(
 # PASTED_ON_GUARD block is removed.
 # ---------------------------------------------------------------------------
 
-# Identity-preserve canonical block (v1.64, ~260 chars).
-# Brings back the v1.32 explicit anchors that v4.0 stripped:
-# face shape, eye shape and colour, hairline / hair colour,
-# skin undertone. Wording is positive-framed (no "unchanged",
-# "pasted on", "rather than") so it passes the
-# ``_has_disallowed_negative`` guard.
+# Identity-preserve canonical block (v1.65, ~180 chars).
+# v1.65 trimmed from 9 face anchors to 4: face shape, eye shape /
+# colour, hairline, skin undertone. The other facets (nose / mouth /
+# jawline / hair colour) are visually copied from the reference by
+# edit-model attention; repeating them in the prompt only steals
+# attention budget away from composition. Wording stays positive-
+# framed (no "unchanged" / "pasted on" / "rather than") so it
+# passes the ``_has_disallowed_negative`` guard.
 #
-# v1.64: removed the "head and shoulders read as real human
-# proportions" tail. That phrase forced edit-models to copy the
-# reference's tight head-and-shoulders crop verbatim, conflicting
-# with non-portrait framings ("from the waist up", "full body").
-# Composition is now driven exclusively by
-# :data:`_COMPOSITION_NUMERICAL_HINT` (placed BEFORE this block by
-# ``model_wrappers._assemble``) — identity here is strictly about
-# the face, not about the body layout.
+# v1.64 removed the "head and shoulders read as real human
+# proportions" tail; v1.65 keeps that contract — composition is
+# driven exclusively by :data:`_COMPOSITION_NUMERICAL_HINT` which
+# is placed BEFORE this block by ``model_wrappers._assemble``.
 IDENTITY_PRESERVE_BLOCK = (
     "Use the reference photo as the identity source — render the same "
-    "person with identical face shape, eye shape and colour, nose, "
-    "mouth, jawline, hairline, hair colour and skin undertone."
+    "person with identical face shape, eye shape and colour, hairline "
+    "and skin undertone."
 )
 
-# Photoreal block (~340 chars).
+# Photoreal block (v1.65, ~340 chars).
+# v1.65 swapped the camera anchor from ``50mm lens at eye level`` to
+# ``85mm portrait lens at chest height``. The 50mm-at-eye-level pair
+# is the canonical "selfie perspective" wording — on tight-selfie
+# references edit-models took it as a green light to copy the
+# enlarged-head geometry of the input verbatim. 85mm at chest height
+# is the canonical portrait-photography setup that compresses
+# perspective and renders natural head-to-body proportions.
 # Single camera/DoF block, single materiality clause, single
-# light-integration clause. Mentions skin tone exactly once
-# (in the identity block above we say "skin undertone" — here we
-# focus on lighting integration without re-grading the face).
+# light-integration clause. Mentions skin tone exactly once (in the
+# identity block above we say "skin undertone" — here we focus on
+# lighting integration without re-grading the face).
 PHOTOREAL_BLOCK = (
-    "Photo style: 50mm lens at eye level, shallow depth of field "
-    "with the subject in sharp focus and background softly out of "
-    "focus. Authentic skin texture with visible pores and small "
+    "Photo style: 85mm portrait lens at chest height, shallow depth of "
+    "field with the subject in sharp focus and background softly out "
+    "of focus. Authentic skin texture with visible pores and small "
     "natural imperfections. The scene's ambient light grounds the "
     "subject with consistent direction, matching colour temperature, "
     "and soft contact shadows where the body meets the ground."
@@ -1244,34 +1249,56 @@ _FRAMING_PROMPT_DIRECTIVES: dict[str, str] = {
 }
 
 
-# v1.64 — numerical composition anchor for non-document styles.
+# v1.65 — cinematic composition anchor for non-document styles.
 #
-# The existing document path (``_DOC_COMPOSITION_HINT``) hands edit
-# models an explicit "face fills X% of frame" sentence and consistently
-# produces correct anatomical proportions. Non-document styles used to
-# rely on a vague prose framing line plus the identity-preserve block,
-# which on tight selfies caused the model to copy the input's head/
-# torso ratio verbatim ("glued head" pathology on career studio styles).
+# Background: the document path (``_DOC_COMPOSITION_HINT``) consistently
+# produces correct anatomical proportions because it hands edit models
+# an explicit "face fills X% of frame" sentence. v1.64 mirrored that
+# mechanism for non-document styles via percentage targets, but the
+# results on tight selfies were still inconsistent — edit-model
+# attention treats numeric strings as weak signals when they compete
+# with the visual layout of the reference image.
 #
-# This dict mirrors ``_DOC_COMPOSITION_HINT`` for portrait / half_body /
-# full_body. ``model_wrappers._assemble`` injects the relevant entry
-# BEFORE :data:`IDENTITY_PRESERVE_BLOCK` so the layout instruction sits
-# in the first third of the prompt, where edit models pay the most
-# attention. Wording is positive-framed; uses explicit upper-bound
-# percentages so the model treats them as a numeric layout target.
+# v1.65 switches to cinematic vocabulary that edit-models learned on
+# their supervised training data:
+#
+# * Explicit ``Reframe the reference into …`` operator (positive-framed
+#   command to CHANGE the layout, not preserve it). This is the
+#   biggest single lever for overcoming the "copy the reference layout"
+#   default on FAL Nano Banana 2 / GPT Image 2 Edit.
+# * Cinematic shot vocabulary (``bust shot`` / ``medium waist-up shot``
+#   / ``full-length standing shot``) instead of percentage targets.
+# * Physical lens specification: ``85mm portrait lens`` for portrait /
+#   half_body (perspective compression — the canonical fix for the
+#   "huge head, tiny shoulders" pathology), ``35mm`` for full_body
+#   (wide enough to capture head-to-toe without distortion).
+# * One positive-framed proportions clause ``natural human head-to-body
+#   scale`` (does not violate ``_has_disallowed_negative`` and reads
+#   well to the model).
+#
+# ``model_wrappers._assemble`` injects the relevant entry BEFORE
+# :data:`IDENTITY_PRESERVE_BLOCK` so the layout instruction sits in
+# the first third of the prompt, where edit models pay the most
+# attention.
 _COMPOSITION_NUMERICAL_HINT: dict[str, str] = {
     "portrait": (
-        "head-and-shoulders portrait, face fills upper 25-30% of frame, "
-        "eyes at upper third, shoulders span lower frame edge."
+        "Reframe the reference into a head-and-shoulders bust shot "
+        "taken with an 85mm portrait lens at chest height, the head "
+        "occupying the upper quarter of the canvas with the shoulders "
+        "spanning the lower frame edge at natural human head-to-body "
+        "scale."
     ),
     "half_body": (
-        "medium shot from waist up, face fills upper 12-18% of frame, "
-        "both shoulders fully visible, torso to belt line."
+        "Reframe the reference into a medium waist-up shot taken with "
+        "an 85mm portrait lens at chest height, both shoulders fully "
+        "visible and the torso extending to the belt line at natural "
+        "human head-to-body scale."
     ),
     "full_body": (
-        "full body head-to-toe, face fills upper 6-9% of frame, "
-        "complete head/torso/legs/feet visible, centered with "
-        "vertical breathing room."
+        "Reframe the reference into a full-length standing shot taken "
+        "with a 35mm lens from a slight low angle, head, torso, legs "
+        "and feet all visible centered in the frame at natural human "
+        "head-to-body scale."
     ),
 }
 
@@ -1333,11 +1360,20 @@ def _dating_social_change_instruction(mode: str, style: str) -> str:
     pose-and-clothing detail from v4.0 ("adopting a natural pose…")
     so the per-style scene/wardrobe/expression slots can drive those
     aspects without competing with a fixed sentence.
+
+    v1.65 (May 2026) appended a positive-framed proportions clause
+    ``Recompose the body so head, shoulders and torso read at natural
+    human proportions``. This complements
+    :data:`_COMPOSITION_NUMERICAL_HINT` (which carries the cinematic
+    framing detail) and gives the model an explicit anatomy goal in
+    the very first sentence — the position with the highest attention
+    weight on FAL Nano Banana 2 / GPT Image 2 Edit.
     """
     _ = STYLE_REGISTRY.get(mode, style)  # registry lookup retained for warm-up
     return (
         "Using the reference photo, render the same person in a new "
-        "scene that fits the chosen setting."
+        "scene that fits the chosen setting. Recompose the body so "
+        "head, shoulders and torso read at natural human proportions."
     )
 
 

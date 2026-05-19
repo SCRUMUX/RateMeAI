@@ -1,11 +1,17 @@
-"""Integration tests for the v1.64 reference-padding gate in
+"""Integration tests for the v1.64 + v1.65 reference-padding gate in
 ``ImageGenerationExecutor.single_pass``.
 
-The gate triggers only on the "tight-selfie + non-doc + half/full body"
-cohort. These tests pin the exact gate matrix so a future refactor
-cannot silently widen it (e.g. running padding on every request,
-which would corrupt portrait framings) or silently narrow it
-(skipping the gate when it ought to fire).
+The gate triggers on the "tight-selfie + non-doc + portrait/half/
+full body" cohort. v1.65 expanded the framing axis from
+``(half_body, full_body)`` to ``(portrait, half_body, full_body)``
+and decoupled the "tight" threshold from the CSL classification
+threshold by introducing ``settings.csl_reference_pad_face_ratio``
+(0.28; CSL FACE_CLOSEUP stays at 0.35).
+
+These tests pin the exact gate matrix so a future refactor cannot
+silently widen it (e.g. running padding on every request, which
+would distort loose portraits) or silently narrow it (skipping the
+gate when it ought to fire).
 
 We patch ``pad_reference_for_framing`` to a sentinel so the test asserts
 on the boolean "was it called" — geometry correctness is covered by
@@ -74,6 +80,7 @@ def _base_settings(mock_settings) -> None:
     mock_settings.variation_engine_v2_enabled = True
     mock_settings.csl_reference_pad_enabled = True
     mock_settings.csl_face_closeup_face_ratio = 0.35
+    mock_settings.csl_reference_pad_face_ratio = 0.28
 
 
 def _build_executor(image_gen):
@@ -141,9 +148,17 @@ async def test_pad_fires_on_tight_selfie_half_body(mock_settings, mock_pad):
 @pytest.mark.asyncio
 @patch("src.services.reference_preprocess.pad_reference_for_framing")
 @patch("src.orchestrator.executor.settings")
-async def test_pad_skipped_on_portrait_framing(mock_settings, mock_pad):
-    """Portrait already matches the tight-selfie aspect → no pad."""
+async def test_pad_fires_on_tight_selfie_portrait_framing(mock_settings, mock_pad):
+    """v1.65: Portrait framing + tight-selfie reference → pad.
+
+    Pre-v1.65 this case was the main miss of the gate: ``framing="portrait"``
+    is the default in the web wizard and on bot inputs, so the most common
+    tight-selfie request shape never got geometrically normalised. v1.65
+    explicitly admits ``portrait`` into ``should_pad`` so the padding fires
+    here.
+    """
     _base_settings(mock_settings)
+    mock_pad.return_value = b"PADDED_BYTES_PORTRAIT"
     image_gen = MagicMock()
     image_gen.generate = AsyncMock(return_value=_png())
     executor = _build_executor(image_gen)
@@ -158,6 +173,80 @@ async def test_pad_skipped_on_portrait_framing(mock_settings, mock_pad):
         trace={"decisions": [], "steps": {}},
         gender="male",
         input_quality=_report(face_area_ratio=0.45, composition_class="face_closeup"),
+        ab_image_model="gpt_image_2",
+        ab_image_quality="medium",
+        framing="portrait",
+    )
+
+    assert mock_pad.call_count == 1
+    _, call_kwargs = image_gen.generate.await_args
+    assert call_kwargs["reference_image"] == b"PADDED_BYTES_PORTRAIT"
+
+
+@pytest.mark.asyncio
+@patch("src.services.reference_preprocess.pad_reference_for_framing")
+@patch("src.orchestrator.executor.settings")
+async def test_pad_fires_on_portrait_class_above_pad_threshold(mock_settings, mock_pad):
+    """v1.65: PORTRAIT-class upload with face_area_ratio just above the
+    dedicated pad threshold (0.28) still triggers padding.
+
+    The threshold is intentionally softer than the CSL FACE_CLOSEUP
+    threshold (0.35) so the "huge head" pathology — which shows up on
+    portrait-class uploads with above-typical face size — is corrected
+    geometrically.
+    """
+    _base_settings(mock_settings)
+    mock_pad.return_value = b"PADDED_PORTRAIT_30"
+    image_gen = MagicMock()
+    image_gen.generate = AsyncMock(return_value=_png())
+    executor = _build_executor(image_gen)
+
+    await executor.single_pass(
+        mode=AnalysisMode.DATING,
+        style="motorcycle",
+        image_bytes=_jpeg(),
+        result_dict={"base_description": "test"},
+        user_id="u1",
+        task_id="t1",
+        trace={"decisions": [], "steps": {}},
+        gender="male",
+        # 0.30 > 0.28 pad threshold but < 0.35 CSL FACE_CLOSEUP threshold.
+        input_quality=_report(face_area_ratio=0.30, composition_class="portrait"),
+        ab_image_model="gpt_image_2",
+        ab_image_quality="medium",
+        framing="portrait",
+    )
+
+    assert mock_pad.call_count == 1
+
+
+@pytest.mark.asyncio
+@patch("src.services.reference_preprocess.pad_reference_for_framing")
+@patch("src.orchestrator.executor.settings")
+async def test_pad_skipped_on_loose_portrait_under_threshold(mock_settings, mock_pad):
+    """v1.65: loose portrait upload (face_area_ratio below 0.28 + class
+    PORTRAIT) should NOT be padded — the geometry already matches a
+    normal head-and-shoulders shot.
+
+    Pinning the lower edge of the gate so a future tweak cannot turn
+    padding into an "every request" operation that distorts already-
+    correct portraits.
+    """
+    _base_settings(mock_settings)
+    image_gen = MagicMock()
+    image_gen.generate = AsyncMock(return_value=_png())
+    executor = _build_executor(image_gen)
+
+    await executor.single_pass(
+        mode=AnalysisMode.DATING,
+        style="motorcycle",
+        image_bytes=_jpeg(),
+        result_dict={"base_description": "test"},
+        user_id="u1",
+        task_id="t1",
+        trace={"decisions": [], "steps": {}},
+        gender="male",
+        input_quality=_report(face_area_ratio=0.20, composition_class="portrait"),
         ab_image_model="gpt_image_2",
         ab_image_quality="medium",
         framing="portrait",

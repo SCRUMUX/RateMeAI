@@ -309,31 +309,57 @@ Input -> Orchestrator -> [IdentityPreservation -> SelectiveEdit -> ExpressionAdj
 
 Подробности и rollout-план — [docs/ARCHITECTURE.md §8](ARCHITECTURE.md#8-composition-safety-layer-csl).
 
-### 9.3.2 AnatomyHint (one-pass anatomy fix, v1.64)
+### 9.3.2 AnatomyHint (one-pass anatomy fix, v1.64 → v1.65)
 
 CSL отвечает за `(class, style)` совместимость, но **внутри** разрешённой
 пары tight selfie всё равно мог дать «приклеенную голову» — edit-модель
 копировала layout исходника. AnatomyHint закрывает остаточный риск без
-второго прохода через две независимые правки:
+второго прохода через четыре согласованных правки:
 
-1. **Numerical composition anchor** — для каждого `framing` в промпт
-   подкладывается явная численная директива доли лица (`portrait`:
-   25-30%, `half_body`: 12-18%, `full_body`: 6-9%), помещённая
-   **перед** identity-блоком. Composition выигрывает в attention над
-   identity-копированием.
-2. **Reference padding** — для `composition_class ∈ {face_closeup,
-   unknown}` на `half/full_body` framing'е исходник геометрически
-   пересобирается на новом канвасе так, чтобы лицо **уже** было в
-   нужной пропорции до отправки в провайдер (`pad_reference_for_framing`).
-   Edit-модели опираются на layout reference'а — если он
-   «правильный», результат тоже корректный.
+1. **Cinematic composition anchor** (v1.65) — для каждого `framing` в
+   промпт подкладывается явный `Reframe the reference into …` оператор
+   с cinematic shot vocabulary (`bust shot` / `waist-up shot` / `full-
+   length standing shot`) и физическим объективом (`85mm portrait
+   lens` для portrait/half_body, `35mm lens` для full_body). Этот
+   блок помещается **перед** identity-блоком — composition выигрывает
+   в attention над identity-копированием. Стандарт: **никаких
+   процентных таргетов или дублирующих framing-фраз** — wire-prompt
+   несёт один и только один framing-сигнал.
+2. **Сжатый identity block** (v1.65) — `IDENTITY_PRESERVE_BLOCK` ужат
+   до 4 facial anchors (face shape, eye shape/colour, hairline, skin
+   undertone). Освободившийся attention budget уходит на cinematic
+   composition.
+3. **Auto-framing resolver** (v1.65) — `resolve_effective_framing` в
+   [`src/services/composition_safety.py`](../src/services/composition_safety.py)
+   — единый источник истины. Никакого хардкода `half_body` для
+   пустого / невалидного framing'а; выбор делается CSL-aware с
+   приоритетом «document → user pick (если allowed) → needs_full_body
+   boost → first allowed → fail-closed-safe portrait».
+4. **Reference padding** (v1.64 + v1.65 расширение) — для
+   `composition_class ∈ {face_closeup, unknown}` ИЛИ `face_area_ratio
+   > 0.28` (новый порог `csl_reference_pad_face_ratio`) на любом
+   non-document framing'е (`portrait`, `half_body`, `full_body`)
+   исходник геометрически пересобирается на новом канвасе так, чтобы
+   лицо **уже** было в нужной пропорции до отправки в провайдер
+   (`pad_reference_for_framing`). v1.65 расширил gate на `portrait`
+   — самый частый кейс default-framing'а в вебе и боте.
+
+Дополнительно: `PHOTOREAL_BLOCK` сменил `50mm lens at eye level`
+(канонический «selfie perspective») на `85mm portrait lens at chest
+height` — это **обязательный** стандарт для всех non-document
+стилей: один центральный photoreal block, никаких style-level
+переопределений в `quality_identity.base` / `per_model_tail` (lint
+`QI_BASE_NONEMPTY` / `QI_PER_MODEL_TAIL_NONEMPTY` запрещает).
 
 Гейт применяется ко всем non-document стилям. Document-стили (CV, виза,
 паспорт) сохраняют собственный `_DOC_COMPOSITION_HINT` — он жёстче
 численного и историчен.
 
-Метрики: `reference_padded_total{framing, composition_class}` — фактический
-объём padding'а. Конкретные модули — [docs/ARCHITECTURE.md §8.9](ARCHITECTURE.md#89-anatomy-fix-one-pass-v164).
+Метрики: `reference_padded_total{framing, composition_class}` —
+фактический объём padding'а; INFO-лог `framing_resolved` — частота
+auto-override'ов пустого user pick'а. Soft warning для
+`proportions_natural=false` без retry (zero added FAL spend).
+Конкретные модули — [docs/ARCHITECTURE.md §8.9](ARCHITECTURE.md#89-anatomy-fix-one-pass-v164--v165).
 
 ### 9.4 Разрешенные изменения
 

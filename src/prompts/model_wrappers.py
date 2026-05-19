@@ -1,31 +1,38 @@
 """Per-model prompt wrappers for StyleSpecV3.
 
-v4.1 / v1.64 — single-path prompt pipeline
+v4.1 / v1.65 — single-path prompt pipeline
 -------------------------------------------
 Stages of the prompt:
 
 1. ``change_instruction``                 — Google-formula opener
                                              ("Using the reference photo,
                                              render the same person in a
-                                             new scene…")
-2. ``_COMPOSITION_NUMERICAL_HINT``        — numerical layout target
-                                             ("face fills upper X% of
-                                             frame"). v1.64: mirrors the
-                                             document-path hint so
-                                             edit-models stop copying
-                                             tight-selfie head/torso
-                                             ratios verbatim. Goes
-                                             BEFORE identity so layout
-                                             wins attention.
-3. ``IDENTITY_PRESERVE_BLOCK``            — explicit identity anchors
+                                             new scene…"). v1.65 appends
+                                             a positive-framed proportions
+                                             clause so the very first
+                                             sentence carries an anatomy
+                                             goal.
+2. ``_COMPOSITION_NUMERICAL_HINT``        — cinematic layout directive
+                                             ("Reframe the reference into
+                                             a head-and-shoulders bust
+                                             shot taken with an 85mm
+                                             portrait lens …"). v1.65
+                                             swapped percentage targets
+                                             for cinematic shot
+                                             vocabulary + explicit
+                                             physical lens — the
+                                             canonical fix for the
+                                             "huge head, tiny shoulders"
+                                             pathology. Goes BEFORE
+                                             identity so layout wins
+                                             attention.
+3. ``IDENTITY_PRESERVE_BLOCK``            — 4 explicit identity anchors
                                              (face shape, eye shape and
                                              colour, hairline, skin
-                                             undertone). v1.64 trimmed
-                                             the "head and shoulders
-                                             read as real human
-                                             proportions" tail because
-                                             it conflicted with the
-                                             numerical hint above.
+                                             undertone). v1.65 trimmed
+                                             from 9 anchors so attention
+                                             budget stays available for
+                                             composition.
 4. narrative scene line                   — "<scene> lit by X during a Y
                                              morning in Z." (composed in
                                              :meth:`CompositionIR.scene_line`)
@@ -33,11 +40,19 @@ Stages of the prompt:
 6. ``expression``                         — natural-from-reference by
                                              default (see
                                              composition_builder.py)
-7. ``framing_line``                       — short framing reminder
-8. ``PHOTOREAL_BLOCK``                    — single camera/DoF block,
-                                             single materiality clause,
-                                             single lighting-integration
+7. ``PHOTOREAL_BLOCK``                    — single camera/DoF block
+                                             (``85mm portrait lens at
+                                             chest height``), single
+                                             materiality clause, single
+                                             lighting-integration
                                              clause.
+
+v1.65 removed the standalone ``framing_line`` stage from the wire
+prompt: it duplicated the framing signal already delivered by
+``_COMPOSITION_NUMERICAL_HINT`` and the camera setup in
+``PHOTOREAL_BLOCK``. ``framing_line`` is still computed on
+:class:`CompositionIR` for IR inspection / test tooling, just not
+emitted into the final prompt.
 
 Document styles use a separate vendor-policy path with DOC_PRESERVE /
 DOC_QUALITY and a fixed composition hint — identity fidelity
@@ -118,11 +133,14 @@ def _assemble(ir: CompositionIR, *, tail: str) -> str:
         if ir.change_instruction:
             parts.append(ir.change_instruction)
 
-        # v1.64 — numerical composition anchor BEFORE identity. Mirrors
+        # v1.65 — cinematic composition anchor BEFORE identity. Mirrors
         # the document-path ``_DOC_COMPOSITION_HINT`` so edit-models
-        # receive an explicit "face fills upper X% of frame" target and
-        # stop replicating the tight-selfie head/torso ratio. Placed in
-        # the first third of the prompt where edit-models pay most
+        # receive an explicit ``Reframe the reference into …`` directive
+        # with cinematic shot vocabulary (``bust shot`` / ``waist-up
+        # shot`` / ``full-length standing shot``) and a physical lens
+        # spec (``85mm portrait lens`` / ``35mm``). This stops them
+        # replicating the tight-selfie head/torso ratio. Placed in the
+        # first third of the prompt where edit-models pay most
         # attention.
         if ir.framing and ir.framing in ig._COMPOSITION_NUMERICAL_HINT:
             parts.append(
@@ -131,7 +149,7 @@ def _assemble(ir: CompositionIR, *, tail: str) -> str:
 
         # Identity-preserve sits right after the layout target so the
         # face stays anchored to the reference while the body fits the
-        # numerical composition.
+        # cinematic composition.
         parts.append(ig.IDENTITY_PRESERVE_BLOCK)
 
         scene_line = ir.scene_line()
@@ -144,8 +162,12 @@ def _assemble(ir: CompositionIR, *, tail: str) -> str:
         if ir.expression:
             parts.append(ir.expression)
 
-        if ir.framing_line:
-            parts.append(ir.framing_line)
+        # v1.65: ``framing_line`` is no longer emitted into the wire
+        # prompt. The cinematic composition hint above + the camera
+        # spec in ``PHOTOREAL_BLOCK`` already carry the framing signal;
+        # repeating it here gave edit-models duplicate (and sometimes
+        # mildly contradictory) framing tokens. Field stays on
+        # :class:`CompositionIR` for IR inspection / test tooling.
 
         if tail:
             parts.append(tail)

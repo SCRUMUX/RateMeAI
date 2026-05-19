@@ -23,7 +23,33 @@ and it only has to repaint clothing / background.
 
 Geometry is gated by the caller (see ``executor`` ``should_pad``
 decision) — this module trusts that its inputs are already filtered
-to the "tight selfie + half/full body" cohort.
+to the "tight selfie + portrait/half/full body" cohort.
+
+v1.65 alignment
+---------------
+
+The textual doctrine (``_COMPOSITION_NUMERICAL_HINT`` in
+``src.prompts.image_gen``) and the geometric doctrine
+(``_FRAMING_GEOMETRY`` below) describe the same target layout from
+two angles:
+
+* Textual side: ``Reframe the reference into a head-and-shoulders
+  bust shot taken with an 85mm portrait lens at chest height, the
+  head occupying the upper quarter of the canvas…`` —
+  ``face_height_ratio=0.28`` is exactly "upper quarter of the
+  canvas".
+* Half body side: prompt says ``medium waist-up shot``, ``both
+  shoulders fully visible``, ``torso extending to the belt line``;
+  ``face_height_ratio=0.15`` + ``face_center_y_ratio=0.20`` lays
+  out exactly that on the canvas.
+* Full body side: prompt says ``full-length standing shot…35mm
+  lens from a slight low angle, head, torso, legs and feet all
+  visible centered in the frame``;
+  ``face_height_ratio=0.08`` + ``face_center_y_ratio=0.12`` lays
+  out exactly that.
+
+Prompt and reference push the model in the same direction; they
+must stay co-curated when either side is tuned.
 """
 
 from __future__ import annotations
@@ -47,9 +73,10 @@ logger = logging.getLogger(__name__)
 #                          room for shoulders/torso/legs below).
 #
 # Values mirror :data:`src.prompts.image_gen._COMPOSITION_NUMERICAL_HINT`.
-# Whatever the prompt says ("face fills upper 12-18% of frame" for
-# half_body), the canvas geometry matches so prompt + reference push
-# the model in the same direction.
+# Whatever the prompt says ("medium waist-up shot…torso extending to
+# the belt line" for half_body), the canvas geometry matches so
+# prompt + reference push the model in the same direction. See the
+# module docstring for the row-by-row textual/geometric mapping.
 _FRAMING_GEOMETRY: Final[dict[str, dict[str, float]]] = {
     "portrait":  {"face_height_ratio": 0.28, "face_center_y_ratio": 0.30},
     "half_body": {"face_height_ratio": 0.15, "face_center_y_ratio": 0.20},

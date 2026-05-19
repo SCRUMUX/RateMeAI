@@ -101,8 +101,8 @@ async def _framing_for_style(
     """Pick the composition framing used by /analyze and the prompt engine.
 
     Telegram clients never expose a "ракурс" picker, so without this the
-    executor falls back to its compatibility default (``half_body``) which
-    is wrong for two of the three photo modes:
+    executor would fall back to its compatibility default which is wrong
+    for two of the three photo modes:
 
     * Telegram reference images are always ``message.photo[-1]`` previews
       (≤1280 px), and in practice that is a tight head-and-shoulders crop.
@@ -113,47 +113,30 @@ async def _framing_for_style(
       ``web/src/context/AppContext.tsx``. Aligning the bot with the web
       default closes the most visible quality gap between the channels.
 
-    Composition Safety Layer:
-        The choice is intersected with the per-class ``allowed_framings``
-        policy (see :mod:`src.services.composition_safety`). If the style
-        prefers ``full_body`` but the user's photo is classified as
-        FACE_CLOSEUP / PORTRAIT / UNKNOWN, we degrade to the safest
-        framing the policy allows (``portrait`` first, then
-        ``half_body``). This is the bot's mirror of the web wizard's
-        framing picker filter.
-
-    Document styles always run ``portrait`` regardless of CSL — their
-    composition is fixed by the document format.
+    v1.65 — thin wrapper over
+    :func:`src.services.composition_safety.resolve_effective_framing`,
+    which is now the single source of truth for "what framing should
+    actually drive the generation". The executor and the bot share the
+    same resolver so the UI shows the same framing the executor will
+    end up generating, and a single fix to the priority matrix lands
+    in both entrypoints atomically.
     """
     try:
         from src.prompts.image_gen import STYLE_REGISTRY, is_document_style
-        from src.services.composition_safety import (
-            CompositionClass,
-            allowed_framings,
+        from src.services.composition_safety import resolve_effective_framing
+
+        cls_raw = (
+            await _read_composition_class(redis, user_id)
+            if user_id is not None
+            else "unknown"
         )
-
-        if is_document_style(style):
-            return "portrait"
-
-        cls_raw = await _read_composition_class(redis, user_id) if user_id is not None else "unknown"
-        cls = CompositionClass.parse(cls_raw)
-        allowed = allowed_framings(cls)
-
         spec = STYLE_REGISTRY.get(mode, style)
-        needs_fb = bool(spec is not None and getattr(spec, "needs_full_body", False))
-
-        # Style preference intersected with composition policy. We do
-        # not fall back to "the style asked for full_body so let's send
-        # full_body anyway" — the policy is authoritative.
-        if needs_fb and "full_body" in allowed:
-            return "full_body"
-        # Prefer portrait when allowed (the safest framing for any
-        # edit-model + reference combo) ahead of half_body / full_body.
-        for choice in ("portrait", "half_body", "full_body"):
-            if choice in allowed:
-                return choice
-        # ``allowed`` is guaranteed non-empty by the policy table.
-        return allowed[0]
+        return resolve_effective_framing(
+            user_framing=None,
+            composition_class=cls_raw,
+            spec=spec,
+            is_document=is_document_style(style),
+        )
     except Exception:
         logger.debug("framing_resolve_failed mode=%s style=%s", mode, style)
         return "portrait"

@@ -31,6 +31,7 @@ from src.orchestrator.trace import trace_step as _trace_step
 from src.prompts.engine import PromptEngine
 from src.prompts.image_gen import STYLE_REGISTRY, resolve_output_size
 from src.providers.base import ImageGenProvider, StorageProvider
+from src.services.composition_safety import resolve_effective_framing
 from src.services.postprocess import (
     crop_to_aspect,
     inject_exif_only,
@@ -462,13 +463,63 @@ class ImageGenerationExecutor:
         modal_framing = ""
         if user_input_hints:
             modal_framing = str(user_input_hints.get("framing") or "").strip().lower()
-        framing_norm = (
+
+        # v1.65 — pick the final framing through the CSL resolver.
+        # Replaces the hardcoded ``half_body`` fallback that v1.63
+        # used when the request came in without a valid framing. The
+        # resolver respects an explicit user pick when the policy
+        # allows it, falls back to the style's ``needs_full_body``
+        # when relevant, and finally to the safest framing for the
+        # detected composition class. Document styles short-circuit
+        # to ``portrait`` regardless.
+        try:
+            from src.prompts.image_gen import is_document_style as _is_doc
+            _is_document = bool(_is_doc(style or ""))
+        except Exception:
+            _is_document = False
+
+        user_picked_framing = (
             modal_framing
             if modal_framing in ("portrait", "half_body", "full_body")
             else str(framing or "").strip().lower()
         )
-        if framing_norm not in ("portrait", "half_body", "full_body"):
-            framing_norm = "half_body"
+        if user_picked_framing not in ("portrait", "half_body", "full_body"):
+            user_picked_framing = ""
+
+        composition_class_for_resolver = (
+            getattr(input_quality, "composition_class", "unknown")
+            if input_quality is not None
+            else "unknown"
+        )
+        spec_for_framing = STYLE_REGISTRY.get(
+            getattr(mode, "value", str(mode)), style
+        )
+        framing_norm = resolve_effective_framing(
+            user_framing=user_picked_framing or None,
+            composition_class=composition_class_for_resolver,
+            spec=spec_for_framing,
+            is_document=_is_document,
+        )
+        result_dict["resolved_framing"] = framing_norm
+        if user_picked_framing:
+            result_dict["user_picked_framing"] = user_picked_framing
+
+        # v1.65 — visibility into the framing resolver. Tracks how often
+        # the auto-picker overrides a missing / invalid user pick and
+        # which composition class drove the decision. Together with the
+        # existing REFERENCE_PADDED counter (in :mod:`src.metrics`) this
+        # is the primary signal for measuring v1.65 rollout impact.
+        logger.info(
+            "framing_resolved mode=%s style=%s "
+            "user_picked=%s composition_class=%s "
+            "is_document=%s resolved_framing=%s",
+            getattr(mode, "value", str(mode)),
+            style or "default",
+            user_picked_framing or "<auto>",
+            composition_class_for_resolver,
+            _is_document,
+            framing_norm,
+        )
 
         try:
             desc = str(result_dict.get("base_description", ""))
@@ -594,11 +645,10 @@ class ImageGenerationExecutor:
                 else 0.0
             )
 
-            try:
-                from src.prompts.image_gen import is_document_style as _is_doc
-                _is_document = bool(_is_doc(style or ""))
-            except Exception:
-                _is_document = False
+            # ``_is_document`` was already resolved above (before the
+            # framing resolver) so the same answer drives both the
+            # framing pick and the downstream document-aware
+            # postprocessing.
 
             # Provider ``extra`` payload. Provider-specific whitelists
             # apply: FalFlux2ImageGen accepts ``image_size`` + ``seed``,
@@ -727,16 +777,33 @@ class ImageGenerationExecutor:
                 if input_quality is not None
                 else "unknown"
             )
+            # v1.65 — padding gate now covers ``portrait`` framing too.
+            # Tight-selfie + ``framing=portrait`` is the single most
+            # common request shape (telegram preview-quality reference,
+            # default framing on the web wizard), and that combination
+            # is exactly where the "huge head, tiny shoulders"
+            # pathology shows up. The threshold for "tight enough to
+            # pad" is decoupled from the CSL classification
+            # ``face_closeup`` threshold (0.35) via a dedicated config
+            # knob ``csl_reference_pad_face_ratio`` (0.28) — padding
+            # is a soft local PIL operation, so it can be triggered on
+            # uploads that are technically PORTRAIT-class but still
+            # tight enough to mis-anchor the head/torso ratio.
+            is_tight = (
+                composition_class in ("face_closeup", "unknown")
+                or face_area_ratio > float(
+                    getattr(
+                        settings,
+                        "csl_reference_pad_face_ratio",
+                        0.28,
+                    )
+                )
+            )
             should_pad = (
                 getattr(settings, "csl_reference_pad_enabled", False)
                 and not _is_document
-                and framing_norm in ("half_body", "full_body")
-                and (
-                    composition_class in ("face_closeup", "unknown")
-                    or face_area_ratio > getattr(
-                        settings, "csl_face_closeup_face_ratio", 0.35,
-                    )
-                )
+                and framing_norm in ("portrait", "half_body", "full_body")
+                and is_tight
                 and iq_bbox is not None
             )
             if should_pad:
@@ -1186,6 +1253,20 @@ class ImageGenerationExecutor:
                         warnings.append(
                             "Поза на итоговом фото выглядит не совсем естественно. "
                             "Лучше всего работает прямая осанка и симметричный кадр."
+                        )
+
+                    # v1.65 — surface VLM proportions verdict as a soft
+                    # notice. This is the user-facing readout of the
+                    # anatomy fix: when the model still produces an
+                    # unnatural head-to-body ratio despite the new
+                    # cinematic prompt + reference padding, we tell the
+                    # user how to improve their next upload instead of
+                    # silently delivering a slightly off photo. No
+                    # retry, no extra cost.
+                    if sp_report.get("proportions_natural") is False:
+                        warnings.append(
+                            "На фото пропорции тела могут выглядеть необычно. "
+                            "Попробуй фото, где видно плечи и часть торса."
                         )
 
                     # await self._record_ab_metrics(task_id, sp_report)

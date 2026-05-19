@@ -232,6 +232,79 @@ def classify_heuristic(
     return CompositionClass.FULL_BODY
 
 
+def resolve_effective_framing(
+    *,
+    user_framing: str | None,
+    composition_class: CompositionClass | str,
+    spec: Any,
+    is_document: bool,
+) -> str:
+    """Pick the final framing for a generation using CSL classification.
+
+    v1.65 — single source of truth for "what framing should we actually
+    send to the model". Used by both the executor (when a request comes
+    in without an explicit framing, or with a framing the policy
+    forbids) and the bot (when picking a default for the user). Having
+    one resolver keeps the two entrypoints from drifting apart and
+    means the bot UI shows the same framing the executor will end up
+    generating.
+
+    Priority order:
+
+    1. Document style → always ``portrait``. Document styles
+       (passport / visa / 3x4 photos) have a fixed vendor-policy
+       framing that does not negotiate.
+    2. ``user_framing`` if the policy permits it for this composition
+       class (``user_framing in allowed_framings(composition_class)``).
+       Respecting an explicit user pick is the friendliest behaviour.
+    3. Style's ``needs_full_body`` if ``full_body`` is in
+       ``allowed_framings`` — full-body styles deserve full-body
+       framing whenever the upload supports it.
+    4. First entry of ``allowed_framings`` in canonical preference
+       order (portrait → half_body → full_body). This gives a sane
+       default for every composition class.
+    5. Fail-closed-safe: ``portrait``. Reached only when the policy
+       table is misconfigured; ``portrait`` is the safest output any
+       edit model can produce for any reference photo.
+
+    Args:
+        user_framing: Framing the user / API caller explicitly asked
+            for. ``None`` / empty string means "no explicit pick".
+            Invalid values (e.g. ``"square"``) are treated as
+            "no explicit pick".
+        composition_class: CSL classification of the upload (string or
+            enum). Drives ``allowed_framings``.
+        spec: StyleSpec for the requested style (v2 or v3). Only
+            ``needs_full_body`` is consulted.
+        is_document: True when the requested style is a document
+            style. Document styles are short-circuited to ``portrait``
+            regardless of every other signal.
+
+    Returns:
+        One of ``"portrait"`` / ``"half_body"`` / ``"full_body"``.
+    """
+    if is_document:
+        return "portrait"
+
+    allowed = allowed_framings(composition_class)
+    if not allowed:
+        return "portrait"
+
+    pick = (user_framing or "").strip().lower()
+    if pick in _ALL_FRAMINGS and pick in allowed:
+        return pick
+
+    needs_full_body = bool(getattr(spec, "needs_full_body", False)) if spec is not None else False
+    if needs_full_body and "full_body" in allowed:
+        return "full_body"
+
+    for canonical in _ALL_FRAMINGS:
+        if canonical in allowed:
+            return canonical
+
+    return "portrait"
+
+
 def policy_summary(cls: CompositionClass | str) -> dict[str, Any]:
     """Return a flat dict describing what the policy permits for ``cls``.
 

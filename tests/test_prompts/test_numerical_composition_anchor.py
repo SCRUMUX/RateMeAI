@@ -1,4 +1,4 @@
-"""v1.64 numerical composition anchor — production guarantees.
+"""v1.64 / v1.65 numerical composition anchor — production guarantees.
 
 Background
 ----------
@@ -14,14 +14,20 @@ with a minimalist scene description.
 
 Document styles never had this problem because their wrapper appends a
 ``Composition: ... face fills X% of frame ...`` sentence directly
-(:data:`src.prompts.image_gen._DOC_COMPOSITION_HINT`). v1.64 mirrors
+(:data:`src.prompts.image_gen._DOC_COMPOSITION_HINT`). v1.64 mirrored
 that mechanism for non-document styles via
 :data:`src.prompts.image_gen._COMPOSITION_NUMERICAL_HINT`, injected by
 ``model_wrappers._assemble`` BEFORE :data:`IDENTITY_PRESERVE_BLOCK`.
 
+v1.65 rewrote the contents of that dict to use cinematic vocabulary
+(explicit ``Reframe the reference into …`` operator + cinematic shot
+names + physical lens specification) instead of percentage targets.
+The assertions below intentionally read the live ``_COMPOSITION_NUMERICAL_HINT``
+dict so the test stays in sync with whatever wording the constant holds.
+
 These tests lock the contract:
 
-* The numerical hint appears in the final prompt for every non-doc
+* The hint string appears in the final prompt for every non-doc
   framing.
 * It is positioned BEFORE the identity-preserve block (layout target
   wins attention over identity-copy).

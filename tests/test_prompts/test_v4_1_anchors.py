@@ -1,4 +1,4 @@
-"""v4.1 / v1.64 single-path prompt anchors — production guarantees.
+"""v4.1 / v1.65 single-path prompt anchors — production guarantees.
 
 This is the tip of the prompt-pipeline test pyramid: it walks the
 entire registered photo catalog, builds each style's final prompt
@@ -10,16 +10,20 @@ core invariants the model relies on:
   legacy "head and shoulders read as real human proportions" tail
   because it conflicted with non-portrait framings; composition is now
   driven exclusively by :data:`_COMPOSITION_NUMERICAL_HINT`.
-* Photoreal anchors from :data:`PHOTOREAL_BLOCK` are present
-  ("50mm lens at eye level", "shallow depth of field").
+* Photoreal anchors from :data:`PHOTOREAL_BLOCK` are present. v1.65
+  swapped the camera anchor from ``50mm lens at eye level`` to
+  ``85mm portrait lens`` to break the "selfie perspective" pattern
+  that drove the "huge head" pathology.
 * The v4.1 wardrobe label ``"Wardrobe:"`` replaces the legacy
   ``"Subject is wearing"`` phrasing.
 * No leftover negative-framed tokens (``unchanged``, ``pasted``,
   ``rather than``) — the v4.0 wording violated Google / OpenAI
   best-practices and is gone.
-* Prompt length stays in the 650-1500 char band — long enough to fit
-  scene + wardrobe + identity, short enough to leave attention budget
-  for the user's reference image.
+* Prompt length stays in the 650-1550 char band — long enough to fit
+  scene + wardrobe + identity + cinematic composition, short enough
+  to leave attention budget for the user's reference image. v1.65
+  bumped the upper bound by ~50 chars to fit the ``Reframe …`` /
+  ``Recompose …`` cinematic clauses.
 
 Document styles use the vendor-policy DOC_PRESERVE / DOC_QUALITY
 layout so they bypass the v4.1 photo anchors. They get their own
@@ -108,10 +112,14 @@ def test_v4_1_anchors_present(mode: AnalysisMode, style: str):
     engine = PromptEngine()
     prompt = engine.build_image_prompt(mode, style=style, gender="male")
 
-    # Opener (Google formula).
+    # Opener (Google formula). v1.65 appended a positive-framed
+    # ``Recompose the body …`` clause so the opener also carries an
+    # anatomy directive — the assertion below covers both halves.
     assert (
         "Using the reference photo, render the same person in a new "
-        "scene that fits the chosen setting." in prompt
+        "scene that fits the chosen setting. Recompose the body so "
+        "head, shoulders and torso read at natural human proportions."
+        in prompt
     ), f"{mode.value}/{style}: opener missing\n{prompt!r}"
 
     # Identity-preserve anchors (v1.64: "head and shoulders read as
@@ -129,9 +137,19 @@ def test_v4_1_anchors_present(mode: AnalysisMode, style: str):
         f"{prompt!r}"
     )
 
-    # Photoreal anchors.
-    assert "50mm lens at eye level" in prompt, (
-        f"{mode.value}/{style}: camera anchor missing\n{prompt!r}"
+    # Photoreal anchors. v1.65 replaced the ``50mm lens at eye level``
+    # selfie-perspective wording with ``85mm portrait lens at chest
+    # height`` — the canonical portrait-photography lens that
+    # compresses perspective and renders natural head-to-body
+    # proportions.
+    assert "85mm portrait lens" in prompt, (
+        f"{mode.value}/{style}: 85mm camera anchor missing\n{prompt!r}"
+    )
+    assert "50mm lens at eye level" not in prompt, (
+        f"{mode.value}/{style}: legacy 50mm anchor must not return — "
+        "it is the canonical 'selfie perspective' wording and "
+        "reintroduces the huge-head pathology.\n"
+        f"{prompt!r}"
     )
     assert "shallow depth of field" in prompt, (
         f"{mode.value}/{style}: DoF anchor missing\n{prompt!r}"
@@ -149,13 +167,15 @@ def test_v4_1_anchors_present(mode: AnalysisMode, style: str):
             f"{prompt!r}"
         )
 
-    # Length budget: 650-1500 characters covers identity + scene +
-    # wardrobe + photoreal block without bloating into the v1.32
-    # ~1100+ tail. v1.64 trimmed the identity tail (-60 chars) so the
-    # lower bound dropped to 650.
-    assert 650 <= len(prompt) <= 1500, (
+    # Length budget: 650-1550 characters covers identity + scene +
+    # wardrobe + photoreal block + cinematic composition without
+    # bloating into the v1.32 ~1100+ tail. v1.64 trimmed the identity
+    # tail (-60 chars) so the lower bound dropped to 650; v1.65 added
+    # the cinematic Reframe / Recompose clauses (+~50 chars) so the
+    # upper bound moved from 1500 to 1550.
+    assert 650 <= len(prompt) <= 1550, (
         f"{mode.value}/{style}: prompt length {len(prompt)} outside "
-        f"[650,1500]\n{prompt!r}"
+        f"[650,1550]\n{prompt!r}"
     )
 
 

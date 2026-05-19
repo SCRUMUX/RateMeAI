@@ -361,14 +361,24 @@ class Settings(BaseSettings):
 
     # CSL Phase 1.5 (v1.64) — geometric reference padding for tight
     # selfies. When True and the executor's gate passes (non-document
-    # style + half/full_body framing + face_closeup/unknown class OR
-    # face_area_ratio above ``csl_face_closeup_face_ratio``), the
-    # executor reshapes the reference image so the face already sits at
-    # the correct relative size for the requested framing before the
-    # bytes reach the edit-model provider. Implemented in
+    # style + portrait/half/full_body framing + face_closeup/unknown
+    # class OR ``face_area_ratio`` above
+    # ``csl_reference_pad_face_ratio``), the executor reshapes the
+    # reference image so the face already sits at the correct relative
+    # size for the requested framing before the bytes reach the
+    # edit-model provider. Implemented in
     # :mod:`src.services.reference_preprocess`. Default ON because the
     # gate itself is the no-op for loose-crop inputs.
     csl_reference_pad_enabled: bool = True
+
+    # v1.65 — reference-padding-specific face_area_ratio threshold.
+    # Separate from ``csl_face_closeup_face_ratio`` (0.35) which drives
+    # the CSL FACE_CLOSEUP / PORTRAIT classification. Padding triggers
+    # on a softer threshold so it also fires on portrait-class uploads
+    # with above-typical face size — that is the most common
+    # tight-selfie regime where the "huge head" pathology shows up
+    # without the upload being technically a face_closeup.
+    csl_reference_pad_face_ratio: float = 0.28
 
     # Legacy prompt_strength (unused in edit mode)
     image_gen_strength: float = 0.45

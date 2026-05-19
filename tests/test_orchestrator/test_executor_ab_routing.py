@@ -35,6 +35,13 @@ def _png() -> bytes:
 
 
 def _ok_report() -> InputQualityReport:
+    # v1.65: explicitly set ``composition_class="half_body"`` so the
+    # auto-framing resolver in :func:`executor.single_pass` keeps the
+    # full set of framings on the table. The default ``"unknown"`` is
+    # the fail-closed-safe bucket whose allowed_framings list is just
+    # ``("portrait",)`` — that would force every framing this fixture
+    # threads through to collapse to ``portrait`` and obscure the
+    # test's actual subject.
     return InputQualityReport(
         can_generate=True,
         face_area_ratio=0.25,
@@ -47,6 +54,8 @@ def _ok_report() -> InputQualityReport:
         pitch=0.0,
         hair_bg_contrast=0.5,
         num_faces=1,
+        composition_class="half_body",
+        allowed_framings=["portrait", "half_body", "full_body"],
     )
 
 
@@ -206,8 +215,17 @@ async def test_single_pass_threads_framing_into_prompt_engine(mock_settings):
 @patch("src.orchestrator.executor.settings")
 async def test_single_pass_drops_invalid_framing(mock_settings):
     """Нежелательные токены (``square``, ``'' ``, мусор из API) должны
-    нормализоваться в ``None`` — PromptEngine затем сам решает fallback.
-    Это страхует от будущих расширений UI без контрактной координации."""
+    нормализоваться в "нет user pick" — резолвер из
+    :func:`resolve_effective_framing` затем сам подбирает фрейминг
+    исходя из ``composition_class`` + ``allowed_framings`` + флага
+    стиля ``needs_full_body``.
+
+    v1.65: жёсткий ``half_body`` fallback убрали. Стиль ``motorcycle``
+    имеет ``needs_full_body=True``, фотореп классифицирован как
+    HALF_BODY (allowed = portrait/half_body/full_body), поэтому
+    резолвер бустит до ``full_body``. Тест пинит этот сценарий
+    защитой от регресса (раньше invalid framing коллапсировал в
+    ``half_body``, что для full-body стиля портило сцену)."""
     _base_settings(mock_settings)
     image_gen = MagicMock()
     image_gen.generate = AsyncMock(return_value=_png())
@@ -229,7 +247,7 @@ async def test_single_pass_drops_invalid_framing(mock_settings):
     )
 
     _, pe_kwargs = executor._prompt_engine.build_image_prompt_v2.call_args
-    assert pe_kwargs.get("framing") == "half_body"
+    assert pe_kwargs.get("framing") == "full_body"
 
 
 @pytest.mark.asyncio
