@@ -425,34 +425,12 @@ class Settings(BaseSettings):
     # the face centre and scale on every call. Kill-switch: set to
     # False to fall back to the legacy interpretation.
     csl_padding_v2_enabled: bool = True
-    # P1.4 — prepend a percentage face-area anchor to the very first
-    # position of the prompt (early-attention slot). The cinematic
-    # ``_COMPOSITION_NUMERICAL_HINT`` covers the qualitative side
-    # (``bust shot`` / ``waist-up``); this flag adds an additional
-    # quantitative cue (``Face fills approximately 25% of the frame
-    # area``) at the prompt head, where edit-models pay the most
-    # attention.
-    #
-    # v1.70 — flipped back to ``False`` by default. The audit
-    # (``docs/ANATOMY_INVESTIGATION.md`` F1, F4) found the anchor
-    # duplicated ``_COMPOSITION_NUMERICAL_HINT`` and helped over-anchor
-    # the prompt on portrait crops. v1.70 also empties the underlying
-    # dict so even with the flag back on the block is a no-op — the
-    # flag stays here as a back-compat hatch.
-    numerical_percent_anchor_enabled: bool = False
     # P1.5 — extend ``_STUDIO_PORTRAIT_STYLE_KEYS`` beyond the two
     # legacy styles to all career-class portraits where tight crop is
     # the intended creative output. When True the wider whitelist
     # forces ``portrait`` framing policy for the listed styles.
     # v1.69 — flipped to True by default.
     studio_portrait_whitelist_v2: bool = True
-    # P2.8 — switch ``PHOTOREAL_BLOCK`` from a single static string
-    # to a per-framing dict (portrait → 85mm short-telephoto, half_body
-    # → 50-70mm moderate DoF, full_body → 35-50mm deeper DoF). Each
-    # framing gets the lens that maps to the cinematic anchor for that
-    # shot. Off → legacy single-block behaviour. v1.69 — flipped to
-    # True by default.
-    photoreal_by_framing_enabled: bool = True
     # P2.9 — insert ``LIGHT_MATCH_CLAUSE`` before ``IDENTITY_PRESERVE_BLOCK``
     # to explicitly instruct the model to match the subject's lighting
     # to the scene's ambient light (colour temperature, direction,

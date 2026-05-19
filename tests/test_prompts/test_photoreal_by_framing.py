@@ -4,7 +4,7 @@ The v1.68 P2.8 per-framing block was removed in v1.70 (audit:
 ``docs/ANATOMY_INVESTIGATION.md`` F3). The block no longer carries
 focal length or DoF; ``_PHOTOREAL_BY_FRAMING`` is retained for
 import-compatibility but every entry points at the single
-``PHOTOREAL_BLOCK`` so ``photoreal_by_framing_enabled`` is a no-op.
+``PHOTOREAL_BLOCK``.
 
 Contracts pinned here:
 
@@ -14,16 +14,18 @@ Contracts pinned here:
 * ``PHOTOREAL_BLOCK`` does NOT contain ``85mm`` / ``50-70mm`` /
   ``35-50mm`` lens descriptors or ``shallow depth of field``.
 * Every entry of ``_PHOTOREAL_BY_FRAMING`` is identical to
-  ``PHOTOREAL_BLOCK`` — the per-framing dict is now a stub.
-* The flag ``photoreal_by_framing_enabled`` is effectively a no-op:
-  ON and OFF produce the same wire prompt for every framing.
+  ``PHOTOREAL_BLOCK`` — the per-framing dict is now a stub kept
+  as a regression marker (any divergence is caught here).
+* The wire prompt for every framing carries the skin-texture
+  anchor and no lens descriptor. (Until v1.70.3 this property
+  was gated by the ``photoreal_by_framing_enabled`` flag; the
+  flag was removed in v1.70.4 once it became a verified no-op.)
 """
 
 from __future__ import annotations
 
 import pytest
 
-from src.config import settings
 from src.models.enums import AnalysisMode
 from src.prompts.engine import PromptEngine
 from src.prompts.image_gen import (
@@ -107,20 +109,26 @@ def test_per_framing_dict_is_no_op():
         )
 
 
-@pytest.mark.parametrize("flag", [True, False])
 @pytest.mark.parametrize("framing", ["portrait", "half_body", "full_body"])
-def test_flag_is_no_op_on_wire_prompt(flag: bool, framing: str, monkeypatch):
-    """``photoreal_by_framing_enabled`` produces the same prompt either way."""
-    monkeypatch.setattr(settings, "photoreal_by_framing_enabled", flag)
+def test_wire_prompt_has_skin_anchor_and_no_lens(framing: str):
+    """Every framing must carry the skin-texture anchor and no lens token.
+
+    This used to be a parametrized test over the
+    ``photoreal_by_framing_enabled`` flag — both ON and OFF were
+    expected to produce the same wire prompt. The flag was removed
+    in v1.70.4 because it was a verified no-op (every entry of
+    ``_PHOTOREAL_BY_FRAMING`` equals ``PHOTOREAL_BLOCK``), so the
+    parametrisation now covers only the framings.
+    """
     style = _pick_non_doc_style()
     prompt = PromptEngine().build_image_prompt(
         AnalysisMode.DATING, style=style, gender="male", framing=framing,
     )
     assert "85mm" not in prompt, (
-        f"flag={flag} framing={framing!r}: lens descriptor leaked.\n"
+        f"framing={framing!r}: lens descriptor leaked.\n"
         f"Prompt: {prompt!r}"
     )
     assert "Authentic skin texture" in prompt, (
-        f"flag={flag} framing={framing!r}: skin-texture anchor missing.\n"
+        f"framing={framing!r}: skin-texture anchor missing.\n"
         f"Prompt: {prompt!r}"
     )

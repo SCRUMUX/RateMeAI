@@ -103,32 +103,29 @@ _MODEL_DEFAULT_TAIL = {
 def _resolve_tail(ir: CompositionIR, model: str) -> str:
     """Pick the right quality/identity tail for ``model``.
 
-    v1.68 — P2.8: when ``settings.photoreal_by_framing_enabled`` is
-    True AND the style has not supplied an explicit per-model tail
-    override AND has not supplied a style-level
-    ``quality_identity.base`` override, the resolver swaps the legacy
-    static ``PHOTOREAL_BLOCK`` for the framing-specific entry in
-    :data:`_PHOTOREAL_BY_FRAMING`. Off → legacy single-block
-    behaviour, byte-for-byte unchanged.
+    Resolution order:
+
+    1. ``ir.per_model_tail_map[model]`` — explicit per-model override
+       on the style.
+    2. ``ir.quality_identity_base``    — style-level common tail.
+    3. ``_MODEL_DEFAULT_TAIL[model]``  — global default
+       (``PHOTOREAL_BLOCK`` for every model in v1.70+).
+
+    v1.68 P2.8 introduced a fourth tier that swapped ``PHOTOREAL_BLOCK``
+    for the per-framing :data:`_PHOTOREAL_BY_FRAMING` entry, gated on
+    ``settings.photoreal_by_framing_enabled``. v1.70 collapsed every
+    entry of that dict to ``PHOTOREAL_BLOCK`` (the per-framing lens
+    spec was the dominant head-cue), making the flag a no-op. The
+    v1.71 cleanup drops the flag and the dead branch — the
+    ``_PHOTOREAL_BY_FRAMING`` dict survives in ``image_gen`` purely
+    as a regression marker that ``test_photoreal_by_framing`` asserts
+    equals ``PHOTOREAL_BLOCK`` for every framing.
     """
     override = ir.per_model_tail_map.get(model)
     if override:
         return override
     if ir.quality_identity_base:
         return ir.quality_identity_base
-    try:
-        from src.config import settings as _settings
-        _photoreal_by_framing_on = bool(
-            getattr(_settings, "photoreal_by_framing_enabled", False)
-        )
-    except Exception:
-        _photoreal_by_framing_on = False
-    if (
-        _photoreal_by_framing_on
-        and ir.framing
-        and ir.framing in ig._PHOTOREAL_BY_FRAMING
-    ):
-        return ig._PHOTOREAL_BY_FRAMING[ir.framing]
     return _MODEL_DEFAULT_TAIL.get(model, _MODEL_DEFAULT_TAIL["gpt_image_2"])
 
 

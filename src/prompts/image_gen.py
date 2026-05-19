@@ -256,10 +256,13 @@ PHOTOREAL_BLOCK = (
 # v1.70 audit (docs/ANATOMY_INVESTIGATION.md) concluded that lens
 # tokens are not a useful lever against the "huge head" pathology —
 # they only over-anchored portrait perspective without compensating
-# benefit. The dict is preserved for backward compatibility with
-# imports and ``settings.photoreal_by_framing_enabled``; all three
-# entries now point at the single :data:`PHOTOREAL_BLOCK` so the
-# flag becomes a no-op.
+# benefit. v1.70 made every entry equal :data:`PHOTOREAL_BLOCK`,
+# which collapsed the ``photoreal_by_framing_enabled`` flag into a
+# no-op. v1.70.4 then removed the flag and the gate in
+# ``model_wrappers._resolve_tail``. The dict itself survives purely
+# as a regression marker: ``test_photoreal_by_framing`` asserts each
+# entry still equals ``PHOTOREAL_BLOCK`` so a future re-introduction
+# of per-framing lens specs is caught immediately.
 _PHOTOREAL_BY_FRAMING: dict[str, str] = {
     "portrait": PHOTOREAL_BLOCK,
     "half_body": PHOTOREAL_BLOCK,
@@ -1503,9 +1506,14 @@ _POSE_BY_FRAMING: dict[str, str] = {
 # the cinematic ``_COMPOSITION_NUMERICAL_HINT`` (now also gone) in
 # the numeric channel. Removing both leaves geometric anchoring to
 # ``reference_preprocess.pad_reference_for_framing`` which lays out
-# the canvas spatially. Dict preserved for backward compat and the
-# ``numerical_percent_anchor_enabled`` flag — empty value means the
-# block is silently skipped by ``model_wrappers._assemble``.
+# the canvas spatially.
+#
+# v1.70.3 dropped the unreachable ``if framing in <empty dict>:``
+# branch from ``model_wrappers._assemble``; v1.70.4 also removed
+# the ``numerical_percent_anchor_enabled`` flag in ``config`` since
+# it had no consumer left. The dict itself stays as a regression
+# marker — ``tests/test_prompts/`` asserts it remains empty so a
+# future PR cannot silently bring the 6%-anchor back.
 _FACE_AREA_ANCHOR_BY_FRAMING: dict[str, str] = {}
 
 

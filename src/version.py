@@ -6346,4 +6346,32 @@
 #          prompt because the deleted branches never ran. Verified
 #          locally with the 30-style golden fixtures and the full
 #          2466-test suite (0 failures).
-APP_VERSION = "1.70.3"
+# 1.70.4 — Remove flags that became no-op after 1.70 / 1.70.3
+#          (Stage 4 of audit fix-up). Two ``settings`` knobs are
+#          dropped:
+#
+#          * ``numerical_percent_anchor_enabled`` — gated the
+#            ``_FACE_AREA_ANCHOR_BY_FRAMING`` injection. v1.70
+#            emptied the dict and v1.70.3 removed the assembler
+#            branch, leaving the flag with zero consumers in
+#            production. Default was already ``False``.
+#          * ``photoreal_by_framing_enabled`` — gated the per-framing
+#            tail swap in ``model_wrappers._resolve_tail``. v1.70
+#            collapsed every entry of ``_PHOTOREAL_BY_FRAMING`` to
+#            ``PHOTOREAL_BLOCK`` so the gate was a verified no-op
+#            (the ``test_flag_is_no_op_on_wire_prompt`` parametrised
+#            test asserted it for every framing × ON/OFF in the
+#            test suite for a full release cycle).
+#
+#          The companion ``test_flag_is_no_op_on_wire_prompt`` is
+#          renamed to ``test_wire_prompt_has_skin_anchor_and_no_lens``
+#          and parametrised only on framing — the flag dimension
+#          collapsed naturally. The ``_PHOTOREAL_BY_FRAMING`` dict
+#          and the ``_FACE_AREA_ANCHOR_BY_FRAMING={}`` /
+#          ``_COMPOSITION_NUMERICAL_HINT={}`` markers survive in
+#          ``image_gen`` purely as regression guards: tests assert
+#          they remain in the expected shape so a future PR cannot
+#          silently bring the v1.65/v1.68 head-cue cluster back.
+#
+#          Wire prompt: byte-for-byte identical to 1.70.3.
+APP_VERSION = "1.70.4"
