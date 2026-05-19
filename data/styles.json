@@ -7956,7 +7956,7 @@
     "id": "corporate",
     "mode": "cv",
     "type": "flexible",
-    "base_scene": "modern corner office, floor-to-ceiling windows with diffused diffused daylight, neutral beige wall, clean minimalist interior",
+    "base_scene": "modern corner office, floor-to-ceiling windows with diffused daylight, neutral beige wall, clean minimalist interior",
     "default_clothing": "tailored formal charcoal suit, crisp white shirt, subtle tie or silk scarf, well-fitted across the shoulders",
     "expression": "Confident open gaze, professional natural half-smile, relaxed mouth line.",
     "allowed_variations": {
@@ -7995,7 +7995,7 @@
     "schema_version": 3,
     "trigger": "corporate",
     "background": {
-      "base": "modern corner office, floor-to-ceiling windows with diffused diffused daylight, neutral beige wall, clean minimalist interior",
+      "base": "modern corner office, floor-to-ceiling windows with diffused daylight, neutral beige wall, clean minimalist interior",
       "lock": "semi",
       "overrides_allowed": [
         "modern corner office with floor-to-ceiling windows",
@@ -8038,9 +8038,9 @@
       "per_model_tail": {}
     },
     "trigger_pool": [
-      "modern corner office, floor-to-ceiling windows with diffused diffused daylight, neutral beige wall, clean minimalist interior"
+      "modern corner office, floor-to-ceiling windows with diffused daylight, neutral beige wall, clean minimalist interior"
     ],
-    "scene_anchor": "modern corner office, floor-to-ceiling windows with diffused diffused daylight, neutral beige wall, clean minimalist interior",
+    "scene_anchor": "modern corner office, floor-to-ceiling windows with diffused daylight, neutral beige wall, clean minimalist interior",
     "scene_overrides": [
       "modern corner office with floor-to-ceiling windows",
       "executive office lobby with marble wall"

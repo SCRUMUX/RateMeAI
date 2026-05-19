@@ -53,9 +53,13 @@ def compress_prompt(prompt: str) -> str:
 
     compressed = re.sub(r"\s+", " ", compressed).strip()
 
-    # Fix punctuation (remove spaces before punctuation, remove duplicate commas)
+    # Fix punctuation (remove spaces before punctuation, remove duplicate commas).
+    # The "insert space after punctuation" rule must NOT fire between digits
+    # — splitting ``2.5%`` into ``2. 5%`` or ``5,000`` into ``5, 000`` would
+    # corrupt percentage anchors (v1.68 face-area anchor) and numeric specs.
+    # Hence the negative lookbehind ``(?<!\d)`` that keeps decimals intact.
     compressed = re.sub(r"\s+([.,!?;:])", r"\1", compressed)
-    compressed = re.sub(r"([.,!?;:])(?=[^\s])", r"\1 ", compressed)
+    compressed = re.sub(r"(?<!\d)([.,!?;:])(?=[^\s])", r"\1 ", compressed)
     compressed = re.sub(r",(\s*,)+", ",", compressed)
     compressed = re.sub(r"\.(\s*\.)+", ".", compressed)
 

@@ -174,6 +174,46 @@ _WARDROBE_SHOULDER_CUE_PATTERN = re.compile(
 )
 
 
+# v1.68 — DOUBLED_WORD. Catches accidental adjacent repetitions like
+# ``diffused diffused daylight`` or ``warm warm sunlight``. The
+# 2026_06_styles_cleanup migration removes existing instances; this
+# lint protects against new ones sneaking back via admin edits.
+# Pattern: any word (\w+) followed by whitespace and an identical
+# word, case-insensitive. The duplication is the user-visible defect
+# (the token costs prompt budget without adding signal) — never a
+# legitimate pattern in a curated catalog.
+_DOUBLED_WORD_RE = re.compile(r"\b(\w+)\s+\1\b", re.IGNORECASE)
+
+
+# v1.68 — SCENE_LIGHTING_DUPLICATE. The plan's P1.6 audit flagged 22
+# styles whose ``scene_anchor`` carries a lighting cue (``golden
+# sunset``, ``diffused daylight``) AND whose ``available_channels``
+# enables ``lighting`` (so the sampler also rolls a separate lighting
+# string). When both fire the wire prompt receives two lighting
+# recipes; edit models tend to render a hybrid that satisfies neither.
+# Warning-severity (not error) because the scene-narrative often needs
+# the lighting cue for coherence — curator may legitimately keep it.
+_SCENE_LIGHTING_TOKENS: tuple[str, ...] = (
+    "golden sunset",
+    "warm sunset",
+    "golden hour",
+    "blue hour",
+    "morning golden",
+    "warm tungsten",
+    "diffused daylight",
+    "diffused window light",
+    "natural daylight",
+    "soft golden",
+    "warm afternoon",
+    "warm rim light",
+    "rim light",
+    "warm key light",
+    "ambient lighting",
+    "candlelight",
+    "ring light",
+)
+
+
 class LintIssue(TypedDict):
     code: str
     severity: str  # "error" | "warning"
@@ -278,6 +318,31 @@ def _hits(text: str, tokens: tuple[str, ...]) -> list[str]:
     return [t for t in tokens if t in haystack]
 
 
+def _iter_string_fields(obj: Any, path: list[str | int]):
+    """Recursively yield ``(dotted_path, str_value)`` pairs.
+
+    Used by the v1.68 ``DOUBLED_WORD`` rule which must inspect every
+    string carried by a style entry (top-level + nested under
+    ``ambient.*`` / ``channel_overrides`` / ``trigger_pool`` / etc.).
+    The dotted path stays readable in the admin warning panel so the
+    curator can navigate directly to the offending field.
+    """
+    if isinstance(obj, dict):
+        for k, v in obj.items():
+            sub = path + [k]
+            if isinstance(v, str):
+                yield ".".join(str(p) for p in sub), v
+            else:
+                yield from _iter_string_fields(v, sub)
+    elif isinstance(obj, list):
+        for i, v in enumerate(obj):
+            sub = path + [i]
+            if isinstance(v, str):
+                yield ".".join(str(p) for p in sub), v
+            else:
+                yield from _iter_string_fields(v, sub)
+
+
 def lint_style(raw: dict[str, Any]) -> list[LintIssue]:
     """Audit one style entry. Returns a list of :class:`LintIssue`.
 
@@ -289,6 +354,33 @@ def lint_style(raw: dict[str, Any]) -> list[LintIssue]:
     """
     issues: list[LintIssue] = []
     schema_version = int(raw.get("schema_version") or 0)
+
+    # v1.68 — DOUBLED_WORD. Walk every string field in the entry
+    # (including nested ones — ambient pools, channel overrides) and
+    # flag adjacent repetitions like ``diffused diffused``. We collect
+    # at most one issue per ``field path`` so an entry with three
+    # offending pool entries surfaces three distinct rows, but a
+    # single string with the same defect surfaces once.
+    for field_path, value in _iter_string_fields(raw, []):
+        m = _DOUBLED_WORD_RE.search(value)
+        if not m:
+            continue
+        repeated = m.group(1)
+        issues.append(
+            LintIssue(
+                code="DOUBLED_WORD",
+                severity="error",
+                message=(
+                    f"{field_path} contains the adjacent doubled word "
+                    f"{repeated!r} (in {value!r}). Run "
+                    "``python -m scripts.migrations.2026_06_styles_cleanup."
+                    "migrate`` to auto-fix, or strip the duplicate by "
+                    "hand."
+                ),
+                field=field_path,
+                detail={"word": repeated, "value": value},
+            )
+        )
 
     raw_channels = raw.get("available_channels") or []
     if isinstance(raw_channels, (list, tuple)):
@@ -395,6 +487,31 @@ def lint_style(raw: dict[str, Any]) -> list[LintIssue]:
                     detail={"tokens": framing_leaks},
                 )
             )
+
+        # v1.68 — SCENE_LIGHTING_DUPLICATE. Only fires when the
+        # ``lighting`` channel is ALSO enabled — a scene-narrative
+        # lighting cue is fine in styles whose ambient.lighting is
+        # disabled (the scene cue is then the sole light directive).
+        if CHANNEL_LIGHTING in channels:
+            lighting_leaks = _hits(scene_value, _SCENE_LIGHTING_TOKENS)
+            if lighting_leaks:
+                issues.append(
+                    LintIssue(
+                        code="SCENE_LIGHTING_DUPLICATE",
+                        severity="warning",
+                        message=(
+                            f"{scene_field} mentions lighting tokens "
+                            f"{lighting_leaks!r} while the ``lighting`` "
+                            "channel is enabled; the sampler will roll "
+                            "an additional lighting string and the wire "
+                            "prompt will carry two lighting recipes. "
+                            "Move the cue into ``ambient.lighting`` or "
+                            "drop it from the scene field."
+                        ),
+                        field=scene_field,
+                        detail={"tokens": lighting_leaks},
+                    )
+                )
 
     # v1.65 — ``QI_BASE_NONEMPTY`` / ``QI_PER_MODEL_TAIL_NONEMPTY``.
     # The v4.1 prompt pipeline funnels every photo style through the

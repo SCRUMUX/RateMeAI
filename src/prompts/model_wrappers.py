@@ -144,6 +144,22 @@ def _assemble(ir: CompositionIR, *, tail: str) -> str:
         parts.append(ig.DOC_PRESERVE)
         parts.append(ig.DOC_QUALITY)
     else:
+        # v1.68 — P1.4: quantitative face-area anchor at the VERY
+        # head of the prompt. Behind ``numerical_percent_anchor_enabled``
+        # so Phase 2 rollout can enable it on top of the Phase 1
+        # geometry fix. Document styles get their own
+        # ``_DOC_COMPOSITION_HINT`` so they bypass this branch.
+        if ir.framing and ir.framing in ig._FACE_AREA_ANCHOR_BY_FRAMING:
+            try:
+                from src.config import settings as _settings
+                _anchor_on = bool(
+                    getattr(_settings, "numerical_percent_anchor_enabled", False)
+                )
+            except Exception:
+                _anchor_on = False
+            if _anchor_on:
+                parts.append(ig._FACE_AREA_ANCHOR_BY_FRAMING[ir.framing])
+
         if ir.change_instruction:
             parts.append(ir.change_instruction)
 
@@ -151,8 +167,8 @@ def _assemble(ir: CompositionIR, *, tail: str) -> str:
         # the document-path ``_DOC_COMPOSITION_HINT`` so edit-models
         # receive an explicit ``Reframe the reference into …`` directive
         # with cinematic shot vocabulary (``bust shot`` / ``waist-up
-        # shot`` / ``full-length standing shot``) and a physical lens
-        # spec (``85mm short-telephoto lens`` / ``35mm``). This stops
+        # shot`` / ``full-length standing shot``). v1.68 dropped the
+        # in-anchor lens spec (PHOTOREAL_BLOCK owns it now). This stops
         # them replicating the tight-selfie head/torso ratio.
         #
         # v1.67 — composition anchor stays first AND is no longer

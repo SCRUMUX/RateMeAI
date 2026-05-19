@@ -1240,9 +1240,51 @@ _STUDIO_PORTRAIT_STYLE_KEYS: frozenset[str] = frozenset(
 )
 
 
+# v1.68 — extended whitelist gated by
+# ``settings.studio_portrait_whitelist_v2``. These additional career
+# styles share the same design intent as the v1.66 whitelist (a
+# controlled environment, formal wardrobe, classic head-and-shoulders
+# composition) — but they were historically left out, which meant
+# they routed to ``half_body`` framing on default uploads and
+# inherited the "huge head" pathology. With the flag on, they are
+# short-circuited to ``portrait`` framing by
+# :func:`src.services.composition_safety.resolve_effective_framing`
+# just like the v1.66 entries, and the reference-padding gate keeps
+# their intentionally tight crop intact.
+_STUDIO_PORTRAIT_STYLE_KEYS_V2: frozenset[str] = frozenset(
+    {
+        "formal_portrait",
+        "studio_elegant",
+        # New in v1.68:
+        "corporate",
+        "boardroom",
+        "legal_finance",
+        "neutral",
+        "medical",
+    }
+)
+
+
 def is_studio_portrait_style(style: str) -> bool:
-    """True для студийно-портретных стилей, освобождённых от нормализации v1.66."""
-    return (style or "").strip() in _STUDIO_PORTRAIT_STYLE_KEYS
+    """True для студийно-портретных стилей, освобождённых от нормализации v1.66.
+
+    v1.68 — when ``settings.studio_portrait_whitelist_v2`` is True the
+    extended whitelist (corporate / boardroom / legal_finance /
+    neutral / medical) is consulted on top of the v1.66 set. The flag
+    defaults to ``False`` so the rollout phase can enable it after
+    Phase 1 P0 QA bakes in.
+    """
+    key = (style or "").strip()
+    try:
+        from src.config import settings as _settings
+        _whitelist_v2_on = bool(
+            getattr(_settings, "studio_portrait_whitelist_v2", False)
+        )
+    except Exception:
+        _whitelist_v2_on = False
+    if _whitelist_v2_on:
+        return key in _STUDIO_PORTRAIT_STYLE_KEYS_V2
+    return key in _STUDIO_PORTRAIT_STYLE_KEYS
 
 
 _DOC_COMPOSITION_HINT: dict[str, str] = {
@@ -1358,6 +1400,43 @@ _COMPOSITION_NUMERICAL_HINT: dict[str, str] = {
         "visible centred in the frame at natural human head-to-body "
         "scale."
     ),
+}
+
+
+# v1.68 — P1.4: quantitative early-attention anchor for the prompt head.
+#
+# The cinematic ``_COMPOSITION_NUMERICAL_HINT`` above is the qualitative
+# half ("bust shot", "waist-up", "full-length standing") — it owns the
+# narrative composition slot of the prompt. ``_FACE_AREA_ANCHOR_BY_FRAMING``
+# is the quantitative half: a single short sentence that gives the
+# edit-model an explicit, measurable target for the face's share of
+# the canvas area. The two together mirror the document-style path,
+# where ``_DOC_COMPOSITION_HINT`` consistently produces correct
+# anatomical proportions because it hands the model BOTH "face fills
+# X% of the frame" AND a shot vocabulary descriptor.
+#
+# Gated by ``settings.numerical_percent_anchor_enabled`` so the
+# rollout phase can enable it cleanly after Phase 1 P0 QA bakes in.
+# The anchor is emitted as the VERY FIRST sentence of the prompt by
+# ``model_wrappers._assemble`` — early-attention slot is where edit-
+# models weigh quantitative directives the most.
+#
+# The percentages here describe AREA (width × height), not height
+# alone, so they roughly square the ``face_height_ratio`` values
+# in :data:`src.services.reference_preprocess._FRAMING_GEOMETRY`:
+#
+#   portrait : face_height_ratio=0.28 → area ≈ 0.28² × 0.7 ≈ 6-8%
+#              (real-world face ≈ 7-8% body-width / canvas-width on a
+#              bust shot, so ~5%). We round to a familiar "fills
+#              roughly 6% of the frame area".
+#   half_body: face_height_ratio=0.15 → area ≈ 2-3%.
+#   full_body: face_height_ratio=0.08 → area ≈ 0.5-1%.
+#
+# Rounded to user-friendly cohorts so the text is short and crisp.
+_FACE_AREA_ANCHOR_BY_FRAMING: dict[str, str] = {
+    "portrait": "Anchor: the face occupies about 6% of the frame area.",
+    "half_body": "Anchor: the face occupies about 2.5% of the frame area.",
+    "full_body": "Anchor: the face occupies about 1% of the frame area.",
 }
 
 
