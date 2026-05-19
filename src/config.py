@@ -454,6 +454,21 @@ class Settings(BaseSettings):
     # symmetrical "hero stance" framing on full_body or stiff
     # passport-style framing on portrait.
     pose_hint_enabled: bool = False
+    # P2.7 — single source of truth for output size per (model, framing).
+    # Off → legacy ``resolve_output_size`` (style-level
+    # ``output_aspect`` → ``_ASPECT_PIXEL_SIZE``) drives the request,
+    # which lets each provider snap differently (GPT-2 snaps 1280×1600
+    # to 1024×1536 ≈ 2:3, NB2 with ``aspect_ratio=auto`` projects to
+    # the closest enum). On → executor consults
+    # ``_OUTPUT_SIZE_BY_MODEL_FRAMING`` and:
+    #   * GPT Image 2 receives the model's native portrait pixel size
+    #     (1024×1536) so there is no snap.
+    #   * Nano Banana 2 receives a concrete ``aspect_ratio`` enum +
+    #     ``resolution`` tier instead of ``auto``.
+    # Each generation result also carries an ``effective_aspect_ratio``
+    # string so the web client can crop previews to the actual canvas
+    # the model produced. Independent of the other v1.68 flags.
+    output_size_ssot_enabled: bool = False
 
     # Legacy prompt_strength (unused in edit mode)
     image_gen_strength: float = 0.45

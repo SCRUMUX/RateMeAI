@@ -187,6 +187,30 @@ IDENTITY_PRESERVE_BLOCK = (
     "undertone."
 )
 
+
+# v1.68 — P2.9 light-matching clause.
+#
+# The legacy ``PHOTOREAL_BLOCK`` already includes a brief
+# "scene's ambient light grounds the subject" sentence, but its
+# wording is generic enough that edit-models routinely fall back
+# to a default studio key light when the reference photo carries a
+# different light recipe than the requested scene (the
+# "studio key-light on a sunset terrace" pathology surfaced in the
+# May 2026 image-quality audit).
+#
+# This dedicated clause is sharper: it names the three axes that
+# matter for perceived realism — colour temperature, direction,
+# softness — and explicitly forbids overriding them with a studio
+# key light unless the scene says so. Inserted immediately BEFORE
+# :data:`IDENTITY_PRESERVE_BLOCK` so it lives at the tail of the
+# prompt where edit-models weigh it heavily via recency bias.
+# Gated on ``settings.light_match_clause_enabled``.
+LIGHT_MATCH_CLAUSE = (
+    "Match the subject's lighting to the scene's ambient light — "
+    "colour temperature, direction, and softness — and do not add a "
+    "studio key light unless the scene explicitly contains one."
+)
+
 # Photoreal block (v1.66, ~340 chars).
 # v1.65 swapped the camera anchor from ``50mm lens at eye level`` to
 # ``85mm portrait lens at chest height``. The 50mm-at-eye-level pair
@@ -218,6 +242,56 @@ PHOTOREAL_BLOCK = (
     "temperature, and soft contact shadows where the body meets the "
     "ground."
 )
+
+
+# v1.68 — P2.8 per-framing photoreal block.
+#
+# The legacy ``PHOTOREAL_BLOCK`` above pinned every framing to an
+# 85mm short-telephoto and a shallow DoF — that combination is
+# correct for ``portrait`` but actively wrong for ``half_body``
+# (50-70mm reads more like a real waist-up snapshot, with mid-DoF
+# context still legible) and especially ``full_body`` (a 35-50mm
+# eye-level walk-up is what real candids look like, with a deeper
+# DoF so the scene context stays sharp behind the subject).
+#
+# Mapping rationale — focal length matches the cinematic anchor:
+#   * portrait   — 85mm short-telephoto, shallow DoF.
+#   * half_body  — 50-70mm normal-to-short-telephoto, moderate DoF.
+#   * full_body  — 35-50mm normal-wide, deeper DoF, scene context.
+#
+# Skin-texture and lighting-integration clauses are identical
+# across framings — they are body-agnostic photoreal anchors, not
+# lens choices. Gated by ``settings.photoreal_by_framing_enabled``;
+# off → ``model_wrappers._assemble`` keeps emitting the legacy block.
+_PHOTOREAL_BY_FRAMING: dict[str, str] = {
+    "portrait": (
+        "Photo style: 85mm short-telephoto lens at chest height, "
+        "shallow depth of field with the subject in sharp focus and "
+        "background softly out of focus. Authentic skin texture with "
+        "visible pores and small natural imperfections. The scene's "
+        "ambient light grounds the subject with consistent direction, "
+        "matching colour temperature, and soft contact shadows where "
+        "the body meets the ground."
+    ),
+    "half_body": (
+        "Photo style: 50-70mm normal-to-short-telephoto lens at chest "
+        "height, moderate depth of field with the subject in sharp "
+        "focus while the scene context stays legible. Authentic skin "
+        "texture with visible pores and small natural imperfections. "
+        "The scene's ambient light grounds the subject with consistent "
+        "direction, matching colour temperature, and soft contact "
+        "shadows where the body meets the ground."
+    ),
+    "full_body": (
+        "Photo style: 35-50mm normal-wide lens at eye-level, deeper "
+        "depth of field so the full scene context stays sharp behind "
+        "the subject. Authentic skin texture with visible pores and "
+        "small natural imperfections. The scene's ambient light "
+        "grounds the subject with consistent direction, matching "
+        "colour temperature, and soft contact shadows where the body "
+        "meets the ground."
+    ),
+}
 
 
 # Natural-expression fallback. Used by ``composition_builder`` when
@@ -1399,6 +1473,36 @@ _COMPOSITION_NUMERICAL_HINT: dict[str, str] = {
         "of the canvas height with the torso, legs and feet all "
         "visible centred in the frame at natural human head-to-body "
         "scale."
+    ),
+}
+
+
+# v1.68 — P2.10 per-framing pose hint.
+#
+# Edit-models default to symmetrical "hero stance" framing on
+# full_body shots (feet centred, shoulders squared, weight even)
+# and stiff "passport-mug" framing on tight portraits (eyes dead
+# centre, head perfectly straight). Both read as obviously
+# AI-generated even when every other anchor is correct.
+# ``_POSE_BY_FRAMING`` anchors a relaxed natural posture so the
+# model produces candid-looking body language by default. Hints
+# are short and additive — they only nudge body geometry, never
+# the wardrobe or expression channels. Emitted by
+# ``model_wrappers._assemble`` immediately AFTER the wardrobe line
+# (the natural place for body geometry) and gated on
+# ``settings.pose_hint_enabled``.
+_POSE_BY_FRAMING: dict[str, str] = {
+    "portrait": (
+        "Pose: relaxed natural posture, shoulders slightly angled, "
+        "head subtly turned off the central axis."
+    ),
+    "half_body": (
+        "Pose: relaxed standing pose with a slight weight shift, "
+        "hands visible or naturally placed at the sides."
+    ),
+    "full_body": (
+        "Pose: comfortable standing pose with weight on one leg, "
+        "natural casual posture, no symmetrical hero stance."
     ),
 }
 

@@ -142,6 +142,92 @@ def _aspect_ratio_enum_for_size(width: int, height: int) -> str:
     return min(_NB2_ASPECT_BUCKETS, key=lambda b: abs(b[0] - target))[1]
 
 
+# ---------------------------------------------------------------------------
+# v1.68 — P2.7 Output-size single source of truth.
+# ---------------------------------------------------------------------------
+#
+# Before v1.68 the pipeline used a single resolver
+# (:func:`resolve_output_size` in ``image_gen.py``) that emitted a
+# ``{width, height}`` dict derived from the style's ``output_aspect``
+# (e.g. ``portrait_4_3`` → ``1280×1600``). Both web and bot then
+# routed the dict to the providers verbatim, but each provider
+# coerced it differently:
+#
+# * GPT Image 2 Edit refuses arbitrary sizes; it snaps the request to
+#   the closest of its native portrait (1024×1536, 2:3) /
+#   square (1024×1024) / landscape (1536×1024) presets. So a 4:5
+#   request silently became 2:3 in the output canvas.
+# * Nano Banana 2 Edit accepts ``aspect_ratio`` + ``resolution``
+#   instead of ``image_size``; with no enum supplied it falls through
+#   to ``auto`` and the model picks 1:1 for portrait references —
+#   cropping the head off long-format compositions.
+#
+# Net effect: the canvas the user actually saw could differ from the
+# canvas the style intended, and differed BETWEEN models for the same
+# style + framing. The v1.68 SSOT pins each (model, framing) pair to
+# the provider's NATIVE portrait pixel grid:
+#
+#   gpt_image_2 + portrait/half_body/full_body → 1024×1536 (2:3 native)
+#   nano_banana_2 + portrait/half_body/full_body → AR "4:5", res "2K"
+#
+# Each pair also carries the ``effective_aspect_ratio`` string the
+# CALLER sees, so web / bot can crop preview cards to the actual
+# canvas the model produced rather than a stale style-level
+# expectation. CV mode (document styles) intentionally bypasses the
+# table — vendor policy framing is non-negotiable.
+_OUTPUT_SIZE_BY_MODEL_FRAMING: dict[tuple[str, str], dict[str, Any]] = {
+    ("gpt_image_2", "portrait"): {
+        "image_size": {"width": 1024, "height": 1536},
+        "effective_aspect_ratio": "2:3",
+    },
+    ("gpt_image_2", "half_body"): {
+        "image_size": {"width": 1024, "height": 1536},
+        "effective_aspect_ratio": "2:3",
+    },
+    ("gpt_image_2", "full_body"): {
+        "image_size": {"width": 1024, "height": 1536},
+        "effective_aspect_ratio": "2:3",
+    },
+    ("nano_banana_2", "portrait"): {
+        "aspect_ratio": "4:5",
+        "resolution": "2K",
+        "effective_aspect_ratio": "4:5",
+    },
+    ("nano_banana_2", "half_body"): {
+        "aspect_ratio": "4:5",
+        "resolution": "2K",
+        "effective_aspect_ratio": "4:5",
+    },
+    ("nano_banana_2", "full_body"): {
+        "aspect_ratio": "4:5",
+        "resolution": "2K",
+        "effective_aspect_ratio": "4:5",
+    },
+}
+
+
+def _resolve_output_size_ssot(
+    *,
+    model: str | None,
+    framing: str | None,
+) -> dict[str, Any] | None:
+    """Look up the (model, framing) → provider-side request shape.
+
+    Returns ``None`` when the SSOT does not cover the requested pair
+    — callers must then fall back to the legacy
+    ``resolve_output_size`` + ``_aspect_ratio_enum_for_size`` path.
+    The returned dict may contain ``image_size`` (GPT-2 native size),
+    ``aspect_ratio`` + ``resolution`` (NB2 enum + tier), and always
+    ``effective_aspect_ratio`` (the canvas the model actually emits).
+    """
+    if not model or not framing:
+        return None
+    entry = _OUTPUT_SIZE_BY_MODEL_FRAMING.get((str(model), str(framing)))
+    if entry is None:
+        return None
+    return dict(entry)
+
+
 def _apply_local_postprocess(
     raw: bytes,
     mode: AnalysisMode,
@@ -743,6 +829,47 @@ class ImageGenerationExecutor:
                     settings, "ab_default_quality", "medium"
                 )
                 extra["allow_cross_model_fallback"] = allow_cross_model_fallback
+
+                # v1.68 — P2.7 SSOT: when the feature flag is on AND the
+                # style is not a document style, the (model, framing)
+                # table pins the request shape so the canvas the user
+                # sees no longer drifts between providers (see the
+                # comment above ``_OUTPUT_SIZE_BY_MODEL_FRAMING``). The
+                # legacy code below stays untouched as the fallback for
+                # the SSOT-miss case AND for the rollback-via-flag
+                # scenario.
+                ssot_applied = False
+                try:
+                    _ssot_on = bool(
+                        getattr(settings, "output_size_ssot_enabled", False)
+                    )
+                except Exception:
+                    _ssot_on = False
+                if _ssot_on and mode != AnalysisMode.CV:
+                    ssot = _resolve_output_size_ssot(
+                        model=ab_image_model,
+                        framing=framing_norm,
+                    )
+                    if ssot is not None:
+                        if "image_size" in ssot:
+                            extra["image_size"] = ssot["image_size"]
+                            output_size = ssot["image_size"]  # for cost label
+                        if "aspect_ratio" in ssot:
+                            extra["aspect_ratio"] = ssot["aspect_ratio"]
+                        if "resolution" in ssot:
+                            extra["resolution"] = ssot["resolution"]
+                        eff_ar = ssot.get("effective_aspect_ratio")
+                        if eff_ar:
+                            result_dict["effective_aspect_ratio"] = eff_ar
+                        ssot_applied = True
+                        logger.info(
+                            "image_size SSOT model=%s framing=%s "
+                            "applied=%s",
+                            ab_image_model,
+                            framing_norm,
+                            sorted(ssot.keys()),
+                        )
+
                 # v1.23: derive a Nano Banana 2 aspect_ratio enum from
                 # the resolved StyleSpec output_size. NB2 does NOT
                 # accept a raw ``{width, height}`` — it needs an enum
@@ -752,7 +879,11 @@ class ImageGenerationExecutor:
                 # crops the head and drops identity match. GPT Image 2
                 # uses ``image_size`` (already in ``extra``) — no-op
                 # here for that provider.
-                if output_size and not extra.get("aspect_ratio"):
+                if (
+                    not ssot_applied
+                    and output_size
+                    and not extra.get("aspect_ratio")
+                ):
                     extra["aspect_ratio"] = _aspect_ratio_enum_for_size(
                         output_size["width"],
                         output_size["height"],

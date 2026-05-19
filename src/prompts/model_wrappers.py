@@ -91,12 +91,34 @@ _MODEL_DEFAULT_TAIL = {
 
 
 def _resolve_tail(ir: CompositionIR, model: str) -> str:
-    """Pick the right quality/identity tail for ``model``."""
+    """Pick the right quality/identity tail for ``model``.
+
+    v1.68 — P2.8: when ``settings.photoreal_by_framing_enabled`` is
+    True AND the style has not supplied an explicit per-model tail
+    override AND has not supplied a style-level
+    ``quality_identity.base`` override, the resolver swaps the legacy
+    static ``PHOTOREAL_BLOCK`` for the framing-specific entry in
+    :data:`_PHOTOREAL_BY_FRAMING`. Off → legacy single-block
+    behaviour, byte-for-byte unchanged.
+    """
     override = ir.per_model_tail_map.get(model)
     if override:
         return override
     if ir.quality_identity_base:
         return ir.quality_identity_base
+    try:
+        from src.config import settings as _settings
+        _photoreal_by_framing_on = bool(
+            getattr(_settings, "photoreal_by_framing_enabled", False)
+        )
+    except Exception:
+        _photoreal_by_framing_on = False
+    if (
+        _photoreal_by_framing_on
+        and ir.framing
+        and ir.framing in ig._PHOTOREAL_BY_FRAMING
+    ):
+        return ig._PHOTOREAL_BY_FRAMING[ir.framing]
     return _MODEL_DEFAULT_TAIL.get(model, _MODEL_DEFAULT_TAIL["gpt_image_2"])
 
 
@@ -191,6 +213,22 @@ def _assemble(ir: CompositionIR, *, tail: str) -> str:
         if ir.clothing:
             parts.append(f"Wardrobe: {ir.clothing}.")
 
+        # v1.68 — P2.10 per-framing pose hint, emitted right after
+        # wardrobe (the natural slot for body-geometry directives).
+        # Gated on ``settings.pose_hint_enabled``. The hint is short
+        # enough to leave room for the expression line below; without
+        # the flag, the wire prompt is byte-for-byte unchanged.
+        if ir.framing and ir.framing in ig._POSE_BY_FRAMING:
+            try:
+                from src.config import settings as _settings
+                _pose_hint_on = bool(
+                    getattr(_settings, "pose_hint_enabled", False)
+                )
+            except Exception:
+                _pose_hint_on = False
+            if _pose_hint_on:
+                parts.append(ig._POSE_BY_FRAMING[ir.framing])
+
         if ir.expression:
             parts.append(ir.expression)
 
@@ -203,6 +241,22 @@ def _assemble(ir: CompositionIR, *, tail: str) -> str:
 
         if tail:
             parts.append(tail)
+
+        # v1.68 — P2.9 LIGHT_MATCH_CLAUSE. Inserted right before
+        # IDENTITY_PRESERVE_BLOCK so the clause sits at the tail of
+        # the prompt (recency bias) but identity still gets the very
+        # last word — keeps identity preservation strictly above
+        # lighting realism when the two conflict. Gated on
+        # ``settings.light_match_clause_enabled``.
+        try:
+            from src.config import settings as _settings
+            _light_match_on = bool(
+                getattr(_settings, "light_match_clause_enabled", False)
+            )
+        except Exception:
+            _light_match_on = False
+        if _light_match_on:
+            parts.append(ig.LIGHT_MATCH_CLAUSE)
 
         # v1.67 — identity-preserve at the tail. Empirical audit of
         # v1.66 generations showed that placing identity right after
