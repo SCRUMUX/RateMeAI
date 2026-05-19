@@ -406,16 +406,17 @@ class Settings(BaseSettings):
 
     # ------------------------------------------------------------------
     # v1.68 — image-quality systemic fix (May 2026).
-    # Six independent feature flags, each gating one piece of the audit
-    # remediation plan. Default values are chosen so that:
-    #   * ``csl_padding_v2_enabled`` ships ON (it fixes a contract
-    #     bug — the legacy x,y,w,h interpretation of an x1,y1,x2,y2
-    #     tuple was outright incorrect; rolling forward is the safer
-    #     default). Set to False to fall back to the legacy path.
-    #   * All other flags ship OFF; they introduce new prompt content
-    #     or new policy that needs ~24-48h of manual QA between phases.
-    # Each phase of the rollout flips the matching flag(s) to True
-    # after its QA window passes.
+    # Seven independent feature flags, each gating one piece of the
+    # audit remediation plan. Defaults were initially staged (only
+    # ``csl_padding_v2_enabled`` shipped on so each prompt-level change
+    # could bake under a 24-48h QA window). v1.69 (May 2026) audit
+    # showed the prompt-level changes never reached production because
+    # no env override was applied; the staging was the bottleneck, not
+    # any specific regression in the flagged code. All six remaining
+    # flags are now flipped to True by default so the full remediation
+    # is active out of the box. Each flag is still individually
+    # toggleable via ``<FLAG_NAME>=false`` env override for instant
+    # rollback if a specific axis regresses in production.
     # ------------------------------------------------------------------
     # P0.1 — fix ``pad_reference_for_framing`` to interpret ``face_bbox``
     # as ``(x1, y1, x2, y2)`` (the format actually produced by
@@ -430,30 +431,33 @@ class Settings(BaseSettings):
     # (``bust shot`` / ``waist-up``); this flag adds an additional
     # quantitative cue (``Face fills approximately 25% of the frame
     # area``) at the prompt head, where edit-models pay the most
-    # attention.
-    numerical_percent_anchor_enabled: bool = False
+    # attention. v1.69 — flipped to True by default.
+    numerical_percent_anchor_enabled: bool = True
     # P1.5 — extend ``_STUDIO_PORTRAIT_STYLE_KEYS`` beyond the two
     # legacy styles to all career-class portraits where tight crop is
     # the intended creative output. When True the wider whitelist
     # forces ``portrait`` framing policy for the listed styles.
-    studio_portrait_whitelist_v2: bool = False
+    # v1.69 — flipped to True by default.
+    studio_portrait_whitelist_v2: bool = True
     # P2.8 — switch ``PHOTOREAL_BLOCK`` from a single static string
     # to a per-framing dict (portrait → 85mm short-telephoto, half_body
     # → 50-70mm moderate DoF, full_body → 35-50mm deeper DoF). Each
     # framing gets the lens that maps to the cinematic anchor for that
-    # shot. Off → legacy single-block behaviour.
-    photoreal_by_framing_enabled: bool = False
+    # shot. Off → legacy single-block behaviour. v1.69 — flipped to
+    # True by default.
+    photoreal_by_framing_enabled: bool = True
     # P2.9 — insert ``LIGHT_MATCH_CLAUSE`` before ``IDENTITY_PRESERVE_BLOCK``
     # to explicitly instruct the model to match the subject's lighting
     # to the scene's ambient light (colour temperature, direction,
     # softness). Counters the "studio key light on a sunset terrace"
-    # failure mode.
-    light_match_clause_enabled: bool = False
+    # failure mode. v1.69 — flipped to True by default.
+    light_match_clause_enabled: bool = True
     # P2.10 — emit a per-framing pose hint after wardrobe. Anchors a
     # relaxed natural posture so the model does not default to
     # symmetrical "hero stance" framing on full_body or stiff
-    # passport-style framing on portrait.
-    pose_hint_enabled: bool = False
+    # passport-style framing on portrait. v1.69 — flipped to True
+    # by default.
+    pose_hint_enabled: bool = True
     # P2.7 — single source of truth for output size per (model, framing).
     # Off → legacy ``resolve_output_size`` (style-level
     # ``output_aspect`` → ``_ASPECT_PIXEL_SIZE``) drives the request,
@@ -468,7 +472,8 @@ class Settings(BaseSettings):
     # Each generation result also carries an ``effective_aspect_ratio``
     # string so the web client can crop previews to the actual canvas
     # the model produced. Independent of the other v1.68 flags.
-    output_size_ssot_enabled: bool = False
+    # v1.69 — flipped to True by default.
+    output_size_ssot_enabled: bool = True
 
     # Legacy prompt_strength (unused in edit mode)
     image_gen_strength: float = 0.45

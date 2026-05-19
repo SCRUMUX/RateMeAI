@@ -160,6 +160,96 @@ def test_ensure_trigger_handles_empty_inputs():
     assert _ensure_trigger_in_scene("", "") == ""
 
 
+# ---------- v1.69 fuzzy duplicate guard -----------------------------------
+#
+# Regression test for the corporate / boardroom / video_call duplicate
+# scene bug: when ``trigger_pool[0]`` and ``scene_anchor`` describe the
+# same location, and the slot sampler picks a SHORTER ``override`` for
+# the scene, the legacy substring check misses the duplicate and the
+# trigger gets appended — producing two near-identical landscape
+# descriptions in the early-attention slot of the prompt. The fuzzy
+# token-overlap guard introduced in v1.69 short-circuits that case.
+
+
+def test_ensure_trigger_skipped_when_scene_already_carries_meaning():
+    """Corporate-style regression: override scene + identical-meaning
+    trigger should NOT produce a duplicate."""
+    scene = "modern corner office with floor-to-ceiling windows"
+    trigger = (
+        "modern corner office, floor-to-ceiling windows with diffused "
+        "daylight, neutral beige wall, clean minimalist interior"
+    )
+    out = _ensure_trigger_in_scene(scene, trigger)
+    # Trigger must NOT be appended — overlap of content tokens is well
+    # above 0.5, so the scene is treated as already carrying it.
+    assert out == scene
+    # Doubly check: the heavy noun "office" appears at most once.
+    assert out.lower().count("office") == 1
+
+
+def test_ensure_trigger_still_appends_when_overlap_is_low():
+    """Mirror-aesthetic regression: the short ``mirror`` trigger and a
+    generic room scene have NO content-token overlap — the trigger
+    must still be appended (legacy behaviour preserved)."""
+    out = _ensure_trigger_in_scene("clean modern minimalist room", "mirror")
+    assert "mirror" in out.lower()
+    # The legacy comma-append format must be preserved.
+    assert out.endswith("mirror")
+
+
+def test_ensure_trigger_idempotent_when_trigger_is_substring():
+    """The legacy substring fast-path must still beat the fuzzy
+    check — if the trigger appears verbatim in the scene, no append
+    happens regardless of token overlap."""
+    out = _ensure_trigger_in_scene(
+        "wide cobblestoned plaza in front of the Eiffel Tower at golden hour",
+        "Eiffel Tower",
+    )
+    assert out == "wide cobblestoned plaza in front of the Eiffel Tower at golden hour"
+
+
+def test_ensure_trigger_fuzzy_threshold_is_50_percent():
+    """Sanity guard: a trigger that has no overlapping content tokens
+    with the scene must STILL be appended (overlap = 0)."""
+    scene = "neutral beige wall, clean minimalist interior"
+    trigger = "modern corner office with floor-to-ceiling windows"
+    out = _ensure_trigger_in_scene(scene, trigger)
+    # Trigger appended because the content-token sets are disjoint —
+    # the scene only carries wall/interior nouns, the trigger carries
+    # office/windows nouns, so neither subset nor coverage triggers.
+    assert out.endswith(trigger)
+
+
+def test_ensure_trigger_short_overlap_does_not_block_append():
+    """Short-trigger regression: a 2-word trigger that happens to
+    share one noun with a longer scene must STILL be appended — the
+    fuzzy guard requires BOTH sides to carry ≥ 3 content tokens
+    before the symmetric overlap rule (3b) engages, otherwise it
+    would clobber legitimate keyword triggers like ``city street``."""
+    scene = "busy NYC street at golden hour with neon signs"
+    trigger = "city street"
+    out = _ensure_trigger_in_scene(scene, trigger)
+    assert out.endswith(trigger)
+
+
+def test_ensure_trigger_subset_rule_independent_of_size():
+    """Subset rule (3a): trigger content tokens that form a subset of
+    the scene content tokens count as 'already carried' regardless of
+    relative size — guards the symmetric case where the trigger is the
+    shorter of the two and is NOT a literal substring (so the legacy
+    fast path can't catch it)."""
+    # Re-ordered phrasing means "modern corner office" is not a
+    # contiguous substring of ``scene`` — only the fuzzy subset check
+    # can catch this.
+    scene = "spacious office with floor-to-ceiling windows in a modern corner of the tower"
+    trigger = "modern corner office"
+    assert trigger not in scene  # sanity: substring fast path must miss
+    out = _ensure_trigger_in_scene(scene, trigger)
+    # Trigger content tokens are a subset of scene content tokens —
+    # the duplicate guard must skip the append.
+    assert out == scene
+
+
 def test_build_composition_injects_trigger_when_missing_from_base():
     """Mirrors the mirror_aesthetic regression: ``base`` says "clean
     modern minimalist room" with no mirror reference. The builder

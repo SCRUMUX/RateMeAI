@@ -19,6 +19,7 @@ Why an IR and not a string?
 from __future__ import annotations
 
 import random
+import re
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -145,16 +146,86 @@ def _with_suffix(value: str, suffix_word: str, terminal_words: tuple[str, ...]) 
     return f"{cleaned} {suffix_word}"
 
 
+# v1.69 — fuzzy trigger/scene overlap guard.
+#
+# Stop-words removed before the token-overlap check so two phrases
+# that share the same content nouns/adjectives are recognised as
+# overlapping even when their function words differ — e.g.
+# ``modern corner office, floor-to-ceiling windows`` vs
+# ``modern corner office with floor-to-ceiling windows``.
+_TRIGGER_OVERLAP_STOP_WORDS: frozenset[str] = frozenset(
+    {
+        "a", "an", "the", "with", "of", "and", "in", "on", "at", "for",
+        "to", "by", "from", "near", "over", "under", "into", "onto",
+        "this", "that", "these", "those", "is", "are", "be", "was",
+        "were", "or", "as", "but", "it", "its", "his", "her", "their",
+    }
+)
+
+# Coverage ratio above which we consider the trigger redundant w.r.t.
+# the scene. Applied only when BOTH strings have ≥
+# :data:`_TRIGGER_OVERLAP_MIN_TOKENS` content tokens — otherwise the
+# subset check (rule 3a below) is the sole fuzzy signal so that
+# short-keyword triggers like ``mirror`` keep firing.
+_TRIGGER_OVERLAP_THRESHOLD: float = 0.5
+
+# Minimum content-token count on both sides for the symmetric overlap
+# rule to engage. Guards against false positives on short triggers
+# ("city street" — 2 content tokens) where a single accidental shared
+# noun would otherwise meet the 0.5 threshold.
+_TRIGGER_OVERLAP_MIN_TOKENS: int = 3
+
+
+def _significant_tokens(text: str) -> set[str]:
+    """Return the lowercase content-word set of ``text``.
+
+    Punctuation is stripped, words are lowercased, and stop-words /
+    single-character tokens are dropped so that the resulting set
+    reflects only the meaningful nouns / adjectives that make a phrase
+    distinct. Used by :func:`_ensure_trigger_in_scene` to detect a
+    trigger whose meaning is already conveyed by the scene description
+    even when the two strings differ literally.
+    """
+    if not text:
+        return set()
+    cleaned = re.sub(r"[^a-z0-9\s-]", " ", text.lower())
+    return {
+        tok
+        for tok in cleaned.split()
+        if len(tok) > 1 and tok not in _TRIGGER_OVERLAP_STOP_WORDS
+    }
+
+
 def _ensure_trigger_in_scene(scene: str, trigger: str) -> str:
     """Append the style's trigger keyword to ``scene`` if missing.
 
-    A short hot-fix shim until the style schema migration (Stage 2)
-    moves trigger into a first-class ``trigger_pool`` slot. As of
-    v1.27.x ten styles (mirror_aesthetic, eiffel, times square, ...)
-    have a ``background.base`` that lacks the headline motif. Without
-    this safety net the user picks "У зеркала" but the prompt never
-    mentions a mirror. The check is case-insensitive and conservative:
-    we only append when the literal trigger string is fully absent.
+    Originally a short hot-fix shim (v1.27.x) for styles whose
+    ``background.base`` omitted the headline motif (mirror_aesthetic,
+    eiffel, times_square, …). Without this safety net the user picks
+    "У зеркала" but the prompt never mentions a mirror.
+
+    v1.69 (May 2026) — added a fuzzy duplicate guard. For studio /
+    indoor-cabinet styles (corporate, boardroom, video_call,
+    analytics_review, …) the v3 schema stores the same long
+    description in ``trigger_pool[0]`` AND in ``scene_anchor``. When
+    the sampler picks an ``override`` for the scene, the literal
+    substring match fails (``override`` is shorter), and the trigger
+    is appended verbatim — producing a duplicate landscape description
+    in the early-attention slot of the prompt. The fuzzy branch below
+    detects this case via content-token overlap and skips the append.
+
+    Decision rules (in order):
+
+    1. Empty trigger → no-op (preserve scene).
+    2. Trigger appears verbatim in scene → no-op (legacy fast path —
+       guards short-keyword triggers like ``mirror``).
+    3a. Either side's content tokens form a SUBSET of the other's
+        (one phrase fully contains the other in meaning, e.g. a long
+        ``trigger_pool[0]`` covering the override scene) → no-op.
+    3b. Both sides have ≥ :data:`_TRIGGER_OVERLAP_MIN_TOKENS` content
+        tokens AND ≥ :data:`_TRIGGER_OVERLAP_THRESHOLD` of the trigger's
+        tokens already appear in the scene → no-op.
+    4. Otherwise → append ``", <trigger>"`` to scene.
     """
     trig = (trigger or "").strip()
     if not trig:
@@ -162,6 +233,22 @@ def _ensure_trigger_in_scene(scene: str, trigger: str) -> str:
     haystack = (scene or "").lower()
     if trig.lower() in haystack:
         return scene
+    trig_tokens = _significant_tokens(trig)
+    scene_tokens = _significant_tokens(scene or "")
+    if trig_tokens and scene_tokens:
+        # Rule 3a — one phrase semantically contains the other. Covers
+        # the corporate case (5-token scene fully inside a 13-token
+        # trigger) regardless of token-count asymmetry.
+        if trig_tokens <= scene_tokens or scene_tokens <= trig_tokens:
+            return scene
+        # Rule 3b — symmetric overlap with both sides large enough to
+        # trust the ratio. Catches cases where the two phrases are
+        # paraphrases that don't fully subset each other.
+        min_tokens = min(len(trig_tokens), len(scene_tokens))
+        if min_tokens >= _TRIGGER_OVERLAP_MIN_TOKENS:
+            coverage = len(trig_tokens & scene_tokens) / len(trig_tokens)
+            if coverage >= _TRIGGER_OVERLAP_THRESHOLD:
+                return scene
     return f"{scene}, {trig}" if scene else trig
 
 

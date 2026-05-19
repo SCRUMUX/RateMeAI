@@ -11,15 +11,16 @@ Invariants for non-document styles:
 
 * ``Reframe the reference into`` is present — the cinematic-vocabulary
   layout directive that replaces v1.64's percentage targets.
-* ``85mm short-telephoto lens`` is present (lives in
-  :data:`PHOTOREAL_BLOCK`, which is appended to every photo prompt).
-  v1.68 (May 2026) — the lens descriptor was de-duplicated: it used
-  to appear in both the cinematic anchor and ``PHOTOREAL_BLOCK``,
-  which over-anchored a headshot perspective on every framing. The
-  cinematic anchor is now lens-agnostic; ``PHOTOREAL_BLOCK`` is the
-  single source of truth for the lens spec. (P2.8 will eventually
-  make ``PHOTOREAL_BLOCK`` itself framing-aware — at that point this
-  test can split portrait/half_body vs full_body again.)
+* The framing-appropriate lens descriptor is present in
+  :data:`PHOTOREAL_BLOCK` / :data:`_PHOTOREAL_BY_FRAMING`. v1.68 P2.8
+  shipped the per-framing photoreal map, v1.69 flipped its flag on by
+  default, so the lens spec now varies with the requested shot:
+    * ``portrait`` → ``85mm short-telephoto lens``
+    * ``half_body`` → ``50-70mm normal-to-short-telephoto lens``
+    * ``full_body`` → ``35-50mm normal-wide lens``
+  The cinematic anchor (``_COMPOSITION_NUMERICAL_HINT``) is lens-
+  agnostic; the photoreal block is the SINGLE source of truth for the
+  lens spec.
 * The identity anchor ``preserve the same person's facial features``
   is present (v1.67 wording; the legacy ``identical face shape, eye
   shape and colour`` phrase is explicitly forbidden because edit-models
@@ -34,7 +35,16 @@ Invariants for non-document styles:
 * v1.66 portrait-pose semantic leaks (``leadership gaze``,
   ``gravitas``, ``behind a desk``, ``leather chair``) are absent
   outside the studio-portrait whitelist.
-* Length stays in ``[650, 1550]`` characters.
+* Length stays in ``[650, 1800]`` characters. v1.69 (May 2026)
+  widened the upper bound from 1550 → 1800 to accommodate the three
+  prompt-level fixes that flipped on by default in v1.69:
+  ``_FACE_AREA_ANCHOR_BY_FRAMING`` (~60 chars head slot),
+  ``_POSE_BY_FRAMING`` (~120 chars after wardrobe), and
+  ``LIGHT_MATCH_CLAUSE`` (~200 chars before identity), plus headroom
+  for the longest scene_anchor + override combinations
+  (``glass_wall_pose``, ``near_car``). The lower bound is unchanged —
+  a shrink below 650 still indicates a regression in the assembly
+  path.
 
 Document styles bypass ``_COMPOSITION_NUMERICAL_HINT`` and use
 ``_DOC_COMPOSITION_HINT`` instead. Their invariants:
@@ -148,19 +158,34 @@ def test_v1_65_anatomy_invariants(mode: AnalysisMode, style: str, framing: str):
         f"{prompt!r}"
     )
 
-    # v1.68 — lens lives exclusively in ``PHOTOREAL_BLOCK``; the
-    # cinematic anchor is lens-agnostic to avoid the double-mention
-    # that previously over-anchored a headshot perspective. ``85mm
-    # short-telephoto lens`` therefore appears in every prompt
-    # regardless of framing. Once P2.8 ships and PHOTOREAL_BLOCK
-    # becomes framing-aware (35-50mm for full_body), this branch
-    # will split again.
-    assert "85mm short-telephoto lens" in prompt, (
-        f"{label}: 85mm short-telephoto lens anchor missing — "
-        "v1.68 keeps the lens spec only in PHOTOREAL_BLOCK so it "
-        "appears in every prompt regardless of framing\n"
+    # v1.68 P2.8 / v1.69 — the photoreal block is now framing-aware.
+    # Each framing pins a focal length that maps to its cinematic
+    # anchor (portrait = tight chest-up bust, full_body = wide
+    # standing shot). The cinematic anchor itself stays lens-agnostic
+    # (one strong lens cue per prompt). The map below mirrors
+    # ``_PHOTOREAL_BY_FRAMING`` in ``src.prompts.image_gen``.
+    _expected_lens_by_framing: dict[str, str] = {
+        "portrait": "85mm short-telephoto lens",
+        "half_body": "50-70mm normal-to-short-telephoto lens",
+        "full_body": "35-50mm normal-wide lens",
+    }
+    expected_lens = _expected_lens_by_framing[framing]
+    assert expected_lens in prompt, (
+        f"{label}: framing-appropriate lens {expected_lens!r} missing — "
+        "v1.68 P2.8 / v1.69 makes PHOTOREAL_BLOCK framing-aware; each "
+        "framing must carry exactly the lens descriptor that matches "
+        "its cinematic anchor\n"
         f"{prompt!r}"
     )
+    # Guard against the static 85mm leaking into half_body / full_body
+    # prompts after the per-framing block lands.
+    if framing != "portrait":
+        assert "85mm short-telephoto lens" not in prompt, (
+            f"{label}: portrait-class lens descriptor leaked into a "
+            f"non-portrait framing — PHOTOREAL_BLOCK is now per-framing "
+            "and the portrait lens must stay in portrait shots only\n"
+            f"{prompt!r}"
+        )
     # v1.68 — the cinematic anchor must NOT carry a lens descriptor;
     # this guards against future edits silently re-introducing the
     # duplicate. PHOTOREAL_BLOCK ships the lens spec exactly once.
@@ -222,8 +247,8 @@ def test_v1_65_anatomy_invariants(mode: AnalysisMode, style: str, framing: str):
         f"{prompt!r}"
     )
 
-    assert 650 <= len(prompt) <= 1550, (
-        f"{label}: prompt length {len(prompt)} outside [650,1550]\n"
+    assert 650 <= len(prompt) <= 1800, (
+        f"{label}: prompt length {len(prompt)} outside [650,1800]\n"
         f"{prompt!r}"
     )
 

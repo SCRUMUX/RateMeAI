@@ -49,11 +49,16 @@ The fixtures are stable as long as:
   (``numerical_percent_anchor_enabled``,
   ``photoreal_by_framing_enabled``, ``light_match_clause_enabled``,
   ``pose_hint_enabled``, ``studio_portrait_whitelist_v2``) stay at
-  ``False``. The first phase of each rollout flips a flag and
-  intentionally regenerates the goldens — that is the acknowledged
-  diff.
+  ``True``. v1.69 (May 2026) flipped them all on by default after
+  the staged rollout proved the prompt-level audit fixes never
+  reached production via the staging env-override path.
 * ``csl_padding_v2_enabled`` (which only affects the padder, not the
   prompt) stays ``True``.
+* The trigger/scene fuzzy-overlap guard in
+  ``composition_builder._ensure_trigger_in_scene`` (v1.69) stays
+  active — it removes the duplicate ``scene_anchor`` echo in the
+  early-attention slot for studio styles
+  (corporate / boardroom / video_call / …).
 """
 
 from __future__ import annotations
