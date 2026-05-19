@@ -6272,4 +6272,27 @@
 #            change. No model / quality / tier / size change.
 #          * Migration is a one-shot JSON edit + one-line APP_VERSION
 #            bump.
-APP_VERSION = "1.70.0"
+# 1.70.1 — Wizard "stale-result" fix: clicking a step pill in the
+#          StepBar to navigate BACK from a completed generation
+#          (e.g. step 4 -> step 1) now drops the cached
+#          ``generatedImageUrl`` before changing the active step.
+#          Previously the user would walk forward through steps 2-3
+#          without re-uploading and see the OLD photo on step 4
+#          instead of the "Generate" CTA. The fix mirrors the
+#          ``resetGeneration`` already wired into the "Ещё стиль" /
+#          "Ещё фото" buttons inside ``StepGenerate`` — backward
+#          navigation has the same "redo from here" intent.
+#
+#          Additional symmetric reset: ``uploadPhoto`` in
+#          ``AppContext`` now clears ``framing`` (back to
+#          ``portrait``) and ``selectedStyleKey`` (back to empty)
+#          on every fresh photo. Without that, a previous
+#          ``full_body`` choice could survive into a face-closeup
+#          upload and briefly show "full_body locked" before the
+#          ``allowedFramings`` useEffect snapped it; ``selectedStyleKey``
+#          could survive a mode switch via re-upload. ``setMode``
+#          already does both resets — the upload path now matches.
+#
+#          Frontend-only patch: zero backend changes, zero prompt
+#          changes, zero new flags. No DB or contract changes.
+APP_VERSION = "1.70.1"

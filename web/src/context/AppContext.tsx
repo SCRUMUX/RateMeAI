@@ -525,6 +525,16 @@ export function AppProvider({ children }: { children: ReactNode }) {
     // CSL — fresh upload must invalidate the advanced-override choice
     // so a one-shot opt-in cannot bleed into the next photo session.
     setSkipCompositionSafety(false);
+    // v1.71: framing and selectedStyleKey carry the user's previous
+    // intent; they MUST NOT leak into the new photo session. The
+    // ``allowedFramings`` useEffect snaps framing once the new
+    // ``preAnalysis`` returns, but between upload and pre-analyze
+    // it still holds the stale value — resetting to portrait avoids
+    // a flash of "full_body locked" on a fresh face_closeup upload.
+    // ``selectedStyleKey`` is reset for the symmetric reason: the
+    // previous style may not even exist in the new mode's catalog.
+    setFramingState('portrait');
+    setSelectedStyleKey('');
   }, []);
 
   const runPreAnalyze = useCallback(async () => {

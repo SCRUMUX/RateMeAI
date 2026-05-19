@@ -132,9 +132,18 @@ export default function AppPage({ scenarioSlugOverride, onBackToLanding }: AppPa
   const handleStepClick = useCallback((step: WizardStepId) => {
     const stepIdx = STEP_ORDER.indexOf(step);
     if (stepIdx <= currentIdx || completedSteps.has(step)) {
+      // v1.71: when the user navigates BACK from a finished generation,
+      // drop the cached result so step 4 doesn't silently show the old
+      // photo on the next forward pass. Mirrors the explicit
+      // ``resetGeneration`` calls under the "Ещё стиль" / "Ещё фото"
+      // buttons in StepGenerate — clicking a step pill in the StepBar
+      // is semantically the same "I want to redo from here" intent.
+      if (stepIdx < currentIdx && app.generatedImageUrl) {
+        app.resetGeneration();
+      }
       goToStep(step);
     }
-  }, [currentIdx, completedSteps, goToStep]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [currentIdx, completedSteps, goToStep, app]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const goNext = useCallback(() => {
     if (currentIdx < STEP_ORDER.length - 1) {
