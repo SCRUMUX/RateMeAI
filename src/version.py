@@ -6471,4 +6471,18 @@
 #          runtime importer left, the legacy variant table is gone.
 #          ``docs/CLEANUP_STYLE_V2.md`` updated to mark Step 4 of
 #          the cleanup roadmap done. No behaviour change.
-APP_VERSION = "1.70.9"
+# 1.70.10 — Tech-debt cleanup Phase 1, step 1.4: ~815 lines of
+#          legacy text-prompt dictionaries dropped from
+#          ``src/prompts/image_gen.py`` (``DATING_STYLES``,
+#          ``CV_STYLES``, ``SOCIAL_STYLES``, ``DATING_PERSONALITIES``,
+#          ``CV_PERSONALITIES``, ``SOCIAL_PERSONALITIES`` and the
+#          ``_STYLE_OVERRIDES`` gender-clothing override table).
+#          They were the JSON-load fallback content; v1.70.6 converted
+#          that path into a hard ``RuntimeError`` and v1.70.9 removed
+#          ``STYLE_VARIANTS``, leaving these maps with no consumer.
+#          The hygiene regression
+#          ``test_no_edit_compatible_false_overrides`` was renamed to
+#          ``test_no_edit_compatible_false_specs`` and now iterates
+#          ``STYLE_REGISTRY`` directly. ``image_gen`` shrank from
+#          1 552 to ~720 lines. No runtime behaviour change.
+APP_VERSION = "1.70.10"

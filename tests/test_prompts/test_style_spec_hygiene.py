@@ -121,11 +121,26 @@ def test_document_styles_no_or():
 # ---------------------------------------------------------------------------
 
 
-def test_no_edit_compatible_false_overrides():
-    for (mode, key), override in ig._STYLE_OVERRIDES.items():
-        assert override.get("edit_compatible", True) is True, (
-            f"{mode}/{key}: edit_compatible=False fallback is no longer supported"
-        )
+def test_no_edit_compatible_false_specs():
+    """Regression guard: no registered StyleSpec may set
+    ``edit_compatible=False``. The historical
+    ``image_gen._STYLE_OVERRIDES`` table that this used to iterate was
+    removed in v1.70.10 once all style content moved to
+    ``data/styles.json``; we now check the live registry directly so
+    any future override that re-introduces an unsupported flag will
+    surface here.
+    """
+    seen = False
+    for mode in ("dating", "cv", "social", "rating"):
+        for key in ig.STYLE_REGISTRY.keys_for_mode(mode):
+            spec = ig.STYLE_REGISTRY.get(mode, key)
+            if spec is None:
+                continue
+            seen = True
+            assert getattr(spec, "edit_compatible", True) is True, (
+                f"{mode}/{key}: edit_compatible=False fallback is no longer supported"
+            )
+    assert seen, "STYLE_REGISTRY exposed zero specs — bootstrap regression"
 
 
 # ---------------------------------------------------------------------------
