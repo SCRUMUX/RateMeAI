@@ -6538,4 +6538,16 @@
 #          continue to set them on ``MagicMock`` instances harmlessly.
 #          ``ENV`` files do not need updating — pydantic-settings
 #          ``extra=ignore`` silently drops the now-unknown vars.
-APP_VERSION = "1.70.14"
+# 1.70.15 — Tech-debt cleanup Phase 2, step 2.4: ``get_ab_image_gen``
+#          factory helper retired. It was a duplicate of the unified
+#          provider lookup — both branches built the same FAL FAL
+#          adapter for the requested model. The sole caller, the
+#          ``/internal/diagnostics/image-gen-probe`` endpoint, now
+#          fetches the single ``UnifiedImageGenProvider`` via
+#          ``get_image_gen`` and dispatches the underlying model
+#          through the existing ``params["image_model"]`` field,
+#          mirroring how the real runtime path works. ``AB_IMAGE_MODELS``
+#          stays in the factory as the AB whitelist used by the
+#          analysis-request validator. Companion test refresh in
+#          ``test_api/test_diagnostics.py``.
+APP_VERSION = "1.70.15"

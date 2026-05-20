@@ -923,21 +923,22 @@ async def image_gen_probe(
     provider is reachable from the primary backend.
 
     v1.64: collapsed to the FAL edit-only path. ``provider=unified``
-    (default) probes whichever model the ``UnifiedImageGenProvider``
-    routes to (GPT Image 2 by default, Nano Banana 2 when requested);
-    ``provider=nano_banana_2|gpt_image_2`` probes the explicit
-    A/B provider directly. The legacy ``styled_router`` /
-    ``identity_scene`` / ``scene_preserve`` probe modes were retired
-    alongside the PuLID / Seedream providers.
+    probes whichever model the ``UnifiedImageGenProvider`` routes to
+    (GPT Image 2 by default, Nano Banana 2 when requested);
+    ``provider=nano_banana_2|gpt_image_2`` pins the underlying model
+    via the ``image_model`` request param so the unified router
+    selects that specific FAL adapter. The legacy
+    ``styled_router`` / ``identity_scene`` / ``scene_preserve``
+    probe modes were retired alongside the PuLID / Seedream
+    providers; v1.70.15 also retired the ``get_ab_image_gen``
+    helper — both branches now share ``get_image_gen`` and dispatch
+    via the ``image_model`` param.
 
     Uses a bundled 256×256 JPEG with a clearly detectable face so the
     edit-model's face-detector doesn't trip ``no face detected``.
     """
     import time as _time
-    from src.providers.factory import (
-        get_image_gen as _get_image_gen,
-        get_ab_image_gen as _get_ab_image_gen,
-    )
+    from src.providers.factory import get_image_gen as _get_image_gen
     from src.services.ai_transfer_guard import task_context_scope as _task_context_scope
     from src.workers.tasks import (
         _format_task_error as _fmt_err,
@@ -945,18 +946,15 @@ async def image_gen_probe(
         _http_status_of as _http_status,
     )
 
-    if provider == "unified":
+    try:
         image_gen = _get_image_gen()
-    else:
-        try:
-            image_gen = _get_ab_image_gen(provider)
-        except Exception as exc:
-            return {
-                "ok": False,
-                "provider": provider,
-                "exc_type": "InitError",
-                "error_message": f"AB provider init failed: {exc}",
-            }
+    except Exception as exc:
+        return {
+            "ok": False,
+            "provider": provider,
+            "exc_type": "InitError",
+            "error_message": f"image-gen provider init failed: {exc}",
+        }
     provider_name = type(image_gen).__name__
 
     from src.api.v1._fixtures.probe_face import probe_face_jpeg

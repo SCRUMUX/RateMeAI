@@ -84,31 +84,11 @@ def _build_gpt_image_2():
 
 AB_IMAGE_MODELS: frozenset[str] = frozenset({"nano_banana_2", "gpt_image_2"})
 
-
-@lru_cache(maxsize=8)
-def get_ab_image_gen(model_key: str) -> ImageGenProvider:
-    """Return an A/B image-gen provider for the given model key.
-
-    Cached per key so each Railway process holds at most one client per
-    model. Raises :class:`RuntimeError` if the key is unknown or FAL
-    credentials are missing — the executor catches this and degrades
-    back to the unified provider's default model.
-    """
-    key = (model_key or "").strip().lower()
-    if key not in AB_IMAGE_MODELS:
-        raise RuntimeError(
-            f"unknown AB image_model={key!r}; allowed={sorted(AB_IMAGE_MODELS)}",
-        )
-    if not (settings.fal_api_key or "").strip():
-        raise RuntimeError(
-            f"AB image_model={key} requires FAL_API_KEY",
-        )
-    if key == "nano_banana_2":
-        return _build_nano_banana_2()
-    if key == "gpt_image_2":
-        return _build_gpt_image_2()
-    # Unreachable — guarded by the whitelist above.
-    raise RuntimeError(f"unreachable AB provider branch: {key}")
+# Historical ``get_ab_image_gen`` helper was retired in v1.70.15 —
+# every call site now reads the single :func:`get_image_gen`
+# (``UnifiedImageGenProvider``) and steers the underlying model via
+# the ``image_model`` request param. ``AB_IMAGE_MODELS`` survives as
+# the whitelist used by the analysis-request validator.
 
 
 def _build_unified_provider():

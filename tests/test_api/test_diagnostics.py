@@ -1,13 +1,14 @@
 """Unit tests for the diagnostics probes in ``src.api.v1.internal``.
 
-v1.64 collapsed ``image_gen_probe`` to the FAL edit-only path: the
-endpoint no longer exposes ``mode`` / ``styled_router`` (those were
-the pre-v1.64 PuLID / Seedream probe knobs and are gone with the
-providers). The remaining surface is:
+v1.64 collapsed ``image_gen_probe`` to the FAL edit-only path; v1.70.15
+further unified provider lookup to a single :func:`get_image_gen`
+call (the historical ``get_ab_image_gen`` helper was retired). The
+remaining surface is:
 
 * ``provider=unified`` — default, exercises ``UnifiedImageGenProvider``.
-* ``provider=gpt_image_2|nano_banana_2`` — exercises a specific
-  A/B provider directly (the probe sets ``params["image_model"]``).
+* ``provider=gpt_image_2|nano_banana_2`` — pins the underlying model
+  via ``params["image_model"]`` so the unified router selects that
+  specific FAL adapter.
 
 These tests short-circuit the auth dep and the real provider so they
 run fully offline.
@@ -22,18 +23,15 @@ from unittest.mock import AsyncMock, MagicMock
 def _call_probe(provider: str, fake_provider, *, quality: str = "low"):
     """Invoke the endpoint coroutine directly, bypassing FastAPI wiring.
 
-    The endpoint resolves the image-gen provider via
-    ``factory_mod.get_image_gen`` (for ``unified``) or
-    ``factory_mod.get_ab_image_gen`` (for explicit A/B), so we patch
-    both factories to return the same in-memory mock.
+    The endpoint resolves the image-gen provider via the single
+    ``factory_mod.get_image_gen`` (since v1.70.15), so we patch
+    that one factory to return the in-memory mock.
     """
     from src.api.v1 import internal as internal_mod
     from src.providers import factory as factory_mod
 
     original_get = factory_mod.get_image_gen
-    original_ab = getattr(factory_mod, "get_ab_image_gen", None)
     factory_mod.get_image_gen = lambda: fake_provider
-    factory_mod.get_ab_image_gen = lambda _key: fake_provider
     try:
         result = asyncio.run(
             internal_mod.image_gen_probe(
@@ -44,8 +42,6 @@ def _call_probe(provider: str, fake_provider, *, quality: str = "low"):
         )
     finally:
         factory_mod.get_image_gen = original_get
-        if original_ab is not None:
-            factory_mod.get_ab_image_gen = original_ab
     return result
 
 
