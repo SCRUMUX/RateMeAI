@@ -7,10 +7,10 @@ and this loader picks out the v3-tagged entries and registers them
 into :data:`src.prompts.image_gen.STYLE_REGISTRY` via the v3-specific
 ``register_v3`` method.
 
-Gated by :data:`src.config.settings.style_schema_v3_enabled`. When
-the flag is off (the default until Stage 2 ships data), this function
-short-circuits and registers nothing — making it safe to wire into
-worker startup ahead of the data migration.
+Historically gated by ``settings.style_schema_v3_enabled``; as of
+v1.70.x the flag is always-on in every environment because Stage 2
+shipped data for every catalogue style. The branch that reads the
+flag remains for emergency rollback but the loader always runs.
 
 JSON schema accepted (v3-only fields are required; everything else
 mirrors v2 so the migration script can re-emit the same file):

@@ -839,12 +839,12 @@ class ImageGenerationExecutor:
             # postprocessing.
 
             # Provider ``extra`` payload. Provider-specific whitelists
-            # apply: FalFlux2ImageGen accepts ``image_size`` + ``seed``,
-            # PuLID accepts ``num_inference_steps`` + ``guidance_scale``
-            # + ``id_scale``, Seedream accepts ``enhance_prompt_mode``.
-            # Anything the StyleRouter does not recognise is stripped
-            # before reaching the wire. Document AR crops and the x2
-            # LANCZOS upscale still happen locally in
+            # apply: GPT Image 2 accepts ``quality`` + ``aspect_ratio``
+            # + ``size`` + ``image_model``; Nano Banana 2 accepts
+            # ``aspect_ratio`` + ``resolution`` + ``image_model``.
+            # Anything ``UnifiedImageGen`` does not recognise is
+            # stripped before reaching the wire. Document AR crops and
+            # the x2 LANCZOS upscale still happen locally in
             # ``_apply_local_postprocess``.
             extra: dict = {}
 

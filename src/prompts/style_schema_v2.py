@@ -2,10 +2,13 @@
 
 PR1 of the style-schema-v2 migration. This module is additive: the v1
 ``StructuredStyleSpec`` / ``StyleSpec`` types in
-:mod:`src.prompts.style_spec` continue to power production. A JSON entry
-in ``data/styles.json`` opts into the v2 path by setting
-``"schema_version": 2`` — otherwise the v1 loader handles it and this
-module is never consulted.
+:mod:`src.prompts.style_spec` continue to power production.
+
+Update (v1.70.x): ``data/styles.json`` now ships every entry at
+``schema_version: 3``. The v2 loader (``src/services/style_loader_v2``)
+also accepts v3 JSON via its ``_to_v2`` shim so this module's slot
+vocabulary remains the bridge format used by ``build_image_prompt_v2``
+until the v3-direct prompt path is fully consolidated.
 
 Design goals (per plan):
 

@@ -6485,4 +6485,19 @@
 #          ``test_no_edit_compatible_false_specs`` and now iterates
 #          ``STYLE_REGISTRY`` directly. ``image_gen`` shrank from
 #          1 552 to ~720 lines. No runtime behaviour change.
-APP_VERSION = "1.70.10"
+# 1.70.11 — Tech-debt cleanup Phase 1, step 1.5: stale docstrings
+#          and ``.env.example`` refreshed. ``.env.example`` now
+#          describes the active FAL-only image-gen route (GPT Image 2
+#          + Nano Banana 2 via ``UnifiedImageGen``); the v1.18
+#          PuLID / Seedream / CodeFormer / FLUX.2 / FLUX.1 Kontext
+#          blocks, the Reve / Replicate sections, the
+#          ``SEGMENTATION_ENABLED`` multi-pass note and the
+#          ``IMAGE_GEN_STRATEGY`` selector were all retired (those
+#          providers were removed earlier in v1.70.x). Companion
+#          docstring refresh in ``src/prompts/style_schema_v2.py``,
+#          ``src/services/style_loader_v3.py`` and
+#          ``src/orchestrator/executor.py`` (the
+#          PuLID / Seedream ``extra`` payload comment now describes
+#          the actual GPT Image 2 / Nano Banana 2 whitelist). No
+#          functional change.
+APP_VERSION = "1.70.11"

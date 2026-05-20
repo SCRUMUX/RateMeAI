@@ -358,10 +358,10 @@ try:
     for spec in get_structured_specs():
         STYLE_REGISTRY.register(spec)
 
-    # style-schema-v2 migration PR1 — additive. Only registers entries
-    # with ``schema_version: 2`` and only when
-    # ``settings.style_schema_v2_enabled`` is on; otherwise the v2
-    # registry stays empty and the executor branch short-circuits.
+    # style-schema-v2 — picks up entries tagged ``schema_version: 2``
+    # (and v3 entries via the loader's ``_to_v2`` shim). Always-on in
+    # production; the historical ``style_schema_v2_enabled`` flag is a
+    # no-op kept only for emergency rollback.
     try:
         from src.services.style_loader_v2 import register_v2_styles_from_json
 
@@ -369,12 +369,11 @@ try:
     except Exception as _v2_exc:  # noqa: BLE001 — additive path must never break v1
         logger.warning("style_loader_v2 failed: %s", _v2_exc)
 
-    # style-schema-v3 (prompt-pipeline-overhaul, 2026-04). Same
-    # additive contract: only ``schema_version: 3`` rows are picked
-    # up, gated by ``settings.style_schema_v3_enabled``. Until Stage 2
-    # ships data the loader registers nothing, but having the wiring
-    # ready lets us flip the flag to test individual styles in
-    # staging without redeploying.
+    # style-schema-v3 (prompt-pipeline-overhaul, 2026-04). As of
+    # v1.70.x ``data/styles.json`` carries every entry at
+    # ``schema_version: 3``; the ``style_schema_v3_enabled`` flag is
+    # always-on. Phase 3 of the cleanup roadmap will consolidate the
+    # three registration passes into a single v3-direct call.
     try:
         from src.services.style_loader_v3 import register_v3_styles_from_json
 
