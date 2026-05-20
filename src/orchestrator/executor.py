@@ -723,6 +723,116 @@ class ImageGenerationExecutor:
 
         return framing_norm, _is_document, _is_studio_portrait_style, user_picked_framing
 
+    def _prepare_provider_params(
+        self,
+        *,
+        mode: AnalysisMode,
+        style: str,
+        prompt_pipeline_path: str,
+        framing_norm: str,
+        face_area_ratio: float,
+        input_quality: Any | None,
+        ab_active: bool,
+        ab_image_model: str,
+        ab_image_quality: str,
+        allow_cross_model_fallback: bool,
+        result_dict: dict,
+    ) -> tuple[dict, dict | None, tuple | None]:
+        """Build the provider ``extra`` payload + output_size + face bbox.
+
+        v1.71 (Phase 4.2 of the tech-debt roadmap): extracted from
+        :meth:`single_pass`. Pure-ish — the only side effects are
+        ``logger.info`` lines (``image_size resolved`` / ``image_size
+        SSOT``) and a single optional write to
+        ``result_dict["effective_aspect_ratio"]`` on SSOT hits. Returns
+        ``(extra, output_size, iq_bbox)``: ``extra`` is the dict passed
+        to ``ImageGenProvider.generate(params=...)``, ``output_size`` is
+        the resolved ``{"width", "height"}`` (or ``None`` for unknown
+        styles), and ``iq_bbox`` is the face bbox sourced from the
+        input-quality gate (used downstream by the CSL padder).
+        Behaviour is byte-for-byte unchanged from the inlined version
+        — same key order, same log strings, same SSOT branch semantics.
+        """
+        extra: dict = {}
+
+        extra["style"] = style or "default"
+        extra["prompt_pipeline_path"] = prompt_pipeline_path
+
+        spec = STYLE_REGISTRY.get(mode.value, style)
+
+        iq_bbox = getattr(input_quality, "face_bbox", None)
+        if iq_bbox is not None:
+            extra["face_bbox"] = iq_bbox
+
+        output_size = resolve_output_size(
+            spec,
+            face_area_ratio=face_area_ratio or None,
+            framing=framing_norm,
+        )
+        if output_size:
+            extra["image_size"] = output_size
+            mp = (output_size["width"] * output_size["height"]) / 1_000_000
+            logger.info(
+                "image_size resolved mode=%s style=%s "
+                "size=%dx%d (~%.2f MP)",
+                mode.value,
+                style or "default",
+                output_size["width"],
+                output_size["height"],
+                mp,
+            )
+
+        if ab_active:
+            extra["image_model"] = ab_image_model
+            extra["quality"] = ab_image_quality or getattr(
+                settings, "ab_default_quality", "medium"
+            )
+            extra["allow_cross_model_fallback"] = allow_cross_model_fallback
+
+            ssot_applied = False
+            try:
+                _ssot_on = bool(
+                    getattr(settings, "output_size_ssot_enabled", False)
+                )
+            except Exception:
+                _ssot_on = False
+            if _ssot_on and mode != AnalysisMode.CV:
+                ssot = _resolve_output_size_ssot(
+                    model=ab_image_model,
+                    framing=framing_norm,
+                )
+                if ssot is not None:
+                    if "image_size" in ssot:
+                        extra["image_size"] = ssot["image_size"]
+                        output_size = ssot["image_size"]
+                    if "aspect_ratio" in ssot:
+                        extra["aspect_ratio"] = ssot["aspect_ratio"]
+                    if "resolution" in ssot:
+                        extra["resolution"] = ssot["resolution"]
+                    eff_ar = ssot.get("effective_aspect_ratio")
+                    if eff_ar:
+                        result_dict["effective_aspect_ratio"] = eff_ar
+                    ssot_applied = True
+                    logger.info(
+                        "image_size SSOT model=%s framing=%s "
+                        "applied=%s",
+                        ab_image_model,
+                        framing_norm,
+                        sorted(ssot.keys()),
+                    )
+
+            if (
+                not ssot_applied
+                and output_size
+                and not extra.get("aspect_ratio")
+            ):
+                extra["aspect_ratio"] = _aspect_ratio_enum_for_size(
+                    output_size["width"],
+                    output_size["height"],
+                )
+
+        return extra, output_size, iq_bbox
+
     async def single_pass(
         self,
         mode: AnalysisMode,
@@ -832,57 +942,28 @@ class ImageGenerationExecutor:
             # framing pick and the downstream document-aware
             # postprocessing.
 
-            # Provider ``extra`` payload. Provider-specific whitelists
-            # apply: GPT Image 2 accepts ``quality`` + ``aspect_ratio``
-            # + ``size`` + ``image_model``; Nano Banana 2 accepts
-            # ``aspect_ratio`` + ``resolution`` + ``image_model``.
-            # Anything ``UnifiedImageGen`` does not recognise is
-            # stripped before reaching the wire. Document AR crops and
-            # the x2 LANCZOS upscale still happen locally in
-            # ``_apply_local_postprocess``.
-            extra: dict = {}
-
-            # v4.1: thread the style key + prompt-pipeline path tag
-            # into provider params so the FAL providers can include
-            # them in their INFO log. This is the only in-process
-            # signal we have for *which* code path produced the
-            # prompt that actually went to the model.
-            extra["style"] = style or "default"
-            extra["prompt_pipeline_path"] = prompt_pipeline_path
-
-            # Output resolution per style. FAL edit-models honour
-            # ``image_size`` with a concrete ``{width, height}`` dict —
-            # we pin each style to its target aspect (2 MP portrait for
-            # headshot/full-body, 1 MP square for documents).
-            spec = STYLE_REGISTRY.get(mode.value, style)
-
-            # v1.20: pass the face bbox discovered by the input-quality
-            # gate through so downstream services (including the v1.64
-            # reference padder) don't re-run MediaPipe for the same image.
-            iq_bbox = getattr(input_quality, "face_bbox", None)
-            if iq_bbox is not None:
-                extra["face_bbox"] = iq_bbox
-
-            # v1.64: ``resolve_output_size`` no longer branches on
-            # ``generation_mode``; the FAL edit pipeline runs at the
-            # style's target ``output_aspect``.
-            output_size = resolve_output_size(
-                spec,
-                face_area_ratio=face_area_ratio or None,
-                framing=framing_norm,
+            # Provider ``extra`` payload. v1.71 (Phase 4.2): the 135-
+            # line block that built ``extra`` / resolved ``output_size``
+            # / threaded the SSOT shape is now in
+            # :meth:`_prepare_provider_params`. Provider-specific
+            # whitelists still apply (GPT Image 2 accepts ``quality`` +
+            # ``aspect_ratio`` + ``size`` + ``image_model``; Nano
+            # Banana 2 accepts ``aspect_ratio`` + ``resolution`` +
+            # ``image_model``) — ``UnifiedImageGenProvider`` strips
+            # everything it does not recognise before the wire call.
+            extra, output_size, iq_bbox = self._prepare_provider_params(
+                mode=mode,
+                style=style,
+                prompt_pipeline_path=prompt_pipeline_path,
+                framing_norm=framing_norm,
+                face_area_ratio=face_area_ratio,
+                input_quality=input_quality,
+                ab_active=ab_active,
+                ab_image_model=ab_image_model,
+                ab_image_quality=ab_image_quality,
+                allow_cross_model_fallback=allow_cross_model_fallback,
+                result_dict=result_dict,
             )
-            if output_size:
-                extra["image_size"] = output_size
-                mp = (output_size["width"] * output_size["height"]) / 1_000_000
-                logger.info(
-                    "image_size resolved mode=%s style=%s "
-                    "size=%dx%d (~%.2f MP)",
-                    mode.value,
-                    style or "default",
-                    output_size["width"],
-                    output_size["height"],
-                    mp,
-                )
 
             raw = None
             identity_match: float = 0.0
@@ -901,81 +982,6 @@ class ImageGenerationExecutor:
                 "x2" if will_upscale else "no",
                 doc_ar or "none",
             )
-            # v1.21 A/B: inject ``quality`` into the provider params so
-            # FalNanoBanana2Edit / FalGptImage2Edit pick the right tier.
-            if ab_active:
-                # v1.24.2: propagate the caller-selected A/B model into the
-                # provider params so ``UnifiedImageGenProvider._pick_backend``
-                # actually routes on it. Prior to this, ``extra`` held only
-                # ``quality`` / ``aspect_ratio`` and the picker fell through
-                # to its ``model_a`` (GPT-2) default on every request —
-                # Nano Banana 2 was only reachable via the catch-fallback
-                # path after GPT-2 raised. See unified.py::_pick_backend.
-                extra["image_model"] = ab_image_model
-                extra["quality"] = ab_image_quality or getattr(
-                    settings, "ab_default_quality", "medium"
-                )
-                extra["allow_cross_model_fallback"] = allow_cross_model_fallback
-
-                # v1.68 — P2.7 SSOT: when the feature flag is on AND the
-                # style is not a document style, the (model, framing)
-                # table pins the request shape so the canvas the user
-                # sees no longer drifts between providers (see the
-                # comment above ``_OUTPUT_SIZE_BY_MODEL_FRAMING``). The
-                # legacy code below stays untouched as the fallback for
-                # the SSOT-miss case AND for the rollback-via-flag
-                # scenario.
-                ssot_applied = False
-                try:
-                    _ssot_on = bool(
-                        getattr(settings, "output_size_ssot_enabled", False)
-                    )
-                except Exception:
-                    _ssot_on = False
-                if _ssot_on and mode != AnalysisMode.CV:
-                    ssot = _resolve_output_size_ssot(
-                        model=ab_image_model,
-                        framing=framing_norm,
-                    )
-                    if ssot is not None:
-                        if "image_size" in ssot:
-                            extra["image_size"] = ssot["image_size"]
-                            output_size = ssot["image_size"]  # for cost label
-                        if "aspect_ratio" in ssot:
-                            extra["aspect_ratio"] = ssot["aspect_ratio"]
-                        if "resolution" in ssot:
-                            extra["resolution"] = ssot["resolution"]
-                        eff_ar = ssot.get("effective_aspect_ratio")
-                        if eff_ar:
-                            result_dict["effective_aspect_ratio"] = eff_ar
-                        ssot_applied = True
-                        logger.info(
-                            "image_size SSOT model=%s framing=%s "
-                            "applied=%s",
-                            ab_image_model,
-                            framing_norm,
-                            sorted(ssot.keys()),
-                        )
-
-                # v1.23: derive a Nano Banana 2 aspect_ratio enum from
-                # the resolved StyleSpec output_size. NB2 does NOT
-                # accept a raw ``{width, height}`` — it needs an enum
-                # from its white-list (``4:5``, ``3:4``, ``16:9`` etc.).
-                # Without this the provider defaults to ``auto`` and
-                # tends to reframe portraits into square at 4K, which
-                # crops the head and drops identity match. GPT Image 2
-                # uses ``image_size`` (already in ``extra``) — no-op
-                # here for that provider.
-                if (
-                    not ssot_applied
-                    and output_size
-                    and not extra.get("aspect_ratio")
-                ):
-                    extra["aspect_ratio"] = _aspect_ratio_enum_for_size(
-                        output_size["width"],
-                        output_size["height"],
-                    )
-                # v1.64: ``generation_mode`` is gone — no key to strip.
 
             # CSL Phase 1.5 (v1.64) — geometric reference padding.
             #

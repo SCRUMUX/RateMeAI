@@ -4,6 +4,10 @@ Version history for RateMeAI. Each release bumps ``src/version.py:APP_VERSION``;
 
 Style: newest first, semantic-ish ``major.minor.patch`` versioning. Pre-v1.14 history is intentionally omitted (predates the FAL rebuild).
 
+## 1.70.21
+
+Tech-debt cleanup Phase 4, step 4.2: ``single_pass`` provider-params block extracted into ``ImageGenerationExecutor._prepare_provider_params``. The ~135-line section that built the ``extra`` dict (``style`` / ``prompt_pipeline_path`` / ``face_bbox`` / ``image_size`` / SSOT branch / ``aspect_ratio`` enum) now lives in its own helper that returns ``(extra, output_size, iq_bbox)``. Pure-ish — only side effects are the existing ``image_size resolved`` / ``image_size SSOT`` INFO logs and the optional ``result_dict["effective_aspect_ratio"]`` write on SSOT hits. Behaviour is byte-for-byte unchanged; the full pytest suite (3179 tests) stays green. Continues the ``single_pass`` decomposition started in v1.71 stage 6 — four more extracts (4.3-4.6) to follow.
+
 ## 1.70.20
 
 Tech-debt cleanup Phase 4, step 4.1: ``src/version.py`` changelog split into ``CHANGELOG.md``. The module was 6600+ lines of comment-only release notes that every app/worker/bot start had to parse before reaching ``APP_VERSION``. The full history (125 entries, v1.14.0 → v1.70.19) now lives in the repo-root ``CHANGELOG.md`` with newest-first Markdown sections; ``src/version.py`` is back to a 5-line docstring + ``APP_VERSION`` literal. ``README.md`` updated with the new bump workflow. The one-off migration script ``scripts/migrations/2026_05_split_version_changelog.py`` is kept for traceability. No runtime change beyond a faster cold-start parse.
