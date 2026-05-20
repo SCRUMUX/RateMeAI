@@ -6586,4 +6586,22 @@
 #          inside their fixtures. Phase 3.4 will remove those helpers
 #          once the test surface is migrated. Boot startup time
 #          shrinks slightly; no functional change.
-APP_VERSION = "1.70.18"
+# 1.70.19 — Tech-debt cleanup Phase 3, step 3.4 (audit only). The
+#          roadmap asked whether the v1 registration pass
+#          (``get_structured_specs() → STYLE_REGISTRY.register``)
+#          could be dropped as a duplicate of the v3 catalogue. The
+#          audit (see
+#          ``scripts/migrations/2026_05_v1_registration_audit/AUDIT.md``)
+#          found seven production callsites — orchestrator, input-
+#          quality gate, bot handlers, and prompt builders — that
+#          consume v1-only fields (``.variant_by_id(...)``,
+#          ``.clothing_for(gender)``, flat ``background``). Two of
+#          those gaps require a non-trivial v3 surface extension /
+#          callsite migration before the pass can be removed; that
+#          work is captured as a follow-up cycle. The bootstrap call
+#          stays put; ``src/services/style_loader.py`` and
+#          ``src/prompts/image_gen.py`` now have explicit comments
+#          marking the pass as runtime authoritative so future
+#          cleanups don't accidentally rip it out. No runtime
+#          behaviour change.
+APP_VERSION = "1.70.19"

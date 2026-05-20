@@ -1,18 +1,25 @@
 """Style loader from JSON database.
 
-Still authoritative for:
+Runtime authoritative for:
 
 * :func:`load_styles_from_json` — thin cached read of
   ``data/styles.json``. Consumed by :mod:`src.services.style_loader_v2`,
-  :mod:`src.services.style_catalog`, and the v1 fallback block in
+  :mod:`src.services.style_catalog`, and the bootstrap block in
   :mod:`src.prompts.image_gen`.
 * :func:`get_structured_specs` — converts every entry to a v1
-  :class:`StructuredStyleSpec` for :data:`STYLE_REGISTRY` so the v1
-  lookup path keeps working for unexpected edge cases.
+  :class:`StructuredStyleSpec` for :data:`STYLE_REGISTRY`. The v1
+  registration pass is NOT a removable duplicate of v3 — see
+  ``scripts/migrations/2026_05_v1_registration_audit/AUDIT.md`` (Phase
+  3.4, v1.70.19). The orchestrator, input-quality gate, bot handlers
+  and prompt builders look up specs via ``STYLE_REGISTRY.get(...)``
+  and consume fields v3 does not expose flatly (notably
+  ``.variant_by_id(...)`` and ``.clothing_for(gender)``). Dropping
+  this pass requires migrating those callers first — captured as a
+  follow-up cycle in the audit file.
 
 See ``docs/CLEANUP_STYLE_V2.md`` for the planned eventual teardown
 (promote ``load_styles_from_json`` to ``style_json.py`` and drop the
-v1 converter).
+v1 converter once the follow-up cycle is done).
 """
 
 import json

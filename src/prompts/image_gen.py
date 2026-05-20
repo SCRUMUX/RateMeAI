@@ -355,6 +355,17 @@ STYLE_REGISTRY = StyleRegistry()
 try:
     from src.services.style_loader import get_structured_specs
 
+    # v1.70.19 (Phase 3.4 audit): the v1 registration pass below
+    # populates ``STYLE_REGISTRY._by_key`` with ``StructuredStyleSpec``
+    # entries and is **runtime authoritative**, not a leftover dupe.
+    # The orchestrator (executor.py), input-quality gate, bot
+    # handlers, and prompt builders all reach for it via
+    # ``STYLE_REGISTRY.get(mode, style)`` to consume
+    # ``output_aspect`` / ``needs_full_body`` / ``needs_torso`` /
+    # ``.variant_by_id(...)`` / ``.clothing_for(gender)``. See
+    # ``scripts/migrations/2026_05_v1_registration_audit/AUDIT.md``
+    # for the full callsite map and the proposed multi-step follow-up
+    # cycle that would let us finally drop this pass.
     for spec in get_structured_specs():
         STYLE_REGISTRY.register(spec)
 
