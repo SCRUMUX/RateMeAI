@@ -6550,4 +6550,14 @@
 #          stays in the factory as the AB whitelist used by the
 #          analysis-request validator. Companion test refresh in
 #          ``test_api/test_diagnostics.py``.
-APP_VERSION = "1.70.15"
+# 1.70.16 — Tech-debt cleanup Phase 3, step 3.1: defensive audit
+#          test for ``data/styles.json``. The on-disk catalogue is
+#          confirmed at 100% v3 coverage (136/136 entries carry
+#          ``schema_version: 3`` and each successfully materialises
+#          via ``style_loader_v3._to_v3``). A new
+#          ``test_styles_json_v3_coverage`` pair locks that invariant
+#          in CI so the Phase 3.2 / 3.3 removals (v2 auto-promotion +
+#          v2 bootstrap pass) cannot silently drop styles. Zero
+#          runtime change — purely a guard rail before the next
+#          two cleanups.
+APP_VERSION = "1.70.16"
