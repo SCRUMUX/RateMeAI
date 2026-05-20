@@ -4,6 +4,10 @@ Version history for RateMeAI. Each release bumps ``src/version.py:APP_VERSION``;
 
 Style: newest first, semantic-ish ``major.minor.patch`` versioning. Pre-v1.14 history is intentionally omitted (predates the FAL rebuild).
 
+## 1.70.22
+
+Tech-debt cleanup Phase 4, step 4.3: ``single_pass`` CSL reference-padding block extracted into ``ImageGenerationExecutor._maybe_pad_reference``. The ~140-line gate (``csl_reference_pad_enabled`` kill-switch + non-document gate + ``portrait|half_body|full_body`` framing gate + tight-crop detector with CV-mode boost + ``face_bbox`` presence check) and the PIL ``pad_reference_for_framing`` call now live in a single helper that returns ``bytes`` — either the padded canvas (on a successful gate hit) or the raw ``image_bytes`` (gate miss, padding disabled, or PIL fallback after an exception). ``REFERENCE_PADDED`` counter, ``reference_padding_applied`` INFO log, and ``reference_padding_failed`` WARNING log keep their wire format. Behaviour is byte-for-byte unchanged; full pytest (3179) green. Continues the ``single_pass`` decomposition.
+
 ## 1.70.21
 
 Tech-debt cleanup Phase 4, step 4.2: ``single_pass`` provider-params block extracted into ``ImageGenerationExecutor._prepare_provider_params``. The ~135-line section that built the ``extra`` dict (``style`` / ``prompt_pipeline_path`` / ``face_bbox`` / ``image_size`` / SSOT branch / ``aspect_ratio`` enum) now lives in its own helper that returns ``(extra, output_size, iq_bbox)``. Pure-ish — only side effects are the existing ``image_size resolved`` / ``image_size SSOT`` INFO logs and the optional ``result_dict["effective_aspect_ratio"]`` write on SSOT hits. Behaviour is byte-for-byte unchanged; the full pytest suite (3179 tests) stays green. Continues the ``single_pass`` decomposition started in v1.71 stage 6 — four more extracts (4.3-4.6) to follow.

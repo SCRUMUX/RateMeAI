@@ -833,6 +833,150 @@ class ImageGenerationExecutor:
 
         return extra, output_size, iq_bbox
 
+    def _maybe_pad_reference(
+        self,
+        *,
+        image_bytes: bytes,
+        mode: AnalysisMode,
+        style: str,
+        framing_norm: str,
+        face_area_ratio: float,
+        iq_bbox: tuple | None,
+        output_size: dict | None,
+        input_quality: Any | None,
+        is_document: bool,
+        is_studio_portrait_style: bool,
+    ) -> bytes:
+        """CSL Phase 1.5 geometric reference padding.
+
+        v1.71 (Phase 4.3 of the tech-debt roadmap): extracted from
+        :meth:`single_pass`. Tight-selfie inputs drag edit-models into
+        copying their head/torso ratio verbatim — the numerical anchor
+        in the prompt cannot overcome that spatial signal on its own.
+        :func:`pad_reference_for_framing` re-positions the face on a
+        canvas that already matches the target framing so the
+        edit-model only has to repaint clothing / background.
+
+        Returns the bytes to pass to the provider — either the padded
+        canvas (on a successful gate hit) or the original
+        ``image_bytes`` (gate miss, padding disabled, or PIL fallback
+        after an exception). Logging / metric semantics are byte-for-
+        byte identical to the inlined version: a single
+        ``reference_padding_applied`` INFO + ``REFERENCE_PADDED``
+        counter on success, or ``reference_padding_failed`` WARNING on
+        a PIL exception.
+        """
+        composition_class = (
+            getattr(input_quality, "composition_class", "unknown")
+            if input_quality is not None
+            else "unknown"
+        )
+
+        # v1.65 — padding gate now covers ``portrait`` framing too.
+        # Tight-selfie + ``framing=portrait`` is the single most
+        # common request shape (telegram preview-quality reference,
+        # default framing on the web wizard), and that combination
+        # is exactly where the "huge head, tiny shoulders"
+        # pathology shows up. The threshold is decoupled from the
+        # CSL classification ``face_closeup`` threshold (0.35) via a
+        # dedicated config knob — padding is a soft local PIL
+        # operation, so it can be triggered on uploads that are
+        # technically PORTRAIT-class but still tight enough to
+        # mis-anchor the head/torso ratio.
+        #
+        # v1.66 — CV-mode boost. CV users upload "passport-style"
+        # selfies far more often than dating/social users; the
+        # ``face_closeup`` boundary sits right at the typical CV
+        # upload (face_area_ratio ≈ 0.22..0.30). We lower the
+        # threshold to ``csl_reference_pad_face_ratio_cv`` (0.22)
+        # for mode=cv only — and only for non-studio-portrait
+        # styles, since studio portraits are by-design tight
+        # headshots and padding would fight the intended crop.
+        #
+        # v1.67 — gate widened. PORTRAIT and HALF_BODY composition
+        # classes are explicit padding triggers — anything that
+        # isn't a true FULL_BODY (sub-0.06 face, ample space below)
+        # is geometrically normalised. The default ``pad_threshold``
+        # is lowered to 0.10 so even loose-portrait uploads still
+        # short-circuit through the ratio path.
+        pad_threshold = float(
+            getattr(
+                settings,
+                "csl_reference_pad_face_ratio",
+                0.10,
+            )
+        )
+        mode_value = getattr(mode, "value", str(mode))
+        if mode_value == "cv" and not is_studio_portrait_style:
+            pad_threshold = float(
+                getattr(
+                    settings,
+                    "csl_reference_pad_face_ratio_cv",
+                    0.10,
+                )
+            )
+
+        is_tight = (
+            composition_class
+            in ("face_closeup", "portrait", "half_body", "unknown")
+            or face_area_ratio > pad_threshold
+        )
+        should_pad = (
+            getattr(settings, "csl_reference_pad_enabled", False)
+            and not is_document
+            and framing_norm in ("portrait", "half_body", "full_body")
+            and is_tight
+            and iq_bbox is not None
+        )
+        if not should_pad:
+            return image_bytes
+
+        try:
+            from src.metrics import REFERENCE_PADDED
+            from src.services.reference_preprocess import (
+                pad_reference_for_framing,
+            )
+
+            target_size_tuple: tuple[int, int]
+            if output_size:
+                target_size_tuple = (
+                    int(output_size["width"]),
+                    int(output_size["height"]),
+                )
+            else:
+                target_size_tuple = (1280, 1600)
+
+            padded = pad_reference_for_framing(
+                image_bytes,
+                face_bbox=tuple(iq_bbox),
+                framing=framing_norm,
+                target_size=target_size_tuple,
+            )
+            REFERENCE_PADDED.labels(
+                framing=framing_norm,
+                composition_class=composition_class,
+            ).inc()
+            logger.info(
+                "reference_padding_applied mode=%s style=%s "
+                "framing=%s composition_class=%s "
+                "face_area_ratio=%.3f",
+                mode.value,
+                style or "default",
+                framing_norm,
+                composition_class,
+                face_area_ratio,
+            )
+            return padded
+        except Exception as exc:
+            logger.warning(
+                "reference_padding_failed mode=%s style=%s err=%s "
+                "— falling back to raw reference",
+                mode.value,
+                style or "default",
+                exc,
+            )
+            return image_bytes
+
     async def single_pass(
         self,
         mode: AnalysisMode,
@@ -984,143 +1128,22 @@ class ImageGenerationExecutor:
             )
 
             # CSL Phase 1.5 (v1.64) — geometric reference padding.
-            #
-            # Tight-selfie inputs (face_area_ratio > 0.35, or CSL class
-            # ``face_closeup``/``unknown``) drag edit-models into
-            # copying their head/torso ratio verbatim. Numerical anchor
-            # in the prompt nudges the model in the right direction but
-            # cannot fully overcome the spatial signal from the
-            # reference itself. ``pad_reference_for_framing`` solves
-            # the spatial half deterministically: it re-positions the
-            # face on a canvas that ALREADY matches the target framing,
-            # so the edit-model only has to repaint clothing /
-            # background.
-            #
-            # Gated on:
-            #   * ``csl_reference_pad_enabled`` (kill-switch).
-            #   * non-document style (doc styles run portrait + fixed
-            #     vendor-policy composition).
-            #   * ``half_body`` / ``full_body`` framing (portrait
-            #     already matches the typical selfie crop).
-            #   * tight crop: explicit class OR face_area_ratio > threshold.
-            #   * face_bbox available (no bbox → no recompose possible).
-            reference_for_provider = image_bytes
-            composition_class = (
-                getattr(input_quality, "composition_class", "unknown")
-                if input_quality is not None
-                else "unknown"
+            # v1.71 (Phase 4.3): the ~140-line gating + PIL block is
+            # now in :meth:`_maybe_pad_reference`. Behaviour is
+            # byte-for-byte unchanged (same gate, same metric, same
+            # log strings, same PIL fallback to ``image_bytes``).
+            reference_for_provider = self._maybe_pad_reference(
+                image_bytes=image_bytes,
+                mode=mode,
+                style=style,
+                framing_norm=framing_norm,
+                face_area_ratio=face_area_ratio,
+                iq_bbox=iq_bbox,
+                output_size=output_size,
+                input_quality=input_quality,
+                is_document=_is_document,
+                is_studio_portrait_style=_is_studio_portrait_style,
             )
-            # v1.65 — padding gate now covers ``portrait`` framing too.
-            # Tight-selfie + ``framing=portrait`` is the single most
-            # common request shape (telegram preview-quality reference,
-            # default framing on the web wizard), and that combination
-            # is exactly where the "huge head, tiny shoulders"
-            # pathology shows up. The threshold for "tight enough to
-            # pad" is decoupled from the CSL classification
-            # ``face_closeup`` threshold (0.35) via a dedicated config
-            # knob ``csl_reference_pad_face_ratio`` (0.28) — padding
-            # is a soft local PIL operation, so it can be triggered on
-            # uploads that are technically PORTRAIT-class but still
-            # tight enough to mis-anchor the head/torso ratio.
-            #
-            # v1.66 — CV-mode boost. CV users upload "passport-style"
-            # selfies far more often than dating/social users; the
-            # ``face_closeup`` boundary sits right at the typical CV
-            # upload (face_area_ratio ≈ 0.22..0.30). We lower the
-            # threshold to ``csl_reference_pad_face_ratio_cv`` (0.22)
-            # for mode=cv only — and only for non-studio-portrait
-            # styles, since studio portraits are by-design tight
-            # headshots and padding would fight the intended crop.
-            #
-            # v1.67 — gate widened. Audit of v1.66 traffic showed the
-            # "huge head" pathology persists on standard half-body
-            # uploads with ``face_area_ratio ≈ 0.10..0.17`` which fell
-            # under the 0.28 default (and the 0.22 CV boost). The
-            # PORTRAIT and HALF_BODY composition classes are now
-            # explicit padding triggers — anything that isn't a true
-            # FULL_BODY (sub-0.06 face, ample space below) is
-            # geometrically normalised. The default ``pad_threshold``
-            # is lowered to 0.10 so even loose-portrait uploads still
-            # short-circuit through the ratio path. Studio-portrait
-            # styles are excluded by the framing gate (they resolve
-            # to ``portrait`` framing where padding still applies but
-            # the canvas keeps the tight bust shot they require).
-            pad_threshold = float(
-                getattr(
-                    settings,
-                    "csl_reference_pad_face_ratio",
-                    0.10,
-                )
-            )
-            mode_value = getattr(mode, "value", str(mode))
-            if (
-                mode_value == "cv"
-                and not _is_studio_portrait_style
-            ):
-                pad_threshold = float(
-                    getattr(
-                        settings,
-                        "csl_reference_pad_face_ratio_cv",
-                        0.10,
-                    )
-                )
-            is_tight = (
-                composition_class
-                in ("face_closeup", "portrait", "half_body", "unknown")
-                or face_area_ratio > pad_threshold
-            )
-            should_pad = (
-                getattr(settings, "csl_reference_pad_enabled", False)
-                and not _is_document
-                and framing_norm in ("portrait", "half_body", "full_body")
-                and is_tight
-                and iq_bbox is not None
-            )
-            if should_pad:
-                try:
-                    from src.metrics import REFERENCE_PADDED
-                    from src.services.reference_preprocess import (
-                        pad_reference_for_framing,
-                    )
-
-                    target_size_tuple: tuple[int, int]
-                    if output_size:
-                        target_size_tuple = (
-                            int(output_size["width"]),
-                            int(output_size["height"]),
-                        )
-                    else:
-                        target_size_tuple = (1280, 1600)
-
-                    reference_for_provider = pad_reference_for_framing(
-                        image_bytes,
-                        face_bbox=tuple(iq_bbox),
-                        framing=framing_norm,
-                        target_size=target_size_tuple,
-                    )
-                    REFERENCE_PADDED.labels(
-                        framing=framing_norm,
-                        composition_class=composition_class,
-                    ).inc()
-                    logger.info(
-                        "reference_padding_applied mode=%s style=%s "
-                        "framing=%s composition_class=%s "
-                        "face_area_ratio=%.3f",
-                        mode.value,
-                        style or "default",
-                        framing_norm,
-                        composition_class,
-                        face_area_ratio,
-                    )
-                except Exception as exc:
-                    logger.warning(
-                        "reference_padding_failed mode=%s style=%s err=%s "
-                        "— falling back to raw reference",
-                        mode.value,
-                        style or "default",
-                        exc,
-                    )
-                    reference_for_provider = image_bytes
 
             with _trace_step(trace, "image_gen"):
                 raw = await image_gen.generate(
