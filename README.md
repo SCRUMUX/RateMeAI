@@ -77,7 +77,7 @@ Runtime сегодня работает по одному single-pass пути (
 2. Проверка: `GET https://<ваш-api>/health` — в ответе должны быть `version` (см. [`src/version.py`](src/version.py)) и при необходимости `git`, если задали `DEPLOY_GIT_SHA` в env.
 3. В логах **воркера** при старте должна быть строка `Worker started RateMeAI version=…` с **той же** `version`, что и у API.
 
-Версию приложения поднимайте в [`src/version.py`](src/version.py) при каждой выкладке, чтобы по логам и `/health` было видно расхождение сервер ↔ репозиторий.
+Версию приложения поднимайте в [`src/version.py`](src/version.py) при каждой выкладке, чтобы по логам и `/health` было видно расхождение сервер ↔ репозиторий. Описание изменений добавляйте в [`CHANGELOG.md`](CHANGELOG.md) (newest-first) — `src/version.py` теперь содержит только литерал `APP_VERSION`, чтобы не раздувать импорт на старте app/worker/bot.
 
 ## Переменная `API_BASE_URL`: кому какой адрес
 
