@@ -1,21 +1,19 @@
 """Shared queue-submit/poll/fetch/decode logic for FAL.ai providers.
 
-Every FAL model we use (PuLID, Seedream v4 Edit, CodeFormer, FLUX.2 Pro Edit,
-FLUX.1 Kontext Pro, GFPGAN, Real-ESRGAN) exposes the same 3-step queue
-protocol::
+Every FAL model we use today (GPT Image 2, Nano Banana 2, CodeFormer,
+GFPGAN, Real-ESRGAN) exposes the same 3-step queue protocol::
 
     POST   {host}/{model}                  → {request_id, status_url, response_url}
     GET    {status_url}                    → poll until status == COMPLETED
     GET    {response_url}                  → {images: [{url}]} or {image: {url}}
 
-As of v1.20.0 every provider in ``src/providers/image_gen/fal_*.py`` is a
+Every provider in ``src/providers/image_gen/fal_*.py`` is a
 :class:`FalQueueClient` subclass — the queue protocol lives here, and each
 provider only implements the model-specific ``_build_body`` + a short log
-label. Prior to v1.20.0 the older providers (``fal_flux.py``, ``fal_flux2.py``,
-``fal_gfpgan.py``, ``fal_esrgan.py``) each carried their own ~200-line copy
-of this file; we consolidated them once the v1.18 hybrid pipeline (PuLID /
-Seedream / CodeFormer, which already used this base) had proven stable in
-production.
+label. The legacy FAL adapters (``fal_flux``, ``fal_flux2``, ``fal_pulid``,
+``fal_seedream``) and the standalone ``reve_provider`` were retired by
+v1.70.7 once the unified FAL pipeline (GPT Image 2 / Nano Banana 2 +
+optional post-processing) had fully replaced them in production.
 """
 
 from __future__ import annotations
@@ -31,9 +29,9 @@ logger = logging.getLogger(__name__)
 
 
 # ----------------------------------------------------------------------
-# Error hierarchy (single source of truth — re-exported by fal_flux.py
-# for existing ``from src.providers.image_gen.fal_flux import FalAPIError``
-# call sites).
+# Error hierarchy (single source of truth). The legacy ``fal_flux`` re-export
+# block was dropped in v1.70.7 along with the retired FAL adapters; import
+# ``FalAPIError`` / ``FalRateLimitError`` directly from this module.
 # ----------------------------------------------------------------------
 
 

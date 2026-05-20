@@ -40,10 +40,12 @@ Legacy shim files at `src/orchestrator/planner.py` and
 
 ### Reserved providers
 
-| Module | Status |
-|---|---|
-| `src/providers/image_gen/replicate.py` | Disabled in runtime (`IMAGE_GEN_PROVIDER=reve`). Kept as a FLUX/FAL baseline and a manual override for debugging. |
-| `src/providers/image_gen/chain.py` | `ChainImageGen` fallback wrapper. Not used today; will be reactivated from the Scenario Engine when `Scenario.preferred_provider_hint` lands. |
+No image-gen provider is currently reserved-but-unused.
+`src/providers/image_gen/replicate.py`, `chain.py`, `fal_pulid.py`,
+`fal_seedream.py` and `reve_provider.py` were all removed by
+v1.70.7 — `UnifiedImageGen` handles GPT Image 2 + Nano Banana 2
+fallback internally and the historical FAL adapters have no
+runtime consumers.
 
 Mock providers live under `src/providers/_testing/` and are **not**
 reserved — they are the runtime for dev/CI and explicitly off the

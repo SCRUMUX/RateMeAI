@@ -6433,4 +6433,17 @@
 #          touch. The only visible change is that a future deploy
 #          with a broken styles.json will refuse to start instead
 #          of silently downgrading to last-year's catalogue.
-APP_VERSION = "1.70.6"
+# 1.70.7 — Tech-debt cleanup Phase 1, step 1.1: dormant image-gen
+#          providers removed. ``src/providers/image_gen/chain.py``
+#          (the ``ChainImageGen`` fallback wrapper) had no runtime
+#          consumer in ``src/`` and is dropped. The companion files
+#          ``fal_pulid.py``, ``fal_seedream.py`` and
+#          ``reve_provider.py`` had already been deleted in an
+#          earlier round but were still referenced in
+#          ``docs/DEVELOPMENT.md``, ``docs/architecture/reserved.md``
+#          and the ``_fal_queue_base.py`` module docstring — those
+#          references are now refreshed to describe the unified FAL
+#          pipeline (GPT Image 2 + Nano Banana 2). No behaviour
+#          change; pure repo hygiene preparing for Phase 1 step 1.2
+#          (flux_kontext wire removal).
+APP_VERSION = "1.70.7"

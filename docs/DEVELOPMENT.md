@@ -88,9 +88,13 @@ RateMEAI/
 │   │   ├── llm/
 │   │   │   └── openrouter.py   # OpenRouterLLM — vision + text
 │   │   ├── image_gen/
-│   │   │   ├── reve_provider.py    # Reve /v1/image/edit (edit-only)
-│   │   │   ├── replicate.py        # Reserved — см. docs/architecture/reserved.md
-│   │   │   ├── chain.py            # Reserved — ChainImageGen fallback
+│   │   │   ├── unified.py          # UnifiedImageGen — FAL queue + GPT Image 2 / Nano Banana 2
+│   │   │   ├── fal_gpt_image_2.py  # GPT Image 2 (FAL)
+│   │   │   ├── fal_nano_banana.py  # Nano Banana 2 (FAL)
+│   │   │   ├── fal_codeformer.py   # CodeFormer face-restore (FAL)
+│   │   │   ├── fal_esrgan.py       # Real-ESRGAN upscaler (FAL)
+│   │   │   ├── fal_gfpgan.py       # GFPGAN face-restore (FAL)
+│   │   │   ├── _fal_queue_base.py  # Shared FAL queue submit/poll/fetch
 │   │   │   └── mock.py             # Shim → src/providers/_testing/mock_image_gen.py
 │   │   ├── storage/
 │   │   │   ├── local.py            # Local filesystem storage
