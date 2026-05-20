@@ -6573,4 +6573,17 @@
 #          empty set for one release so the ~12 prompt regression
 #          tests that snapshot/restore it in their isolation fixtures
 #          keep working without churn. No runtime behaviour change.
-APP_VERSION = "1.70.17"
+# 1.70.18 — Tech-debt cleanup Phase 3, step 3.3: v2 bootstrap pass
+#          retired. ``src/prompts/image_gen.py`` no longer calls
+#          ``register_v2_styles_from_json`` during module import —
+#          ``data/styles.json`` is 100% v3 (Phase 3.1 guard) so the
+#          parallel ``_v2_by_key`` map built during boot was never
+#          consulted in production. ``StyleRegistry.{register_v2,
+#          get_v2, has_v2, keys_v2_for_mode}`` remain available for
+#          the engine's mid-bootstrap defensive fallback and for the
+#          ~14 prompt-regression tests that exercise the v2 surface
+#          explicitly by calling ``register_v2_styles_from_json``
+#          inside their fixtures. Phase 3.4 will remove those helpers
+#          once the test surface is migrated. Boot startup time
+#          shrinks slightly; no functional change.
+APP_VERSION = "1.70.18"

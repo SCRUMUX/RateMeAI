@@ -358,22 +358,21 @@ try:
     for spec in get_structured_specs():
         STYLE_REGISTRY.register(spec)
 
-    # style-schema-v2 — picks up entries tagged ``schema_version: 2``
-    # (and v3 entries via the loader's ``_to_v2`` shim). Always-on in
-    # production; the historical ``style_schema_v2_enabled`` flag is a
-    # no-op kept only for emergency rollback.
-    try:
-        from src.services.style_loader_v2 import register_v2_styles_from_json
-
-        register_v2_styles_from_json()
-    except Exception as _v2_exc:  # noqa: BLE001 — additive path must never break v1
-        logger.warning("style_loader_v2 failed: %s", _v2_exc)
+    # v1.70.18 (Phase 3.3): the v2 bootstrap pass was retired. Every
+    # entry in ``data/styles.json`` ships at ``schema_version: 3``
+    # (locked by ``test_styles_json_v3_coverage``), so the historical
+    # ``register_v2_styles_from_json`` call only built a parallel map
+    # the runtime never consulted in production. ``StyleRegistry.get_v2``
+    # / ``has_v2`` survive as a defensive lookup for the engine's
+    # mid-bootstrap fallback path and for tests that exercise the v2
+    # composition surface explicitly via
+    # ``src.services.style_loader_v2.register_v2_styles_from_json``.
 
     # style-schema-v3 (prompt-pipeline-overhaul, 2026-04). As of
     # v1.70.x ``data/styles.json`` carries every entry at
     # ``schema_version: 3``; the ``style_schema_v3_enabled`` flag is
-    # always-on. Phase 3 of the cleanup roadmap will consolidate the
-    # three registration passes into a single v3-direct call.
+    # always-on. Phase 3 of the cleanup roadmap is collapsing the
+    # three registration passes into the single v3 pass below.
     try:
         from src.services.style_loader_v3 import register_v3_styles_from_json
 
