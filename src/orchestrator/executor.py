@@ -1249,20 +1249,18 @@ class ImageGenerationExecutor:
                     # and retrying doubles the cost without a decision
                     # signal. Capped at settings.identity_retry_max_attempts
                     # additional attempts (default 1).
-                    # v1.23: the A/B path has its own feature flag so we
-                    # can keep PuLID retries alive without blowing budget
-                    # on NB2 / GPT-2 calls. The legacy retry sends
-                    # ``pulid_mode`` + ``id_scale`` escalation which both
-                    # A/B providers silently strip, so a retry under the
-                    # old flag only bought a fresh seed at 2× cost.
-                    if ab_active:
-                        retry_enabled = bool(
-                            getattr(settings, "ab_identity_retry_enabled", False)
-                        )
-                    else:
-                        retry_enabled = bool(
-                            getattr(settings, "identity_retry_enabled", False)
-                        )
+                    #
+                    # v1.70.12 unification: the historical
+                    # ``ab_identity_retry_enabled`` / ``identity_retry_enabled``
+                    # split is gone. AB has been the sole production path for
+                    # several releases (the legacy hybrid StyleRouter no
+                    # longer exists), so we read a single flag here. The
+                    # ``Settings`` field still accepts the older
+                    # ``AB_IDENTITY_RETRY_ENABLED`` env var via an alias —
+                    # see ``src/config.py`` for the migration note.
+                    retry_enabled = bool(
+                        getattr(settings, "identity_retry_enabled", False)
+                    )
                     try:
                         _cfg_max = getattr(
                             settings,

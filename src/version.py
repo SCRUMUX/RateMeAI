@@ -6500,4 +6500,20 @@
 #          PuLID / Seedream ``extra`` payload comment now describes
 #          the actual GPT Image 2 / Nano Banana 2 whitelist). No
 #          functional change.
-APP_VERSION = "1.70.11"
+# 1.70.12 — Tech-debt cleanup Phase 2, step 2.1: identity-retry
+#          flag unified. ``ab_identity_retry_enabled`` and
+#          ``identity_retry_enabled`` were a historical duplicate —
+#          the executor picked one or the other based on
+#          ``ab_active``, but ``ab_active`` has been ``True`` in
+#          every production request for many releases. The two
+#          fields are collapsed into a single
+#          ``settings.identity_retry_enabled`` (default ``False``,
+#          matching the AB behaviour); the historical
+#          ``AB_IDENTITY_RETRY_ENABLED`` env var keeps working via
+#          a pydantic ``AliasChoices`` alias so prod ``.env`` files
+#          do not need a touch. ``executor.single_pass`` reads the
+#          single flag directly. Docs and ``.env.example`` updated
+#          accordingly. No functional change on either default —
+#          AB retry stays off in prod, the legacy hybrid retry path
+#          is dead code (the StyleRouter no longer exists).
+APP_VERSION = "1.70.12"

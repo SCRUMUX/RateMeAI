@@ -1,5 +1,6 @@
 from typing import Literal
 
+from pydantic import AliasChoices, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -127,14 +128,27 @@ class Settings(BaseSettings):
     identity_match_threshold: float = 7.0
     identity_match_soft_threshold: float = 5.0
 
-    # v1.17: VLM-based identity retry loop. When the first generation
-    # comes back with identity_match < identity_match_threshold, we
-    # re-run ``ImageGenProvider.generate()`` once with a fresh random
-    # seed and keep whichever output has the higher identity_match score.
-    # No biometric embeddings involved — the decision is driven purely
-    # by the existing VLM quality gate. Budget impact: +$0.045 per
-    # triggered retry (empirical ~15 % rate) ≈ +$0.007 / image average.
-    identity_retry_enabled: bool = True
+    # v1.17 introduced a VLM-based identity-retry loop: when the first
+    # generation came back with identity_match < identity_match_threshold,
+    # ``ImageGenProvider.generate()`` was re-run with a fresh random seed
+    # and the higher-scoring candidate kept.
+    #
+    # v1.70.12 unification: the AB-pipeline shipped its own
+    # ``ab_identity_retry_enabled`` flag (default ``False``) because
+    # Nano Banana 2 / GPT Image 2 ignore the PuLID-style identity knobs
+    # the retry used to bump — so a retry only doubled cost without
+    # improving the face. With the legacy hybrid StyleRouter retired,
+    # AB is the only path; the old ``identity_retry_enabled=True``
+    # branch was unreachable. We keep a single setting here and accept
+    # the historical ``AB_IDENTITY_RETRY_ENABLED`` env var via an alias
+    # so prod ``.env`` files keep working without touch.
+    identity_retry_enabled: bool = Field(
+        default=False,
+        validation_alias=AliasChoices(
+            "identity_retry_enabled",
+            "ab_identity_retry_enabled",
+        ),
+    )
     identity_retry_max_attempts: int = 1
 
     # v1.17: conditional GFPGAN pre-clean before the main generation.
@@ -270,15 +284,6 @@ class Settings(BaseSettings):
     # Default quality tier for the A/B models when the web client does
     # not pass an explicit one. Minimum for production is medium.
     ab_default_quality: str = "medium"
-    # v1.23 / v1.64: identity-retry stays DISABLED on the A/B (now sole)
-    # production path. The retired retry loop re-ran the provider with
-    # PuLID-specific knobs (``pulid_mode``, ``id_scale``) that Nano
-    # Banana 2 and GPT Image 2 simply ignore — so a retry only burned
-    # budget and latency without actually improving the face. VLM
-    # quality scoring is still computed and logged for analytics, but
-    # does not trigger re-generation.
-    ab_identity_retry_enabled: bool = False
-
     # Nano Banana 2 Edit (Google Gemini 3.1 Flash Image).
     # https://fal.ai/models/fal-ai/nano-banana-2/edit
     # Pricing directly from fal model page:

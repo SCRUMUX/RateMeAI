@@ -84,7 +84,7 @@ AB_TEST_ENABLED=true           # default, routes every /analyze via A/B
 AB_DEFAULT_MODEL=gpt_image_2   # fallback when the client omits image_model
 AB_DEFAULT_QUALITY=low         # fallback when the client omits image_quality
 AB_PROMPT_MAX_LEN=2000         # prompt budget (v1.23: bumped for the extended GPT-2 Preserve/Constraints)
-AB_IDENTITY_RETRY_ENABLED=false  # v1.23: A/B path skips identity retry by default
+IDENTITY_RETRY_ENABLED=false   # v1.70.12: unified flag (was AB_IDENTITY_RETRY_ENABLED, alias preserved)
 ```
 
 Flip `AB_TEST_ENABLED=false` to **re-enable the legacy hybrid
@@ -243,8 +243,10 @@ the StyleRouter path still uses. Specifically, on every A/B request:
   an already-native-resolution image only adds compression
   artefacts and doubles FAL spend.
 - **Identity retry** (`ImageGenerationExecutor.single_pass`) is
-  gated on the new `ab_identity_retry_enabled` flag (default
-  `false`). The legacy retry escalates PuLID-specific parameters
+  gated on the unified `identity_retry_enabled` flag (default
+  `false`; the historical `ab_identity_retry_enabled` env var is
+  still accepted via a pydantic alias). The legacy retry
+  escalates PuLID-specific parameters
   (`pulid_mode`, `id_scale`, `num_inference_steps`) that NB2 and
   GPT-2 silently strip — so a retry only produces a second
   generation on a fresh seed, doubles cost and latency, and does
@@ -262,8 +264,8 @@ What the A/B path still runs:
 Flag reference:
 
 ```
-AB_IDENTITY_RETRY_ENABLED=false    # v1.23 default; flip to `true` to re-enable
-IDENTITY_RETRY_ENABLED=true        # legacy StyleRouter path — independent
+IDENTITY_RETRY_ENABLED=false   # v1.70.12 unified flag (default; flip to `true` to investigate regressions)
+# AB_IDENTITY_RETRY_ENABLED=false  # legacy env name, still honoured via pydantic alias
 ```
 
 The legacy StyleRouter path keeps every stage above (GFPGAN
@@ -293,7 +295,7 @@ retry escalation actually feeds into PuLID's schema.
    response bytes before any VLM call — the issue is almost
    certainly in the prompt (`src/prompts/ab_prompt.py`) or in the
    NB2 `thinking_level` / `aspect_ratio` parameters. Re-enabling
-   retry with `AB_IDENTITY_RETRY_ENABLED=true` is a debugging
+   retry with `IDENTITY_RETRY_ENABLED=true` is a debugging
    escape hatch, not a fix.
 4. Want to disable only one of the two A/B providers?
    → temporarily remove its key from `factory.AB_IMAGE_MODELS`;
