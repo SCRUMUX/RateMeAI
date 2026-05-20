@@ -71,7 +71,7 @@ def test_nano_banana_2_returns_4_5_2k(framing: str):
 
 
 def test_unknown_model_returns_none():
-    assert _resolve_output_size_ssot(model="flux_kontext", framing="portrait") is None
+    assert _resolve_output_size_ssot(model="legacy_unknown_model", framing="portrait") is None
 
 
 def test_unknown_framing_returns_none():

@@ -6446,4 +6446,20 @@
 #          pipeline (GPT Image 2 + Nano Banana 2). No behaviour
 #          change; pure repo hygiene preparing for Phase 1 step 1.2
 #          (flux_kontext wire removal).
-APP_VERSION = "1.70.7"
+# 1.70.8 — Tech-debt cleanup Phase 1, step 1.2: ``flux_kontext`` wire
+#          removed from ``src/prompts/model_wrappers``. The model has
+#          been off the AB whitelist (``AB_MODELS_ALLOWED = {nano_banana_2,
+#          gpt_image_2}``) and absent from ``data/styles.json`` for
+#          several releases, so ``wrap_for_flux_kontext`` and the
+#          ``model == "flux_kontext"`` branch of ``wrap_for_model``
+#          were dead code. Dropped together with the
+#          ``QUALITY_PHOTO_FLUX`` constant and the
+#          ``"flux_kontext": QUALITY_PHOTO_FLUX`` entry of
+#          ``_MODEL_DEFAULT_TAIL``. ``wrap_for_model`` now falls back
+#          to GPT Image 2 for any unknown model name (matches the
+#          previous default-via-dict-key behaviour through the
+#          executor). Companion test rename in
+#          ``test_output_size_ssot.test_unknown_model_returns_none``
+#          to a neutral placeholder model name. No behaviour change
+#          on the supported wire.
+APP_VERSION = "1.70.8"

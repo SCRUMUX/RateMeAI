@@ -74,8 +74,13 @@ Tail resolution order:
    across ``data/styles.json``; until they are re-curated we honour
    any non-empty override.
 2. ``ir.quality_identity_base`` — style-level common tail.
-3. Default constants (``QUALITY_PHOTO_GPT`` / ``QUALITY_PHOTO_NANO`` /
-   ``QUALITY_PHOTO_FLUX``) — ``PHOTOREAL_BLOCK`` for every model.
+3. Default constants (``QUALITY_PHOTO_GPT`` / ``QUALITY_PHOTO_NANO``)
+   — ``PHOTOREAL_BLOCK`` for every model.
+
+The historical ``flux_kontext`` wrapper was retired in v1.70.8 once
+``AB_MODELS_ALLOWED`` in ``src/services/analysis_request.py`` was
+narrowed to ``{nano_banana_2, gpt_image_2}`` and the corresponding
+entry was removed from ``data/styles.json``.
 """
 
 from __future__ import annotations
@@ -90,13 +95,11 @@ from src.prompts.composition_builder import CompositionIR
 # PR can tune wording for a single model without rebalancing others.
 QUALITY_PHOTO_GPT = ig.PHOTOREAL_BLOCK
 QUALITY_PHOTO_NANO = ig.PHOTOREAL_BLOCK
-QUALITY_PHOTO_FLUX = ig.PHOTOREAL_BLOCK
 
 
 _MODEL_DEFAULT_TAIL = {
     "gpt_image_2": QUALITY_PHOTO_GPT,
     "nano_banana_2": QUALITY_PHOTO_NANO,
-    "flux_kontext": QUALITY_PHOTO_FLUX,
 }
 
 
@@ -287,15 +290,12 @@ def wrap_for_nano_banana_2(ir: CompositionIR) -> str:
     return _assemble(ir, tail=_resolve_tail(ir, "nano_banana_2"))
 
 
-def wrap_for_flux_kontext(ir: CompositionIR) -> str:
-    """Final prompt for FLUX Kontext (BFL)."""
-    return _assemble(ir, tail=_resolve_tail(ir, "flux_kontext"))
-
-
 def wrap_for_model(ir: CompositionIR, model: str) -> str:
-    """Dispatch helper used by the executor: pick the wrapper by model name."""
+    """Dispatch helper used by the executor: pick the wrapper by model name.
+
+    ``AB_MODELS_ALLOWED`` ships only ``gpt_image_2`` and ``nano_banana_2``,
+    so any unknown ``model`` falls back to the GPT Image 2 wrapper.
+    """
     if model == "nano_banana_2":
         return wrap_for_nano_banana_2(ir)
-    if model == "flux_kontext":
-        return wrap_for_flux_kontext(ir)
     return wrap_for_gpt_image_2(ir)
