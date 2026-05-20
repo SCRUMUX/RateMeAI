@@ -181,14 +181,16 @@ def _log_image_gen_choice(provider: ImageGenProvider, *, reason: str) -> None:
 def get_image_gen() -> ImageGenProvider:
     """Return the production image-generation provider.
 
-    v1.64: single FAL-only path. ``IMAGE_GEN_PROVIDER`` accepts
-    ``mock`` (dev / tests) or anything else (defaults to the unified
-    FAL provider). Reve, Replicate, PuLID and Seedream legs were
-    retired in this version — see ``docs/ARCHITECTURE.md``.
+    v1.70.13 — single FAL-only path. ``IMAGE_GEN_PROVIDER`` is now a
+    two-value enum ``{mock, unified}`` (with ``auto`` and any legacy
+    value treated as a synonym of ``unified`` for backward
+    compatibility with older ``.env`` files). Reve, Replicate,
+    PuLID and Seedream legs were retired between v1.20 and v1.64;
+    see ``docs/ARCHITECTURE.md``.
     """
     from src.providers._testing import MockImageGen
 
-    mode = (settings.image_gen_provider or "auto").strip().lower()
+    mode = (settings.image_gen_provider or "unified").strip().lower()
     prod = settings.is_production
 
     if mode == "mock":
@@ -198,18 +200,18 @@ def get_image_gen() -> ImageGenProvider:
 
     if (settings.fal_api_key or "").strip():
         p = _build_unified_provider()
-        _log_image_gen_choice(p, reason="auto → FAL_API_KEY present")
+        _log_image_gen_choice(p, reason=f"mode={mode} → FAL_API_KEY present")
         return p
 
     if prod:
         raise RuntimeError(
-            "IMAGE_GEN_PROVIDER=auto requires FAL_API_KEY — the Reve "
+            "IMAGE_GEN_PROVIDER=unified requires FAL_API_KEY — the Reve "
             "and Replicate fallbacks were retired in v1.20, and the "
             "PuLID / Seedream legs were retired in v1.64.",
         )
 
     p = MockImageGen()
-    _log_image_gen_choice(p, reason="auto → no FAL_API_KEY (dev)")
+    _log_image_gen_choice(p, reason=f"mode={mode} → no FAL_API_KEY (dev)")
     return p
 
 

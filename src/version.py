@@ -6516,4 +6516,14 @@
 #          accordingly. No functional change on either default —
 #          AB retry stays off in prod, the legacy hybrid retry path
 #          is dead code (the StyleRouter no longer exists).
-APP_VERSION = "1.70.12"
+# 1.70.13 — Tech-debt cleanup Phase 2, step 2.2: ``IMAGE_GEN_PROVIDER``
+#          collapsed to the two-value vocabulary ``{mock, unified}``
+#          (default ``unified``). The factory already routed any
+#          non-mock value to the unified FAL provider; the config
+#          docstring and the default value now reflect that, and the
+#          factory's log lines use ``mode=<value>`` rather than the
+#          deprecated ``auto``. Backward compatible: legacy
+#          ``.env`` strings like ``auto`` / ``fal_flux2`` / ``reve``
+#          still parse and behave as ``unified`` — the field stays
+#          a plain ``str`` so prod deploys do not need a touch.
+APP_VERSION = "1.70.13"

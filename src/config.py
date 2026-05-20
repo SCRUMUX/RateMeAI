@@ -52,9 +52,16 @@ class Settings(BaseSettings):
     # If local file missing, try GET {base}/storage/{key} (e.g. worker -> http://app:8000 in Docker)
     storage_http_fallback_base: str = ""
 
-    # Image generation: mock | reve | auto
-    # auto — gpt_image_2 при наличии FAL_API_KEY, иначе Reve, иначе mock/ошибка.
-    image_gen_provider: str = "auto"
+    # Image generation provider selector.
+    # ``mock``   — local stub (dev / CI).
+    # ``unified`` — production FAL queue clients (GPT Image 2 / Nano
+    # Banana 2 picked per-request by the AB router; only ``unified``
+    # remains after the v1.20→v1.64 cleanup of Reve / Replicate /
+    # PuLID / Seedream).
+    # The factory normalises any non-``mock`` value to ``unified`` so
+    # legacy ``.env`` files (``auto``, ``fal_flux2``, ``reve``…) still
+    # boot — the field stays a plain ``str`` for backward compatibility.
+    image_gen_provider: str = "unified"
 
     # FAL.ai (https://fal.ai — FLUX.1 Kontext [pro] / image-to-image edit)
     # Получить токен: https://fal.ai → Dashboard → Keys (формат: uuid:secret).
