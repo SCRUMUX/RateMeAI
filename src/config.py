@@ -315,16 +315,14 @@ class Settings(BaseSettings):
     model_cost_gpt_image_2_medium: float = 0.06  # 1536² output
     model_cost_gpt_image_2_high: float = 0.25  # 2048² output
 
-    # Segmentation / multi-pass pipeline.
-    # Segmentation is DISABLED because Reve SDK 0.1.2 does not accept a
-    # `mask_image` kwarg in edit() — passing one raises TypeError and ends
-    # the generation as a generic failure. Until the SDK supports masking,
-    # we fall back to a textual "change only the background" hint driven
-    # by `mask_region` in executor.single_pass. Re-enable when SDK learns
-    # mask_image.
-    # Multi-pass is intentionally OFF so every task stays within one Reve call.
-    segmentation_enabled: bool = False
-    multi_pass_enabled: bool = False
+    # Pipeline budget — single hard cap shared by every generation
+    # branch. The historical ``segmentation_enabled`` (MediaPipe region
+    # masks) and ``multi_pass_enabled`` (advanced multi-stage planner)
+    # flags were retired in v1.70.14: segmentation hardcoded to ``off``
+    # because the active FAL providers never accepted ``mask_image``;
+    # multi-pass is reserved code under ``orchestrator/advanced/`` and
+    # only the planner reads its own internal default. Re-introducing
+    # either feature should ship behind a fresh, scope-specific flag.
     pipeline_budget_max_usd: float = 0.15
 
     # Quality gates

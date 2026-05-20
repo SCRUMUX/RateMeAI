@@ -2,9 +2,12 @@
 
 The planner generates a JSON-compatible execution plan per task based on
 analysis mode, style and enhancement level. It is currently **not**
-invoked by the main runtime (``settings.multi_pass_enabled=False`` and
-``policy.single_provider_call=True``) but is preserved verbatim as the
-foundation for:
+invoked by the main runtime (the historical
+``settings.multi_pass_enabled`` flag was retired in v1.70.14 because
+this planner has been off in every environment since the v1.20 hybrid
+pipeline ship; ``policy.single_provider_call=True`` keeps the
+single-pass executor as the only generation path) but is preserved
+verbatim as the foundation for:
 
 * premium / HD retouch scenarios with multi-step gate retries;
 * compliance-loop for document scenarios (passport/ID) where a single

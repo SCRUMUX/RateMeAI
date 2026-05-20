@@ -6526,4 +6526,16 @@
 #          ``.env`` strings like ``auto`` / ``fal_flux2`` / ``reve``
 #          still parse and behave as ``unified`` — the field stays
 #          a plain ``str`` so prod deploys do not need a touch.
-APP_VERSION = "1.70.13"
+# 1.70.14 — Tech-debt cleanup Phase 2, step 2.3: ``segmentation_enabled``
+#          and ``multi_pass_enabled`` settings retired. Both flags
+#          had been hardcoded to ``False`` in production since v1.20:
+#          the active FAL providers never accepted a ``mask_image``
+#          kwarg, and the multi-pass advanced planner under
+#          ``src/orchestrator/advanced/`` is reserved code with no
+#          runtime caller. No ``src/`` module read either flag —
+#          only their definitions and a planner docstring referenced
+#          them. Both are dropped from ``Settings``; existing tests
+#          continue to set them on ``MagicMock`` instances harmlessly.
+#          ``ENV`` files do not need updating — pydantic-settings
+#          ``extra=ignore`` silently drops the now-unknown vars.
+APP_VERSION = "1.70.14"
