@@ -595,16 +595,10 @@ class ImageGenerationExecutor:
         # ``resolved_slots`` is non-empty only on the v3 path, so
         # its presence/absence is the most reliable in-process
         # signal for which schema actually drove the prompt.
+        # v1.70.17 cleanup: ``v3_promoted`` distinguisher was retired
+        # alongside ``_auto_promote_v2_specs`` — every style on disk
+        # is now natively v3, no synthetic-from-v2 specs exist.
         prompt_pipeline_path = "v3" if resolved_slots else "v2"
-        # Distinguish auto-promoted v2 specs from native v3 in
-        # logs so we can tell which styles still need a hand-curated
-        # v3 entry.
-        if prompt_pipeline_path == "v3":
-            try:
-                if STYLE_REGISTRY.is_v3_promoted(mode.value, style):
-                    prompt_pipeline_path = "v3_promoted"
-            except Exception:
-                pass
 
         # v1.27.3 — surface soft-substitutions as a post-generation
         # notice. When the user typed a value the style didn't

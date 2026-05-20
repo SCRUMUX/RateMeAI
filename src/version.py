@@ -6560,4 +6560,17 @@
 #          v2 bootstrap pass) cannot silently drop styles. Zero
 #          runtime change — purely a guard rail before the next
 #          two cleanups.
-APP_VERSION = "1.70.16"
+# 1.70.17 — Tech-debt cleanup Phase 3, step 3.2: v2 → v3 auto-promotion
+#          synthesiser retired. ``_promote_v2_to_v3`` and
+#          ``_auto_promote_v2_specs`` are removed from
+#          ``style_loader_v3``; the bootstrap no longer needs them
+#          because the Phase 3.1 coverage guard proves every JSON entry
+#          is natively v3. The companion ``StyleRegistry`` helpers
+#          ``register_v3_promoted`` / ``is_v3_promoted`` are dropped,
+#          and the executor's ``v3_promoted`` ``prompt_pipeline_path``
+#          branch is gone — every v3-driven prompt now logs as plain
+#          ``v3``. ``StyleRegistry._v3_promoted`` itself stays as an
+#          empty set for one release so the ~12 prompt regression
+#          tests that snapshot/restore it in their isolation fixtures
+#          keep working without churn. No runtime behaviour change.
+APP_VERSION = "1.70.17"
