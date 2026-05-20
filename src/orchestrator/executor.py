@@ -977,6 +977,91 @@ class ImageGenerationExecutor:
             )
             return image_bytes
 
+    async def _postprocess(
+        self,
+        raw: bytes,
+        *,
+        mode: AnalysisMode,
+        style: str,
+        face_area_ratio: float,
+        apply_quality_post: bool,
+        is_retry: bool,
+    ) -> tuple[bytes, bool]:
+        """Run local crop / upscale / CodeFormer / Real-ESRGAN.
+
+        v1.71 (Phase 4.4 of the tech-debt roadmap): extracted from
+        :meth:`single_pass` so both the first-pass and the identity-
+        retry branches share one implementation. Always runs
+        :func:`_apply_local_postprocess` (document AR crop + the small
+        x2 LANCZOS upscale for tight selfies); the CodeFormer and
+        Real-ESRGAN passes are gated on ``apply_quality_post`` —
+        callers pass ``not ab_active`` for the first pass (skipping
+        them on the A/B path where edit-models already emit clean
+        faces) and ``True`` for identity retries (matching the
+        pre-refactor behaviour). Returns
+        ``(processed_bytes, codeformer_applied)``.
+        """
+        raw = _apply_local_postprocess(raw, mode, style, face_area_ratio)
+        cf_applied = False
+        if apply_quality_post:
+            raw, cf_applied = await _apply_codeformer_post(
+                raw,
+                face_area_ratio=face_area_ratio or None,
+                is_retry=is_retry,
+            )
+            raw = await _maybe_real_esrgan_upscale(raw, face_area_ratio)
+        return raw, cf_applied
+
+    def _record_fal_call_metric(
+        self,
+        *,
+        provider_name: str,
+        backend: str,
+        mode: AnalysisMode,
+        step: str,
+    ) -> None:
+        """Resolve the underlying FAL model name and bump ``FAL_CALLS``.
+
+        v1.71 (Phase 4.4): same dispatch table that lived inline in
+        :meth:`single_pass` (twice — once for the first pass, once for
+        the identity retry). ``provider_name`` is ``type(image_gen).
+        __name__`` (e.g. ``UnifiedImageGenProvider``); ``backend`` is
+        ``params["image_model"]`` for the unified path or a legacy
+        provider class name. A no-op when neither dispatch path yields
+        a known FAL model.
+        """
+        fal_model: str | None = None
+        if provider_name.lower() == "unifiedimagegenprovider":
+            if backend == "nano_banana_2":
+                fal_model = getattr(
+                    settings, "nano_banana_model", "fal-ai/nano-banana-2/edit"
+                )
+            elif backend == "gpt_image_2":
+                fal_model = getattr(
+                    settings, "gpt_image_2_model", "openai/gpt-image-2/edit"
+                )
+        elif "nanobanana" in provider_name.lower():
+            fal_model = getattr(
+                settings, "nano_banana_model", "fal-ai/nano-banana-2/edit"
+            )
+        elif "gptimage" in provider_name.lower():
+            fal_model = getattr(
+                settings, "gpt_image_2_model", "openai/gpt-image-2/edit"
+            )
+
+        if not fal_model:
+            return
+        try:
+            FAL_CALLS.labels(
+                mode=mode.value,
+                step=step,
+                model=fal_model,
+            ).inc()
+        except Exception as e:
+            logger.warning(
+                "Failed to record FAL_CALLS metric for %s: %s", step, e
+            )
+
     async def single_pass(
         self,
         mode: AnalysisMode,
@@ -1160,23 +1245,20 @@ class ImageGenerationExecutor:
 
             codeformer_applied = False
             if raw and len(raw) > 100:
-                raw = _apply_local_postprocess(raw, mode, style, face_area_ratio)
-                # v1.23 / v1.64: on the A/B path (the only path now) we
-                # DO NOT run CodeFormer / Real-ESRGAN. Nano Banana 2 and
-                # GPT Image 2 already emit clean, sharp faces at native
-                # resolution (1K–4K for NB2, up to 2560 for GPT-2).
-                # CodeFormer subtly re-renders facial features — exactly
-                # what we spent the A/B model budget trying to avoid.
-                # Real-ESRGAN x2 on an already-4K image only adds
-                # compression artefacts and doubles FAL spend.
-                if not ab_active:
-                    raw, cf_applied = await _apply_codeformer_post(
-                        raw,
-                        face_area_ratio=face_area_ratio or None,
-                        is_retry=False,
-                    )
-                    codeformer_applied = codeformer_applied or cf_applied
-                    raw = await _maybe_real_esrgan_upscale(raw, face_area_ratio)
+                # v1.71 (Phase 4.4): local + quality post-processing
+                # is now a single :meth:`_postprocess` call. On the
+                # A/B path (production default) ``apply_quality_post``
+                # is ``False`` — Nano Banana 2 / GPT Image 2 emit
+                # sharp faces natively so CodeFormer + Real-ESRGAN
+                # only add cost and subtle re-rendering artefacts.
+                raw, codeformer_applied = await self._postprocess(
+                    raw,
+                    mode=mode,
+                    style=style,
+                    face_area_ratio=face_area_ratio,
+                    apply_quality_post=not ab_active,
+                    is_retry=False,
+                )
             provider_name = type(image_gen).__name__
             # v1.20: generic provider-agnostic counter. Name changed
             # from the historical ``ratemeai_reve_calls_total`` to
@@ -1187,36 +1269,14 @@ class ImageGenerationExecutor:
                 provider=provider_name,
             ).inc()
 
-            fal_model: str | None = None
-            if provider_name.lower() == "unifiedimagegenprovider":
-                if first_pass_backend == "nano_banana_2":
-                    fal_model = getattr(
-                        settings, "nano_banana_model", "fal-ai/nano-banana-2/edit"
-                    )
-                elif first_pass_backend == "gpt_image_2":
-                    fal_model = getattr(
-                        settings, "gpt_image_2_model", "openai/gpt-image-2/edit"
-                    )
-            elif "nanobanana" in provider_name.lower():
-                fal_model = getattr(
-                    settings, "nano_banana_model", "fal-ai/nano-banana-2/edit"
-                )
-            elif "gptimage" in provider_name.lower():
-                fal_model = getattr(
-                    settings, "gpt_image_2_model", "openai/gpt-image-2/edit"
-                )
-
-            if fal_model:
-                try:
-                    FAL_CALLS.labels(
-                        mode=mode.value,
-                        step="single_pass",
-                        model=fal_model,
-                    ).inc()
-                except Exception as e:
-                    logger.warning(
-                        "Failed to record FAL_CALLS metric for single_pass: %s", e
-                    )
+            # v1.71 (Phase 4.4): FAL model dispatch + counter bump
+            # consolidated in :meth:`_record_fal_call_metric`.
+            self._record_fal_call_metric(
+                provider_name=provider_name,
+                backend=first_pass_backend,
+                mode=mode,
+                step="single_pass",
+            )
 
             if not raw or len(raw) <= 100:
                 logger.warning(
@@ -1334,64 +1394,31 @@ class ImageGenerationExecutor:
                             generation_attempts += 1
 
                             if retry_raw and len(retry_raw) > 100:
-                                retry_raw = _apply_local_postprocess(
+                                # v1.71 (Phase 4.4): same
+                                # :meth:`_postprocess` helper as the
+                                # first pass; retries always run the
+                                # quality post-passes (matching the
+                                # pre-refactor behaviour).
+                                retry_raw, cf_applied_r = await self._postprocess(
                                     retry_raw,
-                                    mode,
-                                    style,
-                                    face_area_ratio,
-                                )
-                                retry_raw, cf_applied_r = await _apply_codeformer_post(
-                                    retry_raw,
-                                    face_area_ratio=(face_area_ratio or None),
+                                    mode=mode,
+                                    style=style,
+                                    face_area_ratio=face_area_ratio,
+                                    apply_quality_post=True,
                                     is_retry=True,
                                 )
                                 codeformer_applied = codeformer_applied or cf_applied_r
-                                retry_raw = await _maybe_real_esrgan_upscale(
-                                    retry_raw,
-                                    face_area_ratio,
-                                )
                                 # v1.64: the unified provider picks the
                                 # backend deterministically from
                                 # ``params["image_model"]``; the retry
                                 # uses the same backend as the first
                                 # pass, so we re-use ``first_pass_backend``.
-                                retry_backend = first_pass_backend
-                                retry_fal_model: str | None = None
-                                if provider_name.lower() == "unifiedimagegenprovider":
-                                    if retry_backend == "nano_banana_2":
-                                        retry_fal_model = getattr(
-                                            settings,
-                                            "nano_banana_model",
-                                            "fal-ai/nano-banana-2/edit",
-                                        )
-                                    elif retry_backend == "gpt_image_2":
-                                        retry_fal_model = getattr(
-                                            settings,
-                                            "gpt_image_2_model",
-                                            "openai/gpt-image-2/edit",
-                                        )
-                                elif "nanobanana" in provider_name.lower():
-                                    retry_fal_model = getattr(
-                                        settings,
-                                        "nano_banana_model",
-                                        "fal-ai/nano-banana-2/edit",
-                                    )
-                                elif "gptimage" in provider_name.lower():
-                                    retry_fal_model = getattr(
-                                        settings,
-                                        "gpt_image_2_model",
-                                        "openai/gpt-image-2/edit",
-                                    )
-
-                                if retry_fal_model:
-                                    try:
-                                        FAL_CALLS.labels(
-                                            mode=mode.value,
-                                            step="identity_retry",
-                                            model=retry_fal_model,
-                                        ).inc()
-                                    except Exception:
-                                        pass
+                                self._record_fal_call_metric(
+                                    provider_name=provider_name,
+                                    backend=first_pass_backend,
+                                    mode=mode,
+                                    step="identity_retry",
+                                )
 
                                 with _trace_step(
                                     trace,

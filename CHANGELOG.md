@@ -4,6 +4,10 @@ Version history for RateMeAI. Each release bumps ``src/version.py:APP_VERSION``;
 
 Style: newest first, semantic-ish ``major.minor.patch`` versioning. Pre-v1.14 history is intentionally omitted (predates the FAL rebuild).
 
+## 1.70.23
+
+Tech-debt cleanup Phase 4, step 4.4: ``single_pass`` post-processing block extracted. ``ImageGenerationExecutor._postprocess`` wraps the local crop / x2 LANCZOS upscale (``_apply_local_postprocess``) and the gated CodeFormer + Real-ESRGAN passes behind a single ``apply_quality_post`` flag — callers pass ``not ab_active`` for the first pass (skips on the A/B production path) and ``True`` for identity retries (matching the pre-refactor behaviour). Companion helper ``_record_fal_call_metric`` consolidates the duplicated ``UnifiedImageGenProvider`` → ``nano_banana_model`` / ``gpt_image_2_model`` dispatch + ``FAL_CALLS`` counter bump that lived inline twice (first pass + identity retry). Behaviour and metric labels are byte-for-byte unchanged; full pytest (3179) green. ``single_pass`` is ~75 lines shorter.
+
 ## 1.70.22
 
 Tech-debt cleanup Phase 4, step 4.3: ``single_pass`` CSL reference-padding block extracted into ``ImageGenerationExecutor._maybe_pad_reference``. The ~140-line gate (``csl_reference_pad_enabled`` kill-switch + non-document gate + ``portrait|half_body|full_body`` framing gate + tight-crop detector with CV-mode boost + ``face_bbox`` presence check) and the PIL ``pad_reference_for_framing`` call now live in a single helper that returns ``bytes`` — either the padded canvas (on a successful gate hit) or the raw ``image_bytes`` (gate miss, padding disabled, or PIL fallback after an exception). ``REFERENCE_PADDED`` counter, ``reference_padding_applied`` INFO log, and ``reference_padding_failed`` WARNING log keep their wire format. Behaviour is byte-for-byte unchanged; full pytest (3179) green. Continues the ``single_pass`` decomposition.
