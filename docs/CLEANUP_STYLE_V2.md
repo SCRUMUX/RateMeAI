@@ -59,12 +59,11 @@ changing prod behaviour, so it has been left for a later pass:
    which assert v1-specific prompt shape. Rewriting them to the v2
    composition output is a chunky job with no runtime payoff.
 
-2. **`src/prompts/style_variants.py`** (3 064 lines) and the
-   `STYLE_VARIANTS.get(...)` calls inside the JSON-load exception
-   handler in `src/prompts/image_gen.py`. This whole block only runs
-   when `data/styles.json` is corrupt or missing — a safety net. No
-   test references it; deletion is mechanically trivial but costs a
-   live fallback for a degraded-disk scenario.
+2. **~~`src/prompts/style_variants.py`~~** (removed in v1.70.9). The
+   JSON-load exception handler in `src/prompts/image_gen.py` was
+   already converted to a hard `RuntimeError` in v1.70.6, so the
+   legacy variant table was unreachable; the 2 767-line file is
+   gone together with the `STYLE_VARIANTS` symbol.
 
 3. **`src/services/style_loader.py`** still provides
    `get_structured_specs` (the v1 path) *and*
@@ -88,8 +87,9 @@ is:
    plus the v1 fallback branch in `executor.single_pass`.
 3. Extract `load_styles_from_json` to `src/services/style_json.py` and
    re-point the three callers. Delete `src/services/style_loader.py`.
-4. Delete `src/prompts/style_variants.py` and the JSON-load exception
-   fallback block in `image_gen.py`.
+4. ~~Delete `src/prompts/style_variants.py` and the JSON-load
+   exception fallback block in `image_gen.py`.~~ Done in v1.70.6
+   (RuntimeError) and v1.70.9 (file removal).
 5. Optional cosmetic: rename `StyleRegistry.register_v2` → `register`,
    `get_v2` → `get`, drop v1-only methods.
 

@@ -6462,4 +6462,13 @@
 #          ``test_output_size_ssot.test_unknown_model_returns_none``
 #          to a neutral placeholder model name. No behaviour change
 #          on the supported wire.
-APP_VERSION = "1.70.8"
+# 1.70.9 — Tech-debt cleanup Phase 1, step 1.3:
+#          ``src/prompts/style_variants.py`` removed (2 767 lines).
+#          ``STYLE_VARIANTS`` and ``variants_for`` had a single
+#          documented consumer — the JSON-load exception fallback in
+#          ``src/prompts/image_gen.py`` — which was converted to a
+#          hard ``RuntimeError`` in v1.70.6 (Stage 7). With no
+#          runtime importer left, the legacy variant table is gone.
+#          ``docs/CLEANUP_STYLE_V2.md`` updated to mark Step 4 of
+#          the cleanup roadmap done. No behaviour change.
+APP_VERSION = "1.70.9"
