@@ -4,6 +4,10 @@ Version history for RateMeAI. Each release bumps ``src/version.py:APP_VERSION``;
 
 Style: newest first, semantic-ish ``major.minor.patch`` versioning. Pre-v1.14 history is intentionally omitted (predates the FAL rebuild).
 
+## 1.70.25
+
+Tech-debt cleanup Phase 4, step 4.6 (final extract): ``single_pass`` VLM gate + identity-retry loop extracted into ``ImageGenerationExecutor._run_with_retry``. The ~310-line block (``run_global_gates``, optional seed-based re-generation when ``identity_match`` is below threshold, ``IDENTITY_RETRY_TRIGGERED`` / ``GENERATION_ATTEMPTS`` metrics, and all soft user-facing quality warnings) now lives in one async helper returning ``(raw, identity_match, generation_attempts, codeformer_applied)``. Contract pinned by ``tests/test_orchestrator/test_identity_retry.py`` and ``test_executor_identity_unverified.py``. ``single_pass`` is now ~296 lines of orchestration (down from ~900 pre-v1.71). Full pytest (3179) green. Phase 4 complete.
+
 ## 1.70.24
 
 Tech-debt cleanup Phase 4, step 4.5: ``single_pass`` persist + metrics block extracted into ``ImageGenerationExecutor._persist_and_metric``. The ~160-line section (EXIF inject, S3 upload, URL writes, ``enhancement`` dict, ``cost_breakdown`` with Real-ESRGAN / CodeFormer line items, ``IMAGE_GEN_BACKEND`` / ``GENERATION_COST_USD`` Prometheus bumps) now lives in one async helper. Behaviour is byte-for-byte unchanged; full pytest (3179) green. Continues the ``single_pass`` decomposition — one extract left (4.6 identity-retry loop).

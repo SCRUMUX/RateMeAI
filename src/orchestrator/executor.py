@@ -1238,6 +1238,283 @@ class ImageGenerationExecutor:
             estimated_cost + esrgan_cost + codeformer_cost,
         )
 
+    async def _run_with_retry(
+        self,
+        raw: bytes,
+        *,
+        image_bytes: bytes,
+        image_gen: ImageGenProvider,
+        prompt: str,
+        reference_for_provider: bytes,
+        extra: dict,
+        mode: AnalysisMode,
+        style: str,
+        task_id: str,
+        trace: dict,
+        result_dict: dict,
+        warnings: list[str],
+        provider_name: str,
+        first_pass_backend: str,
+        face_area_ratio: float,
+        generation_attempts: int,
+        codeformer_applied: bool,
+    ) -> tuple[bytes, float, int, bool]:
+        """VLM quality gates + optional identity-retry loop.
+
+        v1.71 (Phase 4.6 of the tech-debt roadmap): extracted from
+        :meth:`single_pass`. Runs ``run_global_gates`` on the first-pass
+        output, optionally re-generates with a fresh seed when
+        ``identity_match`` falls below threshold (and the VLM check
+        itself did not error), then surfaces soft user-facing warnings
+        from the final ``quality_report``. Returns
+        ``(raw, identity_match, generation_attempts,
+        codeformer_applied)`` — the retry may swap ``raw`` for a
+        higher-scoring candidate. Emoji mode callers skip this helper
+        entirely. Behaviour is byte-for-byte unchanged from the
+        inlined version; contract pinned by
+        ``tests/test_orchestrator/test_identity_retry.py``.
+        """
+        identity_match: float = 0.0
+        try:
+            gate_runner = self._get_gate_runner()
+            sp_gates: dict[str, float] = {
+                "identity_match": settings.identity_match_threshold,
+                "aesthetic_score": settings.aesthetic_threshold,
+            }
+            if settings.photorealism_enabled:
+                sp_gates["photorealism"] = settings.photorealism_threshold
+            sp_gates["niqe"] = 5.0
+
+            with _trace_step(trace, "single_pass_gates") as sp_entry:
+                (
+                    sp_passed,
+                    sp_results,
+                    sp_report,
+                ) = await gate_runner.run_global_gates(
+                    sp_gates,
+                    image_bytes,
+                    raw,
+                )
+                sp_entry["gates"] = [
+                    {
+                        "gate": gr.gate_name,
+                        "passed": gr.passed,
+                        "value": gr.value,
+                    }
+                    for gr in sp_results
+                ]
+            result_dict["quality_report"] = sp_report
+
+            identity_match = float(sp_report.get("identity_match") or 0.0)
+            if identity_match:
+                IDENTITY_SCORE.observe(identity_match / 10.0)
+
+            retry_enabled = bool(
+                getattr(settings, "identity_retry_enabled", False)
+            )
+            try:
+                _cfg_max = getattr(
+                    settings,
+                    "identity_retry_max_attempts",
+                    0,
+                )
+                max_total_attempts = 1 + max(0, int(_cfg_max or 0))
+            except (TypeError, ValueError):
+                max_total_attempts = 1
+
+            first_check_failed = bool(sp_report.get("quality_check_failed"))
+            should_retry = (
+                retry_enabled
+                and not first_check_failed
+                and identity_match > 0.0
+                and identity_match
+                < float(settings.identity_match_threshold or 0.0)
+                and generation_attempts < max_total_attempts
+            )
+
+            if should_retry:
+                logger.info(
+                    "Identity retry triggered task=%s identity=%.2f threshold=%.2f",
+                    task_id,
+                    identity_match,
+                    float(settings.identity_match_threshold or 0.0),
+                )
+                retry_params = dict(extra) if extra else {}
+                retry_params["seed"] = secrets.randbits(31) | 1
+                retry_identity = 0.0
+                retry_check_failed = False
+                try:
+                    with _trace_step(trace, "image_gen_retry"):
+                        retry_raw = await image_gen.generate(
+                            prompt,
+                            reference_image=reference_for_provider,
+                            params=retry_params,
+                        )
+                    generation_attempts += 1
+
+                    if retry_raw and len(retry_raw) > 100:
+                        retry_raw, cf_applied_r = await self._postprocess(
+                            retry_raw,
+                            mode=mode,
+                            style=style,
+                            face_area_ratio=face_area_ratio,
+                            apply_quality_post=True,
+                            is_retry=True,
+                        )
+                        codeformer_applied = codeformer_applied or cf_applied_r
+                        self._record_fal_call_metric(
+                            provider_name=provider_name,
+                            backend=first_pass_backend,
+                            mode=mode,
+                            step="identity_retry",
+                        )
+
+                        with _trace_step(
+                            trace,
+                            "single_pass_gates_retry",
+                        ) as rp_entry:
+                            (
+                                retry_passed,
+                                retry_results,
+                                retry_report,
+                            ) = await gate_runner.run_global_gates(
+                                sp_gates,
+                                image_bytes,
+                                retry_raw,
+                            )
+                            rp_entry["gates"] = [
+                                {
+                                    "gate": gr.gate_name,
+                                    "passed": gr.passed,
+                                    "value": gr.value,
+                                }
+                                for gr in retry_results
+                            ]
+                        retry_identity = float(
+                            retry_report.get("identity_match") or 0.0
+                        )
+                        retry_check_failed = bool(
+                            retry_report.get("quality_check_failed")
+                        )
+
+                        if (
+                            not retry_check_failed
+                            and retry_identity > identity_match
+                        ):
+                            raw = retry_raw
+                            identity_match = retry_identity
+                            sp_report = retry_report
+                            sp_passed = retry_passed
+                            sp_results = retry_results
+                            result_dict["quality_report"] = sp_report
+                            if identity_match:
+                                IDENTITY_SCORE.observe(
+                                    identity_match / 10.0,
+                                )
+                            logger.info(
+                                "Identity retry improved score task=%s %.2f->%.2f",
+                                task_id,
+                                retry_identity,
+                                identity_match,
+                            )
+                        else:
+                            logger.info(
+                                "Identity retry did NOT improve task=%s orig=%.2f retry=%.2f check_failed=%s",
+                                task_id,
+                                identity_match,
+                                retry_identity,
+                                retry_check_failed,
+                            )
+                except Exception:
+                    logger.warning(
+                        "Identity retry generation failed task=%s, keeping original",
+                        task_id,
+                        exc_info=True,
+                    )
+
+                retry_success = retry_identity >= float(
+                    settings.identity_match_threshold or 0.0
+                )
+                try:
+                    IDENTITY_RETRY_TRIGGERED.labels(
+                        mode=mode.value,
+                        result="success" if retry_success else "still_fail",
+                    ).inc()
+                except Exception:
+                    pass
+
+            try:
+                GENERATION_ATTEMPTS.labels(
+                    mode=mode.value,
+                ).observe(generation_attempts)
+            except Exception:
+                pass
+
+            check_failed = bool(sp_report.get("quality_check_failed"))
+            if check_failed:
+                result_dict["identity_unverified"] = True
+                warnings.append(
+                    "Не удалось проверить сходство с оригиналом, "
+                    "результат может заметно отличаться. "
+                    "Попробуй загрузить другое фото или выбери другой стиль."
+                )
+            elif identity_match == 0.0 and not sp_report.get("identity_match"):
+                pass
+            elif identity_match < settings.identity_match_soft_threshold:
+                warnings.append(
+                    "Сильное отличие от оригинала — рекомендуем другое фото. "
+                    "Лучше всего работает чёткое лицо крупным планом, анфас, "
+                    "без затемнений и без сложного фона."
+                )
+            elif identity_match < settings.identity_match_threshold:
+                warnings.append(
+                    "Результат может заметно отличаться от оригинала. "
+                    "Для лучшего сходства загрузи фото в более высоком качестве."
+                )
+
+            if not sp_passed:
+                logger.warning(
+                    "Single-pass quality gates failed for task=%s: %s",
+                    task_id,
+                    sp_report.get("gates_failed"),
+                )
+                result_dict["quality_warning"] = True
+
+            if sp_report.get("hair_outline_preserved") is False:
+                warnings.append(
+                    "Контур волос на итоговом фото отличается от оригинала. "
+                    "Для лучшего результата снимите фото на простом однотонном фоне."
+                )
+            if sp_report.get("background_consistent") is False:
+                warnings.append(
+                    "На фото заметны артефакты стыка с фоном. "
+                    "Попробуйте фото с чистым ровным фоном без сложных деталей."
+                )
+            if sp_report.get("hands_correct") is False:
+                warnings.append(
+                    "На фото могут быть неточности в изображении рук. "
+                    "Попробуйте снимок, где руки не видны или сложены спокойно."
+                )
+            if sp_report.get("pose_natural") is False:
+                warnings.append(
+                    "Поза на итоговом фото выглядит не совсем естественно. "
+                    "Лучше всего работает прямая осанка и симметричный кадр."
+                )
+            if sp_report.get("proportions_natural") is False:
+                warnings.append(
+                    "На фото пропорции тела могут выглядеть необычно. "
+                    "Попробуй фото, где видно плечи и часть торса."
+                )
+
+        except Exception:
+            logger.warning(
+                "Single-pass quality gates error for task=%s, skipping",
+                task_id,
+                exc_info=True,
+            )
+
+        return raw, identity_match, generation_attempts, codeformer_applied
+
     async def single_pass(
         self,
         mode: AnalysisMode,
@@ -1464,312 +1741,31 @@ class ImageGenerationExecutor:
             warnings: list[str] = result_dict.setdefault("generation_warnings", [])
 
             if raw and len(raw) > 100 and mode != AnalysisMode.EMOJI:
-                try:
-                    gate_runner = self._get_gate_runner()
-                    sp_gates: dict[str, float] = {
-                        "identity_match": settings.identity_match_threshold,
-                        "aesthetic_score": settings.aesthetic_threshold,
-                    }
-                    if settings.photorealism_enabled:
-                        sp_gates["photorealism"] = settings.photorealism_threshold
-                    sp_gates["niqe"] = 5.0
-
-                    with _trace_step(trace, "single_pass_gates") as sp_entry:
-                        (
-                            sp_passed,
-                            sp_results,
-                            sp_report,
-                        ) = await gate_runner.run_global_gates(
-                            sp_gates,
-                            image_bytes,
-                            raw,
-                        )
-                        sp_entry["gates"] = [
-                            {
-                                "gate": gr.gate_name,
-                                "passed": gr.passed,
-                                "value": gr.value,
-                            }
-                            for gr in sp_results
-                        ]
-                    result_dict["quality_report"] = sp_report
-
-                    identity_match = float(sp_report.get("identity_match") or 0.0)
-                    if identity_match:
-                        IDENTITY_SCORE.observe(identity_match / 10.0)
-
-                    # v1.17: VLM-driven identity retry loop.
-                    # If the first generation came back with
-                    # identity_match < threshold (a numeric score, not a
-                    # VLM-check failure), re-run generate() with a fresh
-                    # random seed and keep whichever output has the higher
-                    # identity_match. We ignore quality_check_failed paths —
-                    # the VLM can't tell us anything useful about that run
-                    # and retrying doubles the cost without a decision
-                    # signal. Capped at settings.identity_retry_max_attempts
-                    # additional attempts (default 1).
-                    #
-                    # v1.70.12 unification: the historical
-                    # ``ab_identity_retry_enabled`` / ``identity_retry_enabled``
-                    # split is gone. AB has been the sole production path for
-                    # several releases (the legacy hybrid StyleRouter no
-                    # longer exists), so we read a single flag here. The
-                    # ``Settings`` field still accepts the older
-                    # ``AB_IDENTITY_RETRY_ENABLED`` env var via an alias —
-                    # see ``src/config.py`` for the migration note.
-                    retry_enabled = bool(
-                        getattr(settings, "identity_retry_enabled", False)
+                # v1.71 (Phase 4.6): VLM gates + identity-retry loop +
+                # user-facing quality warnings consolidated in
+                # :meth:`_run_with_retry`. Contract pinned by
+                # ``tests/test_orchestrator/test_identity_retry.py``.
+                raw, identity_match, generation_attempts, codeformer_applied = (
+                    await self._run_with_retry(
+                        raw,
+                        image_bytes=image_bytes,
+                        image_gen=image_gen,
+                        prompt=prompt,
+                        reference_for_provider=reference_for_provider,
+                        extra=extra,
+                        mode=mode,
+                        style=style,
+                        task_id=task_id,
+                        trace=trace,
+                        result_dict=result_dict,
+                        warnings=warnings,
+                        provider_name=provider_name,
+                        first_pass_backend=first_pass_backend,
+                        face_area_ratio=face_area_ratio,
+                        generation_attempts=generation_attempts,
+                        codeformer_applied=codeformer_applied,
                     )
-                    try:
-                        _cfg_max = getattr(
-                            settings,
-                            "identity_retry_max_attempts",
-                            0,
-                        )
-                        max_total_attempts = 1 + max(0, int(_cfg_max or 0))
-                    except (TypeError, ValueError):
-                        max_total_attempts = 1
-
-                    first_check_failed = bool(sp_report.get("quality_check_failed"))
-                    should_retry = (
-                        retry_enabled
-                        and not first_check_failed
-                        and identity_match > 0.0
-                        and identity_match
-                        < float(settings.identity_match_threshold or 0.0)
-                        and generation_attempts < max_total_attempts
-                    )
-
-                    if should_retry:
-                        logger.info(
-                            "Identity retry triggered task=%s identity=%.2f threshold=%.2f",
-                            task_id,
-                            identity_match,
-                            float(settings.identity_match_threshold or 0.0),
-                        )
-                        retry_params = dict(extra) if extra else {}
-                        # Fresh positive 31-bit seed — matches the FAL
-                        # provider default domain; | 1 avoids the rare
-                        # zero case that some back-ends treat as "use
-                        # default seed".
-                        retry_params["seed"] = secrets.randbits(31) | 1
-                        # v1.64: the PuLID-specific retry escalation
-                        # (``pulid_mode`` / ``id_scale`` / step / CFG
-                        # nudges) was removed when the PuLID provider
-                        # was retired. Edit-mode retries simply re-run
-                        # the same provider with a fresh seed.
-                        retry_identity = 0.0
-                        retry_check_failed = False
-                        try:
-                            with _trace_step(trace, "image_gen_retry"):
-                                retry_raw = await image_gen.generate(
-                                    prompt,
-                                    reference_image=reference_for_provider,
-                                    params=retry_params,
-                                )
-                            generation_attempts += 1
-
-                            if retry_raw and len(retry_raw) > 100:
-                                # v1.71 (Phase 4.4): same
-                                # :meth:`_postprocess` helper as the
-                                # first pass; retries always run the
-                                # quality post-passes (matching the
-                                # pre-refactor behaviour).
-                                retry_raw, cf_applied_r = await self._postprocess(
-                                    retry_raw,
-                                    mode=mode,
-                                    style=style,
-                                    face_area_ratio=face_area_ratio,
-                                    apply_quality_post=True,
-                                    is_retry=True,
-                                )
-                                codeformer_applied = codeformer_applied or cf_applied_r
-                                # v1.64: the unified provider picks the
-                                # backend deterministically from
-                                # ``params["image_model"]``; the retry
-                                # uses the same backend as the first
-                                # pass, so we re-use ``first_pass_backend``.
-                                self._record_fal_call_metric(
-                                    provider_name=provider_name,
-                                    backend=first_pass_backend,
-                                    mode=mode,
-                                    step="identity_retry",
-                                )
-
-                                with _trace_step(
-                                    trace,
-                                    "single_pass_gates_retry",
-                                ) as rp_entry:
-                                    (
-                                        retry_passed,
-                                        retry_results,
-                                        retry_report,
-                                    ) = await gate_runner.run_global_gates(
-                                        sp_gates,
-                                        image_bytes,
-                                        retry_raw,
-                                    )
-                                    rp_entry["gates"] = [
-                                        {
-                                            "gate": gr.gate_name,
-                                            "passed": gr.passed,
-                                            "value": gr.value,
-                                        }
-                                        for gr in retry_results
-                                    ]
-                                retry_identity = float(
-                                    retry_report.get("identity_match") or 0.0
-                                )
-                                retry_check_failed = bool(
-                                    retry_report.get("quality_check_failed")
-                                )
-
-                                # Keep the retry only if it delivers a
-                                # strictly higher identity_match and the
-                                # VLM check did not blow up on it. Ties
-                                # fall back to the original — no reason
-                                # to pay an extra FAL call and pick the
-                                # later output arbitrarily.
-                                if (
-                                    not retry_check_failed
-                                    and retry_identity > identity_match
-                                ):
-                                    raw = retry_raw
-                                    identity_match = retry_identity
-                                    sp_report = retry_report
-                                    sp_passed = retry_passed
-                                    sp_results = retry_results
-                                    result_dict["quality_report"] = sp_report
-                                    if identity_match:
-                                        IDENTITY_SCORE.observe(
-                                            identity_match / 10.0,
-                                        )
-                                    logger.info(
-                                        "Identity retry improved score task=%s %.2f->%.2f",
-                                        task_id,
-                                        retry_identity,
-                                        identity_match,
-                                    )
-                                else:
-                                    logger.info(
-                                        "Identity retry did NOT improve task=%s orig=%.2f retry=%.2f check_failed=%s",
-                                        task_id,
-                                        identity_match,
-                                        retry_identity,
-                                        retry_check_failed,
-                                    )
-                        except Exception:
-                            logger.warning(
-                                "Identity retry generation failed task=%s, keeping original",
-                                task_id,
-                                exc_info=True,
-                            )
-
-                        retry_success = retry_identity >= float(
-                            settings.identity_match_threshold or 0.0
-                        )
-                        try:
-                            IDENTITY_RETRY_TRIGGERED.labels(
-                                mode=mode.value,
-                                result="success" if retry_success else "still_fail",
-                            ).inc()
-                        except Exception:
-                            pass
-
-                    try:
-                        GENERATION_ATTEMPTS.labels(
-                            mode=mode.value,
-                        ).observe(generation_attempts)
-                    except Exception:
-                        pass
-
-                    # Soft, user-facing warnings when identity preservation
-                    # drops. Three distinct states, each with its own UX:
-                    #   1) quality_check_failed — VLM call / JSON parsing
-                    #      actually errored. We must NOT treat this as a silent
-                    #      pass (that was the pre-1.14.2 bug that delivered
-                    #      mismatched photos to users). Surface an explicit
-                    #      "unverified" warning so results.py can offer the
-                    #      retry/accept keyboard.
-                    #   2) identity_match is null with no error — VLM simply
-                    #      had no reference to compare to; legitimate pass.
-                    #   3) numeric score below soft/hard threshold — the
-                    #      classical identity-drop UX messaging.
-                    check_failed = bool(sp_report.get("quality_check_failed"))
-                    if check_failed:
-                        result_dict["identity_unverified"] = True
-                        warnings.append(
-                            "Не удалось проверить сходство с оригиналом, "
-                            "результат может заметно отличаться. "
-                            "Попробуй загрузить другое фото или выбери другой стиль."
-                        )
-                    elif identity_match == 0.0 and not sp_report.get("identity_match"):
-                        # VLM returned null (not a failure, just no comparison)
-                        pass
-                    elif identity_match < settings.identity_match_soft_threshold:
-                        warnings.append(
-                            "Сильное отличие от оригинала — рекомендуем другое фото. "
-                            "Лучше всего работает чёткое лицо крупным планом, анфас, "
-                            "без затемнений и без сложного фона."
-                        )
-                    elif identity_match < settings.identity_match_threshold:
-                        warnings.append(
-                            "Результат может заметно отличаться от оригинала. "
-                            "Для лучшего сходства загрузи фото в более высоком качестве."
-                        )
-
-                    if not sp_passed:
-                        logger.warning(
-                            "Single-pass quality gates failed for task=%s: %s",
-                            task_id,
-                            sp_report.get("gates_failed"),
-                        )
-                        result_dict["quality_warning"] = True
-
-                    # Actionable warnings from LLM quality check — surfaced as
-                    # soft notices (we deliver the photo anyway per policy).
-                    if sp_report.get("hair_outline_preserved") is False:
-                        warnings.append(
-                            "Контур волос на итоговом фото отличается от оригинала. "
-                            "Для лучшего результата снимите фото на простом однотонном фоне."
-                        )
-                    if sp_report.get("background_consistent") is False:
-                        warnings.append(
-                            "На фото заметны артефакты стыка с фоном. "
-                            "Попробуйте фото с чистым ровным фоном без сложных деталей."
-                        )
-                    if sp_report.get("hands_correct") is False:
-                        warnings.append(
-                            "На фото могут быть неточности в изображении рук. "
-                            "Попробуйте снимок, где руки не видны или сложены спокойно."
-                        )
-                    if sp_report.get("pose_natural") is False:
-                        warnings.append(
-                            "Поза на итоговом фото выглядит не совсем естественно. "
-                            "Лучше всего работает прямая осанка и симметричный кадр."
-                        )
-
-                    # v1.65 — surface VLM proportions verdict as a soft
-                    # notice. This is the user-facing readout of the
-                    # anatomy fix: when the model still produces an
-                    # unnatural head-to-body ratio despite the new
-                    # cinematic prompt + reference padding, we tell the
-                    # user how to improve their next upload instead of
-                    # silently delivering a slightly off photo. No
-                    # retry, no extra cost.
-                    if sp_report.get("proportions_natural") is False:
-                        warnings.append(
-                            "На фото пропорции тела могут выглядеть необычно. "
-                            "Попробуй фото, где видно плечи и часть торса."
-                        )
-
-                    # await self._record_ab_metrics(task_id, sp_report)
-                except Exception:
-                    logger.warning(
-                        "Single-pass quality gates error for task=%s, skipping",
-                        task_id,
-                        exc_info=True,
-                    )
+                )
 
             if raw and len(raw) > 100:
                 # v1.71 (Phase 4.5): storage upload + cost/backend
