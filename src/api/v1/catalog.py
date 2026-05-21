@@ -5,14 +5,27 @@ style (see :mod:`src.prompts.style_schema_v2`). Without the parameter
 the endpoints keep returning the legacy payload so existing clients
 stay untouched — this is the contract for PR4 of the
 style-schema-v2 migration.
+
+v1.76 — the ``/styles`` endpoint now applies a per-caller deterministic
+shuffle so different users see different orderings (avoiding the
+"every new visitor sees the same top-2 styles" UX problem). The
+shuffle seed is derived from the authenticated user's UUID when a
+session / API-key is presented, and from ``client_ip + UTC date``
+otherwise — giving anonymous visitors a stable order for a day plus
+a different order each day, and distinct orderings between concurrent
+anonymous visitors on different IPs. The scenario-styles endpoint
+keeps its canonical order — scenarios are curated as ordered packs.
 """
 
 from __future__ import annotations
 
+import datetime as _dt
 from typing import Literal
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 
+from src.api.deps import get_optional_auth_user
+from src.models.db import User
 from src.services.style_catalog import (
     get_available_modes,
     get_catalog_json,
@@ -25,6 +38,37 @@ from src.services.style_catalog import (
 )
 
 router = APIRouter()
+
+
+def _derive_shuffle_seed(
+    request: Request,
+    user: User | None,
+) -> str:
+    """Compute a deterministic per-caller seed for the catalog shuffle.
+
+    * Authenticated user → ``user:<uuid>`` (stable for the entire
+      lifetime of the account, so the catalog ordering does not jump
+      on page refresh; different users always see different
+      permutations because UUIDs are unique).
+    * Anonymous request → ``anon:<client_ip>:<utc_date>`` (stable
+      within a single UTC day so styles don't flicker as the user
+      scrolls; rotates daily so the order doesn't go stale forever
+      for an anonymous visitor on a fixed IP).
+
+    The ``:`` separator is intentional — it keeps the namespaces
+    disjoint so the (extremely unlikely) case of a UUID that
+    collides with an IP+date string does not produce the same seed.
+    """
+    if user is not None and getattr(user, "id", None) is not None:
+        return f"user:{user.id}"
+
+    client_ip = ""
+    try:
+        client_ip = (request.client.host if request.client else "") or ""
+    except Exception:
+        client_ip = ""
+    today = _dt.datetime.now(_dt.timezone.utc).strftime("%Y-%m-%d")
+    return f"anon:{client_ip}:{today}"
 
 
 # v3 was added in Stage 3 of the prompt-pipeline-overhaul (2026-05).
@@ -41,6 +85,7 @@ async def list_modes():
 
 @router.get("/styles")
 async def list_styles(
+    request: Request,
     mode: str = Query(..., description="Analysis mode: dating, cv, social"),
     schema: SchemaParam = Query(
         "v1",
@@ -50,12 +95,21 @@ async def list_styles(
             "clients know which styles expose slot-based options."
         ),
     ),
+    user: User | None = Depends(get_optional_auth_user),
 ):
-    """Return all styles for the given mode."""
+    """Return all styles for the given mode.
+
+    The returned order is deterministic but **per-caller**: two
+    different users see two different permutations, the same user
+    always sees the same permutation (so styles do not jump on
+    refresh). Anonymous callers get a per-IP / per-UTC-day seed.
+    See :func:`_derive_shuffle_seed`.
+    """
+    shuffle_seed = _derive_shuffle_seed(request, user)
     if schema == "v2":
-        items = get_catalog_json_v2(mode)
+        items = get_catalog_json_v2(mode, shuffle_seed=shuffle_seed)
     else:
-        items = get_catalog_json(mode)
+        items = get_catalog_json(mode, shuffle_seed=shuffle_seed)
     if not items:
         raise HTTPException(status_code=404, detail=f"Unknown mode: {mode}")
     return {"mode": mode, "count": len(items), "styles": items, "schema": schema}

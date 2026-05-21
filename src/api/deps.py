@@ -115,6 +115,63 @@ async def get_current_user(user: User = Depends(get_auth_user)) -> User:
     return user
 
 
+async def get_optional_auth_user(
+    request: Request,
+    x_api_key: str | None = Header(None, alias="X-API-Key"),
+    authorization: str | None = Header(None),
+    db: AsyncSession = Depends(get_db),
+) -> User | None:
+    """Soft variant of :func:`get_auth_user` for endpoints that work
+    for both anonymous and authenticated callers.
+
+    Returns the resolved :class:`User` if the request carries a valid
+    Bearer token or X-API-Key, otherwise ``None``. Never raises 401 —
+    a missing / invalid / expired credential simply yields ``None``.
+    Blocked users still raise 403 via :func:`ensure_user_not_blocked`
+    (a blocked user MUST NOT silently degrade to anonymous on a
+    "public" endpoint — that would let them bypass the block).
+
+    v1.76 — added so the web catalog endpoint can use the user's
+    UUID as a deterministic shuffle seed when available and fall
+    back to a per-IP / per-day seed for anonymous callers, giving
+    every visitor a stable but distinct catalog ordering.
+    """
+    if authorization and authorization.lower().startswith("bearer "):
+        token = authorization.split(" ", 1)[1].strip()
+        if token:
+            from src.services.sessions import resolve_session
+
+            try:
+                redis = request.app.state.redis
+                user_id = await resolve_session(redis, token)
+            except Exception:
+                user_id = None
+            if user_id is not None:
+                user = await db.get(User, user_id)
+                if user is not None:
+                    ensure_user_not_blocked(user)
+                    return user
+
+    if x_api_key:
+        try:
+            h = hash_api_key(x_api_key.strip(), _pepper())
+            r = await db.execute(
+                select(ApiClient).where(
+                    ApiClient.key_hash == h, ApiClient.is_active.is_(True)
+                )
+            )
+            client = r.scalar_one_or_none()
+        except Exception:
+            client = None
+        if client is not None:
+            user = await db.get(User, client.user_id)
+            if user is not None:
+                ensure_user_not_blocked(user)
+                return user
+
+    return None
+
+
 def _parse_bool_header(value: str | None) -> bool:
     if not value:
         return False

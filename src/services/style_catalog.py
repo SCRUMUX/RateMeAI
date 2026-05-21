@@ -30,9 +30,50 @@ The standalone ``get_catalog_json*`` / ``get_scenario_styles_json*`` /
 
 from __future__ import annotations
 
-from typing import Iterable
+import hashlib
+import random
+from typing import Iterable, TypeVar
 
 _BotCatalogEntry = tuple[str, str, str, dict]
+
+_T = TypeVar("_T")
+
+
+def shuffle_styles_for_seed(
+    items: list[_T],
+    seed: str | None,
+) -> list[_T]:
+    """Return a per-seed deterministic shuffle of ``items``.
+
+    Two different ``seed`` strings yield two **different** orderings
+    (with overwhelming probability for catalogs of more than a few
+    entries); the same ``seed`` yields the **same** ordering on every
+    call. The function does not mutate ``items`` — it returns a fresh
+    list — so the caller can keep the canonical order for other
+    consumers (bot keyboards, admin UI, scenario endpoints) while
+    serving a shuffled view to the web/mini-app catalog.
+
+    Seed derivation uses SHA-256 (truncated to 8 bytes) → ``int`` →
+    :class:`random.Random` so the seed surface is uniform for any
+    string (UUID, e-mail, IP+day, …). When ``seed`` is empty / None
+    the function returns ``list(items)`` unchanged — this is the
+    legacy contract used by the bot and admin paths.
+
+    v1.76 — added so the web catalog endpoint can show a different
+    style ordering to different users (and a stable ordering for a
+    given user so styles don't "jump" on refresh). See
+    :func:`src.api.v1.catalog.list_styles`.
+    """
+    if not seed:
+        return list(items)
+    if not items:
+        return list(items)
+    digest = hashlib.sha256(str(seed).encode("utf-8")).digest()
+    rng_seed = int.from_bytes(digest[:8], "big", signed=False)
+    rng = random.Random(rng_seed)
+    shuffled = list(items)
+    rng.shuffle(shuffled)
+    return shuffled
 
 
 def _is_scenario_only(entry: dict) -> bool:
@@ -131,8 +172,21 @@ class _BotCatalogProxy:
 STYLE_CATALOG: _BotCatalogProxy = _BotCatalogProxy()
 
 
-def get_catalog_json(mode: str) -> list[dict]:
-    """Return catalog for a mode as JSON-friendly list of dicts."""
+def get_catalog_json(
+    mode: str,
+    *,
+    shuffle_seed: str | None = None,
+) -> list[dict]:
+    """Return catalog for a mode as JSON-friendly list of dicts.
+
+    When ``shuffle_seed`` is provided the result is reordered through
+    :func:`shuffle_styles_for_seed` — same seed yields the same
+    ordering, different seeds yield different orderings. Used by the
+    web ``GET /catalog/styles`` endpoint to show a per-user stable
+    permutation. When ``shuffle_seed`` is ``None`` / empty the
+    function returns the canonical ``data/styles.json`` order so the
+    admin UI and any internal consumer keeps a stable view.
+    """
     from src.prompts.style_spec import detect_needs_full_body, detect_needs_torso
     from src.services.style_loader import load_styles_from_json
 
@@ -161,7 +215,7 @@ def get_catalog_json(mode: str) -> list[dict]:
                 }
             )
 
-    return items
+    return shuffle_styles_for_seed(items, shuffle_seed)
 
 
 def get_scenario_styles_json(scenario: str) -> list[dict]:
@@ -288,13 +342,19 @@ def get_style_options_v2(style_id: str) -> dict | None:
     return None
 
 
-def get_catalog_json_v2(mode: str) -> list[dict]:
+def get_catalog_json_v2(
+    mode: str,
+    *,
+    shuffle_seed: str | None = None,
+) -> list[dict]:
     """Return the catalog for a mode enriched with ``schema_version`` flag.
 
     Clients that send ``?schema=v2`` get the same list as
     :func:`get_catalog_json` plus a ``schema_version`` field per entry
     (``1`` or ``2``) so the UI can decide whether to render legacy
     ``allowed_variations`` or the new slot-based controls for that style.
+
+    See :func:`get_catalog_json` for the ``shuffle_seed`` contract.
     """
     from src.prompts.style_spec import detect_needs_full_body, detect_needs_torso
     from src.services.style_loader import load_styles_from_json
@@ -318,7 +378,7 @@ def get_catalog_json_v2(mode: str) -> list[dict]:
                 "needs_torso": detect_needs_torso(sid, smode),
             }
         )
-    return items
+    return shuffle_styles_for_seed(items, shuffle_seed)
 
 
 def get_scenario_styles_json_v2(scenario: str) -> list[dict]:

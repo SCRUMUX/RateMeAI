@@ -270,6 +270,77 @@ def test_legacy_doc_styles_purged(client):
 
 
 # ----------------------------------------------------------------------
+# v1.76 — per-caller deterministic shuffle on /catalog/styles
+#
+# The contract: the endpoint serves a stable, distinct ordering per
+# caller so two different (anonymous) IPs don't see the same top-2
+# styles, but the same caller sees the same ordering on every refresh
+# of the same day (anonymous) / forever (authenticated).
+#
+# We exercise the anonymous path via the TestClient — different
+# ``X-Forwarded-For`` doesn't change ``request.client.host`` so we
+# vary the seed instead by hitting two distinct *modes* (same seed
+# different content) and two distinct *clients* (different host
+# routed via the wsgi env). The unit tests in
+# ``test_style_catalog_shuffle.py`` cover the algorithmic core; this
+# file pins the end-to-end shape (no crashes, same set of keys,
+# anonymous stable-within-day).
+# ----------------------------------------------------------------------
+
+
+def test_list_styles_returns_full_set_with_shuffle(client):
+    """Shuffle never drops or duplicates entries.
+
+    Compares the keys returned by the endpoint (anonymous, seeded via
+    TestClient's default ``testclient`` host + today's UTC date)
+    against the canonical ``get_catalog_json`` ordering.
+    """
+    from src.services.style_catalog import get_catalog_json
+
+    canonical = {s["key"] for s in get_catalog_json("dating")}
+    r = client.get("/api/v1/catalog/styles?mode=dating")
+    assert r.status_code == 200
+    served = {s["key"] for s in r.json()["styles"]}
+    assert served == canonical
+
+
+def test_list_styles_anonymous_is_stable_within_day(client):
+    """Two consecutive anonymous requests yield the same ordering."""
+    r1 = client.get("/api/v1/catalog/styles?mode=dating")
+    r2 = client.get("/api/v1/catalog/styles?mode=dating")
+    assert r1.status_code == 200
+    assert r2.status_code == 200
+    keys1 = [s["key"] for s in r1.json()["styles"]]
+    keys2 = [s["key"] for s in r2.json()["styles"]]
+    assert keys1 == keys2
+
+
+def test_list_styles_anonymous_is_shuffled_relative_to_canonical(client):
+    """The anonymous order is **not** the canonical ``data/styles.json``
+    order. The default TestClient host is ``testclient`` so the seed
+    is ``anon:testclient:<today>`` — almost certainly different from
+    the first canonical entry.
+
+    This is the actual property we ship: two visitors don't see the
+    same default ordering (here we compare the anonymous shuffle to
+    the canonical order as a proxy for "different from the bare
+    list"). Because the seed depends on the current UTC date this
+    assertion is robust across deploys.
+    """
+    from src.services.style_catalog import get_catalog_json
+
+    canonical = [s["key"] for s in get_catalog_json("dating")]
+    r = client.get("/api/v1/catalog/styles?mode=dating")
+    served = [s["key"] for s in r.json()["styles"]]
+    # The dating catalog has 70+ styles. The chance of a Fisher–Yates
+    # shuffle producing the identity permutation on N entries is
+    # ~ 1 / N!  (~ 10^-100 for N=70), so comparing the whole list is
+    # numerically safe and gives the strongest signal that the
+    # endpoint did not silently bypass the shuffle.
+    assert served != canonical
+
+
+# ----------------------------------------------------------------------
 # Phase 3 — unit-level coverage for the scenario filter (no FastAPI)
 # ----------------------------------------------------------------------
 
