@@ -1,31 +1,19 @@
 /**
- * v1.72 продуктовый tier-каталог. Сменил модельный A/B-выбор (Nano
- * Banana 2 vs GPT Image 2) на единые продуктовые tier'ы «Стандарт /
- * Премиум».
+ * Продуктовый tier-каталог. Единая модель в пайплайне —
+ * `gpt_image_2`; продуктовый выбор сводится к «Стандарт / Премиум».
  *
- * История
- * --------
- * v1.26 — впервые ввели «Обычный режим» / «Премиум» как UI-обёртку
- * над `image_model`. Кнопка «Премиум» фактически переключала бэк
- * на Nano Banana 2 (medium ~$0.12/img). Биллинг тогда был
- * захардкожен в 1 кредит независимо от выбора.
- *
- * v1.72 — клиент пожаловался, что «премиум на Nano Banana 2 дороже,
- * но не лучше». Поменяли продуктовое значение:
  *   * «Стандарт»  → `image_model=gpt_image_2`, `image_quality=medium`,
  *                   без refiner-а. ≈ $0.06/img. 1 кредит.
- *   * «Премиум»   → `image_model=gpt_image_2`, `image_quality=medium`
- *                   + Clarity Upscaler refiner post-pass. ≈ $0.10/img.
- *                   2 кредита (теперь реально списывается двойная
- *                   стоимость, см. ``src/api/deps.py::_reserve_credit_for``;
- *                   refund 1 кредит если refiner упал).
+ *   * «Премиум»   → тот же базовый рендер плюс Clarity Upscaler
+ *                   post-pass с `upscale_factor=2` — реальное
+ *                   повышение разрешения (≈$0.10/img общая стоимость
+ *                   на стороне FAL). 2 кредита; если refiner упал,
+ *                   1 кредит автоматически возвращается.
  *
- * Структурно оба tier'а посылают `image_model=gpt_image_2`; запрос
- * на бэк дополнительно несёт `tier=standard|premium`. Бэк (см.
- * ``src/services/analysis_request.py::apply_ab_test_context_fields``)
- * на premium-tier'е жёстко перезаписывает `image_model` на
- * `gpt_image_2`, чтобы клиент не мог получить премиум-биллинг с
- * Nano Banana рендером.
+ * Бэк (`src/services/analysis_request.py::apply_tier_context_fields`)
+ * на любом tier'е жёстко пинит `image_model=gpt_image_2`, поэтому
+ * клиентский `imageModel` остаётся только лейблом совместимости
+ * со старыми SPA-бандлами.
  */
 import type { AbImageModel, AbImageQuality, AbProductTier } from '../lib/api';
 import i18next from '../lib/i18n';
@@ -33,7 +21,7 @@ import i18next from '../lib/i18n';
 export interface AbModelMeta {
   /** Внутренний идентификатор tier'а (тот же, что и `AbProductTier`). */
   key: AbProductTier;
-  /** Какую модель посылать на бэк. После v1.72 — всегда `gpt_image_2`. */
+  /** Какую модель посылать на бэк. Всегда `gpt_image_2`. */
   imageModel: AbImageModel;
   label: string;
   short: string;
@@ -66,17 +54,17 @@ const AB_MODEL_DEFS: AbModelDef[] = [
       'адгезия промпта и стабильная передача лица. Подходит для ' +
       'большинства сценариев.',
     creditCost: 1,
-    cost: { low: 0.02, medium: 0.06, high: 0.25 },
+    cost: { low: 0.02, medium: 0.06, high: 0.12 },
   },
   {
     key: 'premium',
     imageModel: 'gpt_image_2',
     label: 'Премиум',
-    short: 'Резче детали и пиксельная проработка',
+    short: 'Выше разрешение и больше деталей',
     description:
-      'Тот же базовый рендер GPT Image 2 medium, но с дополнительным ' +
-      'проходом Clarity Upscaler: подтягивает чёткость текстуры кожи, ' +
-      'волос и фона без изменения композиции и идентичности.',
+      'Тот же базовый рендер, но с увеличением разрешения в 2× и ' +
+      'дополнительной полировкой деталей: чётче текстура кожи, ' +
+      'волосы и фон. Композиция и идентичность лица сохраняются.',
     creditCost: 2,
     cost: { low: 0.08, medium: 0.10, high: 0.10 },
   },
@@ -150,8 +138,8 @@ export function getAbModelCreditCost(tier: AbProductTier): number {
 
 /**
  * Резолвит, какую модель посылать на бэк для выбранного tier'а.
- * После v1.72 всегда `gpt_image_2` (premium-tier добавляет refiner
- * post-pass, но базовая модель та же).
+ * Всегда `gpt_image_2`; premium-tier дополнительно включает Clarity
+ * Upscaler post-pass на стороне бэка.
  */
 export function getImageModelForTier(tier: AbProductTier): AbImageModel {
   const meta = AB_MODELS.find((m) => m.key === tier);

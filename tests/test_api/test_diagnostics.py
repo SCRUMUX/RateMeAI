@@ -1,14 +1,9 @@
 """Unit tests for the diagnostics probes in ``src.api.v1.internal``.
 
-v1.64 collapsed ``image_gen_probe`` to the FAL edit-only path; v1.70.15
-further unified provider lookup to a single :func:`get_image_gen`
-call (the historical ``get_ab_image_gen`` helper was retired). The
-remaining surface is:
-
-* ``provider=unified`` — default, exercises ``UnifiedImageGenProvider``.
-* ``provider=gpt_image_2|nano_banana_2`` — pins the underlying model
-  via ``params["image_model"]`` so the unified router selects that
-  specific FAL adapter.
+Post Nano-Banana cleanup ``image_gen_probe`` exposes two accepted
+``provider`` values — ``unified`` and ``gpt_image_2`` — both
+resolving to the single GPT Image 2 backend. The alias survives so
+historical curl scripts / Railway health probes keep working.
 
 These tests short-circuit the auth dep and the real provider so they
 run fully offline.
@@ -81,17 +76,20 @@ def test_image_gen_probe_unified_uses_face_fixture():
     )
 
 
-def test_image_gen_probe_explicit_ab_provider_sets_image_model():
+def test_image_gen_probe_explicit_gpt_image_2_sets_image_model():
+    """Pinning ``provider=gpt_image_2`` writes the label into
+    ``params["image_model"]`` so the probe matches the production
+    request shape for the single-provider path."""
     provider = _make_ok_provider()
-    result = _call_probe("nano_banana_2", provider)
+    result = _call_probe("gpt_image_2", provider)
 
     assert result["ok"] is True
-    assert result["provider_key"] == "nano_banana_2"
+    assert result["provider_key"] == "gpt_image_2"
 
     call = provider.generate.await_args
     kwargs = call.kwargs
     params = kwargs.get("params") or {}
-    assert params.get("image_model") == "nano_banana_2"
+    assert params.get("image_model") == "gpt_image_2"
     assert params.get("quality") == "low"
 
 

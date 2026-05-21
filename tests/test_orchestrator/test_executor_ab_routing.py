@@ -1,12 +1,9 @@
-"""v1.24.2 — executor.single_pass propagates ``ab_image_model`` into the
-image_gen ``params`` dict.
+"""executor.single_pass propagates the AB ``image_model`` label into
+``image_gen.generate(params=...)``.
 
-Regression test for a silent A/B bug: when ``ab_test_enabled`` was on
-and the caller asked for ``nano_banana_2``, executor.single_pass used
-to pass only ``quality`` / ``aspect_ratio`` in ``extra``.
-``UnifiedImageGenProvider._pick_backend`` reads ``params["image_model"]``
-to route — without the key it always returned ``model_a`` (GPT-2), so
-the explicit user choice was ignored until the catch-fallback fired.
+Post Nano-Banana cleanup the only live image model is
+``gpt_image_2``; the label is still propagated so downstream metrics
+and logs see a stable backend tag. These tests pin that contract.
 """
 
 from __future__ import annotations
@@ -118,44 +115,10 @@ def _build_executor(image_gen):
 
 @pytest.mark.asyncio
 @patch("src.orchestrator.executor.settings")
-async def test_ab_active_propagates_image_model_into_params(mock_settings):
-    """``ab_image_model`` must land in ``params["image_model"]`` so the
-    unified provider routes on it instead of defaulting to GPT-2.
-    """
-    _base_settings(mock_settings)
-    image_gen = MagicMock()
-    image_gen.generate = AsyncMock(return_value=_png())
-    executor = _build_executor(image_gen)
-
-    await executor.single_pass(
-        mode=AnalysisMode.DATING,
-        style="motorcycle",
-        image_bytes=_jpeg(),
-        result_dict={"base_description": "test"},
-        user_id="u1",
-        task_id="t1",
-        trace={"decisions": [], "steps": {}},
-        gender="male",
-        input_quality=_ok_report(),
-        ab_image_model="nano_banana_2",
-        ab_image_quality="high",
-    )
-
-    assert image_gen.generate.await_count >= 1
-    _, kwargs = image_gen.generate.await_args
-    params = kwargs.get("params") or {}
-    assert params.get("image_model") == "nano_banana_2", (
-        f"expected image_model=nano_banana_2 in params, got: {params!r}"
-    )
-    assert params.get("quality") == "high"
-
-
-@pytest.mark.asyncio
-@patch("src.orchestrator.executor.settings")
 async def test_ab_active_propagates_gpt_image_2_model(mock_settings):
-    """Symmetric case: when the caller picks GPT Image 2 the key still
-    must be present so the unified provider doesn't have to guess.
-    """
+    """When the AB path is active the executor pins
+    ``params["image_model"] = "gpt_image_2"`` and propagates the
+    requested quality tier."""
     _base_settings(mock_settings)
     image_gen = MagicMock()
     image_gen.generate = AsyncMock(return_value=_png())
@@ -175,9 +138,11 @@ async def test_ab_active_propagates_gpt_image_2_model(mock_settings):
         ab_image_quality="medium",
     )
 
+    assert image_gen.generate.await_count >= 1
     _, kwargs = image_gen.generate.await_args
     params = kwargs.get("params") or {}
     assert params.get("image_model") == "gpt_image_2"
+    assert params.get("quality") == "medium"
 
 
 @pytest.mark.asyncio
@@ -202,7 +167,7 @@ async def test_single_pass_threads_framing_into_prompt_engine(mock_settings):
         trace={"decisions": [], "steps": {}},
         gender="male",
         input_quality=_ok_report(),
-        ab_image_model="nano_banana_2",
+        ab_image_model="gpt_image_2",
         ab_image_quality="medium",
         framing="HALF_BODY",
     )
@@ -241,7 +206,7 @@ async def test_single_pass_drops_invalid_framing(mock_settings):
         trace={"decisions": [], "steps": {}},
         gender="male",
         input_quality=_ok_report(),
-        ab_image_model="nano_banana_2",
+        ab_image_model="gpt_image_2",
         ab_image_quality="medium",
         framing="square",
     )
@@ -278,7 +243,7 @@ async def test_single_pass_merges_user_input_hints_over_quality_hints(mock_setti
         trace={"decisions": [], "steps": {}},
         gender="male",
         input_quality=report,
-        ab_image_model="nano_banana_2",
+        ab_image_model="gpt_image_2",
         ab_image_quality="medium",
         user_input_hints=user_hints,
     )
@@ -317,12 +282,12 @@ async def test_ab_inactive_does_not_inject_image_model(mock_settings):
         trace={"decisions": [], "steps": {}},
         gender="male",
         input_quality=_ok_report(),
-        ab_image_model="nano_banana_2",  # requested but gate is closed
+        ab_image_model="gpt_image_2",  # requested but gate is closed
         ab_image_quality="medium",
     )
 
     _, kwargs = image_gen.generate.await_args
     params = kwargs.get("params") or {}
-    # Non-A/B path must NOT pre-set ``image_model`` — the unified
-    # provider then defaults to Model A (GPT Image 2 Edit).
+    # Non-A/B path must NOT pre-set ``image_model`` — the single
+    # FAL provider falls through to its constructor default.
     assert "image_model" not in params

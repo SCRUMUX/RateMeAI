@@ -405,18 +405,20 @@ export interface TaskCreated {
   estimated_seconds: number;
 }
 
-export type AbImageModel = 'nano_banana_2' | 'gpt_image_2';
+/**
+ * После Nano-Banana cleanup в пайплайне остался один image-model
+ * (`gpt_image_2`). Тип сохраняется как литерал — старые билды
+ * фронта и эдж-прокси всё ещё кладут `image_model` в payload, бэк
+ * принимает любое значение и трактует его как `gpt_image_2`.
+ */
+export type AbImageModel = 'gpt_image_2';
 export type AbImageQuality = 'low' | 'medium' | 'high';
 
 /**
- * v1.72 — product-tier pill that replaces the раздельный выбор модели
- * (Nano Banana 2 vs GPT Image 2) на «Стандарт / Премиум». Стандарт
- * — это `gpt_image_2 + medium` (1 credit). Премиум — тот же базовый
- * рендер, но с Clarity refiner post-pass (2 credits, ~$0.10/img на
- * стороне FAL). Если кнопка премиум выбрана, бэк жёстко прибивает
- * `image_model=gpt_image_2` и игнорирует `imageModel`, чтобы платный
- * апгрейд не съезжал на Nano Banana по ошибке (см.
- * `src/services/analysis_request.py::apply_ab_test_context_fields`).
+ * Продуктовый tier-пилл вместо выбора модели. Standard — это
+ * `gpt_image_2 + medium` (1 кредит). Premium — тот же базовый
+ * рендер плюс Clarity Upscaler post-pass (2 кредита, общий бюджет
+ * ≤$0.10/img на стороне FAL).
  */
 export type AbProductTier = 'standard' | 'premium';
 
@@ -426,14 +428,20 @@ export interface AnalyzeOptions {
   scenarioSlug?: string;
   scenarioType?: string;
   entryMode?: string;
-  /** v1.22: A/B путь стал дефолтным. Если не задано — бэк подставит ``gpt_image_2``. */
+  /**
+   * Backwards-compat label. Бэк пинит `image_model=gpt_image_2`
+   * вне зависимости от того, что прилетело в форму — параметр
+   * остаётся в API только чтобы старые кэшированные SPA-бандлы
+   * не падали при сабмите.
+   */
   imageModel?: AbImageModel;
-  /** v1.22: tier качества. Если не задано — бэк подставит ``low``. */
+  /** Quality tier для GPT Image 2; пустое значение → `ab_default_quality` на бэке. */
   imageQuality?: AbImageQuality;
   /**
-   * v1.72: продуктовый tier «standard / premium». Если не задан —
-   * бэк интерпретирует запрос как ``standard`` (1 кредит). Premium
-   * автоматически добавляет Clarity refiner и резервирует 2 кредита.
+   * Продуктовый tier «standard / premium». Если не задан — бэк
+   * интерпретирует запрос как `standard` (1 кредит). Premium
+   * автоматически добавляет Clarity refiner и резервирует
+   * 2 кредита.
    */
   tier?: AbProductTier;
   framing?: string;

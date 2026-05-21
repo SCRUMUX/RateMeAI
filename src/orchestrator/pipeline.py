@@ -190,17 +190,18 @@ class AnalysisPipeline:
         style = (context or {}).get("style", "")
         variant_id = (context or {}).get("variant_id", "")
         skip_gen = (context or {}).get("skip_image_gen", False)
-        # v1.21 A/B test — optional per-request override that routes
-        # this single task to Nano Banana 2 Edit / GPT Image 2 Edit via
-        # the structured prompt adapter. Missing / unknown values drop
-        # through to the unified provider's default model.
+        # Image-model label + quality tier carried on the task ctx.
+        # After the Nano-Banana cleanup ``image_model`` is pinned to
+        # ``gpt_image_2`` by ``apply_tier_context_fields`` — the
+        # value is kept as a metric / log label but no longer routes
+        # to a different backend.
         ab_image_model = (context or {}).get("image_model") or ""
         ab_image_quality = (context or {}).get("image_quality") or ""
-        # v1.72 — premium tier flag. Set by
-        # ``apply_ab_test_context_fields`` when the user picked the
-        # 2-credit "Premium" pill. The executor runs the Clarity
-        # refiner post-pass on the main render and the orchestrator
-        # surfaces a refund event if the refiner fails.
+        # Premium tier flag. Set by ``apply_tier_context_fields``
+        # when the user picked the 2-credit "Premium" pill. The
+        # executor runs the Clarity Upscaler post-pass on the main
+        # render and the orchestrator surfaces a refund event if the
+        # refiner fails.
         image_refine = (context or {}).get("image_refine") or ""
         product_tier = (context or {}).get("tier") or ""
         # TODO(gender-single-source): detected_gender is currently driven by the
@@ -232,13 +233,13 @@ class AnalysisPipeline:
             # instead of re-detecting inside the prerestore / face-crop
             # chain — ``input_quality.face_bbox`` is the same detection
             # the input gate already accepted.
-            # v1.23: SKIP GFPGAN preclean on the A/B path. Nano Banana 2
-            # and GPT Image 2 are edit-style models that rely on seeing
-            # the user's *original* face. Pre-restoring with GFPGAN
-            # subtly re-renders facial features — the models then encode
-            # a slightly altered identity and drift from the real user.
-            # v1.64: the A/B path IS the only path; the StyleRouter
-            # carve-out for the legacy GFPGAN preclean is gone.
+            # SKIP GFPGAN preclean on the edit-model path. GPT Image 2
+            # is an edit-style model that relies on seeing the user's
+            # *original* face — pre-restoring with GFPGAN subtly
+            # re-renders facial features so the model encodes a
+            # slightly altered identity. The carve-out is preserved
+            # for the standard generation flow; legacy non-AB
+            # callers still hit the prerestore branch below.
             ab_active = bool(
                 getattr(settings, "ab_test_enabled", False) and ab_image_model
             )
@@ -315,9 +316,14 @@ class AnalysisPipeline:
             except Exception:  # pragma: no cover — defensive
                 scenario_slug_value = None
 
-            # v1.59.6+: ``allow_cross_model_fallback`` is unified across channels
-            # (see task context). ``source`` stays on the context for analytics only.
-            allow_fb = bool((context or {}).get("allow_cross_model_fallback", True))
+            # ``allow_cross_model_fallback`` was retired together with
+            # Nano Banana 2 — the single-provider pipeline relies on
+            # the in-pipeline identity-retry with a fresh seed
+            # instead. The value is still read from the task context
+            # so historical ARQ tasks queued before the migration do
+            # not crash; downstream it threads to executor kwargs
+            # which now accept-and-ignore the flag.
+            allow_fb = bool((context or {}).get("allow_cross_model_fallback", False))
 
             with _trace_step(trace, "generate_image"):
                 await self._executor.single_pass(

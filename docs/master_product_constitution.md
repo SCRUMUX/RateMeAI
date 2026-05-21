@@ -422,11 +422,17 @@ auto-override'ов пустого user pick'а. Soft warning для
 - **API Gateway** — входная точка, аутентификация, маршрутизация.
 - **Orchestrator Service** — планирование pipeline, сборка промпта,
   одностадийный single-pass с локальной пост-обработкой.
-- **A/B Image Router** ([src/providers/image_gen/unified.py](../src/providers/image_gen/unified.py))
-  — выбор между двумя FAL edit-моделями: **GPT Image 2 Edit**
-  (default, `gpt_image_2`) и **Nano Banana 2 Edit** (`nano_banana_2`).
-  Других путей нет — PuLID, Seedream, Reve и StyleRouter retired в
-  v1.64.
+- **Image-gen Provider** ([src/providers/factory.py](../src/providers/factory.py))
+  — единственный live image-gen бэкенд: **GPT Image 2 Edit**
+  (`fal-ai/openai/gpt-image-2/edit`). PuLID, Seedream, Reve и
+  StyleRouter retired в v1.64; Nano Banana 2 + UnifiedImageGenProvider
+  retired в Nano-Banana cleanup. Tier (`standard` / `premium`)
+  переключает Clarity Upscaler post-pass, см. §9.6.1.
+
+- **Clarity Upscaler (premium tier post-pass)**
+  ([src/providers/image_gen/fal_clarity_upscaler.py](../src/providers/image_gen/fal_clarity_upscaler.py))
+  — на premium-tier'е реально повышает разрешение фото (×2) поверх
+  основного рендера; total cost premium-tier'а ≤ $0.10/img.
 - **Reference Preprocess** ([src/services/reference_preprocess.py](../src/services/reference_preprocess.py))
   — pad tight selfies для anti-glued-head (см. §9.3.2).
 - **CodeFormer / Real-ESRGAN** — face restoration и upscale поверх
@@ -554,9 +560,10 @@ auto-override'ов пустого user pick'а. Soft warning для
   запрещено: identity-фразы вроде «head and shoulders read as real
   human proportions» обламывают numerical anchor для half/full-body
   framing'ов и были одной из причин «приклеенной головы» до v1.64.
-- **Несколько image-gen провайдеров под одним route'ом** — A/B-роутер
-  должен быть однозначным (`gpt_image_2` или `nano_banana_2`),
-  никаких `generation_mode`-форков на третий бэкенд. Параллельные
+- **Несколько image-gen провайдеров под одним route'ом** — image-gen
+  путь должен быть однозначным (после Nano-Banana cleanup — только
+  `gpt_image_2`), никаких `generation_mode`-форков на третий
+  бэкенд. Параллельные
   PuLID/Seedream/Reve легги генерировали dead code, который никогда
   не выполнялся в проде, и были вырезаны в v1.64.
 - Фейковый прогресс.

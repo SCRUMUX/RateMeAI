@@ -1,11 +1,10 @@
-"""End-to-end integration tests for the v1.21 A/B pipeline.
+"""End-to-end integration test for the single-provider pipeline.
 
-Wires a real :class:`UnifiedImageGenProvider` with lightweight fake
-providers into :class:`ImageGenerationExecutor`, then runs a full
-``single_pass``. The goal is to guard the cross-component contract:
-
-- ``framing`` propagates from ``params`` through the executor into ``resolve_output_size()``.
-- The unified provider picks GPT-2 or Nano Banana based on ``image_model``.
+Pre Nano-Banana cleanup this test exercised the
+:class:`UnifiedImageGenProvider` cross-model dispatch. With the
+unified router retired, the only thing left to pin is that the
+executor reaches the single GPT Image 2 provider with a valid
+``image_size`` payload.
 """
 
 from __future__ import annotations
@@ -18,20 +17,13 @@ from PIL import Image
 
 from src.models.enums import AnalysisMode
 from src.orchestrator.executor import ImageGenerationExecutor
-from src.providers.image_gen.unified import UnifiedImageGenProvider
 from src.services.input_quality import InputQualityReport
-
-
-# ---------------------------------------------------------------------------
-# Fixtures / helpers
-# ---------------------------------------------------------------------------
 
 
 def _make_jpeg_with_face() -> bytes:
     buf = io.BytesIO()
     Image.new("RGB", (1024, 1024), color=(180, 170, 160)).save(
-        buf,
-        format="JPEG",
+        buf, format="JPEG",
     )
     return buf.getvalue()
 
@@ -39,8 +31,7 @@ def _make_jpeg_with_face() -> bytes:
 def _make_png_stub() -> bytes:
     buf = io.BytesIO()
     Image.new("RGB", (1024, 1024), color=(200, 200, 200)).save(
-        buf,
-        format="PNG",
+        buf, format="PNG",
     )
     return buf.getvalue()
 
@@ -91,6 +82,7 @@ class _RecordingProvider:
 def _build_executor(image_gen) -> ImageGenerationExecutor:
     prompt_engine = MagicMock()
     prompt_engine.build_image_prompt.return_value = "TEST_PROMPT"
+    prompt_engine.build_image_prompt_v2.return_value = "TEST_PROMPT"
     storage = MagicMock()
     storage.upload = AsyncMock(return_value=None)
     storage.get_url = AsyncMock(return_value="https://example/result.jpg")
@@ -118,25 +110,19 @@ def _build_executor(image_gen) -> ImageGenerationExecutor:
     )
 
 
-# ---------------------------------------------------------------------------
-# Tests
-# ---------------------------------------------------------------------------
-
-
 @pytest.mark.asyncio
 @patch("src.orchestrator.executor.settings")
-async def test_unified_pipeline_routes_to_gpt2(
+async def test_pipeline_reaches_single_provider_with_image_size(
     mock_settings,
 ):
+    """Executor.single_pass must call the configured provider exactly
+    once and pass a non-empty ``image_size`` in ``params``."""
     mock_settings.ab_test_enabled = False
 
-    gpt2 = _RecordingProvider("gpt_image_2")
-    nano = _RecordingProvider("nano_banana_2")
-    unified = UnifiedImageGenProvider(model_a=gpt2, model_b=nano)
-    executor = _build_executor(unified)
+    provider = _RecordingProvider("gpt_image_2")
+    executor = _build_executor(provider)
 
     input_photo = _make_jpeg_with_face()
-
     result_dict: dict = {"base_description": "test"}
     await executor.single_pass(
         mode=AnalysisMode.DATING,
@@ -150,8 +136,6 @@ async def test_unified_pipeline_routes_to_gpt2(
         input_quality=_ok_report(),
     )
 
-    assert len(gpt2.calls) == 1
-    assert len(nano.calls) == 0
-
-    call_params = gpt2.calls[0]["params"]
+    assert len(provider.calls) == 1
+    call_params = provider.calls[0]["params"]
     assert "image_size" in call_params

@@ -2,40 +2,46 @@
 
 from __future__ import annotations
 
-AB_MODELS_ALLOWED = frozenset({"nano_banana_2", "gpt_image_2"})
-
-# v1.72 — product tiers visible to the user. ``standard`` is the
-# 1-credit baseline (gpt_image_2 medium); ``premium`` is the 2-credit
-# tier that pins the same base render but adds a Clarity refiner
-# post-pass for visible texture polish (see
-# ``src/providers/image_gen/fal_clarity_upscaler.py``). The legacy
-# ``image_model`` knob is still honoured for backwards compatibility
-# with internal A/B telemetry (Nano Banana 2 stays selectable from
-# the admin / Railway env), but the public web UI exposes only the
-# two product tiers.
+# Product tiers visible to the user. ``standard`` is the 1-credit
+# baseline (gpt_image_2 medium); ``premium`` is the 2-credit tier that
+# pins the same base render but adds a Clarity Upscaler post-pass for
+# visible texture polish + a real resolution bump (see
+# ``src/providers/image_gen/fal_clarity_upscaler.py`` and the executor
+# ``_apply_clarity_refine``). The historic ``image_model`` A/B knob
+# was retired together with the Nano Banana 2 backend — there is one
+# image model in the pipeline (GPT Image 2 Edit) and the tier picks
+# whether the Clarity post-pass runs.
 PRODUCT_TIERS_ALLOWED = frozenset({"standard", "premium"})
 
+# Backwards-compat shim. The image-model A/B layer was retired in the
+# Nano Banana cleanup; old call sites and tests may still import
+# ``AB_MODELS_ALLOWED``. We expose the single live model as a frozenset
+# so any membership check that survived the migration still resolves
+# truthy without re-introducing Nano Banana into the validator.
+AB_MODELS_ALLOWED = frozenset({"gpt_image_2"})
 
-def apply_ab_test_context_fields(
+
+def apply_tier_context_fields(
     ctx: dict,
     *,
-    image_model: str,
     settings,
     tier: str | None = None,
 ) -> None:
-    """Populate ``ctx`` with the A/B image-model + product-tier fields.
+    """Populate ``ctx`` with the product-tier image-gen fields.
 
-    v1.72 added the optional ``tier`` parameter. When ``tier ==
-    "premium"`` the function pins ``image_model = "gpt_image_2"``,
-    ``image_quality = "medium"`` and sets ``image_refine = "clarity"``
-    so the executor knows to run the Clarity refiner post-pass on the
-    main render. The premium tier intentionally ignores ``image_model``
-    overrides — we do not want a user paying for premium and getting
-    a Nano Banana render instead of the GPT Image 2 + Clarity stack.
+    There is one image model in the pipeline (GPT Image 2 Edit). The
+    tier decides whether the Clarity Upscaler post-pass runs:
 
-    Standard tier (or ``tier`` left empty) preserves the v1.22
-    behaviour: honour the client-requested ``image_model`` (within
-    the A/B whitelist) at ``image_quality = "medium"``, no refiner.
+    * ``standard`` → ``image_model="gpt_image_2"``,
+      ``image_quality="medium"``, no refiner.
+    * ``premium``  → same base render, plus
+      ``image_refine="clarity"`` so the executor runs the Clarity
+      post-pass (resolution bump + texture polish, total cost stays
+      ≤ $0.10/image).
+
+    The historical A/B ``image_model`` knob was retired together with
+    Nano Banana 2. Callers may still pass an ``image_model`` form
+    field for backwards compatibility, but it is ignored here.
     """
     if not getattr(settings, "ab_test_enabled", False):
         return
@@ -44,27 +50,31 @@ def apply_ab_test_context_fields(
     if tier_norm not in PRODUCT_TIERS_ALLOWED:
         tier_norm = "standard"
     ctx["tier"] = tier_norm
-
-    if tier_norm == "premium":
-        # Premium pins the model + quality + refiner. Honouring a
-        # client-supplied ``image_model`` here would let a Nano-Banana
-        # render slip through with a 2-credit reservation, which is
-        # the exact billing inversion the v1.72 UI cleanup is trying
-        # to remove.
-        ctx["image_model"] = "gpt_image_2"
-        ctx["image_quality"] = "medium"
-        if bool(getattr(settings, "clarity_refiner_enabled", True)):
-            ctx["image_refine"] = "clarity"
-        return
-
-    im = (image_model or "").strip().lower()
-    if im not in AB_MODELS_ALLOWED:
-        im = getattr(settings, "ab_default_model", "gpt_image_2")
-        if im not in AB_MODELS_ALLOWED:
-            im = "gpt_image_2"
-    ctx["image_model"] = im
-    # Production-optimal tier: see api/v1/analyze.py — ignore client tier hints.
+    ctx["image_model"] = "gpt_image_2"
     ctx["image_quality"] = "medium"
+
+    if tier_norm == "premium" and bool(
+        getattr(settings, "clarity_refiner_enabled", True)
+    ):
+        ctx["image_refine"] = "clarity"
+
+
+def apply_ab_test_context_fields(
+    ctx: dict,
+    *,
+    image_model: str | None = None,
+    settings,
+    tier: str | None = None,
+) -> None:
+    """Backwards-compatible alias for :func:`apply_tier_context_fields`.
+
+    ``image_model`` is accepted but ignored — there is only one image
+    model in the pipeline now. The argument is kept so external
+    callers (edge proxy, older bot builds, ARQ tasks queued before
+    the migration) do not break on the kwarg signature.
+    """
+    _ = image_model  # explicitly unused after the Nano Banana cleanup.
+    apply_tier_context_fields(ctx, settings=settings, tier=tier)
 
 
 def is_whitelisted_task_source_telegram(source: str) -> bool:

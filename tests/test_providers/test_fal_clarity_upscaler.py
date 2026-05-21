@@ -30,7 +30,11 @@ def _client() -> FalClarityUpscaler:
 class TestBodyDefaults:
     def test_defaults_lock_identity_preserving_values(self):
         body = _client()._build_body(reference_image=b"\xff\xd8\xff\xd9")
-        assert body["upscale_factor"] == 1
+        # Body-builder default for ``upscale_factor`` is 1.0 (same-res
+        # polish). The premium-tier ×2 bump comes from
+        # ``settings.clarity_refiner_upscale_factor`` which the
+        # orchestrator passes in as ``params["upscale_factor"]``.
+        assert body["upscale_factor"] == 1.0
         assert body["creativity"] == _DEFAULT_CREATIVITY == 0.2
         assert body["resemblance"] == _DEFAULT_RESEMBLANCE == 0.8
         assert body["dynamic"] == _DEFAULT_DYNAMIC == 5
@@ -44,13 +48,22 @@ class TestBodyDefaults:
                 "creativity": 0.4,
                 "resemblance": 1.2,
                 "dynamic": 8,
-                "upscale_factor": 2,
+                "upscale_factor": 2.0,
             },
         )
         assert body["creativity"] == 0.4
         assert body["resemblance"] == 1.2
         assert body["dynamic"] == 8
-        assert body["upscale_factor"] == 2
+        assert body["upscale_factor"] == 2.0
+
+    def test_premium_default_upscale_factor_round_trips(self):
+        # The new Premium-tier default — float so operators can dial
+        # to 1.5 mid-incident without a code change.
+        body = _client()._build_body(
+            reference_image=b"\xff\xd8\xff\xd9",
+            params={"upscale_factor": 1.5},
+        )
+        assert body["upscale_factor"] == 1.5
 
 
 class TestParameterClamping:
@@ -94,14 +107,14 @@ class TestParameterClamping:
             reference_image=b"\xff\xd8\xff\xd9",
             params={"upscale_factor": 8},
         )
-        assert body["upscale_factor"] == 4
+        assert body["upscale_factor"] == 4.0
 
     def test_upscale_factor_clamped_below_one(self):
         body = _client()._build_body(
             reference_image=b"\xff\xd8\xff\xd9",
             params={"upscale_factor": 0},
         )
-        assert body["upscale_factor"] == 1
+        assert body["upscale_factor"] == 1.0
 
     def test_garbage_values_fall_back_to_defaults(self):
         body = _client()._build_body(
@@ -116,7 +129,7 @@ class TestParameterClamping:
         assert body["creativity"] == _DEFAULT_CREATIVITY
         assert body["resemblance"] == _DEFAULT_RESEMBLANCE
         assert body["dynamic"] == _DEFAULT_DYNAMIC
-        assert body["upscale_factor"] == 1
+        assert body["upscale_factor"] == 1.0
 
 
 class TestEmptyInputs:

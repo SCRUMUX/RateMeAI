@@ -21,15 +21,15 @@
     "authenticity": "Authenticity"
   },
   "abModels": {
-    "gpt_image_2": {
+    "standard": {
       "label": "Standard",
-      "short": "Balanced default",
-      "description": "Reliable render with strong prompt adherence and stable likeness. Works for most scenarios."
+      "short": "Balanced render",
+      "description": "Base render with strong prompt adherence and stable likeness. Works for most scenarios."
     },
-    "nano_banana_2": {
+    "premium": {
       "label": "Premium",
-      "short": "Maximum likeness",
-      "description": "Premium render focused on identity and skin texture. Best for close-ups and fine facial detail."
+      "short": "Higher resolution and more detail",
+      "description": "Same base render with a 2× resolution upscale and extra detail polish: skin, hair, and background look sharper. Composition and face identity are preserved."
     }
   },
   "abQualities": {

@@ -1,9 +1,10 @@
-"""Tests for the v1.21 A/B form fields on POST /api/v1/analyze.
+"""Tests for the legacy A/B form fields on POST /api/v1/analyze.
 
-Whitelist behavior, feature-flag gating, and silent-drop semantics for
-the additive ``image_model`` + ``image_quality`` fields. Uses the same
-integration-style ``client`` fixture as :mod:`test_analyze`; skipped
-automatically when Postgres/Redis aren't reachable.
+Post Nano-Banana cleanup ``image_model`` is always normalised to
+``gpt_image_2`` regardless of what the client posts; the tests pin
+that contract plus the feature-flag gate (``ab_test_enabled``). Uses
+the same integration-style ``client`` fixture as :mod:`test_analyze`;
+skipped automatically when Postgres/Redis aren't reachable.
 
 We capture the task context by wrapping :class:`src.models.task.Task`'s
 constructor so we can inspect the ``context`` kwarg the endpoint
@@ -87,12 +88,15 @@ class _TaskCtxCapture:
 
 @patch("src.api.v1.analyze._get_arq", new_callable=AsyncMock)
 @patch("src.api.v1.analyze.get_storage")
-def test_analyze_accepts_known_ab_model(
+def test_analyze_pins_image_model_to_gpt_image_2(
     mock_get_storage,
     mock_get_arq,
     client,
     monkeypatch,
 ):
+    """Even when the client posts a legacy ``image_model=nano_banana_2``
+    the endpoint must collapse it to ``gpt_image_2`` — that is the
+    single live image model in the pipeline."""
     monkeypatch.setattr(settings, "ab_test_enabled", True)
     storage = MagicMock()
     storage.upload = AsyncMock(return_value="inputs/u/k.jpg")
@@ -116,24 +120,25 @@ def test_analyze_accepts_known_ab_model(
     assert r.status_code == 202, r.text
     assert cap.contexts, "Task() was not instantiated during create_analysis"
     ctx = cap.contexts[-1]
-    assert ctx.get("image_model") == "nano_banana_2"
-    # v1.25: quality tier is locked to the production-optimal "medium"
-    # on the server regardless of what the client submits.
+    assert ctx.get("image_model") == "gpt_image_2"
+    # quality is locked to the production-optimal "medium" on the
+    # server regardless of what the client submits.
     assert ctx.get("image_quality") == "medium"
 
 
 @patch("src.api.v1.analyze._get_arq", new_callable=AsyncMock)
 @patch("src.api.v1.analyze.get_storage")
-def test_analyze_unknown_model_falls_back_to_default(
+def test_analyze_unknown_model_resolves_to_gpt_image_2(
     mock_get_storage,
     mock_get_arq,
     client,
     monkeypatch,
 ):
-    """v1.22: A/B became the default; unknown model → ab_default_model."""
+    """Unknown / garbage ``image_model`` values also resolve to the
+    single live model."""
     monkeypatch.setattr(settings, "ab_test_enabled", True)
     monkeypatch.setattr(settings, "ab_default_model", "gpt_image_2")
-    monkeypatch.setattr(settings, "ab_default_quality", "low")
+    monkeypatch.setattr(settings, "ab_default_quality", "medium")
     storage = MagicMock()
     storage.upload = AsyncMock(return_value="inputs/u/k.jpg")
     mock_get_storage.return_value = storage
@@ -156,8 +161,8 @@ def test_analyze_unknown_model_falls_back_to_default(
     assert r.status_code == 202, r.text
     ctx = cap.contexts[-1]
     assert ctx.get("image_model") == "gpt_image_2"
-    # v1.25: quality is always normalised to "medium" server-side,
-    # even when the client submitted a valid non-medium tier.
+    # quality is always normalised to "medium" server-side, even
+    # when the client submitted a valid non-medium tier.
     assert ctx.get("image_quality") == "medium"
 
 
@@ -219,7 +224,7 @@ def test_analyze_ignores_ab_fields_when_feature_flag_off(
             files={"image": ("x.jpg", _VALID_JPEG, "image/jpeg")},
             data={
                 "mode": "rating",
-                "image_model": "nano_banana_2",
+                "image_model": "gpt_image_2",
                 "image_quality": "high",
             },
             headers=_auth(token),
@@ -260,7 +265,7 @@ def test_analyze_persists_framing_and_input_hints(
             files={"image": ("x.jpg", _VALID_JPEG, "image/jpeg")},
             data={
                 "mode": "rating",
-                "image_model": "nano_banana_2",
+                "image_model": "gpt_image_2",
                 "image_quality": "medium",
                 "framing": "half_body",
                 "input_hints": _json.dumps(hints),
@@ -311,23 +316,19 @@ def test_analyze_ignores_invalid_input_hints_json(
 
 @patch("src.api.v1.analyze._get_arq", new_callable=AsyncMock)
 @patch("src.api.v1.analyze.get_storage")
-def test_analyze_without_ab_fields_defaults_to_gpt_image_2_low(
+def test_analyze_without_ab_fields_defaults_to_gpt_image_2_medium(
     mock_get_storage,
     mock_get_arq,
     client,
     monkeypatch,
 ):
-    """v1.22: when the client omits both fields (old bot / curl),
-    the endpoint still routes through A/B using the configured
-    defaults (``gpt_image_2`` / ``low``); pre-v1.64 the alternative
-    was the StyleRouter, now retired.
-
-    v1.25: quality is always forced to ``medium`` server-side, so
-    ``ab_default_quality`` is effectively a no-op for the response
-    context. The model default still applies."""
+    """When the client omits both fields (old bot / curl), the
+    endpoint still pins ``image_model=gpt_image_2`` +
+    ``image_quality=medium`` because that is the single live
+    configuration in the pipeline."""
     monkeypatch.setattr(settings, "ab_test_enabled", True)
     monkeypatch.setattr(settings, "ab_default_model", "gpt_image_2")
-    monkeypatch.setattr(settings, "ab_default_quality", "low")
+    monkeypatch.setattr(settings, "ab_default_quality", "medium")
     storage = MagicMock()
     storage.upload = AsyncMock(return_value="inputs/u/k.jpg")
     mock_get_storage.return_value = storage

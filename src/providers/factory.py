@@ -36,36 +36,19 @@ def get_storage() -> StorageProvider:
 
 
 # ---------------------------------------------------------------------------
-# v1.21 A/B test providers. Selected per-request via the
-# ``image_model`` form field on ``/api/v1/analyze``, routed from the
-# executor. Both models are FAL-hosted edit-mode providers; the
-# UnifiedImageGenProvider dispatches between them based on the
-# requested ``image_model``. v1.64 collapsed the legacy StyleRouter
-# (PuLID + Seedream + FLUX.2 fallback) into this two-model pair — the
-# generation_mode-based routing was effectively bypassed in production
-# because ``ab_test_enabled=True`` always set the requested model
-# upstream.
+# Single FAL-hosted edit-mode provider — GPT Image 2 Edit. The historic
+# A/B layer (Nano Banana 2 + UnifiedImageGenProvider) was retired in
+# the "Remove Nano Banana, Premium Upscale" cleanup: every UI tier
+# (Standard / Premium) ships through the same GPT Image 2 base render,
+# and the Premium tier adds a Clarity Upscaler post-pass downstream
+# in :mod:`src.orchestrator.executor`. Cross-model fallback no longer
+# exists; the in-pipeline ``identity_retry`` with a fresh seed on the
+# same model covers transient FAL failures.
 # ---------------------------------------------------------------------------
 
 
-def _build_nano_banana_2():
-    """Construct :class:`FalNanoBanana2Edit` from settings (v1.21 A/B)."""
-    from src.providers.image_gen.fal_nano_banana import FalNanoBanana2Edit
-
-    return FalNanoBanana2Edit(
-        api_key=settings.fal_api_key,
-        model=settings.nano_banana_model,
-        api_host=settings.fal_api_host,
-        output_format=settings.fal_output_format,
-        default_quality=settings.ab_default_quality,
-        max_retries=settings.fal_max_retries,
-        request_timeout=settings.fal_request_timeout,
-        poll_interval=settings.fal_poll_interval,
-    )
-
-
 def _build_gpt_image_2():
-    """Construct :class:`FalGptImage2Edit` from settings (v1.21 A/B)."""
+    """Construct :class:`FalGptImage2Edit` from settings."""
     from src.providers.image_gen.fal_gpt_image_2 import FalGptImage2Edit
 
     return FalGptImage2Edit(
@@ -75,55 +58,11 @@ def _build_gpt_image_2():
         output_format=settings.fal_output_format,
         default_quality=settings.ab_default_quality,
         max_retries=settings.fal_max_retries,
-        # GPT Image 2 runs through OpenAI's backend — a bit slower p95
-        # than FLUX/Seedream, so we give it a longer timeout ceiling.
+        # GPT Image 2 runs through OpenAI's backend, so we give it a
+        # longer timeout ceiling than the FAL queue baseline.
         request_timeout=max(settings.fal_request_timeout, 240.0),
         poll_interval=settings.fal_poll_interval,
     )
-
-
-AB_IMAGE_MODELS: frozenset[str] = frozenset({"nano_banana_2", "gpt_image_2"})
-
-# Historical ``get_ab_image_gen`` helper was retired in v1.70.15 —
-# every call site now reads the single :func:`get_image_gen`
-# (``UnifiedImageGenProvider``) and steers the underlying model via
-# the ``image_model`` request param. ``AB_IMAGE_MODELS`` survives as
-# the whitelist used by the analysis-request validator.
-
-
-def _build_unified_provider():
-    """Assemble :class:`UnifiedImageGenProvider` (v1.64 FAL-only).
-
-    Model A: GPT Image 2 Edit (default)
-    Model B: Nano Banana 2 Edit (A/B alternative)
-
-    v1.64 removed the optional PuLID / Seedream legs because the
-    ``ab_test_enabled=True`` request path always supplied an explicit
-    ``image_model`` upstream, meaning ``UnifiedImageGenProvider``
-    never reached the ``generation_mode``-based fork in production.
-    """
-    from src.providers._testing import MockImageGen
-    from src.providers.image_gen.unified import UnifiedImageGenProvider
-
-    try:
-        model_a = _build_gpt_image_2()
-    except Exception as exc:
-        logger.warning(
-            "UnifiedProvider: Model A (GPT-2) init failed (%s), using Mock",
-            exc,
-        )
-        model_a = MockImageGen()
-
-    try:
-        model_b = _build_nano_banana_2()
-    except Exception as exc:
-        logger.warning(
-            "UnifiedProvider: Model B (Nano Banana) init failed (%s), using Mock",
-            exc,
-        )
-        model_b = MockImageGen()
-
-    return UnifiedImageGenProvider(model_a=model_a, model_b=model_b)
 
 
 def _log_image_gen_choice(provider: ImageGenProvider, *, reason: str) -> None:
@@ -131,25 +70,17 @@ def _log_image_gen_choice(provider: ImageGenProvider, *, reason: str) -> None:
 
     Shows up exactly once per process (``get_image_gen`` is
     ``lru_cache``-d) near the top of the Railway deployment log, so
-    `/health` correlations and "why is it still Kontext?" debugging
+    `/health` correlations and "which provider is wired in?" debugging
     are a single grep away.
     """
     cls = type(provider).__name__
     model = getattr(provider, "_model", None) or getattr(provider, "model", None) or "—"
-    router_summary = ""
-    if hasattr(provider, "backend_summary"):
-        try:
-            summary = provider.backend_summary()  # type: ignore[attr-defined]
-            router_summary = f" backends={summary}"
-        except Exception:
-            router_summary = ""
     logger.info(
-        "image-gen provider selected: class=%s model=%s reason=%s%s "
+        "image-gen provider selected: class=%s model=%s reason=%s "
         "(gfpgan=%s, esrgan=%s, identity_retry=%s, codeformer=%s)",
         cls,
         model,
         reason,
-        router_summary,
         bool(getattr(settings, "gfpgan_preclean_enabled", False)),
         bool(getattr(settings, "real_esrgan_enabled", False)),
         bool(getattr(settings, "identity_retry_enabled", False)),
@@ -161,12 +92,13 @@ def _log_image_gen_choice(provider: ImageGenProvider, *, reason: str) -> None:
 def get_image_gen() -> ImageGenProvider:
     """Return the production image-generation provider.
 
-    v1.70.13 — single FAL-only path. ``IMAGE_GEN_PROVIDER`` is now a
-    two-value enum ``{mock, unified}`` (with ``auto`` and any legacy
-    value treated as a synonym of ``unified`` for backward
-    compatibility with older ``.env`` files). Reve, Replicate,
-    PuLID and Seedream legs were retired between v1.20 and v1.64;
-    see ``docs/ARCHITECTURE.md``.
+    Single FAL-only path: GPT Image 2 Edit. ``IMAGE_GEN_PROVIDER`` is
+    a two-value enum ``{mock, unified}`` (any other / legacy value is
+    treated as ``unified`` for backward compatibility with older
+    ``.env`` files — it now means "the single GPT Image 2 provider").
+    Reve / Replicate / PuLID / Seedream / Nano Banana 2 legs were
+    retired between v1.20 and the Nano-Banana cleanup; see
+    ``docs/ARCHITECTURE.md``.
     """
     from src.providers._testing import MockImageGen
 
@@ -179,15 +111,23 @@ def get_image_gen() -> ImageGenProvider:
         return p
 
     if (settings.fal_api_key or "").strip():
-        p = _build_unified_provider()
+        try:
+            p = _build_gpt_image_2()
+        except Exception as exc:
+            logger.warning(
+                "get_image_gen: GPT Image 2 init failed (%s), using Mock",
+                exc,
+            )
+            p = MockImageGen()
         _log_image_gen_choice(p, reason=f"mode={mode} → FAL_API_KEY present")
         return p
 
     if prod:
         raise RuntimeError(
             "IMAGE_GEN_PROVIDER=unified requires FAL_API_KEY — the Reve "
-            "and Replicate fallbacks were retired in v1.20, and the "
-            "PuLID / Seedream legs were retired in v1.64.",
+            "and Replicate fallbacks were retired in v1.20, the "
+            "PuLID / Seedream legs in v1.64, and Nano Banana 2 in the "
+            "Nano-Banana cleanup.",
         )
 
     p = MockImageGen()

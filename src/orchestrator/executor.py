@@ -104,129 +104,55 @@ def _format_substitution_notice_ru(sub: dict[str, str]) -> str:
 _UPSCALE_FACE_THRESHOLD = 0.15
 
 
-# Nano Banana 2 aspect-ratio enum (fal schema). See
-# ``src/providers/image_gen/fal_nano_banana.py:_VALID_ASPECT_RATIOS``.
-_NB2_ASPECT_BUCKETS: tuple[tuple[float, str], ...] = (
-    # Ordered from tall portrait to wide landscape so ``min(..)`` picks
-    # the closest bucket by signed distance from the requested ratio.
-    (9 / 16, "9:16"),
-    (2 / 3, "2:3"),
-    (3 / 4, "3:4"),
-    (4 / 5, "4:5"),
-    (1.0, "1:1"),
-    (5 / 4, "5:4"),
-    (4 / 3, "4:3"),
-    (3 / 2, "3:2"),
-    (16 / 9, "16:9"),
-    (21 / 9, "21:9"),
-)
-
-
-def _aspect_ratio_enum_for_size(width: int, height: int) -> str:
-    """Snap an arbitrary ``(width, height)`` onto the NB2 AR enum.
-
-    Nano Banana 2 Edit does not accept a raw ``{width, height}``; it
-    needs an enum from the fixed list (``4:5``, ``3:4``, ``16:9`` …).
-    We pick the closest bucket by the ratio ``width / height`` so a
-    portrait StyleSpec (e.g. 1024x1536 from ``resolve_output_size``)
-    maps to ``2:3`` and a CV landscape (e.g. 1536x1024) to ``3:2``.
-
-    Returning ``auto`` defeats the purpose — the model then reframes
-    4K outputs into square and crops the head out, which we saw in
-    v1.22. Always return a concrete enum.
-    """
-    try:
-        w = int(width or 0)
-        h = int(height or 0)
-    except (TypeError, ValueError):
-        return "auto"
-    if w <= 0 or h <= 0:
-        return "auto"
-    target = w / h
-    return min(_NB2_ASPECT_BUCKETS, key=lambda b: abs(b[0] - target))[1]
-
-
 # ---------------------------------------------------------------------------
-# v1.68 — P2.7 Output-size single source of truth.
+# Output-size single source of truth (post Nano-Banana cleanup).
 # ---------------------------------------------------------------------------
 #
-# Before v1.68 the pipeline used a single resolver
-# (:func:`resolve_output_size` in ``image_gen.py``) that emitted a
-# ``{width, height}`` dict derived from the style's ``output_aspect``
-# (e.g. ``portrait_4_3`` → ``1280×1600``). Both web and bot then
-# routed the dict to the providers verbatim, but each provider
-# coerced it differently:
-#
-# * GPT Image 2 Edit refuses arbitrary sizes; it snaps the request to
-#   the closest of its native portrait (1024×1536, 2:3) /
-#   square (1024×1024) / landscape (1536×1024) presets. So a 4:5
-#   request silently became 2:3 in the output canvas.
-# * Nano Banana 2 Edit accepts ``aspect_ratio`` + ``resolution``
-#   instead of ``image_size``; with no enum supplied it falls through
-#   to ``auto`` and the model picks 1:1 for portrait references —
-#   cropping the head off long-format compositions.
-#
-# Net effect: the canvas the user actually saw could differ from the
-# canvas the style intended, and differed BETWEEN models for the same
-# style + framing. The v1.68 SSOT pins each (model, framing) pair to
-# the provider's NATIVE portrait pixel grid:
-#
-#   gpt_image_2 + portrait/half_body/full_body → 1024×1536 (2:3 native)
-#   nano_banana_2 + portrait/half_body/full_body → AR "4:5", res "2K"
-#
-# Each pair also carries the ``effective_aspect_ratio`` string the
-# CALLER sees, so web / bot can crop preview cards to the actual
-# canvas the model produced rather than a stale style-level
-# expectation. CV mode (document styles) intentionally bypasses the
-# table — vendor policy framing is non-negotiable.
-_OUTPUT_SIZE_BY_MODEL_FRAMING: dict[tuple[str, str], dict[str, Any]] = {
-    ("gpt_image_2", "portrait"): {
+# Historical note: this table used to be keyed by ``(model, framing)``
+# because Nano Banana 2 needed an ``aspect_ratio`` enum + ``resolution``
+# tier instead of a raw ``{width, height}``. With Nano Banana retired
+# the table collapses to ``framing → image_size``: GPT Image 2 Edit
+# accepts a raw ``{width, height}`` and snaps each portrait framing
+# to its native 1024×1536 (2:3) canvas. CV mode (document styles)
+# intentionally bypasses this table — vendor policy framing is
+# non-negotiable.
+_OUTPUT_SIZE_BY_FRAMING: dict[str, dict[str, Any]] = {
+    "portrait": {
         "image_size": {"width": 1024, "height": 1536},
         "effective_aspect_ratio": "2:3",
     },
-    ("gpt_image_2", "half_body"): {
+    "half_body": {
         "image_size": {"width": 1024, "height": 1536},
         "effective_aspect_ratio": "2:3",
     },
-    ("gpt_image_2", "full_body"): {
+    "full_body": {
         "image_size": {"width": 1024, "height": 1536},
         "effective_aspect_ratio": "2:3",
-    },
-    ("nano_banana_2", "portrait"): {
-        "aspect_ratio": "4:5",
-        "resolution": "2K",
-        "effective_aspect_ratio": "4:5",
-    },
-    ("nano_banana_2", "half_body"): {
-        "aspect_ratio": "4:5",
-        "resolution": "2K",
-        "effective_aspect_ratio": "4:5",
-    },
-    ("nano_banana_2", "full_body"): {
-        "aspect_ratio": "4:5",
-        "resolution": "2K",
-        "effective_aspect_ratio": "4:5",
     },
 }
 
 
 def _resolve_output_size_ssot(
     *,
-    model: str | None,
+    model: str | None = None,
     framing: str | None,
 ) -> dict[str, Any] | None:
-    """Look up the (model, framing) → provider-side request shape.
+    """Look up the framing → provider-side request shape.
 
-    Returns ``None`` when the SSOT does not cover the requested pair
-    — callers must then fall back to the legacy
-    ``resolve_output_size`` + ``_aspect_ratio_enum_for_size`` path.
-    The returned dict may contain ``image_size`` (GPT-2 native size),
-    ``aspect_ratio`` + ``resolution`` (NB2 enum + tier), and always
-    ``effective_aspect_ratio`` (the canvas the model actually emits).
+    Returns ``None`` when the SSOT does not cover the requested
+    framing — callers must then fall back to the legacy
+    ``resolve_output_size`` path. The returned dict carries
+    ``image_size`` (GPT-2 native size) and ``effective_aspect_ratio``
+    (the canvas the model actually emits).
+
+    The ``model`` kwarg survives for backwards-compatibility with
+    older call sites — there is now only one image model, so the
+    argument is ignored.
     """
-    if not model or not framing:
+    _ = model  # historical key, kept for backward-compatible signature.
+    if not framing:
         return None
-    entry = _OUTPUT_SIZE_BY_MODEL_FRAMING.get((str(model), str(framing)))
+    entry = _OUTPUT_SIZE_BY_FRAMING.get(str(framing))
     if entry is None:
         return None
     return dict(entry)
@@ -284,16 +210,15 @@ def _estimate_backend_cost(
 ) -> tuple[str, float]:
     """Estimate per-call cost *and* label the effective backend.
 
-    v1.64: collapsed to the FAL edit-only path. ``routed_backend``
-    (when set) wins over the provider class name; otherwise the cost
-    estimator keys off the class name (GPT Image 2 vs Nano Banana 2).
+    Post Nano-Banana cleanup: the only FAL edit-model backend is
+    ``gpt_image_2``. ``routed_backend`` (when set) wins as a label,
+    but every numeric estimate now resolves through the GPT Image 2
+    cost ladder in :func:`estimate_image_gen_cost_usd`.
     """
     cls = (provider_name or "").lower()
     routed = (routed_backend or "").strip().lower()
-    if routed in ("gpt_image_2", "nano_banana_2"):
+    if routed == "gpt_image_2":
         backend = routed
-    elif "nano" in cls or "banana" in cls:
-        backend = "nano_banana_2"
     elif "gpt" in cls:
         backend = "gpt_image_2"
     else:
@@ -448,8 +373,8 @@ async def _apply_clarity_refine(raw: bytes) -> tuple[bytes, bool]:
             dynamic=float(
                 getattr(settings, "clarity_refiner_dynamic", 5.0),
             ),
-            upscale_factor=int(
-                getattr(settings, "clarity_refiner_upscale_factor", 1),
+            upscale_factor=float(
+                getattr(settings, "clarity_refiner_upscale_factor", 2.0),
             ),
         )
     except Exception:
@@ -838,19 +763,23 @@ class ImageGenerationExecutor:
     ) -> tuple[dict, dict | None, tuple | None]:
         """Build the provider ``extra`` payload + output_size + face bbox.
 
-        v1.71 (Phase 4.2 of the tech-debt roadmap): extracted from
-        :meth:`single_pass`. Pure-ish — the only side effects are
-        ``logger.info`` lines (``image_size resolved`` / ``image_size
-        SSOT``) and a single optional write to
-        ``result_dict["effective_aspect_ratio"]`` on SSOT hits. Returns
-        ``(extra, output_size, iq_bbox)``: ``extra`` is the dict passed
-        to ``ImageGenProvider.generate(params=...)``, ``output_size`` is
-        the resolved ``{"width", "height"}`` (or ``None`` for unknown
-        styles), and ``iq_bbox`` is the face bbox sourced from the
-        input-quality gate (used downstream by the CSL padder).
-        Behaviour is byte-for-byte unchanged from the inlined version
-        — same key order, same log strings, same SSOT branch semantics.
+        Post Nano-Banana cleanup: there is one image model in the
+        pipeline (GPT Image 2 Edit) which accepts a raw
+        ``{width, height}`` request. The ``aspect_ratio`` /
+        ``resolution`` enum knobs that Nano Banana 2 needed are no
+        longer emitted. ``ab_image_model`` and
+        ``allow_cross_model_fallback`` are accepted for backward
+        compatibility with older call sites but are functionally
+        no-ops here — the provider is fixed.
+
+        Returns ``(extra, output_size, iq_bbox)``: ``extra`` is the
+        dict passed to ``ImageGenProvider.generate(params=...)``,
+        ``output_size`` is the resolved ``{"width", "height"}`` (or
+        ``None`` for unknown styles), and ``iq_bbox`` is the face
+        bbox sourced from the input-quality gate (used downstream by
+        the CSL padder).
         """
+        _ = allow_cross_model_fallback  # kept for signature back-compat.
         extra: dict = {}
 
         extra["style"] = style or "default"
@@ -881,13 +810,15 @@ class ImageGenerationExecutor:
             )
 
         if ab_active:
-            extra["image_model"] = ab_image_model
+            # ``image_model`` is pinned to ``gpt_image_2`` in
+            # ``apply_tier_context_fields``; we propagate it here so
+            # downstream metrics and logs see a stable label. The
+            # legacy A/B knob is otherwise inert.
+            extra["image_model"] = ab_image_model or "gpt_image_2"
             extra["quality"] = ab_image_quality or getattr(
                 settings, "ab_default_quality", "medium"
             )
-            extra["allow_cross_model_fallback"] = allow_cross_model_fallback
 
-            ssot_applied = False
             try:
                 _ssot_on = bool(
                     getattr(settings, "output_size_ssot_enabled", False)
@@ -895,39 +826,19 @@ class ImageGenerationExecutor:
             except Exception:
                 _ssot_on = False
             if _ssot_on and mode != AnalysisMode.CV:
-                ssot = _resolve_output_size_ssot(
-                    model=ab_image_model,
-                    framing=framing_norm,
-                )
+                ssot = _resolve_output_size_ssot(framing=framing_norm)
                 if ssot is not None:
                     if "image_size" in ssot:
                         extra["image_size"] = ssot["image_size"]
                         output_size = ssot["image_size"]
-                    if "aspect_ratio" in ssot:
-                        extra["aspect_ratio"] = ssot["aspect_ratio"]
-                    if "resolution" in ssot:
-                        extra["resolution"] = ssot["resolution"]
                     eff_ar = ssot.get("effective_aspect_ratio")
                     if eff_ar:
                         result_dict["effective_aspect_ratio"] = eff_ar
-                    ssot_applied = True
                     logger.info(
-                        "image_size SSOT model=%s framing=%s "
-                        "applied=%s",
-                        ab_image_model,
+                        "image_size SSOT framing=%s applied=%s",
                         framing_norm,
                         sorted(ssot.keys()),
                     )
-
-            if (
-                not ssot_applied
-                and output_size
-                and not extra.get("aspect_ratio")
-            ):
-                extra["aspect_ratio"] = _aspect_ratio_enum_for_size(
-                    output_size["width"],
-                    output_size["height"],
-                )
 
         return extra, output_size, iq_bbox
 
@@ -1123,26 +1034,16 @@ class ImageGenerationExecutor:
         v1.71 (Phase 4.4): same dispatch table that lived inline in
         :meth:`single_pass` (twice — once for the first pass, once for
         the identity retry). ``provider_name`` is ``type(image_gen).
-        __name__`` (e.g. ``UnifiedImageGenProvider``); ``backend`` is
-        ``params["image_model"]`` for the unified path or a legacy
-        provider class name. A no-op when neither dispatch path yields
-        a known FAL model.
+        __name__`` (``FalGptImage2Edit`` for the live path,
+        ``MockImageGen`` in dev). ``backend`` is the resolved label
+        from :func:`_estimate_backend_cost` — always
+        ``"gpt_image_2"`` after the Nano-Banana cleanup. A no-op when
+        the provider class does not resolve to a known FAL model
+        (e.g. ``MockImageGen``).
         """
         fal_model: str | None = None
-        if provider_name.lower() == "unifiedimagegenprovider":
-            if backend == "nano_banana_2":
-                fal_model = getattr(
-                    settings, "nano_banana_model", "fal-ai/nano-banana-2/edit"
-                )
-            elif backend == "gpt_image_2":
-                fal_model = getattr(
-                    settings, "gpt_image_2_model", "openai/gpt-image-2/edit"
-                )
-        elif "nanobanana" in provider_name.lower():
-            fal_model = getattr(
-                settings, "nano_banana_model", "fal-ai/nano-banana-2/edit"
-            )
-        elif "gptimage" in provider_name.lower():
+        cls_lower = provider_name.lower()
+        if backend == "gpt_image_2" or "gptimage" in cls_lower:
             fal_model = getattr(
                 settings, "gpt_image_2_model", "openai/gpt-image-2/edit"
             )
@@ -1780,15 +1681,12 @@ class ImageGenerationExecutor:
             # framing pick and the downstream document-aware
             # postprocessing.
 
-            # Provider ``extra`` payload. v1.71 (Phase 4.2): the 135-
-            # line block that built ``extra`` / resolved ``output_size``
-            # / threaded the SSOT shape is now in
-            # :meth:`_prepare_provider_params`. Provider-specific
-            # whitelists still apply (GPT Image 2 accepts ``quality`` +
-            # ``aspect_ratio`` + ``size`` + ``image_model``; Nano
-            # Banana 2 accepts ``aspect_ratio`` + ``resolution`` +
-            # ``image_model``) — ``UnifiedImageGenProvider`` strips
-            # everything it does not recognise before the wire call.
+            # Provider ``extra`` payload. The single GPT Image 2 Edit
+            # backend accepts ``quality`` + ``image_size`` +
+            # (legacy) ``image_model``; ``_prepare_provider_params``
+            # resolves output size, propagates the AB/tier label, and
+            # threads ``effective_aspect_ratio`` into ``result_dict``
+            # for the web client's preview crop.
             extra, output_size, iq_bbox = self._prepare_provider_params(
                 mode=mode,
                 style=style,
@@ -1846,10 +1744,11 @@ class ImageGenerationExecutor:
                     params=extra or None,
                 )
             generation_attempts = 1
-            # v1.64: the legacy router ContextVar (``routed_backend_var``)
-            # was retired; the unified provider now picks the backend
-            # deterministically from ``params["image_model"]`` so the
-            # first-pass label is just the request value.
+            # Single-provider path post Nano-Banana cleanup: the
+            # backend label is whatever was propagated into
+            # ``extra["image_model"]`` (``gpt_image_2`` for AB-active
+            # requests, empty for legacy non-AB callers — the cost
+            # estimator falls back to the provider class name).
             first_pass_backend = str(extra.get("image_model", "")).strip().lower()
 
             # v1.72 — premium refiner. Runs BEFORE the local

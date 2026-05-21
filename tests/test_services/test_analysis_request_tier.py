@@ -1,11 +1,12 @@
-"""v1.72 — unit tests for product tier handling in analysis_request.
+"""Unit tests for product-tier handling in ``analysis_request``.
 
-Pins the contract that ``apply_ab_test_context_fields`` writes the
-correct ``image_model`` / ``image_quality`` / ``image_refine`` keys
-into ``ctx`` for each (tier, requested_model) combination. The
-premium tier MUST force ``gpt_image_2`` regardless of the requested
-model so a Nano Banana 2 render cannot slip through with a
-2-credit reservation.
+Post Nano-Banana cleanup the single live image model is
+``gpt_image_2``. ``apply_ab_test_context_fields`` (the legacy alias
+of :func:`apply_tier_context_fields`) accepts a backwards-compatible
+``image_model`` kwarg but ignores it — every call resolves to
+``image_model="gpt_image_2"`` + ``image_quality="medium"``. Premium
+adds ``image_refine="clarity"`` so the executor runs the Clarity
+Upscaler post-pass.
 """
 
 from __future__ import annotations
@@ -32,20 +33,19 @@ def _settings(**overrides):
     return SimpleNamespace(**base)
 
 
-class TestAbAllowlists:
-    def test_ab_models_allowlist_pins_two_models(self):
-        assert AB_MODELS_ALLOWED == frozenset(
-            {"nano_banana_2", "gpt_image_2"}
-        )
+class TestAllowlists:
+    def test_ab_models_allowlist_collapsed_to_gpt_image_2(self):
+        assert AB_MODELS_ALLOWED == frozenset({"gpt_image_2"})
 
     def test_product_tiers_allowlist_pins_two_tiers(self):
-        assert PRODUCT_TIERS_ALLOWED == frozenset(
-            {"standard", "premium"}
-        )
+        assert PRODUCT_TIERS_ALLOWED == frozenset({"standard", "premium"})
 
 
 class TestStandardTier:
-    def test_standard_tier_honours_requested_model(self):
+    def test_standard_tier_ignores_legacy_image_model(self):
+        """Even if an older client posts ``image_model=nano_banana_2``
+        the helper must resolve to ``gpt_image_2`` — there is one
+        live image model in the pipeline."""
         ctx: dict = {}
         apply_ab_test_context_fields(
             ctx,
@@ -53,12 +53,12 @@ class TestStandardTier:
             settings=_settings(),
             tier="standard",
         )
-        assert ctx["image_model"] == "nano_banana_2"
+        assert ctx["image_model"] == "gpt_image_2"
         assert ctx["image_quality"] == "medium"
         assert ctx["tier"] == "standard"
         assert "image_refine" not in ctx
 
-    def test_standard_tier_falls_back_to_default_model(self):
+    def test_standard_tier_with_empty_image_model(self):
         ctx: dict = {}
         apply_ab_test_context_fields(
             ctx,
@@ -78,6 +78,7 @@ class TestStandardTier:
             settings=_settings(),
         )
         assert ctx["tier"] == "standard"
+        assert ctx["image_model"] == "gpt_image_2"
         assert "image_refine" not in ctx
 
     def test_unknown_tier_falls_back_to_standard(self):
@@ -106,11 +107,10 @@ class TestPremiumTier:
         assert ctx["image_refine"] == "clarity"
         assert ctx["tier"] == "premium"
 
-    def test_premium_tier_overrides_nano_banana_request(self):
-        """A user-supplied ``image_model=nano_banana_2`` MUST be ignored on
-        the premium tier — otherwise the 2-credit reservation could be
-        billed against a Nano Banana render, which is the exact
-        regression the v1.72 product cleanup eliminates."""
+    def test_premium_tier_ignores_legacy_image_model_arg(self):
+        """Older clients may still post ``image_model=nano_banana_2``;
+        the helper must collapse it to ``gpt_image_2`` and still flag
+        the Clarity refiner."""
         ctx: dict = {}
         apply_ab_test_context_fields(
             ctx,
@@ -122,8 +122,8 @@ class TestPremiumTier:
         assert ctx["image_refine"] == "clarity"
 
     def test_premium_tier_respects_clarity_refiner_kill_switch(self):
-        """When the Railway kill-switch is off, premium still resolves to
-        gpt_image_2 medium but ``image_refine`` is dropped so the
+        """When the Railway kill-switch is off, premium still resolves
+        to gpt_image_2 medium but ``image_refine`` is dropped so the
         executor doesn't try to call FAL clarity. The orchestrator
         treats a missing refine signal as the standard tier and the
         worker refund logic kicks in on the credit side (premium
@@ -144,8 +144,8 @@ class TestPremiumTier:
 class TestAbDisabled:
     def test_disabled_ab_short_circuits(self):
         """When ``settings.ab_test_enabled`` is False the helper is a
-        no-op — the orchestrator falls back to the default hybrid
-        StyleRouter and tier metadata is irrelevant."""
+        no-op — the orchestrator falls back to the default flow and
+        tier metadata is irrelevant."""
         ctx: dict = {}
         apply_ab_test_context_fields(
             ctx,

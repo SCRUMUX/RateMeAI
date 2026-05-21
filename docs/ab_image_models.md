@@ -1,302 +1,98 @@
-# v1.23 A/B default — Nano Banana 2 Edit vs GPT Image 2 Edit
+# Image-gen tier surface (post Nano-Banana cleanup)
 
-This doc is the operator / on-call cheat sheet for the image-gen A/B
-surface. `1.21.0-ab` shipped it as an opt-in path; `1.22.0` promoted
-it to the default; **`1.23.0` tightens the face-fidelity pipeline**
-specifically for the two A/B providers (see [Face fidelity
-pipeline](#face-fidelity-pipeline-v123) below). The legacy hybrid
-`StyleRouter` pipeline is still in-tree as an env-flag-only rollback
-and is bit-for-bit unchanged.
+> **Historical context.** Версии v1.21–v1.71 этого документа описывали
+> A/B-сетап с двумя моделями (Nano Banana 2 Edit + GPT Image 2 Edit)
+> через `UnifiedImageGenProvider`. В "Remove Nano Banana, Premium
+> Upscale" cleanup A/B-роутер и Nano Banana были выпилены: в
+> пайплайне осталась одна модель — GPT Image 2 Edit, а продуктовый
+> выбор сводится к двум tier'ам **Standard / Premium**.
 
 ## TL;DR
 
-- The v1.18 hybrid pipeline (PuLID / Seedream / FLUX.2 Pro Edit +
-  CodeFormer / ESRGAN / GFPGAN) is **frozen, not deleted** and is
-  reachable **only** via `AB_TEST_ENABLED=false` on Railway.
-- Every `/api/v1/analyze` request now carries `image_model` +
-  `image_quality`. Missing / unknown values fall back to
-  `ab_default_model=gpt_image_2` + `ab_default_quality=low` on the
-  server side — i.e. the cheapest A/B combo, never back to
-  StyleRouter.
-- Two models under test:
-  - `fal-ai/nano-banana-2/edit` (Google Gemini 3.1 Flash Image)
-  - `openai/gpt-image-2/edit`   (OpenAI ChatGPT Images 2.0 via fal)
-- Three quality tiers per model: `low` / `medium` / `high`.
-- Global kill switch: `AB_TEST_ENABLED=false` on Railway →
-  StyleRouter takes over for every request, UI pills become inert.
+- Каждый `/api/v1/analyze` запрос идёт через **GPT Image 2 Edit**
+  (`openai/gpt-image-2/edit`) с `image_quality=medium`. Кадр —
+  native portrait 1024×1536 (`effective_aspect_ratio=2:3`).
+- Продуктовый tier'ом управляет form-поле `tier`:
+  - `standard` (1 кредит) — базовый рендер GPT Image 2 medium,
+    без post-pass refiner'а. ≈ $0.06 / img на стороне FAL.
+  - `premium` (2 кредита) — тот же базовый рендер плюс **Clarity
+    Upscaler ×2 post-pass**: реально повышает разрешение фотографии
+    и подтягивает чёткость кожи / волос / фона. Общая стоимость
+    ≈ $0.10 / img (бюджет премиум-tier'а).
+- Cross-model fallback не существует. Если GPT Image 2 фейлится
+  на одну попытку, in-pipeline identity-retry с новым сидом
+  пересоздаёт изображение на той же модели; никакого "силент
+  switch to Nano Banana" не происходит.
+- Legacy form-поле `image_model` всё ещё принимается (для
+  совместимости со старыми SPA-bundle'ами и эдж-прокси), но любое
+  значение схлопывается в `gpt_image_2` на бэке
+  ([`apply_tier_context_fields`](../src/services/analysis_request.py)).
 
-## How a request flows
-
-```
-UI pills        FormData          /analyze                Task.context            Executor
-+----------+    +-------------+   +----------------+     +----------------+     +-----------------+
-| Model    |--->| image_model |-->| whitelist +    |---->| image_model    |---->| if ab_active: |
-| Quality  |--->| image_quality|  | stash into ctx |     | image_quality  |     |   AB provider  |
-+----------+    +-------------+   +----------------+     +----------------+     |   + structured |
-                                                                                |   prompt       |
-                                                                                | else: default  |
-                                                                                +-----------------+
-```
-
-- `AB_MODELS_ALLOWED = {"nano_banana_2", "gpt_image_2"}`
-- `AB_QUALITIES_ALLOWED = {"low", "medium", "high"}`
-- Anything else drops on the floor silently — the endpoint keeps the
-  202 contract, the request just runs on the hybrid path.
-
-## Cost per generation (FAL invoiced, v1.23)
-
-| Model           | low  (default)          | medium                            | high                               |
-|-----------------|-------------------------|-----------------------------------|------------------------------------|
-| Nano Banana 2   | $0.08 — `1K` ≈ 1024 px  | $0.12 — `2K` + thinking=high      | $0.16 — `4K` + thinking=high       |
-| GPT Image 2     | ~$0.02 — 1024 × 1024    | ~$0.06 — 1024 × 1536 (HD portrait) | ~$0.25 — 1440 × 2560 (2K portrait) |
-
-GPT Image 2 is token-priced, so the numbers above are empirical
-averages, not contractual. The `high` tier is an explicit user
-choice — we deliberately gate it behind a pill click rather than
-making it the default (GPT Image 2 @ high = $0.25 is ~12× the cost
-of the default `low` tier).
-
-**v1.23 size note:** GPT Image 2 now only emits the OpenAI-officially-
-supported sizes (`1024×1024`, `1024×1536`, `1536×1024`, `2560×1440`).
-The v1.22 forced squares (`1024²` / `1536²` / `2048²`) are gone — the
-`2048²` combination was off-spec and had unstable latency on `high`,
-which is why `quality=high` was tripping the edge poll timeout. The
-executor now forwards a StyleSpec-aware `image_size` and the provider
-snaps any off-list size onto the whitelist.
-
-**v1.23 NB2 note:** the medium and high tiers now set
-`thinking_level="high"` (Gemini reasoning-guided edit). Adds ~40-60%
-latency but is the single biggest lever for face preservation per the
-fal.ai / Google prompting guides. Low tier stays on fast mode.
-
-**Nano Banana 2 quality floor note (v1.22):** the `low` tier was
-previously `0.5K` (~512 px long edge, $0.06). We bumped it to `1K`
-because 512-px portraits were too soft for production. The cheapest
-Nano Banana 2 output is now a full ~1 MP image at $0.08.
-
-## Enabling / disabling the feature
-
-### Server-side
+## Контрактная цепочка
 
 ```
-# Railway → ratemeai-app → Variables
-AB_TEST_ENABLED=true           # default, routes every /analyze via A/B
-AB_DEFAULT_MODEL=gpt_image_2   # fallback when the client omits image_model
-AB_DEFAULT_QUALITY=low         # fallback when the client omits image_quality
-AB_PROMPT_MAX_LEN=2000         # prompt budget (v1.23: bumped for the extended GPT-2 Preserve/Constraints)
-IDENTITY_RETRY_ENABLED=false   # v1.70.12: unified flag (was AB_IDENTITY_RETRY_ENABLED, alias preserved)
+UI tier pill    FormData          /analyze              Task.context        Executor
++-----------+   +-------------+   +----------------+   +----------------+   +-----------------+
+| Standard  |-->| tier        |-->| validate +     |-->| tier=standard  |-->| GPT Image 2   |
+|           |   | image_model |   | apply_tier_*   |   | image_model=   |   |   (medium)      |
+|           |   | image_quality|  | (collapse to   |   |   gpt_image_2  |   |                 |
+| Premium   |-->| tier=premium|   | gpt_image_2)   |   | image_refine=  |   | + Clarity ×2  |
++-----------+   +-------------+   +----------------+   |   clarity      |   |   (if refine)   |
+                                                       +----------------+   +-----------------+
 ```
 
-Flip `AB_TEST_ENABLED=false` to **re-enable the legacy hybrid
-StyleRouter** for all traffic. The A/B form fields become inert and
-every request routes through PuLID / Seedream / FLUX.2 / CodeFormer
-/ ESRGAN / GFPGAN as in v1.21. Redeploy is not required — FastAPI
-reads `settings` at call time. This is the designated emergency
-rollback path when Nano Banana 2 or GPT Image 2 regresses.
+- `PRODUCT_TIERS_ALLOWED = {"standard", "premium"}`
+- `AB_MODELS_ALLOWED = {"gpt_image_2"}` — оставлен как backwards-
+  compatible frozenset; единственное допустимое значение совпадает с
+  тем, что бэк всё равно подставит сам.
+- Любое другое значение `image_model` тихо дропается на бэке.
 
-### Client-side (per user)
+## Стоимость
 
-Two `localStorage` keys carry the selection:
+| Tier      | Модель        | Quality | Refiner               | FAL cost (USD/img) | Кредитов |
+|-----------|---------------|---------|-----------------------|--------------------|----------|
+| Standard  | gpt_image_2   | medium  | —                     | ≈ $0.06            | 1        |
+| Premium   | gpt_image_2   | medium  | Clarity Upscaler ×2   | ≈ $0.10            | 2        |
 
-- `ailook_ab_model` — `"nano_banana_2"` | `"gpt_image_2"` (absent →
-  defaults to `"gpt_image_2"` on first visit)
-- `ailook_ab_quality` — `"low"` | `"medium"` | `"high"` (absent →
-  defaults to `"low"`)
+Премиум-бюджет = GPT-2 medium (~$0.06) + Clarity (~$0.04). Любой
+переход на `quality=high` ($0.12) убирает Premium из бюджета и
+требует отдельного решения по биллингу.
 
-There is no longer a **Стандарт** UI pill — v1.22 removed it. To
-route an individual user through the legacy hybrid pipeline, flip
-`AB_TEST_ENABLED=false` globally (there is no per-user legacy opt-in
-anymore).
+Кредитный refund: если Clarity refiner упал, executor выставляет
+`result_dict["premium_refine_failed"] = True`. Worker по этому
+сигналу возвращает пользователю 1 из 2 зарезервированных кредитов.
 
-## Rollback
+## Kill-switches и ENV
 
-Cost explosion, quality regression, model drift — any of these:
+| Переменная                      | По умолчанию | Что делает                                                                 |
+|---------------------------------|--------------|----------------------------------------------------------------------------|
+| `AB_TEST_ENABLED`               | `true`       | Кладёт tier-маршрутизацию в task ctx. При `false` `apply_tier_context_fields` — no-op. |
+| `AB_DEFAULT_MODEL`              | `gpt_image_2`| Лейбл бэкенда; для совместимости. Любое значение нормализуется к `gpt_image_2`. |
+| `AB_DEFAULT_QUALITY`            | `medium`     | Quality-тier для GPT Image 2 когда клиент не прислал явный.                |
+| `CLARITY_REFINER_ENABLED`       | `true`       | Railway kill-switch для премиум post-pass'а. При `false` premium-rendering эквивалентен standard, но 1 кредит возвращается. |
+| `CLARITY_REFINER_UPSCALE_FACTOR`| `2.0`        | Множитель ×N для Clarity. Поднять до `2` — реальное увеличение разрешения; cost остаётся в премиум-бюджете. |
 
-1. **Kill switch**: `AB_TEST_ENABLED=false` on Railway (app + worker).
-   Single env-var change, no redeploy; existing `/analyze` calls with
-   `image_model` set will transparently route through the hybrid
-   pipeline.
-2. **Provider quarantine**: remove just one model from
-   `factory.AB_IMAGE_MODELS`. The other stays available.
-3. **Full revert**: revert the `1.21.0-ab` merge commit. The new
-   provider files / prompt adapter / UI pills come out cleanly —
-   everything is additive and nothing in the hybrid pipeline imports
-   from the A/B modules.
+## Диагностика
 
-## Metrics
+- `/api/v1/internal/diagnostics/image-gen-probe?provider=unified` /
+  `?provider=gpt_image_2` — оба значения теперь резолвят одно и то
+  же (GPT Image 2 Edit), но эндпоинт продолжает принимать оба
+  параметра ради совместимости с health-скриптами.
+- Метрика `IMAGE_GEN_BACKEND.backend` после cleanup'а принимает
+  одно значение вида `gpt_image_2:<quality>`; именования
+  Prometheus-серий сохранены.
 
-No new Prometheus label dimensions — the A/B path reuses the existing
-counters with a composite `backend` value:
+## Что было выпилено в Nano-Banana cleanup
 
-- `ratemeai_image_gen_calls_total{provider="FalNanoBanana2Edit"}`
-- `ratemeai_generation_cost_usd{backend="nano_banana_2:medium"}`
-- `ratemeai_generation_cost_usd{backend="gpt_image_2:high"}`
-
-Use the `backend` label to split A/B cost from hybrid cost in
-Grafana. For a live deploy rate check:
-
-```
-sum by (backend) (
-  rate(ratemeai_image_gen_calls_total[5m])
-)
-```
-
-## Smoke tests
-
-CI fires four probes per deploy (cost ≈ $0.05 total):
-
-- `diagnostics/image-gen-probe?mode=scene_preserve` (StyleRouter)
-- `diagnostics/image-gen-probe?mode=identity_scene` (StyleRouter)
-- `diagnostics/image-gen-probe?provider=nano_banana_2&quality=low`
-- `diagnostics/image-gen-probe?provider=gpt_image_2&quality=low`
-
-A failure in either A/B probe fails the Railway deploy the same way
-a PuLID regression does — see `.github/workflows/ci.yml`, step
-"Live provider smoke".
-
-## Prompt structure
-
-Both wrappers live in `src/prompts/ab_prompt.build_structured_prompt`
-and both are re-assembled from the existing `StyleSpec` /
-`StyleVariant` fields (no rewrite of the ~130 existing variants).
-
-### GPT Image 2 — 8-block body + triptych
-
-GPT Image 2 handles long structured prompts well, so the 8-block
-layout is kept verbatim and the wrapper appends the
-`Change: / Preserve: / Constraints:` triptych recommended by
-OpenAI's "Generate images with high input fidelity" cookbook:
-
-```
-Subject:  the man in the reference photo, ...
-Scene:    <variant.scene or spec.background>
-Style:    <aesthetic tone>
-Lighting: <variant.lighting>
-Camera:   photorealistic, DSLR, natural depth of field, realistic proportions
-Identity & Realism: <identity lock>
-Enhancement:        <subtle attractiveness>
-Output:             <high detail, clean composition>
-
-Change:      <scene + style + lighting>
-Preserve:    face, facial features, skin tone, skin texture, eye shape,
-             nose bridge, jawline, hairline, hair, body shape, pose,
-             expression, framing. ...
-Constraints: no face change, no airbrushing, no plastic skin, no watermark,
-             no logo drift, no extra text, no extra objects, no redesign,
-             no identity change
-```
-
-v1.23 extended the Preserve inventory with explicit anatomical
-anchors (eye shape, nose bridge, jawline, hairline, framing) — GPT
-Image 2 responds much better to an inventory than to a single
-"preserve identity" clause.
-
-### Nano Banana 2 — concise prose (v1.23)
-
-Nano Banana 2 is backed by Gemini 3.1 Flash Image, a reasoning
-model whose sweet spot per the fal.ai / Google prompting guides is
-1-3 sentences per idea. v1.23 replaces the 8-block stack with a
-3-paragraph prose prompt:
-
-```
-Keep the face, facial features, identity, skin tone, and expression
-exactly as in the reference photo. Do not alter the person's face
-in any way.
-
-Show <subject> in <scene>, with <lighting>. Style: <style_tone>.
-Camera: photorealistic, DSLR, natural depth of field, realistic
-proportions. natural skin texture with visible pores and subtle
-micro-imperfections, no plastic smoothing, no airbrushing.
-
-Change only the environment, clothing styling, and lighting as
-described. Preserve the subject's face, pose, hair, body
-proportions, and framing exactly.
-```
-
-The identity anchor in paragraph 1 is the direct "do not alter
-face" phrase from the Google portrait-preservation guide; the
-skin-texture clause in paragraph 2 is the canonical anti-plastic /
-anti-waxy anchor; paragraph 3 is the explicit change/preserve split
-the fal NB2 guide recommends.
-
-The adapter is read-only with respect to the style registry — it
-does not modify any of the ~130 existing `StyleVariant` entries, so
-rolling back leaves the hybrid prompt builder exactly as it was.
-
-## Face fidelity pipeline (v1.23)
-
-The A/B branch does NOT run the legacy face-restoration chain that
-the StyleRouter path still uses. Specifically, on every A/B request:
-
-- **GFPGAN preclean** (`src/services/face_prerestore.py`) is
-  skipped. GFPGAN subtly re-renders facial features — when Nano
-  Banana 2 or GPT Image 2 then edits a "precleaned" face, the edit
-  models encode that slight drift and the final output looks
-  unlike the user. Skipping preclean means the edit model sees the
-  actual reference photo.
-- **CodeFormer polish** (`fal-ai/codeformer`) is skipped. CodeFormer
-  is a general face-restoration model, not an identity-preserving
-  one; it subtly re-renders features in the output, which is
-  exactly the regression we're trying to avoid.
-- **Real-ESRGAN x2 upscale** (`fal-ai/real-esrgan`) is skipped. NB2
-  at `high` already emits 4K and GPT-2 up to `2560×1440`; upscaling
-  an already-native-resolution image only adds compression
-  artefacts and doubles FAL spend.
-- **Identity retry** (`ImageGenerationExecutor.single_pass`) is
-  gated on the unified `identity_retry_enabled` flag (default
-  `false`; the historical `ab_identity_retry_enabled` env var is
-  still accepted via a pydantic alias). The legacy retry
-  escalates PuLID-specific parameters
-  (`pulid_mode`, `id_scale`, `num_inference_steps`) that NB2 and
-  GPT-2 silently strip — so a retry only produces a second
-  generation on a fresh seed, doubles cost and latency, and does
-  nothing to actually improve identity on the A/B models.
-
-What the A/B path still runs:
-
-- `_apply_local_postprocess` — a pure-PIL document-AR crop for CV
-  styles. Never touches the face.
-- VLM quality gate — identity_match and aesthetic_score are still
-  computed and logged for analytics (`ratemeai_identity_score`
-  histogram). They no longer trigger a retry, but they remain the
-  on-call signal for identity-drift investigations.
-
-Flag reference:
-
-```
-IDENTITY_RETRY_ENABLED=false   # v1.70.12 unified flag (default; flip to `true` to investigate regressions)
-# AB_IDENTITY_RETRY_ENABLED=false  # legacy env name, still honoured via pydantic alias
-```
-
-The legacy StyleRouter path keeps every stage above (GFPGAN
-preclean, CodeFormer, Real-ESRGAN, PuLID identity retry) because
-those models (PuLID + Seedream) were tuned for the chain and the
-retry escalation actually feeds into PuLID's schema.
-
-## On-call triage playbook
-
-1. `ratemeai_generation_cost_usd{backend=~"nano_banana.*|gpt_image.*"}`
-   spiking above $0.20 / image sustained?
-   → set `AB_DEFAULT_QUALITY=low` on Railway, redeploy, monitor.
-2. HTTP 422 from one of the A/B providers?
-   → check the provider's fal schema page; the most common cause is
-   a new required field or a changed enum. Fix in
-   `fal_nano_banana.py` / `fal_gpt_image_2.py`, add a regression
-   test alongside `test_body_has_expected_*_shape`. Note: Nano Banana
-   2 Edit has **no `image_size` field** (uses `resolution` +
-   `aspect_ratio` enums instead); GPT Image 2 Edit does accept
-   `image_size` with multiples-of-16 constraint.
-3. Identity drift complaints on A/B path?
-   → v1.23 disables the legacy CodeFormer / Real-ESRGAN / GFPGAN-
-   preclean / identity-retry chain on the A/B path
-   (see [Face fidelity pipeline](#face-fidelity-pipeline-v123)).
-   If drift persists, first check `ratemeai_identity_score` histogram
-   split by `backend` to quantify, then inspect the raw provider
-   response bytes before any VLM call — the issue is almost
-   certainly in the prompt (`src/prompts/ab_prompt.py`) or in the
-   NB2 `thinking_level` / `aspect_ratio` parameters. Re-enabling
-   retry with `IDENTITY_RETRY_ENABLED=true` is a debugging
-   escape hatch, not a fix.
-4. Want to disable only one of the two A/B providers?
-   → temporarily remove its key from `factory.AB_IMAGE_MODELS`;
-   incoming `image_model=<disabled>` values drop to the default path.
+| Артефакт                                                | Статус   |
+|----------------------------------------------------------|----------|
+| `src/providers/image_gen/fal_nano_banana.py`             | Удалён   |
+| `src/providers/image_gen/unified.py`                     | Удалён   |
+| `factory._build_nano_banana_2` / `_build_unified_provider`| Удалены |
+| `model_wrappers.wrap_for_nano_banana_2`                  | Удалён   |
+| `executor._NB2_ASPECT_BUCKETS` / `_aspect_ratio_enum_for_size` | Удалены |
+| `executor._OUTPUT_SIZE_BY_MODEL_FRAMING`                 | Свёрнут в `_OUTPUT_SIZE_BY_FRAMING` |
+| `metrics._AB_COST_FIELDS["nano_banana_2"]`               | Удалён   |
+| `config.nano_banana_model` / `model_cost_fal_nano_banana_*` | Удалены |
+| `NANO_BANANA_MODEL` env / costs в `.env.example`         | Удалены  |
+| Cross-model fallback (`allow_cross_model_image_fallback`) | Поле живо как config-shape no-op; функционально выключено |

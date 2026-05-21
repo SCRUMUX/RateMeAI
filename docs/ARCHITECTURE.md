@@ -135,8 +135,9 @@ Railway primary (/api/v1/internal/process-analysis)
   │  Task.create (Postgres Railway) → ARQ enqueue
   ▼
 Worker (Railway)
-  │  OpenAI VLM scoring + FAL edit-model image gen (v1.64: GPT Image 2
-  │  и Nano Banana 2 через UnifiedImageGenProvider)
+  │  OpenAI VLM scoring + FAL edit-model image gen (single provider:
+  │  GPT Image 2 Edit; Nano Banana 2 + UnifiedImageGenProvider были
+  │  выпилены в Nano-Banana cleanup)
   │  Возврат через GET /api/v1/internal/task/{id}/status — base64 + JSON
   ▼
 RU edge ←  base64 ← worker
@@ -427,9 +428,9 @@ data-fix'ов не требуется — кеш `_csl` в Redis просто и
 ### 8.9 Anatomy fix one-pass (v1.64 → v1.65)
 
 **Проблема**: до v1.64 на `face_closeup` входах (selfie с лицом > 30%
-кадра) edit-модели (GPT Image 2 / Nano Banana 2) копировали layout
-исходника и выдавали «приклеенную голову» — лицо оставалось крупным,
-а тело гадалось вокруг. CSL ловила только заведомо запретные пары
+кадра) edit-модель (GPT Image 2 Edit) копировала layout исходника и
+выдавала «приклеенную голову» — лицо оставалось крупным, а тело
+гадалось вокруг. CSL ловила только заведомо запретные пары
 `(class, style)`, но **внутри** разрешённого framing'а оставались
 диспропорции. v1.64 решил это для `half_body` / `full_body` через
 численный anchor + reference padding, но `framing=portrait` (дефолт
@@ -678,9 +679,9 @@ prompt reorder сохраняет тот же набор токенов, identit
 
 #### Почему это работает за один проход
 
-- **Edit-модели** (GPT Image 2 / Nano Banana 2) сильно опираются на
-  layout reference'а. Если на reference'е лицо уже занимает 12%
-  кадра, модель **не** может «вернуть» его к 50% без явного промпта.
+- **Edit-модель** (GPT Image 2 Edit) сильно опирается на layout
+  reference'а. Если на reference'е лицо уже занимает 12% кадра,
+  модель **не** может «вернуть» его к 50% без явного промпта.
 - Cinematic anchor (`Reframe …`, `85mm short-telephoto lens`) + padded
   reference дают согласованный сигнал в обоих каналах (text + image),
   а identity-tail с текстурными якорями убирает остаточную тягу к
@@ -694,12 +695,12 @@ Reve (`api.reve.com`), StyleRouter (legacy роутер по
 PuLID-провайдеру), `_SCENE_PRESERVE_STYLE_KEYS`,
 `detect_generation_mode`, `STYLE_MODE_OVERRIDE` метрика, `style_mode`
 лейбл из `IMAGE_GEN_BACKEND`. Эти ветки физически не выполнялись в
-проде после v1.21 (A/B-роутер всегда возвращал `gpt_image_2` /
-`nano_banana_2` **до** проверки `generation_mode` в
-`UnifiedImageGenProvider._pick_backend`), и держать ~7 файлов dead
-code'а не было смысла. После cleanup'а primary стек строго
-**FAL-only с двумя моделями** (GPT Image 2 Edit + Nano Banana 2 Edit),
-выбираемыми A/B-роутером в [src/providers/factory.py](../src/providers/factory.py).
+проде после v1.21 (A/B-роутер всегда возвращал `gpt_image_2`
+**до** проверки `generation_mode` в `UnifiedImageGenProvider`), и
+держать ~7 файлов dead code'а не было смысла. После cleanup'а
+primary стек строго **FAL-only с одной моделью** (GPT Image 2 Edit);
+Nano Banana 2 backend и UnifiedImageGenProvider удалены в
+Nano-Banana cleanup. См. [src/providers/factory.py](../src/providers/factory.py).
 
 ---
 

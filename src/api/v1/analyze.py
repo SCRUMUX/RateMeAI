@@ -167,11 +167,12 @@ async def _handle_edge_analysis(
                 # ибо `_process_analysis_request` кладёт туда обе вещи.
                 framing=(task_context or {}).get("framing", "") or framing,
                 input_hints=(task_context or {}).get("input_hints") or input_hints or {},
-                # v1.59.6: ``source`` tag (e.g. "telegram_bot") must
-                # survive the edge→primary hop, otherwise primary's
-                # ``UnifiedImageGenProvider`` would happily fall back
-                # to NB2 on a GPT-2 error for bot traffic, defeating
-                # the entire point of this guard.
+                # ``source`` tag (e.g. "telegram_bot") survives the
+                # edge→primary hop so downstream analytics (usage
+                # logs, cost segmentation) can attribute the request
+                # to its origin channel. The Nano-Banana cross-model
+                # fallback that used to depend on this tag is gone;
+                # the field is now informational only.
                 source=(task_context or {}).get("source", "") or source,
                 # Composition Safety Layer: forward the override choice
                 # so the primary can decide whether to bypass its own
@@ -386,8 +387,9 @@ async def create_analysis(
     # is True on this deployment, so a client cannot enable it on its
     # own. Counted via the ``COMPOSITION_OVERRIDE_USED`` metric.
     skip_composition_safety: bool = Form(False),
-    # Optional caller tag (``telegram_bot`` whitelisted) for analytics —
-    # generation policy uses ``allow_cross_model_fallback`` on the task.
+    # Optional caller tag (``telegram_bot`` whitelisted) for analytics.
+    # The legacy cross-model fallback policy that used to branch on
+    # ``source`` is gone; the tag is now purely informational.
     source: str = Form(""),
     user: User = Depends(check_credits_with_consent),
     db: AsyncSession = Depends(get_db),
@@ -540,14 +542,23 @@ async def create_analysis(
     if is_whitelisted_task_source_telegram(source):
         ctx["source"] = "telegram_bot"
 
-    # A/B image model + locked server-side quality tier (shared with internal/edge).
+    # Product-tier context (shared with internal/edge). Post Nano-
+    # Banana cleanup: there is one image model — the helper pins
+    # ``image_model=gpt_image_2`` + ``image_quality=medium`` and
+    # writes ``image_refine="clarity"`` on the premium tier. The
+    # legacy ``image_model`` form field is accepted for backwards
+    # compatibility with older clients and is otherwise ignored.
     apply_ab_test_context_fields(
         ctx,
         image_model=image_model,
         settings=settings,
         tier=tier,
     )
-    # Same cross-model fallback policy for all channels unless overridden later.
+    # Cross-model fallback was retired together with Nano Banana 2.
+    # The flag is propagated into the task context (always False on
+    # this deployment) so older worker / pipeline code that still
+    # reads ``context.get("allow_cross_model_fallback")`` does not
+    # crash on a missing key.
     ctx["allow_cross_model_fallback"] = settings.allow_cross_model_image_fallback
 
     # v1.72 — premium tier reserves a second credit on top of the

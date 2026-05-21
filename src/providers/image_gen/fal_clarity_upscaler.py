@@ -8,12 +8,14 @@ Upscaler is a stable-diffusion-based super-resolution model that
 adds visible pixel-level detail back into the image while keeping
 the input geometry intact.
 
-We use Clarity at ``upscale_factor=1`` (no resolution change) with
-low ``creativity`` and high ``resemblance`` so the model acts as a
-detail-enhancer, NOT a re-generator — facial features stay locked
-to the input image (which is critical for our identity-preservation
-contract) while skin pores, fabric textures, and background micro-
-detail get a measurable polish.
+We use Clarity at ``upscale_factor=2`` (×2 resolution bump from
+1024×1536 → 2048×3072) with low ``creativity`` and high
+``resemblance`` so the model acts as a detail-enhancer, NOT a
+re-generator — facial features stay locked to the input image
+(which is critical for our identity-preservation contract) while
+skin pores, fabric textures, and background micro-detail get a
+measurable polish. The ×2 path is the user-facing "Premium = higher
+resolution" promise (see ``docs/ab_image_models.md``).
 
 Wire contract
 -------------
@@ -22,7 +24,7 @@ Wire contract
     POST https://queue.fal.run/fal-ai/clarity-upscaler
     {
         "image_url":      "data:image/jpeg;base64,...",
-        "upscale_factor": 1,
+        "upscale_factor": 2,
         "creativity":     0.2,
         "resemblance":    0.8,
         "dynamic":        5,
@@ -42,10 +44,13 @@ The endpoint returns a single image; we accept the canonical
 
 Pricing
 -------
-Empirical: ~$0.04 per request at upscale_factor=1 (token-based,
-see fal.ai/models/fal-ai/clarity-upscaler). Total premium cost
-in v1.72 = gpt_image_2 medium ($0.06) + Clarity ($0.04) ≈ $0.10,
-sitting comfortably under the $0.12 product cap.
+Empirical: ~$0.04 per request at upscale_factor=2 on 1024×1536
+input (token-based, see fal.ai/models/fal-ai/clarity-upscaler).
+Total premium cost = gpt_image_2 medium ($0.06) + Clarity ($0.04)
+≈ $0.10, sitting at the user-set $0.10/img cap. If FAL bumps the
+Clarity tariff for ×2 upscale and the empirical cost drifts above
+$0.04, operators can dial ``settings.clarity_refiner_upscale_factor``
+back to ``1.5`` mid-incident to stay in budget.
 
 Failure handling
 ----------------
@@ -131,11 +136,6 @@ class FalClarityUpscaler(FalQueueClient):
         if not reference_image:
             raise ValueError("FalClarityUpscaler requires image bytes")
         extras = params or {}
-        try:
-            upscale_factor = int(extras.get("upscale_factor", 1))
-        except (TypeError, ValueError):
-            upscale_factor = 1
-        upscale_factor = max(1, min(4, upscale_factor))
 
         def _clamp_float(value: Any, default: float, lo: float, hi: float) -> float:
             try:
@@ -159,6 +159,12 @@ class FalClarityUpscaler(FalQueueClient):
         dynamic = _clamp_float(
             extras.get("dynamic"), _DEFAULT_DYNAMIC, 1.0, 50.0,
         )
+        # Provider accepts a fractional factor; we clamp to a safe
+        # 1.0-4.0 band. 1.0 = same resolution detail polish (legacy
+        # behaviour). 2.0 = premium-tier default (×2 long edge).
+        upscale_factor = _clamp_float(
+            extras.get("upscale_factor"), 1.0, 1.0, 4.0,
+        )
 
         return {
             "image_url": self._data_url(reference_image),
@@ -180,7 +186,7 @@ class FalClarityUpscaler(FalQueueClient):
         creativity: float | None,
         resemblance: float | None,
         dynamic: float | None,
-        upscale_factor: int,
+        upscale_factor: float,
     ) -> bytes:
         body = self._build_body(
             prompt=None,
@@ -194,7 +200,7 @@ class FalClarityUpscaler(FalQueueClient):
         )
         logger.info(
             "FAL Clarity refine request model=%s creativity=%s "
-            "resemblance=%s dynamic=%s upscale=x%d input_bytes=%d",
+            "resemblance=%s dynamic=%s upscale=x%s input_bytes=%d",
             self._model,
             body.get("creativity"),
             body.get("resemblance"),
@@ -211,7 +217,7 @@ class FalClarityUpscaler(FalQueueClient):
         creativity: float | None = None,
         resemblance: float | None = None,
         dynamic: float | None = None,
-        upscale_factor: int = 1,
+        upscale_factor: float = 1.0,
     ) -> bytes:
         """Run Clarity refinement on ``image_bytes``.
 
@@ -227,7 +233,7 @@ class FalClarityUpscaler(FalQueueClient):
             creativity=creativity,
             resemblance=resemblance,
             dynamic=dynamic,
-            upscale_factor=int(upscale_factor),
+            upscale_factor=float(upscale_factor),
         )
         if raw and len(raw) > 100:
             return raw

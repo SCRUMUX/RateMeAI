@@ -548,7 +548,7 @@ def test_ab_path_records_face_prerestore_without_crashing(
             task_id="t_ab",
             context={
                 "style": "warm_outdoor",
-                "image_model": "nano_banana_2",
+                "image_model": "gpt_image_2",
                 "image_quality": "high",
             },
         )
@@ -557,9 +557,10 @@ def test_ab_path_records_face_prerestore_without_crashing(
     trace = merged.get("pipeline_trace", {})
     steps = trace.get("steps")
     assert isinstance(steps, dict), (
-        "v1.23 regression: trace['steps'] must stay a dict on the A/B path; "
-        "setdefault('steps', []).append(...) used to return the existing dict "
-        "and raise AttributeError on every Nano Banana / GPT Image 2 run."
+        "Regression guard (originally v1.23): trace['steps'] must stay a "
+        "dict on the AB path; ``setdefault('steps', []).append(...)`` used "
+        "to return the existing dict and raise AttributeError on every "
+        "edit-model run."
     )
     assert "face_prerestore" in steps
     assert steps["face_prerestore"].get("info", {}).get("applied") is False

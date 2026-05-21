@@ -220,28 +220,16 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [scenarioSlug, setScenarioSlug] = useState<string | null>(null);
   const [consentState, setConsentState] = useState<api.ConsentState | null>(null);
   const [complianceCache, setComplianceCache] = useState<Record<string, api.ScenarioComplianceResponse>>({});
-  // v1.22 A/B became default: the UI always sends an explicit
-  // ``image_model`` + ``image_quality`` pair. GPT Image 2 @ low is the
-  // cheapest reliable option on fal ($0.02/image) and is the new OOTB
-  // default for every user. The legacy hybrid StyleRouter stays in the
-  // codebase purely as a Railway-level rollback (AB_TEST_ENABLED=false).
-  //
-  // v1.72 — `imageModel` теперь derived: его значение однозначно
-  // диктует выбранный tier (standard/premium оба = `gpt_image_2`,
-  // их разница — наличие refiner post-pass на бэке). Сохраняем
-  // отдельный state-стейт для обратной совместимости с админкой,
-  // которая ещё умеет принудительно ставить Nano Banana через
-  // localStorage `ailook_ab_model`.
-  const [imageModel, setImageModelState] = useState<api.AbImageModel>(() => {
-    if (typeof localStorage === 'undefined') return 'gpt_image_2';
-    const raw = localStorage.getItem('ailook_ab_model');
-    return raw === 'nano_banana_2' || raw === 'gpt_image_2' ? raw : 'gpt_image_2';
-  });
-  // v1.72 — продуктовый tier. Дефолт `standard` (1 кредит). Миграция
-  // с v1.71 localStorage: пользователь, у которого стоял
-  // `ailook_ab_model = nano_banana_2`, получает `premium`, остальные
-  // — `standard`. Это совпадает с тем, как UI v1.71 их и продавал
-  // («Премиум» как раз был Nano Banana 2).
+  // После Nano-Banana cleanup в пайплайне один image-model
+  // (`gpt_image_2`). UI кладёт его в payload как лейбл совместимости
+  // с эдж-прокси/бэк-валидацией; поле оставлено в context-shape,
+  // чтобы потребители из v1.71-бандлов не падали.
+  const [imageModel, setImageModelState] = useState<api.AbImageModel>('gpt_image_2');
+  // Продуктовый tier. Дефолт `standard` (1 кредит). Миграция со
+  // старых localStorage-значений: если у пользователя ещё лежит
+  // legacy `ailook_ab_model = nano_banana_2`, считаем это явным
+  // выбором премиум-tier'а (раньше UI продавал NB2 именно как
+  // «Премиум»).
   const [tier, setTierState] = useState<api.AbProductTier>(() => {
     if (typeof localStorage === 'undefined') return 'standard';
     const raw = localStorage.getItem('ailook_tier');
@@ -308,9 +296,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, [allowedFramings, framing]);
 
   const setImageModel = useCallback((m: api.AbImageModel) => {
-    setImageModelState(m);
-    try { localStorage.setItem('ailook_ab_model', m); }
+    // Single-model pipeline — accept any value but normalise to
+    // the live image-gen identifier so legacy callers that try to
+    // persist `nano_banana_2` don't poison localStorage. The
+    // setter is kept for context-shape parity with older builds.
+    setImageModelState('gpt_image_2');
+    try { localStorage.setItem('ailook_ab_model', 'gpt_image_2'); }
     catch { /* localStorage unavailable */ }
+    void m;
   }, []);
   // v1.72 — пользовательский переключатель «Стандарт / Премиум».
   // Сохраняется в localStorage между сессиями.

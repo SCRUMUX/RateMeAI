@@ -132,22 +132,25 @@ class RemoteAnalysisRequest(BaseModel):
     trace_id: str = ""
     policy_flags: dict[str, Any] = Field(default_factory=dict)
     artifact_refs: dict[str, str] = Field(default_factory=dict)
-    # v1.22 / v1.64: A/B image-gen selection forwarded from the edge
-    # server. Missing / unknown values fall back to
-    # ``settings.ab_default_model`` / ``settings.ab_default_quality``
-    # so edge traffic always hits Nano Banana 2 or GPT Image 2 via the
-    # unified FAL provider.
+    # Legacy A/B image-gen fields forwarded from the edge server.
+    # Post Nano-Banana cleanup the only live image model is
+    # ``gpt_image_2`` and ``image_model`` is functionally ignored;
+    # ``image_quality`` is honoured as the GPT-2 quality tier hint
+    # (falls back to ``settings.ab_default_quality`` when empty).
+    # The ``tier`` field below (standard / premium) decides whether
+    # the Clarity Upscaler post-pass runs.
     image_model: str = ""
     image_quality: str = ""
+    tier: str = ""
     # v1.26: user-selected framing (portrait / half_body / full_body) и
     # произвольные input_hints из «Другой вариант». Эдж-клиент пихает их
     # без нормализации — валидацию делает PromptEngine/VariationEngine.
     framing: str = ""
     input_hints: dict[str, Any] = Field(default_factory=dict)
-    # v1.59.6: caller-identity tag forwarded by edge. Used by the A/B
-    # provider to disable the silent A→B fallback for bot traffic.
-    # Whitelist is currently {"telegram_bot"}; any other value is
-    # treated the same as empty (web-client default).
+    # Caller-identity tag forwarded by edge. Stored on the task for
+    # analytics / cost segmentation; whitelist is currently
+    # ``{"telegram_bot"}``. The legacy cross-model fallback that used
+    # to branch on this tag was retired together with Nano Banana 2.
     source: str = ""
     # Composition Safety Layer — see src/services/composition_safety.py.
     # When True the edge forwards the user's "advanced override" intent
@@ -259,7 +262,12 @@ async def process_analysis_remote(
     ctx["skip_credit_deduct"] = True
     ctx["defer_delta_scoring"] = True
 
-    apply_ab_test_context_fields(ctx, image_model=request.image_model, settings=settings)
+    apply_ab_test_context_fields(
+        ctx,
+        image_model=request.image_model,
+        settings=settings,
+        tier=request.tier or None,
+    )
     ctx["allow_cross_model_fallback"] = settings.allow_cross_model_image_fallback
 
     # Persist whitelisted ``source`` tag (e.g. Telegram) for analytics.
@@ -911,7 +919,7 @@ async def synthetic_analyze(
 async def image_gen_probe(
     provider: str = Query(
         "unified",
-        pattern="^(unified|nano_banana_2|gpt_image_2)$",
+        pattern="^(unified|gpt_image_2)$",
     ),
     quality: str = Query(
         "low",
@@ -922,17 +930,10 @@ async def image_gen_probe(
     """Fire one ``image_gen.generate`` call to verify the image-gen
     provider is reachable from the primary backend.
 
-    v1.64: collapsed to the FAL edit-only path. ``provider=unified``
-    probes whichever model the ``UnifiedImageGenProvider`` routes to
-    (GPT Image 2 by default, Nano Banana 2 when requested);
-    ``provider=nano_banana_2|gpt_image_2`` pins the underlying model
-    via the ``image_model`` request param so the unified router
-    selects that specific FAL adapter. The legacy
-    ``styled_router`` / ``identity_scene`` / ``scene_preserve``
-    probe modes were retired alongside the PuLID / Seedream
-    providers; v1.70.15 also retired the ``get_ab_image_gen``
-    helper — both branches now share ``get_image_gen`` and dispatch
-    via the ``image_model`` param.
+    Single FAL-only path post Nano-Banana cleanup. Both ``unified``
+    and ``gpt_image_2`` resolve to the same provider — the alias is
+    kept so historical curl scripts / Railway health probes continue
+    to work without a rewrite.
 
     Uses a bundled 256×256 JPEG with a clearly detectable face so the
     edit-model's face-detector doesn't trip ``no face detected``.
@@ -975,7 +976,7 @@ async def image_gen_probe(
     }
 
     params: dict = {"quality": quality}
-    if provider in ("nano_banana_2", "gpt_image_2"):
+    if provider == "gpt_image_2":
         params["image_model"] = provider
 
     t0 = _time.monotonic()

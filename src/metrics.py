@@ -49,36 +49,23 @@ def estimate_image_gen_cost_usd(
 ) -> float:
     """Return the USD cost estimate for one image generation.
 
-    Centralises the per-provider cost maths so the executor and any
-    reporting surface produce consistent numbers.
-
-    v1.64: with PuLID / Seedream / Reve retired the unified provider
-    always lands on GPT Image 2 or Nano Banana 2; the per-quality
-    table in ``_AB_COST_FIELDS`` is the source of truth — this helper
-    only handles the legacy ``provider_name``-only signature still
-    used in a few non-A/B code paths and conservatively returns the
-    GPT-2 medium price.
+    Single-provider pipeline (GPT Image 2 Edit) post Nano-Banana
+    cleanup. ``provider_name`` is kept for signature compatibility —
+    unknown / mock providers also resolve to the GPT-2 medium price
+    so the histogram always records a real number.
     """
-    name = (provider_name or "").lower()
-    if "fal" in name and "nano" in name:
-        return float(getattr(settings, "model_cost_nano_banana_2", 0.02))
-    # Default (unified / gpt_image_2 / unknown) — GPT-2 medium.
+    _ = provider_name, image_size  # historical signature, single-provider today.
     return float(getattr(settings, "model_cost_gpt_image_2_medium", 0.06))
 
 
-# v1.21 A/B cost table — keyed by (model, quality). Consulted by the
-# executor when ``context["image_model"]`` is set (additive A/B path).
-_AB_COST_FIELDS: dict[str, dict[str, str]] = {
-    "nano_banana_2": {
-        "low": "model_cost_fal_nano_banana_low",
-        "medium": "model_cost_fal_nano_banana_medium",
-        "high": "model_cost_fal_nano_banana_high",
-    },
-    "gpt_image_2": {
-        "low": "model_cost_gpt_image_2_low",
-        "medium": "model_cost_gpt_image_2_medium",
-        "high": "model_cost_gpt_image_2_high",
-    },
+# Cost table keyed by quality tier. Pre-cleanup this lived under a
+# nested ``{model: {quality: field}}`` dict because Nano Banana 2 and
+# GPT Image 2 had separate cost ladders; with one model remaining the
+# inner ladder is the SSOT.
+_AB_COST_FIELDS: dict[str, str] = {
+    "low": "model_cost_gpt_image_2_low",
+    "medium": "model_cost_gpt_image_2_medium",
+    "high": "model_cost_gpt_image_2_high",
 }
 
 
@@ -86,19 +73,17 @@ def estimate_ab_image_gen_cost_usd(
     model_key: str,
     quality: str | None = None,
 ) -> float:
-    """USD cost estimate for an A/B-path generation call.
+    """USD cost estimate for a tier-routed generation call.
 
-    ``model_key`` is one of ``"nano_banana_2"`` / ``"gpt_image_2"``.
-    ``quality`` is ``"low"`` / ``"medium"`` / ``"high"``. Unknown values
-    collapse to the medium tier so the histogram always records a real
-    number.
+    Post Nano-Banana cleanup there is exactly one image model
+    (``gpt_image_2``); ``model_key`` is accepted for backwards-
+    compatible call sites and ignored. ``quality`` is ``"low"`` /
+    ``"medium"`` / ``"high"``. Unknown values collapse to the medium
+    tier so the histogram always records a real number.
     """
-    key = (model_key or "").strip().lower()
+    _ = model_key  # single-model pipeline now.
     q = (quality or "medium").strip().lower()
-    tier_map = _AB_COST_FIELDS.get(key)
-    if not tier_map:
-        return 0.0
-    field = tier_map.get(q) or tier_map["medium"]
+    field = _AB_COST_FIELDS.get(q) or _AB_COST_FIELDS["medium"]
     return float(getattr(settings, field, 0.0) or 0.0)
 
 
@@ -106,14 +91,16 @@ def ab_backend_label(
     model_key: str,
     quality: str | None = None,
 ) -> str:
-    """Format a single Prometheus label value encoding model+quality.
+    """Format the Prometheus backend label as ``"gpt_image_2:<quality>"``.
 
-    Keeps existing metrics (``IMAGE_GEN_CALLS.provider``,
-    ``GENERATION_COST_USD.backend``) backwards-compatible: we do not
-    add a new label dimension, we just use a distinctive value like
-    ``"nano_banana_2:medium"``.
+    Pre-cleanup this encoded the live A/B model name so the existing
+    metric label dimension (``backend``) stayed single-string. With
+    Nano Banana 2 retired the label is effectively
+    ``"gpt_image_2:<quality>"`` — the function keeps its signature so
+    downstream graphs do not see a renamed metric.
     """
-    return f"{(model_key or 'unknown').strip().lower()}:{(quality or 'medium').strip().lower()}"
+    _ = model_key  # historical key, fixed to gpt_image_2 today.
+    return f"gpt_image_2:{(quality or 'medium').strip().lower()}"
 
 
 LLM_CALLS = Counter(
@@ -191,13 +178,11 @@ COMPLETED_WITHOUT_IMAGE = Counter(
 # Image-gen pipeline observability (v1.64 — FAL edit-only)
 # ---------------------------------------------------------------------------
 
-# Which backend actually served the request. ``backend`` is one of:
-#   * ``gpt_image_2``     — FAL GPT Image 2 Edit (default)
-#   * ``nano_banana_2``   — FAL Nano Banana 2 Edit (A/B alternative)
-#
-# v1.64: the ``style_mode`` label and the legacy ``pulid``/``seedream``/
-# ``fallback`` backend values were removed when the StyleRouter and
-# specialised providers were retired.
+# Which backend actually served the request. After the Nano-Banana
+# cleanup the only live value is ``gpt_image_2:<quality>``
+# (formatted by :func:`ab_backend_label`); the label dimension is
+# preserved so historical Prometheus / Grafana queries continue to
+# resolve without a metric rename.
 IMAGE_GEN_BACKEND = Counter(
     "ratemeai_image_gen_backend_total",
     "Image-gen requests by chosen backend",

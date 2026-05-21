@@ -11,10 +11,11 @@ are tight head-and-shoulders crops and need ``framing='portrait'`` (or
 
 The previous version of this file pinned ``image_model='gpt_image_2'``
 in ``form_data``. That decision was reverted: the bot now omits
-``image_model`` and lets ``apply_ab_test_context_fields`` apply
+``image_model`` and lets ``apply_tier_context_fields`` apply
 ``settings.ab_default_model`` (the same default anonymous web clients
-use), so the channel-agnostic Premium rollout doesn't need a bot
-deploy. The current invariants are:
+use). Post Nano-Banana cleanup the server default is the only live
+image model, but the channel-agnostic contract is preserved. The
+current invariants are:
 
 1. ``form_data`` carries ``mode``, ``enhancement_level``, ``source``,
    ``framing`` and ``input_hints`` keys.

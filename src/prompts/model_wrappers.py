@@ -79,9 +79,10 @@ Tail resolution order:
 3. Default constants (``QUALITY_PHOTO_GPT`` / ``QUALITY_PHOTO_NANO``)
    — ``PHOTOREAL_BLOCK`` for every model.
 
-The historical ``flux_kontext`` wrapper was retired in v1.70.8 once
-``AB_MODELS_ALLOWED`` in ``src/services/analysis_request.py`` was
-narrowed to ``{nano_banana_2, gpt_image_2}``.
+The historical ``flux_kontext`` wrapper was retired in v1.70.8 and
+the ``nano_banana_2`` wrapper was retired in the "Remove Nano Banana,
+Premium Upscale" cleanup. Only ``gpt_image_2`` remains as a wire
+model.
 """
 
 from __future__ import annotations
@@ -90,17 +91,15 @@ from src.prompts import image_gen as ig
 from src.prompts.composition_builder import CompositionIR
 
 
-# v4.1 short tails. ``PHOTOREAL_BLOCK`` is the entire fixed tail;
+# v4.1 short tail. ``PHOTOREAL_BLOCK`` is the entire fixed tail;
 # identity-preserve has been hoisted to the top of the prompt by
-# ``_assemble``. Per-model variants kept as separate names so a future
-# PR can tune wording for a single model without rebalancing others.
+# ``_assemble``. The per-model alias is kept so future PRs can tune
+# wording without renaming call sites.
 QUALITY_PHOTO_GPT = ig.PHOTOREAL_BLOCK
-QUALITY_PHOTO_NANO = ig.PHOTOREAL_BLOCK
 
 
 _MODEL_DEFAULT_TAIL = {
     "gpt_image_2": QUALITY_PHOTO_GPT,
-    "nano_banana_2": QUALITY_PHOTO_NANO,
 }
 
 
@@ -213,14 +212,18 @@ def _assemble(ir: CompositionIR, *, tail: str) -> str:
         # v1.68 — P2.10 per-framing pose hint, emitted right after
         # the crop directive (the natural slot for body-geometry
         # directives). Gated on ``settings.pose_hint_enabled``.
+        # ``getattr`` default must match the canonical config default
+        # (``src.config.settings.pose_hint_enabled = True`` since
+        # v1.69) so a missing-settings test fixture does not silently
+        # flip the flag off.
         if ir.framing and ir.framing in ig._POSE_BY_FRAMING:
             try:
                 from src.config import settings as _settings
                 _pose_hint_on = bool(
-                    getattr(_settings, "pose_hint_enabled", False)
+                    getattr(_settings, "pose_hint_enabled", True)
                 )
             except Exception:
-                _pose_hint_on = False
+                _pose_hint_on = True
             if _pose_hint_on:
                 parts.append(ig._POSE_BY_FRAMING[ir.framing])
 
@@ -278,17 +281,12 @@ def wrap_for_gpt_image_2(ir: CompositionIR) -> str:
     return _assemble(ir, tail=_resolve_tail(ir, "gpt_image_2"))
 
 
-def wrap_for_nano_banana_2(ir: CompositionIR) -> str:
-    """Final prompt for Nano Banana 2 Edit."""
-    return _assemble(ir, tail=_resolve_tail(ir, "nano_banana_2"))
-
-
 def wrap_for_model(ir: CompositionIR, model: str) -> str:
     """Dispatch helper used by the executor: pick the wrapper by model name.
 
-    ``AB_MODELS_ALLOWED`` ships only ``gpt_image_2`` and ``nano_banana_2``,
-    so any unknown ``model`` falls back to the GPT Image 2 wrapper.
+    There is one live wire model in the pipeline (``gpt_image_2``),
+    so this is effectively a single-branch dispatch — any unknown
+    model name falls back to the GPT Image 2 wrapper.
     """
-    if model == "nano_banana_2":
-        return wrap_for_nano_banana_2(ir)
+    _ = model  # historical dispatch key — only one wrapper today.
     return wrap_for_gpt_image_2(ir)

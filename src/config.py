@@ -195,15 +195,24 @@ class Settings(BaseSettings):
     clarity_refiner_creativity: float = 0.2
     clarity_refiner_resemblance: float = 0.8
     clarity_refiner_dynamic: float = 5.0
-    clarity_refiner_upscale_factor: int = 1
+    # Real resolution bump on the premium tier. ``upscale_factor=2``
+    # doubles the long edge of the GPT-2 medium output (1024×1536 →
+    # 2048×3072) — that is the user-facing "Premium = higher
+    # resolution" promise. ``float`` so an operator can dial it down
+    # to ``1.5`` mid-incident without a code change if FAL bumps the
+    # Clarity tariff out of the $0.10/img premium budget.
+    clarity_refiner_upscale_factor: float = 2.0
 
     # Flat USD cost estimates for the new auxiliary providers (used by
     # metrics/cost reporting; actual FAL invoice is what we pay).
     model_cost_fal_gfpgan: float = 0.002
     model_cost_fal_real_esrgan: float = 0.002
-    # v1.72 — premium refiner. Empirical at ``upscale_factor=1`` on
-    # 1024x1536 portraits ≈ $0.04 / img. Total premium cost
-    # = gpt_image_2 medium ($0.06) + clarity ($0.04) ≈ $0.10.
+    # Premium-tier refiner. At ``upscale_factor=2`` on a 1024×1536
+    # portrait the Clarity pass costs ≈ $0.04 / img. Total premium
+    # cost = gpt_image_2 medium ($0.06) + clarity ($0.04) ≈ $0.10
+    # which fits the user-set $0.10/img cap. If FAL bumps the
+    # Clarity tariff for 2× upscale, drop ``upscale_factor`` to
+    # ``1.5`` (provider accepts floats) to stay in budget.
     model_cost_fal_clarity: float = 0.04
 
     # ------------------------------------------------------------------
@@ -252,25 +261,25 @@ class Settings(BaseSettings):
     model_cost_fal_codeformer_per_mp: float = 0.0021
 
     # ------------------------------------------------------------------
-    # v1.21 A/B test — FAL edit-mode models. When ``ab_test_enabled``
-    # is True the /analyze endpoint accepts ``image_model`` +
-    # ``image_quality`` form fields and the executor routes such
-    # requests to the per-model provider via a structured prompt
-    # adapter (``model_wrappers._assemble``).
-    # v1.22: the A/B path is now the default for every web request.
-    # v1.64: there is no longer a legacy StyleRouter alternative —
-    # the unified provider IS the path. Flip ``AB_TEST_ENABLED=false``
-    # only as a degraded "skip the form field" mode where the default
-    # model is used unconditionally.
+    # Image-gen tier surface (post Nano-Banana cleanup). The
+    # historical "A/B" terminology survives in field names so older
+    # ``.env`` / Railway variables keep working, but functionally
+    # there is one image model in the pipeline (GPT Image 2 Edit)
+    # and the ``tier`` form field (standard / premium) decides
+    # whether the Clarity Upscaler post-pass runs.
     # ------------------------------------------------------------------
     ab_test_enabled: bool = True
-    # Default A/B model when the client does not send ``image_model``
-    # (old bot builds, edge proxy, curl, tests). GPT Image 2 at
-    # ``quality=medium`` is the recommended starting tier to guarantee background details.
+    # Backwards-compat default model identifier surfaced through the
+    # /analyze request validator and downstream metrics. Pinned to
+    # ``gpt_image_2`` — the only live image model in the pipeline.
     ab_default_model: str = "gpt_image_2"
-    # When True, UnifiedImageGen retries the other A/B model on transient
-    # failures (same policy for web, bot, and internal callers).
-    allow_cross_model_image_fallback: bool = True
+    # Legacy cross-model fallback toggle. Cross-model fallback was
+    # removed together with the Nano Banana 2 backend; the in-pipeline
+    # ``identity_retry`` with a fresh seed on the same GPT Image 2
+    # call now covers transient FAL failures. The field is kept as a
+    # config-shape no-op so ARQ tasks queued before the migration do
+    # not 500 on the missing attribute.
+    allow_cross_model_image_fallback: bool = False
     # ------------------------------------------------------------------
     # variation_engine_v2_enabled stays as a behavioural flag for the
     # composition builder — it controls whether the builder uses the
@@ -309,23 +318,10 @@ class Settings(BaseSettings):
     # ``prompt_pipeline_v4_enabled`` — both flags can be toggled
     # separately for finer rollback granularity.
     use_reference_expression_default: bool = True
-    # Default quality tier for the A/B models when the web client does
-    # not pass an explicit one. Minimum for production is medium.
+    # Default quality tier surfaced through the executor / cost
+    # estimator when the web client does not pass an explicit one.
+    # Minimum for production is medium.
     ab_default_quality: str = "medium"
-    # Nano Banana 2 Edit (Google Gemini 3.1 Flash Image).
-    # https://fal.ai/models/fal-ai/nano-banana-2/edit
-    # Pricing directly from fal model page:
-    #   base = $0.08 / image at 1K resolution, 2K = 1.5×, 4K = 2×,
-    #   0.5K = 0.75×. v1.22 bumps the UI ``low`` tier floor from
-    #   0.5K (512px — too blurry for prod) to 1K (1024px) so the
-    #   cheapest user-visible output is a 1MP picture.
-    # v1.24: ``high`` repurposed as "2K + thinking_level=high" (reasoning
-    #   edit); 4K tier retired — added latency/cost without a perceptible
-    #   realism gain. Price per image matches medium (same pixel budget).
-    nano_banana_model: str = "fal-ai/nano-banana-2/edit"
-    model_cost_fal_nano_banana_low: float = 0.08  # 1K  (1024px long edge)
-    model_cost_fal_nano_banana_medium: float = 0.12  # 2K  (2048px long edge)
-    model_cost_fal_nano_banana_high: float = 0.12  # 2K + thinking=high
 
     # GPT Image 2 Edit (OpenAI ChatGPT Images 2.0 via fal).
     # https://fal.ai/models/openai/gpt-image-2/edit
@@ -334,7 +330,11 @@ class Settings(BaseSettings):
     gpt_image_2_model: str = "openai/gpt-image-2/edit"
     model_cost_gpt_image_2_low: float = 0.02  # 1024² output
     model_cost_gpt_image_2_medium: float = 0.06  # 1536² output
-    model_cost_gpt_image_2_high: float = 0.25  # 2048² output
+    # ``high`` is reserved (UI ships ``medium``-only). The value
+    # matches the long-standing A/B duplicate that shadowed an
+    # earlier ``0.25`` declaration; the duplicate was removed in the
+    # Nano-Banana cleanup so we pin the effective value explicitly.
+    model_cost_gpt_image_2_high: float = 0.12  # 2048² output (reserved)
 
     # Pipeline budget — single hard cap shared by every generation
     # branch. The historical ``segmentation_enabled`` (MediaPipe region
@@ -488,13 +488,13 @@ class Settings(BaseSettings):
     # Legacy prompt_strength (unused in edit mode)
     image_gen_strength: float = 0.45
 
-    # Model cost estimates (USD per call). v1.64 retired ``model_cost_reve``
-    # together with the Reve provider; the per-quality A/B numbers above
-    # (``model_cost_gpt_image_2_*``, ``model_cost_fal_nano_banana_*``) are
-    # the source of truth for ``BUDGET_OVERSPEND_TOTAL``.
-    model_cost_gpt_image_2_medium: float = 0.06
-    model_cost_gpt_image_2_high: float = 0.12
-    model_cost_nano_banana_2: float = 0.02
+    # v1.64 retired ``model_cost_reve`` together with the Reve provider;
+    # the historical duplicate ``model_cost_gpt_image_2_medium/high``
+    # shadows + ``model_cost_nano_banana_2`` that lived here were
+    # removed in the Nano-Banana cleanup. The per-quality
+    # ``model_cost_gpt_image_2_*`` declarations in the GPT-2 block
+    # above are the single source of truth for
+    # ``BUDGET_OVERSPEND_TOTAL``.
 
     # Scoring reproducibility
     scoring_temperature: float = 0.0

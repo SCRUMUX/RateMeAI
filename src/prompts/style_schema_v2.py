@@ -128,11 +128,11 @@ class QualityBlock:
     (equivalent of today's ``PRESERVE_PHOTO_FACE_ONLY + QUALITY_PHOTO +
     LIGHT_INTEGRATION_PHOTO + CAMERA_PHOTO + ANATOMY_PHOTO`` block).
 
-    ``per_model_tail`` is an optional mapping keyed by the A/B model
-    name (``"gpt_image_2"`` / ``"nano_banana_2"``) to a short extra
-    string appended after ``base``. Empty dict = fall back to whatever
-    the model wrapper chooses; a present key overrides the wrapper
-    default for that model.
+    ``per_model_tail`` is an optional mapping keyed by the wire-model
+    name (only ``"gpt_image_2"`` after the Nano-Banana cleanup) to a
+    short extra string appended after ``base``. Empty dict = fall
+    back to whatever the model wrapper chooses; a present key
+    overrides the wrapper default for that model.
     """
 
     base: str = ""

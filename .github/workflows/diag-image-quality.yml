@@ -1,14 +1,19 @@
 name: Diag — Image Quality Nightly
 
-# v1.68 P3.13 — nightly drift-tracking for the image-quality pipeline.
+# Nightly drift-tracking for the image-quality pipeline.
 #
 # Fires the existing ``/api/v1/internal/diagnostics/image-gen-probe``
-# endpoint across the production provider matrix (gpt_image_2 +
-# nano_banana_2, two quality tiers each) once per day at 03:00 UTC,
-# plus on manual dispatch. The endpoint returns a small JSON payload
-# describing whichever the provider it routed to; we save each one
-# as an artifact so a human can scrub the week's runs without
-# triggering a real generation by hand.
+# endpoint across the single live image-gen provider (gpt_image_2,
+# two quality tiers) once per day at 03:00 UTC, plus on manual
+# dispatch. The endpoint returns a small JSON payload describing the
+# provider it routed to; we save each one as an artifact so a human
+# can scrub the week's runs without triggering a real generation by
+# hand.
+#
+# Pre Nano-Banana cleanup the matrix had two providers (gpt_image_2 +
+# nano_banana_2) — Nano Banana was removed from the matrix together
+# with the backend; the workflow stays multi-quality so drift checks
+# survive a future ``quality`` rollout.
 #
 # Why we don't fail the workflow on a non-ok probe: edit-model
 # providers are stochastic enough that a single 5xx is not signal,
@@ -38,7 +43,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        provider: [gpt_image_2, nano_banana_2]
+        provider: [gpt_image_2]
         quality: [low, medium]
     steps:
       - name: Validate secrets
