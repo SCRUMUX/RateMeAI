@@ -6,6 +6,7 @@ import { useApp } from '../context/AppContext';
 import { createPayment, handleCreatePaymentError } from '../lib/api';
 import { normalizePostPaymentPath, getPostPaymentReturnPath } from '../scenarios/config';
 import { rememberFlowReturnPath } from '../lib/flow-resume';
+import { useToast } from '../components/Toast';
 
 /**
  * ScenarioPricing — финальный экран сценарных лендингов
@@ -96,6 +97,7 @@ export default function ScenarioPricing({ tagline }: ScenarioPricingProps) {
   const { canAccessApp } = useApp();
   const navigate = useNavigate();
   const { t } = useTranslation('landing');
+  const toast = useToast();
   const [loading, setLoading] = useState<PackQty | null>(null);
   const resumePath = getPostPaymentReturnPath() ?? '/app';
   const paidPlans = useMemo(() => buildPaidPlans(t), [t]);
@@ -120,7 +122,7 @@ export default function ScenarioPricing({ tagline }: ScenarioPricingProps) {
       const res = await createPayment(packQty);
       window.location.href = res.confirmation_url;
     } catch (e) {
-      alert(handleCreatePaymentError(e));
+      toast.show(handleCreatePaymentError(e), 'warning');
       setLoading(null);
     }
   }

@@ -21,6 +21,7 @@ import ProgressBar from './ProgressBar';
 import ShareModal from '../ShareModal';
 import StyleSettingsModal from './StyleSettingsModal';
 import { PlaceholderUpgrade } from '../effects/PlaceholderArt';
+import { useToast } from '../Toast';
 import type { ResolvedSlots } from '../../lib/api';
 
 interface Props {
@@ -65,6 +66,7 @@ export default function StepGenerate({ onGoToStep, onOpenStorage }: Props) {
   const app = useApp();
   const { t } = useTranslation('wizard');
   const navigate = useNavigate();
+  const toast = useToast();
 
   const activeTab = app.activeCategory;
   const styles = app.effectiveStyleList;
@@ -226,7 +228,7 @@ export default function StepGenerate({ onGoToStep, onOpenStorage }: Props) {
       const res = await createPayment(qty);
       window.location.href = res.confirmation_url;
     } catch (e) {
-      alert(handleCreatePaymentError(e));
+      toast.show(handleCreatePaymentError(e), 'warning');
       setPaymentLoading(false);
     }
   }

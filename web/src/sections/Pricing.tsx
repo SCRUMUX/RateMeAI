@@ -6,6 +6,7 @@ import { useApp } from '../context/AppContext';
 import { createPayment, handleCreatePaymentError } from '../lib/api';
 import { normalizePostPaymentPath, getPostPaymentReturnPath } from '../scenarios/config';
 import { rememberFlowReturnPath } from '../lib/flow-resume';
+import { useToast } from '../components/Toast';
 import { findBlock, coalesceCmsString, type LandingPage } from '../lib/landing-cms';
 
 function buildDefaultPlans(t: (key: string) => string) {
@@ -40,6 +41,7 @@ export default function Pricing({ cmsPage }: { cmsPage?: LandingPage | null } = 
   const { canAccessApp } = useApp();
   const navigate = useNavigate();
   const { t } = useTranslation('landing');
+  const toast = useToast();
   const [loading, setLoading] = useState<number | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const resumePath = getPostPaymentReturnPath() ?? '/app';
@@ -77,7 +79,7 @@ export default function Pricing({ cmsPage }: { cmsPage?: LandingPage | null } = 
       const res = await createPayment(packQty);
       window.location.href = res.confirmation_url;
     } catch (e) {
-      alert(handleCreatePaymentError(e));
+      toast.show(handleCreatePaymentError(e), 'warning');
       setLoading(null);
     }
   }

@@ -4,6 +4,14 @@ Version history for RateMeAI. Each release bumps ``src/version.py:APP_VERSION``;
 
 Style: newest first, semantic-ish ``major.minor.patch`` versioning. Pre-v1.14 history is intentionally omitted (predates the FAL rebuild).
 
+## 1.70.27
+
+Tech-debt cleanup Phase 5, steps 5.3 + 5.5: replace remaining ``alert()`` payment-error handlers in the SPA with ``useToast()`` (``StepGenerate``, ``Pricing``, ``ScenarioPricing``); remove the stale TODO from ``Toast.tsx``. Phase 5.5 review: ``variation_engine_v2.py`` carries no inline TODOs — the module-level deprecation docstring (superseded by ``slot_sampler`` / v3) is the authoritative note; ``pipeline.py`` ``TODO(gender-single-source)`` stays deferred per roadmap item 5.4. Phase 5.2: working tree had no untracked files — nothing to commit. No backend change.
+
+## 1.70.26
+
+Tech-debt cleanup Phase 5, step 5.1: add ``.ruff_cache/`` to ``.gitignore`` alongside ``.mypy_cache/`` and ``.pytest_cache/``. No runtime change.
+
 ## 1.70.25
 
 Tech-debt cleanup Phase 4, step 4.6 (final extract): ``single_pass`` VLM gate + identity-retry loop extracted into ``ImageGenerationExecutor._run_with_retry``. The ~310-line block (``run_global_gates``, optional seed-based re-generation when ``identity_match`` is below threshold, ``IDENTITY_RETRY_TRIGGERED`` / ``GENERATION_ATTEMPTS`` metrics, and all soft user-facing quality warnings) now lives in one async helper returning ``(raw, identity_match, generation_attempts, codeformer_applied)``. Contract pinned by ``tests/test_orchestrator/test_identity_retry.py`` and ``test_executor_identity_unverified.py``. ``single_pass`` is now ~296 lines of orchestration (down from ~900 pre-v1.71). Full pytest (3179) green. Phase 4 complete.
