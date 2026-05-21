@@ -180,10 +180,31 @@ class Settings(BaseSettings):
     real_esrgan_enabled: bool = True
     real_esrgan_model: str = "fal-ai/real-esrgan"
 
+    # v1.72 — Clarity Upscaler refiner runs as the premium-tier
+    # post-process step (when ``ctx["image_refine"] == "clarity"``).
+    # Default ON in prod so the premium pill in the wizard actually
+    # gets the refined render; Railway can flip this to False without
+    # a redeploy to roll back the premium-tier refinement step (the
+    # premium path then transparently downgrades to a standard render
+    # and the orchestrator refunds 1 of the 2 reserved credits).
+    clarity_refiner_enabled: bool = True
+    clarity_refiner_model: str = "fal-ai/clarity-upscaler"
+    # Tuned for identity preservation — see fal_clarity_upscaler.py
+    # for the rationale (low creativity + high resemblance keep the
+    # face geometry locked while still polishing textures).
+    clarity_refiner_creativity: float = 0.2
+    clarity_refiner_resemblance: float = 0.8
+    clarity_refiner_dynamic: float = 5.0
+    clarity_refiner_upscale_factor: int = 1
+
     # Flat USD cost estimates for the new auxiliary providers (used by
     # metrics/cost reporting; actual FAL invoice is what we pay).
     model_cost_fal_gfpgan: float = 0.002
     model_cost_fal_real_esrgan: float = 0.002
+    # v1.72 — premium refiner. Empirical at ``upscale_factor=1`` on
+    # 1024x1536 portraits ≈ $0.04 / img. Total premium cost
+    # = gpt_image_2 medium ($0.06) + clarity ($0.04) ≈ $0.10.
+    model_cost_fal_clarity: float = 0.04
 
     # ------------------------------------------------------------------
     # v1.18 hybrid image-gen pipeline — PuLID + Seedream v4 Edit + CodeFormer

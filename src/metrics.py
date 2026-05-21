@@ -212,6 +212,41 @@ GENERATION_COST_USD = Histogram(
     buckets=(0.005, 0.010, 0.015, 0.020, 0.025, 0.030, 0.040, 0.060, 0.100),
 )
 
+# v1.72 — premium-tier observability.
+#
+# ``PREMIUM_REFINE_INVOCATIONS`` increments once per single_pass on
+# the premium tier. ``outcome`` is one of:
+#   * ``success`` — Clarity refiner ran and returned a non-empty
+#     payload that replaced the main render.
+#   * ``fail``    — Clarity refiner errored out or returned an empty
+#     payload; the main render was preserved and 1 credit refunded.
+#   * ``skipped`` — clarity_refiner_enabled=False or FAL_API_KEY
+#     missing; the orchestrator should also refund 1 credit but the
+#     user did not actually trigger a FAL spend.
+PREMIUM_REFINE_INVOCATIONS = Counter(
+    "ratemeai_premium_refine_invocations_total",
+    "Premium-tier Clarity refiner invocations by outcome",
+    labelnames=["outcome"],
+)
+
+# Wall-clock duration of the premium refiner call. Histogram so we
+# can SLO on p95/p99 (Clarity ~5-15s at upscale_factor=1).
+PREMIUM_REFINE_DURATION = Histogram(
+    "ratemeai_premium_refine_duration_seconds",
+    "Wall-clock latency of the premium Clarity refiner call",
+    buckets=(1.0, 2.5, 5.0, 7.5, 10.0, 15.0, 20.0, 30.0, 45.0, 60.0),
+)
+
+# Per-tier cumulative cost signal. ``tier`` is ``standard`` or
+# ``premium``. We use a Counter (not Histogram) here because the
+# absolute monthly USD spend per tier is the value finance wants —
+# distribution-level questions are answered by GENERATION_COST_USD.
+IMAGE_GEN_COST_USD_TOTAL = Counter(
+    "ratemeai_image_gen_cost_usd_total",
+    "Cumulative estimated USD spend on image generation, by tier",
+    labelnames=["tier"],
+)
+
 
 # ---------------------------------------------------------------------------
 # Composition Safety Layer (CSL) — see src/services/composition_safety.py.

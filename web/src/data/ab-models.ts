@@ -1,32 +1,40 @@
 /**
- * v1.26 A/B-test static model catalog.
+ * v1.72 продуктовый tier-каталог. Сменил модельный A/B-выбор (Nano
+ * Banana 2 vs GPT Image 2) на единые продуктовые tier'ы «Стандарт /
+ * Премиум».
  *
- * Used by the wizard (StepGenerate) to render the "Модель" pills and
- * surface an honest per-image cost to the user.
+ * История
+ * --------
+ * v1.26 — впервые ввели «Обычный режим» / «Премиум» как UI-обёртку
+ * над `image_model`. Кнопка «Премиум» фактически переключала бэк
+ * на Nano Banana 2 (medium ~$0.12/img). Биллинг тогда был
+ * захардкожен в 1 кредит независимо от выбора.
  *
- * v1.26: relabelled the two user-visible models to продуктовые «Обычный
- * режим» / «Премиум» (вместо внутренних кодовых имён Nano Banana 2 /
- * GPT Image 2) и перевели стоимость в кредиты. USD-цены per quality tier
- * остались на бэкенде (см. ``src/config.py::model_cost_*``); на фронте
- * пользователь больше видит кредитный ценник — это соответствует текущей
- * модели монетизации (пакеты кредитов, не долларов).
+ * v1.72 — клиент пожаловался, что «премиум на Nano Banana 2 дороже,
+ * но не лучше». Поменяли продуктовое значение:
+ *   * «Стандарт»  → `image_model=gpt_image_2`, `image_quality=medium`,
+ *                   без refiner-а. ≈ $0.06/img. 1 кредит.
+ *   * «Премиум»   → `image_model=gpt_image_2`, `image_quality=medium`
+ *                   + Clarity Upscaler refiner post-pass. ≈ $0.10/img.
+ *                   2 кредита (теперь реально списывается двойная
+ *                   стоимость, см. ``src/api/deps.py::_reserve_credit_for``;
+ *                   refund 1 кредит если refiner упал).
  *
- * v1.26.1: swap лейблов — GPT Image 2 теперь «Обычный режим» (1 кредит),
- * Nano Banana 2 — «Премиум» (2 кредита). До этого маппинг был обратным
- * и пользователи жаловались, что по нажатию «Обычный» в логах FAL видно
- * вызов Nano Banana. Default на бэке (``src/config.py::ab_default_model``)
- * уже ``gpt_image_2`` — он совпадает с новым «Обычным» без правок бэка.
- *
- * Списание кредитов сейчас захардкожено в 1 кредит за любую генерацию
- * (см. ``src/api/deps.py::_reserve_credit_for``). Поле ``creditCost``
- * здесь — это обещание UI; реальный тарифный механизм (2 кредита за
- * премиум) подключается отдельным PR по всей цепочке reserve/refund.
+ * Структурно оба tier'а посылают `image_model=gpt_image_2`; запрос
+ * на бэк дополнительно несёт `tier=standard|premium`. Бэк (см.
+ * ``src/services/analysis_request.py::apply_ab_test_context_fields``)
+ * на premium-tier'е жёстко перезаписывает `image_model` на
+ * `gpt_image_2`, чтобы клиент не мог получить премиум-биллинг с
+ * Nano Banana рендером.
  */
-import type { AbImageModel, AbImageQuality } from '../lib/api';
+import type { AbImageModel, AbImageQuality, AbProductTier } from '../lib/api';
 import i18next from '../lib/i18n';
 
 export interface AbModelMeta {
-  key: AbImageModel;
+  /** Внутренний идентификатор tier'а (тот же, что и `AbProductTier`). */
+  key: AbProductTier;
+  /** Какую модель посылать на бэк. После v1.72 — всегда `gpt_image_2`. */
+  imageModel: AbImageModel;
   label: string;
   short: string;
   description: string;
@@ -37,7 +45,8 @@ export interface AbModelMeta {
 }
 
 interface AbModelDef {
-  key: AbImageModel;
+  key: AbProductTier;
+  imageModel: AbImageModel;
   /** RU-fallback используется, если ключа в catalog.json нет. */
   label: string;
   short: string;
@@ -48,24 +57,28 @@ interface AbModelDef {
 
 const AB_MODEL_DEFS: AbModelDef[] = [
   {
-    key: 'gpt_image_2',
-    label: 'Обычный режим',
-    short: 'Сбалансированный стандарт',
+    key: 'standard',
+    imageModel: 'gpt_image_2',
+    label: 'Стандарт',
+    short: 'Сбалансированный рендер',
     description:
-      'Стандартный рендер с хорошей адгезией промпта и стабильной ' +
-      'передачей лица. Подходит для большинства сценариев.',
+      'Стандартный рендер на GPT Image 2 (medium quality). Хорошая ' +
+      'адгезия промпта и стабильная передача лица. Подходит для ' +
+      'большинства сценариев.',
     creditCost: 1,
     cost: { low: 0.02, medium: 0.06, high: 0.25 },
   },
   {
-    key: 'nano_banana_2',
+    key: 'premium',
+    imageModel: 'gpt_image_2',
     label: 'Премиум',
-    short: 'Максимальное сохранение лица',
+    short: 'Резче детали и пиксельная проработка',
     description:
-      'Премиальный рендер с акцентом на идентичность и фактуру кожи. ' +
-      'Лучше для крупных планов и тонких деталей лица.',
+      'Тот же базовый рендер GPT Image 2 medium, но с дополнительным ' +
+      'проходом Clarity Upscaler: подтягивает чёткость текстуры кожи, ' +
+      'волос и фона без изменения композиции и идентичности.',
     creditCost: 2,
-    cost: { low: 0.08, medium: 0.12, high: 0.12 },
+    cost: { low: 0.08, medium: 0.10, high: 0.10 },
   },
 ];
 
@@ -94,7 +107,7 @@ export const AB_MODELS: AbModelMeta[] = AB_MODEL_DEFS.map((def) =>
   }) as AbModelMeta,
 );
 
-export function getAbModelLabel(key: AbImageModel): string {
+export function getAbModelLabel(key: AbProductTier): string {
   const def = AB_MODEL_DEFS.find((m) => m.key === key);
   const fallback = def?.label ?? key;
   return i18next.t(`catalog:abModels.${key}.label`, fallback) || fallback;
@@ -122,17 +135,27 @@ export const AB_QUALITIES: { key: AbImageQuality; label: string; hint: string }[
 );
 
 export function getAbModelCost(
-  model: AbImageModel,
+  tier: AbProductTier,
   quality: AbImageQuality,
 ): number {
-  const meta = AB_MODELS.find((m) => m.key === model);
+  const meta = AB_MODELS.find((m) => m.key === tier);
   return meta ? meta.cost[quality] : 0;
 }
 
 /** Вернуть кредитную стоимость режима для отображения в UI. */
-export function getAbModelCreditCost(model: AbImageModel): number {
-  const meta = AB_MODELS.find((m) => m.key === model);
+export function getAbModelCreditCost(tier: AbProductTier): number {
+  const meta = AB_MODELS.find((m) => m.key === tier);
   return meta ? meta.creditCost : 1;
+}
+
+/**
+ * Резолвит, какую модель посылать на бэк для выбранного tier'а.
+ * После v1.72 всегда `gpt_image_2` (premium-tier добавляет refiner
+ * post-pass, но базовая модель та же).
+ */
+export function getImageModelForTier(tier: AbProductTier): AbImageModel {
+  const meta = AB_MODELS.find((m) => m.key === tier);
+  return meta?.imageModel ?? 'gpt_image_2';
 }
 
 /**
@@ -140,8 +163,8 @@ export function getAbModelCreditCost(model: AbImageModel): number {
  * Локализуется через i18next с правилами множественного числа для
  * русской и английской раскладок.
  */
-export function formatAbCredits(model: AbImageModel): string {
-  const cost = getAbModelCreditCost(model);
+export function formatAbCredits(tier: AbProductTier): string {
+  const cost = getAbModelCreditCost(tier);
   return i18next.t('catalog:creditsPerGen', { count: cost, defaultValue: `${cost} credits per generation` });
 }
 

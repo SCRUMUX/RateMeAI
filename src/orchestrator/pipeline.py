@@ -196,6 +196,13 @@ class AnalysisPipeline:
         # through to the unified provider's default model.
         ab_image_model = (context or {}).get("image_model") or ""
         ab_image_quality = (context or {}).get("image_quality") or ""
+        # v1.72 — premium tier flag. Set by
+        # ``apply_ab_test_context_fields`` when the user picked the
+        # 2-credit "Premium" pill. The executor runs the Clarity
+        # refiner post-pass on the main render and the orchestrator
+        # surfaces a refund event if the refiner fails.
+        image_refine = (context or {}).get("image_refine") or ""
+        product_tier = (context or {}).get("tier") or ""
         # TODO(gender-single-source): detected_gender is currently driven by the
         # LLM JSON output in four prompts (rating/dating/cv/social). A dedicated
         # gender detector should own this value; the LLM value should only be used
@@ -331,6 +338,8 @@ class AnalysisPipeline:
                     seed=seed,
                     scenario_slug=scenario_slug_value,
                     allow_cross_model_fallback=allow_fb,
+                    image_refine=image_refine,
+                    product_tier=product_tier,
                 )
 
             if result_dict.get("generated_image_url") and mode in (

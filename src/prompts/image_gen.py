@@ -238,6 +238,67 @@ PHOTOREAL_BLOCK = (
 # ``test_prompt_anatomy_catalog.test_photoreal_block_no_lens_or_dof``.
 
 
+# v1.72 — explicit deep-focus directive against the default "ИИшный"
+# bokeh prior on edit-models (Nano Banana 2 / GPT Image 2 on FAL).
+#
+# Background: the v1.70 audit dropped the lens / shallow-DoF tokens
+# from ``PHOTOREAL_BLOCK`` because explicit lens descriptors
+# over-anchored headshot perspective. That removed the cue that
+# pulled the model toward shallow DoF, but the model's IMAGE prior
+# still defaults to portrait bokeh — references are usually selfies
+# and our edge-blur padding in ``reference_preprocess`` covers ~60%
+# of the canvas with a heavy Gaussian blur (radius 80) that edit-
+# models read as a stylistic hint to keep the background blurred.
+# Result: every non-document generation looked "AI-ish" with a
+# generic bokeh haze instead of a sharp, legible scene.
+#
+# ``DEEP_FOCUS_BLOCK`` is a short positive-framed sentence appended
+# between expression and tail (``PHOTOREAL_BLOCK``), specifically
+# instructing the model that the entire frame stays in focus. It
+# does NOT mention a lens / f-stop / "deep DoF" jargon (those got
+# us into trouble in v1.70 — they leak perspective semantics); it
+# uses concrete renderable nouns (textures, surfaces, distant
+# objects) so the cue lands as a composition instruction, not a
+# camera-setup instruction.
+#
+# Gating: scenes that intentionally need bokeh (red-carpet, gala,
+# distant landmark "softly out of focus") are recognised by
+# ``_SHALLOW_DOF_KEYWORDS`` in ``style_spec.py`` — when those
+# tokens appear in the assembled scene line we skip the deep-focus
+# directive so we don't fight the catalogue's own art direction.
+# Document styles use the DOC_PRESERVE / DOC_QUALITY tail and never
+# receive this block.
+DEEP_FOCUS_BLOCK = (
+    "Render the entire frame in deep natural focus from the subject "
+    "to the background; textures, surfaces, and distant objects stay "
+    "crisp, legible, and fully resolved."
+)
+
+
+def should_apply_deep_focus(*texts: str) -> bool:
+    """Return True when no shallow-DoF / bokeh cue is present.
+
+    Walks the assembled prompt fragments (scene line, wardrobe,
+    expression, etc.) and checks them against the catalogue's
+    ``_SHALLOW_DOF_KEYWORDS`` registry. When ANY shallow-DoF token
+    is found we skip the deep-focus directive — the style is
+    intentionally going for bokeh (e.g. red-carpet, evening galas,
+    distant landmark "softly out of focus") and the default prior
+    is the right answer there.
+    """
+    try:
+        from src.prompts.style_spec import _SHALLOW_DOF_KEYWORDS
+    except Exception:
+        return True
+    haystack = " ".join(t for t in texts if t).lower()
+    if not haystack:
+        return True
+    for kw in _SHALLOW_DOF_KEYWORDS:
+        if kw in haystack:
+            return False
+    return True
+
+
 # Natural-expression fallback. Used by ``composition_builder`` when
 # the user did NOT pass an explicit mood / expression override.
 # Wording is intentionally short and positive-framed so it survives

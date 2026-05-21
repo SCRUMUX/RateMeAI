@@ -11,6 +11,7 @@ from __future__ import annotations
 import hashlib
 import logging
 import secrets
+import time
 from typing import Any, Callable, Awaitable
 
 from src.config import settings
@@ -22,6 +23,9 @@ from src.metrics import (
     IDENTITY_SCORE,
     IMAGE_GEN_BACKEND,
     IMAGE_GEN_CALLS,
+    IMAGE_GEN_COST_USD_TOTAL,
+    PREMIUM_REFINE_DURATION,
+    PREMIUM_REFINE_INVOCATIONS,
     PROMPT_V1_FALLBACK,
     estimate_image_gen_cost_usd,
 )
@@ -377,6 +381,101 @@ async def _apply_codeformer_post(
         return out, True
     logger.warning(
         "CodeFormer returned empty payload, keeping generator output",
+    )
+    return raw, False
+
+
+async def _apply_clarity_refine(raw: bytes) -> tuple[bytes, bool]:
+    """Run the Clarity Upscaler premium refiner on ``raw``.
+
+    v1.72 premium-tier post-process step. Triggered ONLY when the
+    task context carries ``image_refine == "clarity"`` (set by
+    ``apply_ab_test_context_fields(tier="premium")`` in
+    ``src/services/analysis_request.py``).
+
+    Gating:
+
+    - ``settings.clarity_refiner_enabled`` is the Railway kill-switch
+      (default True). When off, returns the input unchanged and
+      ``applied=False`` — the orchestrator uses that signal to refund
+      1 of the 2 reserved credits so the user is not charged for a
+      premium upgrade that didn't actually run.
+    - Same non-fatal contract as CodeFormer / Real-ESRGAN: any
+      provider error returns the input unchanged with
+      ``applied=False``.
+
+    Returns ``(processed_bytes, applied)`` where ``applied`` is True
+    iff Clarity actually ran and returned a non-empty payload.
+    """
+    if not raw or len(raw) <= 100:
+        return raw, False
+    if not bool(getattr(settings, "clarity_refiner_enabled", False)):
+        return raw, False
+
+    api_key = getattr(settings, "fal_api_key", None) or ""
+    if not api_key:
+        logger.debug("Clarity refiner skipped: FAL_API_KEY is empty")
+        return raw, False
+
+    try:
+        from src.providers.image_gen.fal_clarity_upscaler import (
+            FalClarityUpscaler,
+        )
+    except Exception:
+        logger.warning(
+            "Clarity refiner import failed, keeping main render",
+            exc_info=True,
+        )
+        return raw, False
+
+    try:
+        refiner = FalClarityUpscaler(
+            api_key=api_key,
+            model=getattr(
+                settings,
+                "clarity_refiner_model",
+                "fal-ai/clarity-upscaler",
+            ),
+        )
+        out = await refiner.refine(
+            raw,
+            creativity=float(
+                getattr(settings, "clarity_refiner_creativity", 0.2),
+            ),
+            resemblance=float(
+                getattr(settings, "clarity_refiner_resemblance", 0.8),
+            ),
+            dynamic=float(
+                getattr(settings, "clarity_refiner_dynamic", 5.0),
+            ),
+            upscale_factor=int(
+                getattr(settings, "clarity_refiner_upscale_factor", 1),
+            ),
+        )
+    except Exception:
+        logger.warning(
+            "Clarity refiner failed, keeping main render",
+            exc_info=True,
+        )
+        return raw, False
+
+    if out and len(out) > 100:
+        try:
+            FAL_CALLS.labels(
+                mode="post",
+                step="clarity_refine",
+                model=getattr(
+                    settings,
+                    "clarity_refiner_model",
+                    "fal-ai/clarity-upscaler",
+                ),
+            ).inc()
+        except Exception:
+            pass
+        return out, True
+
+    logger.warning(
+        "Clarity refiner returned empty payload, keeping main render",
     )
     return raw, False
 
@@ -1080,6 +1179,10 @@ class ImageGenerationExecutor:
         generation_attempts: int,
         codeformer_applied: bool,
         face_area_ratio: float,
+        clarity_refine_applied: bool = False,
+        clarity_refine_attempted: bool = False,
+        clarity_refine_ms: int = 0,
+        product_tier: str = "",
     ) -> None:
         """Upload generated JPEG + record cost/backend metrics.
 
@@ -1220,21 +1323,76 @@ class ImageGenerationExecutor:
                     "cost_usd": codeformer_cost,
                 }
             )
+
+        # v1.72 — premium refiner cost line. Only billed when Clarity
+        # actually returned a refined payload (``applied=True``); a
+        # failed/skipped refiner is invisible in the cost breakdown
+        # because the orchestrator refunds 1 of the 2 reserved
+        # credits in that case.
+        clarity_cost = 0.0
+        if clarity_refine_applied:
+            clarity_cost = round(
+                float(
+                    getattr(
+                        settings,
+                        "model_cost_fal_clarity",
+                        0.04,
+                    ),
+                ),
+                4,
+            )
+            cost_steps.append(
+                {
+                    "step": "clarity_refine",
+                    "model": getattr(
+                        settings,
+                        "clarity_refiner_model",
+                        "fal-ai/clarity-upscaler",
+                    ),
+                    "cost_usd": clarity_cost,
+                }
+            )
+
+        total_cost = (
+            estimated_cost + esrgan_cost + codeformer_cost + clarity_cost
+        )
         result_dict["cost_breakdown"] = {
             "steps": cost_steps,
-            "total_usd": round(
-                estimated_cost + esrgan_cost + codeformer_cost,
-                4,
-            ),
+            "total_usd": round(total_cost, 4),
             "budget_usd": settings.pipeline_budget_max_usd,
         }
+
+        # v1.72 — surface tier metadata on the enhancement payload so
+        # the UI / admin tooling can render the "Standard" vs.
+        # "Premium" pill. ``premium_refine_attempted`` distinguishes
+        # a failed refiner (refund issued) from "user picked standard"
+        # for downstream analytics.
+        tier_label = (product_tier or "standard").strip().lower() or "standard"
+        result_dict["enhancement"]["tier"] = tier_label
+        result_dict["enhancement"]["premium_refine_attempted"] = (
+            clarity_refine_attempted
+        )
+        result_dict["enhancement"]["premium_refine_applied"] = (
+            clarity_refine_applied
+        )
+
+        try:
+            IMAGE_GEN_COST_USD_TOTAL.labels(tier=tier_label).inc(total_cost)
+        except Exception:
+            pass
+
         logger.info(
-            "Image generated backend=%s key=%s "
-            "identity_match=%.2f cost=$%.4f",
+            "Image generated tier=%s backend=%s key=%s "
+            "identity_match=%.2f main_ms=%d refine_ms=%d "
+            "refine_applied=%s cost=$%.4f",
+            tier_label,
             backend_label,
             gkey,
             identity_match,
-            estimated_cost + esrgan_cost + codeformer_cost,
+            0,
+            clarity_refine_ms,
+            clarity_refine_applied,
+            total_cost,
         )
 
     async def _run_with_retry(
@@ -1533,6 +1691,8 @@ class ImageGenerationExecutor:
         seed: int | None = None,
         scenario_slug: str | None = None,
         allow_cross_model_fallback: bool = True,
+        image_refine: str = "",
+        product_tier: str = "",
     ) -> None:
         if mode not in (
             AnalysisMode.CV,
@@ -1692,6 +1852,51 @@ class ImageGenerationExecutor:
             # first-pass label is just the request value.
             first_pass_backend = str(extra.get("image_model", "")).strip().lower()
 
+            # v1.72 — premium refiner. Runs BEFORE the local
+            # post-process so Clarity sees the clean generator output
+            # (LANCZOS / crop_to_aspect would soften the detail polish
+            # Clarity adds). ``image_refine`` is empty on the standard
+            # tier so the helper short-circuits — no extra spend.
+            clarity_refine_applied = False
+            clarity_refine_attempted = False
+            clarity_refine_ms = 0
+            if (
+                raw
+                and len(raw) > 100
+                and (image_refine or "").strip().lower() == "clarity"
+            ):
+                clarity_refine_attempted = True
+                _t0 = time.perf_counter()
+                with _trace_step(trace, "clarity_refine"):
+                    raw, clarity_refine_applied = await _apply_clarity_refine(
+                        raw,
+                    )
+                clarity_refine_ms = int((time.perf_counter() - _t0) * 1000)
+                try:
+                    outcome_label = (
+                        "success" if clarity_refine_applied else "fail"
+                    )
+                    PREMIUM_REFINE_INVOCATIONS.labels(
+                        outcome=outcome_label,
+                    ).inc()
+                    PREMIUM_REFINE_DURATION.observe(
+                        clarity_refine_ms / 1000.0,
+                    )
+                except Exception:
+                    pass
+                # Surface refund signal to the orchestrator caller
+                # so the credit reservation can refund 1 of 2 when
+                # the premium upgrade did not actually run.
+                if not clarity_refine_applied:
+                    result_dict["premium_refine_failed"] = True
+                    warnings = result_dict.setdefault(
+                        "generation_warnings", []
+                    )
+                    warnings.append(
+                        "Premium-tier refinement failed; "
+                        "1 credit refunded.",
+                    )
+
             codeformer_applied = False
             if raw and len(raw) > 100:
                 # v1.71 (Phase 4.4): local + quality post-processing
@@ -1783,6 +1988,10 @@ class ImageGenerationExecutor:
                     generation_attempts=generation_attempts,
                     codeformer_applied=codeformer_applied,
                     face_area_ratio=face_area_ratio,
+                    clarity_refine_applied=clarity_refine_applied,
+                    clarity_refine_attempted=clarity_refine_attempted,
+                    clarity_refine_ms=clarity_refine_ms,
+                    product_tier=product_tier,
                 )
             else:
                 logger.warning(

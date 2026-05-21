@@ -28,9 +28,13 @@ Stages of the wire prompt (non-document styles), as they ship today:
                                   (default True since v1.69).
 6. ``expression``               — natural-from-reference by default
                                   (see composition_builder.py).
-7. ``PHOTOREAL_BLOCK``          — skin-texture + light-match anchors
+7. ``DEEP_FOCUS_BLOCK``         — v1.72 anti-bokeh directive. Appended
+                                  between expression and tail unless
+                                  the scene line carries a shallow-DoF
+                                  keyword (``_SHALLOW_DOF_KEYWORDS``).
+8. ``PHOTOREAL_BLOCK``          — skin-texture + light-match anchors
                                   (lens / DoF tokens removed in v1.70).
-8. ``IDENTITY_PRESERVE_BLOCK``  — identity anchors at the very tail.
+9. ``IDENTITY_PRESERVE_BLOCK``  — identity anchors at the very tail.
                                   v1.67 demoted identity from "between
                                   composition anchor and scene" to
                                   the end so recency bias reinforces
@@ -126,6 +130,7 @@ def _assemble(ir: CompositionIR, *, tail: str) -> str:
     v1.70 — cinematic head-anchors removed.
     v1.71 — single-path assembler (no more conditional anchor branches).
     v1.71.2 — explicit crop directive + framing-aware wardrobe filter.
+    v1.72 — deep-focus directive against the default bokeh prior.
 
     Order of stages for non-document styles:
 
@@ -142,9 +147,14 @@ def _assemble(ir: CompositionIR, *, tail: str) -> str:
     5. ``_POSE_BY_FRAMING`` — relaxed-pose body-geometry directive,
        gated on ``settings.pose_hint_enabled`` (default True).
     6. Expression — facial expression / gaze.
-    7. ``PHOTOREAL_BLOCK`` — skin texture + light-match anchors
+    7. ``DEEP_FOCUS_BLOCK`` — v1.72 anti-bokeh directive. Appended
+       between expression and tail unless the scene line itself
+       carries a shallow-DoF keyword (red-carpet, gala, distant
+       landmark "softly out of focus" — see
+       ``_SHALLOW_DOF_KEYWORDS`` in ``style_spec.py``).
+    8. ``PHOTOREAL_BLOCK`` — skin texture + light-match anchors
        (lens / DoF removed in v1.70).
-    8. ``IDENTITY_PRESERVE_BLOCK`` — identity anchors at the very
+    9. ``IDENTITY_PRESERVE_BLOCK`` — identity anchors at the very
        tail. v1.67 demoted identity from "between composition anchor
        and scene" to the end so the recency-bias channel reinforces
        composition, and so the geometric reading of "identical face
@@ -216,6 +226,26 @@ def _assemble(ir: CompositionIR, *, tail: str) -> str:
 
         if ir.expression:
             parts.append(ir.expression)
+
+        # v1.72 — explicit deep-focus directive (anti-bokeh). Edit-
+        # models default to a portrait bokeh prior, and our
+        # ``reference_preprocess`` edge-blur padding (radius 80) on
+        # ~60% of the canvas reads as a styling cue to keep the
+        # background blurred. We append ``DEEP_FOCUS_BLOCK`` between
+        # expression and tail UNLESS the scene line itself carries a
+        # shallow-DoF token (red-carpet, evening gala, distant
+        # landmark "softly out of focus" — see
+        # ``_SHALLOW_DOF_KEYWORDS`` in ``style_spec.py``). Document
+        # styles are excluded — they use DOC_PRESERVE / DOC_QUALITY.
+        _df_inputs: list[str] = []
+        if scene_line:
+            _df_inputs.append(scene_line)
+        if ir.clothing:
+            _df_inputs.append(ir.clothing)
+        if ir.expression:
+            _df_inputs.append(ir.expression)
+        if ig.should_apply_deep_focus(*_df_inputs):
+            parts.append(ig.DEEP_FOCUS_BLOCK)
 
         if tail:
             parts.append(tail)

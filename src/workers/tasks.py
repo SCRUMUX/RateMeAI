@@ -367,6 +367,14 @@ async def _process_analysis_inner(ctx: dict, task_id: str):
             if analysis_result is None:
                 raise last_exc or RuntimeError("Pipeline returned no result")
 
+            # v1.72 — premium-tier credit reservation flag. Lifted out
+            # of the ``if gen_url:`` branch because the no-image
+            # fallback below also needs to refund 2 credits instead of
+            # 1 when the user picked the premium tier.
+            premium_pre_reserved = bool(
+                context.get("credit_premium_reserved", False)
+            )
+
             gen_url = analysis_result.get("generated_image_url")
             if gen_url:
                 gkey = f"generated/{task.user_id}/{task.id}.jpg"
@@ -447,6 +455,19 @@ async def _process_analysis_inner(ctx: dict, task_id: str):
                     analysis_result["image_gen_error"] = "artifact_staging_failed"
 
                 skip_deduct = context.get("skip_credit_deduct", False)
+                # v1.72 — premium-tier credit reservation. The
+                # ``/analyze`` handler reserves a SECOND credit when
+                # the user picks "Premium" (see
+                # ``src/api/v1/analyze.py``). If the Clarity refiner
+                # post-pass failed at generation time the executor
+                # writes ``premium_refine_failed=True`` into the
+                # result dict; we refund 1 of the 2 reserved credits
+                # so the user is not over-charged for an upgrade
+                # that didn't run. The standard image they did get
+                # still costs the first credit.
+                premium_refine_failed = bool(
+                    analysis_result.get("premium_refine_failed", False)
+                )
                 if skip_deduct:
                     logger.info(
                         "Skipping credit deduction for edge-proxied task %s", task_id
@@ -454,10 +475,45 @@ async def _process_analysis_inner(ctx: dict, task_id: str):
                     analysis_result["credit_deducted"] = False
                 elif credit_pre_reserved:
                     CREDITS_USED.inc()
+                    if premium_pre_reserved:
+                        CREDITS_USED.inc()
                     logger.info(
-                        "Credit was pre-reserved at request time for task %s", task_id
+                        "Credit was pre-reserved at request time for task %s "
+                        "(premium=%s)",
+                        task_id,
+                        premium_pre_reserved,
                     )
                     analysis_result["credit_deducted"] = True
+
+                    if premium_pre_reserved and premium_refine_failed:
+                        try:
+                            u_ref = await db.execute(
+                                select(User)
+                                .where(User.id == task.user_id)
+                                .with_for_update()
+                            )
+                            user_ref = u_ref.scalar_one()
+                            user_ref.image_credits += 1
+                            db.add(
+                                CreditTransaction(
+                                    user_id=task.user_id,
+                                    amount=1,
+                                    balance_after=user_ref.image_credits,
+                                    tx_type="refund_premium_refine_failed",
+                                )
+                            )
+                            analysis_result["premium_credit_refunded"] = True
+                            logger.info(
+                                "Refunded 1 credit for premium task %s "
+                                "(refiner failed, base image delivered)",
+                                task_id,
+                            )
+                        except Exception:
+                            logger.exception(
+                                "Failed to refund premium credit for "
+                                "task %s",
+                                task_id,
+                            )
                 else:
                     try:
                         u = await db.execute(
@@ -519,6 +575,10 @@ async def _process_analysis_inner(ctx: dict, task_id: str):
                     and not context.get("skip_image_gen")
                     and not analysis_result.get("credit_refunded")
                 ):
+                    # v1.72 — refund 2 credits when the premium tier
+                    # reserved a second one but the task completed
+                    # without an image (image_gen_error / moderation).
+                    refund_amount = 2 if premium_pre_reserved else 1
                     try:
                         u_ref = await db.execute(
                             select(User)
@@ -526,11 +586,11 @@ async def _process_analysis_inner(ctx: dict, task_id: str):
                             .with_for_update()
                         )
                         user_ref = u_ref.scalar_one()
-                        user_ref.image_credits += 1
+                        user_ref.image_credits += refund_amount
                         db.add(
                             CreditTransaction(
                                 user_id=task.user_id,
-                                amount=1,
+                                amount=refund_amount,
                                 balance_after=user_ref.image_credits,
                                 tx_type="refund_no_image",
                             )
@@ -538,7 +598,9 @@ async def _process_analysis_inner(ctx: dict, task_id: str):
                         analysis_result["credit_refunded"] = True
                         analysis_result["credit_deducted"] = False
                         logger.info(
-                            "Refunded 1 image credit for completed-without-image task %s (reason=%s)",
+                            "Refunded %d image credit(s) for "
+                            "completed-without-image task %s (reason=%s)",
+                            refund_amount,
                             task_id,
                             analysis_result.get("no_image_reason", "unknown"),
                         )
@@ -651,6 +713,12 @@ async def _process_analysis_inner(ctx: dict, task_id: str):
             # retry already refunded (e.g. ARQ re-ran the job after a
             # crash between refund and cleanup), we skip the second credit.
             if credit_pre_reserved:
+                # v1.72 — refund both credits when premium was
+                # reserved. ``credit_premium_reserved`` lives on the
+                # task context written by the ``/analyze`` handler.
+                _ctx = (task.context or {}) if hasattr(task, "context") else {}
+                failed_premium = bool(_ctx.get("credit_premium_reserved", False))
+                refund_amount = 2 if failed_premium else 1
                 refund_key = f"refund:{task_id}"
                 try:
                     async with db_sessionmaker() as refund_db:
@@ -671,11 +739,11 @@ async def _process_analysis_inner(ctx: dict, task_id: str):
                                 .with_for_update()
                             )
                             refund_user = u.scalar_one()
-                            refund_user.image_credits += 1
+                            refund_user.image_credits += refund_amount
                             refund_db.add(
                                 CreditTransaction(
                                     user_id=task.user_id,
-                                    amount=1,
+                                    amount=refund_amount,
                                     balance_after=refund_user.image_credits,
                                     tx_type="refund_failed_task",
                                     payment_id=refund_key,
@@ -683,7 +751,8 @@ async def _process_analysis_inner(ctx: dict, task_id: str):
                             )
                             await refund_db.commit()
                             logger.info(
-                                "Refunded 1 credit to user %s for failed task %s",
+                                "Refunded %d credit(s) to user %s for failed task %s",
+                                refund_amount,
                                 task.user_id,
                                 task_id,
                             )

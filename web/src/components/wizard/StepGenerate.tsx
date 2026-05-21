@@ -591,11 +591,13 @@ export default function StepGenerate({ onGoToStep, onOpenStorage }: Props) {
         </div>
       </div>
 
-      {/* v1.26: продуктовые лейблы «Обычный режим / Премиум» + кредитный
-          ценник. Внутренне это всё ещё Nano Banana 2 и GPT Image 2, но
-          пользователь видит их как два режима с понятной ценой в кредитах.
-          Реальное списание сейчас 1 кредит за любой режим (см.
-          src/api/deps.py::_reserve_credit_for) — это UI-обещание. */}
+      {/* v1.72 — продуктовый tier «Стандарт / Премиум». Обе кнопки
+          посылают на бэк один и тот же ``image_model=gpt_image_2``;
+          премиум дополнительно несёт ``tier=premium``, по которому
+          оркестратор включает Clarity Upscaler refiner post-pass
+          (см. src/orchestrator/executor.py) и резервирует 2 кредита
+          в src/api/deps.py::_reserve_credit_for (refund 1 кредит,
+          если refiner упал). */}
       {showStartGenerateCta && !isDocPaywall && (
         <div className="shrink-0 flex flex-col items-center gap-[var(--space-6)] w-full max-w-[520px] mx-auto px-[var(--space-8)]">
           <div className="flex flex-wrap items-center justify-center gap-[var(--space-4)]">
@@ -604,10 +606,10 @@ export default function StepGenerate({ onGoToStep, onOpenStorage }: Props) {
               <button
                 key={m.key}
                 type="button"
-                onClick={() => app.setImageModel(m.key)}
+                onClick={() => app.setTier(m.key)}
                 title={m.description}
                 className={`px-[var(--space-12)] py-[var(--space-4)] rounded-[var(--radius-pill)] text-[12px] leading-[16px] font-medium transition-all ${
-                  app.imageModel === m.key
+                  app.tier === m.key
                     ? 'glass-btn-primary text-white'
                     : 'glass-btn-ghost text-[var(--color-text-secondary)]'
                 }`}
@@ -617,7 +619,7 @@ export default function StepGenerate({ onGoToStep, onOpenStorage }: Props) {
             ))}
           </div>
           <span className="text-[11px] leading-[14px] text-[var(--color-text-muted)]">
-            {formatAbCredits(app.imageModel)}
+            {formatAbCredits(app.tier)}
           </span>
         </div>
       )}

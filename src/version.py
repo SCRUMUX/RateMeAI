@@ -2,4 +2,4 @@
 
 # Human-readable release notes live in ``CHANGELOG.md`` at the repo root.
 # Keep this module tiny: every app/worker/bot start imports it.
-APP_VERSION = "1.71.2"
+APP_VERSION = "1.72.0"

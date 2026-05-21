@@ -408,6 +408,18 @@ export interface TaskCreated {
 export type AbImageModel = 'nano_banana_2' | 'gpt_image_2';
 export type AbImageQuality = 'low' | 'medium' | 'high';
 
+/**
+ * v1.72 — product-tier pill that replaces the раздельный выбор модели
+ * (Nano Banana 2 vs GPT Image 2) на «Стандарт / Премиум». Стандарт
+ * — это `gpt_image_2 + medium` (1 credit). Премиум — тот же базовый
+ * рендер, но с Clarity refiner post-pass (2 credits, ~$0.10/img на
+ * стороне FAL). Если кнопка премиум выбрана, бэк жёстко прибивает
+ * `image_model=gpt_image_2` и игнорирует `imageModel`, чтобы платный
+ * апгрейд не съезжал на Nano Banana по ошибке (см.
+ * `src/services/analysis_request.py::apply_ab_test_context_fields`).
+ */
+export type AbProductTier = 'standard' | 'premium';
+
 export interface AnalyzeOptions {
   preAnalysisId?: string;
   enhancementLevel?: number;
@@ -418,6 +430,12 @@ export interface AnalyzeOptions {
   imageModel?: AbImageModel;
   /** v1.22: tier качества. Если не задано — бэк подставит ``low``. */
   imageQuality?: AbImageQuality;
+  /**
+   * v1.72: продуктовый tier «standard / premium». Если не задан —
+   * бэк интерпретирует запрос как ``standard`` (1 кредит). Premium
+   * автоматически добавляет Clarity refiner и резервирует 2 кредита.
+   */
+  tier?: AbProductTier;
   framing?: string;
   inputHints?: Record<string, any>;
   /**
@@ -463,6 +481,7 @@ export function analyze(
   }
   fd.append('image_model', options.imageModel ?? 'gpt_image_2');
   fd.append('image_quality', options.imageQuality ?? 'low');
+  if (options.tier) fd.append('tier', options.tier);
   return request<TaskCreated>('/api/v1/analyze', { method: 'POST', body: fd });
 }
 

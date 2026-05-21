@@ -74,6 +74,14 @@ interface AppState {
   consentState: api.ConsentState | null;
   imageModel: api.AbImageModel;
   imageQuality: api.AbImageQuality;
+  /**
+   * v1.72 — продуктовый tier «standard / premium». В UI на нём
+   * висит pill-переключатель в StepGenerate; на бэк уходит
+   * отдельным полем формы ``tier``. Стандарт = gpt_image_2 medium
+   * (1 кредит). Премиум = gpt_image_2 medium + Clarity refiner
+   * post-pass (2 кредита).
+   */
+  tier: api.AbProductTier;
   framing: string;
   /**
    * Composition Safety Layer — see src/services/composition_safety.py.
@@ -127,6 +135,8 @@ interface AppActions {
   revokeConsents: (kinds: string[]) => Promise<void>;
   setImageModel: (m: api.AbImageModel) => void;
   setImageQuality: (q: api.AbImageQuality) => void;
+  /** v1.72 — переключатель «Стандарт / Премиум». */
+  setTier: (t: api.AbProductTier) => void;
   /**
    * CSL — flip the advanced-override flag. Components that surface
    * the toggle (``AdvancedSettingsModal``) call this; ``uploadPhoto``
@@ -215,10 +225,30 @@ export function AppProvider({ children }: { children: ReactNode }) {
   // cheapest reliable option on fal ($0.02/image) and is the new OOTB
   // default for every user. The legacy hybrid StyleRouter stays in the
   // codebase purely as a Railway-level rollback (AB_TEST_ENABLED=false).
+  //
+  // v1.72 — `imageModel` теперь derived: его значение однозначно
+  // диктует выбранный tier (standard/premium оба = `gpt_image_2`,
+  // их разница — наличие refiner post-pass на бэке). Сохраняем
+  // отдельный state-стейт для обратной совместимости с админкой,
+  // которая ещё умеет принудительно ставить Nano Banana через
+  // localStorage `ailook_ab_model`.
   const [imageModel, setImageModelState] = useState<api.AbImageModel>(() => {
     if (typeof localStorage === 'undefined') return 'gpt_image_2';
     const raw = localStorage.getItem('ailook_ab_model');
     return raw === 'nano_banana_2' || raw === 'gpt_image_2' ? raw : 'gpt_image_2';
+  });
+  // v1.72 — продуктовый tier. Дефолт `standard` (1 кредит). Миграция
+  // с v1.71 localStorage: пользователь, у которого стоял
+  // `ailook_ab_model = nano_banana_2`, получает `premium`, остальные
+  // — `standard`. Это совпадает с тем, как UI v1.71 их и продавал
+  // («Премиум» как раз был Nano Banana 2).
+  const [tier, setTierState] = useState<api.AbProductTier>(() => {
+    if (typeof localStorage === 'undefined') return 'standard';
+    const raw = localStorage.getItem('ailook_tier');
+    if (raw === 'standard' || raw === 'premium') return raw;
+    const legacy = localStorage.getItem('ailook_ab_model');
+    if (legacy === 'nano_banana_2') return 'premium';
+    return 'standard';
   });
   // v1.25: quality tier is locked to the production-optimal "medium"
   // on the server (see src/api/v1/analyze.py). The context mirrors
@@ -280,6 +310,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const setImageModel = useCallback((m: api.AbImageModel) => {
     setImageModelState(m);
     try { localStorage.setItem('ailook_ab_model', m); }
+    catch { /* localStorage unavailable */ }
+  }, []);
+  // v1.72 — пользовательский переключатель «Стандарт / Премиум».
+  // Сохраняется в localStorage между сессиями.
+  const setTier = useCallback((t: api.AbProductTier) => {
+    setTierState(t);
+    try { localStorage.setItem('ailook_tier', t); }
     catch { /* localStorage unavailable */ }
   }, []);
   // v1.25: no-op — quality is a constant, UI pills were removed.
@@ -1072,6 +1109,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
           entryMode: scenarioEntryMode ?? undefined,
           imageModel,
           imageQuality,
+          tier,
           framing,
           inputHints,
           seed,
@@ -1130,6 +1168,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     fetchConsents,
     imageModel,
     imageQuality,
+    tier,
     // v1.26: без framing в deps useCallback замыкался на начальный
     // ``'portrait'`` и ни переключатель кадра, ни его изменение после
     // первого рендера не влияли на запрос к /analyze. inputHints
@@ -1183,7 +1222,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     scenarioPaymentPackQty, complianceChecklist, scenarioOutputSpec,
     effectiveStyleList, effectiveApiMode, hasRealAuth, canAccessApp,
     consentState,
-    imageModel, imageQuality, framing,
+    imageModel, imageQuality, tier, framing,
     compositionClass, allowedFramings, skipCompositionSafety,
     syncScenarioFromRoute,
     setActiveCategory, setSelectedStyleKey, uploadPhoto, runPreAnalyze,
@@ -1191,7 +1230,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     resetGeneration, fetchTaskHistory,
     loginWithOAuth, loginWithToken, logout, refreshIdentities,
     fetchConsents, grantConsents, revokeConsents,
-    setImageModel, setImageQuality, setFraming,
+    setImageModel, setImageQuality, setTier, setFraming,
     setSkipCompositionSafety,
   };
 

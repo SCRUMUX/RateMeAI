@@ -219,6 +219,99 @@ async def _reserve_credit_for(user: User, db: AsyncSession) -> User:
     return fresh_user
 
 
+async def reserve_additional_credit(
+    user: User,
+    db: AsyncSession,
+    *,
+    amount: int = 1,
+) -> User:
+    """Reserve an additional credit on top of the initial reservation.
+
+    v1.72 — used by the premium-tier path on ``POST /analyze`` to
+    reserve a second credit (premium = 2 credits total). Atomic
+    against concurrent reservations via ``SELECT … FOR UPDATE``.
+
+    Raises ``HTTPException(402)`` when the user does not have
+    ``amount`` extra credits available; the handler is expected to
+    refund the previously-reserved credit on 402 so the user is
+    not left with a half-charged premium request.
+    """
+    if amount <= 0:
+        return user
+
+    from sqlalchemy import select as sa_select
+    from src.models.db import CreditTransaction
+
+    result = await db.execute(
+        sa_select(User).where(User.id == user.id).with_for_update()
+    )
+    fresh_user = result.scalar_one()
+    if fresh_user.image_credits < amount:
+        raise HTTPException(
+            status_code=402,
+            detail="no_credits",
+            headers={"X-Credits-Remaining": str(fresh_user.image_credits)},
+        )
+    fresh_user.image_credits -= amount
+    db.add(
+        CreditTransaction(
+            user_id=fresh_user.id,
+            amount=-amount,
+            balance_after=fresh_user.image_credits,
+            tx_type="reservation",
+        )
+    )
+    fresh_user._credits_remaining = fresh_user.image_credits
+    fresh_user._consents_snapshot = getattr(user, "_consents_snapshot", None)
+    return fresh_user
+
+
+async def refund_credit(
+    user: User,
+    db: AsyncSession,
+    *,
+    amount: int = 1,
+    reason: str = "refund",
+) -> User:
+    """Atomically refund ``amount`` credits back to the user.
+
+    v1.72 — used by the premium-tier flow on two paths:
+      * ``POST /analyze`` handler when the second-credit reservation
+        for premium fails with 402 (we have to roll back the first
+        reservation so the user is not partially charged).
+      * Worker post-generation flow when the premium refiner failed
+        (``result_dict["premium_refine_failed"] == True``) — we
+        refund 1 of the 2 reserved credits so the user gets the
+        standard render they would have received at the lower tier.
+
+    The function is intentionally permissive about ``amount <= 0``
+    (no-op) so callers don't have to guard against zero. Atomic via
+    ``SELECT … FOR UPDATE``; same transaction semantics as the
+    reservation path.
+    """
+    if amount <= 0:
+        return user
+
+    from sqlalchemy import select as sa_select
+    from src.models.db import CreditTransaction
+
+    result = await db.execute(
+        sa_select(User).where(User.id == user.id).with_for_update()
+    )
+    fresh_user = result.scalar_one()
+    fresh_user.image_credits += amount
+    db.add(
+        CreditTransaction(
+            user_id=fresh_user.id,
+            amount=amount,
+            balance_after=fresh_user.image_credits,
+            tx_type=reason,
+        )
+    )
+    fresh_user._credits_remaining = fresh_user.image_credits
+    return fresh_user
+
+
 async def check_credits(
     user: User = Depends(get_auth_user),
     db: AsyncSession = Depends(get_db),

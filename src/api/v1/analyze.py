@@ -371,6 +371,12 @@ async def create_analysis(
     entry_mode: str = Form(""),
     image_model: str = Form(""),
     image_quality: str = Form(""),
+    # v1.72 — product tier ("standard" / "premium"). Empty defaults to
+    # standard. When premium, the orchestrator pins the A/B model
+    # to GPT Image 2, schedules the Clarity refiner post-pass, and
+    # this handler reserves a second credit (refunded on refiner
+    # failure or premium downgrade).
+    tier: str = Form(""),
     framing: str = Form(""),
     input_hints: str = Form(""),
     seed: str = Form(""),
@@ -535,9 +541,43 @@ async def create_analysis(
         ctx["source"] = "telegram_bot"
 
     # A/B image model + locked server-side quality tier (shared with internal/edge).
-    apply_ab_test_context_fields(ctx, image_model=image_model, settings=settings)
+    apply_ab_test_context_fields(
+        ctx,
+        image_model=image_model,
+        settings=settings,
+        tier=tier,
+    )
     # Same cross-model fallback policy for all channels unless overridden later.
     ctx["allow_cross_model_fallback"] = settings.allow_cross_model_image_fallback
+
+    # v1.72 — premium tier reserves a second credit on top of the
+    # one already reserved by ``check_credits_with_consent``. Refund
+    # logic for "refiner failed → user paid for premium upgrade that
+    # didn't actually run" is handled by the orchestrator via the
+    # ``result_dict["premium_refine_failed"]`` signal and a worker-
+    # side refund (see ``src/workers/tasks.py``).
+    if ctx.get("tier") == "premium":
+        try:
+            from src.api.deps import reserve_additional_credit
+
+            await reserve_additional_credit(user, db, amount=1)
+            ctx["credit_premium_reserved"] = True
+        except HTTPException:
+            # 402 — second credit unavailable. We do NOT auto-downgrade
+            # the request (the user clicked "Premium" with intent); we
+            # refund the first credit and surface the standard
+            # no-credits error so the wallet UI tells them what to do.
+            from src.api.deps import refund_credit
+
+            try:
+                await refund_credit(user, db, amount=1)
+            except Exception:
+                logger.exception(
+                    "failed to refund first credit after premium "
+                    "second-reserve 402 user=%s",
+                    getattr(user, "id", "unknown"),
+                )
+            raise
 
     consent_snapshot = getattr(user, "_consents_snapshot", None) or {}
     if consent_snapshot:
