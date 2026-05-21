@@ -8752,9 +8752,9 @@
     "id": "video_call",
     "mode": "cv",
     "type": "flexible",
-    "base_scene": "clean home office interior, ring light or monitor glow on the subject, neat bookshelves visible behind, even lighting",
-    "default_clothing": "professional fitted shirt, crisp collar, clean grooming visible above desk, collar and shoulder seam clearly visible",
-    "expression": "Engaged expression, warm professional smile, confident screen presence, trustworthy soft eyes.",
+    "base_scene": "home office with bookshelf behind, polished wooden floor, daylight from a tall window",
+    "default_clothing": "professional fitted dress shirt, crisp collar, neat grooming, well-fitted across the shoulders",
+    "expression": "Engaged expression, warm professional smile, composed confident gaze.",
     "allowed_variations": {
       "lighting": [
         "even soft ring-light key, subtle fill",
@@ -8791,21 +8791,20 @@
     "schema_version": 3,
     "trigger": "video",
     "background": {
-      "base": "clean home office interior, ring light or monitor glow on the subject, neat bookshelves visible behind, even lighting",
+      "base": "home office with bookshelf behind, polished wooden floor, daylight from a tall window",
       "lock": "semi",
       "overrides_allowed": [
-        "clean home office with ring light and monitor",
-        "home office with neat bookshelves behind",
-        "home office with plant wall behind",
-        "clean even key with warm accent",
-        "home office with gradient color panel behind"
+        "home office, bookshelf behind a tidy desk, wood floor, side window",
+        "home office, plant wall behind, parquet floor in foreground",
+        "loft home office, exposed brick wall behind, polished concrete floor",
+        "home office, gradient color panel behind, hardwood floor"
       ]
     },
     "clothing": {
       "default": {
-        "male": "professional fitted shirt, crisp collar, clean grooming visible above desk, collar and shoulder seam clearly visible",
-        "female": "professional fitted shirt, crisp collar, clean grooming visible above desk, collar and shoulder seam clearly visible",
-        "neutral": "professional fitted shirt, crisp collar, clean grooming visible above desk, collar and shoulder seam clearly visible"
+        "male": "professional fitted dress shirt, crisp collar, neat grooming, well-fitted across the shoulders",
+        "female": "professional fitted dress shirt, crisp collar, neat grooming, well-fitted across the shoulders",
+        "neutral": "professional fitted dress shirt, crisp collar, neat grooming, well-fitted across the shoulders"
       },
       "allowed": [],
       "gender_neutral": true
@@ -8837,15 +8836,18 @@
       "per_model_tail": {}
     },
     "trigger_pool": [
-      "clean home office interior, ring light or monitor glow on the subject, neat bookshelves visible behind"
+      "home office with bookshelf behind, polished wooden floor, daylight from a tall window",
+      "home office, bookshelf behind a tidy desk, wood floor, side window",
+      "home office, plant wall behind, parquet floor in foreground",
+      "loft home office, exposed brick wall behind, polished concrete floor",
+      "home office, gradient color panel behind, hardwood floor"
     ],
-    "scene_anchor": "clean home office interior, ring light or monitor glow on the subject, neat bookshelves visible behind",
+    "scene_anchor": "home office with bookshelf behind, polished wooden floor, daylight from a tall window",
     "scene_overrides": [
-      "clean home office with ring light and monitor",
-      "home office with neat bookshelves behind",
-      "home office with plant wall behind",
-      "clean even key with warm accent",
-      "home office with gradient color panel behind"
+      "home office, bookshelf behind a tidy desk, wood floor, side window",
+      "home office, plant wall behind, parquet floor in foreground",
+      "loft home office, exposed brick wall behind, polished concrete floor",
+      "home office, gradient color panel behind, hardwood floor"
     ],
     "background_lock": "semi",
     "ambient": {
@@ -8877,7 +8879,7 @@
     "id": "analytics_review",
     "mode": "cv",
     "type": "flexible",
-    "base_scene": "office desk with financial charts on monitor screen, organized documents, warm desk lamp, focused workspace atmosphere",
+    "base_scene": "executive office, floor-to-ceiling windows behind, polished desk in foreground, daylight",
     "default_clothing": "professional shirt with rolled sleeves, reading glasses optional, sharp look, collar and shoulder seam clearly visible",
     "expression": "Sharp analytical expression, slight concentration furrow, intelligent authority.",
     "allowed_variations": {
@@ -8916,13 +8918,12 @@
     "schema_version": 3,
     "trigger": "analytics",
     "background": {
-      "base": "office desk with financial charts on monitor screen, organized documents, warm desk lamp, focused workspace atmosphere",
+      "base": "executive office, floor-to-ceiling windows behind, polished desk in foreground, daylight",
       "lock": "semi",
       "overrides_allowed": [
-        "office desk with clean analytics on a monitor",
-        "tablet dashboard on a tidy desk",
-        "desk with printed report sheets",
-        "quiet ops room with data wall"
+        "executive office, city skyline behind, wooden desk in foreground",
+        "analytics office, white walls behind, marble floor in foreground",
+        "boardroom office, mahogany table in foreground, dashboards behind"
       ]
     },
     "clothing": {
@@ -8961,14 +8962,16 @@
       "per_model_tail": {}
     },
     "trigger_pool": [
-      "office desk with financial charts on monitor screen, organized documents, focused workspace atmosphere"
+      "executive office, floor-to-ceiling windows behind, polished desk in foreground, daylight",
+      "executive office, city skyline behind, wooden desk in foreground",
+      "analytics office, white walls behind, marble floor in foreground",
+      "boardroom office, mahogany table in foreground, dashboards behind"
     ],
-    "scene_anchor": "office desk with financial charts on monitor screen, organized documents, focused workspace atmosphere",
+    "scene_anchor": "executive office, floor-to-ceiling windows behind, polished desk in foreground, daylight",
     "scene_overrides": [
-      "office desk with clean analytics on a monitor",
-      "tablet dashboard on a tidy desk",
-      "desk with printed report sheets",
-      "quiet ops room with data wall"
+      "executive office, city skyline behind, wooden desk in foreground",
+      "analytics office, white walls behind, marble floor in foreground",
+      "boardroom office, mahogany table in foreground, dashboards behind"
     ],
     "background_lock": "semi",
     "ambient": {
@@ -9001,7 +9004,7 @@
     "id": "notebook_ideas",
     "mode": "cv",
     "type": "semi_locked",
-    "base_scene": "bright cafe or office corner, quality notebook open on table, pen in hand, warm natural window light, coffee cup nearby",
+    "base_scene": "creative workspace, mood-board wall behind, sketchbook on a desk in foreground, hardwood floor, side window light",
     "default_clothing": "smart-casual layers, clean fitted shirt, professional yet relaxed, collar and shoulder seam clearly visible",
     "expression": "Thoughtful inspired expression, subtle focused smile, creative productive gaze.",
     "allowed_variations": {
@@ -9040,13 +9043,12 @@
     "schema_version": 3,
     "trigger": "notebook",
     "background": {
-      "base": "bright cafe or office corner, quality notebook open on table, pen in hand, warm natural window light, coffee cup nearby",
+      "base": "creative workspace, mood-board wall behind, sketchbook on a desk in foreground, hardwood floor, side window light",
       "lock": "semi",
       "overrides_allowed": [
-        "bright cafe window with notebook open",
-        "library reading-desk with notebook",
-        "park bench with notebook",
-        "home desk with notebook and coffee"
+        "cafe window, notebook on the table in foreground, wood floor",
+        "library room, bookshelves behind, reading desk in foreground",
+        "home study, notebook in foreground, bookshelf behind, hardwood floor"
       ]
     },
     "clothing": {
@@ -9085,14 +9087,16 @@
       "per_model_tail": {}
     },
     "trigger_pool": [
-      "bright cafe or office corner, quality notebook open on table, pen in hand, warm natural window light, coffee cup nearby"
+      "creative workspace, mood-board wall behind, sketchbook on a desk in foreground, hardwood floor, side window light",
+      "cafe window, notebook on the table in foreground, wood floor",
+      "library room, bookshelves behind, reading desk in foreground",
+      "home study, notebook in foreground, bookshelf behind, hardwood floor"
     ],
-    "scene_anchor": "bright cafe or office corner, quality notebook open on table, pen in hand, warm natural window light, coffee cup nearby",
+    "scene_anchor": "creative workspace, mood-board wall behind, sketchbook on a desk in foreground, hardwood floor, side window light",
     "scene_overrides": [
-      "bright cafe window with notebook open",
-      "library reading-desk with notebook",
-      "park bench with notebook",
-      "home desk with notebook and coffee"
+      "cafe window, notebook on the table in foreground, wood floor",
+      "library room, bookshelves behind, reading desk in foreground",
+      "home study, notebook in foreground, bookshelf behind, hardwood floor"
     ],
     "background_lock": "semi",
     "ambient": {
@@ -9124,7 +9128,7 @@
     "id": "tablet_stylus",
     "mode": "cv",
     "type": "flexible",
-    "base_scene": "creative workspace, digital tablet on desk with sketches visible, clean modern interior, directional task light",
+    "base_scene": "creative studio, mood-board prints behind, drafting table in foreground, hardwood floor, ambient daylight",
     "default_clothing": "smart-casual fitted dark sweater, creative professional look, fit shows the natural shoulder line",
     "expression": "Focused creative expression, innovative gaze, modern productive still brow.",
     "allowed_variations": {
@@ -9163,13 +9167,12 @@
     "schema_version": 3,
     "trigger": "tablet",
     "background": {
-      "base": "creative workspace, digital tablet on desk with sketches visible, clean modern interior, directional task light",
+      "base": "creative studio, mood-board prints behind, drafting table in foreground, hardwood floor, ambient daylight",
       "lock": "semi",
       "overrides_allowed": [
-        "creative desk with digital tablet and sketches",
-        "modern glass desk with tablet",
-        "cafe table with a graphics tablet",
-        "art studio corner with tablet on easel stand"
+        "design studio, concrete wall behind, glass desk in foreground",
+        "art studio, white wall behind, hardwood floor in foreground",
+        "creative loft, exposed brick wall behind, drafting table in foreground"
       ]
     },
     "clothing": {
@@ -9208,14 +9211,16 @@
       "per_model_tail": {}
     },
     "trigger_pool": [
-      "creative workspace, digital tablet on desk with sketches visible, clean modern interior"
+      "creative studio, mood-board prints behind, drafting table in foreground, hardwood floor, ambient daylight",
+      "design studio, concrete wall behind, glass desk in foreground",
+      "art studio, white wall behind, hardwood floor in foreground",
+      "creative loft, exposed brick wall behind, drafting table in foreground"
     ],
-    "scene_anchor": "creative workspace, digital tablet on desk with sketches visible, clean modern interior",
+    "scene_anchor": "creative studio, mood-board prints behind, drafting table in foreground, hardwood floor, ambient daylight",
     "scene_overrides": [
-      "creative desk with digital tablet and sketches",
-      "modern glass desk with tablet",
-      "cafe table with a graphics tablet",
-      "art studio corner with tablet on easel stand"
+      "design studio, concrete wall behind, glass desk in foreground",
+      "art studio, white wall behind, hardwood floor in foreground",
+      "creative loft, exposed brick wall behind, drafting table in foreground"
     ],
     "background_lock": "semi",
     "ambient": {
@@ -9369,7 +9374,7 @@
     "id": "late_hustle",
     "mode": "cv",
     "type": "flexible",
-    "base_scene": "modern office at evening, warm desk lamp light, city lights visible through window behind, focused productive workspace atmosphere",
+    "base_scene": "evening office, tall window behind, city lights visible, desk in foreground, hardwood floor, warm lamp",
     "default_clothing": "professional shirt with loosened collar, sleeves rolled, focused work look, collar and shoulder seam clearly visible",
     "expression": "Focused determined expression, intense productive gaze, ambitious driven brow.",
     "allowed_variations": {
@@ -9408,13 +9413,12 @@
     "schema_version": 3,
     "trigger": "late",
     "background": {
-      "base": "modern office at evening, warm desk lamp light, city lights visible through window behind, focused productive workspace atmosphere",
+      "base": "evening office, tall window behind, city lights visible, desk in foreground, hardwood floor, warm lamp",
       "lock": "semi",
       "overrides_allowed": [
-        "modern office desk at night with warm desk lamp",
-        "glass-walled office at night with skyline",
-        "home office at night, one focused lamp on",
-        "rooftop office corner at night"
+        "home office at night, skyline through a tall window behind, wooden desk",
+        "corner office at night, skyline behind, concrete floor in foreground",
+        "office at blue hour, bookshelf and skyline behind, hardwood floor"
       ]
     },
     "clothing": {
@@ -9453,14 +9457,16 @@
       "per_model_tail": {}
     },
     "trigger_pool": [
-      "modern office at evening, city lights visible through window behind, focused productive workspace atmosphere"
+      "evening office, tall window behind, city lights visible, desk in foreground, hardwood floor, warm lamp",
+      "home office at night, skyline through a tall window behind, wooden desk",
+      "corner office at night, skyline behind, concrete floor in foreground",
+      "office at blue hour, bookshelf and skyline behind, hardwood floor"
     ],
-    "scene_anchor": "modern office at evening, city lights visible through window behind, focused productive workspace atmosphere",
+    "scene_anchor": "evening office, tall window behind, city lights visible, desk in foreground, hardwood floor, warm lamp",
     "scene_overrides": [
-      "modern office desk at night with warm desk lamp",
-      "glass-walled office at night with skyline",
-      "home office at night, one focused lamp on",
-      "rooftop office corner at night"
+      "home office at night, skyline through a tall window behind, wooden desk",
+      "corner office at night, skyline behind, concrete floor in foreground",
+      "office at blue hour, bookshelf and skyline behind, hardwood floor"
     ],
     "background_lock": "semi",
     "ambient": {
@@ -9986,7 +9992,7 @@
     "id": "standing_desk",
     "mode": "cv",
     "type": "flexible",
-    "base_scene": "minimal home office or tech workspace, monitor screens behind, clean desk, natural window light",
+    "base_scene": "home office, monitor on back wall, standing desk in foreground, wooden floor, window light",
     "default_clothing": "premium fitted polo or cashmere sweater, clean minimalist style, collar and shoulder seam clearly visible",
     "expression": "Focused productive expression, tech-savvy composed confidence.",
     "allowed_variations": {
@@ -10025,13 +10031,13 @@
     "schema_version": 3,
     "trigger": "standing",
     "background": {
-      "base": "minimal home office or tech workspace, monitor screens behind, clean desk, natural window light",
+      "base": "home office, monitor on back wall, standing desk in foreground, wooden floor, window light",
       "lock": "semi",
       "overrides_allowed": [
-        "minimal home office with monitor and plant",
-        "tech studio with dual monitors and ambient LED",
-        "architect's standing desk with blueprints",
-        "art director's standing desk with mood board"
+        "home office, bookshelf behind, standing desk in foreground",
+        "tech studio, wall-mounted monitors behind, concrete floor",
+        "architect's desk, blueprints behind, hardwood floor in foreground",
+        "art director's desk, mood board behind, wooden floor"
       ]
     },
     "clothing": {
@@ -10070,14 +10076,18 @@
       "per_model_tail": {}
     },
     "trigger_pool": [
-      "minimal home office or tech workspace, monitor screens behind, clean desk, natural window light"
+      "home office, monitor on back wall, standing desk in foreground, wooden floor, window light",
+      "home office, bookshelf behind, standing desk in foreground",
+      "tech studio, wall-mounted monitors behind, concrete floor",
+      "architect's desk, blueprints behind, hardwood floor in foreground",
+      "art director's desk, mood board behind, wooden floor"
     ],
-    "scene_anchor": "minimal home office or tech workspace, monitor screens behind, clean desk, natural window light",
+    "scene_anchor": "home office, monitor on back wall, standing desk in foreground, wooden floor, window light",
     "scene_overrides": [
-      "minimal home office with monitor and plant",
-      "tech studio with dual monitors and ambient LED",
-      "architect's standing desk with blueprints",
-      "art director's standing desk with mood board"
+      "home office, bookshelf behind, standing desk in foreground",
+      "tech studio, wall-mounted monitors behind, concrete floor",
+      "architect's desk, blueprints behind, hardwood floor in foreground",
+      "art director's desk, mood board behind, wooden floor"
     ],
     "background_lock": "semi",
     "ambient": {
@@ -10363,7 +10373,7 @@
     "id": "tech_developer",
     "mode": "cv",
     "type": "flexible",
-    "base_scene": "developer workspace, multiple monitors with code on screen, dark ambient room, LED desk lighting",
+    "base_scene": "developer studio, exposed brick wall behind, polished concrete floor in foreground, daylight from a side window",
     "default_clothing": "quality hoodie or fitted dark sweater, comfortable technical style, fit shows the natural shoulder line",
     "expression": "Alert focused expression, intelligent confident gaze, calm technical authority.",
     "allowed_variations": {
@@ -10402,13 +10412,12 @@
     "schema_version": 3,
     "trigger": "tech",
     "background": {
-      "base": "developer workspace, multiple monitors with code on screen, dark ambient room, LED desk lighting",
+      "base": "developer studio, exposed brick wall behind, polished concrete floor in foreground, daylight from a side window",
       "lock": "semi",
       "overrides_allowed": [
-        "developer workspace with dual code monitors",
-        "dark home office with RGB accent lighting",
-        "minimalist tech workspace with single monitor",
-        "cafe table with laptop and code on screen"
+        "tech studio, white wall behind, hardwood floor in foreground",
+        "home office, RGB accent on back wall, concrete floor",
+        "engineering loft, bookshelves behind, daylight from a side window"
       ]
     },
     "clothing": {
@@ -10447,14 +10456,16 @@
       "per_model_tail": {}
     },
     "trigger_pool": [
-      "developer workspace, multiple monitors with code on screen, dark ambient room"
+      "developer studio, exposed brick wall behind, polished concrete floor in foreground, daylight from a side window",
+      "tech studio, white wall behind, hardwood floor in foreground",
+      "home office, RGB accent on back wall, concrete floor",
+      "engineering loft, bookshelves behind, daylight from a side window"
     ],
-    "scene_anchor": "developer workspace, multiple monitors with code on screen, dark ambient room",
+    "scene_anchor": "developer studio, exposed brick wall behind, polished concrete floor in foreground, daylight from a side window",
     "scene_overrides": [
-      "developer workspace with dual code monitors",
-      "dark home office with RGB accent lighting",
-      "minimalist tech workspace with single monitor",
-      "cafe table with laptop and code on screen"
+      "tech studio, white wall behind, hardwood floor in foreground",
+      "home office, RGB accent on back wall, concrete floor",
+      "engineering loft, bookshelves behind, daylight from a side window"
     ],
     "background_lock": "semi",
     "ambient": {
@@ -10972,7 +10983,7 @@
     "id": "podcast",
     "mode": "cv",
     "type": "semi_locked",
-    "base_scene": "podcast studio, professional microphone on boom arm, acoustic panels, warm ambient lighting, headphones",
+    "base_scene": "podcast studio, acoustic panels and bookshelf behind, hardwood floor in foreground, warm side key light",
     "default_clothing": "smart casual, clean fitted shirt, relaxed professional look, collar and shoulder seam clearly visible",
     "expression": "Natural animated expression, engaging conversational smile, authentic approachable authority.",
     "allowed_variations": {
@@ -11011,12 +11022,12 @@
     "schema_version": 3,
     "trigger": "podcast",
     "background": {
-      "base": "podcast studio, professional microphone on boom arm, acoustic panels, warm ambient lighting, headphones",
+      "base": "podcast studio, acoustic panels and bookshelf behind, hardwood floor in foreground, warm side key light",
       "lock": "semi",
       "overrides_allowed": [
-        "home podcast studio with acoustic panels",
-        "loft podcast studio with exposed brick",
-        "minimalist broadcast booth with neat desk"
+        "broadcast booth, wood panelling behind, hardwood floor in foreground",
+        "podcast studio, backlit foam wall behind, concrete floor",
+        "podcast corner, bookshelf and string lights behind, hardwood floor"
       ]
     },
     "clothing": {
@@ -11055,13 +11066,16 @@
       "per_model_tail": {}
     },
     "trigger_pool": [
-      "podcast studio, professional microphone on boom arm, acoustic panels, headphones"
+      "podcast studio, acoustic panels and bookshelf behind, hardwood floor in foreground, warm side key light",
+      "broadcast booth, wood panelling behind, hardwood floor in foreground",
+      "podcast studio, backlit foam wall behind, concrete floor",
+      "podcast corner, bookshelf and string lights behind, hardwood floor"
     ],
-    "scene_anchor": "podcast studio, professional microphone on boom arm, acoustic panels, headphones",
+    "scene_anchor": "podcast studio, acoustic panels and bookshelf behind, hardwood floor in foreground, warm side key light",
     "scene_overrides": [
-      "home podcast studio with acoustic panels",
-      "loft podcast studio with exposed brick",
-      "minimalist broadcast booth with neat desk"
+      "broadcast booth, wood panelling behind, hardwood floor in foreground",
+      "podcast studio, backlit foam wall behind, concrete floor",
+      "podcast corner, bookshelf and string lights behind, hardwood floor"
     ],
     "background_lock": "semi",
     "ambient": {
@@ -13913,7 +13927,7 @@
     "id": "online_learning",
     "mode": "social",
     "type": "flexible",
-    "base_scene": "clean home desk with laptop open showing content, notes and coffee cup, focused study environment, natural light",
+    "base_scene": "study room, bookshelf behind, desk with laptop in foreground, hardwood floor, side window light",
     "default_clothing": "casual but clean fitted hoodie or sweater, headphones nearby, fit shows the natural shoulder line",
     "expression": "Engaged curious expression, productive concentration, growth-minded attentive gaze.",
     "allowed_variations": {
@@ -13952,13 +13966,12 @@
     "schema_version": 3,
     "trigger": "online",
     "background": {
-      "base": "clean home desk with laptop open showing content, notes and coffee cup, focused study environment, natural light",
+      "base": "study room, bookshelf behind, desk with laptop in foreground, hardwood floor, side window light",
       "lock": "semi",
       "overrides_allowed": [
-        "home desk with laptop and notes",
-        "cafe table with laptop for study",
-        "library table with laptop and books",
-        "garden nook with laptop on lap"
+        "study nook, wall lamp and bookshelf behind, desk in foreground",
+        "home study, pinboard on back wall, wooden floor in foreground",
+        "library room, bookshelves behind, desk in foreground"
       ]
     },
     "clothing": {
@@ -13997,14 +14010,16 @@
       "per_model_tail": {}
     },
     "trigger_pool": [
-      "clean home desk with laptop open showing content, notes and coffee cup, focused study environment"
+      "study room, bookshelf behind, desk with laptop in foreground, hardwood floor, side window light",
+      "study nook, wall lamp and bookshelf behind, desk in foreground",
+      "home study, pinboard on back wall, wooden floor in foreground",
+      "library room, bookshelves behind, desk in foreground"
     ],
-    "scene_anchor": "clean home desk with laptop open showing content, notes and coffee cup, focused study environment",
+    "scene_anchor": "study room, bookshelf behind, desk with laptop in foreground, hardwood floor, side window light",
     "scene_overrides": [
-      "home desk with laptop and notes",
-      "cafe table with laptop for study",
-      "library table with laptop and books",
-      "garden nook with laptop on lap"
+      "study nook, wall lamp and bookshelf behind, desk in foreground",
+      "home study, pinboard on back wall, wooden floor in foreground",
+      "library room, bookshelves behind, desk in foreground"
     ],
     "background_lock": "semi",
     "ambient": {
@@ -15786,7 +15801,7 @@
     "id": "youtube_creator",
     "mode": "social",
     "type": "flexible",
-    "base_scene": "content creator setup, ring light, camera on tripod, colorful backdrop or LED panels",
+    "base_scene": "creator studio, neon-lit backdrop wall behind, polished floor in foreground",
     "default_clothing": "bright casual outfit, branded merch style, expressive modern look, shoulders fully in frame",
     "expression": "Animated engaging expression, bright enthusiastic creator smile.",
     "allowed_variations": {
@@ -15825,13 +15840,12 @@
     "schema_version": 3,
     "trigger": "youtube",
     "background": {
-      "base": "content creator setup, ring light, camera on tripod, colorful backdrop or LED panels",
+      "base": "creator studio, neon-lit backdrop wall behind, polished floor in foreground",
       "lock": "semi",
       "overrides_allowed": [
-        "content creator setup with ring light",
-        "creator studio with LED panels",
-        "colorful printed backdrop with props",
-        "creator desk with mic and monitor"
+        "creator studio, gradient color wall behind, hardwood floor",
+        "content studio, bookshelf and plants behind, concrete floor",
+        "creator loft, exposed brick wall behind, daylight from a tall window"
       ]
     },
     "clothing": {
@@ -15870,17 +15884,16 @@
       "per_model_tail": {}
     },
     "trigger_pool": [
-      "youtube creator setup",
-      "content-creation studio backdrop",
-      "ring light and camera-on-tripod creator setup",
-      "youtube-style streaming corner"
+      "creator studio, neon-lit backdrop wall behind, polished floor in foreground",
+      "creator studio, gradient color wall behind, hardwood floor",
+      "content studio, bookshelf and plants behind, concrete floor",
+      "creator loft, exposed brick wall behind, daylight from a tall window"
     ],
-    "scene_anchor": "modern content creator setup with ring light, camera on tripod, colorful backdrop or LED panels",
+    "scene_anchor": "creator studio, neon-lit backdrop wall behind, polished floor in foreground",
     "scene_overrides": [
-      "content creator setup with ring light",
-      "creator studio with LED panels",
-      "colorful printed backdrop with props",
-      "creator desk with mic and monitor"
+      "creator studio, gradient color wall behind, hardwood floor",
+      "content studio, bookshelf and plants behind, concrete floor",
+      "creator loft, exposed brick wall behind, daylight from a tall window"
     ],
     "background_lock": "semi",
     "ambient": {
@@ -16039,7 +16052,7 @@
     "id": "podcast_host",
     "mode": "social",
     "type": "semi_locked",
-    "base_scene": "podcast studio, professional microphone, acoustic foam, warm studio lighting, headphones on desk",
+    "base_scene": "podcast studio, acoustic foam wall behind, hardwood floor in foreground, warm side key light",
     "default_clothing": "smart casual, comfortable quality fabrics, clean modern look, shoulders fully in frame",
     "expression": "Natural conversational smile, engaging authentic attentive gaze.",
     "allowed_variations": {
@@ -16078,13 +16091,12 @@
     "schema_version": 3,
     "trigger": "podcast",
     "background": {
-      "base": "podcast studio, professional microphone, acoustic foam, warm studio lighting, headphones on desk",
+      "base": "podcast studio, acoustic foam wall behind, hardwood floor in foreground, warm side key light",
       "lock": "semi",
       "overrides_allowed": [
-        "home podcast studio with acoustic foam",
-        "loft podcast studio with brick wall",
-        "warm directional lamp with clean fill",
-        "on-location recording setup"
+        "broadcast studio, backlit panel wall behind, concrete floor",
+        "podcast set, warm wood wall behind, daylight from a side window",
+        "host corner, bookshelf and string lights behind, hardwood floor"
       ]
     },
     "clothing": {
@@ -16123,14 +16135,16 @@
       "per_model_tail": {}
     },
     "trigger_pool": [
-      "podcast studio, professional microphone, acoustic foam, headphones on desk"
+      "podcast studio, acoustic foam wall behind, hardwood floor in foreground, warm side key light",
+      "broadcast studio, backlit panel wall behind, concrete floor",
+      "podcast set, warm wood wall behind, daylight from a side window",
+      "host corner, bookshelf and string lights behind, hardwood floor"
     ],
-    "scene_anchor": "podcast studio, professional microphone, acoustic foam, headphones on desk",
+    "scene_anchor": "podcast studio, acoustic foam wall behind, hardwood floor in foreground, warm side key light",
     "scene_overrides": [
-      "home podcast studio with acoustic foam",
-      "loft podcast studio with brick wall",
-      "warm directional lamp with clean fill",
-      "on-location recording setup"
+      "broadcast studio, backlit panel wall behind, concrete floor",
+      "podcast set, warm wood wall behind, daylight from a side window",
+      "host corner, bookshelf and string lights behind, hardwood floor"
     ],
     "background_lock": "semi",
     "ambient": {

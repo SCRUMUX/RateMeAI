@@ -4,6 +4,22 @@ Version history for RateMeAI. Each release bumps ``src/version.py:APP_VERSION``;
 
 Style: newest first, semantic-ish ``major.minor.patch`` versioning. Pre-v1.14 history is intentionally omitted (predates the FAL rebuild).
 
+## 1.71.1
+
+Indoor-depth normalisation for the CV / studio cohort. Follow-up on the v1.71 anatomy fix: the production audit showed the v6 strong-shoulders + landmark rewrite closed the "glued head" pathology on outdoor landmark styles but NOT on CV / studio styles whose ``scene_anchor`` encoded a screen-facing tight-crop semantics. The canonical victim was ``video_call`` — same source, ``dubai_burj_khalifa`` rendered a fully-proportioned torso, ``video_call`` rendered a webcam-style oversized head.
+
+* **Catalogue migration v7 (``2026_05_styles_v7_indoor_depth``).** 11 indoor styles touched, idempotent:
+  * **P0 — ``video_call``.** Wardrobe stripped of the ``clean grooming visible above desk`` pose-leak and re-paired with the strong SUIT shoulder cue (``well-fitted across the shoulders``). Scene anchor + overrides rewritten with floor-to-ceiling bookshelf, wooden floor and tall-window depth cues. ``expression`` lost the ``confident screen presence`` token (face-toward-camera directive that bled into wire prompts on the no-reference-expression branch).
+  * **P1 — ``analytics_review`` / ``tech_developer`` / ``podcast`` / ``podcast_host`` / ``youtube_creator``.** Full scene rewrites: every anchor now ships a foreground prop + a depth-bearing backdrop (``behind`` / ``across the room`` / ``in foreground``) + an ambient daylight / side-key reference. Equipment-only screen cues (``ring light``, ``monitor glow on the subject``, ``webcam``, ``camera on tripod``) dropped or paired with depth keywords.
+  * **P2 — ``standing_desk`` / ``online_learning`` / ``notebook_ideas`` / ``tablet_stylus`` / ``late_hustle``.** Surgical depth-cue additions: foreground floor (``hardwood floor in foreground`` / ``polished concrete floor``) + room-depth backdrop + balanced lighting.
+  * ``trigger_pool`` rebuilt for every touched style as ``[scene_anchor, *scene_overrides]`` (≥3 entries) so the slot sampler exposes the new variety to ``test_curated_styles_have_rich_trigger_pool``.
+* **Style-lint v1.71.** Two new rules in ``src/services/style_lint.py``:
+  * ``WARDROBE_POSE_LEAK`` (error) — catches position directives sneaking into ``default_clothing`` / ``clothing.default.*`` (``visible above desk``, ``framed at``, ``headshot``, ``webcam-friendly``, ``cropped at the chest``…). Reproduces the ``video_call`` regression as a CI failure.
+  * ``TIGHT_INDOOR_SCREEN_SCENE`` (warning) — fires on screen-facing scene cues (``ring light``, ``monitor glow``, ``webcam``, ``camera on tripod``) without any spatial depth keyword (``behind``, ``across the room``, ``in foreground``, ``window``, ``floor``). Curator can either drop the screen cue or add a depth keyword to dismiss.
+  * Existing anatomy-exempt whitelist (studio portrait + document styles) covers both new rules; ``passport_rf`` / ``formal_portrait`` / ``studio_elegant`` are silent. New ``tests/test_services/test_style_lint_v171.py`` pins the regex coverage (8 tests).
+* **Golden wire prompts.** Matrix extended from 30 to 36 keys; ``video_call`` / ``analytics_review`` / ``notebook_ideas`` / ``tablet_stylus`` fixtures regenerated against the new anchors, six new fixtures seeded (``cv__tech_developer``, ``cv__podcast``, ``cv__standing_desk``, ``cv__late_hustle``, ``social__online_learning``, ``social__youtube_creator``). ``podcast_host`` is covered transitively via ``podcast`` (same recipe family). Prompt-length distribution stays in ``[300, 1100]`` — worst case 1000 (``analytics_review``).
+* Ruff clean, pytest 3182 passed / 128 skipped, frontend tsc clean.
+
 ## 1.71.0
 
 Anatomy fix v4 + dead-code cleanup. Closes the "приклееная голова" / oversized-head residual on landmark dating styles (rome_colosseum was the canonical bug) and folds the historical fix-up scaffolding into a single straight-through prompt pipeline.

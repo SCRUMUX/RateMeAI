@@ -44,6 +44,22 @@ The lint rules cover the four concrete defects the user flagged on
   :data:`CONFIGURABLE_CHANNELS` (typo or schema drift).
 * ``UNKNOWN_LOCATION`` — ``location_type`` is set to a value not in
   :data:`LOCATION_TYPES`.
+* ``WARDROBE_POSE_LEAK`` (v1.71) — ``default_clothing`` or
+  ``clothing.default.{male|female|neutral}`` contains a position
+  directive (``above desk``, ``behind the desk``, ``in the foreground``,
+  ``headshot``, ``visible above ...``). The wardrobe channel must
+  describe the GARMENT, never how it is framed; pose-cues leaking
+  through wardrobe override every framing / shoulder hint downstream
+  and reproduce the v1.71 ``video_call`` glued-head pathology.
+* ``TIGHT_INDOOR_SCREEN_SCENE`` (v1.71) — ``scene_anchor`` /
+  ``base_scene`` / ``background.base`` describe a screen-facing
+  workspace (``ring light``, ``monitor glow on the subject``,
+  ``webcam``, ``camera on tripod``) without any spatial depth cue
+  (``behind``, ``across the room``, ``in foreground``, ``window``,
+  ``floor``). Edit models trained on the public web associate the
+  former cues with tight webcam-style crops and render an oversized
+  head; a depth cue gives them the perspective needed for a balanced
+  full-body composition.
 
 Severity is either ``"error"`` (blocks save in strict admin mode) or
 ``"warning"`` (informational, save still allowed).
@@ -170,6 +186,76 @@ _WARDROBE_SUIT_PATTERN = re.compile(
 _WARDROBE_SHOULDER_CUE_PATTERN = re.compile(
     r"\b(shoulders?|shoulder\s+line|well-fitted\s+across\s+the\s+shoulders|"
     r"natural\s+shoulder)\b",
+    re.IGNORECASE,
+)
+
+
+# v1.71 — WARDROBE_POSE_LEAK. Catches position directives sneaking
+# through the wardrobe channel (the v1.71 ``video_call`` regression).
+# ``default_clothing`` and ``clothing.default.*`` describe the GARMENT
+# only — never how the model should crop the body. The phrasing
+# ``visible above desk`` / ``framed at the chest`` / ``headshot`` etc.
+# is treated by edit models as a hard crop directive and overrides
+# every framing / shoulder cue downstream. ``Above the desk`` is a
+# common photography expression and would create false positives —
+# we therefore anchor on the explicit ``visible above`` / ``framed at``
+# templates plus a handful of canonical pose terms.
+_WARDROBE_POSE_LEAK_RE = re.compile(
+    r"\b("
+    r"visible\s+above"
+    r"|above\s+(?:the\s+)?desk"
+    r"|behind\s+(?:a|the)\s+desk"
+    r"|framed\s+(?:at|from)"
+    r"|head(?:shot|\s+shot)"
+    r"|head-?and-?shoulders"
+    r"|webcam(?:-friendly)?"
+    r"|cropped\s+at\s+(?:the\s+)?(?:chest|shoulders|waist)"
+    r"|sitting\s+at\s+(?:a|the)\s+desk"
+    r"|on\s+(?:the\s+)?screen"
+    r")\b",
+    re.IGNORECASE,
+)
+
+
+# v1.71 — TIGHT_INDOOR_SCREEN_SCENE. The post-mortem on
+# ``video_call`` showed that screen-facing scene anchors ("ring
+# light", "monitor glow on the subject", "webcam", "camera on
+# tripod") collapse the head-to-body ratio toward a webcam selfie
+# unless they are paired with a depth cue ("behind",
+# "across the room", "in foreground", "window", "floor"). The
+# warning fires only when the screen cue is present AND no depth
+# cue rescues it. Curator can either drop the screen cue or add a
+# depth keyword to dismiss the warning.
+_SCREEN_FACING_RE = re.compile(
+    r"\b("
+    r"ring\s*light"
+    r"|monitor\s+glow(?:\s+on\s+the\s+subject)?"
+    r"|webcam"
+    r"|camera\s+on\s+(?:a\s+)?tripod"
+    r"|softbox\s+on\s+(?:the\s+)?subject"
+    r"|on-?camera\s+light"
+    r")\b",
+    re.IGNORECASE,
+)
+_DEPTH_CUE_RE = re.compile(
+    r"\b("
+    r"behind"
+    r"|across\s+(?:the|a)\s+room"
+    r"|in\s+(?:the\s+)?foreground"
+    r"|tall\s+window"
+    r"|floor-to-ceiling"
+    r"|polished\s+(?:wood(?:en)?|concrete|hardwood|marble)\s+floor"
+    r"|hardwood\s+floor"
+    r"|window\s+(?:light|behind|across)"
+    r"|skyline"
+    r"|bookshelf"
+    r"|brick\s+wall"
+    r"|plant\s+wall"
+    r"|backdrop\s+wall"
+    r"|acoustic\s+(?:panel|foam)"
+    r"|panel\s+wall"
+    r"|side\s+window"
+    r")\b",
     re.IGNORECASE,
 )
 
@@ -728,6 +814,69 @@ def lint_style(raw: dict[str, Any]) -> list[LintIssue]:
                     ),
                     field=field_name,
                     detail={"value": value},
+                )
+            )
+
+        # v1.71 — WARDROBE_POSE_LEAK. Walk every wardrobe source and
+        # flag every embedded pose directive; we emit one record per
+        # offending field so the admin UI can highlight all of them
+        # rather than burying duplicates behind a single notice.
+        for field_name, value in clothing_sources:
+            pose_leaks = sorted({
+                m.group(0).lower()
+                for m in _WARDROBE_POSE_LEAK_RE.finditer(value)
+            })
+            if not pose_leaks:
+                continue
+            issues.append(
+                LintIssue(
+                    code="WARDROBE_POSE_LEAK",
+                    severity="error",
+                    message=(
+                        f"{field_name} = {value!r} contains pose / "
+                        f"framing tokens {pose_leaks!r}; the wardrobe "
+                        "channel must describe the GARMENT only. Pose "
+                        "cues in clothing override every framing / "
+                        "shoulder hint downstream and reproduce the "
+                        "v1.71 ``video_call`` glued-head pathology. "
+                        "Move framing to the framing slot and strip the "
+                        "directive from the clothing string."
+                    ),
+                    field=field_name,
+                    detail={"tokens": pose_leaks, "value": value},
+                )
+            )
+
+        # v1.71 — TIGHT_INDOOR_SCREEN_SCENE. Walk every scene field;
+        # warn (do not block) when a screen-facing cue ships without
+        # any depth keyword. Curator can either drop the screen cue or
+        # add a depth keyword (``behind`` / ``across the room`` /
+        # ``window`` / ``floor``) to dismiss the warning.
+        for field_name, scene_value in scene_pose_sources:
+            screen_hits = sorted({
+                m.group(0).lower()
+                for m in _SCREEN_FACING_RE.finditer(scene_value)
+            })
+            if not screen_hits:
+                continue
+            if _DEPTH_CUE_RE.search(scene_value):
+                continue
+            issues.append(
+                LintIssue(
+                    code="TIGHT_INDOOR_SCREEN_SCENE",
+                    severity="warning",
+                    message=(
+                        f"{field_name} mentions screen-facing cues "
+                        f"{screen_hits!r} without any depth keyword "
+                        "(``behind`` / ``across the room`` / ``in "
+                        "foreground`` / ``window`` / ``floor``). Edit "
+                        "models trained on the public web associate "
+                        "these cues with tight webcam-style crops and "
+                        "render an oversized head; add a depth keyword "
+                        "or drop the screen cue."
+                    ),
+                    field=field_name,
+                    detail={"tokens": screen_hits},
                 )
             )
 

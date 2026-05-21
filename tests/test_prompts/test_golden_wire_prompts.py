@@ -7,7 +7,7 @@ the author to acknowledge the diff in code review.
 
 Matrix
 ------
-* 30 style keys spread across the three photo modes
+* 36 style keys spread across the three photo modes
   (``cv`` / ``dating`` / ``social``).
 * Single framing (``portrait``) — exercises the most attention-heavy
   layout and keeps the fixture set tractable.
@@ -15,6 +15,15 @@ Matrix
 * Deterministic ``seed=42`` so the slot sampler always rolls the same
   scene / lighting / weather pool entries.
 * Target model ``gpt_image_2`` (the production default).
+
+v1.71 expansion (May 2026): added six CV regression keys that
+exercise the indoor-depth migration —
+``tech_developer`` / ``podcast`` / ``youtube_creator`` (P1
+screen-facing rewrites) and ``standing_desk`` / ``online_learning``
+/ ``late_hustle`` (P2 surgical depth-cue additions). The original
+``video_call`` / ``analytics_review`` / ``notebook_ideas`` /
+``tablet_stylus`` fixtures were regenerated to reflect the new
+scene anchors and wardrobe wording.
 
 Fixture files live at ``tests/fixtures/golden_prompts/<mode>__<style>.txt``.
 They are checked into the repo so the test runs hermetically on CI.
@@ -121,6 +130,16 @@ _MATRIX: list[tuple[AnalysisMode, str]] = [
     (AnalysisMode.CV, "notebook_ideas"),
     (AnalysisMode.CV, "tablet_stylus"),
     (AnalysisMode.CV, "coffee_break_work"),
+    # v1.71 — indoor-depth regression cohort (P1 + P2 from the May
+    # 2026 ``video_call`` post-mortem). Goldens lock the rewritten
+    # scene anchors / wardrobe wording so future edits cannot reintroduce
+    # the screen-facing pose-leak pathology silently.
+    (AnalysisMode.CV, "tech_developer"),
+    (AnalysisMode.CV, "podcast"),
+    (AnalysisMode.CV, "standing_desk"),
+    (AnalysisMode.CV, "late_hustle"),
+    (AnalysisMode.SOCIAL, "online_learning"),
+    (AnalysisMode.SOCIAL, "youtube_creator"),
     # Dating — travel/landmark styles
     (AnalysisMode.DATING, "paris_eiffel"),
     (AnalysisMode.DATING, "dubai_burj_khalifa"),
