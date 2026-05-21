@@ -16,15 +16,21 @@ Stages of the wire prompt (non-document styles), as they ship today:
                                   :meth:`CompositionIR.scene_line`).
 3. wardrobe                     — "Wardrobe: <clothing>." Body-geometry
                                   cue (carries the v1.71 strong
-                                  shoulder paint).
-4. ``_POSE_BY_FRAMING``         — relaxed-pose directive. Gated on
+                                  shoulder paint). v1.71.2 filters
+                                  out lower-body garments / footwear
+                                  when framing ≠ full_body.
+4. ``_FRAMING_PROMPT_DIRECTIVES`` — explicit crop directive (v1.71.2,
+                                  "Crop the frame above the chest;
+                                  do not render the lower body."),
+                                  emitted right after wardrobe.
+5. ``_POSE_BY_FRAMING``         — relaxed-pose directive. Gated on
                                   ``settings.pose_hint_enabled``
                                   (default True since v1.69).
-5. ``expression``               — natural-from-reference by default
+6. ``expression``               — natural-from-reference by default
                                   (see composition_builder.py).
-6. ``PHOTOREAL_BLOCK``          — skin-texture + light-match anchors
+7. ``PHOTOREAL_BLOCK``          — skin-texture + light-match anchors
                                   (lens / DoF tokens removed in v1.70).
-7. ``IDENTITY_PRESERVE_BLOCK``  — identity anchors at the very tail.
+8. ``IDENTITY_PRESERVE_BLOCK``  — identity anchors at the very tail.
                                   v1.67 demoted identity from "between
                                   composition anchor and scene" to
                                   the end so recency bias reinforces
@@ -119,19 +125,26 @@ def _assemble(ir: CompositionIR, *, tail: str) -> str:
     v1.67 — composition-first / identity-tail ordering.
     v1.70 — cinematic head-anchors removed.
     v1.71 — single-path assembler (no more conditional anchor branches).
+    v1.71.2 — explicit crop directive + framing-aware wardrobe filter.
 
     Order of stages for non-document styles:
 
     1. ``change_instruction`` opener (Google-formula "Using the
        reference photo, render the same person in a new scene…").
     2. Scene line — narrative environment.
-    3. Wardrobe — explicit body geometry cue.
-    4. ``_POSE_BY_FRAMING`` — relaxed-pose body-geometry directive,
+    3. Wardrobe — explicit body geometry cue. Filtered by framing
+       (lower-body garments / footwear stripped on portrait /
+       half_body) so the catalogue's full-outfit string does not
+       cue the edit model into rendering a fabricated lower body.
+    4. Crop directive — ``_FRAMING_PROMPT_DIRECTIVES`` ("Crop the
+       frame above the chest; do not render the lower body."),
+       emitted right after wardrobe and BEFORE the pose hint.
+    5. ``_POSE_BY_FRAMING`` — relaxed-pose body-geometry directive,
        gated on ``settings.pose_hint_enabled`` (default True).
-    5. Expression — facial expression / gaze.
-    6. ``PHOTOREAL_BLOCK`` — skin texture + light-match anchors
+    6. Expression — facial expression / gaze.
+    7. ``PHOTOREAL_BLOCK`` — skin texture + light-match anchors
        (lens / DoF removed in v1.70).
-    7. ``IDENTITY_PRESERVE_BLOCK`` — identity anchors at the very
+    8. ``IDENTITY_PRESERVE_BLOCK`` — identity anchors at the very
        tail. v1.67 demoted identity from "between composition anchor
        and scene" to the end so the recency-bias channel reinforces
        composition, and so the geometric reading of "identical face
@@ -167,11 +180,29 @@ def _assemble(ir: CompositionIR, *, tail: str) -> str:
             parts.append(f"{scene_line}.")
 
         if ir.clothing:
-            parts.append(f"Wardrobe: {ir.clothing}.")
+            # v1.71.2 — strip lower-body / footwear garments on
+            # portrait / half_body so the catalogue's full-outfit
+            # string can't sneak ``trousers`` / ``shoes`` cues into a
+            # crop that won't show them. Full-body framing is the
+            # passthrough case.
+            clothing_for_prompt = ig.filter_wardrobe_by_framing(
+                ir.clothing, ir.framing
+            )
+            if clothing_for_prompt:
+                parts.append(f"Wardrobe: {clothing_for_prompt}.")
+
+        # v1.71.2 — explicit crop directive, emitted between wardrobe
+        # and the pose hint. Closes the May 2026 ``singapore_marina_bay``
+        # regression where a portrait-framing wire prompt carried zero
+        # crop signal and the model fabricated a full body. The wording
+        # is v1.70-anatomy-lint compliant (no ``head-and-shoulders`` /
+        # ``bust shot`` / ``upper third`` head-anchor tokens).
+        if ir.framing and ir.framing in ig._FRAMING_PROMPT_DIRECTIVES:
+            parts.append(ig._FRAMING_PROMPT_DIRECTIVES[ir.framing])
 
         # v1.68 — P2.10 per-framing pose hint, emitted right after
-        # wardrobe (the natural slot for body-geometry directives).
-        # Gated on ``settings.pose_hint_enabled``.
+        # the crop directive (the natural slot for body-geometry
+        # directives). Gated on ``settings.pose_hint_enabled``.
         if ir.framing and ir.framing in ig._POSE_BY_FRAMING:
             try:
                 from src.config import settings as _settings

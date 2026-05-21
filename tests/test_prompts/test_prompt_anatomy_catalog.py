@@ -32,10 +32,17 @@ Identity preservation (``preserve the same person's facial features``,
 never wanted to remove.
 
 Length: the cleanup brings the typical non-document wire prompt
-from ~1450 chars to ~600 chars. We pin a generous ``[300, 1100]``
+from ~1450 chars to ~700 chars. We pin a generous ``[300, 1200]``
 band — values outside it indicate either a regression (anchor block
 came back) or a catastrophic style-data shrink (scene_anchor went
-empty).
+empty). v1.71.2 lifted the upper bound from 1100 → 1200 to cover
+the explicit crop directive added to every non-document prompt
+("Crop the frame above the chest; do not render the lower body.")
+plus the v8 expanded ``trigger_pool`` that occasionally lets the
+slot sampler concatenate a scene override with the base anchor on
+the same call. Worst-case in v1.71.2 is ``dating/tokyo_tower`` at
+~1100 chars; the buffer keeps room for one more anchor cycle
+before we have to re-tighten the budget.
 """
 
 from __future__ import annotations
@@ -207,8 +214,8 @@ def test_v1_70_anatomy_invariants(mode: AnalysisMode, style: str, framing: str):
                 f"{prompt!r}"
             )
 
-    assert 300 <= len(prompt) <= 1100, (
-        f"{label}: prompt length {len(prompt)} outside [300,1100] — "
+    assert 300 <= len(prompt) <= 1200, (
+        f"{label}: prompt length {len(prompt)} outside [300,1200] — "
         "either an anchor block came back (regression) or the style "
         "data collapsed (scene/wardrobe gone).\n"
         f"{prompt!r}"

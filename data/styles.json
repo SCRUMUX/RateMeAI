@@ -1084,7 +1084,10 @@
       "per_model_tail": {}
     },
     "trigger_pool": [
-      "Thames embankment with London Eye in background, grey-blue London sky with golden patches"
+      "Thames embankment with London Eye in background, grey-blue London sky with golden patches",
+      "South Bank walkway with London Eye behind",
+      "illuminated London Eye at night",
+      "London Eye through morning mist over the Thames"
     ],
     "scene_anchor": "Thames embankment with London Eye in background, grey-blue London sky with golden patches",
     "scene_overrides": [
@@ -1239,7 +1242,10 @@
       "per_model_tail": {}
     },
     "trigger_pool": [
-      "minimalist Tokyo street with Tokyo Tower in background, cherry blossoms or clean urban aesthetic"
+      "minimalist Shiba-koen pathway with Tokyo Tower rising in sharp detail behind, manicured shrubs, polished stone, cherry-blossom branches in soft focus",
+      "Roppongi crossing with Tokyo Tower silhouette above the city skyline, modern signage in frame",
+      "Zojo-ji Temple courtyard with Tokyo Tower behind the tiled rooftops, stone lanterns in foreground",
+      "Azabu street-level view with Tokyo Tower at the end of the road, narrow walkway, soft evening light"
     ],
     "scene_anchor": "minimalist Shiba-koen pathway with Tokyo Tower rising in sharp detail behind, manicured shrubs, polished stone, cherry-blossom branches in soft focus",
     "scene_overrides": [
@@ -1402,7 +1408,12 @@
       "per_model_tail": {}
     },
     "trigger_pool": [
-      "Marina Bay Sands and Singapore skyline at night, illuminated reflections on water, modern futuristic architecture"
+      "Marina Bay Sands and Singapore skyline at night, illuminated reflections on water, modern futuristic architecture",
+      "Skypark pool deck with Marina Bay skyline",
+      "Helix Bridge walkway with Marina Bay Sands behind",
+      "colorful evening uplighting with warm accents",
+      "Gardens by the Bay walkway with supertrees",
+      "Merlion Park with Marina Bay skyline behind"
     ],
     "scene_anchor": "Marina Bay Sands and Singapore skyline at night, illuminated reflections on water, modern futuristic architecture",
     "scene_overrides": [
@@ -2207,7 +2218,11 @@
       "per_model_tail": {}
     },
     "trigger_pool": [
-      "Central Park with autumn foliage in warm tones, green lawns and pathway"
+      "Central Park with autumn foliage in warm tones, green lawns and pathway",
+      "Central Park Bow Bridge over calm water",
+      "Central Park autumn pathway with golden foliage",
+      "Sheep Meadow in Central Park with skyline behind",
+      "Central Park Loeb Boathouse at morning"
     ],
     "scene_anchor": "Central Park with autumn foliage in warm tones, green lawns and pathway",
     "scene_overrides": [
@@ -2532,7 +2547,11 @@
       "per_model_tail": {}
     },
     "trigger_pool": [
-      "airplane window seat with clouds and blue sky visible outside, dim cabin light, tray table with book or headphones"
+      "airplane window seat with clouds and blue sky visible outside, dim cabin light, tray table with book or headphones",
+      "business-class window seat above a sea of clouds",
+      "window seat with wing and sunset horizon",
+      "window seat during morning ascent",
+      "warm cabin accent with deep blue sky outside"
     ],
     "scene_anchor": "airplane window seat with clouds and blue sky visible outside, dim cabin light, tray table with book or headphones",
     "scene_overrides": [
@@ -2684,7 +2703,11 @@
       "per_model_tail": {}
     },
     "trigger_pool": [
-      "hotel restaurant with panoramic floor-to-ceiling windows, city or sea view, elegant breakfast table setting with fresh food"
+      "hotel restaurant with panoramic floor-to-ceiling windows, city or sea view, elegant breakfast table setting with fresh food",
+      "hotel breakfast terrace overlooking the sea",
+      "garden breakfast cafe with potted plants",
+      "wood-trimmed hotel dining room",
+      "rooftop brunch deck with city skyline"
     ],
     "scene_anchor": "hotel restaurant with panoramic floor-to-ceiling windows, city or sea view, elegant breakfast table setting with fresh food",
     "scene_overrides": [
@@ -2847,7 +2870,11 @@
       "per_model_tail": {}
     },
     "trigger_pool": [
-      "hotel or villa balcony overlooking turquoise sea, white railing, blue sky, tropical plants"
+      "hotel or villa balcony overlooking turquoise sea, white railing, blue sky, tropical plants",
+      "coastal villa balcony at sunset",
+      "balcony overlooking coast in the morning",
+      "whitewashed balcony on a Greek island",
+      "tropical resort balcony with palms"
     ],
     "scene_anchor": "hotel or villa balcony overlooking turquoise sea, white railing, blue sky, tropical plants",
     "scene_overrides": [
@@ -2999,7 +3026,10 @@
       "per_model_tail": {}
     },
     "trigger_pool": [
-      "charming European old-town cobblestone street, colorful facades, flower boxes on windows"
+      "charming European old-town cobblestone street, colorful facades, flower boxes on windows",
+      "medieval old-town cobblestone street at morning",
+      "stone-arched alley in a historic old town",
+      "quiet historic square with a central fountain"
     ],
     "scene_anchor": "charming European old-town cobblestone street, colorful facades, flower boxes on windows",
     "scene_overrides": [
@@ -3137,7 +3167,11 @@
       "per_model_tail": {}
     },
     "trigger_pool": [
-      "modern train interior, green landscape streaming by window, laptop on tray table, earbuds, warm natural light from window"
+      "modern train interior, green landscape streaming by window, laptop on tray table, earbuds, warm natural light from window",
+      "intercity train cabin with alpine scenery outside",
+      "coastal train with sea view through window",
+      "night train cabin with distant city lights passing",
+      "countryside train with autumn fields outside"
     ],
     "scene_anchor": "modern train interior, green landscape streaming by window, laptop on tray table, earbuds, warm natural light from window",
     "scene_overrides": [
@@ -3274,7 +3308,11 @@
       "per_model_tail": {}
     },
     "trigger_pool": [
-      "vibrant outdoor street market with colorful produce and goods, exotic textures, bustling atmosphere"
+      "vibrant outdoor street market with colorful produce and goods, exotic textures, bustling atmosphere",
+      "bustling Asian night market with lanterns",
+      "colorful morning bazaar with fresh produce",
+      "European flower market with potted blooms",
+      "aromatic spice souk alley with piled spices"
     ],
     "scene_anchor": "vibrant outdoor street market with colorful produce and goods, exotic textures, bustling atmosphere",
     "scene_overrides": [
@@ -3414,7 +3452,11 @@
       "per_model_tail": {}
     },
     "trigger_pool": [
-      "luxury hotel lobby with marble floor, modern reception area visible, luggage nearby"
+      "luxury hotel lobby with marble floor, modern reception area visible, luggage nearby",
+      "marble hotel lobby with concierge desk",
+      "modern design-hotel reception with wood accents",
+      "boutique hotel entrance with plants",
+      "rooftop hotel check-in with city view"
     ],
     "scene_anchor": "luxury hotel lobby with marble floor, modern reception area visible, luggage nearby",
     "scene_overrides": [
@@ -3658,7 +3700,9 @@
       "per_model_tail": {}
     },
     "trigger_pool": [
-      "stepping out of luxury car, door open, city backdrop, natural light catching the scene, polished car interior visible"
+      "stepping out of luxury car, door open, city backdrop, natural light catching the scene, polished car interior visible",
+      "luxury hotel portico with sedan beside",
+      "sleek sedan at a modern night boulevard"
     ],
     "scene_anchor": "stepping out of luxury car, door open, city backdrop, natural light catching the scene, polished car interior visible",
     "scene_overrides": [
@@ -3791,7 +3835,10 @@
       "per_model_tail": {}
     },
     "trigger_pool": [
-      "luxury sedan or sports car parked on sunlit city boulevard, warm golden reflections on polished paint, urban architecture visible behind"
+      "luxury sedan or sports car parked on sunlit city boulevard, warm golden reflections on polished paint, urban architecture visible behind",
+      "matte black sports car on a sunlit city boulevard",
+      "vintage coupe parked in a cobblestone alley",
+      "premium SUV parked on a mountain viewpoint"
     ],
     "scene_anchor": "luxury sedan or sports car parked on sunlit city boulevard, warm golden reflections on polished paint, urban architecture visible behind",
     "scene_overrides": [
@@ -3940,7 +3987,9 @@
       "per_model_tail": {}
     },
     "trigger_pool": [
-      "yacht deck with turquoise sea, white railings, clear blue sky"
+      "yacht deck with turquoise sea, white railings, clear blue sky",
+      "yacht deck moored in a luxury marina at sunset",
+      "yacht deck along a rocky coastline at morning"
     ],
     "scene_anchor": "yacht deck with turquoise sea, white railings, clear blue sky",
     "scene_overrides": [
@@ -4221,7 +4270,11 @@
       "per_model_tail": {}
     },
     "trigger_pool": [
-      "tropical beach at golden sunset, gentle waves"
+      "tropical beach at golden sunset, gentle waves",
+      "tropical beach with palm silhouettes",
+      "pacific coast beach with coastal cliffs behind",
+      "white-sand beach with a distant wooden pier",
+      "dune ridge above a wide empty beach"
     ],
     "scene_anchor": "tropical beach at golden sunset, gentle waves",
     "scene_overrides": [
@@ -4374,7 +4427,11 @@
       "per_model_tail": {}
     },
     "trigger_pool": [
-      "sunlit park with green grass and trees, open natural landscape"
+      "sunlit park with green grass and trees, open natural landscape",
+      "grassy park meadow with a friendly golden retriever",
+      "tree-lined city street with a medium-sized dog",
+      "sandy beach shoreline with a playful dog",
+      "bright living room with a small dog on a sofa"
     ],
     "scene_anchor": "sunlit park with green grass and trees, open natural landscape",
     "scene_overrides": [
@@ -4669,7 +4726,11 @@
       "per_model_tail": {}
     },
     "trigger_pool": [
-      "modern gym with matte equipment, mirrors in background"
+      "modern gym with matte equipment, mirrors in background",
+      "even overhead LED light with clean fill",
+      "modern gym weight area with matte equipment",
+      "functional training floor with turf and kettlebells",
+      "minimalist gym studio with mirrored wall"
     ],
     "scene_anchor": "modern gym with matte equipment, mirrors in background",
     "scene_overrides": [
@@ -4803,7 +4864,9 @@
       "per_model_tail": {}
     },
     "trigger_pool": [
-      "tree-lined park path at early morning, green foliage with dew"
+      "tree-lined park path at early morning, green foliage with dew",
+      "forest running trail with wood boards and pine trees",
+      "wet shoreline of a wide sandy beach"
     ],
     "scene_anchor": "tree-lined park path at early morning, green foliage with dew",
     "scene_overrides": [
@@ -4963,7 +5026,10 @@
       "per_model_tail": {}
     },
     "trigger_pool": [
-      "infinity pool edge with blue water, palm trees, resort setting, bright daylight with sparkling reflections"
+      "infinity pool edge with blue water, palm trees, resort setting, bright daylight with sparkling reflections",
+      "tropical villa pool surrounded by palms",
+      "quiet lap pool with morning mist rising",
+      "modern indoor spa pool with stone walls"
     ],
     "scene_anchor": "infinity pool edge with blue water, palm trees, resort setting, bright daylight with sparkling reflections",
     "scene_overrides": [
@@ -5113,7 +5179,9 @@
       "per_model_tail": {}
     },
     "trigger_pool": [
-      "mountain trail with panoramic valley view, rocky terrain, dramatic sky with warm clouds"
+      "mountain trail with panoramic valley view, rocky terrain, dramatic sky with warm clouds",
+      "forest ridge trail with pines and a distant valley",
+      "hiking trail by a clear mountain lake"
     ],
     "scene_anchor": "mountain trail with panoramic valley view, rocky terrain, dramatic sky with warm clouds",
     "scene_overrides": [
@@ -5273,7 +5341,10 @@
       "per_model_tail": {}
     },
     "trigger_pool": [
-      "outdoor yoga mat on green grass or beach, serene natural landscape, calm atmosphere"
+      "outdoor yoga mat on green grass or beach, serene natural landscape, calm atmosphere",
+      "sandy beach near gentle ocean waves",
+      "urban rooftop with city skyline",
+      "sunlit pine forest clearing"
     ],
     "scene_anchor": "outdoor yoga mat on green grass or beach, serene natural landscape, calm atmosphere",
     "scene_overrides": [
@@ -5425,7 +5496,11 @@
       "per_model_tail": {}
     },
     "trigger_pool": [
-      "scenic road or park trail with bicycle nearby, green landscape, open sky"
+      "scenic road or park trail with bicycle nearby, green landscape, open sky",
+      "coastal road with ocean on one side",
+      "forest cycling trail with pines",
+      "urban waterfront cycling path with skyline",
+      "mountain pass cycling road with valleys behind"
     ],
     "scene_anchor": "scenic road or park trail with bicycle nearby, green landscape, open sky",
     "scene_overrides": [
@@ -5588,7 +5663,11 @@
       "per_model_tail": {}
     },
     "trigger_pool": [
-      "outdoor tennis court, green court surface, net visible behind"
+      "outdoor tennis court, green court surface, net visible behind",
+      "outdoor blue hard court with clean lines",
+      "red-clay tennis court at a sunny club",
+      "grass tennis court with classic green fencing",
+      "indoor tennis training hall with wood ceiling"
     ],
     "scene_anchor": "outdoor tennis court, green court surface, net visible behind",
     "scene_overrides": [
@@ -5738,7 +5817,11 @@
       "per_model_tail": {}
     },
     "trigger_pool": [
-      "upscale restaurant, warm candlelight with clear interior details, dark wood and white linen, wine glass on table"
+      "upscale restaurant, warm candlelight with clear interior details, dark wood and white linen, wine glass on table",
+      "upscale fine-dining room with linen tables",
+      "rustic trattoria with brick and wood interior",
+      "glass-walled restaurant terrace above a river",
+      "intimate wine-cellar dining nook with arched ceiling"
     ],
     "scene_anchor": "upscale restaurant, warm candlelight with clear interior details, dark wood and white linen, wine glass on table",
     "scene_overrides": [
@@ -5860,7 +5943,10 @@
       "per_model_tail": {}
     },
     "trigger_pool": [
-      "modern cocktail lounge, clear interior details, bar shelves with bottles in background"
+      "modern cocktail lounge, clear interior details, bar shelves with bottles in background",
+      "speakeasy bar with dark wood and leather",
+      "rooftop cocktail bar with skyline behind",
+      "marble-counter lounge bar with gold accents"
     ],
     "scene_anchor": "modern cocktail lounge, clear interior details, bar shelves with bottles in background",
     "scene_overrides": [
@@ -5982,7 +6068,11 @@
       "per_model_tail": {}
     },
     "trigger_pool": [
-      "bright modern kitchen, natural window light, marble countertop, fresh ingredients and herbs visible"
+      "bright modern kitchen, natural window light, marble countertop, fresh ingredients and herbs visible",
+      "bright modern chef kitchen with marble counters",
+      "rustic kitchen with stone hearth",
+      "outdoor garden kitchen with grill",
+      "industrial loft kitchen with exposed beams"
     ],
     "scene_anchor": "bright modern kitchen, natural window light, marble countertop, fresh ingredients and herbs visible",
     "scene_overrides": [
@@ -6118,7 +6208,11 @@
       "per_model_tail": {}
     },
     "trigger_pool": [
-      "city street in light rain, wet reflections on pavement, glass surface with droplets, grey sky"
+      "city street in light rain, wet reflections on pavement, glass surface with droplets, grey sky",
+      "wet city street with reflective pavement and umbrellas",
+      "cozy cafe window with rain streaks outside",
+      "plaza pavement reflecting illuminated storefronts",
+      "covered city arcade beside rainy street"
     ],
     "scene_anchor": "city street in light rain, wet reflections on pavement, glass surface with droplets, grey sky",
     "scene_overrides": [
@@ -6257,7 +6351,11 @@
       "per_model_tail": {}
     },
     "trigger_pool": [
-      "cozy late-night coffee shop interior, interior clearly visible, city lights through window, steaming cup on table"
+      "cozy late-night coffee shop interior, interior clearly visible, city lights through window, steaming cup on table",
+      "vintage cafe counter at night with copper espresso machine",
+      "modern glass coffee kiosk on a night street",
+      "rooftop coffee bar with city lights behind",
+      "library cafe corner with bookshelves at night"
     ],
     "scene_anchor": "cozy late-night coffee shop interior, interior clearly visible, city lights through window, steaming cup on table",
     "scene_overrides": [
@@ -6379,7 +6477,10 @@
       "per_model_tail": {}
     },
     "trigger_pool": [
-      "modern apartment with warm ambient lamp lighting, city view through large window, comfortable interior, book or drink nearby"
+      "modern apartment with warm ambient lamp glow, city view through large window, comfortable interior, book or drink nearby",
+      "cozy living room with soft sofa and plants",
+      "modern loft kitchen at evening",
+      "reading corner with a throw blanket"
     ],
     "scene_anchor": "modern apartment with warm ambient lamp glow, city view through large window, comfortable interior, book or drink nearby",
     "scene_overrides": [
@@ -6514,7 +6615,11 @@
       "per_model_tail": {}
     },
     "trigger_pool": [
-      "matte-black motorcycle parked on empty road, open landscape behind"
+      "matte-black motorcycle parked on empty road, open landscape behind",
+      "matte-black motorcycle on an empty coastal road",
+      "motorcycle on a desert highway at sunset",
+      "sports motorcycle on a forest road curve",
+      "motorcycle parked near a modern urban underpass"
     ],
     "scene_anchor": "matte-black motorcycle parked on empty road, open landscape behind",
     "scene_overrides": [
@@ -6663,7 +6768,10 @@
       "per_model_tail": {}
     },
     "trigger_pool": [
-      "interior of modern car, diffused window light streaming through windshield, leather steering wheel and dashboard visible"
+      "interior of modern car, diffused window light streaming through windshield, leather steering wheel and dashboard visible",
+      "interior of a modern car on a quiet morning road",
+      "modern car interior on a city street",
+      "modern car cabin with coastline blurred outside"
     ],
     "scene_anchor": "interior of modern car, diffused window light streaming through windshield, leather steering wheel and dashboard visible",
     "scene_overrides": [
@@ -6785,7 +6893,11 @@
       "per_model_tail": {}
     },
     "trigger_pool": [
-      "contemporary art gallery, white walls with large paintings visible"
+      "contemporary art gallery, white walls with large paintings visible",
+      "white-cube gallery with large colorful paintings",
+      "modern gallery wing with sculptures",
+      "classical museum hall with gilded frames",
+      "clean directional gallery lighting on art"
     ],
     "scene_anchor": "contemporary art gallery, white walls with large paintings visible",
     "scene_overrides": [
@@ -6919,7 +7031,9 @@
       "per_model_tail": {}
     },
     "trigger_pool": [
-      "vibrant city street with graffiti walls, modern architecture"
+      "vibrant city street with graffiti walls, modern architecture",
+      "narrow urban alley with brick walls and murals",
+      "graffiti-covered wall with vivid colors"
     ],
     "scene_anchor": "vibrant city street with graffiti walls, modern architecture",
     "scene_overrides": [
@@ -7056,7 +7170,10 @@
       "per_model_tail": {}
     },
     "trigger_pool": [
-      "intimate music venue or home setting with guitar or instruments visible, exposed brick or wood"
+      "intimate music venue or home setting with guitar or instruments visible, exposed brick or wood",
+      "rock concert stage with silhouetted crowd",
+      "intimate club venue with small stage",
+      "classical concert hall with tiered seating"
     ],
     "scene_anchor": "intimate music venue or home setting with guitar or instruments visible, exposed brick or wood",
     "scene_overrides": [
@@ -7177,7 +7294,10 @@
       "per_model_tail": {}
     },
     "trigger_pool": [
-      "modern airport terminal or departure lounge, large windows with aircraft visible, clean bright interior"
+      "modern airport terminal or departure lounge, large windows with aircraft visible, clean bright interior",
+      "premium airport lounge with large windows",
+      "cobblestone street in a historic old town",
+      "mountain train platform with alpine view"
     ],
     "scene_anchor": "modern airport terminal or departure lounge, large windows with aircraft visible, clean bright interior",
     "scene_overrides": [
@@ -7454,7 +7574,10 @@
       "per_model_tail": {}
     },
     "trigger_pool": [
-      "studio with smooth gradient lighting, charcoal-to-warm-grey backdrop, clean even studio falloff"
+      "studio with smooth gradient backdrop falloff, charcoal-to-warm-grey backdrop, clean even studio setup",
+      "seamless charcoal-to-warm-grey studio backdrop",
+      "deep burgundy painted studio wall",
+      "matte soft-grey panel backdrop"
     ],
     "scene_anchor": "studio with smooth gradient backdrop falloff, charcoal-to-warm-grey backdrop, clean even studio setup",
     "scene_overrides": [
@@ -7576,7 +7699,11 @@
       "per_model_tail": {}
     },
     "trigger_pool": [
-      "cozy upscale cafe, exposed brick or wood paneling, bottles and candles in background"
+      "cozy upscale cafe, exposed brick or wood paneling, bottles and candles in background",
+      "cozy artisan cafe corner with shelves of ceramics",
+      "bright cafe window seat with potted plants",
+      "industrial loft cafe with exposed brick",
+      "Scandinavian minimal cafe with pale wood"
     ],
     "scene_anchor": "cozy upscale cafe, exposed brick or wood paneling, bottles and candles in background",
     "scene_overrides": [
@@ -7854,7 +7981,12 @@
     },
     "scenario": "tinder-pack",
     "trigger_pool": [
-      "pure neutral studio backdrop soft grey-to-white gradient, empty backdrop area, clean studio setup with backdrop fully visible"
+      "pure neutral studio backdrop soft grey-to-white gradient, empty backdrop area, clean studio setup with backdrop fully visible",
+      "pure white seamless studio backdrop",
+      "warm mid-grey seamless backdrop",
+      "muted beige seamless backdrop",
+      "gentle portrait key with natural fill",
+      "soft taupe studio backdrop"
     ],
     "scene_anchor": "pure neutral studio backdrop soft grey-to-white gradient, empty backdrop area, clean studio setup with backdrop fully visible",
     "scene_overrides": [
@@ -7979,7 +8111,11 @@
     },
     "scenario": "tinder-pack",
     "trigger_pool": [
-      "bright cafe interior by large window, plants and warm wood tones visible behind, details preserved"
+      "bright cafe interior by large window, plants and warm wood tones visible behind, details preserved",
+      "cafe window seat at morning",
+      "cafe window seat with soft rain outside",
+      "cafe window at a sunny terrace",
+      "cafe window seat at early evening"
     ],
     "scene_anchor": "bright cafe interior by large window, plants and warm wood tones visible behind, details preserved",
     "scene_overrides": [
@@ -8100,7 +8236,9 @@
       "per_model_tail": {}
     },
     "trigger_pool": [
-      "modern corner office, floor-to-ceiling windows with diffused daylight, neutral beige wall, clean minimalist interior"
+      "modern corner office, floor-to-ceiling windows with diffused daylight, neutral beige wall, clean minimalist interior",
+      "modern corner office with floor-to-ceiling windows",
+      "executive office lobby with marble wall"
     ],
     "scene_anchor": "modern corner office, floor-to-ceiling windows with diffused daylight, neutral beige wall, clean minimalist interior",
     "scene_overrides": [
@@ -8220,7 +8358,10 @@
       "per_model_tail": {}
     },
     "trigger_pool": [
-      "executive boardroom interior, polished dark table edge across the background, large screen or whiteboard visible"
+      "executive boardroom interior, polished dark table edge across the background, large screen or whiteboard visible",
+      "executive boardroom with dark polished table",
+      "glass-walled boardroom with city view",
+      "heritage boardroom with oil paintings"
     ],
     "scene_anchor": "executive boardroom interior, polished dark table edge across the background, large screen or whiteboard visible",
     "scene_overrides": [
@@ -8342,7 +8483,11 @@
       "per_model_tail": {}
     },
     "trigger_pool": [
-      "neutral gradient studio backdrop charcoal-to-grey, classic Rembrandt lighting with gentle fill"
+      "neutral gradient studio backdrop charcoal-to-grey, classic Rembrandt sidelight with gentle fill",
+      "classic Rembrandt key with gentle fill",
+      "deep blue studio backdrop",
+      "warm grey portrait backdrop",
+      "textured painterly canvas backdrop"
     ],
     "scene_anchor": "neutral gradient studio backdrop charcoal-to-grey, classic Rembrandt sidelight with gentle fill",
     "scene_overrides": [
@@ -8465,7 +8610,11 @@
       "per_model_tail": {}
     },
     "trigger_pool": [
-      "modern office with floor-to-ceiling glass wall, city panorama behind, clean architectural lines, natural daylight streaming in"
+      "modern office with floor-to-ceiling glass wall, city panorama behind, clean architectural lines, natural daylight streaming in",
+      "floor-to-ceiling glass wall facing the skyline",
+      "warm interior lamp with deep blue outside",
+      "glass-walled office at morning with skyline",
+      "glass wall overlooking a harbor"
     ],
     "scene_anchor": "modern office with floor-to-ceiling glass wall, city panorama behind, clean architectural lines, natural daylight streaming in",
     "scene_overrides": [
@@ -8589,7 +8738,11 @@
       "per_model_tail": {}
     },
     "trigger_pool": [
-      "open-plan startup office, standing desks, plants, glass partitions"
+      "open-plan startup office, standing desks, plants, glass partitions",
+      "open-plan startup office with standing desks",
+      "startup lounge with colorful beanbags and sofas",
+      "glass meeting pod in a modern office",
+      "brick-loft startup office with exposed beams"
     ],
     "scene_anchor": "open-plan startup office, standing desks, plants, glass partitions",
     "scene_overrides": [
@@ -8712,7 +8865,11 @@
       "per_model_tail": {}
     },
     "trigger_pool": [
-      "trendy coworking loft, exposed brick, community workspace in background"
+      "trendy coworking loft, exposed brick, community workspace in background",
+      "industrial coworking loft with exposed brick",
+      "coworking garden terrace",
+      "Scandinavian-style coworking with pale wood",
+      "rooftop coworking deck with city behind"
     ],
     "scene_anchor": "trendy coworking loft, exposed brick, community workspace in background",
     "scene_overrides": [
@@ -9335,7 +9492,10 @@
       "per_model_tail": {}
     },
     "trigger_pool": [
-      "modern office kitchen or lounge area, coffee machine in background, clean minimalist break space"
+      "modern office kitchen or lounge area, coffee machine in background, clean minimalist break space",
+      "modern office kitchen with espresso machine",
+      "office lounge with armchairs for coffee break",
+      "office patio garden for a coffee break"
     ],
     "scene_anchor": "modern office kitchen or lounge area, coffee machine in background, clean minimalist break space",
     "scene_overrides": [
@@ -9581,7 +9741,10 @@
       "per_model_tail": {}
     },
     "trigger_pool": [
-      "modern office corridor or glass-walled lobby, bright clean environment, meeting rooms visible behind, professional workspace atmosphere"
+      "modern office corridor or glass-walled lobby, bright clean environment, meeting rooms visible behind, professional workspace atmosphere",
+      "modern office corridor with glass meeting rooms",
+      "executive lobby with leather seating",
+      "modern elevator hall with polished floor"
     ],
     "scene_anchor": "modern office corridor or glass-walled lobby, bright clean environment, meeting rooms visible behind, professional workspace atmosphere",
     "scene_overrides": [
@@ -9829,7 +9992,10 @@
       "per_model_tail": {}
     },
     "trigger_pool": [
-      "premium airport or hotel business lounge, marble and leather surfaces, laptop and documents on table"
+      "premium airport or hotel business lounge, marble and leather surfaces, laptop and documents on table",
+      "executive hotel club lounge",
+      "private club lounge with bar shelves behind",
+      "rooftop business lounge with skyline"
     ],
     "scene_anchor": "premium airport or hotel business lounge, marble and leather surfaces, laptop and documents on table",
     "scene_overrides": [
@@ -10335,7 +10501,10 @@
       "per_model_tail": {}
     },
     "trigger_pool": [
-      "classic library or bookstore, books and wooden shelves behind, academic atmosphere"
+      "classic library or bookstore, books and wooden shelves behind, academic atmosphere",
+      "cozy bookstore corner with reading chair",
+      "university reading hall with wooden tables",
+      "study with stone fireplace behind"
     ],
     "scene_anchor": "classic library or bookstore, books and wooden shelves behind, academic atmosphere",
     "scene_overrides": [
@@ -10581,7 +10750,11 @@
       "per_model_tail": {}
     },
     "trigger_pool": [
-      "design studio, mood boards and sketches behind, mood boards in clear focus"
+      "design studio, mood boards and sketches behind, mood boards in clear focus",
+      "design studio wall with mood-boards",
+      "table with fabric and color samples",
+      "clean black studio with minimal props",
+      "art-loft studio with track lights"
     ],
     "scene_anchor": "design studio, mood boards and sketches behind, mood boards in clear focus",
     "scene_overrides": [
@@ -10703,7 +10876,10 @@
       "per_model_tail": {}
     },
     "trigger_pool": [
-      "clean modern clinic or hospital corridor, medical equipment in background"
+      "clean modern clinic or hospital corridor, medical equipment in background",
+      "tidy exam room with medical charts",
+      "hospital hallway with bright clean surfaces",
+      "research lab corner with microscope"
     ],
     "scene_anchor": "clean modern clinic or hospital corridor, medical equipment in background",
     "scene_overrides": [
@@ -10825,7 +11001,11 @@
       "per_model_tail": {}
     },
     "trigger_pool": [
-      "wood-panelled office interior, law books on shelves, soft daylight wash"
+      "wood-panelled office interior, law books on shelves, soft daylight wash",
+      "wood-panelled office interior with soft daylight wash",
+      "law-book archive shelves behind desk",
+      "marble chamber room with heritage details",
+      "city-view executive office"
     ],
     "scene_anchor": "wood-panelled office interior, law books on shelves, soft daylight wash",
     "scene_overrides": [
@@ -10946,7 +11126,9 @@
       "per_model_tail": {}
     },
     "trigger_pool": [
-      "architectural studio, blueprints and scale models on table, large drafting table"
+      "architectural studio, blueprints and scale models on table, large drafting table",
+      "architectural studio with drafting table",
+      "scale-model lab with detailed miniatures"
     ],
     "scene_anchor": "architectural studio, blueprints and scale models on table, large drafting table",
     "scene_overrides": [
@@ -11191,7 +11373,11 @@
       "per_model_tail": {}
     },
     "trigger_pool": [
-      "bright meeting room or cafe, whiteboard with diagrams behind"
+      "bright meeting room or cafe, whiteboard with diagrams behind",
+      "bright meeting room with whiteboard",
+      "cafe corner for mentoring chat",
+      "warm office with bookshelves",
+      "garden meeting nook"
     ],
     "scene_anchor": "bright meeting room or cafe, whiteboard with diagrams behind",
     "scene_overrides": [
@@ -11314,7 +11500,11 @@
       "per_model_tail": {}
     },
     "trigger_pool": [
-      "upscale outdoor cafe terrace, city street behind, laptop on table"
+      "upscale outdoor cafe terrace, city street behind, laptop on table",
+      "upscale outdoor cafe terrace on a city street",
+      "rooftop business nook with skyline",
+      "outdoor garden office with laptop",
+      "harborfront cafe with boats behind"
     ],
     "scene_anchor": "upscale outdoor cafe terrace, city street behind, laptop on table",
     "scene_overrides": [
@@ -11439,7 +11629,12 @@
       "per_model_tail": {}
     },
     "trigger_pool": [
-      "light-grey studio backdrop, even lighting from both sides, clean and distraction-free"
+      "light-grey studio backdrop, even illumination from both sides, clean and distraction-free",
+      "even diffused key light from both sides",
+      "light-grey studio backdrop, distraction-free",
+      "warm beige minimal backdrop",
+      "soft white minimalist studio backdrop",
+      "textured grey studio backdrop with subtle grain"
     ],
     "scene_anchor": "light-grey studio backdrop, even illumination from both sides, clean and distraction-free",
     "scene_overrides": [
@@ -12156,7 +12351,10 @@
       "per_model_tail": {}
     },
     "trigger_pool": [
-      "modern elevator interior, stainless steel or mirrored walls, clean minimal space"
+      "modern elevator interior, stainless steel or mirrored walls, clean minimal space",
+      "modern elevator with stainless steel walls",
+      "black matte elevator with gold trim",
+      "glass panoramic elevator with skyline behind"
     ],
     "scene_anchor": "modern elevator interior, stainless steel or mirrored walls, clean minimal space",
     "scene_overrides": [
@@ -12290,7 +12488,10 @@
       "per_model_tail": {}
     },
     "trigger_pool": [
-      "urban street caught mid-stride, natural unposed moment, pedestrians and architecture in scene"
+      "urban street caught mid-stride, natural unposed moment, pedestrians and architecture in scene",
+      "urban street caught mid-stride in morning",
+      "modern crosswalk caught candidly",
+      "rainy street candid with umbrella nearby"
     ],
     "scene_anchor": "urban street caught mid-stride, natural unposed moment, pedestrians and architecture in scene",
     "scene_overrides": [
@@ -12428,7 +12629,11 @@
       "per_model_tail": {}
     },
     "trigger_pool": [
-      "stylish boutique or designer store window facade, clean architectural lines, urban fashion setting"
+      "stylish boutique or designer store window facade, clean architectural lines, urban fashion setting",
+      "designer boutique window facade",
+      "vintage shopfront with colorful window",
+      "bookstore facade with neat display",
+      "coffee shop facade with plant accents"
     ],
     "scene_anchor": "stylish boutique or designer store window facade, clean architectural lines, urban fashion setting",
     "scene_overrides": [
@@ -12554,7 +12759,13 @@
       "per_model_tail": {}
     },
     "trigger_pool": [
-      "clean minimal backdrop fully visible, single directional key light with rich shadow on face, backdrop surfaces cleanly readable"
+      "clean minimal backdrop fully visible, single directional key light with rich shadow on face, backdrop surfaces cleanly readable",
+      "single directional key with rich shadow",
+      "clean black minimal backdrop",
+      "charcoal minimal backdrop",
+      "deep blue minimal backdrop",
+      "soft single key with gentle fill",
+      "warm grey minimal backdrop"
     ],
     "scene_anchor": "clean minimal backdrop fully visible, single directional key light with rich shadow on face, backdrop surfaces cleanly readable",
     "scene_overrides": [
@@ -12691,7 +12902,10 @@
       "per_model_tail": {}
     },
     "trigger_pool": [
-      "trendy urban rooftop, city skyline clearly visible, natural highlights on edges"
+      "trendy urban rooftop, city skyline clearly visible, natural highlights on edges",
+      "modern metro platform with clean lines",
+      "stylish alley with colorful mural",
+      "urban skatepark at sunset"
     ],
     "scene_anchor": "trendy urban rooftop, city skyline clearly visible, natural highlights on edges",
     "scene_overrides": [
@@ -12828,7 +13042,9 @@
       "per_model_tail": {}
     },
     "trigger_pool": [
-      "Scandinavian aesthetic"
+      "Scandinavian aesthetic",
+      "beige Scandinavian studio with soft textures",
+      "taupe seamless backdrop with a chair"
     ],
     "scene_anchor": "Scandinavian aesthetic",
     "scene_overrides": [
@@ -13104,7 +13320,10 @@
       "per_model_tail": {}
     },
     "trigger_pool": [
-      "city street at night with neon signs, vibrant pink-blue-purple reflections on wet pavement, sharp vibrant neon-lit street scene with readable signage"
+      "city street at night with neon signs, vibrant pink-blue-purple reflections on wet pavement, sharp vibrant neon-lit street scene with readable signage",
+      "Asian night alley with signs in sharp detail",
+      "game arcade exterior with neon marquee",
+      "subway entrance with neon signage"
     ],
     "scene_anchor": "city street at night with neon signs, vibrant pink-blue-purple reflections on wet pavement, sharp vibrant neon-lit street scene with readable signage",
     "scene_overrides": [
@@ -13394,7 +13613,10 @@
       "per_model_tail": {}
     },
     "trigger_pool": [
-      "cozy home corner with diffused window light, comfortable armchair, bookshelves behind"
+      "cozy home corner with diffused window light, comfortable armchair, bookshelves behind",
+      "armchair by a bright window with book",
+      "fireplace nook with a throw blanket",
+      "bed reading nook with pillows"
     ],
     "scene_anchor": "cozy home corner with diffused window light, comfortable armchair, bookshelves behind",
     "scene_overrides": [
@@ -13516,7 +13738,11 @@
       "per_model_tail": {}
     },
     "trigger_pool": [
-      "atmospheric bookshop cafe, books on shelves around, coffee on table beside open book"
+      "atmospheric bookshop cafe, books on shelves around, coffee on table beside open book",
+      "classic bookstore cafe with shelves",
+      "modern quiet cafe with minimalist shelves",
+      "library-style cafe with tall shelves",
+      "garden cafe reading spot"
     ],
     "scene_anchor": "atmospheric bookshop cafe, books on shelves around, coffee on table beside open book",
     "scene_overrides": [
@@ -13640,7 +13866,11 @@
       "per_model_tail": {}
     },
     "trigger_pool": [
-      "studio or desk with sketching supplies, drawings and pencils visible, creative workspace atmosphere"
+      "studio or desk with sketching supplies, drawings and pencils visible, creative workspace atmosphere",
+      "creative desk with pencils and sketches",
+      "cafe table with open sketchbook",
+      "art studio corner with easel sketches",
+      "park bench with sketchbook"
     ],
     "scene_anchor": "studio or desk with sketching supplies, drawings and pencils visible, creative workspace atmosphere",
     "scene_overrides": [
@@ -13763,7 +13993,11 @@
       "per_model_tail": {}
     },
     "trigger_pool": [
-      "outdoor or studio setting with interesting light conditions, professional camera in hands, creative shooting environment"
+      "outdoor or studio setting with interesting light conditions, professional camera in hands, creative shooting environment",
+      "studio with camera on tripod and backdrop",
+      "urban street shoot location",
+      "nature location with camera in hands",
+      "coastal shoot location with cliffs behind"
     ],
     "scene_anchor": "outdoor or studio setting with interesting light conditions, professional camera in hands, creative shooting environment",
     "scene_overrides": [
@@ -13887,7 +14121,11 @@
       "per_model_tail": {}
     },
     "trigger_pool": [
-      "serene outdoor garden or minimalist bright room, plants, calm zen atmosphere"
+      "serene outdoor garden or minimalist bright room, plants, calm zen atmosphere",
+      "serene zen garden with stones",
+      "minimal bright room for meditation",
+      "quiet beach shoreline at sunrise",
+      "forest clearing for meditation"
     ],
     "scene_anchor": "serene outdoor garden or minimalist bright room, plants, calm zen atmosphere",
     "scene_overrides": [
@@ -14147,7 +14385,9 @@
       "per_model_tail": {}
     },
     "trigger_pool": [
-      "scenic urban bike path or countryside road, bicycle in frame, green landscape, active lifestyle setting"
+      "scenic urban bike path or countryside road, bicycle in frame, green landscape, active lifestyle setting",
+      "scenic coastal road with ocean alongside",
+      "countryside road with green fields"
     ],
     "scene_anchor": "scenic urban bike path or countryside road, bicycle in frame, green landscape, active lifestyle setting",
     "scene_overrides": [
@@ -14284,7 +14524,10 @@
       "per_model_tail": {}
     },
     "trigger_pool": [
-      "modern gym or outdoor workout area, clean athletic environment"
+      "modern gym or outdoor workout area, clean athletic environment",
+      "outdoor workout area in a park",
+      "boutique fitness studio with mirrored wall",
+      "beach shoreline training spot"
     ],
     "scene_anchor": "modern gym or outdoor workout area, clean athletic environment",
     "scene_overrides": [
@@ -14573,7 +14816,10 @@
       "per_model_tail": {}
     },
     "trigger_pool": [
-      "urban street with dynamic energy, caught walking dynamically, sense of movement and energy"
+      "urban street with dynamic energy, caught walking dynamically, sense of movement and energy",
+      "urban street caught mid-stride",
+      "rainy street with dynamic energy",
+      "city street at night with motion"
     ],
     "scene_anchor": "urban street with dynamic energy, caught walking dynamically, sense of movement and energy",
     "scene_overrides": [
@@ -14711,7 +14957,10 @@
       "per_model_tail": {}
     },
     "trigger_pool": [
-      "concrete or stone surfaces"
+      "concrete or stone surfaces",
+      "stone wall with geometric light patterns",
+      "glass building with geometric reflections",
+      "brutalist architecture with bold shadow"
     ],
     "scene_anchor": "concrete or stone surfaces",
     "scene_overrides": [
@@ -14846,7 +15095,10 @@
       "per_model_tail": {}
     },
     "trigger_pool": [
-      "open rooftop or elevated space, sense of accomplishment and freedom"
+      "open rooftop or elevated space, sense of accomplishment and freedom",
+      "open rooftop with bright expansive sky",
+      "empty stadium stands with celebratory feel",
+      "elevated balcony with city below"
     ],
     "scene_anchor": "open rooftop or elevated space, sense of accomplishment and freedom",
     "scene_overrides": [
@@ -14997,7 +15249,11 @@
       "per_model_tail": {}
     },
     "trigger_pool": [
-      "urban setting with interesting visual juxtaposition, slightly playful atmosphere, architectural context"
+      "urban setting with interesting visual juxtaposition, slightly playful atmosphere, architectural context",
+      "urban mural street with playful art",
+      "narrow alley with colorful details",
+      "quirky shopfront with small display",
+      "park corner with playful architecture"
     ],
     "scene_anchor": "urban setting with interesting visual juxtaposition, slightly playful atmosphere, architectural context",
     "scene_overrides": [
@@ -15137,7 +15393,11 @@
       "per_model_tail": {}
     },
     "trigger_pool": [
-      "high-rise interior with floor-to-ceiling windows, city lights below at night rendered with crisp distant detail, dramatic metropolitan atmosphere, warm interior accent light"
+      "high-rise interior with floor-to-ceiling windows, city lights below at night rendered with crisp distant detail, dramatic metropolitan atmosphere, warm interior accent light",
+      "warm interior accent with deep blue sky",
+      "high-rise interior at sunset",
+      "high-rise interior with rainy city below",
+      "high-rise interior at day with skyline"
     ],
     "scene_anchor": "high-rise interior with floor-to-ceiling windows, city lights below at night rendered with crisp distant detail, dramatic metropolitan atmosphere, warm interior accent light",
     "scene_overrides": [
@@ -15259,7 +15519,10 @@
       "per_model_tail": {}
     },
     "trigger_pool": [
-      "city sidewalk, office buildings behind rendered sharply"
+      "city sidewalk, office buildings behind rendered sharply",
+      "city sidewalk at dusk with streetlights",
+      "entrance to a lounge bar at dusk",
+      "city pier at sunset"
     ],
     "scene_anchor": "city sidewalk, office buildings behind rendered sharply",
     "scene_overrides": [
@@ -15382,7 +15645,11 @@
       "per_model_tail": {}
     },
     "trigger_pool": [
-      "home desk at evening, notebook and tea, calm productivity atmosphere, dim window twilight behind"
+      "home desk at evening, notebook and tea, calm productivity atmosphere, dim window twilight behind",
+      "home desk with notebook and tea",
+      "kitchen table with notebook and tea",
+      "living room sofa with notebook",
+      "balcony seat with notebook at evening"
     ],
     "scene_anchor": "home desk at evening, notebook and tea, calm productivity atmosphere, dim window twilight behind",
     "scene_overrides": [
@@ -15506,7 +15773,12 @@
       "per_model_tail": {}
     },
     "trigger_pool": [
-      "retro cafe, vintage car, or old-town street, subtle film grain, muted colors"
+      "retro cafe, vintage car, or old-town street, subtle film grain, muted colors",
+      "retro diner cafe interior",
+      "street with a classic 60s car",
+      "warm desaturated tones with subtle grain",
+      "old cinema facade with vintage neon",
+      "retro diner booth seat"
     ],
     "scene_anchor": "retro cafe, vintage car, or old-town street, subtle film grain, muted colors",
     "scene_overrides": [
@@ -15631,7 +15903,11 @@
       "per_model_tail": {}
     },
     "trigger_pool": [
-      "light pastel-colored wall, clean minimal setting"
+      "light pastel-colored wall, clean minimal setting",
+      "soft pink minimal backdrop",
+      "mint-green minimal backdrop",
+      "lavender minimal backdrop",
+      "cream minimal backdrop"
     ],
     "scene_anchor": "light pastel-colored wall, clean minimal setting",
     "scene_overrides": [
@@ -16260,7 +16536,11 @@
       "per_model_tail": {}
     },
     "trigger_pool": [
-      "bright modern bedroom or bathroom, bright morning window light, white linens, plant on nightstand"
+      "bright modern bedroom or bathroom, bright morning window light, white linens, plant on nightstand",
+      "bright modern bedroom with white linens",
+      "modern bathroom with plants and soft tones",
+      "bright kitchen with fresh morning coffee",
+      "cozy balcony with morning tea"
     ],
     "scene_anchor": "bright modern bedroom or bathroom, bright morning window light, white linens, plant on nightstand",
     "scene_overrides": [
@@ -16384,7 +16664,11 @@
       "per_model_tail": {}
     },
     "trigger_pool": [
-      "beautifully plated food on marble table, restaurant or home kitchen, fresh herbs and ingredients"
+      "beautifully plated food on marble table, restaurant or home kitchen, fresh herbs and ingredients",
+      "beautifully plated food on marble table",
+      "rustic wood table with earthy plating",
+      "chef counter at modern restaurant",
+      "outdoor garden brunch table"
     ],
     "scene_anchor": "beautifully plated food on marble table, restaurant or home kitchen, fresh herbs and ingredients",
     "scene_overrides": [

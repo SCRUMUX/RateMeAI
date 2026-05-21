@@ -169,3 +169,104 @@ def test_tight_indoor_screen_scene_skipped_for_studio_portrait():
     }
     issues = lint_style(raw)
     assert "TIGHT_INDOOR_SCREEN_SCENE" not in _codes(issues)
+
+
+# ---------------------------------------------------------------------------
+# WARDROBE_LOWER_BODY_NOT_FULL_BODY (v1.71.2)
+# ---------------------------------------------------------------------------
+
+
+def test_wardrobe_lower_body_fires_on_portrait_pool_with_trousers():
+    raw = {
+        "id": "fictional_dating_landmark",
+        "schema_version": 3,
+        "default_clothing": (
+            "smart fitted shirt, tailored dark trousers, polished modern "
+            "shoes, well-fitted across the shoulders"
+        ),
+        "allowed_variations": {
+            "framing": ["portrait", "half_body", "full_body"],
+        },
+        "trigger_pool": ["dummy"],
+    }
+    issues = lint_style(raw)
+    hits = [i for i in issues if i["code"] == "WARDROBE_LOWER_BODY_NOT_FULL_BODY"]
+    assert hits, _codes(issues)
+    hit = hits[0]
+    assert hit["severity"] == "warning"
+    assert hit["field"] == "default_clothing"
+    assert "trousers" in hit["detail"]["tokens"]
+    assert "shoes" in hit["detail"]["tokens"]
+
+
+def test_wardrobe_lower_body_silent_on_full_body_only_pool():
+    # Full-body sports / outdoor style — every framing in the pool is
+    # full_body, so the runtime filter never fires.
+    raw = {
+        "id": "fictional_gym",
+        "schema_version": 3,
+        "default_clothing": "athletic shirt, training shorts, running shoes",
+        "allowed_variations": {"framing": ["full_body"]},
+        "trigger_pool": ["dummy"],
+    }
+    issues = lint_style(raw)
+    assert "WARDROBE_LOWER_BODY_NOT_FULL_BODY" not in _codes(issues)
+
+
+def test_wardrobe_lower_body_silent_when_no_low_body_tokens():
+    raw = {
+        "id": "fictional_neutral_top",
+        "schema_version": 3,
+        "default_clothing": "smart fitted shirt, crisp collar",
+        "allowed_variations": {"framing": ["portrait", "half_body"]},
+        "trigger_pool": ["dummy"],
+    }
+    issues = lint_style(raw)
+    assert "WARDROBE_LOWER_BODY_NOT_FULL_BODY" not in _codes(issues)
+
+
+def test_wardrobe_lower_body_reads_context_slots_pool():
+    # Older v2 entries carry the framing pool under ``context_slots``;
+    # the lint must consult both locations.
+    raw = {
+        "id": "fictional_v2_style",
+        "schema_version": 2,
+        "default_clothing": "blazer, dark jeans, sneakers",
+        "context_slots": {"framing": ["portrait", "half_body"]},
+        "trigger_pool": ["dummy"],
+    }
+    issues = lint_style(raw)
+    hits = [i for i in issues if i["code"] == "WARDROBE_LOWER_BODY_NOT_FULL_BODY"]
+    assert hits, _codes(issues)
+    assert "jeans" in hits[0]["detail"]["tokens"]
+    assert "sneakers" in hits[0]["detail"]["tokens"]
+
+
+def test_wardrobe_lower_body_emits_per_clothing_default_field():
+    # When a style ships a gendered ``clothing.default.*`` block, each
+    # offending gender should surface its own row so the admin UI can
+    # navigate directly to the field.
+    raw = {
+        "id": "fictional_gendered",
+        "schema_version": 3,
+        "clothing": {
+            "default": {
+                "male": "shirt, trousers, shoes",
+                "female": "blouse, skirt, heels",
+                "neutral": "blazer, jeans, sneakers",
+            }
+        },
+        "allowed_variations": {"framing": ["portrait", "half_body", "full_body"]},
+        "trigger_pool": ["dummy"],
+    }
+    issues = lint_style(raw)
+    fields = {
+        i["field"]
+        for i in issues
+        if i["code"] == "WARDROBE_LOWER_BODY_NOT_FULL_BODY"
+    }
+    assert fields == {
+        "clothing.default.male",
+        "clothing.default.female",
+        "clothing.default.neutral",
+    }

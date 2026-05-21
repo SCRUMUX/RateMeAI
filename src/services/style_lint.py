@@ -60,6 +60,16 @@ The lint rules cover the four concrete defects the user flagged on
   former cues with tight webcam-style crops and render an oversized
   head; a depth cue gives them the perspective needed for a balanced
   full-body composition.
+* ``WARDROBE_LOWER_BODY_NOT_FULL_BODY`` (v1.71.2) — informational
+  notice. ``default_clothing`` / ``clothing.default.*`` enumerates
+  lower-body garments (``trousers`` / ``jeans`` / ``slacks`` / …)
+  or footwear (``shoes`` / ``loafers`` / ``boots`` / …) on a style
+  whose framing pool exposes ``portrait`` or ``half_body``. The
+  v1.71.2 ``filter_wardrobe_by_framing`` runtime strips those
+  segments on tight-framing requests, so the on-disk wardrobe is
+  curatorially correct (catalogue describes the full outfit) but
+  the curator should know which segments will be invisible at
+  prompt-assembly time.
 
 Severity is either ``"error"`` (blocks save in strict admin mode) or
 ``"warning"`` (informational, save still allowed).
@@ -255,6 +265,51 @@ _DEPTH_CUE_RE = re.compile(
     r"|acoustic\s+(?:panel|foam)"
     r"|panel\s+wall"
     r"|side\s+window"
+    r")\b",
+    re.IGNORECASE,
+)
+
+
+# v1.71.2 — WARDROBE_LOWER_BODY_NOT_FULL_BODY. Tokens whose presence
+# in a wardrobe string means the runtime
+# ``src.prompts.image_gen.filter_wardrobe_by_framing`` will strip
+# the containing segment on a portrait / half_body framing request.
+# The catalogue keeps the full outfit (correct on full_body), but
+# the curator needs visibility into which segments will be invisible
+# at prompt-assembly time. Source of truth for the runtime filter
+# is :data:`src.prompts.image_gen._LOWER_BODY_WARDROBE_TOKENS` +
+# :data:`src.prompts.image_gen._FOOTWEAR_WARDROBE_TOKENS`; we mirror
+# the union here so the lint can run independently of the runtime
+# module (avoids a style_lint → image_gen import cycle when admin
+# saves load a partially-initialised module graph).
+_WARDROBE_LOWER_BODY_TOKENS_RE = re.compile(
+    r"\b("
+    r"trousers"
+    r"|pants"
+    r"|jeans"
+    r"|slacks"
+    r"|chinos"
+    r"|leggings"
+    r"|shorts"
+    r"|skirt"
+    r"|dress\s+trousers"
+    r"|denim"
+    r"|khakis"
+    r"|joggers"
+    r"|sweatpants"
+    r"|shoes"
+    r"|loafers"
+    r"|sneakers"
+    r"|trainers"
+    r"|boots"
+    r"|heels"
+    r"|espadrilles"
+    r"|flats"
+    r"|derbies"
+    r"|oxfords"
+    r"|brogues"
+    r"|mules"
+    r"|sandals"
     r")\b",
     re.IGNORECASE,
 )
@@ -846,6 +901,81 @@ def lint_style(raw: dict[str, Any]) -> list[LintIssue]:
                     detail={"tokens": pose_leaks, "value": value},
                 )
             )
+
+        # v1.71.2 — WARDROBE_LOWER_BODY_NOT_FULL_BODY. Informational
+        # notice for the curator. The runtime
+        # ``filter_wardrobe_by_framing`` strips lower-body / footwear
+        # segments on portrait / half_body framings; the catalogue is
+        # still curatorially correct, but the curator should be aware
+        # that on tight-framing requests those segments will not enter
+        # the wire prompt. We only emit when:
+        #
+        #  * the style exposes ``portrait`` or ``half_body`` in its
+        #    framing pool (``allowed_variations.framing`` /
+        #    ``context_slots.framing``), AND
+        #  * at least one wardrobe field carries a lower-body / footwear
+        #    token from ``_WARDROBE_LOWER_BODY_TOKENS_RE``.
+        #
+        # The runtime wardrobe filter source-of-truth lives in
+        # ``src.prompts.image_gen``; the regex below is intentionally
+        # broader (covers a few extra synonyms) so the lint flags more
+        # styles than the runtime silently filters — the curator sees
+        # the full set in one place.
+        framing_pool: list[str] = []
+        for path in (
+            ("allowed_variations", "framing"),
+            ("context_slots", "framing"),
+        ):
+            cursor: Any = raw
+            for key in path:
+                if isinstance(cursor, dict):
+                    cursor = cursor.get(key)
+                else:
+                    cursor = None
+                    break
+            if isinstance(cursor, list):
+                framing_pool.extend(
+                    str(v).strip().lower()
+                    for v in cursor
+                    if isinstance(v, str) and str(v).strip()
+                )
+
+        tight_framing_allowed = any(
+            f in {"portrait", "half_body"} for f in framing_pool
+        )
+        if tight_framing_allowed:
+            for field_name, value in clothing_sources:
+                lower_hits = sorted({
+                    m.group(0).lower()
+                    for m in _WARDROBE_LOWER_BODY_TOKENS_RE.finditer(value)
+                })
+                if not lower_hits:
+                    continue
+                issues.append(
+                    LintIssue(
+                        code="WARDROBE_LOWER_BODY_NOT_FULL_BODY",
+                        severity="warning",
+                        message=(
+                            f"{field_name} = {value!r} enumerates "
+                            f"lower-body / footwear segments "
+                            f"{lower_hits!r} on a style whose framing "
+                            "pool exposes ``portrait`` or ``half_body``. "
+                            "The v1.71.2 runtime ``filter_wardrobe_by_"
+                            "framing`` will strip those segments on tight "
+                            "framing requests — the catalogue stays "
+                            "curatorially correct but the segments do "
+                            "not reach the wire prompt. No action "
+                            "required unless you want the segments to "
+                            "survive: in that case move them to a "
+                            "separate channel or split the style."
+                        ),
+                        field=field_name,
+                        detail={
+                            "tokens": lower_hits,
+                            "framings_allowed": sorted(set(framing_pool)),
+                        },
+                    )
+                )
 
         # v1.71 — TIGHT_INDOOR_SCREEN_SCENE. Walk every scene field;
         # warn (do not block) when a screen-facing cue ships without

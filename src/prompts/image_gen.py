@@ -478,17 +478,131 @@ def _truncate(prompt: str) -> str:
 # независимо от стиля и пугало пользователей. Теперь framing влияет ТОЛЬКО
 # на композицию промпта: короткая директива в текст + ничего в размер.
 # Размер изображения по-прежнему задаёт стиль (spec.output_aspect).
+#
+# v1.71.2 — wording sharpened from passive ``Framing: …`` notes to an
+# explicit ``Crop the frame …; do not render …`` directive. The
+# post-mortem on the May 2026 ``singapore_marina_bay`` regression
+# (full-body output on a portrait-class upload) traced the root cause
+# to the wire prompt carrying ZERO crop signal — only ``_POSE_BY_FRAMING``
+# (which describes posture, not framing) ever reached the model. Edit
+# models given a portrait padded canvas + a wardrobe that mentions
+# ``trousers`` + a sweeping outdoor scene comfortably "filled in" the
+# blurred lower 60 % of the canvas with a fabricated body. The new
+# wording supplies the missing crop directive in language that v1.70
+# anatomy lint allows (no ``head-and-shoulders`` / ``bust shot`` /
+# ``upper third`` head-anchor tokens).
 _FRAMING_PROMPT_DIRECTIVES: dict[str, str] = {
-    "portrait": "Framing: natural waist-up snapshot.",
+    "portrait": (
+        "Crop the frame above the chest; do not render the lower body."
+    ),
     "half_body": (
-        "Framing: half-body composition from the waist up, "
-        "hands may be partially visible."
+        "Crop the frame above the waist; do not render the legs."
     ),
     "full_body": (
-        "Framing: complete body in frame, subject centered with "
-        "natural negative space."
+        "Full body visible from head to feet, balanced negative space."
     ),
 }
+
+
+# v1.71.2 — wardrobe filter by framing.
+#
+# Catalogue-level wardrobe strings tend to enumerate the FULL outfit
+# ("smart fitted shirt, tailored dark trousers, polished modern
+# shoes, well-fitted across the shoulders"). On a portrait or half-
+# body composition that enumeration becomes a body-shape hint — the
+# edit model treats the trouser/shoe mention as licence to render
+# the lower body even when the framing directive (above) tells it
+# not to. The runtime fix is to STRIP lower-body / footwear segments
+# from the wardrobe string before the prompt is assembled, without
+# touching the on-disk catalogue (which keeps the full outfit so
+# the same row is reusable on a future full-body upload).
+#
+# Tokens are matched case-insensitive against comma-separated wardrobe
+# segments. A segment is kept iff it carries none of the banned
+# tokens for the current framing. Document styles bypass the filter
+# entirely (DOC_PRESERVE has its own composition contract).
+_LOWER_BODY_WARDROBE_TOKENS: tuple[str, ...] = (
+    "trousers",
+    "pants",
+    "jeans",
+    "slacks",
+    "chinos",
+    "leggings",
+    "shorts",
+    "skirt",
+    "dress trousers",
+    "denim",
+    "khakis",
+    "joggers",
+    "sweatpants",
+)
+_FOOTWEAR_WARDROBE_TOKENS: tuple[str, ...] = (
+    "shoes",
+    "loafers",
+    "sneakers",
+    "trainers",
+    "boots",
+    "heels",
+    "espadrilles",
+    "flats",
+    "derbies",
+    "oxfords",
+    "brogues",
+    "mules",
+    "sandals",
+)
+
+
+def _wardrobe_banned_tokens(framing: str | None) -> tuple[str, ...]:
+    """Return the wardrobe tokens that must NOT appear for ``framing``.
+
+    * ``portrait`` — drop both lower-body garments and footwear; the
+      crop directive shows only chest and above.
+    * ``half_body`` — drop only footwear; trousers / skirts may still
+      enter the frame at the waist edge.
+    * ``full_body`` / unknown / ``None`` — no filtering; the entire
+      outfit is visible by design.
+    """
+    if not framing:
+        return ()
+    f = framing.strip().lower()
+    if f == "portrait":
+        return _LOWER_BODY_WARDROBE_TOKENS + _FOOTWEAR_WARDROBE_TOKENS
+    if f == "half_body":
+        return _FOOTWEAR_WARDROBE_TOKENS
+    return ()
+
+
+def filter_wardrobe_by_framing(clothing: str, framing: str | None) -> str:
+    """Drop lower-body / footwear segments from a wardrobe string.
+
+    Args:
+        clothing: raw wardrobe string from the catalogue (or override)
+            — segments separated by commas. ``"smart fitted shirt,
+            tailored dark trousers, polished modern shoes, well-fitted
+            across the shoulders"``.
+        framing: ``"portrait" | "half_body" | "full_body" | None``.
+
+    Returns:
+        Filtered string; empty string if every segment matched a
+        banned token. Whitespace is preserved between kept segments,
+        trailing punctuation is left to the caller.
+    """
+    if not clothing:
+        return ""
+    banned = _wardrobe_banned_tokens(framing)
+    if not banned:
+        return clothing
+    segments = [seg.strip() for seg in clothing.split(",")]
+    kept: list[str] = []
+    for seg in segments:
+        if not seg:
+            continue
+        lower = seg.lower()
+        if any(tok in lower for tok in banned):
+            continue
+        kept.append(seg)
+    return ", ".join(kept)
 
 
 # v1.65 introduced ``_COMPOSITION_NUMERICAL_HINT`` (cinematic
