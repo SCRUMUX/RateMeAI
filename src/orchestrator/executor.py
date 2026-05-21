@@ -1062,6 +1062,182 @@ class ImageGenerationExecutor:
                 "Failed to record FAL_CALLS metric for %s: %s", step, e
             )
 
+    async def _persist_and_metric(
+        self,
+        raw: bytes,
+        *,
+        user_id: str,
+        task_id: str,
+        mode: AnalysisMode,
+        style: str,
+        result_dict: dict,
+        first_pass_backend: str,
+        ab_active: bool,
+        ab_image_model: str,
+        ab_image_quality: str,
+        extra: dict,
+        provider_name: str,
+        identity_match: float,
+        generation_attempts: int,
+        codeformer_applied: bool,
+        face_area_ratio: float,
+    ) -> None:
+        """Upload generated JPEG + record cost/backend metrics.
+
+        v1.71 (Phase 4.5 of the tech-debt roadmap): extracted from
+        :meth:`single_pass`. Side effects only — writes URLs and cost
+        metadata into ``result_dict``, bumps Prometheus counters, and
+        logs the final ``Image generated backend=…`` line. Behaviour is
+        byte-for-byte unchanged from the inlined version.
+        """
+        raw = inject_exif_only(raw)
+
+        gkey = f"generated/{user_id}/{task_id}.jpg"
+        result_dict["_generation_stash_jpeg"] = bytes(raw)
+        await self._storage.upload(gkey, raw)
+        gen_url = await self._storage.get_url(gkey)
+        result_dict["generated_image_url"] = gen_url
+        result_dict["image_url"] = gen_url
+
+        routed_label = first_pass_backend or ""
+        if ab_active:
+            from src.metrics import (
+                ab_backend_label,
+                estimate_ab_image_gen_cost_usd,
+            )
+
+            _ab_q = (
+                extra.get("quality")
+                or ab_image_quality
+                or getattr(settings, "ab_default_quality", "medium")
+            )
+            backend_label = ab_backend_label(ab_image_model, _ab_q)
+            per_call_cost = estimate_ab_image_gen_cost_usd(
+                ab_image_model,
+                _ab_q,
+            )
+        else:
+            backend_label, per_call_cost = _estimate_backend_cost(
+                provider_name,
+                image_size=extra.get("image_size"),
+                routed_backend=routed_label,
+            )
+        estimated_cost = per_call_cost * max(1, generation_attempts)
+
+        try:
+            IMAGE_GEN_BACKEND.labels(backend=backend_label).inc()
+        except Exception:
+            pass
+        try:
+            GENERATION_COST_USD.labels(
+                backend=backend_label,
+            ).observe(estimated_cost)
+        except Exception:
+            pass
+
+        result_dict["enhancement"] = {
+            "style": style or "default",
+            "mode": mode.value,
+            "provider": provider_name,
+            "backend": backend_label,
+            "identity_match": round(identity_match, 2),
+            "generation_attempts": generation_attempts,
+            "pipeline_type": "single_pass_edit",
+            "codeformer_applied": codeformer_applied,
+        }
+        cost_steps = [
+            {
+                "step": "single_pass_edit",
+                "model": provider_name,
+                "backend": backend_label,
+                "cost_usd": round(per_call_cost, 4),
+            }
+        ]
+        if generation_attempts > 1:
+            cost_steps.append(
+                {
+                    "step": "identity_retry",
+                    "model": provider_name,
+                    "backend": backend_label,
+                    "cost_usd": round(
+                        per_call_cost * (generation_attempts - 1),
+                        4,
+                    ),
+                }
+            )
+        esrgan_on = bool(
+            getattr(settings, "real_esrgan_enabled", False)
+            and face_area_ratio
+            and face_area_ratio >= _UPSCALE_FACE_THRESHOLD
+        )
+        esrgan_cost = 0.0
+        if esrgan_on:
+            esrgan_cost = float(
+                getattr(
+                    settings,
+                    "model_cost_fal_real_esrgan",
+                    0.002,
+                )
+            ) * float(max(1, generation_attempts))
+            cost_steps.append(
+                {
+                    "step": "real_esrgan",
+                    "model": getattr(
+                        settings,
+                        "real_esrgan_model",
+                        "fal-ai/real-esrgan",
+                    ),
+                    "cost_usd": round(esrgan_cost, 4),
+                }
+            )
+        codeformer_cost = 0.0
+        if codeformer_applied:
+            per_mp = float(
+                getattr(
+                    settings,
+                    "model_cost_fal_codeformer_per_mp",
+                    0.0021,
+                )
+            )
+            upscale = float(
+                getattr(
+                    settings,
+                    "codeformer_upscale_factor",
+                    2.0,
+                )
+            )
+            codeformer_cost = round(
+                per_mp * max(1.0, upscale * upscale),
+                4,
+            )
+            cost_steps.append(
+                {
+                    "step": "codeformer",
+                    "model": getattr(
+                        settings,
+                        "codeformer_model",
+                        "fal-ai/codeformer",
+                    ),
+                    "cost_usd": codeformer_cost,
+                }
+            )
+        result_dict["cost_breakdown"] = {
+            "steps": cost_steps,
+            "total_usd": round(
+                estimated_cost + esrgan_cost + codeformer_cost,
+                4,
+            ),
+            "budget_usd": settings.pipeline_budget_max_usd,
+        }
+        logger.info(
+            "Image generated backend=%s key=%s "
+            "identity_match=%.2f cost=$%.4f",
+            backend_label,
+            gkey,
+            identity_match,
+            estimated_cost + esrgan_cost + codeformer_cost,
+        )
+
     async def single_pass(
         self,
         mode: AnalysisMode,
@@ -1596,165 +1772,25 @@ class ImageGenerationExecutor:
                     )
 
             if raw and len(raw) > 100:
-                raw = inject_exif_only(raw)
-
-                gkey = f"generated/{user_id}/{task_id}.jpg"
-                # Ephemeral same-process copy so the worker can stage Redis/DB
-                # without a second disk read (app/worker disks differ on Railway).
-                result_dict["_generation_stash_jpeg"] = bytes(raw)
-                await self._storage.upload(gkey, raw)
-                gen_url = await self._storage.get_url(gkey)
-                result_dict["generated_image_url"] = gen_url
-                result_dict["image_url"] = gen_url
-
-                # v1.64: backend label is whatever the request asked
-                # for via ``image_model`` — captured in ``first_pass_backend``
-                # at the top of this block.
-                routed_label = first_pass_backend or ""
-                if ab_active:
-                    from src.metrics import (
-                        ab_backend_label,
-                        estimate_ab_image_gen_cost_usd,
-                    )
-
-                    _ab_q = (
-                        extra.get("quality")
-                        or ab_image_quality
-                        or getattr(settings, "ab_default_quality", "medium")
-                    )
-                    backend_label = ab_backend_label(ab_image_model, _ab_q)
-                    per_call_cost = estimate_ab_image_gen_cost_usd(
-                        ab_image_model,
-                        _ab_q,
-                    )
-                else:
-                    backend_label, per_call_cost = _estimate_backend_cost(
-                        provider_name,
-                        image_size=extra.get("image_size"),
-                        routed_backend=routed_label,
-                    )
-                estimated_cost = per_call_cost * max(1, generation_attempts)
-
-                try:
-                    IMAGE_GEN_BACKEND.labels(backend=backend_label).inc()
-                except Exception:
-                    pass
-                try:
-                    GENERATION_COST_USD.labels(
-                        backend=backend_label,
-                    ).observe(estimated_cost)
-                except Exception:
-                    pass
-
-                result_dict["enhancement"] = {
-                    "style": style or "default",
-                    "mode": mode.value,
-                    "provider": provider_name,
-                    "backend": backend_label,
-                    "identity_match": round(identity_match, 2),
-                    "generation_attempts": generation_attempts,
-                    "pipeline_type": "single_pass_edit",
-                    "codeformer_applied": codeformer_applied,
-                }
-                cost_steps = [
-                    {
-                        "step": "single_pass_edit",
-                        "model": provider_name,
-                        "backend": backend_label,
-                        "cost_usd": round(per_call_cost, 4),
-                    }
-                ]
-                if generation_attempts > 1:
-                    cost_steps.append(
-                        {
-                            "step": "identity_retry",
-                            "model": provider_name,
-                            "backend": backend_label,
-                            "cost_usd": round(
-                                per_call_cost * (generation_attempts - 1),
-                                4,
-                            ),
-                        }
-                    )
-                # v1.17 — attribute Real-ESRGAN spend when it actually
-                # ran. We can't observe the provider call from here (it's
-                # fire-and-forget inside _maybe_real_esrgan_upscale), so
-                # we infer activation from the same flag+threshold gate
-                # and trust the fallback path to keep us safe.
-                esrgan_on = bool(
-                    getattr(settings, "real_esrgan_enabled", False)
-                    and face_area_ratio
-                    and face_area_ratio >= _UPSCALE_FACE_THRESHOLD
-                )
-                esrgan_cost = 0.0
-                if esrgan_on:
-                    esrgan_cost = float(
-                        getattr(
-                            settings,
-                            "model_cost_fal_real_esrgan",
-                            0.002,
-                        )
-                    ) * float(max(1, generation_attempts))
-                    cost_steps.append(
-                        {
-                            "step": "real_esrgan",
-                            "model": getattr(
-                                settings,
-                                "real_esrgan_model",
-                                "fal-ai/real-esrgan",
-                            ),
-                            "cost_usd": round(esrgan_cost, 4),
-                        }
-                    )
-                # v1.18 — CodeFormer post-process spend.
-                codeformer_cost = 0.0
-                if codeformer_applied:
-                    # Rough per-image estimate: output ≈ 1 MP × 2× upscale
-                    # = 4 MP billable × $0.0021/MP ≈ $0.0084.
-                    per_mp = float(
-                        getattr(
-                            settings,
-                            "model_cost_fal_codeformer_per_mp",
-                            0.0021,
-                        )
-                    )
-                    upscale = float(
-                        getattr(
-                            settings,
-                            "codeformer_upscale_factor",
-                            2.0,
-                        )
-                    )
-                    codeformer_cost = round(
-                        per_mp * max(1.0, upscale * upscale),
-                        4,
-                    )
-                    cost_steps.append(
-                        {
-                            "step": "codeformer",
-                            "model": getattr(
-                                settings,
-                                "codeformer_model",
-                                "fal-ai/codeformer",
-                            ),
-                            "cost_usd": codeformer_cost,
-                        }
-                    )
-                result_dict["cost_breakdown"] = {
-                    "steps": cost_steps,
-                    "total_usd": round(
-                        estimated_cost + esrgan_cost + codeformer_cost,
-                        4,
-                    ),
-                    "budget_usd": settings.pipeline_budget_max_usd,
-                }
-                logger.info(
-                    "Image generated backend=%s key=%s "
-                    "identity_match=%.2f cost=$%.4f",
-                    backend_label,
-                    gkey,
-                    identity_match,
-                    estimated_cost + esrgan_cost + codeformer_cost,
+                # v1.71 (Phase 4.5): storage upload + cost/backend
+                # metrics consolidated in :meth:`_persist_and_metric`.
+                await self._persist_and_metric(
+                    raw,
+                    user_id=user_id,
+                    task_id=task_id,
+                    mode=mode,
+                    style=style,
+                    result_dict=result_dict,
+                    first_pass_backend=first_pass_backend,
+                    ab_active=ab_active,
+                    ab_image_model=ab_image_model,
+                    ab_image_quality=ab_image_quality,
+                    extra=extra,
+                    provider_name=provider_name,
+                    identity_match=identity_match,
+                    generation_attempts=generation_attempts,
+                    codeformer_applied=codeformer_applied,
+                    face_area_ratio=face_area_ratio,
                 )
             else:
                 logger.warning(

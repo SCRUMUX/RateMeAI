@@ -4,6 +4,10 @@ Version history for RateMeAI. Each release bumps ``src/version.py:APP_VERSION``;
 
 Style: newest first, semantic-ish ``major.minor.patch`` versioning. Pre-v1.14 history is intentionally omitted (predates the FAL rebuild).
 
+## 1.70.24
+
+Tech-debt cleanup Phase 4, step 4.5: ``single_pass`` persist + metrics block extracted into ``ImageGenerationExecutor._persist_and_metric``. The ~160-line section (EXIF inject, S3 upload, URL writes, ``enhancement`` dict, ``cost_breakdown`` with Real-ESRGAN / CodeFormer line items, ``IMAGE_GEN_BACKEND`` / ``GENERATION_COST_USD`` Prometheus bumps) now lives in one async helper. Behaviour is byte-for-byte unchanged; full pytest (3179) green. Continues the ``single_pass`` decomposition — one extract left (4.6 identity-retry loop).
+
 ## 1.70.23
 
 Tech-debt cleanup Phase 4, step 4.4: ``single_pass`` post-processing block extracted. ``ImageGenerationExecutor._postprocess`` wraps the local crop / x2 LANCZOS upscale (``_apply_local_postprocess``) and the gated CodeFormer + Real-ESRGAN passes behind a single ``apply_quality_post`` flag — callers pass ``not ab_active`` for the first pass (skips on the A/B production path) and ``True`` for identity retries (matching the pre-refactor behaviour). Companion helper ``_record_fal_call_metric`` consolidates the duplicated ``UnifiedImageGenProvider`` → ``nano_banana_model`` / ``gpt_image_2_model`` dispatch + ``FAL_CALLS`` counter bump that lived inline twice (first pass + identity retry). Behaviour and metric labels are byte-for-byte unchanged; full pytest (3179) green. ``single_pass`` is ~75 lines shorter.
