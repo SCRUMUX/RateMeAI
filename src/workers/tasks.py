@@ -455,18 +455,20 @@ async def _process_analysis_inner(ctx: dict, task_id: str):
                     analysis_result["image_gen_error"] = "artifact_staging_failed"
 
                 skip_deduct = context.get("skip_credit_deduct", False)
-                # v1.72 — premium-tier credit reservation. The
-                # ``/analyze`` handler reserves a SECOND credit when
-                # the user picks "Premium" (see
-                # ``src/api/v1/analyze.py``). If the Clarity refiner
-                # post-pass failed at generation time the executor
-                # writes ``premium_refine_failed=True`` into the
-                # result dict; we refund 1 of the 2 reserved credits
-                # so the user is not over-charged for an upgrade
-                # that didn't run. The standard image they did get
-                # still costs the first credit.
-                premium_refine_failed = bool(
-                    analysis_result.get("premium_refine_failed", False)
+                # v1.75 — Premium-tier credit reservation. The
+                # ``/analyze`` handler now reserves **5 credits** for
+                # the premium tier (1 base + ``PREMIUM_EXTRA_CREDIT_RESERVE``
+                # = 4 extra; see ``src/services/analysis_request.py``).
+                # If the Clarity refiner post-pass fails the executor
+                # raises ``RuntimeError("premium_refine_unavailable")``
+                # so this success-path branch is never reached on a
+                # failed premium upgrade — failure routing happens in
+                # the except-path refund block below. No silent
+                # downgrade to Standard.
+                premium_credit_cost = int(
+                    context.get("premium_credit_cost", 5)
+                    if premium_pre_reserved
+                    else 1
                 )
                 if skip_deduct:
                     logger.info(
@@ -474,46 +476,20 @@ async def _process_analysis_inner(ctx: dict, task_id: str):
                     )
                     analysis_result["credit_deducted"] = False
                 elif credit_pre_reserved:
-                    CREDITS_USED.inc()
-                    if premium_pre_reserved:
+                    # Each reserved credit was already debited at
+                    # ``/analyze`` time (see ``check_credits_with_consent``
+                    # / ``reserve_additional_credit``). The CREDITS_USED
+                    # counter mirrors the actual seat-equivalent count.
+                    for _ in range(premium_credit_cost):
                         CREDITS_USED.inc()
                     logger.info(
                         "Credit was pre-reserved at request time for task %s "
-                        "(premium=%s)",
+                        "(premium=%s, credits=%d)",
                         task_id,
                         premium_pre_reserved,
+                        premium_credit_cost,
                     )
                     analysis_result["credit_deducted"] = True
-
-                    if premium_pre_reserved and premium_refine_failed:
-                        try:
-                            u_ref = await db.execute(
-                                select(User)
-                                .where(User.id == task.user_id)
-                                .with_for_update()
-                            )
-                            user_ref = u_ref.scalar_one()
-                            user_ref.image_credits += 1
-                            db.add(
-                                CreditTransaction(
-                                    user_id=task.user_id,
-                                    amount=1,
-                                    balance_after=user_ref.image_credits,
-                                    tx_type="refund_premium_refine_failed",
-                                )
-                            )
-                            analysis_result["premium_credit_refunded"] = True
-                            logger.info(
-                                "Refunded 1 credit for premium task %s "
-                                "(refiner failed, base image delivered)",
-                                task_id,
-                            )
-                        except Exception:
-                            logger.exception(
-                                "Failed to refund premium credit for "
-                                "task %s",
-                                task_id,
-                            )
                 else:
                     try:
                         u = await db.execute(
@@ -713,12 +689,23 @@ async def _process_analysis_inner(ctx: dict, task_id: str):
             # retry already refunded (e.g. ARQ re-ran the job after a
             # crash between refund and cleanup), we skip the second credit.
             if credit_pre_reserved:
-                # v1.72 — refund both credits when premium was
-                # reserved. ``credit_premium_reserved`` lives on the
-                # task context written by the ``/analyze`` handler.
+                # v1.75 — refund the full premium charge (5 credits)
+                # when the task was reserved at the premium tier.
+                # ``credit_premium_reserved`` lives on the task
+                # context written by the ``/analyze`` handler;
+                # ``premium_credit_cost`` is the single source of
+                # truth (defaults to 5, set explicitly when the
+                # premium reservation succeeded). Earlier the failure
+                # path refunded only 2 credits for premium, leaving
+                # 3 credits stranded if the premium pipeline failed
+                # — fixed in this release.
                 _ctx = (task.context or {}) if hasattr(task, "context") else {}
                 failed_premium = bool(_ctx.get("credit_premium_reserved", False))
-                refund_amount = 2 if failed_premium else 1
+                refund_amount = (
+                    int(_ctx.get("premium_credit_cost", 5))
+                    if failed_premium
+                    else 1
+                )
                 refund_key = f"refund:{task_id}"
                 try:
                     async with db_sessionmaker() as refund_db:

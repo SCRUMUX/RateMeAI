@@ -4,6 +4,25 @@ Version history for RateMeAI. Each release bumps ``src/version.py:APP_VERSION``;
 
 Style: newest first, semantic-ish ``major.minor.patch`` versioning. Pre-v1.14 history is intentionally omitted (predates the FAL rebuild).
 
+## 1.75.0 — Premium is actually premium (high quality, 5 credits, hard fail)
+
+Fixes the post-v1.73 user complaint that Standard and Premium were rendering the same image at the same resolution: both tiers were pinning ``image_quality="medium"`` on the FAL side, and the only difference was the Clarity Upscaler x2 post-pass — which the user could not visually distinguish from Standard on most subjects. Three coordinated changes:
+
+* **Premium switches the FAL ``quality`` knob to ``high``.** ``apply_tier_context_fields`` (``src/services/analysis_request.py``) now writes ``image_quality="high"`` on the premium path and keeps ``image_quality="medium"`` on the standard path. ``high`` triggers the gpt_image_2 high-quality reasoning branch which materially changes the base render (more reasoning steps, finer face / texture rendering, ≈ 2048² source) — independent of the Clarity post-pass. Standard remains on the medium branch (≈ 1536² source). The kill-switch ``settings.clarity_refiner_enabled=False`` still drops ``image_refine`` but leaves the ``high`` quality knob alone — the user is still upgraded on the base render even if Clarity is disabled.
+* **Premium reserves 5 credits up-front.** New constants ``PREMIUM_CREDIT_COST = 5`` and ``PREMIUM_EXTRA_CREDIT_RESERVE = 4`` in ``src/services/analysis_request.py`` are the single source of truth for the analyze handler, the worker refund path, and the unit tests. ``POST /analyze`` now calls ``reserve_additional_credit(amount=4)`` (vs the v1.72 ``amount=1``) on top of the always-reserved first credit; the new total matches the FAL cost stack (≈ $0.20 high-quality base + ≈ $0.04 Clarity x2 ≈ $0.24 — within the user-set $0.25 budget). If the additional reserve fails 402, the first credit is refunded as before so the user is never half-charged. ``ctx["premium_credit_cost"]`` is persisted on the task context so the worker refund path reads the correct refund amount even if a future deploy bumps the constant.
+* **No more silent downgrade on Premium failure.** Previously when the Clarity refiner post-pass failed the executor wrote ``result_dict["premium_refine_failed"]=True`` + a warning string and the worker refunded 1 of 2 credits — i.e. the user paid 1 credit for an effectively-Standard render. v1.75: ``_apply_clarity_refine`` now ``raise RuntimeError("premium_refine_unavailable: …")`` so the task is routed through the worker's FAILED-task path. The worker refund block reads ``ctx["premium_credit_cost"]`` (default 5) and refunds the full premium charge via ``CreditTransaction.tx_type="refund_failed_task"`` keyed by ``payment_id="refund:<task_id>"`` (idempotent under ARQ retries). The user sees a clean error instead of a Standard-grade image at Premium-tier prices.
+
+Frontend / locales: ``web/src/data/ab-models.ts`` premium tier rewritten — ``creditCost: 5``, ``short: "Высокое качество и ×2 разрешение"``, ``cost: { low: 0.18, medium: 0.20, high: 0.25 }``. ``web/src/locales/ru|en/catalog.json`` premium copy rewritten to document the actual quality difference and the "no silent downgrade" guarantee. ``creditsPerGen`` pluralisation already handles count=5 in both locales (``5 кредитов`` / ``5 credits``) so no extra plural keys were needed.
+
+Tests:
+
+* ``tests/test_services/test_analysis_request_tier.py`` — ``test_premium_tier_pins_gpt_image_2_high`` (renamed from ``_medium``), ``test_premium_tier_respects_clarity_refiner_kill_switch`` updated to assert ``image_quality=="high"`` even with the kill-switch on, ``test_premium_credit_cost_is_five`` / ``test_premium_extra_credit_reserve_is_four`` / ``test_premium_credit_cost_invariant`` pin the new constants, and the parametrised ``test_tier_to_quality_refine_mapping_pins_contract`` now binds both axes (``image_quality`` AND ``image_refine``) so a future drift on either side fails CI loudly.
+* No other test referenced the v1.72 ``premium_refine_failed`` signal or the 2-credit reservation, so the rest of the suite was unaffected.
+
+Full pytest 4558 passed / 128 skipped, ruff clean, frontend ``tsc --noEmit`` clean.
+
+Compatibility note: workers running v1.72/1.74 code against a v1.75 analyze handler will see ``premium_credit_cost=5`` in the task context and ``ctx["credit_premium_reserved"]=True``. The v1.72 worker refund branch checks ``failed_premium`` and refunds ``2`` — leaving 3 credits unrefunded if the task fails. Deploy app + worker + bot together (the CI does this automatically; do **not** ``railway up`` a single service after this release).
+
 ## 1.74.0 — +60 non-popsy styles (CV/Social/Dating)
 
 Catalogue expansion: 20 new styles per mode, all hand-curated to fill niches the existing 136-style catalogue did not cover. ``data/styles.json`` grows from 136 to 196 entries.

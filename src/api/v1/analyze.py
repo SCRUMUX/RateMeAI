@@ -561,20 +561,29 @@ async def create_analysis(
     # crash on a missing key.
     ctx["allow_cross_model_fallback"] = settings.allow_cross_model_image_fallback
 
-    # v1.72 — premium tier reserves a second credit on top of the
-    # one already reserved by ``check_credits_with_consent``. Refund
-    # logic for "refiner failed → user paid for premium upgrade that
-    # didn't actually run" is handled by the orchestrator via the
-    # ``result_dict["premium_refine_failed"]`` signal and a worker-
-    # side refund (see ``src/workers/tasks.py``).
+    # v1.75 — premium tier now costs 5 credits total. The first
+    # credit is already reserved by ``check_credits_with_consent``;
+    # we reserve ``PREMIUM_EXTRA_CREDIT_RESERVE`` (= 4) more here so
+    # the total reservation matches ``PREMIUM_CREDIT_COST``. If the
+    # premium pipeline fails (Clarity Upscaler unavailable, FAL
+    # error on the high-quality base render, etc.) the worker
+    # refunds **all 5 credits** and surfaces an error — there is no
+    # silent downgrade to Standard (v1.75 product change; see
+    # ``src/workers/tasks.py::_handle_premium_failure``).
     if ctx.get("tier") == "premium":
         try:
             from src.api.deps import reserve_additional_credit
+            from src.services.analysis_request import (
+                PREMIUM_EXTRA_CREDIT_RESERVE,
+            )
 
-            await reserve_additional_credit(user, db, amount=1)
+            await reserve_additional_credit(
+                user, db, amount=PREMIUM_EXTRA_CREDIT_RESERVE,
+            )
             ctx["credit_premium_reserved"] = True
+            ctx["premium_credit_cost"] = PREMIUM_EXTRA_CREDIT_RESERVE + 1
         except HTTPException:
-            # 402 — second credit unavailable. We do NOT auto-downgrade
+            # 402 — extra credits unavailable. We do NOT auto-downgrade
             # the request (the user clicked "Premium" with intent); we
             # refund the first credit and surface the standard
             # no-credits error so the wallet UI tells them what to do.
@@ -585,7 +594,7 @@ async def create_analysis(
             except Exception:
                 logger.exception(
                     "failed to refund first credit after premium "
-                    "second-reserve 402 user=%s",
+                    "extra-reserve 402 user=%s",
                     getattr(user, "id", "unknown"),
                 )
             raise

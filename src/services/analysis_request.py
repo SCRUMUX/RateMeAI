@@ -3,15 +3,42 @@
 from __future__ import annotations
 
 # Product tiers visible to the user. ``standard`` is the 1-credit
-# baseline (gpt_image_2 medium); ``premium`` is the 2-credit tier that
-# pins the same base render but adds a Clarity Upscaler post-pass for
-# visible texture polish + a real resolution bump (see
-# ``src/providers/image_gen/fal_clarity_upscaler.py`` and the executor
-# ``_apply_clarity_refine``). The historic ``image_model`` A/B knob
-# was retired together with the Nano Banana 2 backend — there is one
-# image model in the pipeline (GPT Image 2 Edit) and the tier picks
-# whether the Clarity post-pass runs.
+# baseline (gpt_image_2 *medium*); ``premium`` is the 5-credit tier
+# that pins gpt_image_2 *high* quality **and** runs the Clarity
+# Upscaler post-pass for a real ×2 resolution bump + extra texture
+# polish (see ``src/providers/image_gen/fal_clarity_upscaler.py``
+# and the executor ``_apply_clarity_refine``). v1.74 → v1.75 change:
+# previously both tiers used ``image_quality=medium`` so the user
+# observed identical output between Standard and Premium; from
+# v1.75 onward Premium switches the FAL ``quality`` knob to ``high``
+# so the base render is materially different (≈ 2048² source @ FAL
+# high-quality reasoning) before the Clarity post-pass runs.
+#
+# Cost ceiling (FAL):
+#   * Standard ≈ $0.06 / img (gpt_image_2 medium).
+#   * Premium  ≈ $0.20 / img (gpt_image_2 high) + $0.04 (Clarity ×2)
+#                ≈ $0.24 / img — within the user-set $0.25 budget.
+#
+# There is no cross-tier downgrade: if Premium fails (Clarity
+# unavailable, gpt_image_2 returns empty, etc.) the user is shown
+# an error and refunded all 5 credits; we never silently deliver a
+# Standard render in place of a Premium one (see
+# ``src/workers/tasks.py::_premium_failure_path`` and
+# ``src/orchestrator/executor.py::_apply_clarity_refine``).
 PRODUCT_TIERS_ALLOWED = frozenset({"standard", "premium"})
+
+# Number of image-credits a Premium request reserves (1 base + 4
+# extra). ``apply_tier_context_fields`` itself does not touch credits
+# — the reservation lives in ``src/api/v1/analyze.py``; this constant
+# is the single source of truth so the analyze handler, the worker
+# refund path, and the unit tests stay in sync. Keep numeric (not a
+# settings knob) so the value cannot drift between app / worker /
+# bot Railway services at deploy time.
+PREMIUM_CREDIT_COST = 5
+# Credits reserved on top of the always-reserved first credit. The
+# analyze handler calls ``reserve_additional_credit(amount=PREMIUM_EXTRA_CREDIT_RESERVE)``
+# only when ``tier=premium`` — the standard tier path is unchanged.
+PREMIUM_EXTRA_CREDIT_RESERVE = PREMIUM_CREDIT_COST - 1  # = 4
 
 # Backwards-compat shim. The image-model A/B layer was retired in the
 # Nano Banana cleanup; old call sites and tests may still import
@@ -30,14 +57,17 @@ def apply_tier_context_fields(
     """Populate ``ctx`` with the product-tier image-gen fields.
 
     There is one image model in the pipeline (GPT Image 2 Edit). The
-    tier decides whether the Clarity Upscaler post-pass runs:
+    tier decides the FAL ``quality`` knob and whether the Clarity
+    Upscaler post-pass runs:
 
     * ``standard`` → ``image_model="gpt_image_2"``,
-      ``image_quality="medium"``, no refiner.
-    * ``premium``  → same base render, plus
+      ``image_quality="medium"``, no refiner. ≈ $0.06 / img.
+    * ``premium``  → ``image_quality="high"`` **and**
       ``image_refine="clarity"`` so the executor runs the Clarity
-      post-pass (resolution bump + texture polish, total cost stays
-      ≤ $0.10/image).
+      post-pass after the high-quality base render. ≈ $0.24 / img
+      (gpt_image_2 high ≈ $0.20 + Clarity ×2 ≈ $0.04) — within the
+      $0.25 user budget. The user is charged 5 credits up-front;
+      see ``PREMIUM_CREDIT_COST``.
 
     The historical A/B ``image_model`` knob was retired together with
     Nano Banana 2. Callers may still pass an ``image_model`` form
@@ -51,12 +81,18 @@ def apply_tier_context_fields(
         tier_norm = "standard"
     ctx["tier"] = tier_norm
     ctx["image_model"] = "gpt_image_2"
-    ctx["image_quality"] = "medium"
 
-    if tier_norm == "premium" and bool(
-        getattr(settings, "clarity_refiner_enabled", True)
-    ):
-        ctx["image_refine"] = "clarity"
+    if tier_norm == "premium":
+        # v1.75 — Premium now switches the base ``quality`` knob to
+        # ``high``. This is the actual "premium quality" change the
+        # tier was named after; medium / medium was indistinguishable
+        # from Standard. Clarity Upscaler still runs on top for the
+        # ×2 resolution bump.
+        ctx["image_quality"] = "high"
+        if bool(getattr(settings, "clarity_refiner_enabled", True)):
+            ctx["image_refine"] = "clarity"
+    else:
+        ctx["image_quality"] = "medium"
 
 
 def apply_ab_test_context_fields(

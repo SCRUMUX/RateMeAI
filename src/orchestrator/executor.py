@@ -1783,17 +1783,21 @@ class ImageGenerationExecutor:
                     )
                 except Exception:
                     pass
-                # Surface refund signal to the orchestrator caller
-                # so the credit reservation can refund 1 of 2 when
-                # the premium upgrade did not actually run.
+                # v1.75 — Premium tier no longer silently downgrades
+                # to Standard on refiner failure. The user clicked
+                # "Premium" with intent (5 credits) and is owed
+                # either a premium-quality image or a clean error
+                # with a full refund. Surface a hard error so the
+                # worker treats this task as a FAILED task and
+                # refunds **all 5 reserved credits** via the
+                # failure-path refund block in ``workers/tasks.py``.
                 if not clarity_refine_applied:
                     result_dict["premium_refine_failed"] = True
-                    warnings = result_dict.setdefault(
-                        "generation_warnings", []
-                    )
-                    warnings.append(
-                        "Premium-tier refinement failed; "
-                        "1 credit refunded.",
+                    raise RuntimeError(
+                        "premium_refine_unavailable: Clarity Upscaler "
+                        "post-pass failed and tier=premium does not "
+                        "downgrade to Standard. All 5 reserved "
+                        "credits will be refunded.",
                     )
 
             codeformer_applied = False
