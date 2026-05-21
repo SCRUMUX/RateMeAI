@@ -4,6 +4,10 @@ Version history for RateMeAI. Each release bumps ``src/version.py:APP_VERSION``;
 
 Style: newest first, semantic-ish ``major.minor.patch`` versioning. Pre-v1.14 history is intentionally omitted (predates the FAL rebuild).
 
+## 1.70.28
+
+Tech-debt cleanup Phase 5 follow-up: wrap ``Pricing`` vitest renders in ``ToastProvider`` after ``useToast()`` replaced ``alert()`` (fixes CI Vitest). No runtime behavior change.
+
 ## 1.70.27
 
 Tech-debt cleanup Phase 5, steps 5.3 + 5.5: replace remaining ``alert()`` payment-error handlers in the SPA with ``useToast()`` (``StepGenerate``, ``Pricing``, ``ScenarioPricing``); remove the stale TODO from ``Toast.tsx``. Phase 5.5 review: ``variation_engine_v2.py`` carries no inline TODOs — the module-level deprecation docstring (superseded by ``slot_sampler`` / v3) is the authoritative note; ``pipeline.py`` ``TODO(gender-single-source)`` stays deferred per roadmap item 5.4. Phase 5.2: working tree had no untracked files — nothing to commit. No backend change.

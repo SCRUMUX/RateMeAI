@@ -37,6 +37,7 @@ vi.mock('../lib/flow-resume', () => ({
 import Pricing from './Pricing';
 import ruLanding from '../locales/ru/landing.json';
 import { type LandingPage } from '../lib/landing-cms';
+import { ToastProvider } from '../components/Toast';
 
 beforeAll(() => {
   if (!('scrollTo' in HTMLElement.prototype)) {
@@ -51,7 +52,9 @@ beforeAll(() => {
 const renderPricing = (cmsPage?: LandingPage | null) =>
   render(
     <MemoryRouter>
-      <Pricing cmsPage={cmsPage} />
+      <ToastProvider>
+        <Pricing cmsPage={cmsPage} />
+      </ToastProvider>
     </MemoryRouter>,
   );
 
