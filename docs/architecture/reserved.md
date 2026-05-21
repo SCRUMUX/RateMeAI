@@ -3,11 +3,11 @@
 This document describes the "reserved" parts of the codebase: modules
 that are **not executed by the current runtime**, but are kept
 deliberately as the foundation for future premium scenarios, provider
-routing, and the Scenario Engine. They are not dead code.
+routing, and the Scenario Engine.
 
 Everything outside this document is runtime and should stay runtime.
 Everything listed here is *off by default*, isolated in well-named
-subpackages, and activated via explicit feature flags.
+files, and activated via explicit feature flags.
 
 ## 1. What "reserved" means here
 
@@ -17,26 +17,19 @@ subpackages, and activated via explicit feature flags.
   stable as production code evolves.
 - Documented with a module-level docstring stating that the module is
   reserved, why it is kept, and how to switch it on.
-- Lives under a clearly marked location:
-  - `src/orchestrator/advanced/` for multi-pass orchestration;
-  - specific provider files under `src/providers/image_gen/` (with
-    per-file docstrings).
 
 ## 2. Map of reserved modules
 
-### `src/orchestrator/advanced/`
-
-| Module | Purpose |
-|---|---|
-| `planner.py` | Declares a `PipelinePlan` = N structured `PipelineStep`s per mode/style. Used by advanced scenarios that need per-region gate retries and budget enforcement. |
-| `execute_plan.py` | `AdvancedPipelineExecutor` — runs a `PipelinePlan` with intermediate storage, per-step model routing, cost tracking and global quality-gate validation on the final result. |
-| `model_router.py` | `ModelRouter` + `ModelSpec` + `build_model_registry`. Capability-based model selection (tier, cost, provider). Foundation for the future FLUX vs Reve router. |
-| `enhancement_levels.py` | `EnhancementLevel`, `LEVELS`, `level_for_depth`. Maps user-facing "enhancement depth" to a set of pipeline steps. Consumed exclusively by `planner.py`; the `SCENARIO_STYLES` / `matrix_stats` statistics layer stays in `enhancement_matrix.py` and is runtime. |
-
-Legacy shim files at `src/orchestrator/planner.py` and
-`src/orchestrator/model_router.py` have been removed. Import from
-`src.orchestrator.advanced.planner` and
-`src.orchestrator.advanced.model_router` directly.
+> **History note (v1.71, May 2026).** The dormant
+> `src/orchestrator/advanced/` subpackage (`planner.py`,
+> `execute_plan.py`, `model_router.py`, `enhancement_levels.py`) was
+> retired in the v1.71 cleanup — none of its modules were ever wired
+> into the runtime, and the only artefact still consumed in production
+> (`EnhancementLevel` / `LEVELS` / `level_for_depth`, used by the bot
+> for the cartoon depth ladder) was inlined into
+> `src/orchestrator/enhancement_matrix.py`. Multi-pass / compliance-loop
+> orchestration will be reintroduced from scratch when the Scenario
+> Engine epic lands (see §5 below).
 
 ### Reserved providers
 
@@ -55,7 +48,7 @@ production path (see `IMAGE_GEN_PROVIDER=mock`).
 
 | Module | Status |
 |---|---|
-| `src/services/segmentation.py` | `SegmentationService` — MediaPipe region masks (face / body / background / clothing). Not instantiated by `AnalysisPipeline` after Phase 1; reactivated by the Scenario Engine together with `SEGMENTATION_ENABLED=true` and a scenario whose `pipeline_profile = "advanced"` (consumed by `AdvancedPipelineExecutor` for per-region steps in document-compliance and HD retouch pipelines). |
+| `src/services/segmentation.py` | `SegmentationService` — MediaPipe region masks (face / body / background / clothing). Not instantiated by `AnalysisPipeline` after Phase 1; reactivated by the Scenario Engine together with `SEGMENTATION_ENABLED=true` and a scenario whose `pipeline_profile = "advanced"`. |
 
 ## 3. How to activate reserved code
 
@@ -63,20 +56,8 @@ All switches are environment variables read through `src.config.settings`.
 
 | Flag | Default | What it unlocks |
 |---|---|---|
-| `MULTI_PASS_ENABLED` | `false` | Enables the multi-pass planner/executor in the pipeline. **Note:** today's `AnalysisPipeline` does not wire this in; it will be re-enabled by the Scenario Engine (Phase 2) for scenarios whose `pipeline_profile = "advanced"`. |
-| `SEGMENTATION_ENABLED` | `false` | Enables MediaPipe region masks, used by advanced planner steps. |
-| `IMAGE_GEN_PROVIDER` | `reve` | Set to `replicate` to fall back to FLUX-on-Replicate for debugging; `mock` for dev. |
-
-Example:
-
-```bash
-# Re-enable reserved advanced path (only when the Scenario Engine wires it in)
-MULTI_PASS_ENABLED=true
-SEGMENTATION_ENABLED=true
-
-# Use reserved Replicate provider for comparison runs
-IMAGE_GEN_PROVIDER=replicate
-```
+| `SEGMENTATION_ENABLED` | `false` | Enables MediaPipe region masks. Will be consumed by the future Scenario-Engine advanced pipeline. |
+| `IMAGE_GEN_PROVIDER` | `mock` (dev) / `unified` (prod) | Switches between image-gen providers for debugging. |
 
 ## 4. Use cases this code is preserved for
 
@@ -87,32 +68,26 @@ IMAGE_GEN_PROVIDER=replicate
    background + aspect ratio simultaneously; a compliance-loop with
    per-step gate retries is the intended design.
 3. **Marketplace / meme content** — scenario-specific fallback chains
-   (Reve → FLUX → Reve stylised) depending on whether realism or
-   graphics-heavy generation is needed.
-4. **Capability-based provider routing** — the forthcoming
-   `FluxFALProvider` plugs into `ModelRouter` as a high-realism tier,
-   with Reve kept as the meme / marketplace tier.
-5. **Inpaint masks** — region-scoped prompts (face-only, clothing-only)
-   remain the long-term plan for document fix-ups and are what the
-   planner's `region` field was designed around.
+   depending on whether realism or graphics-heavy generation is needed.
+4. **Inpaint masks** — region-scoped prompts (face-only, clothing-only)
+   remain the long-term plan for document fix-ups and were what the
+   retired planner's `region` field was designed around.
 
 ## 5. Roadmap
 
-- **Phase 1 — this cleanup.** Hard-remove unequivocally dead code,
-  isolate multi-pass machinery under `orchestrator/advanced/`,
-  document what is reserved and why (this file).
+- **Phase 1 — done.** Hard-remove unequivocally dead code, document
+  what is reserved and why (this file).
 - **Phase 2 — Scenario Engine.** Introduce `src/scenarios/` with a
   `Scenario` dataclass (`pipeline_profile = "simple" | "advanced"`,
   `delta_keys`, `preferred_provider_hint`). Migrate the existing five
   `AnalysisMode` values into scenarios 1:1; pilot `document_passport_rf`
-  as proof-of-concept. `pipeline_profile = "advanced"` re-enables
-  `AdvancedPipelineExecutor` on that scenario only.
-- **Phase 3 — FLUX via FAL.ai.** Add `src/providers/image_gen/fal_flux.py`,
-  plug it into `ModelRouter` as a high-realism tier, shadow-mode on
-  5–10% of dating traffic, compare metrics, roll out gradually.
+  as proof-of-concept. `pipeline_profile = "advanced"` will introduce
+  a fresh multi-pass executor scoped to that scenario only.
+- **Phase 3 — Capability-based provider routing.** Add a `ModelRouter`
+  / `ModelSpec` layer once the Scenario Engine ships, scoped to the
+  Scenario Engine surface and not to the legacy runtime path.
 - **Phase 4 — Edge isolation.** Fold the `settings.uses_remote_ai`
   branches into a dedicated `LocalComputeRouter` / `RemoteComputeRouter`
   abstraction.
 
-Each phase ships as its own plan and is reviewed independently. Phase 1
-(current) ships with zero runtime behaviour change.
+Each phase ships as its own plan and is reviewed independently.

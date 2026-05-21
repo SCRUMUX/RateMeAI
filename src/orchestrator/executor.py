@@ -1,9 +1,9 @@
 """ImageGenerationExecutor and DeltaScorer — extracted from AnalysisPipeline.
 
 Handles single-pass image generation and post-generation delta scoring
-as standalone collaborators. Multi-pass plan execution lives in
-:mod:`src.orchestrator.advanced.execute_plan` and is reserved for future
-premium / advanced scenarios (see ``docs/architecture/reserved.md``).
+as standalone collaborators. v1.71 retired the dormant
+``src.orchestrator.advanced`` multi-pass subpackage; the runtime
+always runs through :meth:`ImageGenerationExecutor.single_pass`.
 """
 
 from __future__ import annotations
@@ -480,9 +480,8 @@ _format_image_gen_error = format_image_gen_error
 class ImageGenerationExecutor:
     """Runs single-pass image generation against the active provider.
 
-    Multi-pass execution (``execute_plan``) lives in
-    :mod:`src.orchestrator.advanced.execute_plan` and is *not* wired into
-    this class on purpose — see ``docs/architecture/reserved.md``.
+    v1.71 retired the dormant ``src.orchestrator.advanced`` multi-pass
+    subpackage; ``single_pass`` is the only runtime entrypoint.
     """
 
     def __init__(
@@ -1603,14 +1602,11 @@ class ImageGenerationExecutor:
             #
             # v1.64: the legacy "head_crop_proportion_lock" prompt tail
             # (a paragraph appended AFTER truncate, instructing the
-            # model to "rescale head and shoulders") was removed. It
-            # dropped to the worst attention zone in edit-model prompts
-            # and duplicated the new numerical anchor that
-            # ``model_wrappers._assemble`` now injects BEFORE
-            # ``IDENTITY_PRESERVE_BLOCK`` (see
-            # ``_COMPOSITION_NUMERICAL_HINT`` in
-            # ``src/prompts/image_gen.py``). Tight selfies are now
-            # additionally normalised geometrically by
+            # model to "rescale head and shoulders") was removed. Its
+            # historical successor — the v1.65 cinematic head anchor
+            # (``_COMPOSITION_NUMERICAL_HINT``) — was retired in v1.70
+            # too. Tight selfies are now exclusively normalised
+            # geometrically via
             # ``reference_preprocess.pad_reference_for_framing`` when
             # ``CSL_REFERENCE_PAD_ENABLED=true``.
             face_area_ratio = (

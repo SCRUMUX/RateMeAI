@@ -441,18 +441,6 @@ class Settings(BaseSettings):
     # forces ``portrait`` framing policy for the listed styles.
     # v1.69 — flipped to True by default.
     studio_portrait_whitelist_v2: bool = True
-    # P2.9 — insert ``LIGHT_MATCH_CLAUSE`` before ``IDENTITY_PRESERVE_BLOCK``
-    # to explicitly instruct the model to match the subject's lighting
-    # to the scene's ambient light (colour temperature, direction,
-    # softness). Counters the "studio key light on a sunset terrace"
-    # failure mode.
-    #
-    # v1.70 — flipped back to ``False`` by default. The light-match
-    # instruction is now dissolved into the shorter ``PHOTOREAL_BLOCK``
-    # ("The lighting matches the scene's ambient light in direction,
-    # colour temperature, and softness."), so the separate clause is
-    # redundant. Flag preserved for back-compat / instant rollback.
-    light_match_clause_enabled: bool = False
     # P2.10 — emit a per-framing pose hint after wardrobe. Anchors a
     # relaxed natural posture so the model does not default to
     # symmetrical "hero stance" framing on full_body or stiff

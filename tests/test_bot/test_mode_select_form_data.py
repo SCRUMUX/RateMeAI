@@ -176,8 +176,8 @@ def test_enhancement_level_pinned_to_one_for_photo_modes() -> None:
     pre-v1.64 StyleRouter + CodeFormer post-chain but surfaces on the
     unified A/B path. Web pins it to ``1`` for the same reason
     (``web/src/context/AppContext.tsx``). Emoji is the only mode
-    where the depth ladder actually feeds
-    ``ENHANCEMENT_LEVEL_MODIFIERS`` in the prompt template.
+    where the depth ladder feeds back into the LLM-generated base
+    description that the cartoon prompt builder consumes.
     """
     node = _submit_analysis_node()
     source = ast.get_source_segment(MODE_SELECT.read_text(encoding="utf-8"), node) or ""

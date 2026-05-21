@@ -21,10 +21,10 @@ The lint rules cover the four concrete defects the user flagged on
 * ``TRIGGER_DIRTY`` — trigger pool entry contains framing / lighting /
   weather words that should live in their own channel pool.
 * ``SCENE_FRAMING_LEAK`` (v1.65) — ``scene_anchor`` contains framing
-  tokens. Framing is delivered exclusively by the central
-  :data:`_COMPOSITION_NUMERICAL_HINT`; framing words in the scene
-  description duplicate the signal and produce contradictory
-  directives.
+  tokens. Framing belongs to the framing slot
+  (:data:`_FRAMING_PROMPT_DIRECTIVES` / :data:`_POSE_BY_FRAMING`);
+  framing words in the scene description duplicate the signal and
+  produce contradictory directives.
 * ``QI_BASE_NONEMPTY`` (v1.65) — ``quality_identity.base`` is
   non-empty. The v4.1 pipeline funnels every photo style through the
   central :data:`PHOTOREAL_BLOCK`; per-style quality overrides
@@ -510,11 +510,14 @@ def lint_style(raw: dict[str, Any]) -> list[LintIssue]:
 
     # v1.65 — ``SCENE_FRAMING_LEAK``. The scene description is meant to
     # describe the WHERE (landmark / setting), not the HOW (framing /
-    # lens). When framing tokens leak into it they end up in the wire
-    # prompt twice (once via ``_COMPOSITION_NUMERICAL_HINT``, once via
-    # the scene line) and edit models receive contradictory directives
-    # — the failure mode that drove the v1.65 anatomy fix in the first
-    # place.
+    # lens). When framing tokens leak into it they collide with the
+    # framing directive that ``_FRAMING_PROMPT_DIRECTIVES`` /
+    # ``_POSE_BY_FRAMING`` already deliver, so edit models receive
+    # contradictory cues — the failure mode that drove the v1.65
+    # anatomy fix in the first place. (Until v1.70 the textual head
+    # anchor lived in ``_COMPOSITION_NUMERICAL_HINT``; that anchor was
+    # retired but the lint stays — framing has no business in a scene
+    # description.)
     #
     # We check both ``scene_anchor`` (v3 native) and ``base_scene`` (v2
     # / legacy admin entries) because :func:`migrate._apply` accepts
@@ -531,10 +534,11 @@ def lint_style(raw: dict[str, Any]) -> list[LintIssue]:
                     severity="warning",
                     message=(
                         f"{scene_field} = {scene_value!r} contains "
-                        f"framing tokens {framing_leaks!r}; framing is "
-                        "delivered by _COMPOSITION_NUMERICAL_HINT, not by "
-                        "the scene description. Move these to a framing "
-                        "field or strip them."
+                        f"framing tokens {framing_leaks!r}; framing "
+                        "belongs to the framing slot (_FRAMING_PROMPT_"
+                        "DIRECTIVES / _POSE_BY_FRAMING), not the scene "
+                        "description. Move these to a framing field or "
+                        "strip them."
                     ),
                     field=scene_field,
                     detail={"tokens": framing_leaks},

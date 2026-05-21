@@ -4,7 +4,7 @@
     "mode": "dating",
     "type": "scene_locked",
     "base_scene": "Parisian boulevard with Eiffel Tower landmark visible in sharp detail, morning golden light, cafe table with croissant and coffee visible",
-    "default_clothing": "fitted navy blazer over white tee, dark jeans, clean white sneakers, shoulder line visible",
+    "default_clothing": "fitted navy blazer over white tee, dark jeans, clean white sneakers, well-fitted across the shoulders",
     "expression": "Warm genuine smile, worldly romantic soft eyes, relaxed morning gaze.",
     "allowed_variations": {
       "lighting": [
@@ -37,14 +37,19 @@
     "trigger": "paris",
     "background": {
       "base": "Parisian boulevard with Eiffel Tower landmark visible in sharp detail, morning golden light, cafe table with croissant and coffee visible",
-      "lock": "locked",
-      "overrides_allowed": []
+      "lock": "semi",
+      "overrides_allowed": [
+        "Trocadero promenade with the Eiffel Tower head-on, stone balustrade, muted Paris sky",
+        "Pont Alexandre III bridge with the Eiffel Tower in the background, ornate lampposts in frame",
+        "Champ-de-Mars lawn with the Eiffel Tower silhouette, gravel pathway, linden trees on either side",
+        "cafe terrace on Rue Cler with rattan chairs, Eiffel Tower spire visible above the rooftops"
+      ]
     },
     "clothing": {
       "default": {
-        "male": "fitted navy blazer over white tee, dark jeans, clean white sneakers, shoulder line visible",
-        "female": "fitted navy blazer over white tee, dark jeans, clean white sneakers, shoulder line visible",
-        "neutral": "fitted navy blazer over white tee, dark jeans, clean white sneakers, shoulder line visible"
+        "male": "fitted navy blazer over white tee, dark jeans, clean white sneakers, well-fitted across the shoulders",
+        "female": "fitted navy blazer over white tee, dark jeans, clean white sneakers, well-fitted across the shoulders",
+        "neutral": "fitted navy blazer over white tee, dark jeans, clean white sneakers, well-fitted across the shoulders"
       },
       "allowed": [
         "fitted neutral knit and dark jeans, clean white sneakers",
@@ -98,9 +103,14 @@
       "Eiffel Tower glimpsed at the end of a Haussmann boulevard",
       "Eiffel Tower softly out of focus over the shoulder"
     ],
-    "scene_anchor": "Parisian boulevard with classic Haussmann architecture",
-    "scene_overrides": [],
-    "background_lock": "locked",
+    "scene_anchor": "Haussmann boulevard intersection with the Eiffel Tower rising behind wrought-iron balconies, zinc rooftops, warm afternoon Paris light",
+    "scene_overrides": [
+      "Trocadero promenade with the Eiffel Tower head-on, stone balustrade, muted Paris sky",
+      "Pont Alexandre III bridge with the Eiffel Tower in the background, ornate lampposts in frame",
+      "Champ-de-Mars lawn with the Eiffel Tower silhouette, gravel pathway, linden trees on either side",
+      "cafe terrace on Rue Cler with rattan chairs, Eiffel Tower spire visible above the rooftops"
+    ],
+    "background_lock": "semi",
     "ambient": {
       "lighting": [
         "soft golden",
@@ -159,7 +169,7 @@
     "mode": "dating",
     "type": "scene_locked",
     "base_scene": "modern Dubai boulevard with Burj Khalifa landmark illuminated at blue hour, glass reflections, warm amber city lights, luxury urban atmosphere",
-    "default_clothing": "fitted dark shirt, tailored trousers, luxury watch, polished modern style, shoulder line visible",
+    "default_clothing": "fitted dark shirt, tailored trousers, luxury watch, polished modern style, well-fitted across the shoulders",
     "expression": "Open modern gaze, subtle confident smile, cosmopolitan natural eyes.",
     "allowed_variations": {
       "lighting": [
@@ -192,14 +202,18 @@
     "trigger": "dubai",
     "background": {
       "base": "modern Dubai boulevard with Burj Khalifa landmark illuminated at blue hour, glass reflections, warm amber city lights, luxury urban atmosphere",
-      "lock": "locked",
-      "overrides_allowed": []
+      "lock": "semi",
+      "overrides_allowed": [
+        "Dubai Fountain promenade with the Burj Khalifa in sharp detail behind, reflecting pool in foreground",
+        "Souk Al Bahar bridge with the Burj Khalifa silhouette above the lake, traditional lanterns in frame",
+        "Sheikh Zayed Road overlook with the Burj Khalifa towering above the skyline, glass barrier in foreground"
+      ]
     },
     "clothing": {
       "default": {
-        "male": "fitted dark shirt, tailored trousers, luxury watch, polished modern style, shoulder line visible",
-        "female": "tailored dark blouse or fitted dress, slim trousers or pencil skirt, statement watch, polished modern style, shoulder line visible",
-        "neutral": "fitted dark shirt, tailored trousers, luxury watch, polished modern style, shoulder line visible"
+        "male": "fitted dark shirt, tailored trousers, luxury watch, polished modern style, well-fitted across the shoulders",
+        "female": "tailored dark blouse or fitted dress, slim trousers or pencil skirt, statement watch, polished modern style, well-fitted across the shoulders",
+        "neutral": "fitted dark shirt, tailored trousers, luxury watch, polished modern style, well-fitted across the shoulders"
       },
       "allowed": [
         "fitted neutral knit and dark jeans, clean white sneakers",
@@ -253,9 +267,13 @@
       "Burj Khalifa visible above palm trees",
       "Burj Khalifa mirrored in the Dubai Fountain"
     ],
-    "scene_anchor": "modern Dubai boulevard with sleek architecture",
-    "scene_overrides": [],
-    "background_lock": "locked",
+    "scene_anchor": "modern Dubai boulevard with the Burj Khalifa rising behind glass-and-steel facades, polished marble walkway, warm desert afternoon light",
+    "scene_overrides": [
+      "Dubai Fountain promenade with the Burj Khalifa in sharp detail behind, reflecting pool in foreground",
+      "Souk Al Bahar bridge with the Burj Khalifa silhouette above the lake, traditional lanterns in frame",
+      "Sheikh Zayed Road overlook with the Burj Khalifa towering above the skyline, glass barrier in foreground"
+    ],
+    "background_lock": "semi",
     "ambient": {
       "lighting": [
         "warm cinematic",
@@ -314,7 +332,7 @@
     "mode": "dating",
     "type": "scene_locked",
     "base_scene": "Brooklyn Bridge walkway at golden sunset, warm orange sky, Manhattan skyline visible behind",
-    "default_clothing": "casual fitted jacket, dark jeans, comfortable walking shoes, shoulder line visible",
+    "default_clothing": "casual fitted jacket, dark jeans, comfortable walking shoes, well-fitted across the shoulders",
     "expression": "Wind in hair, warm sunset glow on face, adventurous confident smile.",
     "allowed_variations": {
       "lighting": [
@@ -347,16 +365,18 @@
     "trigger": "nyc",
     "background": {
       "base": "Brooklyn Bridge walkway at golden sunset, warm orange sky, Manhattan skyline visible behind",
-      "lock": "locked",
+      "lock": "semi",
       "overrides_allowed": [
-        "warm bridge lamps with deep blue sky"
+        "Brooklyn Bridge Park promenade with the bridge towers head-on, Manhattan skyline behind",
+        "DUMBO cobblestone street with the Brooklyn Bridge framed between brick warehouses",
+        "Empire Fulton Ferry State Park lawn with the bridge crossing overhead, Manhattan skyline in the background"
       ]
     },
     "clothing": {
       "default": {
-        "male": "casual fitted jacket, dark jeans, comfortable walking shoes, shoulder line visible",
-        "female": "casual fitted jacket, dark jeans or wide-leg trousers, comfortable walking shoes, shoulder line visible",
-        "neutral": "casual fitted jacket, dark jeans, comfortable walking shoes, shoulder line visible"
+        "male": "casual fitted jacket, dark jeans, comfortable walking shoes, well-fitted across the shoulders",
+        "female": "casual fitted jacket, dark jeans or wide-leg trousers, comfortable walking shoes, well-fitted across the shoulders",
+        "neutral": "casual fitted jacket, dark jeans, comfortable walking shoes, well-fitted across the shoulders"
       },
       "allowed": [
         "fitted neutral knit and dark jeans, clean white sneakers",
@@ -410,11 +430,13 @@
       "Brooklyn Bridge silhouette at blue hour",
       "Brooklyn Bridge walkway with cables fanning out"
     ],
-    "scene_anchor": "Brooklyn Bridge walkway at golden sunset, Manhattan skyline visible behind",
+    "scene_anchor": "Brooklyn Bridge walkway with stone arches and steel cables framing the Manhattan skyline behind, weathered timber planks, warm golden-hour light",
     "scene_overrides": [
-      "warm bridge lamps with deep blue sky"
+      "Brooklyn Bridge Park promenade with the bridge towers head-on, Manhattan skyline behind",
+      "DUMBO cobblestone street with the Brooklyn Bridge framed between brick warehouses",
+      "Empire Fulton Ferry State Park lawn with the bridge crossing overhead, Manhattan skyline in the background"
     ],
-    "background_lock": "locked",
+    "background_lock": "semi",
     "ambient": {
       "lighting": [
         "bright cool morning daylight",
@@ -472,7 +494,7 @@
     "mode": "dating",
     "type": "scene_locked",
     "base_scene": "outdoor cafe terrace with Colosseum landmark visible in sharp detail, warm Mediterranean afternoon light, cobblestone street visible",
-    "default_clothing": "linen shirt, light chinos, leather loafers, relaxed Italian style, shoulder line visible",
+    "default_clothing": "linen shirt, light chinos, leather loafers, relaxed Italian style, collar and shoulder seam clearly visible",
     "expression": "Relaxed Mediterranean expression, warm open charm, easy-going half-smile.",
     "allowed_variations": {
       "lighting": [
@@ -505,14 +527,19 @@
     "trigger": "rome",
     "background": {
       "base": "outdoor cafe terrace with Colosseum landmark visible in sharp detail, warm Mediterranean afternoon light, cobblestone street visible",
-      "lock": "locked",
-      "overrides_allowed": []
+      "lock": "semi",
+      "overrides_allowed": [
+        "Via dei Fori Imperiali walkway with Colosseum looming behind, pedestrian flagstones, Italian cypress trees",
+        "Roman piazza with travertine cobblestones, Colosseum silhouette in the distance, marble fountain in foreground",
+        "rooftop terrace in Monti district with Colosseum and Roman skyline behind",
+        "cafe table under a striped awning with Colosseum visible across the street, espresso cup on a marble counter"
+      ]
     },
     "clothing": {
       "default": {
-        "male": "linen shirt, light chinos, leather loafers, relaxed Italian style, shoulder line visible",
-        "female": "linen blouse, light trousers or midi skirt, leather sandals, relaxed Italian style, shoulder line visible",
-        "neutral": "linen shirt, light chinos, leather loafers, relaxed Italian style, shoulder line visible"
+        "male": "linen shirt, light chinos, leather loafers, relaxed Italian style, collar and shoulder seam clearly visible",
+        "female": "linen blouse, light trousers or midi skirt, leather sandals, relaxed Italian style, collar and shoulder seam clearly visible",
+        "neutral": "linen shirt, light chinos, leather loafers, relaxed Italian style, collar and shoulder seam clearly visible"
       },
       "allowed": [
         "fitted neutral knit and dark jeans, clean white sneakers",
@@ -566,9 +593,14 @@
       "Colosseum framed through Italian cypress trees",
       "Colosseum at sunset with golden warm tones"
     ],
-    "scene_anchor": "outdoor Roman terrace or street",
-    "scene_overrides": [],
-    "background_lock": "locked",
+    "scene_anchor": "outdoor cafe terrace near the Colosseum, weathered travertine arches in sharp detail behind, cobblestone street, terracotta planters, warm Mediterranean afternoon light",
+    "scene_overrides": [
+      "Via dei Fori Imperiali walkway with Colosseum looming behind, pedestrian flagstones, Italian cypress trees",
+      "Roman piazza with travertine cobblestones, Colosseum silhouette in the distance, marble fountain in foreground",
+      "rooftop terrace in Monti district with Colosseum and Roman skyline behind",
+      "cafe table under a striped awning with Colosseum visible across the street, espresso cup on a marble counter"
+    ],
+    "background_lock": "semi",
     "ambient": {
       "lighting": [
         "warm golden",
@@ -627,7 +659,7 @@
     "mode": "dating",
     "type": "flexible",
     "base_scene": "Piazza San Marco at golden hour, historic Venetian architecture, warm amber light, canal water reflections in distance",
-    "default_clothing": "elegant smart-casual, fitted blazer, quality leather shoes, refined style, shoulder line visible",
+    "default_clothing": "elegant smart-casual, fitted blazer, quality leather shoes, refined style, well-fitted across the shoulders",
     "expression": "Romantic open expression, warm charming smile, elegant European gaze.",
     "allowed_variations": {
       "lighting": [
@@ -675,9 +707,9 @@
     },
     "clothing": {
       "default": {
-        "male": "elegant smart-casual, fitted blazer, quality leather shoes, refined style, shoulder line visible",
-        "female": "elegant smart-casual dress or fitted blazer with skirt, quality leather flats, refined style, shoulder line visible",
-        "neutral": "elegant smart-casual, fitted blazer, quality leather shoes, refined style, shoulder line visible"
+        "male": "elegant smart-casual, fitted blazer, quality leather shoes, refined style, well-fitted across the shoulders",
+        "female": "elegant smart-casual dress or fitted blazer with skirt, quality leather flats, refined style, well-fitted across the shoulders",
+        "neutral": "elegant smart-casual, fitted blazer, quality leather shoes, refined style, well-fitted across the shoulders"
       },
       "allowed": [
         "fitted neutral knit and dark jeans, clean white sneakers",
@@ -796,7 +828,7 @@
     "mode": "dating",
     "type": "scene_locked",
     "base_scene": "sunlit Barcelona terrace with Sagrada Familia landmark visible in sharp detail, warm morning light, breakfast table with juice and pastries",
-    "default_clothing": "relaxed summer shirt, light chinos, straw hat, Mediterranean casual, shoulder line visible",
+    "default_clothing": "relaxed summer shirt, light chinos, straw hat, Mediterranean casual, collar and shoulder seam clearly visible",
     "expression": "Relaxed sun-kissed expression, bright genuine smile, warm soft eyes.",
     "allowed_variations": {
       "lighting": [
@@ -829,16 +861,18 @@
     "trigger": "barcelona",
     "background": {
       "base": "sunlit Barcelona terrace with Sagrada Familia landmark visible in sharp detail, warm morning light, breakfast table with juice and pastries",
-      "lock": "locked",
+      "lock": "semi",
       "overrides_allowed": [
-        "warm uplit stone with deep blue sky"
+        "Plaça de Gaudi pathway with the Sagrada Familia facade in full view, reflecting pool in foreground",
+        "tree-lined Eixample boulevard with the Sagrada Familia spires above the canopy, mosaic-tiled bench in frame",
+        "rooftop terrace in Gracia with the Sagrada Familia silhouette across the skyline"
       ]
     },
     "clothing": {
       "default": {
-        "male": "relaxed summer shirt, light chinos, straw hat, Mediterranean casual, shoulder line visible",
-        "female": "relaxed summer blouse or sundress, light trousers, straw hat, Mediterranean casual, shoulder line visible",
-        "neutral": "relaxed summer shirt, light chinos, straw hat, Mediterranean casual, shoulder line visible"
+        "male": "relaxed summer shirt, light chinos, straw hat, Mediterranean casual, collar and shoulder seam clearly visible",
+        "female": "relaxed summer blouse or sundress, light trousers, straw hat, Mediterranean casual, collar and shoulder seam clearly visible",
+        "neutral": "relaxed summer shirt, light chinos, straw hat, Mediterranean casual, collar and shoulder seam clearly visible"
       },
       "allowed": [
         "fitted neutral knit and dark jeans, clean white sneakers",
@@ -892,11 +926,13 @@
       "Sagrada Familia stained-glass light spilling onto the street",
       "Sagrada Familia seen across Plaça de Gaudí"
     ],
-    "scene_anchor": "sunlit Barcelona terrace with Sagrada Familia landmark visible in sharp detail, breakfast table with juice and pastries",
+    "scene_anchor": "Carrer de Mallorca terrace with the Sagrada Familia spires rising in sharp detail behind, Modernista wrought-iron railing, warm Mediterranean afternoon light",
     "scene_overrides": [
-      "warm uplit stone with deep blue sky"
+      "Plaça de Gaudi pathway with the Sagrada Familia facade in full view, reflecting pool in foreground",
+      "tree-lined Eixample boulevard with the Sagrada Familia spires above the canopy, mosaic-tiled bench in frame",
+      "rooftop terrace in Gracia with the Sagrada Familia silhouette across the skyline"
     ],
-    "background_lock": "locked",
+    "background_lock": "semi",
     "ambient": {
       "lighting": [
         "bright Mediterranean daylight",
@@ -953,7 +989,7 @@
     "mode": "dating",
     "type": "flexible",
     "base_scene": "Thames embankment with London Eye in background, grey-blue London sky with golden patches, river reflections",
-    "default_clothing": "tailored overcoat or trench, dark scarf, smart casual British layers, shoulder line visible",
+    "default_clothing": "tailored overcoat or trench, dark scarf, smart casual British layers, well-fitted across the shoulders",
     "expression": "Thoughtful open expression, subtle warm smile, elegant understated eyes.",
     "allowed_variations": {
       "lighting": [
@@ -1001,9 +1037,9 @@
     },
     "clothing": {
       "default": {
-        "male": "tailored overcoat or trench, dark scarf, smart casual British layers, shoulder line visible",
-        "female": "tailored overcoat or trench, dark scarf, smart casual British layers, shoulder line visible",
-        "neutral": "tailored overcoat or trench, dark scarf, smart casual British layers, shoulder line visible"
+        "male": "tailored overcoat or trench, dark scarf, smart casual British layers, well-fitted across the shoulders",
+        "female": "tailored overcoat or trench, dark scarf, smart casual British layers, well-fitted across the shoulders",
+        "neutral": "tailored overcoat or trench, dark scarf, smart casual British layers, well-fitted across the shoulders"
       },
       "allowed": [
         "fitted neutral knit and dark jeans, clean white sneakers",
@@ -1114,7 +1150,7 @@
     "mode": "dating",
     "type": "scene_locked",
     "base_scene": "minimalist Tokyo street with Tokyo Tower in background, cherry blossoms or clean urban aesthetic, diffused light",
-    "default_clothing": "minimal Japanese-inspired outfit, clean dark fitted layers, shoulder line visible",
+    "default_clothing": "minimal Japanese-inspired outfit, clean dark fitted layers, shoulders fully in frame",
     "expression": "Calm open gaze, subtle confident expression, relaxed mouth line.",
     "allowed_variations": {
       "lighting": [
@@ -1147,14 +1183,18 @@
     "trigger": "tokyo",
     "background": {
       "base": "minimalist Tokyo street with Tokyo Tower in background, cherry blossoms or clean urban aesthetic, diffused light",
-      "lock": "locked",
-      "overrides_allowed": []
+      "lock": "semi",
+      "overrides_allowed": [
+        "Roppongi crossing with Tokyo Tower silhouette above the city skyline, modern signage in frame",
+        "Zojo-ji Temple courtyard with Tokyo Tower behind the tiled rooftops, stone lanterns in foreground",
+        "Azabu street-level view with Tokyo Tower at the end of the road, narrow walkway, soft evening light"
+      ]
     },
     "clothing": {
       "default": {
-        "male": "minimal Japanese-inspired outfit, clean dark fitted layers, shoulder line visible",
-        "female": "minimal Japanese-inspired outfit, clean dark fitted layers or wrap dress, shoulder line visible",
-        "neutral": "minimal Japanese-inspired outfit, clean dark fitted layers, shoulder line visible"
+        "male": "minimal Japanese-inspired outfit, clean dark fitted layers, shoulders fully in frame",
+        "female": "minimal Japanese-inspired outfit, clean dark fitted layers or wrap dress, shoulders fully in frame",
+        "neutral": "minimal Japanese-inspired outfit, clean dark fitted layers, shoulders fully in frame"
       },
       "allowed": [
         "fitted neutral knit and dark jeans, clean white sneakers",
@@ -1201,9 +1241,13 @@
     "trigger_pool": [
       "minimalist Tokyo street with Tokyo Tower in background, cherry blossoms or clean urban aesthetic"
     ],
-    "scene_anchor": "minimalist Tokyo street with Tokyo Tower in background, cherry blossoms or clean urban aesthetic",
-    "scene_overrides": [],
-    "background_lock": "locked",
+    "scene_anchor": "minimalist Shiba-koen pathway with Tokyo Tower rising in sharp detail behind, manicured shrubs, polished stone, cherry-blossom branches in soft focus",
+    "scene_overrides": [
+      "Roppongi crossing with Tokyo Tower silhouette above the city skyline, modern signage in frame",
+      "Zojo-ji Temple courtyard with Tokyo Tower behind the tiled rooftops, stone lanterns in foreground",
+      "Azabu street-level view with Tokyo Tower at the end of the road, narrow walkway, soft evening light"
+    ],
+    "background_lock": "semi",
     "ambient": {
       "lighting": [
         "soft afternoon light, pink cherry accents",
@@ -1261,7 +1305,7 @@
     "mode": "dating",
     "type": "flexible",
     "base_scene": "Marina Bay Sands and Singapore skyline at night, illuminated reflections on water, modern futuristic architecture",
-    "default_clothing": "smart fitted shirt, tailored dark trousers, polished modern shoes, shoulder line visible",
+    "default_clothing": "smart fitted shirt, tailored dark trousers, polished modern shoes, well-fitted across the shoulders",
     "expression": "Open confident gaze, sophisticated subtle smile, relaxed eyes.",
     "allowed_variations": {
       "lighting": [
@@ -1311,9 +1355,9 @@
     },
     "clothing": {
       "default": {
-        "male": "smart fitted shirt, tailored dark trousers, polished modern shoes, shoulder line visible",
-        "female": "smart fitted blouse, tailored dark trousers or skirt, polished modern flats, shoulder line visible",
-        "neutral": "smart fitted shirt, tailored dark trousers, polished modern shoes, shoulder line visible"
+        "male": "smart fitted shirt, tailored dark trousers, polished modern shoes, well-fitted across the shoulders",
+        "female": "smart fitted blouse, tailored dark trousers or skirt, polished modern flats, well-fitted across the shoulders",
+        "neutral": "smart fitted shirt, tailored dark trousers, polished modern shoes, well-fitted across the shoulders"
       },
       "allowed": [
         "fitted neutral knit and dark jeans, clean white sneakers",
@@ -1416,7 +1460,7 @@
     "mode": "dating",
     "type": "scene_locked",
     "base_scene": "Golden Gate Bridge landmark at sunset with fog rolling in, warm orange and teal tones, Pacific Ocean behind",
-    "default_clothing": "fitted fleece or casual jacket, dark jeans, relaxed outdoor-casual style, shoulder line visible",
+    "default_clothing": "fitted fleece or casual jacket, dark jeans, relaxed outdoor-casual style, fit shows the natural shoulder line",
     "expression": "Wind-touched hair, peaceful awe-inspired expression, adventurous warm smile.",
     "allowed_variations": {
       "lighting": [
@@ -1449,14 +1493,18 @@
     "trigger": "sf",
     "background": {
       "base": "Golden Gate Bridge landmark at sunset with fog rolling in, warm orange and teal tones, Pacific Ocean behind",
-      "lock": "locked",
-      "overrides_allowed": []
+      "lock": "semi",
+      "overrides_allowed": [
+        "Battery Spencer overlook with the Golden Gate Bridge head-on, rocky bluffs in foreground",
+        "Marshall's Beach with the bridge towers above a rocky shoreline, Pacific waves breaking on sand",
+        "Presidio cycling path with the bridge in the background, Monterey cypress trees framing the view"
+      ]
     },
     "clothing": {
       "default": {
-        "male": "fitted fleece or casual jacket, dark jeans, relaxed outdoor-casual style, shoulder line visible",
-        "female": "fitted fleece or casual jacket, dark jeans, relaxed outdoor-casual style, shoulder line visible",
-        "neutral": "fitted fleece or casual jacket, dark jeans, relaxed outdoor-casual style, shoulder line visible"
+        "male": "fitted fleece or casual jacket, dark jeans, relaxed outdoor-casual style, fit shows the natural shoulder line",
+        "female": "fitted fleece or casual jacket, dark jeans, relaxed outdoor-casual style, fit shows the natural shoulder line",
+        "neutral": "fitted fleece or casual jacket, dark jeans, relaxed outdoor-casual style, fit shows the natural shoulder line"
       },
       "allowed": [
         "fitted neutral knit and dark jeans, clean white sneakers",
@@ -1510,9 +1558,13 @@
       "Golden Gate Bridge silhouette at blue hour",
       "Golden Gate Bridge seen from Crissy Field"
     ],
-    "scene_anchor": "Golden Gate Bridge landmark with fog rolling in, Pacific Ocean behind",
-    "scene_overrides": [],
-    "background_lock": "locked",
+    "scene_anchor": "Crissy Field shoreline with the Golden Gate Bridge towers rising behind, fog rolling along the headlands, weathered driftwood, cool Pacific light",
+    "scene_overrides": [
+      "Battery Spencer overlook with the Golden Gate Bridge head-on, rocky bluffs in foreground",
+      "Marshall's Beach with the bridge towers above a rocky shoreline, Pacific waves breaking on sand",
+      "Presidio cycling path with the bridge in the background, Monterey cypress trees framing the view"
+    ],
+    "background_lock": "semi",
     "ambient": {
       "lighting": [
         "warm golden-hour light, coastal haze",
@@ -1570,7 +1622,7 @@
     "mode": "dating",
     "type": "scene_locked",
     "base_scene": "narrow Athens street with Acropolis landmark on hilltop in warm light, whitewashed walls, Mediterranean plants and bougainvillea",
-    "default_clothing": "relaxed white linen shirt, light trousers, leather sandals, shoulder line visible",
+    "default_clothing": "relaxed white linen shirt, light trousers, leather sandals, collar and shoulder seam clearly visible",
     "expression": "Relaxed thoughtful expression, warm gentle smile, cultural explorer eyes.",
     "allowed_variations": {
       "lighting": [
@@ -1603,16 +1655,18 @@
     "trigger": "athens",
     "background": {
       "base": "narrow Athens street with Acropolis landmark on hilltop in warm light, whitewashed walls, Mediterranean plants and bougainvillea",
-      "lock": "locked",
+      "lock": "semi",
       "overrides_allowed": [
-        "warm afternoon sidelight on white stone"
+        "Areopagus rock overlook with the Acropolis Parthenon in sharp detail behind, marble rubble in foreground",
+        "Anafiotika village lane with whitewashed houses and the Acropolis silhouette above",
+        "Filopappou Hill pathway with pine trees framing the Parthenon view"
       ]
     },
     "clothing": {
       "default": {
-        "male": "relaxed white linen shirt, light trousers, leather sandals, shoulder line visible",
-        "female": "relaxed white linen blouse or dress, light trousers, leather sandals, shoulder line visible",
-        "neutral": "relaxed white linen shirt, light trousers, leather sandals, shoulder line visible"
+        "male": "relaxed white linen shirt, light trousers, leather sandals, collar and shoulder seam clearly visible",
+        "female": "relaxed white linen blouse or dress, light trousers, leather sandals, collar and shoulder seam clearly visible",
+        "neutral": "relaxed white linen shirt, light trousers, leather sandals, collar and shoulder seam clearly visible"
       },
       "allowed": [
         "fitted neutral knit and dark jeans, clean white sneakers",
@@ -1661,11 +1715,13 @@
       "Plaka neighborhood alley with the Acropolis silhouette above",
       "Athens whitewashed lane framing the Acropolis"
     ],
-    "scene_anchor": "narrow Athens street with Acropolis landmark on hilltop in warm light, whitewashed walls, Mediterranean plants and bougainvillea",
+    "scene_anchor": "Plaka district stone steps with the Acropolis and Parthenon rising on the hilltop behind, whitewashed walls, bougainvillea climbing a wall, warm Aegean light",
     "scene_overrides": [
-      "warm afternoon sidelight on white stone"
+      "Areopagus rock overlook with the Acropolis Parthenon in sharp detail behind, marble rubble in foreground",
+      "Anafiotika village lane with whitewashed houses and the Acropolis silhouette above",
+      "Filopappou Hill pathway with pine trees framing the Parthenon view"
     ],
-    "background_lock": "locked",
+    "background_lock": "semi",
     "ambient": {
       "lighting": [
         "warm amber backlight, long stone shadows",
@@ -1722,7 +1778,7 @@
     "mode": "dating",
     "type": "scene_locked",
     "base_scene": "Sydney harbour with Opera House sails landmark visible in sharp detail, sparkling blue water, bright Australian daylight",
-    "default_clothing": "casual smart outfit, fitted polo or button-down, clean summer style, shoulder line visible",
+    "default_clothing": "casual smart outfit, fitted polo or button-down, clean summer style, collar and shoulder seam clearly visible",
     "expression": "Bright warm smile, fresh natural look, open confident eyes.",
     "allowed_variations": {
       "lighting": [
@@ -1755,16 +1811,18 @@
     "trigger": "sydney",
     "background": {
       "base": "Sydney harbour with Opera House sails landmark visible in sharp detail, sparkling blue water, bright Australian daylight",
-      "lock": "locked",
+      "lock": "semi",
       "overrides_allowed": [
-        "warm uplighting with deep blue sky"
+        "Mrs Macquarie's Point lookout with the Opera House and Harbour Bridge in frame, sandstone bench in foreground",
+        "Royal Botanic Garden pathway with the Opera House visible through trees, warm afternoon light",
+        "ferry terminal pier with the Opera House silhouette across the bay, weathered timber decking"
       ]
     },
     "clothing": {
       "default": {
-        "male": "casual smart outfit, fitted polo or button-down, clean summer style, shoulder line visible",
-        "female": "casual smart outfit, fitted blouse or summer dress, clean summer style, shoulder line visible",
-        "neutral": "casual smart outfit, fitted polo or button-down, clean summer style, shoulder line visible"
+        "male": "casual smart outfit, fitted polo or button-down, clean summer style, collar and shoulder seam clearly visible",
+        "female": "casual smart outfit, fitted blouse or summer dress, clean summer style, collar and shoulder seam clearly visible",
+        "neutral": "casual smart outfit, fitted polo or button-down, clean summer style, collar and shoulder seam clearly visible"
       },
       "allowed": [
         "fitted neutral knit and dark jeans, clean white sneakers",
@@ -1818,11 +1876,13 @@
       "Sydney Opera House framed by ferries gliding past",
       "Sydney Opera House seen from Mrs Macquarie's Point"
     ],
-    "scene_anchor": "Sydney harbour with Opera House sails landmark visible in sharp detail, sparkling blue water",
+    "scene_anchor": "Circular Quay walkway with the Sydney Opera House sails in sharp detail behind, harbour railing, sparkling water, bright Australian daylight",
     "scene_overrides": [
-      "warm uplighting with deep blue sky"
+      "Mrs Macquarie's Point lookout with the Opera House and Harbour Bridge in frame, sandstone bench in foreground",
+      "Royal Botanic Garden pathway with the Opera House visible through trees, warm afternoon light",
+      "ferry terminal pier with the Opera House silhouette across the bay, weathered timber decking"
     ],
-    "background_lock": "locked",
+    "background_lock": "semi",
     "ambient": {
       "lighting": [
         "bright midday sunlight, sparkling water",
@@ -1880,7 +1940,7 @@
     "mode": "dating",
     "type": "flexible",
     "base_scene": "Times Square with vibrant billboards and neon lights, bustling atmosphere, sharp vibrant night street scene with teal and magenta neon reflections on pavement",
-    "default_clothing": "streetwear layers, statement jacket, fitted dark pants, designer sneakers, shoulder line visible",
+    "default_clothing": "streetwear layers, statement jacket, fitted dark pants, designer sneakers, well-fitted across the shoulders",
     "expression": "Bold confident expression, open urban gaze, effortless cool look.",
     "allowed_variations": {
       "lighting": [
@@ -1929,9 +1989,9 @@
     },
     "clothing": {
       "default": {
-        "male": "streetwear layers, statement jacket, fitted dark pants, designer sneakers, shoulder line visible",
-        "female": "streetwear layers, statement jacket, fitted dark pants or skirt, designer sneakers, shoulder line visible",
-        "neutral": "streetwear layers, statement jacket, fitted dark pants, designer sneakers, shoulder line visible"
+        "male": "streetwear layers, statement jacket, fitted dark pants, designer sneakers, well-fitted across the shoulders",
+        "female": "streetwear layers, statement jacket, fitted dark pants or skirt, designer sneakers, shoulders fully in frame",
+        "neutral": "streetwear layers, statement jacket, fitted dark pants, designer sneakers, well-fitted across the shoulders"
       },
       "allowed": [
         "fitted neutral knit and dark jeans, clean white sneakers",
@@ -2051,7 +2111,7 @@
     "mode": "dating",
     "type": "flexible",
     "base_scene": "Central Park with autumn foliage in warm tones, dappled sunlight through trees, green lawns and pathway",
-    "default_clothing": "casual fitted sweater, dark jeans, clean casual sneakers, shoulder line visible",
+    "default_clothing": "casual fitted sweater, dark jeans, clean casual sneakers, fit shows the natural shoulder line",
     "expression": "Genuine bright smile, warm approachable look, easy natural eyes.",
     "allowed_variations": {
       "lighting": [
@@ -2100,9 +2160,9 @@
     },
     "clothing": {
       "default": {
-        "male": "casual fitted sweater, dark jeans, clean casual sneakers, shoulder line visible",
-        "female": "casual fitted sweater, dark jeans, clean casual sneakers, shoulder line visible",
-        "neutral": "casual fitted sweater, dark jeans, clean casual sneakers, shoulder line visible"
+        "male": "casual fitted sweater, dark jeans, clean casual sneakers, fit shows the natural shoulder line",
+        "female": "casual fitted sweater, dark jeans, clean casual sneakers, fit shows the natural shoulder line",
+        "neutral": "casual fitted sweater, dark jeans, clean casual sneakers, fit shows the natural shoulder line"
       },
       "allowed": [
         "fitted neutral knit and dark jeans, clean white sneakers",
@@ -2214,7 +2274,7 @@
     "mode": "dating",
     "type": "scene_locked",
     "base_scene": "Westminster with Big Ben landmark visible in sharp detail, classic London overcast light, Thames embankment visible",
-    "default_clothing": "classic British smart-casual, tailored jacket, polished accessories, shoulder line visible",
+    "default_clothing": "classic British smart-casual, tailored jacket, polished accessories, well-fitted across the shoulders",
     "expression": "Open British elegance, subtle confident smile, refined worldly gaze.",
     "allowed_variations": {
       "lighting": [
@@ -2247,17 +2307,18 @@
     "trigger": "london",
     "background": {
       "base": "Westminster with Big Ben landmark visible in sharp detail, classic London overcast light, Thames embankment visible",
-      "lock": "locked",
+      "lock": "semi",
       "overrides_allowed": [
-        "warm afternoon sidelight on stonework",
-        "warm uplit tower with deep blue sky"
+        "Westminster Bridge with Big Ben silhouette and double-decker buses, ornate cast-iron lamps in frame",
+        "St James's Park pathway with Big Ben rising above the trees, wet gravel path after rain",
+        "South Bank promenade looking back at Big Ben across the Thames, modern railing in foreground"
       ]
     },
     "clothing": {
       "default": {
-        "male": "classic British smart-casual, tailored jacket, polished accessories, shoulder line visible",
-        "female": "classic British smart-casual, tailored jacket or wrap dress, polished accessories, shoulder line visible",
-        "neutral": "classic British smart-casual, tailored jacket, polished accessories, shoulder line visible"
+        "male": "classic British smart-casual, tailored jacket, polished accessories, well-fitted across the shoulders",
+        "female": "classic British smart-casual, tailored jacket or wrap dress, polished accessories, well-fitted across the shoulders",
+        "neutral": "classic British smart-casual, tailored jacket, polished accessories, well-fitted across the shoulders"
       },
       "allowed": [
         "fitted neutral knit and dark jeans, clean white sneakers",
@@ -2311,12 +2372,13 @@
       "Big Ben glowing warm at dusk",
       "Big Ben across the river with red double-decker passing"
     ],
-    "scene_anchor": "Westminster with Big Ben landmark visible in sharp detail, Thames embankment visible",
+    "scene_anchor": "Westminster embankment with Big Ben tower and Houses of Parliament in sharp detail behind, Thames railing, cool grey London sky",
     "scene_overrides": [
-      "warm afternoon sidelight on stonework",
-      "warm uplit tower with deep blue sky"
+      "Westminster Bridge with Big Ben silhouette and double-decker buses, ornate cast-iron lamps in frame",
+      "St James's Park pathway with Big Ben rising above the trees, wet gravel path after rain",
+      "South Bank promenade looking back at Big Ben across the Thames, modern railing in foreground"
     ],
-    "background_lock": "locked",
+    "background_lock": "semi",
     "ambient": {
       "lighting": [
         "soft cool morning light, historic stone",
@@ -2374,7 +2436,7 @@
     "mode": "dating",
     "type": "flexible",
     "base_scene": "airplane window seat with clouds and blue sky visible outside, dim cabin light, tray table with book or headphones",
-    "default_clothing": "comfortable travel outfit, quality hoodie or fitted sweater, headphones, shoulder line visible",
+    "default_clothing": "comfortable travel outfit, quality hoodie or fitted sweater, headphones, fit shows the natural shoulder line",
     "expression": "Relaxed contemplative gaze, calm easy smile, excited traveler eyes.",
     "allowed_variations": {
       "lighting": [
@@ -2423,9 +2485,9 @@
     },
     "clothing": {
       "default": {
-        "male": "comfortable travel outfit, quality hoodie or fitted sweater, headphones, shoulder line visible",
-        "female": "comfortable travel outfit, quality hoodie or fitted sweater, headphones, shoulder line visible",
-        "neutral": "comfortable travel outfit, quality hoodie or fitted sweater, headphones, shoulder line visible"
+        "male": "comfortable travel outfit, quality hoodie or fitted sweater, headphones, fit shows the natural shoulder line",
+        "female": "comfortable travel outfit, quality hoodie or fitted sweater, headphones, fit shows the natural shoulder line",
+        "neutral": "comfortable travel outfit, quality hoodie or fitted sweater, headphones, fit shows the natural shoulder line"
       },
       "allowed": [
         "fitted neutral knit and dark jeans, clean white sneakers",
@@ -2526,7 +2588,7 @@
     "mode": "dating",
     "type": "semi_locked",
     "base_scene": "hotel restaurant with panoramic floor-to-ceiling windows, city or sea view, elegant breakfast table setting with fresh food",
-    "default_clothing": "clean casual morning outfit, quality polo or light linen shirt, shoulder line visible",
+    "default_clothing": "clean casual morning outfit, quality polo or light linen shirt, collar and shoulder seam clearly visible",
     "expression": "Relaxed morning expression, warm genuine smile, luxury morning soft eyes.",
     "allowed_variations": {
       "lighting": [
@@ -2575,9 +2637,9 @@
     },
     "clothing": {
       "default": {
-        "male": "clean casual morning outfit, quality polo or light linen shirt, shoulder line visible",
-        "female": "clean casual morning outfit, quality polo or light linen shirt, shoulder line visible",
-        "neutral": "clean casual morning outfit, quality polo or light linen shirt, shoulder line visible"
+        "male": "clean casual morning outfit, quality polo or light linen shirt, collar and shoulder seam clearly visible",
+        "female": "clean casual morning outfit, quality polo or light linen shirt, collar and shoulder seam clearly visible",
+        "neutral": "clean casual morning outfit, quality polo or light linen shirt, collar and shoulder seam clearly visible"
       },
       "allowed": [
         "fitted neutral knit and dark jeans, clean white sneakers",
@@ -2689,7 +2751,7 @@
     "mode": "dating",
     "type": "flexible",
     "base_scene": "hotel or villa balcony overlooking turquoise sea, white railing, bright morning light, blue sky, tropical plants",
-    "default_clothing": "relaxed morning linen outfit, light cotton, fresh natural look, shoulder line visible",
+    "default_clothing": "relaxed morning linen outfit, light cotton, fresh natural look, shoulders fully in frame",
     "expression": "Wind in hair, peaceful bright smile, warm morning open eyes.",
     "allowed_variations": {
       "lighting": [
@@ -2738,9 +2800,9 @@
     },
     "clothing": {
       "default": {
-        "male": "relaxed morning linen outfit, light cotton, fresh natural look, shoulder line visible",
-        "female": "relaxed morning linen outfit, light cotton, fresh natural look, shoulder line visible",
-        "neutral": "relaxed morning linen outfit, light cotton, fresh natural look, shoulder line visible"
+        "male": "relaxed morning linen outfit, light cotton, fresh natural look, shoulders fully in frame",
+        "female": "relaxed morning linen outfit, light cotton, fresh natural look, shoulders fully in frame",
+        "neutral": "relaxed morning linen outfit, light cotton, fresh natural look, shoulders fully in frame"
       },
       "allowed": [
         "fitted neutral knit and dark jeans, clean white sneakers",
@@ -2842,7 +2904,7 @@
     "mode": "dating",
     "type": "flexible",
     "base_scene": "charming European old-town cobblestone street, colorful facades, warm afternoon light, flower boxes on windows",
-    "default_clothing": "relaxed stylish outfit, light layers, comfortable leather shoes, shoulder line visible",
+    "default_clothing": "relaxed stylish outfit, light layers, comfortable leather shoes, shoulders fully in frame",
     "expression": "Curious warm expression, gentle smile, cultural wanderer soft eyes.",
     "allowed_variations": {
       "lighting": [
@@ -2890,9 +2952,9 @@
     },
     "clothing": {
       "default": {
-        "male": "relaxed stylish outfit, light layers, comfortable leather shoes, shoulder line visible",
-        "female": "relaxed stylish outfit, light layers, comfortable leather shoes, shoulder line visible",
-        "neutral": "relaxed stylish outfit, light layers, comfortable leather shoes, shoulder line visible"
+        "male": "relaxed stylish outfit, light layers, comfortable leather shoes, shoulders fully in frame",
+        "female": "relaxed stylish outfit, light layers, comfortable leather shoes, shoulders fully in frame",
+        "neutral": "relaxed stylish outfit, light layers, comfortable leather shoes, shoulders fully in frame"
       },
       "allowed": [
         "fitted neutral knit and dark jeans, clean white sneakers",
@@ -2992,7 +3054,7 @@
     "mode": "dating",
     "type": "flexible",
     "base_scene": "modern train interior, green landscape streaming by window, laptop on tray table, earbuds, warm natural light from window",
-    "default_clothing": "smart-casual travel outfit, fitted jacket, comfortable layers, shoulder line visible",
+    "default_clothing": "smart-casual travel outfit, fitted jacket, comfortable layers, well-fitted across the shoulders",
     "expression": "Focused relaxed expression, calm thoughtful eyes, modern explorer half-smile.",
     "allowed_variations": {
       "lighting": [
@@ -3041,9 +3103,9 @@
     },
     "clothing": {
       "default": {
-        "male": "smart-casual travel outfit, fitted jacket, comfortable layers, shoulder line visible",
-        "female": "smart-casual travel outfit, fitted jacket, comfortable layers, shoulder line visible",
-        "neutral": "smart-casual travel outfit, fitted jacket, comfortable layers, shoulder line visible"
+        "male": "smart-casual travel outfit, fitted jacket, comfortable layers, well-fitted across the shoulders",
+        "female": "smart-casual travel outfit, fitted jacket, comfortable layers, well-fitted across the shoulders",
+        "neutral": "smart-casual travel outfit, fitted jacket, comfortable layers, well-fitted across the shoulders"
       },
       "allowed": [],
       "gender_neutral": true
@@ -3116,7 +3178,7 @@
     "mode": "dating",
     "type": "flexible",
     "base_scene": "vibrant outdoor street market with colorful produce and goods, warm natural light, exotic textures, bustling atmosphere",
-    "default_clothing": "casual travel outfit, rolled sleeves, crossbody bag, explorer vibe, shoulder line visible",
+    "default_clothing": "casual travel outfit, rolled sleeves, crossbody bag, explorer vibe, shoulders fully in frame",
     "expression": "Bright curious expression, warm genuine smile, adventurous explorer eyes.",
     "allowed_variations": {
       "lighting": [
@@ -3165,9 +3227,9 @@
     },
     "clothing": {
       "default": {
-        "male": "casual travel outfit, rolled sleeves, crossbody bag, explorer vibe, shoulder line visible",
-        "female": "casual travel outfit, rolled sleeves, crossbody bag, explorer vibe, shoulder line visible",
-        "neutral": "casual travel outfit, rolled sleeves, crossbody bag, explorer vibe, shoulder line visible"
+        "male": "casual travel outfit, rolled sleeves, crossbody bag, explorer vibe, shoulders fully in frame",
+        "female": "casual travel outfit, rolled sleeves, crossbody bag, explorer vibe, shoulders fully in frame",
+        "neutral": "casual travel outfit, rolled sleeves, crossbody bag, explorer vibe, shoulders fully in frame"
       },
       "allowed": [
         "fitted neutral knit and dark jeans, clean white sneakers",
@@ -3269,7 +3331,7 @@
     "mode": "dating",
     "type": "flexible",
     "base_scene": "luxury hotel lobby with marble floor, warm amber ambient lighting, modern reception area visible, luggage nearby",
-    "default_clothing": "travel-smart outfit, fitted blazer or quality jacket, polished casual look, shoulder line visible",
+    "default_clothing": "travel-smart outfit, fitted blazer or quality jacket, polished casual look, well-fitted across the shoulders",
     "expression": "Warm confident smile, polished traveler gaze, natural open expression.",
     "allowed_variations": {
       "lighting": [
@@ -3318,9 +3380,9 @@
     },
     "clothing": {
       "default": {
-        "male": "travel-smart outfit, fitted blazer or quality jacket, polished casual look, shoulder line visible",
-        "female": "travel-smart outfit, fitted blazer or quality jacket, polished casual look, shoulder line visible",
-        "neutral": "travel-smart outfit, fitted blazer or quality jacket, polished casual look, shoulder line visible"
+        "male": "travel-smart outfit, fitted blazer or quality jacket, polished casual look, well-fitted across the shoulders",
+        "female": "travel-smart outfit, fitted blazer or quality jacket, polished casual look, well-fitted across the shoulders",
+        "neutral": "travel-smart outfit, fitted blazer or quality jacket, polished casual look, well-fitted across the shoulders"
       },
       "allowed": [],
       "gender_neutral": true
@@ -3392,7 +3454,7 @@
     "mode": "dating",
     "type": "flexible",
     "base_scene": "first-class airport lounge or luxury resort entrance, marble and brass details, warm ambient lighting, premium interior",
-    "default_clothing": "elevated travel outfit, quality fabrics, leather accessories, luxury watch, shoulder line visible",
+    "default_clothing": "elevated travel outfit, quality fabrics, leather accessories, luxury watch, shoulders fully in frame",
     "expression": "Open confident expression, subtle assured smile, elevated relaxed brow.",
     "allowed_variations": {
       "lighting": [
@@ -3439,9 +3501,9 @@
     },
     "clothing": {
       "default": {
-        "male": "elevated travel outfit, quality fabrics, leather accessories, luxury watch, shoulder line visible",
-        "female": "elevated travel outfit, quality fabrics, leather accessories, luxury watch, shoulder line visible",
-        "neutral": "elevated travel outfit, quality fabrics, leather accessories, luxury watch, shoulder line visible"
+        "male": "elevated travel outfit, quality fabrics, leather accessories, luxury watch, shoulders fully in frame",
+        "female": "elevated travel outfit, quality fabrics, leather accessories, luxury watch, shoulders fully in frame",
+        "neutral": "elevated travel outfit, quality fabrics, leather accessories, luxury watch, shoulders fully in frame"
       },
       "allowed": [],
       "gender_neutral": true
@@ -3515,7 +3577,7 @@
     "mode": "dating",
     "type": "flexible",
     "base_scene": "stepping out of luxury car, door open, city backdrop, natural light catching the scene, polished car interior visible",
-    "default_clothing": "tailored smart outfit, polished shoes, clean confident style, shoulder line visible",
+    "default_clothing": "tailored smart outfit, polished shoes, clean confident style, well-fitted across the shoulders",
     "expression": "Confident open gaze, purposeful relaxed expression, natural mouth line.",
     "allowed_variations": {
       "lighting": [
@@ -3562,9 +3624,9 @@
     },
     "clothing": {
       "default": {
-        "male": "tailored smart outfit, polished shoes, clean confident style, shoulder line visible",
-        "female": "tailored smart outfit, polished shoes, clean confident style, shoulder line visible",
-        "neutral": "tailored smart outfit, polished shoes, clean confident style, shoulder line visible"
+        "male": "tailored smart outfit, polished shoes, clean confident style, well-fitted across the shoulders",
+        "female": "tailored smart outfit, polished shoes, clean confident style, well-fitted across the shoulders",
+        "neutral": "tailored smart outfit, polished shoes, clean confident style, well-fitted across the shoulders"
       },
       "allowed": [],
       "gender_neutral": true
@@ -3634,7 +3696,7 @@
     "mode": "dating",
     "type": "flexible",
     "base_scene": "luxury sedan or sports car parked on sunlit city boulevard, warm golden reflections on polished paint, urban architecture visible behind",
-    "default_clothing": "fitted dark jeans, crisp white crew-neck t-shirt, leather watch, aviator sunglasses pushed up on head, shoulder line visible",
+    "default_clothing": "fitted dark jeans, crisp white crew-neck t-shirt, leather watch, aviator sunglasses pushed up on head, collar and shoulder seam clearly visible",
     "expression": "Direct assured gaze, subtle half-smile, relaxed brow and natural mouth.",
     "allowed_variations": {
       "lighting": [
@@ -3682,9 +3744,9 @@
     },
     "clothing": {
       "default": {
-        "male": "fitted dark jeans, crisp white crew-neck t-shirt, leather watch, aviator sunglasses pushed up on head, shoulder line visible",
-        "female": "fitted dark jeans, crisp white crew-neck t-shirt, leather watch, aviator sunglasses pushed up on head, shoulder line visible",
-        "neutral": "fitted dark jeans, crisp white crew-neck t-shirt, leather watch, aviator sunglasses pushed up on head, shoulder line visible"
+        "male": "fitted dark jeans, crisp white crew-neck t-shirt, leather watch, aviator sunglasses pushed up on head, collar and shoulder seam clearly visible",
+        "female": "fitted dark jeans, crisp white crew-neck t-shirt, leather watch, aviator sunglasses pushed up on head, collar and shoulder seam clearly visible",
+        "neutral": "fitted dark jeans, crisp white crew-neck t-shirt, leather watch, aviator sunglasses pushed up on head, collar and shoulder seam clearly visible"
       },
       "allowed": [
         "fitted neutral knit and dark jeans, clean white sneakers",
@@ -3784,7 +3846,7 @@
     "mode": "dating",
     "type": "flexible",
     "base_scene": "yacht deck with turquoise sea, white railings, clear blue sky, sparkling water reflections",
-    "default_clothing": "white linen shirt unbuttoned at top, navy shorts or chinos, deck shoes, shoulder line visible",
+    "default_clothing": "white linen shirt unbuttoned at top, navy shorts or chinos, deck shoes, collar and shoulder seam clearly visible",
     "expression": "Wind-touched hair, warm bright smile, open carefree eyes.",
     "allowed_variations": {
       "lighting": [
@@ -3831,9 +3893,9 @@
     },
     "clothing": {
       "default": {
-        "male": "white linen shirt unbuttoned at top, navy shorts or chinos, deck shoes, shoulder line visible",
-        "female": "white linen blouse or summer dress, navy shorts or wide-leg trousers, deck shoes, shoulder line visible",
-        "neutral": "white linen shirt unbuttoned at top, navy shorts or chinos, deck shoes, shoulder line visible"
+        "male": "white linen shirt unbuttoned at top, navy shorts or chinos, deck shoes, collar and shoulder seam clearly visible",
+        "female": "white linen blouse or summer dress, navy shorts or wide-leg trousers, deck shoes, collar and shoulder seam clearly visible",
+        "neutral": "white linen shirt unbuttoned at top, navy shorts or chinos, deck shoes, collar and shoulder seam clearly visible"
       },
       "allowed": [
         "fitted neutral knit and dark jeans, clean white sneakers",
@@ -3933,7 +3995,7 @@
     "mode": "dating",
     "type": "flexible",
     "base_scene": "upscale third-wave coffee shop, warm tungsten lighting, exposed wood shelving, latte art on table",
-    "default_clothing": "soft knit sweater or henley, dark jeans, clean casual style, shoulder line visible",
+    "default_clothing": "soft knit sweater or henley, dark jeans, clean casual style, fit shows the natural shoulder line",
     "expression": "Gentle attentive smile, warm inviting eye contact, soft brow.",
     "allowed_variations": {
       "lighting": [
@@ -3982,9 +4044,9 @@
     },
     "clothing": {
       "default": {
-        "male": "soft knit sweater or henley, dark jeans, clean casual style, shoulder line visible",
-        "female": "soft knit sweater or henley, dark jeans, clean casual style, shoulder line visible",
-        "neutral": "soft knit sweater or henley, dark jeans, clean casual style, shoulder line visible"
+        "male": "soft knit sweater or henley, dark jeans, clean casual style, fit shows the natural shoulder line",
+        "female": "soft knit sweater or henley, dark jeans, clean casual style, fit shows the natural shoulder line",
+        "neutral": "soft knit sweater or henley, dark jeans, clean casual style, fit shows the natural shoulder line"
       },
       "allowed": [],
       "gender_neutral": true
@@ -4063,7 +4125,7 @@
     "mode": "dating",
     "type": "flexible",
     "base_scene": "tropical beach at golden sunset, warm orange-pink sky, gentle waves, wet sand reflections",
-    "default_clothing": "unbuttoned linen shirt over tee, rolled chinos or shorts, bare feet, shoulder line visible",
+    "default_clothing": "unbuttoned linen shirt over tee, rolled chinos or shorts, bare feet, collar and shoulder seam clearly visible",
     "expression": "Warm sunset light on face, peaceful genuine smile, free relaxed eyes.",
     "allowed_variations": {
       "lighting": [
@@ -4112,9 +4174,9 @@
     },
     "clothing": {
       "default": {
-        "male": "unbuttoned linen shirt over tee, rolled chinos or shorts, bare feet, shoulder line visible",
-        "female": "flowy linen blouse or beach dress, rolled trousers or shorts, bare feet, shoulder line visible",
-        "neutral": "unbuttoned linen shirt over tee, rolled chinos or shorts, bare feet, shoulder line visible"
+        "male": "unbuttoned linen shirt over tee, rolled chinos or shorts, bare feet, collar and shoulder seam clearly visible",
+        "female": "flowy linen blouse or beach dress, rolled trousers or shorts, bare feet, collar and shoulder seam clearly visible",
+        "neutral": "unbuttoned linen shirt over tee, rolled chinos or shorts, bare feet, collar and shoulder seam clearly visible"
       },
       "allowed": [
         "fitted neutral knit and dark jeans, clean white sneakers",
@@ -4216,7 +4278,7 @@
     "mode": "dating",
     "type": "flexible",
     "base_scene": "sunlit park with green grass and trees, warm golden backlight, open natural landscape",
-    "default_clothing": "relaxed casual outfit, fitted jeans, comfortable cotton shirt, shoulder line visible",
+    "default_clothing": "relaxed casual outfit, fitted jeans, comfortable cotton shirt, collar and shoulder seam clearly visible",
     "expression": "Genuine bright laugh, warm open expression, kind approachable eyes.",
     "allowed_variations": {
       "lighting": [
@@ -4265,9 +4327,9 @@
     },
     "clothing": {
       "default": {
-        "male": "relaxed casual outfit, fitted jeans, comfortable cotton shirt, shoulder line visible",
-        "female": "relaxed casual outfit, fitted jeans, comfortable cotton shirt, shoulder line visible",
-        "neutral": "relaxed casual outfit, fitted jeans, comfortable cotton shirt, shoulder line visible"
+        "male": "relaxed casual outfit, fitted jeans, comfortable cotton shirt, collar and shoulder seam clearly visible",
+        "female": "relaxed casual outfit, fitted jeans, comfortable cotton shirt, collar and shoulder seam clearly visible",
+        "neutral": "relaxed casual outfit, fitted jeans, comfortable cotton shirt, collar and shoulder seam clearly visible"
       },
       "allowed": [
         "fitted neutral knit and dark jeans, clean white sneakers",
@@ -4369,7 +4431,7 @@
     "mode": "dating",
     "type": "flexible",
     "base_scene": "rooftop terrace at blue hour, city skyline rendered in sharp legible detail with warm lights, modern glass railing, ambient string lights",
-    "default_clothing": "dark fitted blazer over black tee, tailored trousers, minimalist watch, shoulder line visible",
+    "default_clothing": "dark fitted blazer over black tee, tailored trousers, minimalist watch, well-fitted across the shoulders",
     "expression": "Open sophisticated gaze, subtle confident smile, relaxed mouth line.",
     "allowed_variations": {
       "lighting": [
@@ -4418,9 +4480,9 @@
     },
     "clothing": {
       "default": {
-        "male": "dark fitted blazer over black tee, tailored trousers, minimalist watch, shoulder line visible",
-        "female": "fitted blazer over fitted top, tailored trousers or skirt, minimalist watch, shoulder line visible",
-        "neutral": "dark fitted blazer over black tee, tailored trousers, minimalist watch, shoulder line visible"
+        "male": "dark fitted blazer over black tee, tailored trousers, minimalist watch, well-fitted across the shoulders",
+        "female": "fitted blazer over fitted top, tailored trousers or skirt, minimalist watch, well-fitted across the shoulders",
+        "neutral": "dark fitted blazer over black tee, tailored trousers, minimalist watch, well-fitted across the shoulders"
       },
       "allowed": [
         "fitted neutral knit and dark jeans, clean white sneakers",
@@ -5593,7 +5655,7 @@
     "mode": "dating",
     "type": "semi_locked",
     "base_scene": "upscale restaurant, warm candlelight with clear interior details, dark wood and white linen, wine glass on table",
-    "default_clothing": "tailored dark shirt or blazer, smart evening look, subtle accessories, shoulder line visible",
+    "default_clothing": "tailored dark shirt or blazer, smart evening look, subtle accessories, well-fitted across the shoulders",
     "expression": "Charming engaged expression, sophisticated relaxed mouth, warm gaze.",
     "allowed_variations": {
       "lighting": [
@@ -5642,9 +5704,9 @@
     },
     "clothing": {
       "default": {
-        "male": "tailored dark shirt or blazer, smart evening look, subtle accessories, shoulder line visible",
-        "female": "tailored dark dress or fitted blouse with skirt, smart evening look, subtle accessories, shoulder line visible",
-        "neutral": "tailored dark shirt or blazer, smart evening look, subtle accessories, shoulder line visible"
+        "male": "tailored dark shirt or blazer, smart evening look, subtle accessories, well-fitted across the shoulders",
+        "female": "tailored dark dress or fitted blouse with skirt, smart evening look, subtle accessories, well-fitted across the shoulders",
+        "neutral": "tailored dark shirt or blazer, smart evening look, subtle accessories, well-fitted across the shoulders"
       },
       "allowed": [],
       "gender_neutral": true
@@ -5716,7 +5778,7 @@
     "mode": "dating",
     "type": "flexible",
     "base_scene": "modern cocktail lounge, amber and teal lighting, clear interior details, bar shelves with bottles in background",
-    "default_clothing": "dark fitted shirt, sleeves rolled, leather or fabric watch, shoulder line visible",
+    "default_clothing": "dark fitted shirt, sleeves rolled, leather or fabric watch, collar and shoulder seam clearly visible",
     "expression": "Mysterious half-smile, direct steady eye contact, alluring gaze.",
     "allowed_variations": {
       "lighting": [
@@ -5764,9 +5826,9 @@
     },
     "clothing": {
       "default": {
-        "male": "dark fitted shirt, sleeves rolled, leather or fabric watch, shoulder line visible",
-        "female": "dark fitted shirt, sleeves rolled, leather or fabric watch, shoulder line visible",
-        "neutral": "dark fitted shirt, sleeves rolled, leather or fabric watch, shoulder line visible"
+        "male": "dark fitted shirt, sleeves rolled, leather or fabric watch, collar and shoulder seam clearly visible",
+        "female": "dark fitted shirt, sleeves rolled, leather or fabric watch, collar and shoulder seam clearly visible",
+        "neutral": "dark fitted shirt, sleeves rolled, leather or fabric watch, collar and shoulder seam clearly visible"
       },
       "allowed": [],
       "gender_neutral": true
@@ -5837,7 +5899,7 @@
     "mode": "dating",
     "type": "flexible",
     "base_scene": "bright modern kitchen, natural window light, marble countertop, fresh ingredients and herbs visible",
-    "default_clothing": "clean apron over casual shirt, rolled sleeves, natural domestic setting, shoulder line visible",
+    "default_clothing": "clean apron over casual shirt, rolled sleeves, natural domestic setting, collar and shoulder seam clearly visible",
     "expression": "Genuine warm smile, approachable domestic charm, playful engaging eyes.",
     "allowed_variations": {
       "lighting": [
@@ -5886,9 +5948,9 @@
     },
     "clothing": {
       "default": {
-        "male": "clean apron over casual shirt, rolled sleeves, natural domestic setting, shoulder line visible",
-        "female": "clean apron over casual shirt, rolled sleeves, natural domestic setting, shoulder line visible",
-        "neutral": "clean apron over casual shirt, rolled sleeves, natural domestic setting, shoulder line visible"
+        "male": "clean apron over casual shirt, rolled sleeves, natural domestic setting, collar and shoulder seam clearly visible",
+        "female": "clean apron over casual shirt, rolled sleeves, natural domestic setting, collar and shoulder seam clearly visible",
+        "neutral": "clean apron over casual shirt, rolled sleeves, natural domestic setting, collar and shoulder seam clearly visible"
       },
       "allowed": [],
       "gender_neutral": true
@@ -5960,7 +6022,7 @@
     "mode": "dating",
     "type": "flexible",
     "base_scene": "city street in light rain, wet reflections on pavement, moody atmospheric light, glass surface with droplets, grey sky",
-    "default_clothing": "dark fitted coat or jacket, quality umbrella, polished rainy-day style, shoulder line visible",
+    "default_clothing": "dark fitted coat or jacket, quality umbrella, polished rainy-day style, coat shoulders visible across the upper frame",
     "expression": "Contemplative gaze, mysterious half-smile, moody atmospheric confidence.",
     "allowed_variations": {
       "lighting": [
@@ -6009,9 +6071,9 @@
     },
     "clothing": {
       "default": {
-        "male": "dark fitted coat or jacket, quality umbrella, polished rainy-day style, shoulder line visible",
-        "female": "dark fitted coat or jacket, quality umbrella, polished rainy-day style, shoulder line visible",
-        "neutral": "dark fitted coat or jacket, quality umbrella, polished rainy-day style, shoulder line visible"
+        "male": "dark fitted coat or jacket, quality umbrella, polished rainy-day style, coat shoulders visible across the upper frame",
+        "female": "dark fitted coat or jacket, quality umbrella, polished rainy-day style, coat shoulders visible across the upper frame",
+        "neutral": "dark fitted coat or jacket, quality umbrella, polished rainy-day style, coat shoulders visible across the upper frame"
       },
       "allowed": [
         "fitted neutral knit and dark jeans, clean white sneakers",
@@ -6112,7 +6174,7 @@
     "mode": "dating",
     "type": "flexible",
     "base_scene": "cozy late-night coffee shop interior, warm tungsten lighting, interior clearly visible, city lights through window, steaming cup on table",
-    "default_clothing": "dark cozy layers, quality cashmere sweater or fitted dark shirt, shoulder line visible",
+    "default_clothing": "dark cozy layers, quality cashmere sweater or fitted dark shirt, collar and shoulder seam clearly visible",
     "expression": "Warm intimate gaze, gentle smile, cozy late-night thoughtful eyes.",
     "allowed_variations": {
       "lighting": [
@@ -6161,9 +6223,9 @@
     },
     "clothing": {
       "default": {
-        "male": "dark cozy layers, quality cashmere sweater or fitted dark shirt, shoulder line visible",
-        "female": "dark cozy layers, quality cashmere sweater or fitted dark shirt, shoulder line visible",
-        "neutral": "dark cozy layers, quality cashmere sweater or fitted dark shirt, shoulder line visible"
+        "male": "dark cozy layers, quality cashmere sweater or fitted dark shirt, collar and shoulder seam clearly visible",
+        "female": "dark cozy layers, quality cashmere sweater or fitted dark shirt, collar and shoulder seam clearly visible",
+        "neutral": "dark cozy layers, quality cashmere sweater or fitted dark shirt, collar and shoulder seam clearly visible"
       },
       "allowed": [],
       "gender_neutral": true
@@ -6235,7 +6297,7 @@
     "mode": "dating",
     "type": "flexible",
     "base_scene": "modern apartment with warm ambient lamp lighting, city view through large window, comfortable interior, book or drink nearby",
-    "default_clothing": "clean quality loungewear, fitted casual pieces, relaxed domestic style, shoulder line visible",
+    "default_clothing": "clean quality loungewear, fitted casual pieces, relaxed domestic style, shoulders fully in frame",
     "expression": "Calm contented expression, warm genuine smile, comfortable domestic confidence.",
     "allowed_variations": {
       "lighting": [
@@ -6283,9 +6345,9 @@
     },
     "clothing": {
       "default": {
-        "male": "clean quality loungewear, fitted casual pieces, relaxed domestic style, shoulder line visible",
-        "female": "clean quality loungewear, fitted casual pieces, relaxed domestic style, shoulder line visible",
-        "neutral": "clean quality loungewear, fitted casual pieces, relaxed domestic style, shoulder line visible"
+        "male": "clean quality loungewear, fitted casual pieces, relaxed domestic style, shoulders fully in frame",
+        "female": "clean quality loungewear, fitted casual pieces, relaxed domestic style, shoulders fully in frame",
+        "neutral": "clean quality loungewear, fitted casual pieces, relaxed domestic style, shoulders fully in frame"
       },
       "allowed": [],
       "gender_neutral": true
@@ -6356,7 +6418,7 @@
     "mode": "dating",
     "type": "flexible",
     "base_scene": "matte-black motorcycle parked on empty road at golden hour, open landscape behind, warm rim light",
-    "default_clothing": "fitted leather jacket over plain tee, dark denim, motorcycle boots, shoulder line visible",
+    "default_clothing": "fitted leather jacket over plain tee, dark denim, motorcycle boots, crew-neck shoulder line clearly visible",
     "expression": "Direct confident gaze, calm rugged brow, natural closed-mouth line.",
     "allowed_variations": {
       "lighting": [
@@ -6405,9 +6467,9 @@
     },
     "clothing": {
       "default": {
-        "male": "fitted leather jacket over plain tee, dark denim, motorcycle boots, shoulder line visible",
-        "female": "fitted leather jacket over plain tee, dark denim, motorcycle boots, shoulder line visible",
-        "neutral": "fitted leather jacket over plain tee, dark denim, motorcycle boots, shoulder line visible"
+        "male": "fitted leather jacket over plain tee, dark denim, motorcycle boots, crew-neck shoulder line clearly visible",
+        "female": "fitted leather jacket over plain tee, dark denim, motorcycle boots, crew-neck shoulder line clearly visible",
+        "neutral": "fitted leather jacket over plain tee, dark denim, motorcycle boots, crew-neck shoulder line clearly visible"
       },
       "allowed": [
         "fitted neutral knit and dark jeans, clean white sneakers",
@@ -6519,7 +6581,7 @@
     "mode": "dating",
     "type": "flexible",
     "base_scene": "interior of modern car, diffused window light streaming through windshield, leather steering wheel and dashboard visible",
-    "default_clothing": "casual button-down shirt with rolled sleeves, subtle wrist accessory, shoulder line visible",
+    "default_clothing": "casual button-down shirt with rolled sleeves, subtle wrist accessory, collar and shoulder seam clearly visible",
     "expression": "Warm natural smile, easy eye crinkles, relaxed expression.",
     "allowed_variations": {
       "lighting": [
@@ -6567,9 +6629,9 @@
     },
     "clothing": {
       "default": {
-        "male": "casual button-down shirt with rolled sleeves, subtle wrist accessory, shoulder line visible",
-        "female": "casual button-down shirt with rolled sleeves, subtle wrist accessory, shoulder line visible",
-        "neutral": "casual button-down shirt with rolled sleeves, subtle wrist accessory, shoulder line visible"
+        "male": "casual button-down shirt with rolled sleeves, subtle wrist accessory, collar and shoulder seam clearly visible",
+        "female": "casual button-down shirt with rolled sleeves, subtle wrist accessory, collar and shoulder seam clearly visible",
+        "neutral": "casual button-down shirt with rolled sleeves, subtle wrist accessory, collar and shoulder seam clearly visible"
       },
       "allowed": [],
       "gender_neutral": true
@@ -6640,7 +6702,7 @@
     "mode": "dating",
     "type": "flexible",
     "base_scene": "contemporary art gallery, white walls with large paintings visible, track lighting creating directional light",
-    "default_clothing": "smart turtleneck or fitted dark shirt, tailored trousers, minimalist style, shoulder line visible",
+    "default_clothing": "smart turtleneck or fitted dark shirt, tailored trousers, minimalist style, well-fitted across the shoulders",
     "expression": "Intellectual open expression, subtle confident gaze, cultured relaxed mouth.",
     "allowed_variations": {
       "lighting": [
@@ -6689,9 +6751,9 @@
     },
     "clothing": {
       "default": {
-        "male": "smart turtleneck or fitted dark shirt, tailored trousers, minimalist style, shoulder line visible",
-        "female": "smart turtleneck or fitted blouse, tailored trousers or midi skirt, minimalist style, shoulder line visible",
-        "neutral": "smart turtleneck or fitted dark shirt, tailored trousers, minimalist style, shoulder line visible"
+        "male": "smart turtleneck or fitted dark shirt, tailored trousers, minimalist style, well-fitted across the shoulders",
+        "female": "smart turtleneck or fitted blouse, tailored trousers or midi skirt, minimalist style, well-fitted across the shoulders",
+        "neutral": "smart turtleneck or fitted dark shirt, tailored trousers, minimalist style, well-fitted across the shoulders"
       },
       "allowed": [],
       "gender_neutral": true
@@ -6763,7 +6825,7 @@
     "mode": "dating",
     "type": "flexible",
     "base_scene": "vibrant city street with graffiti walls, modern architecture, warm directional sunlight creating long shadows",
-    "default_clothing": "streetwear layers, bomber or denim jacket, fitted pants, clean sneakers, shoulder line visible",
+    "default_clothing": "streetwear layers, bomber or denim jacket, fitted pants, clean sneakers, well-fitted across the shoulders",
     "expression": "Effortless cool expression, bold urban half-smile, confident gaze.",
     "allowed_variations": {
       "lighting": [
@@ -6810,9 +6872,9 @@
     },
     "clothing": {
       "default": {
-        "male": "streetwear layers, bomber or denim jacket, fitted pants, clean sneakers, shoulder line visible",
-        "female": "streetwear layers, bomber or denim jacket, fitted pants, clean sneakers, shoulder line visible",
-        "neutral": "streetwear layers, bomber or denim jacket, fitted pants, clean sneakers, shoulder line visible"
+        "male": "streetwear layers, bomber or denim jacket, fitted pants, clean sneakers, well-fitted across the shoulders",
+        "female": "streetwear layers, bomber or denim jacket, fitted pants, clean sneakers, well-fitted across the shoulders",
+        "neutral": "streetwear layers, bomber or denim jacket, fitted pants, clean sneakers, well-fitted across the shoulders"
       },
       "allowed": [
         "fitted neutral knit and dark jeans, clean white sneakers",
@@ -6912,7 +6974,7 @@
     "mode": "dating",
     "type": "flexible",
     "base_scene": "intimate music venue or home setting with guitar or instruments visible, warm moody lighting, exposed brick or wood",
-    "default_clothing": "vintage band tee or flannel shirt, relaxed creative style, shoulder line visible",
+    "default_clothing": "vintage band tee or flannel shirt, relaxed creative style, collar and shoulder seam clearly visible",
     "expression": "Passionate creative expression, engaged eye contact, soulful gaze.",
     "allowed_variations": {
       "lighting": [
@@ -6960,9 +7022,9 @@
     },
     "clothing": {
       "default": {
-        "male": "vintage band tee or flannel shirt, relaxed creative style, shoulder line visible",
-        "female": "vintage band tee or flannel shirt, relaxed creative style, shoulder line visible",
-        "neutral": "vintage band tee or flannel shirt, relaxed creative style, shoulder line visible"
+        "male": "vintage band tee or flannel shirt, relaxed creative style, collar and shoulder seam clearly visible",
+        "female": "vintage band tee or flannel shirt, relaxed creative style, collar and shoulder seam clearly visible",
+        "neutral": "vintage band tee or flannel shirt, relaxed creative style, collar and shoulder seam clearly visible"
       },
       "allowed": [],
       "gender_neutral": true
@@ -7033,7 +7095,7 @@
     "mode": "dating",
     "type": "flexible",
     "base_scene": "modern airport terminal or departure lounge, large windows with aircraft visible, clean bright interior",
-    "default_clothing": "travel-smart outfit, fitted jacket, comfortable trousers, carry-on bag nearby, shoulder line visible",
+    "default_clothing": "travel-smart outfit, fitted jacket, comfortable trousers, carry-on bag nearby, well-fitted across the shoulders",
     "expression": "Easy natural smile, open relaxed gaze, confident open expression.",
     "allowed_variations": {
       "lighting": [
@@ -7081,9 +7143,9 @@
     },
     "clothing": {
       "default": {
-        "male": "travel-smart outfit, fitted jacket, comfortable trousers, carry-on bag nearby, shoulder line visible",
-        "female": "travel-smart outfit, fitted jacket, comfortable trousers, carry-on bag nearby, shoulder line visible",
-        "neutral": "travel-smart outfit, fitted jacket, comfortable trousers, carry-on bag nearby, shoulder line visible"
+        "male": "travel-smart outfit, fitted jacket, comfortable trousers, carry-on bag nearby, well-fitted across the shoulders",
+        "female": "travel-smart outfit, fitted jacket, comfortable trousers, carry-on bag nearby, well-fitted across the shoulders",
+        "neutral": "travel-smart outfit, fitted jacket, comfortable trousers, carry-on bag nearby, well-fitted across the shoulders"
       },
       "allowed": [],
       "gender_neutral": true
@@ -7155,7 +7217,7 @@
     "mode": "dating",
     "type": "flexible",
     "base_scene": "golden-hour park or waterfront, warm backlight with subtle rim light, natural green and water textures visible in background",
-    "default_clothing": "stylish casual, fitted, clean fabrics, shoulder line visible",
+    "default_clothing": "stylish casual, fitted, clean fabrics, shoulders fully in frame",
     "expression": "Soft relaxed eyes, warm approachable look, gentle natural expression.",
     "allowed_variations": {
       "lighting": [
@@ -7204,9 +7266,9 @@
     },
     "clothing": {
       "default": {
-        "male": "stylish casual, fitted, clean fabrics, shoulder line visible",
-        "female": "stylish casual, fitted, clean fabrics, shoulder line visible",
-        "neutral": "stylish casual, fitted, clean fabrics, shoulder line visible"
+        "male": "stylish casual, fitted, clean fabrics, shoulders fully in frame",
+        "female": "stylish casual, fitted, clean fabrics, shoulders fully in frame",
+        "neutral": "stylish casual, fitted, clean fabrics, shoulders fully in frame"
       },
       "allowed": [
         "fitted neutral knit and dark jeans, clean white sneakers",
@@ -7431,7 +7493,7 @@
     "mode": "dating",
     "type": "semi_locked",
     "base_scene": "cozy upscale cafe, warm tungsten light, exposed brick or wood paneling, bottles and candles in background",
-    "default_clothing": "smart-casual date outfit, earth tones, linen or cotton, shoulder line visible",
+    "default_clothing": "smart-casual date outfit, earth tones, linen or cotton, shoulders fully in frame",
     "expression": "Bright engaging eyes, raised eyebrow warmth, relaxed warm expression.",
     "allowed_variations": {
       "lighting": [
@@ -7480,9 +7542,9 @@
     },
     "clothing": {
       "default": {
-        "male": "smart-casual date outfit, earth tones, linen or cotton, shoulder line visible",
-        "female": "smart-casual date outfit, earth tones, linen or cotton, shoulder line visible",
-        "neutral": "smart-casual date outfit, earth tones, linen or cotton, shoulder line visible"
+        "male": "smart-casual date outfit, earth tones, linen or cotton, shoulders fully in frame",
+        "female": "smart-casual date outfit, earth tones, linen or cotton, shoulders fully in frame",
+        "neutral": "smart-casual date outfit, earth tones, linen or cotton, shoulders fully in frame"
       },
       "allowed": [],
       "gender_neutral": true
@@ -7555,7 +7617,7 @@
     "mode": "dating",
     "type": "flexible",
     "base_scene": "urban rooftop terrace at golden hour, warm rim light on skyline, distant city lights clearly visible across skyline, romantic open-air atmosphere",
-    "default_clothing": "fitted casual-smart outfit, clean lines, subtle accessories, date-ready polish, shoulder line visible",
+    "default_clothing": "fitted casual-smart outfit, clean lines, subtle accessories, date-ready polish, shoulders fully in frame",
     "expression": "Warm confident smile, engaged eye contact, relaxed romantic gaze.",
     "allowed_variations": {
       "lighting": [
@@ -7602,9 +7664,9 @@
     },
     "clothing": {
       "default": {
-        "male": "fitted casual-smart outfit, clean lines, subtle accessories, date-ready polish, shoulder line visible",
-        "female": "fitted casual-smart outfit, clean lines, subtle accessories, date-ready polish, shoulder line visible",
-        "neutral": "fitted casual-smart outfit, clean lines, subtle accessories, date-ready polish, shoulder line visible"
+        "male": "fitted casual-smart outfit, clean lines, subtle accessories, date-ready polish, shoulders fully in frame",
+        "female": "fitted casual-smart outfit, clean lines, subtle accessories, date-ready polish, shoulders fully in frame",
+        "neutral": "fitted casual-smart outfit, clean lines, subtle accessories, date-ready polish, shoulders fully in frame"
       },
       "allowed": [
         "fitted neutral knit and dark jeans, clean white sneakers",
@@ -7707,7 +7769,7 @@
     "mode": "dating",
     "type": "semi_locked",
     "base_scene": "pure neutral studio backdrop soft grey-to-white gradient, even beauty-dish lighting, empty backdrop area, clean studio setup with backdrop fully visible",
-    "default_clothing": "simple fitted top in solid color, minimal jewelry, fresh grooming, shoulder line visible",
+    "default_clothing": "simple fitted top in solid color, minimal jewelry, fresh grooming, shoulders fully in frame",
     "expression": "Open genuine expression, soft approachable gaze, clean natural confidence.",
     "allowed_variations": {
       "lighting": [
@@ -7757,9 +7819,9 @@
     },
     "clothing": {
       "default": {
-        "male": "simple fitted top in solid color, minimal jewelry, fresh grooming, shoulder line visible",
-        "female": "simple fitted top in solid color, minimal jewelry, fresh grooming, shoulder line visible",
-        "neutral": "simple fitted top in solid color, minimal jewelry, fresh grooming, shoulder line visible"
+        "male": "simple fitted top in solid color, minimal jewelry, fresh grooming, shoulders fully in frame",
+        "female": "simple fitted top in solid color, minimal jewelry, fresh grooming, shoulders fully in frame",
+        "neutral": "simple fitted top in solid color, minimal jewelry, fresh grooming, shoulders fully in frame"
       },
       "allowed": [],
       "gender_neutral": true
@@ -7833,7 +7895,7 @@
     "mode": "dating",
     "type": "semi_locked",
     "base_scene": "bright cafe interior by large window, natural daylight, plants and warm wood tones visible behind, details preserved",
-    "default_clothing": "relaxed smart-casual, soft sweater or crisp shirt, approachable style, shoulder line visible",
+    "default_clothing": "relaxed smart-casual, soft sweater or crisp shirt, approachable style, collar and shoulder seam clearly visible",
     "expression": "Bright easy smile, warm inviting eyes, cozy authentic charm.",
     "allowed_variations": {
       "lighting": [
@@ -7882,9 +7944,9 @@
     },
     "clothing": {
       "default": {
-        "male": "relaxed smart-casual, soft sweater or crisp shirt, approachable style, shoulder line visible",
-        "female": "relaxed smart-casual, soft sweater or crisp shirt, approachable style, shoulder line visible",
-        "neutral": "relaxed smart-casual, soft sweater or crisp shirt, approachable style, shoulder line visible"
+        "male": "relaxed smart-casual, soft sweater or crisp shirt, approachable style, collar and shoulder seam clearly visible",
+        "female": "relaxed smart-casual, soft sweater or crisp shirt, approachable style, collar and shoulder seam clearly visible",
+        "neutral": "relaxed smart-casual, soft sweater or crisp shirt, approachable style, collar and shoulder seam clearly visible"
       },
       "allowed": [],
       "gender_neutral": true
@@ -8444,7 +8506,7 @@
     "mode": "cv",
     "type": "flexible",
     "base_scene": "open-plan startup office, standing desks, plants, glass partitions, bright natural light",
-    "default_clothing": "smart casual, fitted chinos, clean button-down with rolled sleeves, open collar, shoulder line visible",
+    "default_clothing": "smart casual, fitted chinos, clean button-down with rolled sleeves, open collar, collar and shoulder seam clearly visible",
     "expression": "Approachable bright-eyed expression, relaxed innovative confidence.",
     "allowed_variations": {
       "lighting": [
@@ -8493,9 +8555,9 @@
     },
     "clothing": {
       "default": {
-        "male": "smart casual, fitted chinos, clean button-down with rolled sleeves, open collar, shoulder line visible",
-        "female": "smart casual, fitted chinos, clean button-down with rolled sleeves, open collar, shoulder line visible",
-        "neutral": "smart casual, fitted chinos, clean button-down with rolled sleeves, open collar, shoulder line visible"
+        "male": "smart casual, fitted chinos, clean button-down with rolled sleeves, open collar, collar and shoulder seam clearly visible",
+        "female": "smart casual, fitted chinos, clean button-down with rolled sleeves, open collar, collar and shoulder seam clearly visible",
+        "neutral": "smart casual, fitted chinos, clean button-down with rolled sleeves, open collar, collar and shoulder seam clearly visible"
       },
       "allowed": [],
       "gender_neutral": true
@@ -8567,7 +8629,7 @@
     "mode": "cv",
     "type": "flexible",
     "base_scene": "trendy coworking loft, exposed brick, industrial lighting, community workspace in background",
-    "default_clothing": "fitted blazer over crew-neck tee, dark jeans, modern smart-casual, shoulder line visible",
+    "default_clothing": "fitted blazer over crew-neck tee, dark jeans, modern smart-casual, well-fitted across the shoulders",
     "expression": "Collaborative friendly expression, modern entrepreneurial half-smile.",
     "allowed_variations": {
       "lighting": [
@@ -8616,9 +8678,9 @@
     },
     "clothing": {
       "default": {
-        "male": "fitted blazer over crew-neck tee, dark jeans, modern smart-casual, shoulder line visible",
-        "female": "fitted blazer over crew-neck tee, dark jeans, modern smart-casual, shoulder line visible",
-        "neutral": "fitted blazer over crew-neck tee, dark jeans, modern smart-casual, shoulder line visible"
+        "male": "fitted blazer over crew-neck tee, dark jeans, modern smart-casual, well-fitted across the shoulders",
+        "female": "fitted blazer over crew-neck tee, dark jeans, modern smart-casual, well-fitted across the shoulders",
+        "neutral": "fitted blazer over crew-neck tee, dark jeans, modern smart-casual, well-fitted across the shoulders"
       },
       "allowed": [],
       "gender_neutral": true
@@ -8691,7 +8753,7 @@
     "mode": "cv",
     "type": "flexible",
     "base_scene": "clean home office interior, ring light or monitor glow on the subject, neat bookshelves visible behind, even lighting",
-    "default_clothing": "professional fitted shirt, crisp collar, clean grooming visible above desk, shoulder line visible",
+    "default_clothing": "professional fitted shirt, crisp collar, clean grooming visible above desk, collar and shoulder seam clearly visible",
     "expression": "Engaged expression, warm professional smile, confident screen presence, trustworthy soft eyes.",
     "allowed_variations": {
       "lighting": [
@@ -8741,9 +8803,9 @@
     },
     "clothing": {
       "default": {
-        "male": "professional fitted shirt, crisp collar, clean grooming visible above desk, shoulder line visible",
-        "female": "professional fitted shirt, crisp collar, clean grooming visible above desk, shoulder line visible",
-        "neutral": "professional fitted shirt, crisp collar, clean grooming visible above desk, shoulder line visible"
+        "male": "professional fitted shirt, crisp collar, clean grooming visible above desk, collar and shoulder seam clearly visible",
+        "female": "professional fitted shirt, crisp collar, clean grooming visible above desk, collar and shoulder seam clearly visible",
+        "neutral": "professional fitted shirt, crisp collar, clean grooming visible above desk, collar and shoulder seam clearly visible"
       },
       "allowed": [],
       "gender_neutral": true
@@ -8816,7 +8878,7 @@
     "mode": "cv",
     "type": "flexible",
     "base_scene": "office desk with financial charts on monitor screen, organized documents, warm desk lamp, focused workspace atmosphere",
-    "default_clothing": "professional shirt with rolled sleeves, reading glasses optional, sharp look, shoulder line visible",
+    "default_clothing": "professional shirt with rolled sleeves, reading glasses optional, sharp look, collar and shoulder seam clearly visible",
     "expression": "Sharp analytical expression, slight concentration furrow, intelligent authority.",
     "allowed_variations": {
       "lighting": [
@@ -8865,9 +8927,9 @@
     },
     "clothing": {
       "default": {
-        "male": "professional shirt with rolled sleeves, reading glasses optional, sharp look, shoulder line visible",
-        "female": "professional shirt with rolled sleeves, reading glasses optional, sharp look, shoulder line visible",
-        "neutral": "professional shirt with rolled sleeves, reading glasses optional, sharp look, shoulder line visible"
+        "male": "professional shirt with rolled sleeves, reading glasses optional, sharp look, collar and shoulder seam clearly visible",
+        "female": "professional shirt with rolled sleeves, reading glasses optional, sharp look, collar and shoulder seam clearly visible",
+        "neutral": "professional shirt with rolled sleeves, reading glasses optional, sharp look, collar and shoulder seam clearly visible"
       },
       "allowed": [],
       "gender_neutral": true
@@ -8940,7 +9002,7 @@
     "mode": "cv",
     "type": "semi_locked",
     "base_scene": "bright cafe or office corner, quality notebook open on table, pen in hand, warm natural window light, coffee cup nearby",
-    "default_clothing": "smart-casual layers, clean fitted shirt, professional yet relaxed, shoulder line visible",
+    "default_clothing": "smart-casual layers, clean fitted shirt, professional yet relaxed, collar and shoulder seam clearly visible",
     "expression": "Thoughtful inspired expression, subtle focused smile, creative productive gaze.",
     "allowed_variations": {
       "lighting": [
@@ -8989,9 +9051,9 @@
     },
     "clothing": {
       "default": {
-        "male": "smart-casual layers, clean fitted shirt, professional yet relaxed, shoulder line visible",
-        "female": "smart-casual layers, clean fitted shirt, professional yet relaxed, shoulder line visible",
-        "neutral": "smart-casual layers, clean fitted shirt, professional yet relaxed, shoulder line visible"
+        "male": "smart-casual layers, clean fitted shirt, professional yet relaxed, collar and shoulder seam clearly visible",
+        "female": "smart-casual layers, clean fitted shirt, professional yet relaxed, collar and shoulder seam clearly visible",
+        "neutral": "smart-casual layers, clean fitted shirt, professional yet relaxed, collar and shoulder seam clearly visible"
       },
       "allowed": [],
       "gender_neutral": true
@@ -9063,7 +9125,7 @@
     "mode": "cv",
     "type": "flexible",
     "base_scene": "creative workspace, digital tablet on desk with sketches visible, clean modern interior, directional task light",
-    "default_clothing": "smart-casual fitted dark sweater, creative professional look, shoulder line visible",
+    "default_clothing": "smart-casual fitted dark sweater, creative professional look, fit shows the natural shoulder line",
     "expression": "Focused creative expression, innovative gaze, modern productive still brow.",
     "allowed_variations": {
       "lighting": [
@@ -9112,9 +9174,9 @@
     },
     "clothing": {
       "default": {
-        "male": "smart-casual fitted dark sweater, creative professional look, shoulder line visible",
-        "female": "smart-casual fitted dark sweater, creative professional look, shoulder line visible",
-        "neutral": "smart-casual fitted dark sweater, creative professional look, shoulder line visible"
+        "male": "smart-casual fitted dark sweater, creative professional look, fit shows the natural shoulder line",
+        "female": "smart-casual fitted dark sweater, creative professional look, fit shows the natural shoulder line",
+        "neutral": "smart-casual fitted dark sweater, creative professional look, fit shows the natural shoulder line"
       },
       "allowed": [],
       "gender_neutral": true
@@ -9186,7 +9248,7 @@
     "mode": "cv",
     "type": "flexible",
     "base_scene": "modern office kitchen or lounge area, coffee machine in background, bright even lighting, clean minimalist break space",
-    "default_clothing": "professional attire slightly relaxed, sleeves rolled, coffee cup in hand, shoulder line visible",
+    "default_clothing": "professional attire slightly relaxed, sleeves rolled, coffee cup in hand, shoulders fully in frame",
     "expression": "Relaxed confident smile, approachable warm expression, human professional soft eyes.",
     "allowed_variations": {
       "lighting": [
@@ -9234,9 +9296,9 @@
     },
     "clothing": {
       "default": {
-        "male": "professional attire slightly relaxed, sleeves rolled, coffee cup in hand, shoulder line visible",
-        "female": "professional attire slightly relaxed, sleeves rolled, coffee cup in hand, shoulder line visible",
-        "neutral": "professional attire slightly relaxed, sleeves rolled, coffee cup in hand, shoulder line visible"
+        "male": "professional attire slightly relaxed, sleeves rolled, coffee cup in hand, shoulders fully in frame",
+        "female": "professional attire slightly relaxed, sleeves rolled, coffee cup in hand, shoulders fully in frame",
+        "neutral": "professional attire slightly relaxed, sleeves rolled, coffee cup in hand, shoulders fully in frame"
       },
       "allowed": [],
       "gender_neutral": true
@@ -9308,7 +9370,7 @@
     "mode": "cv",
     "type": "flexible",
     "base_scene": "modern office at evening, warm desk lamp light, city lights visible through window behind, focused productive workspace atmosphere",
-    "default_clothing": "professional shirt with loosened collar, sleeves rolled, focused work look, shoulder line visible",
+    "default_clothing": "professional shirt with loosened collar, sleeves rolled, focused work look, collar and shoulder seam clearly visible",
     "expression": "Focused determined expression, intense productive gaze, ambitious driven brow.",
     "allowed_variations": {
       "lighting": [
@@ -9357,9 +9419,9 @@
     },
     "clothing": {
       "default": {
-        "male": "professional shirt with loosened collar, sleeves rolled, focused work look, shoulder line visible",
-        "female": "professional shirt with loosened collar, sleeves rolled, focused work look, shoulder line visible",
-        "neutral": "professional shirt with loosened collar, sleeves rolled, focused work look, shoulder line visible"
+        "male": "professional shirt with loosened collar, sleeves rolled, focused work look, collar and shoulder seam clearly visible",
+        "female": "professional shirt with loosened collar, sleeves rolled, focused work look, collar and shoulder seam clearly visible",
+        "neutral": "professional shirt with loosened collar, sleeves rolled, focused work look, collar and shoulder seam clearly visible"
       },
       "allowed": [],
       "gender_neutral": true
@@ -9431,7 +9493,7 @@
     "mode": "cv",
     "type": "flexible",
     "base_scene": "modern office corridor or glass-walled lobby, bright clean environment, meeting rooms visible behind, professional workspace atmosphere",
-    "default_clothing": "fresh professional attire, straightened collar, polished ready-for-action look, shoulder line visible",
+    "default_clothing": "fresh professional attire, straightened collar, polished ready-for-action look, shoulders fully in frame",
     "expression": "Focused open gaze, subtle prepared smile, relaxed mouth line.",
     "allowed_variations": {
       "lighting": [
@@ -9479,9 +9541,9 @@
     },
     "clothing": {
       "default": {
-        "male": "fresh professional attire, straightened collar, polished ready-for-action look, shoulder line visible",
-        "female": "fresh professional attire, straightened collar, polished ready-for-action look, shoulder line visible",
-        "neutral": "fresh professional attire, straightened collar, polished ready-for-action look, shoulder line visible"
+        "male": "fresh professional attire, straightened collar, polished ready-for-action look, shoulders fully in frame",
+        "female": "fresh professional attire, straightened collar, polished ready-for-action look, shoulders fully in frame",
+        "neutral": "fresh professional attire, straightened collar, polished ready-for-action look, shoulders fully in frame"
       },
       "allowed": [],
       "gender_neutral": true
@@ -9679,7 +9741,7 @@
     "mode": "cv",
     "type": "flexible",
     "base_scene": "premium airport or hotel business lounge, marble and leather surfaces, warm lighting, laptop and documents on table",
-    "default_clothing": "business-casual travel outfit, quality fabrics, polished accessories, shoulder line visible",
+    "default_clothing": "business-casual travel outfit, quality fabrics, polished accessories, shoulders fully in frame",
     "expression": "Open traveler expression, confident relaxed smile, premium natural gaze.",
     "allowed_variations": {
       "lighting": [
@@ -9727,9 +9789,9 @@
     },
     "clothing": {
       "default": {
-        "male": "business-casual travel outfit, quality fabrics, polished accessories, shoulder line visible",
-        "female": "business-casual travel outfit, quality fabrics, polished accessories, shoulder line visible",
-        "neutral": "business-casual travel outfit, quality fabrics, polished accessories, shoulder line visible"
+        "male": "business-casual travel outfit, quality fabrics, polished accessories, shoulders fully in frame",
+        "female": "business-casual travel outfit, quality fabrics, polished accessories, shoulders fully in frame",
+        "neutral": "business-casual travel outfit, quality fabrics, polished accessories, shoulders fully in frame"
       },
       "allowed": [],
       "gender_neutral": true
@@ -9925,7 +9987,7 @@
     "mode": "cv",
     "type": "flexible",
     "base_scene": "minimal home office or tech workspace, monitor screens behind, clean desk, natural window light",
-    "default_clothing": "premium fitted polo or cashmere sweater, clean minimalist style, shoulder line visible",
+    "default_clothing": "premium fitted polo or cashmere sweater, clean minimalist style, collar and shoulder seam clearly visible",
     "expression": "Focused productive expression, tech-savvy composed confidence.",
     "allowed_variations": {
       "lighting": [
@@ -9974,9 +10036,9 @@
     },
     "clothing": {
       "default": {
-        "male": "premium fitted polo or cashmere sweater, clean minimalist style, shoulder line visible",
-        "female": "premium fitted polo or cashmere sweater, clean minimalist style, shoulder line visible",
-        "neutral": "premium fitted polo or cashmere sweater, clean minimalist style, shoulder line visible"
+        "male": "premium fitted polo or cashmere sweater, clean minimalist style, collar and shoulder seam clearly visible",
+        "female": "premium fitted polo or cashmere sweater, clean minimalist style, collar and shoulder seam clearly visible",
+        "neutral": "premium fitted polo or cashmere sweater, clean minimalist style, collar and shoulder seam clearly visible"
       },
       "allowed": [],
       "gender_neutral": true
@@ -10048,7 +10110,7 @@
     "mode": "cv",
     "type": "semi_locked",
     "base_scene": "tropical co-working space or beach cafe with laptop on table, palm trees and ocean visible through open walls, bright natural light",
-    "default_clothing": "casual smart lightweight shirt, relaxed professional travel style, shoulder line visible",
+    "default_clothing": "casual smart lightweight shirt, relaxed professional travel style, collar and shoulder seam clearly visible",
     "expression": "Easy confident smile, free productive expression, relaxed modern gaze.",
     "allowed_variations": {
       "lighting": [
@@ -10097,9 +10159,9 @@
     },
     "clothing": {
       "default": {
-        "male": "casual smart lightweight shirt, relaxed professional travel style, shoulder line visible",
-        "female": "casual smart lightweight shirt, relaxed professional travel style, shoulder line visible",
-        "neutral": "casual smart lightweight shirt, relaxed professional travel style, shoulder line visible"
+        "male": "casual smart lightweight shirt, relaxed professional travel style, collar and shoulder seam clearly visible",
+        "female": "casual smart lightweight shirt, relaxed professional travel style, collar and shoulder seam clearly visible",
+        "neutral": "casual smart lightweight shirt, relaxed professional travel style, collar and shoulder seam clearly visible"
       },
       "allowed": [],
       "gender_neutral": true
@@ -10181,7 +10243,7 @@
     "mode": "cv",
     "type": "flexible",
     "base_scene": "classic library or bookstore, warm amber ambient lighting, books and wooden shelves behind, academic atmosphere",
-    "default_clothing": "turtleneck or fitted quality shirt, subtle glasses, refined academic style, shoulder line visible",
+    "default_clothing": "turtleneck or fitted quality shirt, subtle glasses, refined academic style, collar and shoulder seam clearly visible",
     "expression": "Open thoughtful gaze, contemplative natural expression, scholarly relaxed brow.",
     "allowed_variations": {
       "lighting": [
@@ -10229,9 +10291,9 @@
     },
     "clothing": {
       "default": {
-        "male": "turtleneck or fitted quality shirt, subtle glasses, refined academic style, shoulder line visible",
-        "female": "turtleneck or fitted quality shirt, subtle glasses, refined academic style, shoulder line visible",
-        "neutral": "turtleneck or fitted quality shirt, subtle glasses, refined academic style, shoulder line visible"
+        "male": "turtleneck or fitted quality shirt, subtle glasses, refined academic style, collar and shoulder seam clearly visible",
+        "female": "turtleneck or fitted quality shirt, subtle glasses, refined academic style, collar and shoulder seam clearly visible",
+        "neutral": "turtleneck or fitted quality shirt, subtle glasses, refined academic style, collar and shoulder seam clearly visible"
       },
       "allowed": [],
       "gender_neutral": true
@@ -10302,7 +10364,7 @@
     "mode": "cv",
     "type": "flexible",
     "base_scene": "developer workspace, multiple monitors with code on screen, dark ambient room, LED desk lighting",
-    "default_clothing": "quality hoodie or fitted dark sweater, comfortable technical style, shoulder line visible",
+    "default_clothing": "quality hoodie or fitted dark sweater, comfortable technical style, fit shows the natural shoulder line",
     "expression": "Alert focused expression, intelligent confident gaze, calm technical authority.",
     "allowed_variations": {
       "lighting": [
@@ -10351,9 +10413,9 @@
     },
     "clothing": {
       "default": {
-        "male": "quality hoodie or fitted dark sweater, comfortable technical style, shoulder line visible",
-        "female": "quality hoodie or fitted dark sweater, comfortable technical style, shoulder line visible",
-        "neutral": "quality hoodie or fitted dark sweater, comfortable technical style, shoulder line visible"
+        "male": "quality hoodie or fitted dark sweater, comfortable technical style, fit shows the natural shoulder line",
+        "female": "quality hoodie or fitted dark sweater, comfortable technical style, fit shows the natural shoulder line",
+        "neutral": "quality hoodie or fitted dark sweater, comfortable technical style, fit shows the natural shoulder line"
       },
       "allowed": [],
       "gender_neutral": true
@@ -10425,7 +10487,7 @@
     "mode": "cv",
     "type": "semi_locked",
     "base_scene": "design studio, mood boards and sketches behind, warm directional studio light, mood boards in clear focus",
-    "default_clothing": "black turtleneck, minimalist dark outfit, statement glasses optional, shoulder line visible",
+    "default_clothing": "black turtleneck, minimalist dark outfit, statement glasses optional, fit shows the natural shoulder line",
     "expression": "Intense creative gaze, visionary confident expression, artistic authority.",
     "allowed_variations": {
       "lighting": [
@@ -10474,9 +10536,9 @@
     },
     "clothing": {
       "default": {
-        "male": "black turtleneck, minimalist dark outfit, statement glasses optional, shoulder line visible",
-        "female": "black turtleneck, minimalist dark outfit, statement glasses optional, shoulder line visible",
-        "neutral": "black turtleneck, minimalist dark outfit, statement glasses optional, shoulder line visible"
+        "male": "black turtleneck, minimalist dark outfit, statement glasses optional, fit shows the natural shoulder line",
+        "female": "black turtleneck, minimalist dark outfit, statement glasses optional, fit shows the natural shoulder line",
+        "neutral": "black turtleneck, minimalist dark outfit, statement glasses optional, fit shows the natural shoulder line"
       },
       "allowed": [],
       "gender_neutral": true
@@ -10548,7 +10610,7 @@
     "mode": "cv",
     "type": "flexible",
     "base_scene": "clean modern clinic or hospital corridor, bright even lighting, medical equipment in background",
-    "default_clothing": "white lab coat over dress shirt, stethoscope, professional medical attire, shoulder line visible",
+    "default_clothing": "white lab coat over dress shirt, stethoscope, professional medical attire, coat shoulders visible across the upper frame",
     "expression": "Warm empathetic expression, trustworthy caring gaze, calm medical authority.",
     "allowed_variations": {
       "lighting": [
@@ -10596,9 +10658,9 @@
     },
     "clothing": {
       "default": {
-        "male": "white lab coat over dress shirt, stethoscope, professional medical attire, shoulder line visible",
-        "female": "white lab coat over dress shirt, stethoscope, professional medical attire, shoulder line visible",
-        "neutral": "white lab coat over dress shirt, stethoscope, professional medical attire, shoulder line visible"
+        "male": "white lab coat over dress shirt, stethoscope, professional medical attire, coat shoulders visible across the upper frame",
+        "female": "white lab coat over dress shirt, stethoscope, professional medical attire, coat shoulders visible across the upper frame",
+        "neutral": "white lab coat over dress shirt, stethoscope, professional medical attire, coat shoulders visible across the upper frame"
       },
       "allowed": [],
       "gender_neutral": true
@@ -10792,7 +10854,7 @@
     "mode": "cv",
     "type": "semi_locked",
     "base_scene": "architectural studio, blueprints and scale models on table, large drafting table, bright workspace lighting",
-    "default_clothing": "fitted blazer, dark turtleneck, architect glasses optional, shoulder line visible",
+    "default_clothing": "fitted blazer, dark turtleneck, architect glasses optional, well-fitted across the shoulders",
     "expression": "Precise analytical gaze, creative professional confidence, thoughtful expression.",
     "allowed_variations": {
       "lighting": [
@@ -10839,9 +10901,9 @@
     },
     "clothing": {
       "default": {
-        "male": "fitted blazer, dark turtleneck, architect glasses optional, shoulder line visible",
-        "female": "fitted blazer, dark turtleneck, architect glasses optional, shoulder line visible",
-        "neutral": "fitted blazer, dark turtleneck, architect glasses optional, shoulder line visible"
+        "male": "fitted blazer, dark turtleneck, architect glasses optional, well-fitted across the shoulders",
+        "female": "fitted blazer, dark turtleneck, architect glasses optional, well-fitted across the shoulders",
+        "neutral": "fitted blazer, dark turtleneck, architect glasses optional, well-fitted across the shoulders"
       },
       "allowed": [],
       "gender_neutral": true
@@ -10911,7 +10973,7 @@
     "mode": "cv",
     "type": "semi_locked",
     "base_scene": "podcast studio, professional microphone on boom arm, acoustic panels, warm ambient lighting, headphones",
-    "default_clothing": "smart casual, clean fitted shirt, relaxed professional look, shoulder line visible",
+    "default_clothing": "smart casual, clean fitted shirt, relaxed professional look, collar and shoulder seam clearly visible",
     "expression": "Natural animated expression, engaging conversational smile, authentic approachable authority.",
     "allowed_variations": {
       "lighting": [
@@ -10959,9 +11021,9 @@
     },
     "clothing": {
       "default": {
-        "male": "smart casual, clean fitted shirt, relaxed professional look, shoulder line visible",
-        "female": "smart casual, clean fitted shirt, relaxed professional look, shoulder line visible",
-        "neutral": "smart casual, clean fitted shirt, relaxed professional look, shoulder line visible"
+        "male": "smart casual, clean fitted shirt, relaxed professional look, collar and shoulder seam clearly visible",
+        "female": "smart casual, clean fitted shirt, relaxed professional look, collar and shoulder seam clearly visible",
+        "neutral": "smart casual, clean fitted shirt, relaxed professional look, collar and shoulder seam clearly visible"
       },
       "allowed": [],
       "gender_neutral": true
@@ -11032,7 +11094,7 @@
     "mode": "cv",
     "type": "semi_locked",
     "base_scene": "bright meeting room or cafe, whiteboard with diagrams behind, warm collaborative atmosphere",
-    "default_clothing": "smart casual blazer, open collar shirt, approachable professional style, shoulder line visible",
+    "default_clothing": "smart casual blazer, open collar shirt, approachable professional style, well-fitted across the shoulders",
     "expression": "Warm encouraging expression, wise approachable mentor smile, attentive gaze.",
     "allowed_variations": {
       "lighting": [
@@ -11081,9 +11143,9 @@
     },
     "clothing": {
       "default": {
-        "male": "smart casual blazer, open collar shirt, approachable professional style, shoulder line visible",
-        "female": "smart casual blazer, open collar shirt, approachable professional style, shoulder line visible",
-        "neutral": "smart casual blazer, open collar shirt, approachable professional style, shoulder line visible"
+        "male": "smart casual blazer, open collar shirt, approachable professional style, well-fitted across the shoulders",
+        "female": "smart casual blazer, open collar shirt, approachable professional style, well-fitted across the shoulders",
+        "neutral": "smart casual blazer, open collar shirt, approachable professional style, well-fitted across the shoulders"
       },
       "allowed": [],
       "gender_neutral": true
@@ -11155,7 +11217,7 @@
     "mode": "cv",
     "type": "semi_locked",
     "base_scene": "upscale outdoor cafe terrace, city street behind, laptop on table, natural daylight",
-    "default_clothing": "linen blazer over fitted shirt, chinos, digital nomad smart-casual, shoulder line visible",
+    "default_clothing": "linen blazer over fitted shirt, chinos, digital nomad smart-casual, well-fitted across the shoulders",
     "expression": "Confident relaxed smile, modern flexible professional gaze.",
     "allowed_variations": {
       "lighting": [
@@ -11204,9 +11266,9 @@
     },
     "clothing": {
       "default": {
-        "male": "linen blazer over fitted shirt, chinos, digital nomad smart-casual, shoulder line visible",
-        "female": "linen blazer over fitted shirt, chinos, digital nomad smart-casual, shoulder line visible",
-        "neutral": "linen blazer over fitted shirt, chinos, digital nomad smart-casual, shoulder line visible"
+        "male": "linen blazer over fitted shirt, chinos, digital nomad smart-casual, well-fitted across the shoulders",
+        "female": "linen blazer over fitted shirt, chinos, digital nomad smart-casual, well-fitted across the shoulders",
+        "neutral": "linen blazer over fitted shirt, chinos, digital nomad smart-casual, well-fitted across the shoulders"
       },
       "allowed": [],
       "gender_neutral": true
@@ -11279,7 +11341,7 @@
     "mode": "cv",
     "type": "semi_locked",
     "base_scene": "light-grey studio backdrop, even lighting from both sides, clean and distraction-free",
-    "default_clothing": "classic professional attire, solid neutral colors, shoulder line visible",
+    "default_clothing": "classic professional attire, solid neutral colors, shoulders fully in frame",
     "expression": "Relaxed, approachable, open and friendly gaze.",
     "allowed_variations": {
       "lighting": [
@@ -11329,9 +11391,9 @@
     },
     "clothing": {
       "default": {
-        "male": "classic professional attire, solid neutral colors, shoulder line visible",
-        "female": "classic professional attire, solid neutral colors, shoulder line visible",
-        "neutral": "classic professional attire, solid neutral colors, shoulder line visible"
+        "male": "classic professional attire, solid neutral colors, shoulders fully in frame",
+        "female": "classic professional attire, solid neutral colors, shoulders fully in frame",
+        "neutral": "classic professional attire, solid neutral colors, shoulders fully in frame"
       },
       "allowed": [],
       "gender_neutral": true
@@ -11869,7 +11931,7 @@
     "mode": "social",
     "type": "flexible",
     "base_scene": "clean modern minimalist room, indirect lighting, neutral walls, warm ambient glow, polished interior",
-    "default_clothing": "curated outfit with clean lines, one statement piece, polished silhouette, shoulder line visible",
+    "default_clothing": "curated outfit with clean lines, one statement piece, polished silhouette, shoulders fully in frame",
     "expression": "Calm confident gaze, effortless polished smile, open expression.",
     "allowed_variations": {
       "lighting": [
@@ -11918,9 +11980,9 @@
     },
     "clothing": {
       "default": {
-        "male": "curated outfit with clean lines, one statement piece, polished silhouette, shoulder line visible",
-        "female": "curated outfit with clean lines, one statement piece, polished silhouette, shoulder line visible",
-        "neutral": "curated outfit with clean lines, one statement piece, polished silhouette, shoulder line visible"
+        "male": "curated outfit with clean lines, one statement piece, polished silhouette, shoulders fully in frame",
+        "female": "curated outfit with clean lines, one statement piece, polished silhouette, shoulders fully in frame",
+        "neutral": "curated outfit with clean lines, one statement piece, polished silhouette, shoulders fully in frame"
       },
       "allowed": [],
       "gender_neutral": true
@@ -11998,7 +12060,7 @@
     "mode": "social",
     "type": "flexible",
     "base_scene": "modern elevator interior, stainless steel or mirrored walls, even overhead lighting, clean minimal space",
-    "default_clothing": "fitted smart outfit, clean sharp silhouette, polished aesthetic, shoulder line visible",
+    "default_clothing": "fitted smart outfit, clean sharp silhouette, polished aesthetic, shoulders fully in frame",
     "expression": "Direct open gaze, minimal natural expression, sharp modern relaxed brow.",
     "allowed_variations": {
       "lighting": [
@@ -12046,9 +12108,9 @@
     },
     "clothing": {
       "default": {
-        "male": "fitted smart outfit, clean sharp silhouette, polished aesthetic, shoulder line visible",
-        "female": "fitted smart outfit, clean sharp silhouette, polished aesthetic, shoulder line visible",
-        "neutral": "fitted smart outfit, clean sharp silhouette, polished aesthetic, shoulder line visible"
+        "male": "fitted smart outfit, clean sharp silhouette, polished aesthetic, shoulders fully in frame",
+        "female": "fitted smart outfit, clean sharp silhouette, polished aesthetic, shoulders fully in frame",
+        "neutral": "fitted smart outfit, clean sharp silhouette, polished aesthetic, shoulders fully in frame"
       },
       "allowed": [],
       "gender_neutral": true
@@ -12119,7 +12181,7 @@
     "mode": "social",
     "type": "flexible",
     "base_scene": "urban street caught mid-stride, natural unposed moment, warm directional sunlight, pedestrians and architecture in scene",
-    "default_clothing": "effortless casual outfit, natural unstaged authentic look, shoulder line visible",
+    "default_clothing": "effortless casual outfit, natural unstaged authentic look, shoulders fully in frame",
     "expression": "Genuine unposed look, authentic spontaneous smile, natural expression.",
     "allowed_variations": {
       "lighting": [
@@ -12167,9 +12229,9 @@
     },
     "clothing": {
       "default": {
-        "male": "effortless casual outfit, natural unstaged authentic look, shoulder line visible",
-        "female": "effortless casual outfit, natural unstaged authentic look, shoulder line visible",
-        "neutral": "effortless casual outfit, natural unstaged authentic look, shoulder line visible"
+        "male": "effortless casual outfit, natural unstaged authentic look, shoulders fully in frame",
+        "female": "effortless casual outfit, natural unstaged authentic look, shoulders fully in frame",
+        "neutral": "effortless casual outfit, natural unstaged authentic look, shoulders fully in frame"
       },
       "allowed": [
         "fitted neutral knit and dark jeans, clean white sneakers",
@@ -12269,7 +12331,7 @@
     "mode": "social",
     "type": "flexible",
     "base_scene": "stylish boutique or designer store window facade, clean architectural lines, warm display lighting, urban fashion setting",
-    "default_clothing": "on-trend outfit, shopping bags optional, fashion-forward street style, shoulder line visible",
+    "default_clothing": "on-trend outfit, shopping bags optional, fashion-forward street style, shoulders fully in frame",
     "expression": "Natural fashion expression, confident modern street-style half-smile.",
     "allowed_variations": {
       "lighting": [
@@ -12318,9 +12380,9 @@
     },
     "clothing": {
       "default": {
-        "male": "on-trend outfit, shopping bags optional, fashion-forward street style, shoulder line visible",
-        "female": "on-trend outfit, shopping bags optional, fashion-forward street style, shoulder line visible",
-        "neutral": "on-trend outfit, shopping bags optional, fashion-forward street style, shoulder line visible"
+        "male": "on-trend outfit, shopping bags optional, fashion-forward street style, shoulders fully in frame",
+        "female": "on-trend outfit, shopping bags optional, fashion-forward street style, shoulders fully in frame",
+        "neutral": "on-trend outfit, shopping bags optional, fashion-forward street style, shoulders fully in frame"
       },
       "allowed": [],
       "gender_neutral": true
@@ -12393,7 +12455,7 @@
     "mode": "social",
     "type": "flexible",
     "base_scene": "clean minimal backdrop fully visible, single directional key light with rich shadow on face, backdrop surfaces cleanly readable",
-    "default_clothing": "minimal dark outfit, all attention drawn to face and expression, shoulder line visible",
+    "default_clothing": "minimal dark outfit, all attention drawn to face and expression, shoulders fully in frame",
     "expression": "Intense concentrated gaze, powerful focused presence, steady direct eyes.",
     "allowed_variations": {
       "lighting": [
@@ -12444,9 +12506,9 @@
     },
     "clothing": {
       "default": {
-        "male": "minimal dark outfit, all attention drawn to face and expression, shoulder line visible",
-        "female": "minimal dark outfit, all attention drawn to face and expression, shoulder line visible",
-        "neutral": "minimal dark outfit, all attention drawn to face and expression, shoulder line visible"
+        "male": "minimal dark outfit, all attention drawn to face and expression, shoulders fully in frame",
+        "female": "minimal dark outfit, all attention drawn to face and expression, shoulders fully in frame",
+        "neutral": "minimal dark outfit, all attention drawn to face and expression, shoulders fully in frame"
       },
       "allowed": [],
       "gender_neutral": true
@@ -12520,7 +12582,7 @@
     "mode": "social",
     "type": "flexible",
     "base_scene": "trendy urban rooftop at golden hour, city skyline clearly visible, warm directional side light, natural highlights on edges",
-    "default_clothing": "streetwear layers, statement accessories, designer sneakers, shoulder line visible",
+    "default_clothing": "streetwear layers, statement accessories, designer sneakers, shoulders fully in frame",
     "expression": "Engaging direct eye contact, animated charismatic expression, bold confidence.",
     "allowed_variations": {
       "lighting": [
@@ -12568,9 +12630,9 @@
     },
     "clothing": {
       "default": {
-        "male": "streetwear layers, statement accessories, designer sneakers, shoulder line visible",
-        "female": "streetwear layers, statement accessories, designer sneakers, shoulder line visible",
-        "neutral": "streetwear layers, statement accessories, designer sneakers, shoulder line visible"
+        "male": "streetwear layers, statement accessories, designer sneakers, shoulders fully in frame",
+        "female": "streetwear layers, statement accessories, designer sneakers, shoulders fully in frame",
+        "neutral": "streetwear layers, statement accessories, designer sneakers, shoulders fully in frame"
       },
       "allowed": [
         "fitted neutral knit and dark jeans, clean white sneakers",
@@ -12671,7 +12733,7 @@
     "mode": "social",
     "type": "semi_locked",
     "base_scene": "pure white or light beige minimalist studio, clean even lighting, Scandinavian aesthetic",
-    "default_clothing": "monochrome fitted outfit, one statement accessory, clean lines, shoulder line visible",
+    "default_clothing": "monochrome fitted outfit, one statement accessory, clean lines, shoulders fully in frame",
     "expression": "Calm confident gaze, serene sophisticated smile, poised expression.",
     "allowed_variations": {
       "lighting": [
@@ -12718,9 +12780,9 @@
     },
     "clothing": {
       "default": {
-        "male": "monochrome fitted outfit, one statement accessory, clean lines, shoulder line visible",
-        "female": "monochrome fitted outfit, one statement accessory, clean lines, shoulder line visible",
-        "neutral": "monochrome fitted outfit, one statement accessory, clean lines, shoulder line visible"
+        "male": "monochrome fitted outfit, one statement accessory, clean lines, shoulders fully in frame",
+        "female": "monochrome fitted outfit, one statement accessory, clean lines, shoulders fully in frame",
+        "neutral": "monochrome fitted outfit, one statement accessory, clean lines, shoulders fully in frame"
       },
       "allowed": [],
       "gender_neutral": true
@@ -12790,7 +12852,7 @@
     "mode": "social",
     "type": "flexible",
     "base_scene": "open meadow at golden hour, warm orange sunset light, tall grass and distant trees in sharp focus, clear sky",
-    "default_clothing": "fitted earth-tone cotton jacket over quality tee, dark jeans, clean classic casual, shoulder line visible",
+    "default_clothing": "fitted earth-tone cotton jacket over quality tee, dark jeans, clean classic casual, crew-neck shoulder line clearly visible",
     "expression": "Soft dreamy gaze, warm peaceful expression, ethereal golden-lit soft eyes.",
     "allowed_variations": {
       "lighting": [
@@ -12834,9 +12896,9 @@
     },
     "clothing": {
       "default": {
-        "male": "fitted earth-tone cotton jacket over quality tee, dark jeans, clean classic casual, shoulder line visible",
-        "female": "fitted earth-tone cotton jacket over quality tee, dark jeans, clean classic casual, shoulder line visible",
-        "neutral": "fitted earth-tone cotton jacket over quality tee, dark jeans, clean classic casual, shoulder line visible"
+        "male": "fitted earth-tone cotton jacket over quality tee, dark jeans, clean classic casual, crew-neck shoulder line clearly visible",
+        "female": "fitted earth-tone cotton jacket over quality tee, dark jeans, clean classic casual, crew-neck shoulder line clearly visible",
+        "neutral": "fitted earth-tone cotton jacket over quality tee, dark jeans, clean classic casual, crew-neck shoulder line clearly visible"
       },
       "allowed": [
         "fitted neutral knit and dark jeans, clean white sneakers",
@@ -12933,7 +12995,7 @@
     "mode": "social",
     "type": "flexible",
     "base_scene": "city street at night with neon signs, vibrant pink-blue-purple reflections on wet pavement, sharp vibrant neon-lit street scene with readable signage",
-    "default_clothing": "dark streetwear, leather jacket or fitted dark outfit, reflective elements, shoulder line visible",
+    "default_clothing": "dark streetwear, leather jacket or fitted dark outfit, reflective elements, well-fitted across the shoulders",
     "expression": "Direct open gaze, bold edgy relaxed mouth, bold confident expression.",
     "allowed_variations": {
       "lighting": [
@@ -12981,9 +13043,9 @@
     },
     "clothing": {
       "default": {
-        "male": "dark streetwear, leather jacket or fitted dark outfit, reflective elements, shoulder line visible",
-        "female": "dark streetwear, leather jacket or fitted dark outfit, reflective elements, shoulder line visible",
-        "neutral": "dark streetwear, leather jacket or fitted dark outfit, reflective elements, shoulder line visible"
+        "male": "dark streetwear, leather jacket or fitted dark outfit, reflective elements, well-fitted across the shoulders",
+        "female": "dark streetwear, leather jacket or fitted dark outfit, reflective elements, well-fitted across the shoulders",
+        "neutral": "dark streetwear, leather jacket or fitted dark outfit, reflective elements, well-fitted across the shoulders"
       },
       "allowed": [
         "fitted neutral knit and dark jeans, clean white sneakers",
@@ -13083,7 +13145,7 @@
     "mode": "social",
     "type": "flexible",
     "base_scene": "natural outdoor setting with warm golden-hour backlight, simple uncluttered composition, warm tones",
-    "default_clothing": "casual fitted outfit that shows personality, clean attractive look, shoulder line visible",
+    "default_clothing": "casual fitted outfit that shows personality, clean attractive look, shoulders fully in frame",
     "expression": "Natural genuine smile, warm attractive easy-going soft eyes.",
     "allowed_variations": {
       "lighting": [
@@ -13131,9 +13193,9 @@
     },
     "clothing": {
       "default": {
-        "male": "casual fitted outfit that shows personality, clean attractive look, shoulder line visible",
-        "female": "casual fitted outfit that shows personality, clean attractive look, shoulder line visible",
-        "neutral": "casual fitted outfit that shows personality, clean attractive look, shoulder line visible"
+        "male": "casual fitted outfit that shows personality, clean attractive look, shoulders fully in frame",
+        "female": "casual fitted outfit that shows personality, clean attractive look, shoulders fully in frame",
+        "neutral": "casual fitted outfit that shows personality, clean attractive look, shoulders fully in frame"
       },
       "allowed": [
         "fitted neutral knit and dark jeans, clean white sneakers",
@@ -13236,7 +13298,7 @@
     "mode": "social",
     "type": "flexible",
     "base_scene": "cozy home corner with diffused window light, comfortable armchair, bookshelves behind, warm domestic atmosphere",
-    "default_clothing": "comfortable quality loungewear, cozy socks, relaxed domestic style, shoulder line visible",
+    "default_clothing": "comfortable quality loungewear, cozy socks, relaxed domestic style, shoulders fully in frame",
     "expression": "Peaceful concentrated expression, warm genuine comfort, domestic intellectual gaze.",
     "allowed_variations": {
       "lighting": [
@@ -13284,9 +13346,9 @@
     },
     "clothing": {
       "default": {
-        "male": "comfortable quality loungewear, cozy socks, relaxed domestic style, shoulder line visible",
-        "female": "comfortable quality loungewear, cozy socks, relaxed domestic style, shoulder line visible",
-        "neutral": "comfortable quality loungewear, cozy socks, relaxed domestic style, shoulder line visible"
+        "male": "comfortable quality loungewear, cozy socks, relaxed domestic style, shoulders fully in frame",
+        "female": "comfortable quality loungewear, cozy socks, relaxed domestic style, shoulders fully in frame",
+        "neutral": "comfortable quality loungewear, cozy socks, relaxed domestic style, shoulders fully in frame"
       },
       "allowed": [],
       "gender_neutral": true
@@ -13357,7 +13419,7 @@
     "mode": "social",
     "type": "semi_locked",
     "base_scene": "atmospheric bookshop cafe, books on shelves around, warm overhead pendant lights, coffee on table beside open book",
-    "default_clothing": "casual intellectual look, fitted sweater, comfortable smart style, shoulder line visible",
+    "default_clothing": "casual intellectual look, fitted sweater, comfortable smart style, fit shows the natural shoulder line",
     "expression": "Thoughtful calm expression, gentle content smile, quiet cultured soft eyes.",
     "allowed_variations": {
       "lighting": [
@@ -13406,9 +13468,9 @@
     },
     "clothing": {
       "default": {
-        "male": "casual intellectual look, fitted sweater, comfortable smart style, shoulder line visible",
-        "female": "casual intellectual look, fitted sweater, comfortable smart style, shoulder line visible",
-        "neutral": "casual intellectual look, fitted sweater, comfortable smart style, shoulder line visible"
+        "male": "casual intellectual look, fitted sweater, comfortable smart style, fit shows the natural shoulder line",
+        "female": "casual intellectual look, fitted sweater, comfortable smart style, fit shows the natural shoulder line",
+        "neutral": "casual intellectual look, fitted sweater, comfortable smart style, fit shows the natural shoulder line"
       },
       "allowed": [],
       "gender_neutral": true
@@ -13481,7 +13543,7 @@
     "mode": "social",
     "type": "semi_locked",
     "base_scene": "studio or desk with sketching supplies, drawings and pencils visible, warm directional task lamp, creative workspace atmosphere",
-    "default_clothing": "creative casual tee, comfortable fit, artistic relaxed vibe, shoulder line visible",
+    "default_clothing": "creative casual tee, comfortable fit, artistic relaxed vibe, crew-neck shoulder line clearly visible",
     "expression": "Creative concentrated expression, artistic focused brow, focused gaze.",
     "allowed_variations": {
       "lighting": [
@@ -13530,9 +13592,9 @@
     },
     "clothing": {
       "default": {
-        "male": "creative casual tee, comfortable fit, artistic relaxed vibe, shoulder line visible",
-        "female": "creative casual tee, comfortable fit, artistic relaxed vibe, shoulder line visible",
-        "neutral": "creative casual tee, comfortable fit, artistic relaxed vibe, shoulder line visible"
+        "male": "creative casual tee, comfortable fit, artistic relaxed vibe, crew-neck shoulder line clearly visible",
+        "female": "creative casual tee, comfortable fit, artistic relaxed vibe, crew-neck shoulder line clearly visible",
+        "neutral": "creative casual tee, comfortable fit, artistic relaxed vibe, crew-neck shoulder line clearly visible"
       },
       "allowed": [],
       "gender_neutral": true
@@ -13604,7 +13666,7 @@
     "mode": "social",
     "type": "semi_locked",
     "base_scene": "outdoor or studio setting with interesting light conditions, professional camera in hands, creative shooting environment",
-    "default_clothing": "practical creative outfit, dark layers, camera strap, artistic professional, shoulder line visible",
+    "default_clothing": "practical creative outfit, dark layers, camera strap, artistic professional, shoulders fully in frame",
     "expression": "Focused creative expression, professional artistic steady brow, sharp gaze.",
     "allowed_variations": {
       "lighting": [
@@ -13653,9 +13715,9 @@
     },
     "clothing": {
       "default": {
-        "male": "practical creative outfit, dark layers, camera strap, artistic professional, shoulder line visible",
-        "female": "practical creative outfit, dark layers, camera strap, artistic professional, shoulder line visible",
-        "neutral": "practical creative outfit, dark layers, camera strap, artistic professional, shoulder line visible"
+        "male": "practical creative outfit, dark layers, camera strap, artistic professional, shoulders fully in frame",
+        "female": "practical creative outfit, dark layers, camera strap, artistic professional, shoulders fully in frame",
+        "neutral": "practical creative outfit, dark layers, camera strap, artistic professional, shoulders fully in frame"
       },
       "allowed": [],
       "gender_neutral": true
@@ -13728,7 +13790,7 @@
     "mode": "social",
     "type": "flexible",
     "base_scene": "serene outdoor garden or minimalist bright room, natural light, plants, calm zen atmosphere",
-    "default_clothing": "comfortable clean neutral outfit, natural tones, peaceful energy, shoulder line visible",
+    "default_clothing": "comfortable clean neutral outfit, natural tones, peaceful energy, shoulders fully in frame",
     "expression": "Serene peaceful expression, calm balanced soft eyes, mindful presence.",
     "allowed_variations": {
       "lighting": [
@@ -13777,9 +13839,9 @@
     },
     "clothing": {
       "default": {
-        "male": "comfortable clean neutral outfit, natural tones, peaceful energy, shoulder line visible",
-        "female": "comfortable clean neutral outfit, natural tones, peaceful energy, shoulder line visible",
-        "neutral": "comfortable clean neutral outfit, natural tones, peaceful energy, shoulder line visible"
+        "male": "comfortable clean neutral outfit, natural tones, peaceful energy, shoulders fully in frame",
+        "female": "comfortable clean neutral outfit, natural tones, peaceful energy, shoulders fully in frame",
+        "neutral": "comfortable clean neutral outfit, natural tones, peaceful energy, shoulders fully in frame"
       },
       "allowed": [],
       "gender_neutral": true
@@ -13852,7 +13914,7 @@
     "mode": "social",
     "type": "flexible",
     "base_scene": "clean home desk with laptop open showing content, notes and coffee cup, focused study environment, natural light",
-    "default_clothing": "casual but clean fitted hoodie or sweater, headphones nearby, shoulder line visible",
+    "default_clothing": "casual but clean fitted hoodie or sweater, headphones nearby, fit shows the natural shoulder line",
     "expression": "Engaged curious expression, productive concentration, growth-minded attentive gaze.",
     "allowed_variations": {
       "lighting": [
@@ -13901,9 +13963,9 @@
     },
     "clothing": {
       "default": {
-        "male": "casual but clean fitted hoodie or sweater, headphones nearby, shoulder line visible",
-        "female": "casual but clean fitted hoodie or sweater, headphones nearby, shoulder line visible",
-        "neutral": "casual but clean fitted hoodie or sweater, headphones nearby, shoulder line visible"
+        "male": "casual but clean fitted hoodie or sweater, headphones nearby, fit shows the natural shoulder line",
+        "female": "casual but clean fitted hoodie or sweater, headphones nearby, fit shows the natural shoulder line",
+        "neutral": "casual but clean fitted hoodie or sweater, headphones nearby, fit shows the natural shoulder line"
       },
       "allowed": [],
       "gender_neutral": true
@@ -13976,7 +14038,7 @@
     "mode": "social",
     "type": "flexible",
     "base_scene": "scenic urban bike path or countryside road, bicycle in frame, golden light, green landscape, active lifestyle setting",
-    "default_clothing": "stylish cycling outfit or casual athletic top, sport sunglasses, shoulder line visible",
+    "default_clothing": "stylish cycling outfit or casual athletic top, sport sunglasses, shoulders fully in frame",
     "expression": "Fresh active expression, bright confident smile, healthy outdoor glow.",
     "allowed_variations": {
       "lighting": [
@@ -14023,9 +14085,9 @@
     },
     "clothing": {
       "default": {
-        "male": "stylish cycling outfit or casual athletic top, sport sunglasses, shoulder line visible",
-        "female": "stylish cycling outfit or casual athletic top, sport sunglasses, shoulder line visible",
-        "neutral": "stylish cycling outfit or casual athletic top, sport sunglasses, shoulder line visible"
+        "male": "stylish cycling outfit or casual athletic top, sport sunglasses, shoulders fully in frame",
+        "female": "stylish cycling outfit or casual athletic top, sport sunglasses, shoulders fully in frame",
+        "neutral": "stylish cycling outfit or casual athletic top, sport sunglasses, shoulders fully in frame"
       },
       "allowed": [
         "fitted neutral knit and dark jeans, clean white sneakers",
@@ -14125,7 +14187,7 @@
     "mode": "social",
     "type": "flexible",
     "base_scene": "modern gym or outdoor workout area, bright natural light, clean athletic environment",
-    "default_clothing": "premium athletic wear, sport watch, clean sneakers, headphones around neck, shoulder line visible",
+    "default_clothing": "premium athletic wear, sport watch, clean sneakers, headphones around neck, shoulders fully in frame",
     "expression": "Healthy glow, energetic bright expression, motivational confident smile.",
     "allowed_variations": {
       "lighting": [
@@ -14173,9 +14235,9 @@
     },
     "clothing": {
       "default": {
-        "male": "premium athletic wear, sport watch, clean sneakers, headphones around neck, shoulder line visible",
-        "female": "premium athletic wear, sport watch, clean sneakers, headphones around neck, shoulder line visible",
-        "neutral": "premium athletic wear, sport watch, clean sneakers, headphones around neck, shoulder line visible"
+        "male": "premium athletic wear, sport watch, clean sneakers, headphones around neck, shoulders fully in frame",
+        "female": "premium athletic wear, sport watch, clean sneakers, headphones around neck, shoulders fully in frame",
+        "neutral": "premium athletic wear, sport watch, clean sneakers, headphones around neck, shoulders fully in frame"
       },
       "allowed": [],
       "gender_neutral": true
@@ -14247,7 +14309,7 @@
     "mode": "social",
     "type": "flexible",
     "base_scene": "standing before massive floor-to-ceiling window with dramatic city panorama, soft rim light from the window, face clearly lit from front, dramatic scale",
-    "default_clothing": "minimal dark outfit against bright cityscape, face evenly lit, shoulder line visible",
+    "default_clothing": "minimal dark outfit against bright cityscape, face evenly lit, shoulders fully in frame",
     "expression": "Contemplative open expression, calm direct gaze, relaxed natural brow.",
     "allowed_variations": {
       "lighting": [
@@ -14296,9 +14358,9 @@
     },
     "clothing": {
       "default": {
-        "male": "minimal dark outfit against bright cityscape, face evenly lit, shoulder line visible",
-        "female": "minimal dark outfit against bright cityscape, face evenly lit, shoulder line visible",
-        "neutral": "minimal dark outfit against bright cityscape, face evenly lit, shoulder line visible"
+        "male": "minimal dark outfit against bright cityscape, face evenly lit, shoulders fully in frame",
+        "female": "minimal dark outfit against bright cityscape, face evenly lit, shoulders fully in frame",
+        "neutral": "minimal dark outfit against bright cityscape, face evenly lit, shoulders fully in frame"
       },
       "allowed": [
         "fitted neutral knit and dark jeans, clean white sneakers",
@@ -14401,7 +14463,7 @@
     "mode": "social",
     "type": "flexible",
     "base_scene": "urban street with dynamic energy, caught walking dynamically, sense of movement and energy",
-    "default_clothing": "stylish casual outfit with flowing jacket or coat, dynamic movement, shoulder line visible",
+    "default_clothing": "stylish casual outfit with flowing jacket or coat, dynamic movement, coat shoulders visible across the upper frame",
     "expression": "Confident forward gaze, dynamic purposeful stride, bold open expression.",
     "allowed_variations": {
       "lighting": [
@@ -14449,9 +14511,9 @@
     },
     "clothing": {
       "default": {
-        "male": "stylish casual outfit with flowing jacket or coat, dynamic movement, shoulder line visible",
-        "female": "stylish casual outfit with flowing jacket or coat, dynamic movement, shoulder line visible",
-        "neutral": "stylish casual outfit with flowing jacket or coat, dynamic movement, shoulder line visible"
+        "male": "stylish casual outfit with flowing jacket or coat, dynamic movement, coat shoulders visible across the upper frame",
+        "female": "stylish casual outfit with flowing jacket or coat, dynamic movement, coat shoulders visible across the upper frame",
+        "neutral": "stylish casual outfit with flowing jacket or coat, dynamic movement, coat shoulders visible across the upper frame"
       },
       "allowed": [
         "fitted neutral knit and dark jeans, clean white sneakers",
@@ -14552,7 +14614,7 @@
     "mode": "social",
     "type": "flexible",
     "base_scene": "dramatic architectural shadows and geometric light patterns, concrete or stone surfaces, bold contrast between light and dark",
-    "default_clothing": "minimal outfit in dark tones, strong visual contrast with light, shoulder line visible",
+    "default_clothing": "minimal outfit in dark tones, strong visual contrast with light, shoulders fully in frame",
     "expression": "Mysterious confident expression, dramatic artistic presence, partial shadow.",
     "allowed_variations": {
       "lighting": [
@@ -14600,9 +14662,9 @@
     },
     "clothing": {
       "default": {
-        "male": "minimal outfit in dark tones, strong visual contrast with light, shoulder line visible",
-        "female": "minimal outfit in dark tones, strong visual contrast with light, shoulder line visible",
-        "neutral": "minimal outfit in dark tones, strong visual contrast with light, shoulder line visible"
+        "male": "minimal outfit in dark tones, strong visual contrast with light, shoulders fully in frame",
+        "female": "minimal outfit in dark tones, strong visual contrast with light, shoulders fully in frame",
+        "neutral": "minimal outfit in dark tones, strong visual contrast with light, shoulders fully in frame"
       },
       "allowed": [],
       "gender_neutral": true
@@ -14674,7 +14736,7 @@
     "mode": "social",
     "type": "flexible",
     "base_scene": "open rooftop or elevated space, bright expansive sky, sense of accomplishment and freedom, warm golden light",
-    "default_clothing": "smart outfit slightly undone in celebration, genuine joy, shoulder line visible",
+    "default_clothing": "smart outfit slightly undone in celebration, genuine joy, shoulders fully in frame",
     "expression": "Genuine bright celebration expression, relieved proud smile, triumphant wide eyes.",
     "allowed_variations": {
       "lighting": [
@@ -14722,9 +14784,9 @@
     },
     "clothing": {
       "default": {
-        "male": "smart outfit slightly undone in celebration, genuine joy, shoulder line visible",
-        "female": "smart outfit slightly undone in celebration, genuine joy, shoulder line visible",
-        "neutral": "smart outfit slightly undone in celebration, genuine joy, shoulder line visible"
+        "male": "smart outfit slightly undone in celebration, genuine joy, shoulders fully in frame",
+        "female": "smart outfit slightly undone in celebration, genuine joy, shoulders fully in frame",
+        "neutral": "smart outfit slightly undone in celebration, genuine joy, shoulders fully in frame"
       },
       "allowed": [
         "fitted neutral knit and dark jeans, clean white sneakers",
@@ -14824,7 +14886,7 @@
     "mode": "social",
     "type": "flexible",
     "base_scene": "urban setting with interesting visual juxtaposition, slightly playful atmosphere, warm natural light, architectural context",
-    "default_clothing": "smart casual with personality, slight quirk in style, self-aware modern look, shoulder line visible",
+    "default_clothing": "smart casual with personality, slight quirk in style, self-aware modern look, shoulders fully in frame",
     "expression": "Subtle smirk, playful knowing expression, witty confident raised eyebrow.",
     "allowed_variations": {
       "lighting": [
@@ -14873,9 +14935,9 @@
     },
     "clothing": {
       "default": {
-        "male": "smart casual with personality, slight quirk in style, self-aware modern look, shoulder line visible",
-        "female": "smart casual with personality, slight quirk in style, self-aware modern look, shoulder line visible",
-        "neutral": "smart casual with personality, slight quirk in style, self-aware modern look, shoulder line visible"
+        "male": "smart casual with personality, slight quirk in style, self-aware modern look, shoulders fully in frame",
+        "female": "smart casual with personality, slight quirk in style, self-aware modern look, shoulders fully in frame",
+        "neutral": "smart casual with personality, slight quirk in style, self-aware modern look, shoulders fully in frame"
       },
       "allowed": [
         "fitted neutral knit and dark jeans, clean white sneakers",
@@ -14977,7 +15039,7 @@
     "mode": "social",
     "type": "flexible",
     "base_scene": "high-rise interior with floor-to-ceiling windows, city lights below at night rendered with crisp distant detail, dramatic metropolitan atmosphere, warm interior accent light",
-    "default_clothing": "elegant dark outfit against glowing city skyline, face clearly visible, shoulder line visible",
+    "default_clothing": "elegant dark outfit against glowing city skyline, face clearly visible, shoulders fully in frame",
     "expression": "Open serene expression, elevated sophisticated smile, calm gaze.",
     "allowed_variations": {
       "lighting": [
@@ -15026,9 +15088,9 @@
     },
     "clothing": {
       "default": {
-        "male": "elegant dark outfit against glowing city skyline, face clearly visible, shoulder line visible",
-        "female": "elegant dark outfit against glowing city skyline, face clearly visible, shoulder line visible",
-        "neutral": "elegant dark outfit against glowing city skyline, face clearly visible, shoulder line visible"
+        "male": "elegant dark outfit against glowing city skyline, face clearly visible, shoulders fully in frame",
+        "female": "elegant dark outfit against glowing city skyline, face clearly visible, shoulders fully in frame",
+        "neutral": "elegant dark outfit against glowing city skyline, face clearly visible, shoulders fully in frame"
       },
       "allowed": [],
       "gender_neutral": true
@@ -15222,7 +15284,7 @@
     "mode": "social",
     "type": "flexible",
     "base_scene": "home desk at evening, warm desk lamp light, notebook and tea, calm productivity atmosphere, dim window twilight behind",
-    "default_clothing": "comfortable smart-casual loungewear, focused domestic vibe, shoulder line visible",
+    "default_clothing": "comfortable smart-casual loungewear, focused domestic vibe, shoulders fully in frame",
     "expression": "Focused calm expression, quiet determination, productive evening still brow.",
     "allowed_variations": {
       "lighting": [
@@ -15271,9 +15333,9 @@
     },
     "clothing": {
       "default": {
-        "male": "comfortable smart-casual loungewear, focused domestic vibe, shoulder line visible",
-        "female": "comfortable smart-casual loungewear, focused domestic vibe, shoulder line visible",
-        "neutral": "comfortable smart-casual loungewear, focused domestic vibe, shoulder line visible"
+        "male": "comfortable smart-casual loungewear, focused domestic vibe, shoulders fully in frame",
+        "female": "comfortable smart-casual loungewear, focused domestic vibe, shoulders fully in frame",
+        "neutral": "comfortable smart-casual loungewear, focused domestic vibe, shoulders fully in frame"
       },
       "allowed": [],
       "gender_neutral": true
@@ -15345,7 +15407,7 @@
     "mode": "social",
     "type": "semi_locked",
     "base_scene": "retro cafe, vintage car, or old-town street, warm desaturated tones, subtle film grain, muted colors",
-    "default_clothing": "vintage-inspired outfit, classic cuts, earth and mustard tones, shoulder line visible",
+    "default_clothing": "vintage-inspired outfit, classic cuts, earth and mustard tones, shoulders fully in frame",
     "expression": "Nostalgic thoughtful gaze, gentle analog expression, timeless romantic soft eyes.",
     "allowed_variations": {
       "lighting": [
@@ -15395,9 +15457,9 @@
     },
     "clothing": {
       "default": {
-        "male": "vintage-inspired outfit, classic cuts, earth and mustard tones, shoulder line visible",
-        "female": "vintage-inspired outfit, classic cuts, earth and mustard tones, shoulder line visible",
-        "neutral": "vintage-inspired outfit, classic cuts, earth and mustard tones, shoulder line visible"
+        "male": "vintage-inspired outfit, classic cuts, earth and mustard tones, shoulders fully in frame",
+        "female": "vintage-inspired outfit, classic cuts, earth and mustard tones, shoulders fully in frame",
+        "neutral": "vintage-inspired outfit, classic cuts, earth and mustard tones, shoulders fully in frame"
       },
       "allowed": [],
       "gender_neutral": true
@@ -15471,7 +15533,7 @@
     "mode": "social",
     "type": "flexible",
     "base_scene": "light pastel-colored wall, bright even diffused light, warm tones, clean minimal setting",
-    "default_clothing": "light-colored fitted shirt, clean neutral trousers, minimal accessories, shoulder line visible",
+    "default_clothing": "light-colored fitted shirt, clean neutral trousers, minimal accessories, collar and shoulder seam clearly visible",
     "expression": "Gentle soft smile, relaxed gentle eyes, light airy expression.",
     "allowed_variations": {
       "lighting": [
@@ -15520,9 +15582,9 @@
     },
     "clothing": {
       "default": {
-        "male": "light-colored fitted shirt, clean neutral trousers, minimal accessories, shoulder line visible",
-        "female": "light-colored fitted shirt, clean neutral trousers, minimal accessories, shoulder line visible",
-        "neutral": "light-colored fitted shirt, clean neutral trousers, minimal accessories, shoulder line visible"
+        "male": "light-colored fitted shirt, clean neutral trousers, minimal accessories, collar and shoulder seam clearly visible",
+        "female": "light-colored fitted shirt, clean neutral trousers, minimal accessories, collar and shoulder seam clearly visible",
+        "neutral": "light-colored fitted shirt, clean neutral trousers, minimal accessories, collar and shoulder seam clearly visible"
       },
       "allowed": [],
       "gender_neutral": true
@@ -15594,7 +15656,7 @@
     "mode": "social",
     "type": "flexible",
     "base_scene": "visually curated setting with cohesive color palette, architectural lines or nature patterns, balanced composition",
-    "default_clothing": "color-coordinated outfit matching the background palette, shoulder line visible",
+    "default_clothing": "color-coordinated outfit matching the background palette, shoulders fully in frame",
     "expression": "Editorial confident expression, polished natural smile, striking gaze.",
     "allowed_variations": {
       "lighting": [
@@ -15643,9 +15705,9 @@
     },
     "clothing": {
       "default": {
-        "male": "color-coordinated outfit matching the background palette, shoulder line visible",
-        "female": "color-coordinated outfit matching the background palette, shoulder line visible",
-        "neutral": "color-coordinated outfit matching the background palette, shoulder line visible"
+        "male": "color-coordinated outfit matching the background palette, shoulders fully in frame",
+        "female": "color-coordinated outfit matching the background palette, shoulders fully in frame",
+        "neutral": "color-coordinated outfit matching the background palette, shoulders fully in frame"
       },
       "allowed": [],
       "gender_neutral": true
@@ -15725,7 +15787,7 @@
     "mode": "social",
     "type": "flexible",
     "base_scene": "content creator setup, ring light, camera on tripod, colorful backdrop or LED panels",
-    "default_clothing": "bright casual outfit, branded merch style, expressive modern look, shoulder line visible",
+    "default_clothing": "bright casual outfit, branded merch style, expressive modern look, shoulders fully in frame",
     "expression": "Animated engaging expression, bright enthusiastic creator smile.",
     "allowed_variations": {
       "lighting": [
@@ -15774,9 +15836,9 @@
     },
     "clothing": {
       "default": {
-        "male": "bright casual outfit, branded merch style, expressive modern look, shoulder line visible",
-        "female": "bright casual outfit, branded merch style, expressive modern look, shoulder line visible",
-        "neutral": "bright casual outfit, branded merch style, expressive modern look, shoulder line visible"
+        "male": "bright casual outfit, branded merch style, expressive modern look, shoulders fully in frame",
+        "female": "bright casual outfit, branded merch style, expressive modern look, shoulders fully in frame",
+        "neutral": "bright casual outfit, branded merch style, expressive modern look, shoulders fully in frame"
       },
       "allowed": [],
       "gender_neutral": true
@@ -15852,7 +15914,7 @@
     "mode": "social",
     "type": "flexible",
     "base_scene": "modern office or co-working space, clean bright environment, plants, glass partitions",
-    "default_clothing": "business casual, fitted blazer over quality shirt, professional but modern, shoulder line visible",
+    "default_clothing": "business casual, fitted blazer over quality shirt, professional but modern, well-fitted across the shoulders",
     "expression": "Warm professional smile, trustworthy confident soft eyes, approachable gaze.",
     "allowed_variations": {
       "lighting": [
@@ -15899,9 +15961,9 @@
     },
     "clothing": {
       "default": {
-        "male": "business casual, fitted blazer over quality shirt, professional but modern, shoulder line visible",
-        "female": "business casual, fitted blazer over quality shirt, professional but modern, shoulder line visible",
-        "neutral": "business casual, fitted blazer over quality shirt, professional but modern, shoulder line visible"
+        "male": "business casual, fitted blazer over quality shirt, professional but modern, well-fitted across the shoulders",
+        "female": "business casual, fitted blazer over quality shirt, professional but modern, well-fitted across the shoulders",
+        "neutral": "business casual, fitted blazer over quality shirt, professional but modern, well-fitted across the shoulders"
       },
       "allowed": [],
       "gender_neutral": true
@@ -15978,7 +16040,7 @@
     "mode": "social",
     "type": "semi_locked",
     "base_scene": "podcast studio, professional microphone, acoustic foam, warm studio lighting, headphones on desk",
-    "default_clothing": "smart casual, comfortable quality fabrics, clean modern look, shoulder line visible",
+    "default_clothing": "smart casual, comfortable quality fabrics, clean modern look, shoulders fully in frame",
     "expression": "Natural conversational smile, engaging authentic attentive gaze.",
     "allowed_variations": {
       "lighting": [
@@ -16027,9 +16089,9 @@
     },
     "clothing": {
       "default": {
-        "male": "smart casual, comfortable quality fabrics, clean modern look, shoulder line visible",
-        "female": "smart casual, comfortable quality fabrics, clean modern look, shoulder line visible",
-        "neutral": "smart casual, comfortable quality fabrics, clean modern look, shoulder line visible"
+        "male": "smart casual, comfortable quality fabrics, clean modern look, shoulders fully in frame",
+        "female": "smart casual, comfortable quality fabrics, clean modern look, shoulders fully in frame",
+        "neutral": "smart casual, comfortable quality fabrics, clean modern look, shoulders fully in frame"
       },
       "allowed": [],
       "gender_neutral": true
@@ -16101,7 +16163,7 @@
     "mode": "social",
     "type": "flexible",
     "base_scene": "bright modern bedroom or bathroom, bright morning window light, white linens, plant on nightstand",
-    "default_clothing": "clean loungewear or casual morning outfit, fresh natural look, shoulder line visible",
+    "default_clothing": "clean loungewear or casual morning outfit, fresh natural look, shoulders fully in frame",
     "expression": "Peaceful fresh morning expression, warm genuine relaxed smile.",
     "allowed_variations": {
       "lighting": [
@@ -16150,9 +16212,9 @@
     },
     "clothing": {
       "default": {
-        "male": "clean loungewear or casual morning outfit, fresh natural look, shoulder line visible",
-        "female": "clean loungewear or casual morning outfit, fresh natural look, shoulder line visible",
-        "neutral": "clean loungewear or casual morning outfit, fresh natural look, shoulder line visible"
+        "male": "clean loungewear or casual morning outfit, fresh natural look, shoulders fully in frame",
+        "female": "clean loungewear or casual morning outfit, fresh natural look, shoulders fully in frame",
+        "neutral": "clean loungewear or casual morning outfit, fresh natural look, shoulders fully in frame"
       },
       "allowed": [],
       "gender_neutral": true
@@ -16225,7 +16287,7 @@
     "mode": "social",
     "type": "semi_locked",
     "base_scene": "beautifully plated food on marble table, restaurant or home kitchen, warm overhead lighting, fresh herbs and ingredients",
-    "default_clothing": "casual stylish outfit, clean smart look, shoulder line visible",
+    "default_clothing": "casual stylish outfit, clean smart look, shoulders fully in frame",
     "expression": "Warm engaging expression, inviting soft eyes, bright genuine smile.",
     "allowed_variations": {
       "lighting": [
@@ -16274,9 +16336,9 @@
     },
     "clothing": {
       "default": {
-        "male": "casual stylish outfit, clean smart look, shoulder line visible",
-        "female": "casual stylish outfit, clean smart look, shoulder line visible",
-        "neutral": "casual stylish outfit, clean smart look, shoulder line visible"
+        "male": "casual stylish outfit, clean smart look, shoulders fully in frame",
+        "female": "casual stylish outfit, clean smart look, shoulders fully in frame",
+        "neutral": "casual stylish outfit, clean smart look, shoulders fully in frame"
       },
       "allowed": [],
       "gender_neutral": true
@@ -16348,7 +16410,7 @@
     "mode": "social",
     "type": "scene_locked",
     "base_scene": "exotic location, vibrant colors, iconic landmark or tropical scenery in background, bright natural light",
-    "default_clothing": "travel outfit, linen shirt, hat or sunglasses, adventure accessories, shoulder line visible",
+    "default_clothing": "travel outfit, linen shirt, hat or sunglasses, adventure accessories, collar and shoulder seam clearly visible",
     "expression": "Excited adventurous expression, bright wanderlust wide eyes, open smile.",
     "allowed_variations": {
       "lighting": [
@@ -16386,9 +16448,9 @@
     },
     "clothing": {
       "default": {
-        "male": "travel outfit, linen shirt, hat or sunglasses, adventure accessories, shoulder line visible",
-        "female": "travel outfit, linen shirt, hat or sunglasses, adventure accessories, shoulder line visible",
-        "neutral": "travel outfit, linen shirt, hat or sunglasses, adventure accessories, shoulder line visible"
+        "male": "travel outfit, linen shirt, hat or sunglasses, adventure accessories, collar and shoulder seam clearly visible",
+        "female": "travel outfit, linen shirt, hat or sunglasses, adventure accessories, collar and shoulder seam clearly visible",
+        "neutral": "travel outfit, linen shirt, hat or sunglasses, adventure accessories, collar and shoulder seam clearly visible"
       },
       "allowed": [
         "fitted neutral knit and dark jeans, clean white sneakers",
@@ -16495,7 +16557,7 @@
     "mode": "social",
     "type": "flexible",
     "base_scene": "upscale lounge with marble surfaces, warm amber ambient light, velvet and brass details in background",
-    "default_clothing": "designer outfit, fine fabrics, watches or minimal jewelry, shoulder line visible",
+    "default_clothing": "designer outfit, fine fabrics, watches or minimal jewelry, shoulders fully in frame",
     "expression": "Elegant mysterious soft eyes, sophisticated calm expression.",
     "allowed_variations": {
       "lighting": [
@@ -16544,9 +16606,9 @@
     },
     "clothing": {
       "default": {
-        "male": "designer outfit, fine fabrics, watches or minimal jewelry, shoulder line visible",
-        "female": "designer outfit, fine fabrics, watches or minimal jewelry, shoulder line visible",
-        "neutral": "designer outfit, fine fabrics, watches or minimal jewelry, shoulder line visible"
+        "male": "designer outfit, fine fabrics, watches or minimal jewelry, shoulders fully in frame",
+        "female": "designer outfit, fine fabrics, watches or minimal jewelry, shoulders fully in frame",
+        "neutral": "designer outfit, fine fabrics, watches or minimal jewelry, shoulders fully in frame"
       },
       "allowed": [],
       "gender_neutral": true
@@ -16622,7 +16684,7 @@
     "mode": "social",
     "type": "flexible",
     "base_scene": "sunlit park with dappled tree shadows, or bright airy home interior with natural window light",
-    "default_clothing": "relaxed casual wear, natural cotton and linen fabrics, shoulder line visible",
+    "default_clothing": "relaxed casual wear, natural cotton and linen fabrics, shoulders fully in frame",
     "expression": "Genuine relaxed look, warm natural feel, approachable open smile.",
     "allowed_variations": {
       "lighting": [
@@ -16670,9 +16732,9 @@
     },
     "clothing": {
       "default": {
-        "male": "relaxed casual wear, natural cotton and linen fabrics, shoulder line visible",
-        "female": "relaxed casual wear, natural cotton and linen fabrics, shoulder line visible",
-        "neutral": "relaxed casual wear, natural cotton and linen fabrics, shoulder line visible"
+        "male": "relaxed casual wear, natural cotton and linen fabrics, shoulders fully in frame",
+        "female": "relaxed casual wear, natural cotton and linen fabrics, shoulders fully in frame",
+        "neutral": "relaxed casual wear, natural cotton and linen fabrics, shoulders fully in frame"
       },
       "allowed": [],
       "gender_neutral": true
@@ -16754,7 +16816,7 @@
     "mode": "social",
     "type": "flexible",
     "base_scene": "art gallery with large colorful paintings on white walls, warm track lighting from above, polished concrete floor",
-    "default_clothing": "dark fitted jacket over quality tee, dark jeans, clean artistic style, shoulder line visible",
+    "default_clothing": "dark fitted jacket over quality tee, dark jeans, clean artistic style, crew-neck shoulder line clearly visible",
     "expression": "Thoughtful creative gaze, expressive intensity, unconventional character.",
     "allowed_variations": {
       "lighting": [
@@ -16803,9 +16865,9 @@
     },
     "clothing": {
       "default": {
-        "male": "dark fitted jacket over quality tee, dark jeans, clean artistic style, shoulder line visible",
-        "female": "dark fitted jacket over quality tee, dark jeans, clean artistic style, shoulder line visible",
-        "neutral": "dark fitted jacket over quality tee, dark jeans, clean artistic style, shoulder line visible"
+        "male": "dark fitted jacket over quality tee, dark jeans, clean artistic style, crew-neck shoulder line clearly visible",
+        "female": "dark fitted jacket over quality tee, dark jeans, clean artistic style, crew-neck shoulder line clearly visible",
+        "neutral": "dark fitted jacket over quality tee, dark jeans, clean artistic style, crew-neck shoulder line clearly visible"
       },
       "allowed": [],
       "gender_neutral": true
@@ -16974,7 +17036,7 @@
     "mode": "cv",
     "type": "scene_locked",
     "base_scene": "clean uniform white, evenly lit backdrop",
-    "default_clothing": "simple solid-color business top, shoulder line visible",
+    "default_clothing": "simple solid-color business top, shoulders fully in frame",
     "expression": "Neutral composed expression, mouth closed, eyes open and looking straight into the camera, formal compliant demeanor.",
     "allowed_variations": {
       "lighting": [],
@@ -17005,9 +17067,9 @@
     },
     "clothing": {
       "default": {
-        "male": "simple solid-color business top, shoulder line visible",
-        "female": "simple solid-color business top, shoulder line visible",
-        "neutral": "simple solid-color business top, shoulder line visible"
+        "male": "simple solid-color business top, shoulders fully in frame",
+        "female": "simple solid-color business top, shoulders fully in frame",
+        "neutral": "simple solid-color business top, shoulders fully in frame"
       },
       "allowed": [],
       "gender_neutral": true
@@ -17067,7 +17129,7 @@
     "mode": "cv",
     "type": "scene_locked",
     "base_scene": "clean uniform white, evenly lit backdrop",
-    "default_clothing": "simple solid-color business top, shoulder line visible",
+    "default_clothing": "simple solid-color business top, shoulders fully in frame",
     "expression": "Neutral composed expression, mouth closed, eyes open and looking straight into the camera, formal compliant demeanor.",
     "allowed_variations": {
       "lighting": [],
@@ -17098,9 +17160,9 @@
     },
     "clothing": {
       "default": {
-        "male": "simple solid-color business top, shoulder line visible",
-        "female": "simple solid-color business top, shoulder line visible",
-        "neutral": "simple solid-color business top, shoulder line visible"
+        "male": "simple solid-color business top, shoulders fully in frame",
+        "female": "simple solid-color business top, shoulders fully in frame",
+        "neutral": "simple solid-color business top, shoulders fully in frame"
       },
       "allowed": [],
       "gender_neutral": true
@@ -17160,7 +17222,7 @@
     "mode": "cv",
     "type": "scene_locked",
     "base_scene": "clean uniform white, evenly lit backdrop",
-    "default_clothing": "simple solid-color business top, shoulder line visible",
+    "default_clothing": "simple solid-color business top, shoulders fully in frame",
     "expression": "Neutral composed expression, mouth closed, eyes open and looking straight into the camera, formal compliant demeanor.",
     "allowed_variations": {
       "lighting": [],
@@ -17191,9 +17253,9 @@
     },
     "clothing": {
       "default": {
-        "male": "simple solid-color business top, shoulder line visible",
-        "female": "simple solid-color business top, shoulder line visible",
-        "neutral": "simple solid-color business top, shoulder line visible"
+        "male": "simple solid-color business top, shoulders fully in frame",
+        "female": "simple solid-color business top, shoulders fully in frame",
+        "neutral": "simple solid-color business top, shoulders fully in frame"
       },
       "allowed": [],
       "gender_neutral": true
@@ -17253,7 +17315,7 @@
     "mode": "cv",
     "type": "scene_locked",
     "base_scene": "clean uniform white, evenly lit backdrop",
-    "default_clothing": "simple solid-color business top, shoulder line visible",
+    "default_clothing": "simple solid-color business top, shoulders fully in frame",
     "expression": "Neutral composed expression, mouth closed, eyes open and looking straight into the camera, formal compliant demeanor.",
     "allowed_variations": {
       "lighting": [],
@@ -17284,9 +17346,9 @@
     },
     "clothing": {
       "default": {
-        "male": "simple solid-color business top, shoulder line visible",
-        "female": "simple solid-color business top, shoulder line visible",
-        "neutral": "simple solid-color business top, shoulder line visible"
+        "male": "simple solid-color business top, shoulders fully in frame",
+        "female": "simple solid-color business top, shoulders fully in frame",
+        "neutral": "simple solid-color business top, shoulders fully in frame"
       },
       "allowed": [],
       "gender_neutral": true
@@ -17346,7 +17408,7 @@
     "mode": "cv",
     "type": "scene_locked",
     "base_scene": "clean uniform white, evenly lit backdrop",
-    "default_clothing": "simple solid-color business top, shoulder line visible",
+    "default_clothing": "simple solid-color business top, shoulders fully in frame",
     "expression": "Neutral composed expression, mouth closed, eyes open and looking straight into the camera, formal compliant demeanor.",
     "allowed_variations": {
       "lighting": [],
@@ -17377,9 +17439,9 @@
     },
     "clothing": {
       "default": {
-        "male": "simple solid-color business top, shoulder line visible",
-        "female": "simple solid-color business top, shoulder line visible",
-        "neutral": "simple solid-color business top, shoulder line visible"
+        "male": "simple solid-color business top, shoulders fully in frame",
+        "female": "simple solid-color business top, shoulders fully in frame",
+        "neutral": "simple solid-color business top, shoulders fully in frame"
       },
       "allowed": [],
       "gender_neutral": true
@@ -17439,7 +17501,7 @@
     "mode": "cv",
     "type": "scene_locked",
     "base_scene": "clean uniform white, evenly lit backdrop",
-    "default_clothing": "simple solid-color business top, shoulder line visible",
+    "default_clothing": "simple solid-color business top, shoulders fully in frame",
     "expression": "Neutral composed expression, mouth closed, eyes open and looking straight into the camera, formal compliant demeanor.",
     "allowed_variations": {
       "lighting": [],
@@ -17470,9 +17532,9 @@
     },
     "clothing": {
       "default": {
-        "male": "simple solid-color business top, shoulder line visible",
-        "female": "simple solid-color business top, shoulder line visible",
-        "neutral": "simple solid-color business top, shoulder line visible"
+        "male": "simple solid-color business top, shoulders fully in frame",
+        "female": "simple solid-color business top, shoulders fully in frame",
+        "neutral": "simple solid-color business top, shoulders fully in frame"
       },
       "allowed": [],
       "gender_neutral": true
@@ -17532,7 +17594,7 @@
     "mode": "cv",
     "type": "scene_locked",
     "base_scene": "clean uniform white, evenly lit backdrop",
-    "default_clothing": "simple solid-color business top, shoulder line visible",
+    "default_clothing": "simple solid-color business top, shoulders fully in frame",
     "expression": "Neutral composed expression, mouth closed, eyes open and looking straight into the camera, formal compliant demeanor.",
     "allowed_variations": {
       "lighting": [],
@@ -17563,9 +17625,9 @@
     },
     "clothing": {
       "default": {
-        "male": "simple solid-color business top, shoulder line visible",
-        "female": "simple solid-color business top, shoulder line visible",
-        "neutral": "simple solid-color business top, shoulder line visible"
+        "male": "simple solid-color business top, shoulders fully in frame",
+        "female": "simple solid-color business top, shoulders fully in frame",
+        "neutral": "simple solid-color business top, shoulders fully in frame"
       },
       "allowed": [],
       "gender_neutral": true
@@ -17625,7 +17687,7 @@
     "mode": "cv",
     "type": "scene_locked",
     "base_scene": "clean uniform white, evenly lit backdrop",
-    "default_clothing": "simple solid-color business top, shoulder line visible",
+    "default_clothing": "simple solid-color business top, shoulders fully in frame",
     "expression": "Neutral composed expression, mouth closed, eyes open and looking straight into the camera, formal compliant demeanor.",
     "allowed_variations": {
       "lighting": [],
@@ -17656,9 +17718,9 @@
     },
     "clothing": {
       "default": {
-        "male": "simple solid-color business top, shoulder line visible",
-        "female": "simple solid-color business top, shoulder line visible",
-        "neutral": "simple solid-color business top, shoulder line visible"
+        "male": "simple solid-color business top, shoulders fully in frame",
+        "female": "simple solid-color business top, shoulders fully in frame",
+        "neutral": "simple solid-color business top, shoulders fully in frame"
       },
       "allowed": [],
       "gender_neutral": true
@@ -17718,7 +17780,7 @@
     "mode": "cv",
     "type": "scene_locked",
     "base_scene": "clean uniform white, evenly lit backdrop",
-    "default_clothing": "simple solid-color business top, shoulder line visible",
+    "default_clothing": "simple solid-color business top, shoulders fully in frame",
     "expression": "Neutral composed expression, mouth closed, eyes open and looking straight into the camera, formal compliant demeanor.",
     "allowed_variations": {
       "lighting": [],
@@ -17749,9 +17811,9 @@
     },
     "clothing": {
       "default": {
-        "male": "simple solid-color business top, shoulder line visible",
-        "female": "simple solid-color business top, shoulder line visible",
-        "neutral": "simple solid-color business top, shoulder line visible"
+        "male": "simple solid-color business top, shoulders fully in frame",
+        "female": "simple solid-color business top, shoulders fully in frame",
+        "neutral": "simple solid-color business top, shoulders fully in frame"
       },
       "allowed": [],
       "gender_neutral": true

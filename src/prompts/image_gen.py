@@ -1,12 +1,18 @@
 """Centralized image-generation prompt builder for all modes.
 
-Compact photorealistic template (v1.13, retained through v1.20): a
+Compact photorealistic template (v1.13, retained through v1.71): a
 single natural paragraph in the 800–1200 character budget. Empirically
-FAL's edit endpoints (Kontext, FLUX.2 Pro Edit, Seedream, PuLID) all
-degrade when handed tag-sectioned layouts ([CHANGE]/[PRESERVE]/
-[QUALITY]) or prompts above ~1200 characters. Two short anchors —
-PRESERVE_PHOTO and QUALITY_PHOTO — cover the semantics that previously
-required 10+ individual constants.
+FAL's edit endpoints (Nano Banana 2, GPT Image 2 Edit) all degrade
+when handed tag-sectioned layouts ([CHANGE]/[PRESERVE]/[QUALITY]) or
+prompts above ~1200 characters. Two short anchors —
+:data:`IDENTITY_PRESERVE_BLOCK` and :data:`PHOTOREAL_BLOCK` — cover
+the semantics that previously required 10+ individual constants.
+
+v1.71 cleanup retired the historical PuLID / multi-pass / head-anchor
+constants together with the gated ``LIGHT_MATCH_CLAUSE`` rollback
+escape hatch. The wire-prompt assembly path (see
+``src.prompts.model_wrappers._assemble``) is now a single 7-stage
+sequence with no feature flags.
 """
 
 from __future__ import annotations
@@ -186,29 +192,6 @@ IDENTITY_PRESERVE_BLOCK = (
 )
 
 
-# v1.68 — P2.9 light-matching clause.
-#
-# The legacy ``PHOTOREAL_BLOCK`` already includes a brief
-# "scene's ambient light grounds the subject" sentence, but its
-# wording is generic enough that edit-models routinely fall back
-# to a default studio key light when the reference photo carries a
-# different light recipe than the requested scene (the
-# "studio key-light on a sunset terrace" pathology surfaced in the
-# May 2026 image-quality audit).
-#
-# This dedicated clause is sharper: it names the three axes that
-# matter for perceived realism — colour temperature, direction,
-# softness — and explicitly forbids overriding them with a studio
-# key light unless the scene says so. Inserted immediately BEFORE
-# :data:`IDENTITY_PRESERVE_BLOCK` so it lives at the tail of the
-# prompt where edit-models weigh it heavily via recency bias.
-# Gated on ``settings.light_match_clause_enabled``.
-LIGHT_MATCH_CLAUSE = (
-    "Match the subject's lighting to the scene's ambient light — "
-    "colour temperature, direction, and softness — and do not add a "
-    "studio key light unless the scene explicitly contains one."
-)
-
 # Photoreal block (v1.66, ~340 chars).
 # v1.65 swapped the camera anchor from ``50mm lens at eye level`` to
 # ``85mm portrait lens at chest height``. The 50mm-at-eye-level pair
@@ -247,25 +230,12 @@ PHOTOREAL_BLOCK = (
 )
 
 
-# v1.70 — per-framing block collapsed.
-#
-# The v1.68 per-framing dict carried three different lens specs
-# (85mm / 50-70mm / 35-50mm) plus per-framing DoF directives. The
-# v1.70 audit (docs/ANATOMY_INVESTIGATION.md) concluded that lens
-# tokens are not a useful lever against the "huge head" pathology —
-# they only over-anchored portrait perspective without compensating
-# benefit. v1.70 made every entry equal :data:`PHOTOREAL_BLOCK`,
-# which collapsed the ``photoreal_by_framing_enabled`` flag into a
-# no-op. v1.70.4 then removed the flag and the gate in
-# ``model_wrappers._resolve_tail``. The dict itself survives purely
-# as a regression marker: ``test_photoreal_by_framing`` asserts each
-# entry still equals ``PHOTOREAL_BLOCK`` so a future re-introduction
-# of per-framing lens specs is caught immediately.
-_PHOTOREAL_BY_FRAMING: dict[str, str] = {
-    "portrait": PHOTOREAL_BLOCK,
-    "half_body": PHOTOREAL_BLOCK,
-    "full_body": PHOTOREAL_BLOCK,
-}
+# v1.70 retired the per-framing block (``_PHOTOREAL_BY_FRAMING``) —
+# lens / DoF tokens over-anchored portrait perspective without
+# compensating benefit (see docs/ANATOMY_INVESTIGATION.md F3). The
+# v1.71 cleanup dropped the regression-marker dict too; the
+# pin against re-introduction lives in
+# ``test_prompt_anatomy_catalog.test_photoreal_block_no_lens_or_dof``.
 
 
 # Natural-expression fallback. Used by ``composition_builder`` when
@@ -278,37 +248,12 @@ EXPRESSION_NATURAL = (
 )
 
 
-# Short identity-lock suffix appended at the very end of every non-emoji
-# prompt. Kept under 80 chars so it rarely trips the 1200 PROMPT_MAX_LEN
-# budget; positive-framing only so it passes the regression guard in
-# tests/test_prompts/test_positive_framing.py. Acts as a final anchor
-# for FLUX.2 Pro Edit — empirically repeating "same person as the
-# reference" once more at the tail improves prompt adherence on borderline
-# identity cases without extra cost.
-IDENTITY_LOCK_SUFFIX = "Final anchor: output must be the exact same person."
+# v1.70 dropped the PuLID-only ``SOLO_SUBJECT_ANCHOR`` /
+# ``IDENTITY_SCENE_QUALITY`` constants and the v1.13 ``IDENTITY_LOCK_SUFFIX``
+# tail — they had zero runtime consumers since the PuLID provider was
+# retired in v1.64. The edit-mode pipeline relies on
+# ``IDENTITY_PRESERVE_BLOCK`` for identity preservation.
 
-# ---------------------------------------------------------------------------
-# v1.18 identity_scene (PuLID) anchors
-# ---------------------------------------------------------------------------
-# PuLID locks the face at the model level via ID adapter + face reference,
-# so repeating PRESERVE_PHOTO's facial anchors actually harms the output:
-# the Lightning sampler overcommits pixels to "identical face" semantics
-# and the scene loses detail. For the identity_scene branch we therefore
-# describe the scene, lighting, pose and camera — and let PuLID hold
-# identity. A short ``SOLO_SUBJECT_ANCHOR`` guard still ships because
-# PuLID is known to occasionally spawn a second face from a crowded prompt
-# ("dating profile", "yacht party" etc.) and the VLM gate rejects those.
-SOLO_SUBJECT_ANCHOR = (
-    "Single subject in frame, one person only, full-face clearly visible, "
-    "hands with five clearly separated fingers."
-)
-
-IDENTITY_SCENE_QUALITY = (
-    "Photorealistic unedited photograph with natural depth of field: "
-    "subject sharp, background softly resolved. "
-    "True-to-life colors, even realistic lighting, "
-    "authentic skin texture with natural pores."
-)
 
 DOC_PRESERVE = (
     "Preserve the exact same person from the reference photo: identical facial "
@@ -546,66 +491,16 @@ _FRAMING_PROMPT_DIRECTIVES: dict[str, str] = {
 }
 
 
-# v1.65 — cinematic composition anchor for non-document styles.
-#
-# Background: the document path (``_DOC_COMPOSITION_HINT``) consistently
-# produces correct anatomical proportions because it hands edit models
-# an explicit "face fills X% of frame" sentence. v1.64 mirrored that
-# mechanism for non-document styles via percentage targets, but the
-# results on tight selfies were still inconsistent — edit-model
-# attention treats numeric strings as weak signals when they compete
-# with the visual layout of the reference image.
-#
-# v1.65 switches to cinematic vocabulary that edit-models learned on
-# their supervised training data:
-#
-# * Explicit ``Reframe the reference into …`` operator (positive-framed
-#   command to CHANGE the layout, not preserve it). This is the
-#   biggest single lever for overcoming the "copy the reference layout"
-#   default on FAL Nano Banana 2 / GPT Image 2 Edit.
-# * Cinematic shot vocabulary (``bust shot`` / ``medium waist-up shot``
-#   / ``full-length standing shot``) instead of percentage targets.
-# * One positive-framed proportions clause ``natural human head-to-body
-#   scale`` (does not violate ``_has_disallowed_negative`` and reads
-#   well to the model).
-#
-# v1.68 (May 2026) — two corrections from the audit:
-#
-#   1. Geometry/text alignment. The wording previously said ``upper
-#      quarter of the canvas`` (~25%) for portrait while
-#      :data:`src.services.reference_preprocess._FRAMING_GEOMETRY`
-#      lays out 28% face height with the centre at 30% (i.e. roughly
-#      the upper third). The mismatch put text and the padded canvas
-#      in disagreement, which edit-models resolved by averaging — the
-#      "head too small" complement of the "head too large" pathology
-#      seen on tight selfies. Wording updated to ``upper third of the
-#      canvas height`` etc. so the two doctrines describe the same
-#      target.
-#   2. Lens dedup. The block carried ``85mm short-telephoto lens at
-#      chest height`` while :data:`PHOTOREAL_BLOCK` repeated the same
-#      ``85mm short-telephoto lens at chest height``. Two mentions of
-#      the same lens token over-anchored the headshot perspective on
-#      half-body / full-body framings. The cinematic anchor now stays
-#      lens-agnostic ("a portrait bust shot taken at chest height" /
-#      "a medium waist-up shot at chest height" / "a full-length
-#      standing shot from a slight low angle") and ``PHOTOREAL_BLOCK``
-#      remains the single source of truth for the lens spec.
-#
-# ``model_wrappers._assemble`` injects the relevant entry BEFORE
-# :data:`IDENTITY_PRESERVE_BLOCK` so the layout instruction sits in
-# the first third of the prompt, where edit models pay the most
-# attention.
-# v1.70 — cinematic head-anchor removed. The v1.65 textual anchor
-# ("Reframe the reference into a head-and-shoulders bust shot ...
-# head occupying roughly the upper third") was the strongest of the
-# 5 head-cues we counted in the audit. After v1.70 the geometric
-# half of the doctrine still ships via ``reference_preprocess``
-# (it physically lays out the canvas with the face at the correct
-# relative size for the requested framing) — the textual half is
-# no longer needed because the model receives the same intent
-# spatially without competing tokens. ``_assemble`` falls back to
-# omitting this block when the framing key is missing.
-_COMPOSITION_NUMERICAL_HINT: dict[str, str] = {}
+# v1.65 introduced ``_COMPOSITION_NUMERICAL_HINT`` (cinematic
+# "Reframe the reference …" anchor); v1.70 emptied the dict because
+# the textual anchor stacked with reference padding to over-anchor
+# headshot perspective (audit: docs/ANATOMY_INVESTIGATION.md F1).
+# The geometric half of the doctrine still ships via
+# ``reference_preprocess.pad_reference_for_framing`` — the canvas
+# is physically laid out so the face lands at the right relative
+# size, with no competing prompt token. v1.71 dropped the empty
+# regression-marker dict; the pin against re-introduction lives in
+# ``test_no_composition_reframe_sentence_in_wire_prompt``.
 
 
 # v1.68 — P2.10 per-framing pose hint.
@@ -638,50 +533,13 @@ _POSE_BY_FRAMING: dict[str, str] = {
 }
 
 
-# v1.68 — P1.4: quantitative early-attention anchor for the prompt head.
-#
-# The cinematic ``_COMPOSITION_NUMERICAL_HINT`` above is the qualitative
-# half ("bust shot", "waist-up", "full-length standing") — it owns the
-# narrative composition slot of the prompt. ``_FACE_AREA_ANCHOR_BY_FRAMING``
-# is the quantitative half: a single short sentence that gives the
-# edit-model an explicit, measurable target for the face's share of
-# the canvas area. The two together mirror the document-style path,
-# where ``_DOC_COMPOSITION_HINT`` consistently produces correct
-# anatomical proportions because it hands the model BOTH "face fills
-# X% of the frame" AND a shot vocabulary descriptor.
-#
-# Gated by ``settings.numerical_percent_anchor_enabled`` so the
-# rollout phase can enable it cleanly after Phase 1 P0 QA bakes in.
-# The anchor is emitted as the VERY FIRST sentence of the prompt by
-# ``model_wrappers._assemble`` — early-attention slot is where edit-
-# models weigh quantitative directives the most.
-#
-# The percentages here describe AREA (width × height), not height
-# alone, so they roughly square the ``face_height_ratio`` values
-# in :data:`src.services.reference_preprocess._FRAMING_GEOMETRY`:
-#
-#   portrait : face_height_ratio=0.28 → area ≈ 0.28² × 0.7 ≈ 6-8%
-#              (real-world face ≈ 7-8% body-width / canvas-width on a
-#              bust shot, so ~5%). We round to a familiar "fills
-#              roughly 6% of the frame area".
-#   half_body: face_height_ratio=0.15 → area ≈ 2-3%.
-#   full_body: face_height_ratio=0.08 → area ≈ 0.5-1%.
-#
-# Rounded to user-friendly cohorts so the text is short and crisp.
-# v1.70 — face-area anchor removed. The v1.68 P1.4 anchor
-# ("Anchor: the face occupies about 6% of the frame area") duplicated
-# the cinematic ``_COMPOSITION_NUMERICAL_HINT`` (now also gone) in
-# the numeric channel. Removing both leaves geometric anchoring to
-# ``reference_preprocess.pad_reference_for_framing`` which lays out
-# the canvas spatially.
-#
-# v1.70.3 dropped the unreachable ``if framing in <empty dict>:``
-# branch from ``model_wrappers._assemble``; v1.70.4 also removed
-# the ``numerical_percent_anchor_enabled`` flag in ``config`` since
-# it had no consumer left. The dict itself stays as a regression
-# marker — ``tests/test_prompts/`` asserts it remains empty so a
-# future PR cannot silently bring the 6%-anchor back.
-_FACE_AREA_ANCHOR_BY_FRAMING: dict[str, str] = {}
+# v1.68 introduced ``_FACE_AREA_ANCHOR_BY_FRAMING`` (quantitative
+# "face fills ~6% of the frame area" hint). v1.70 emptied it because
+# it duplicated the cinematic anchor (also retired) in the numeric
+# channel; v1.71 dropped the empty regression-marker dict. Geometric
+# anchoring lives in ``reference_preprocess.pad_reference_for_framing``;
+# the pin against re-introduction lives in
+# ``test_no_composition_reframe_sentence_in_wire_prompt``.
 
 
 def _framing_directive(framing: str | None) -> str:
@@ -696,34 +554,6 @@ def _framing_directive(framing: str | None) -> str:
 # were removed. The single entrypoint for photo prompt building is
 # ``PromptEngine.build_image_prompt`` which always routes through the
 # v3 slot-based path (with v2-promoted specs auto-registered as v3).
-
-
-def _identity_scene_opener(mode: str, style: str) -> str:
-    """Return the first line of an identity_scene (PuLID) prompt.
-
-    PuLID is a text-to-image model with a face reference, not an edit
-    model — describing the reference photo as a starting point confuses
-    Lightning. We use a direct scene-generation verb so the sampler
-    commits the pixel budget to the new scene rather than trying to
-    "preserve" invisible pieces of the input.
-
-    Full-body styles get a pose hint so the model doesn't default to a
-    mid-chest crop for styles like yoga/running/hiking.
-    """
-    # v1.19 — phrasing trimmed. The previous "Render a portrait of the
-    # reference person in the scene" mentioned "person" twice and was
-    # part of the duplicate-subject regression. One mention of
-    # "subject" is enough; PuLID's ID adapter does the rest.
-    spec = STYLE_REGISTRY.get(mode, style)
-    if spec is not None and getattr(spec, "needs_full_body", False):
-        return (
-            "Photorealistic full-body portrait of the reference subject, "
-            "adopting a natural pose that fits the scene below."
-        )
-    return (
-        "Photorealistic portrait of the reference subject in the scene "
-        "described below, with a natural pose fitting the scene."
-    )
 
 
 def _dating_social_change_instruction(mode: str, style: str) -> str:
@@ -776,54 +606,11 @@ def resolve_style_variant(
     return spec.variant_by_id(variant_id)
 
 
-# ---------------------------------------------------------------------------
-# Multi-pass step templates — compact single-paragraph variants
-# ---------------------------------------------------------------------------
-
-_STEP_CHANGE: dict[str, str] = {
-    "background_edit": "Change the background to {description} while maintaining facial features, skin tone and body proportions, keeping clothing and pose of the person in the reference photo.",
-    "clothing_edit": "Change the clothing to {description} while maintaining facial features, skin tone and body proportions, keeping the original background and pose.",
-    "lighting_adjust": "Adjust the lighting and color grading to {description} while maintaining facial features and skin tone of the person in the reference photo.",
-    "expression_hint": "Apply subtle expression adjustment toward {description} while maintaining facial features and skin tone.",
-    "skin_correction": "Apply minor skin tone refinement and blemish cleanup while maintaining facial features and skin undertone of the person in the reference photo.",
-    "style_overall": "Apply overall style enhancement toward {description} while maintaining facial features, skin tone and body proportions.",
-}
-
-STEP_TEMPLATES: dict[str, str] = {
-    key: f"{change} {IDENTITY_PRESERVE_BLOCK} {PHOTOREAL_BLOCK}"
-    for key, change in _STEP_CHANGE.items()
-}
-
-
-ENHANCEMENT_LEVEL_MODIFIERS: dict[int, str] = {
-    1: "Apply subtle, minimal changes. Focus only on lighting and skin tone. Strength: very light.",
-    2: "Apply moderate enhancement. Improve background and clothing while keeping natural look. Strength: medium.",
-    3: "Apply noticeable enhancement. Include expression refinement and styling. Strength: confident.",
-    4: "Apply full style transformation. Complete look overhaul with strong aesthetic. Strength: full.",
-}
-
-
-def build_step_prompt(
-    step_template: str,
-    style: str,
-    mode: str = "dating",
-    gender: str = "male",
-    enhancement_level: int = 0,
-) -> str:
-    """Build a prompt for a single pipeline step using the StyleSpec registry."""
-    template = STEP_TEMPLATES.get(
-        step_template, STEP_TEMPLATES.get("style_overall", "")
-    )
-    spec = STYLE_REGISTRY.get_or_default(mode, style)
-    if step_template == "expression_hint":
-        description = spec.expression
-    else:
-        clothing = spec.clothing_for(gender)
-        description = f"Background: {spec.background}. Clothing: {clothing}."
-    prompt = template.replace("{description}", description)
-    if enhancement_level and enhancement_level in ENHANCEMENT_LEVEL_MODIFIERS:
-        prompt += " " + ENHANCEMENT_LEVEL_MODIFIERS[enhancement_level]
-    return prompt
+# v1.71 — the multi-pass step templates (``_STEP_CHANGE`` /
+# ``STEP_TEMPLATES`` / ``ENHANCEMENT_LEVEL_MODIFIERS`` /
+# ``build_step_prompt``) were retired together with the reserved
+# ``src.orchestrator.advanced`` package. The runtime always runs
+# single-pass through ``ImageGenerationExecutor.single_pass``.
 
 
 _EMOJI_GENDER_HINT = {

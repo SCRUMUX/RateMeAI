@@ -12,7 +12,8 @@ core invariants the model relies on:
   torso ratio (the "huge head" pathology). v1.64 dropped the legacy
   "head and shoulders read as real human proportions" tail because it
   conflicted with non-portrait framings; composition is now driven
-  exclusively by :data:`_COMPOSITION_NUMERICAL_HINT`.
+  geometrically by ``reference_preprocess.pad_reference_for_framing``
+  (v1.70 retired the textual ``_COMPOSITION_NUMERICAL_HINT`` anchor).
 * Photoreal anchors from :data:`PHOTOREAL_BLOCK` are present. v1.65
   swapped the camera anchor from ``50mm lens at eye level`` to
   ``85mm portrait lens`` to break the "selfie perspective" pattern
@@ -136,7 +137,7 @@ def test_v4_1_anchors_present(mode: AnalysisMode, style: str):
     # edit-models read it as a geometric constraint on the head/torso
     # ratio. v1.64: "head and shoulders read as real human
     # proportions" tail removed — composition is now driven by
-    # ``_COMPOSITION_NUMERICAL_HINT`` only).
+    # ``reference_preprocess.pad_reference_for_framing`` geometry).
     assert (
         "preserve the same person's facial features" in prompt
     ), f"{mode.value}/{style}: identity anchor missing\n{prompt!r}"
@@ -154,7 +155,8 @@ def test_v4_1_anchors_present(mode: AnalysisMode, style: str):
     ), (
         f"{mode.value}/{style}: v1.32 'head and shoulders read as real "
         "human proportions' tail must not return — it conflicts with "
-        "non-portrait framings. Use _COMPOSITION_NUMERICAL_HINT instead.\n"
+        "non-portrait framings. Composition is now anchored "
+        "geometrically by reference_preprocess.\n"
         f"{prompt!r}"
     )
 

@@ -1,25 +1,19 @@
-"""v1.70 — numerical composition anchor removed.
+"""v1.71 — numerical composition anchor stays out of the wire prompt.
 
 Background
 ----------
 
 The v1.64..v1.69 pipeline injected a cinematic head-anchor
-(``Reframe the reference into a head-and-shoulders bust shot ...``)
-into the wire prompt via :data:`_COMPOSITION_NUMERICAL_HINT`. The
+("Reframe the reference into a head-and-shoulders bust shot ...")
+into the wire prompt via ``_COMPOSITION_NUMERICAL_HINT``. The
 v1.70 audit (``docs/ANATOMY_INVESTIGATION.md`` F1, F4) attributed the
 "oversized head" pathology to that anchor and the four other
-head-cues it stacked with. The cleanup replaces the dict with an
-empty mapping so the ``model_wrappers._assemble`` branch falls
-through and the head-cue never reaches the wire prompt.
-
-The geometric half of the doctrine survives in
-``reference_preprocess.pad_reference_for_framing`` — the canvas is
-still padded so the face lands at the correct relative size for the
-requested framing. The textual half is gone.
+head-cues it stacked with. v1.70 emptied the dict; v1.71 dropped the
+empty marker entirely. The geometric half of the doctrine still
+ships via ``reference_preprocess.pad_reference_for_framing``.
 
 These tests pin the negative contract:
 
-* ``_COMPOSITION_NUMERICAL_HINT`` is empty (``{}``).
 * No wire prompt for any framing carries a ``Composition: Reframe …``
   sentence.
 * Identity remains the last block — the tail-attention slot.
@@ -33,7 +27,6 @@ import pytest
 from src.models.enums import AnalysisMode
 from src.prompts.engine import PromptEngine
 from src.prompts.image_gen import (
-    _COMPOSITION_NUMERICAL_HINT,
     _DOCUMENT_STYLE_KEYS,
     IDENTITY_PRESERVE_BLOCK,
     STYLE_REGISTRY,
@@ -69,16 +62,6 @@ def _pick_non_doc_style() -> str:
         if mode_str == "dating" and key not in _DOCUMENT_STYLE_KEYS:
             return key
     raise RuntimeError("No non-doc dating styles registered")
-
-
-def test_numerical_anchor_dict_is_empty():
-    """v1.70 — the dict must be empty so ``_assemble`` skips the block."""
-    assert _COMPOSITION_NUMERICAL_HINT == {}, (
-        "v1.70 expected _COMPOSITION_NUMERICAL_HINT to be empty; "
-        f"got {_COMPOSITION_NUMERICAL_HINT!r}. Any re-introduction is a "
-        "regression — the head-anchor wording belongs in DOC_PRESERVE "
-        "only (document styles)."
-    )
 
 
 @pytest.mark.parametrize("framing", ["portrait", "half_body", "full_body"])

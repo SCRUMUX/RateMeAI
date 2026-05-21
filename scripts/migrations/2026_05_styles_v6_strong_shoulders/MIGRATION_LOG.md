@@ -1,0 +1,155 @@
+# v1.71 Style Catalog Normalization — strong shoulder cue
+
+- Timestamp: `2026-05-21T07:32:21+00:00`
+- Mode: `DRY-RUN`
+- Total styles: 136
+- Migrated: 0
+- Exempt (studio/document/sport): 15
+- Untouched (already carry a strong cue): 121
+
+## Migrated styles
+
+| id | default_clothing | clothing.default.* | coherence.* | applied cues |
+|---|---|---|---|---|
+
+## Exempt styles (untouched by design)
+
+- `cycling`
+- `formal_portrait`
+- `gym_fitness`
+- `hiking`
+- `passport_rf`
+- `photo_3x4`
+- `photo_4x6`
+- `running`
+- `studio_elegant`
+- `swimming_pool`
+- `tennis`
+- `visa_eu`
+- `visa_schengen`
+- `visa_us`
+- `yoga_outdoor`
+
+## Untouched styles (already carry a strong cue)
+
+- `achievement_moment`
+- `after_work`
+- `airplane_window`
+- `analytics_review`
+- `architect`
+- `architecture_shadow`
+- `art_gallery`
+- `artistic`
+- `athens_acropolis`
+- `bar_lounge`
+- `barcelona_sagrada`
+- `beach_sunset`
+- `before_meeting`
+- `boardroom`
+- `business_lounge`
+- `cafe`
+- `candid_street`
+- `car_exit`
+- `casual`
+- `coffee_break_work`
+- `coffee_date`
+- `concert`
+- `cooking`
+- `corporate`
+- `coworking`
+- `creative_director`
+- `cycling_social`
+- `decision_moment`
+- `digital_nomad`
+- `dog_lover`
+- `dubai_burj_khalifa`
+- `elevator_clean`
+- `evening_home`
+- `evening_planning`
+- `fitness_lifestyle`
+- `focused_mood`
+- `food_blogger`
+- `glass_wall_pose`
+- `golden_hour`
+- `hotel_breakfast`
+- `hotel_checkin`
+- `in_car`
+- `in_motion`
+- `influencer_minimal`
+- `influencer_urban`
+- `instagram_aesthetic`
+- `intellectual`
+- `late_hustle`
+- `legal_finance`
+- `light_irony`
+- `linkedin_premium`
+- `london_big_ben`
+- `london_eye`
+- `luxury`
+- `medical`
+- `meditation`
+- `mentor`
+- `mirror_aesthetic`
+- `morning_routine`
+- `motorcycle`
+- `near_car`
+- `neon_night`
+- `neutral`
+- `night_coffee`
+- `notebook_ideas`
+- `nyc_brooklyn_bridge`
+- `nyc_central_park`
+- `nyc_times_square`
+- `old_town_walk`
+- `online_learning`
+- `outdoor_business`
+- `panoramic_window`
+- `paris_eiffel`
+- `pastel_soft`
+- `photographer`
+- `podcast`
+- `podcast_host`
+- `rainy_day`
+- `reading_cafe`
+- `reading_home`
+- `restaurant`
+- `rome_colosseum`
+- `rooftop_city`
+- `sea_balcony`
+- `sf_golden_gate`
+- `shopfront`
+- `singapore_marina_bay`
+- `sketching`
+- `skyscraper_view`
+- `speaker_stage`
+- `standing_desk`
+- `startup_casual`
+- `street_market`
+- `street_urban`
+- `sydney_opera`
+- `tablet_stylus`
+- `tech_developer`
+- `tinder_pack_cafe_window`
+- `tinder_pack_minimal_studio`
+- `tinder_pack_rooftop_golden`
+- `tinder_top`
+- `tokyo_tower`
+- `train_journey`
+- `travel`
+- `travel_blogger`
+- `travel_luxury`
+- `venice_san_marco`
+- `video_call`
+- `vintage_film`
+- `visa_australia`
+- `visa_canada`
+- `visa_china`
+- `visa_india`
+- `visa_japan`
+- `visa_korea`
+- `visa_uae`
+- `visa_uk`
+- `visa_usa`
+- `warm_outdoor`
+- `yacht`
+- `youtube_creator`

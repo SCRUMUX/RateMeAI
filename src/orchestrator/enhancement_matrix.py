@@ -1,26 +1,85 @@
 """Engagement matrix — scenario x style x level statistics.
 
 The per-level step tables (:class:`EnhancementLevel`, :data:`LEVELS`,
-:func:`level_for_depth`) are exclusively consumed by the reserved
-multi-pass planner and therefore live in
-:mod:`src.orchestrator.advanced.enhancement_levels`. They are re-exported
-from this module for backwards compatibility with existing callers (the
-bot ``mode_select`` handler in particular).
+:func:`level_for_depth`) historically lived in
+``src.orchestrator.advanced.enhancement_levels`` to keep the reserved
+multi-pass planner self-contained. v1.71 retired that subpackage
+(`src.orchestrator.advanced`) — the multi-pass executor was never
+wired into the runtime — and the enhancement-level tables are now
+declared inline here, where their only runtime consumers live (the
+bot ``mode_select`` handler and ``/api/v1/engagement/*``).
 
 The engagement layer below (``SCENARIO_STYLES``, ``build_full_matrix``,
-``matrix_stats``, ``EngagementSnapshot``) stays in the runtime surface:
-it feeds ``/api/v1/engagement/*`` and the bot's progress display.
+``matrix_stats``, ``EngagementSnapshot``) stays in the runtime surface.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass
 
-from src.orchestrator.advanced.enhancement_levels import (
-    EnhancementLevel,
-    LEVELS,
-    level_for_depth,
-)
+
+@dataclass(frozen=True)
+class EnhancementLevel:
+    level: int
+    name: str
+    steps: list[str]
+    strength: float
+    description: str
+
+
+LEVELS: list[EnhancementLevel] = [
+    EnhancementLevel(
+        level=1,
+        name="light",
+        steps=["lighting_adjust", "skin_correction"],
+        strength=0.30,
+        description="\u0421\u0432\u0435\u0442 \u0438 \u0442\u043e\u043d \u043a\u043e\u0436\u0438",
+    ),
+    EnhancementLevel(
+        level=2,
+        name="medium",
+        steps=[
+            "lighting_adjust",
+            "skin_correction",
+            "background_edit",
+            "clothing_edit",
+        ],
+        strength=0.50,
+        description="+ \u0444\u043e\u043d \u0438 \u043e\u0434\u0435\u0436\u0434\u0430",
+    ),
+    EnhancementLevel(
+        level=3,
+        name="deep",
+        steps=[
+            "lighting_adjust",
+            "skin_correction",
+            "background_edit",
+            "clothing_edit",
+            "expression_hint",
+        ],
+        strength=0.60,
+        description="+ \u0432\u044b\u0440\u0430\u0436\u0435\u043d\u0438\u0435",
+    ),
+    EnhancementLevel(
+        level=4,
+        name="complete",
+        steps=[
+            "lighting_adjust",
+            "skin_correction",
+            "background_edit",
+            "clothing_edit",
+            "expression_hint",
+            "style_overall",
+        ],
+        strength=0.70,
+        description="\u041f\u043e\u043b\u043d\u044b\u0439 \u0441\u0442\u0438\u043b\u044c",
+    ),
+]
+
+
+def level_for_depth(depth: int) -> EnhancementLevel:
+    idx = min(depth, len(LEVELS)) - 1
+    return LEVELS[max(0, idx)]
 
 
 SCENARIO_STYLES: dict[str, list[str]] = {

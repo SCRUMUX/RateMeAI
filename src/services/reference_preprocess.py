@@ -52,36 +52,29 @@ The fix is gated by ``settings.csl_padding_v2_enabled`` (default
 True) so the legacy interpretation remains available as a 30-second
 rollback while the corrected code bakes in production.
 
-v1.65 / v1.68 alignment
-------------------------
+v1.65 / v1.68 / v1.70 / v1.71 alignment
+----------------------------------------
 
-The textual doctrine (``_COMPOSITION_NUMERICAL_HINT`` in
-``src.prompts.image_gen``) and the geometric doctrine
-(``_FRAMING_GEOMETRY`` below) describe the same target layout from
-two angles:
+The geometric doctrine (``_FRAMING_GEOMETRY`` below) is the sole
+remaining anchor for framing on non-document styles. v1.65 paired it
+with a textual head-anchor (``_COMPOSITION_NUMERICAL_HINT`` —
+"Reframe the reference into a head-and-shoulders bust shot, the head
+occupying roughly the upper third …") that mirrored
+``face_height_ratio`` row-by-row; v1.70 retired the textual anchor
+because two copies of the same doctrine over-anchored portrait
+perspective and v1.71 dropped the empty marker dict. The numbers
+below now stand alone — keep them honest:
 
-* Textual side (v1.68): ``Reframe the reference into a
-  head-and-shoulders bust shot taken at chest height, the head
-  occupying roughly the upper third of the canvas height …`` —
-  ``face_height_ratio=0.28`` is exactly "upper third of the
-  canvas height".
-* Half body side: prompt says ``medium waist-up shot``, ``head
-  occupying roughly the upper fifth of the canvas height``, ``both
-  shoulders fully visible``, ``torso extending to the belt line``;
-  ``face_height_ratio=0.15`` + ``face_center_y_ratio=0.20`` lays
-  out exactly that on the canvas.
-* Full body side: prompt says ``full-length standing shot from a
-  slight low angle, head occupying roughly an eighth of the canvas
-  height, torso, legs and feet all visible centred in the frame``;
-  ``face_height_ratio=0.08`` + ``face_center_y_ratio=0.12`` lays
-  out exactly that.
+* ``portrait``  : ``face_height_ratio=0.28`` ⇒ face occupies the
+  upper third of the canvas height.
+* ``half_body`` : ``face_height_ratio=0.15`` ⇒ face occupies the
+  upper fifth of the canvas height; both shoulders fit in frame.
+* ``full_body`` : ``face_height_ratio=0.08`` ⇒ face occupies roughly
+  an eighth of the canvas height; torso + legs fit in frame.
 
-The lens spec lives in ``PHOTOREAL_BLOCK`` only (v1.68 dedupe);
-this anchor stays lens-agnostic so the model doesn't receive two
-copies of the same lens token.
-
-Prompt and reference push the model in the same direction; they
-must stay co-curated when either side is tuned.
+The lens spec used to live in ``PHOTOREAL_BLOCK`` next to a "85mm
+short-telephoto" hint (v1.68); v1.70 dropped it too — lens tokens
+were the dominant over-anchor for portrait perspective.
 """
 
 from __future__ import annotations
@@ -104,11 +97,11 @@ logger = logging.getLogger(__name__)
 #                          in the upper part of the frame, leaving
 #                          room for shoulders/torso/legs below).
 #
-# Values mirror :data:`src.prompts.image_gen._COMPOSITION_NUMERICAL_HINT`.
-# Whatever the prompt says ("medium waist-up shot…torso extending to
-# the belt line" for half_body), the canvas geometry matches so
-# prompt + reference push the model in the same direction. See the
-# module docstring for the row-by-row textual/geometric mapping.
+# Geometric anchor for framing. Until v1.70 these values were paired
+# with a textual head-anchor (``_COMPOSITION_NUMERICAL_HINT``) that
+# repeated the same intent in the prompt; v1.70 retired the textual
+# half so the canvas geometry is the only thing the model has to
+# go on. See the module docstring for the row-by-row mapping.
 _FRAMING_GEOMETRY: Final[dict[str, dict[str, float]]] = {
     "portrait":  {"face_height_ratio": 0.28, "face_center_y_ratio": 0.30},
     "half_body": {"face_height_ratio": 0.15, "face_center_y_ratio": 0.20},

@@ -8,14 +8,10 @@ Clothing mask is derived as body minus face region.
 Status
 ------
 Not wired into the active single-pass runtime. ``AnalysisPipeline`` no
-longer instantiates this service after the Phase 1 cleanup. It is kept
-as the foundation for per-region steps in
-``src.orchestrator.advanced.execute_plan`` (multi-pass / compliance-loop
-scenarios such as document photos) and will be reactivated by the
-Scenario Engine together with ``SEGMENTATION_ENABLED=true`` and a
-scenario whose ``pipeline_profile = "advanced"``.
-
-See ``docs/architecture/reserved.md`` for the roadmap.
+longer instantiates this service after the Phase 1 cleanup. The
+v1.71 cleanup retired the dormant multi-pass subpackage that was the
+historical consumer; this module is kept as the foundation for the
+future Scenario Engine (gated by ``SEGMENTATION_ENABLED=true``).
 """
 
 from __future__ import annotations

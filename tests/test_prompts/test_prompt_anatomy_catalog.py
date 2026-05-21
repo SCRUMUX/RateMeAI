@@ -169,8 +169,8 @@ def test_v1_70_anatomy_invariants(mode: AnalysisMode, style: str, framing: str):
         )
 
     assert "Anchor: the face occupies" not in prompt, (
-        f"{label}: face-area anchor leaked back in — "
-        "_FACE_AREA_ANCHOR_BY_FRAMING is empty in v1.70.\n"
+        f"{label}: face-area anchor leaked back in — the v1.68 "
+        "head-cue was retired in v1.70.\n"
         f"{prompt!r}"
     )
 

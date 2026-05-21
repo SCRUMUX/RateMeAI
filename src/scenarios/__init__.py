@@ -4,8 +4,8 @@ A *scenario* binds a public landing page + wizard flow to a fixed
 combination of:
 
 - analysis ``AnalysisMode`` (which `ModeRouter` service runs scoring),
-- pipeline profile (``simple`` = current single-pass, ``advanced`` =
-  reserved compliance loop in :mod:`src.orchestrator.advanced`),
+- pipeline profile (``simple`` = current single-pass; ``advanced``
+  was the reserved compliance loop, retired in v1.71),
 - output spec (size in mm, dpi, background, target aspect),
 - optional document/visa requirements,
 - optional prompt overrides injected into the image-gen builder,

@@ -46,9 +46,10 @@ class CompositionIR:
     framing_line: str = ""
     # v1.64 — raw framing key ("portrait" / "half_body" / "full_body" or
     # None). Kept alongside the human-readable ``framing_line`` so the
-    # model wrapper can look up the numerical composition hint
-    # (``_COMPOSITION_NUMERICAL_HINT`` in ``image_gen.py``) without
-    # re-parsing the line.
+    # model wrapper can look up per-framing pose hints
+    # (``_POSE_BY_FRAMING`` in ``image_gen.py``) without re-parsing the
+    # line. The v1.70 cleanup retired ``_COMPOSITION_NUMERICAL_HINT``,
+    # the historical second consumer of this field.
     framing: str | None = None
     # Quality / identity anchors collected from the style spec. The
     # model wrapper decides whether to append the common block,

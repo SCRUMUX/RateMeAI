@@ -1,10 +1,10 @@
-"""v1.70 — PHOTOREAL_BLOCK now lens-agnostic.
+"""v1.71 — ``PHOTOREAL_BLOCK`` stays lens-agnostic.
 
-The v1.68 P2.8 per-framing block was removed in v1.70 (audit:
-``docs/ANATOMY_INVESTIGATION.md`` F3). The block no longer carries
-focal length or DoF; ``_PHOTOREAL_BY_FRAMING`` is retained for
-import-compatibility but every entry points at the single
-``PHOTOREAL_BLOCK``.
+The v1.68 P2.8 per-framing block (``_PHOTOREAL_BY_FRAMING``) was
+removed in v1.70 (audit: ``docs/ANATOMY_INVESTIGATION.md`` F3) and
+the marker dict itself was dropped in v1.71. The wire prompt now
+carries the skin-texture and light-match anchors only, never a lens
+descriptor.
 
 Contracts pinned here:
 
@@ -13,13 +13,8 @@ Contracts pinned here:
   v1.70 cleanup).
 * ``PHOTOREAL_BLOCK`` does NOT contain ``85mm`` / ``50-70mm`` /
   ``35-50mm`` lens descriptors or ``shallow depth of field``.
-* Every entry of ``_PHOTOREAL_BY_FRAMING`` is identical to
-  ``PHOTOREAL_BLOCK`` — the per-framing dict is now a stub kept
-  as a regression marker (any divergence is caught here).
 * The wire prompt for every framing carries the skin-texture
-  anchor and no lens descriptor. (Until v1.70.3 this property
-  was gated by the ``photoreal_by_framing_enabled`` flag; the
-  flag was removed in v1.70.4 once it became a verified no-op.)
+  anchor and no lens descriptor.
 """
 
 from __future__ import annotations
@@ -30,7 +25,6 @@ from src.models.enums import AnalysisMode
 from src.prompts.engine import PromptEngine
 from src.prompts.image_gen import (
     _DOCUMENT_STYLE_KEYS,
-    _PHOTOREAL_BY_FRAMING,
     PHOTOREAL_BLOCK,
     STYLE_REGISTRY,
 )
@@ -96,29 +90,13 @@ def test_photoreal_block_carries_skin_and_light_anchors():
     assert "lighting matches the scene" in PHOTOREAL_BLOCK
 
 
-def test_per_framing_dict_is_no_op():
-    """Every entry of ``_PHOTOREAL_BY_FRAMING`` equals ``PHOTOREAL_BLOCK``
-    after v1.70 (the per-framing lens map was collapsed)."""
-    for framing in ("portrait", "half_body", "full_body"):
-        assert _PHOTOREAL_BY_FRAMING[framing] == PHOTOREAL_BLOCK, (
-            f"_PHOTOREAL_BY_FRAMING[{framing!r}] diverged from the "
-            "single PHOTOREAL_BLOCK. v1.70 collapsed the dict — any "
-            "divergence is a regression.\nGot: "
-            f"{_PHOTOREAL_BY_FRAMING[framing]!r}\n"
-            f"Expected: {PHOTOREAL_BLOCK!r}"
-        )
-
-
 @pytest.mark.parametrize("framing", ["portrait", "half_body", "full_body"])
 def test_wire_prompt_has_skin_anchor_and_no_lens(framing: str):
     """Every framing must carry the skin-texture anchor and no lens token.
 
-    This used to be a parametrized test over the
-    ``photoreal_by_framing_enabled`` flag — both ON and OFF were
-    expected to produce the same wire prompt. The flag was removed
-    in v1.70.4 because it was a verified no-op (every entry of
-    ``_PHOTOREAL_BY_FRAMING`` equals ``PHOTOREAL_BLOCK``), so the
-    parametrisation now covers only the framings.
+    Until v1.70.3 this was parametrized over the
+    ``photoreal_by_framing_enabled`` flag. v1.70.4 retired the flag
+    after it became a verified no-op; v1.71 retired the marker dict.
     """
     style = _pick_non_doc_style()
     prompt = PromptEngine().build_image_prompt(

@@ -396,14 +396,10 @@ def test_no_face_raises(mock_norm, mock_face):
 
 # ----- Multi-pass pipeline tests (historical) -----
 #
-# Multi-pass execution is now reserved in ``src.orchestrator.advanced`` and
-# is NOT wired into the runtime pipeline. The former scenarios
-# (``test_multipass_dating_executes_plan``, ``test_multipass_fallback_on_error``,
-# ``test_multipass_global_gates_fail_still_delivers``) exercised a path that
-# the pipeline no longer reaches and have been removed. Coverage of the
-# reserved machinery lives in ``tests/test_orchestrator/test_planner.py`` and
-# ``tests/test_orchestrator/test_model_router.py``; direct coverage of
-# ``AdvancedPipelineExecutor`` will land alongside the Scenario Engine epic.
+# v1.71 retired the dormant ``src.orchestrator.advanced`` subpackage —
+# the multi-pass executor was never wired into the runtime, and the
+# former multi-pass scenarios (``test_multipass_*``) were removed along
+# with the unreachable code path they exercised.
 
 
 @patch("src.orchestrator.pipeline.settings")

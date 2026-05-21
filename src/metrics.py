@@ -278,10 +278,11 @@ PADDING_GEOMETRY_VERSION = Counter(
 )
 
 # Fires once per wire prompt where the lens descriptor ``85mm`` appears
-# more than once. v1.68 expects this counter to stay at 0 in
-# production — a non-zero rate means a future edit re-introduced
-# a duplicate lens token (the audit found ``85mm short-telephoto``
-# in both ``_COMPOSITION_NUMERICAL_HINT`` and ``PHOTOREAL_BLOCK``).
+# more than once. v1.70 removed every lens token from the runtime
+# prompt; this counter must stay at 0 in production — a non-zero rate
+# means a future edit re-introduced a lens descriptor (the v1.68
+# regression found ``85mm short-telephoto`` doubled in the wire
+# prompt).
 PROMPT_DUPLICATE_LENS_WARN = Counter(
     "ratemeai_prompt_duplicate_lens_total",
     "Wire prompts where the lens descriptor token repeated",

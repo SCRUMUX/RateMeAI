@@ -936,16 +936,13 @@ async def _submit_analysis(
 
         from src.orchestrator.enhancement_matrix import level_for_depth
 
-        # ``enhancement_level`` only changes the image prompt directly for
-        # ``emoji`` (via ``ENHANCEMENT_LEVEL_MODIFIERS`` in
-        # ``src/prompts/image_gen.py``). For photo modes it travels into
-        # the LLM analysis builder and perturbs ``base_description``
-        # unpredictably on each repeat — that is one of the regressions
-        # that started showing up after the A/B cutover, since the
-        # downstream pipeline no longer absorbs prompt drift the way
-        # PuLID + CodeFormer did. Web pins it to ``1`` for photo
-        # generations; mirror that here and keep the depth-based ladder
-        # only for emoji where it actually affects the prompt template.
+        # ``enhancement_level`` travels into the LLM analysis context
+        # and perturbs ``base_description`` unpredictably on each
+        # repeat. Web pins it to ``1`` for photo modes
+        # (``web/src/context/AppContext.tsx``) and only lets the depth
+        # ladder breathe through for ``emoji`` (where the LLM-generated
+        # base description is the only thing that varies between calls).
+        # Mirror that here.
         if mode == "emoji":
             enh_level = level_for_depth(depth).level
         else:

@@ -299,20 +299,3 @@ class PromptEngine:
             return f"{wrapped}\n\n{scenario_extra}"
         return wrapped
 
-    def build_step_prompt(
-        self,
-        step_template: str,
-        style: str,
-        mode: AnalysisMode,
-        enhancement_level: int = 0,
-        gender: str = "male",
-    ) -> str:
-        """Build a prompt for a single multi-pass pipeline step."""
-        mode_str = _MODE_VALUE_MAP.get(mode, mode.value)
-        return ig.build_step_prompt(
-            step_template,
-            style,
-            mode_str,
-            gender=gender,
-            enhancement_level=enhancement_level,
-        )

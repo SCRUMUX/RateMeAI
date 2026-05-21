@@ -50,9 +50,9 @@ class AnalysisPipeline:
         self._redis = redis
         self._db_sessionmaker = db_sessionmaker
         self._identity = None
-        # Multi-pass planning / model routing / segmentation live in
-        # ``src.orchestrator.advanced`` and are intentionally *not* wired
-        # into this single-pass pipeline. See ``docs/architecture/reserved.md``.
+        # v1.71 retired the dormant ``src.orchestrator.advanced`` multi-pass
+        # subpackage; the runtime always runs single-pass through
+        # ``ImageGenerationExecutor.single_pass``.
         self._executor = ImageGenerationExecutor(
             image_gen=image_gen,
             prompt_engine=self._prompt_engine,
@@ -212,7 +212,7 @@ class AnalysisPipeline:
                 {
                     "phase": "planning",
                     "decision": "Single-pass",
-                    "reason": "Multi-pass is reserved in orchestrator.advanced and not wired into the runtime",
+                    "reason": "Single-pass is the only runtime path (v1.71 retired the dormant multi-pass subpackage)",
                 }
             )
 

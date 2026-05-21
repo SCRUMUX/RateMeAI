@@ -45,13 +45,14 @@ The fixtures are stable as long as:
   unchanged (the migration in
   ``scripts/migrations/2026_06_styles_cleanup/`` is one-shot — the
   doubled-word fix is permanent).
-* The default values of the v1.68 feature flags
-  (``numerical_percent_anchor_enabled``,
-  ``photoreal_by_framing_enabled``, ``light_match_clause_enabled``,
-  ``pose_hint_enabled``, ``studio_portrait_whitelist_v2``) stay at
-  ``True``. v1.69 (May 2026) flipped them all on by default after
-  the staged rollout proved the prompt-level audit fixes never
-  reached production via the staging env-override path.
+* The remaining v1.68 feature flags
+  (``pose_hint_enabled``, ``studio_portrait_whitelist_v2``) stay at
+  ``True``. v1.69 (May 2026) flipped them on by default after the
+  staged rollout proved the prompt-level audit fixes never reached
+  production via the staging env-override path. (v1.70 already
+  retired ``numerical_percent_anchor_enabled`` and
+  ``photoreal_by_framing_enabled``; v1.71 retired
+  ``light_match_clause_enabled``.)
 * ``csl_padding_v2_enabled`` (which only affects the padder, not the
   prompt) stays ``True``.
 * The trigger/scene fuzzy-overlap guard in
