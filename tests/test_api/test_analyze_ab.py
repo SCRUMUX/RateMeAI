@@ -13,15 +13,12 @@ assembles without touching the ORM session.
 
 from __future__ import annotations
 
-import asyncio
 import io
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from PIL import Image
-from sqlalchemy import select
 
 from src.config import settings
-from src.models.db import User
 
 _CONSENT_HEADERS = {
     "X-Consent-Data-Processing": "1",
@@ -60,20 +57,11 @@ def _auth(token: str) -> dict[str, str]:
     return {"Authorization": f"Bearer {token}", **_CONSENT_HEADERS}
 
 
-def _grant_credits(client, telegram_id: int, credits: int = 10) -> None:
-    """Premium tier reserves 5 credits — seed balance for integration tests."""
-
-    async def _run() -> None:
-        sessionmaker = client.app.state.db_sessionmaker
-        async with sessionmaker() as db:
-            row = await db.execute(
-                select(User).where(User.telegram_id == telegram_id)
-            )
-            user = row.scalar_one()
-            user.image_credits = credits
-            await db.commit()
-
-    asyncio.run(_run())
+async def _stub_credit_reserve(user, db, *, amount: int = 1):
+    """Bypass DB credit checks — this test asserts tier context, not billing."""
+    user._credit_reserved = True
+    user._credits_remaining = max(0, int(getattr(user, "image_credits", 1) or 1) - amount)
+    return user
 
 
 class _TaskCtxCapture:
@@ -260,16 +248,22 @@ def test_analyze_standard_tier_when_ab_flag_off(
     assert "image_refine" not in ctx
 
 
+@patch("src.api.deps.reserve_additional_credit", new_callable=AsyncMock)
+@patch("src.api.deps._reserve_credit_for", new_callable=AsyncMock)
 @patch("src.api.v1.analyze._get_arq", new_callable=AsyncMock)
 @patch("src.api.v1.analyze.get_storage")
 def test_analyze_premium_tier_when_ab_flag_off(
     mock_get_storage,
     mock_get_arq,
+    mock_reserve_first,
+    mock_reserve_extra,
     client,
     monkeypatch,
 ):
     """v1.77 — Premium must persist high + clarity even when AB flag is off."""
     monkeypatch.setattr(settings, "ab_test_enabled", False)
+    mock_reserve_first.side_effect = _stub_credit_reserve
+    mock_reserve_extra.side_effect = _stub_credit_reserve
     storage = MagicMock()
     storage.upload = AsyncMock(return_value="inputs/u/k.jpg")
     mock_get_storage.return_value = storage
@@ -278,7 +272,6 @@ def test_analyze_premium_tier_when_ab_flag_off(
     mock_get_arq.return_value = pool
 
     token = _register_user(client, telegram_id=999108)
-    _grant_credits(client, telegram_id=999108, credits=10)
     with _TaskCtxCapture() as cap:
         r = client.post(
             "/api/v1/analyze",
