@@ -13,12 +13,15 @@ assembles without touching the ORM session.
 
 from __future__ import annotations
 
+import asyncio
 import io
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from PIL import Image
+from sqlalchemy import select
 
 from src.config import settings
+from src.models.db import User
 
 _CONSENT_HEADERS = {
     "X-Consent-Data-Processing": "1",
@@ -55,6 +58,22 @@ def _register_user(client, telegram_id: int) -> str:
 
 def _auth(token: str) -> dict[str, str]:
     return {"Authorization": f"Bearer {token}", **_CONSENT_HEADERS}
+
+
+def _grant_credits(client, telegram_id: int, credits: int = 10) -> None:
+    """Premium tier reserves 5 credits — seed balance for integration tests."""
+
+    async def _run() -> None:
+        sessionmaker = client.app.state.db_sessionmaker
+        async with sessionmaker() as db:
+            row = await db.execute(
+                select(User).where(User.telegram_id == telegram_id)
+            )
+            user = row.scalar_one()
+            user.image_credits = credits
+            await db.commit()
+
+    asyncio.run(_run())
 
 
 class _TaskCtxCapture:
@@ -258,7 +277,8 @@ def test_analyze_premium_tier_when_ab_flag_off(
     pool.enqueue_job = AsyncMock(return_value=None)
     mock_get_arq.return_value = pool
 
-    token = _register_user(client, telegram_id=999107)
+    token = _register_user(client, telegram_id=999108)
+    _grant_credits(client, telegram_id=999108, credits=10)
     with _TaskCtxCapture() as cap:
         r = client.post(
             "/api/v1/analyze",
