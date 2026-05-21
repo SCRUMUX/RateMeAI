@@ -79,6 +79,31 @@ def test_wardrobe_pose_leak_fires_on_headshot_in_clothing_default():
     }
 
 
+def test_wardrobe_pose_leak_fires_on_shoulders_fully_in_frame():
+    # May 2026 audit — ``shoulders fully in frame`` was injected into
+    # 50+ default_clothing strings during the May 2026 catalogue
+    # curation pass; edit-models read it as a crop directive and
+    # anchored the framing on the shoulders even when scene_anchor
+    # implied full-body. The migration stripped the phrase from the
+    # catalogue; this test pins the lint half so a future admin
+    # edit cannot quietly re-introduce it.
+    raw = {
+        "id": "fictional_shoulders_leak",
+        "schema_version": 3,
+        "default_clothing": (
+            "minimal Japanese-inspired outfit, clean dark fitted "
+            "layers, shoulders fully in frame"
+        ),
+        "trigger_pool": ["dummy"],
+    }
+    issues = lint_style(raw)
+    codes = _codes(issues)
+    assert "WARDROBE_POSE_LEAK" in codes, codes
+    leak = next(i for i in issues if i["code"] == "WARDROBE_POSE_LEAK")
+    tokens = leak["detail"]["tokens"]
+    assert any("shoulders fully in frame" in t.lower() for t in tokens), tokens
+
+
 def test_wardrobe_pose_leak_silent_on_clean_garment_string():
     raw = {
         "id": "fictional_clean_wardrobe",

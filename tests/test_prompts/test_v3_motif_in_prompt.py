@@ -156,10 +156,8 @@ def _v3_loaded() -> list[dict]:
     # (the gating flags were removed), so we just clear and reload.
     snap_v2 = dict(STYLE_REGISTRY._v2_by_key)
     snap_v3 = dict(STYLE_REGISTRY._v3_by_key)
-    snap_promoted = set(STYLE_REGISTRY._v3_promoted)
     STYLE_REGISTRY._v2_by_key.clear()
     STYLE_REGISTRY._v3_by_key.clear()
-    STYLE_REGISTRY._v3_promoted.clear()
 
     register_v2_styles_from_json(raw)
     register_v3_styles_from_json(raw)
@@ -168,10 +166,8 @@ def _v3_loaded() -> list[dict]:
 
     STYLE_REGISTRY._v2_by_key.clear()
     STYLE_REGISTRY._v3_by_key.clear()
-    STYLE_REGISTRY._v3_promoted.clear()
     STYLE_REGISTRY._v2_by_key.update(snap_v2)
     STYLE_REGISTRY._v3_by_key.update(snap_v3)
-    STYLE_REGISTRY._v3_promoted.update(snap_promoted)
 
 
 def _all_v3_styles(raw: list[dict]) -> list[tuple[str, str, tuple[str, ...]]]:

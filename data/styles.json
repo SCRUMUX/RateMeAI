@@ -120,7 +120,9 @@
         "soft golden hour",
         "warm afternoon sunlight",
         "diffused overcast daylight",
-        "harsh midday sun, deep shadows"
+        "harsh midday sun, deep shadows",
+        "golden hour",
+        "blue hour"
       ],
       "weather": [
         "clear",
@@ -132,8 +134,6 @@
       "time_of_day": [
         "morning",
         "afternoon",
-        "golden hour",
-        "blue hour",
         "early morning"
       ],
       "season": [
@@ -295,8 +295,6 @@
       "time_of_day": [
         "evening",
         "night",
-        "blue hour",
-        "golden hour",
         "early morning"
       ],
       "season": [
@@ -610,7 +608,8 @@
         "soft golden hour",
         "warm afternoon sunlight",
         "blue hour cinematic",
-        "diffused overcast daylight"
+        "diffused overcast daylight",
+        "golden hour"
       ],
       "weather": [
         "clear",
@@ -622,7 +621,6 @@
       "time_of_day": [
         "morning",
         "afternoon",
-        "golden hour",
         "early morning",
         "late morning"
       ],
@@ -779,7 +777,8 @@
         "soft golden hour",
         "warm afternoon sunlight",
         "blue hour cinematic",
-        "diffused overcast daylight"
+        "diffused overcast daylight",
+        "golden hour"
       ],
       "weather": [
         "clear",
@@ -791,7 +790,6 @@
       "time_of_day": [
         "morning",
         "afternoon",
-        "golden hour",
         "early morning",
         "late morning"
       ],
@@ -942,7 +940,8 @@
         "blue hour cinematic",
         "diffused overcast daylight",
         "harsh midday sun, deep shadows",
-        "neon evening, mixed practical lights"
+        "neon evening, mixed practical lights",
+        "golden hour"
       ],
       "weather": [
         "clear",
@@ -955,8 +954,7 @@
         "early morning",
         "late morning",
         "midday",
-        "late afternoon",
-        "golden hour"
+        "late afternoon"
       ],
       "season": [
         "spring",
@@ -1153,7 +1151,7 @@
     "mode": "dating",
     "type": "scene_locked",
     "base_scene": "minimalist Tokyo street with Tokyo Tower in background, cherry blossoms or clean urban aesthetic, diffused light",
-    "default_clothing": "minimal Japanese-inspired outfit, clean dark fitted layers, shoulders fully in frame",
+    "default_clothing": "minimal Japanese-inspired outfit, clean dark fitted layers",
     "expression": "Calm open gaze, subtle confident expression, relaxed mouth line.",
     "allowed_variations": {
       "lighting": [
@@ -1195,9 +1193,9 @@
     },
     "clothing": {
       "default": {
-        "male": "minimal Japanese-inspired outfit, clean dark fitted layers, shoulders fully in frame",
-        "female": "minimal Japanese-inspired outfit, clean dark fitted layers or wrap dress, shoulders fully in frame",
-        "neutral": "minimal Japanese-inspired outfit, clean dark fitted layers, shoulders fully in frame"
+        "male": "minimal Japanese-inspired outfit, clean dark fitted layers",
+        "female": "minimal Japanese-inspired outfit, clean dark fitted layers or wrap dress",
+        "neutral": "minimal Japanese-inspired outfit, clean dark fitted layers"
       },
       "allowed": [
         "fitted neutral knit and dark jeans, clean white sneakers",
@@ -1742,7 +1740,8 @@
         "warm afternoon sunlight",
         "blue hour cinematic",
         "diffused overcast daylight",
-        "harsh midday sun, deep shadows"
+        "harsh midday sun, deep shadows",
+        "golden hour"
       ],
       "weather": [
         "clear",
@@ -1755,8 +1754,7 @@
         "early morning",
         "late morning",
         "midday",
-        "late afternoon",
-        "golden hour"
+        "late afternoon"
       ],
       "season": [
         "spring",
@@ -1903,7 +1901,8 @@
         "warm afternoon sunlight",
         "blue hour cinematic",
         "diffused overcast daylight",
-        "harsh midday sun, deep shadows"
+        "harsh midday sun, deep shadows",
+        "golden hour"
       ],
       "weather": [
         "clear",
@@ -1916,8 +1915,7 @@
         "midday",
         "early morning",
         "late morning",
-        "late afternoon",
-        "golden hour"
+        "late afternoon"
       ],
       "season": [
         "spring",
@@ -2001,7 +1999,7 @@
     "clothing": {
       "default": {
         "male": "streetwear layers, statement jacket, fitted dark pants, designer sneakers, well-fitted across the shoulders",
-        "female": "streetwear layers, statement jacket, fitted dark pants or skirt, designer sneakers, shoulders fully in frame",
+        "female": "streetwear layers, statement jacket, fitted dark pants or skirt, designer sneakers",
         "neutral": "streetwear layers, statement jacket, fitted dark pants, designer sneakers, well-fitted across the shoulders"
       },
       "allowed": [
@@ -2570,7 +2568,8 @@
         "blue hour cinematic",
         "diffused overcast daylight",
         "harsh midday sun, deep shadows",
-        "neon evening, mixed practical lights"
+        "neon evening, mixed practical lights",
+        "golden hour"
       ],
       "weather": [
         "clear",
@@ -2583,8 +2582,7 @@
         "early morning",
         "late morning",
         "midday",
-        "late afternoon",
-        "golden hour"
+        "late afternoon"
       ],
       "season": [
         "spring",
@@ -2774,7 +2772,7 @@
     "mode": "dating",
     "type": "flexible",
     "base_scene": "hotel or villa balcony overlooking turquoise sea, white railing, bright morning light, blue sky, tropical plants",
-    "default_clothing": "relaxed morning linen outfit, light cotton, fresh natural look, shoulders fully in frame",
+    "default_clothing": "relaxed morning linen outfit, light cotton, fresh natural look",
     "expression": "Wind in hair, peaceful bright smile, warm morning open eyes.",
     "allowed_variations": {
       "lighting": [
@@ -2823,9 +2821,9 @@
     },
     "clothing": {
       "default": {
-        "male": "relaxed morning linen outfit, light cotton, fresh natural look, shoulders fully in frame",
-        "female": "relaxed morning linen outfit, light cotton, fresh natural look, shoulders fully in frame",
-        "neutral": "relaxed morning linen outfit, light cotton, fresh natural look, shoulders fully in frame"
+        "male": "relaxed morning linen outfit, light cotton, fresh natural look",
+        "female": "relaxed morning linen outfit, light cotton, fresh natural look",
+        "neutral": "relaxed morning linen outfit, light cotton, fresh natural look"
       },
       "allowed": [
         "fitted neutral knit and dark jeans, clean white sneakers",
@@ -2931,7 +2929,7 @@
     "mode": "dating",
     "type": "flexible",
     "base_scene": "charming European old-town cobblestone street, colorful facades, warm afternoon light, flower boxes on windows",
-    "default_clothing": "relaxed stylish outfit, light layers, comfortable leather shoes, shoulders fully in frame",
+    "default_clothing": "relaxed stylish outfit, light layers, comfortable leather shoes",
     "expression": "Curious warm expression, gentle smile, cultural wanderer soft eyes.",
     "allowed_variations": {
       "lighting": [
@@ -2979,9 +2977,9 @@
     },
     "clothing": {
       "default": {
-        "male": "relaxed stylish outfit, light layers, comfortable leather shoes, shoulders fully in frame",
-        "female": "relaxed stylish outfit, light layers, comfortable leather shoes, shoulders fully in frame",
-        "neutral": "relaxed stylish outfit, light layers, comfortable leather shoes, shoulders fully in frame"
+        "male": "relaxed stylish outfit, light layers, comfortable leather shoes",
+        "female": "relaxed stylish outfit, light layers, comfortable leather shoes",
+        "neutral": "relaxed stylish outfit, light layers, comfortable leather shoes"
       },
       "allowed": [
         "fitted neutral knit and dark jeans, clean white sneakers",
@@ -3047,7 +3045,8 @@
         "blue hour cinematic",
         "diffused overcast daylight",
         "harsh midday sun, deep shadows",
-        "neon evening, mixed practical lights"
+        "neon evening, mixed practical lights",
+        "golden hour"
       ],
       "weather": [
         "clear",
@@ -3060,8 +3059,7 @@
         "early morning",
         "late morning",
         "midday",
-        "late afternoon",
-        "golden hour"
+        "late afternoon"
       ],
       "season": [
         "spring",
@@ -3212,7 +3210,7 @@
     "mode": "dating",
     "type": "flexible",
     "base_scene": "vibrant outdoor street market with colorful produce and goods, warm natural light, exotic textures, bustling atmosphere",
-    "default_clothing": "casual travel outfit, rolled sleeves, crossbody bag, explorer vibe, shoulders fully in frame",
+    "default_clothing": "casual travel outfit, rolled sleeves, crossbody bag, explorer vibe",
     "expression": "Bright curious expression, warm genuine smile, adventurous explorer eyes.",
     "allowed_variations": {
       "lighting": [
@@ -3261,9 +3259,9 @@
     },
     "clothing": {
       "default": {
-        "male": "casual travel outfit, rolled sleeves, crossbody bag, explorer vibe, shoulders fully in frame",
-        "female": "casual travel outfit, rolled sleeves, crossbody bag, explorer vibe, shoulders fully in frame",
-        "neutral": "casual travel outfit, rolled sleeves, crossbody bag, explorer vibe, shoulders fully in frame"
+        "male": "casual travel outfit, rolled sleeves, crossbody bag, explorer vibe",
+        "female": "casual travel outfit, rolled sleeves, crossbody bag, explorer vibe",
+        "neutral": "casual travel outfit, rolled sleeves, crossbody bag, explorer vibe"
       },
       "allowed": [
         "fitted neutral knit and dark jeans, clean white sneakers",
@@ -3496,7 +3494,7 @@
     "mode": "dating",
     "type": "flexible",
     "base_scene": "first-class airport lounge or luxury resort entrance, marble and brass details, warm ambient lighting, premium interior",
-    "default_clothing": "elevated travel outfit, quality fabrics, leather accessories, luxury watch, shoulders fully in frame",
+    "default_clothing": "elevated travel outfit, quality fabrics, leather accessories, luxury watch",
     "expression": "Open confident expression, subtle assured smile, elevated relaxed brow.",
     "allowed_variations": {
       "lighting": [
@@ -3543,9 +3541,9 @@
     },
     "clothing": {
       "default": {
-        "male": "elevated travel outfit, quality fabrics, leather accessories, luxury watch, shoulders fully in frame",
-        "female": "elevated travel outfit, quality fabrics, leather accessories, luxury watch, shoulders fully in frame",
-        "neutral": "elevated travel outfit, quality fabrics, leather accessories, luxury watch, shoulders fully in frame"
+        "male": "elevated travel outfit, quality fabrics, leather accessories, luxury watch",
+        "female": "elevated travel outfit, quality fabrics, leather accessories, luxury watch",
+        "neutral": "elevated travel outfit, quality fabrics, leather accessories, luxury watch"
       },
       "allowed": [],
       "gender_neutral": true
@@ -3856,7 +3854,8 @@
         "warm afternoon sunlight",
         "blue hour cinematic",
         "diffused overcast daylight",
-        "harsh midday sun, deep shadows"
+        "harsh midday sun, deep shadows",
+        "golden hour"
       ],
       "weather": [
         "clear",
@@ -3869,8 +3868,7 @@
         "early morning",
         "late morning",
         "midday",
-        "late afternoon",
-        "golden hour"
+        "late afternoon"
       ],
       "season": [
         "spring",
@@ -5198,7 +5196,8 @@
         "soft overcast daylight, even natural diffusion",
         "soft golden hour",
         "warm afternoon sunlight",
-        "blue hour cinematic"
+        "blue hour cinematic",
+        "golden hour"
       ],
       "weather": [
         "clear",
@@ -5208,7 +5207,6 @@
         "after rain, glistening surfaces"
       ],
       "time_of_day": [
-        "golden hour",
         "afternoon",
         "early morning",
         "late morning",
@@ -6231,7 +6229,8 @@
         "diffused overcast daylight",
         "harsh midday sun, deep shadows",
         "neon evening, mixed practical lights",
-        "after-rain reflections, cool tones"
+        "after-rain reflections, cool tones",
+        "golden hour"
       ],
       "weather": [
         "clear",
@@ -6244,8 +6243,7 @@
         "early morning",
         "late morning",
         "midday",
-        "late afternoon",
-        "golden hour"
+        "late afternoon"
       ],
       "season": [
         "spring",
@@ -6395,7 +6393,7 @@
     "mode": "dating",
     "type": "flexible",
     "base_scene": "modern apartment with warm ambient lamp lighting, city view through large window, comfortable interior, book or drink nearby",
-    "default_clothing": "clean quality loungewear, fitted casual pieces, relaxed domestic style, shoulders fully in frame",
+    "default_clothing": "clean quality loungewear, fitted casual pieces, relaxed domestic style",
     "expression": "Calm contented expression, warm genuine smile, comfortable domestic confidence.",
     "allowed_variations": {
       "lighting": [
@@ -6443,9 +6441,9 @@
     },
     "clothing": {
       "default": {
-        "male": "clean quality loungewear, fitted casual pieces, relaxed domestic style, shoulders fully in frame",
-        "female": "clean quality loungewear, fitted casual pieces, relaxed domestic style, shoulders fully in frame",
-        "neutral": "clean quality loungewear, fitted casual pieces, relaxed domestic style, shoulders fully in frame"
+        "male": "clean quality loungewear, fitted casual pieces, relaxed domestic style",
+        "female": "clean quality loungewear, fitted casual pieces, relaxed domestic style",
+        "neutral": "clean quality loungewear, fitted casual pieces, relaxed domestic style"
       },
       "allowed": [],
       "gender_neutral": true
@@ -7337,7 +7335,7 @@
     "mode": "dating",
     "type": "flexible",
     "base_scene": "golden-hour park or waterfront, warm backlight with subtle rim light, natural green and water textures visible in background",
-    "default_clothing": "stylish casual, fitted, clean fabrics, shoulders fully in frame",
+    "default_clothing": "stylish casual, fitted, clean fabrics",
     "expression": "Soft relaxed eyes, warm approachable look, gentle natural expression.",
     "allowed_variations": {
       "lighting": [
@@ -7386,9 +7384,9 @@
     },
     "clothing": {
       "default": {
-        "male": "stylish casual, fitted, clean fabrics, shoulders fully in frame",
-        "female": "stylish casual, fitted, clean fabrics, shoulders fully in frame",
-        "neutral": "stylish casual, fitted, clean fabrics, shoulders fully in frame"
+        "male": "stylish casual, fitted, clean fabrics",
+        "female": "stylish casual, fitted, clean fabrics",
+        "neutral": "stylish casual, fitted, clean fabrics"
       },
       "allowed": [
         "fitted neutral knit and dark jeans, clean white sneakers",
@@ -7616,7 +7614,7 @@
     "mode": "dating",
     "type": "semi_locked",
     "base_scene": "cozy upscale cafe, warm tungsten light, exposed brick or wood paneling, bottles and candles in background",
-    "default_clothing": "smart-casual date outfit, earth tones, linen or cotton, shoulders fully in frame",
+    "default_clothing": "smart-casual date outfit, earth tones, linen or cotton",
     "expression": "Bright engaging eyes, raised eyebrow warmth, relaxed warm expression.",
     "allowed_variations": {
       "lighting": [
@@ -7665,9 +7663,9 @@
     },
     "clothing": {
       "default": {
-        "male": "smart-casual date outfit, earth tones, linen or cotton, shoulders fully in frame",
-        "female": "smart-casual date outfit, earth tones, linen or cotton, shoulders fully in frame",
-        "neutral": "smart-casual date outfit, earth tones, linen or cotton, shoulders fully in frame"
+        "male": "smart-casual date outfit, earth tones, linen or cotton",
+        "female": "smart-casual date outfit, earth tones, linen or cotton",
+        "neutral": "smart-casual date outfit, earth tones, linen or cotton"
       },
       "allowed": [],
       "gender_neutral": true
@@ -7744,7 +7742,7 @@
     "mode": "dating",
     "type": "flexible",
     "base_scene": "urban rooftop terrace at golden hour, warm rim light on skyline, distant city lights clearly visible across skyline, romantic open-air atmosphere",
-    "default_clothing": "fitted casual-smart outfit, clean lines, subtle accessories, date-ready polish, shoulders fully in frame",
+    "default_clothing": "fitted casual-smart outfit, clean lines, subtle accessories, date-ready polish",
     "expression": "Warm confident smile, engaged eye contact, relaxed romantic gaze.",
     "allowed_variations": {
       "lighting": [
@@ -7791,9 +7789,9 @@
     },
     "clothing": {
       "default": {
-        "male": "fitted casual-smart outfit, clean lines, subtle accessories, date-ready polish, shoulders fully in frame",
-        "female": "fitted casual-smart outfit, clean lines, subtle accessories, date-ready polish, shoulders fully in frame",
-        "neutral": "fitted casual-smart outfit, clean lines, subtle accessories, date-ready polish, shoulders fully in frame"
+        "male": "fitted casual-smart outfit, clean lines, subtle accessories, date-ready polish",
+        "female": "fitted casual-smart outfit, clean lines, subtle accessories, date-ready polish",
+        "neutral": "fitted casual-smart outfit, clean lines, subtle accessories, date-ready polish"
       },
       "allowed": [
         "fitted neutral knit and dark jeans, clean white sneakers",
@@ -7896,7 +7894,7 @@
     "mode": "dating",
     "type": "semi_locked",
     "base_scene": "pure neutral studio backdrop soft grey-to-white gradient, even beauty-dish lighting, empty backdrop area, clean studio setup with backdrop fully visible",
-    "default_clothing": "simple fitted top in solid color, minimal jewelry, fresh grooming, shoulders fully in frame",
+    "default_clothing": "simple fitted top in solid color, minimal jewelry, fresh grooming",
     "expression": "Open genuine expression, soft approachable gaze, clean natural confidence.",
     "allowed_variations": {
       "lighting": [
@@ -7946,9 +7944,9 @@
     },
     "clothing": {
       "default": {
-        "male": "simple fitted top in solid color, minimal jewelry, fresh grooming, shoulders fully in frame",
-        "female": "simple fitted top in solid color, minimal jewelry, fresh grooming, shoulders fully in frame",
-        "neutral": "simple fitted top in solid color, minimal jewelry, fresh grooming, shoulders fully in frame"
+        "male": "simple fitted top in solid color, minimal jewelry, fresh grooming",
+        "female": "simple fitted top in solid color, minimal jewelry, fresh grooming",
+        "neutral": "simple fitted top in solid color, minimal jewelry, fresh grooming"
       },
       "allowed": [],
       "gender_neutral": true
@@ -9410,7 +9408,7 @@
     "mode": "cv",
     "type": "flexible",
     "base_scene": "modern office kitchen or lounge area, coffee machine in background, bright even lighting, clean minimalist break space",
-    "default_clothing": "professional attire slightly relaxed, sleeves rolled, coffee cup in hand, shoulders fully in frame",
+    "default_clothing": "professional attire slightly relaxed, sleeves rolled, coffee cup in hand",
     "expression": "Relaxed confident smile, approachable warm expression, human professional soft eyes.",
     "allowed_variations": {
       "lighting": [
@@ -9458,9 +9456,9 @@
     },
     "clothing": {
       "default": {
-        "male": "professional attire slightly relaxed, sleeves rolled, coffee cup in hand, shoulders fully in frame",
-        "female": "professional attire slightly relaxed, sleeves rolled, coffee cup in hand, shoulders fully in frame",
-        "neutral": "professional attire slightly relaxed, sleeves rolled, coffee cup in hand, shoulders fully in frame"
+        "male": "professional attire slightly relaxed, sleeves rolled, coffee cup in hand",
+        "female": "professional attire slightly relaxed, sleeves rolled, coffee cup in hand",
+        "neutral": "professional attire slightly relaxed, sleeves rolled, coffee cup in hand"
       },
       "allowed": [],
       "gender_neutral": true
@@ -9659,7 +9657,7 @@
     "mode": "cv",
     "type": "flexible",
     "base_scene": "modern office corridor or glass-walled lobby, bright clean environment, meeting rooms visible behind, professional workspace atmosphere",
-    "default_clothing": "fresh professional attire, straightened collar, polished ready-for-action look, shoulders fully in frame",
+    "default_clothing": "fresh professional attire, straightened collar, polished ready-for-action look",
     "expression": "Focused open gaze, subtle prepared smile, relaxed mouth line.",
     "allowed_variations": {
       "lighting": [
@@ -9707,9 +9705,9 @@
     },
     "clothing": {
       "default": {
-        "male": "fresh professional attire, straightened collar, polished ready-for-action look, shoulders fully in frame",
-        "female": "fresh professional attire, straightened collar, polished ready-for-action look, shoulders fully in frame",
-        "neutral": "fresh professional attire, straightened collar, polished ready-for-action look, shoulders fully in frame"
+        "male": "fresh professional attire, straightened collar, polished ready-for-action look",
+        "female": "fresh professional attire, straightened collar, polished ready-for-action look",
+        "neutral": "fresh professional attire, straightened collar, polished ready-for-action look"
       },
       "allowed": [],
       "gender_neutral": true
@@ -9910,7 +9908,7 @@
     "mode": "cv",
     "type": "flexible",
     "base_scene": "premium airport or hotel business lounge, marble and leather surfaces, warm lighting, laptop and documents on table",
-    "default_clothing": "business-casual travel outfit, quality fabrics, polished accessories, shoulders fully in frame",
+    "default_clothing": "business-casual travel outfit, quality fabrics, polished accessories",
     "expression": "Open traveler expression, confident relaxed smile, premium natural gaze.",
     "allowed_variations": {
       "lighting": [
@@ -9958,9 +9956,9 @@
     },
     "clothing": {
       "default": {
-        "male": "business-casual travel outfit, quality fabrics, polished accessories, shoulders fully in frame",
-        "female": "business-casual travel outfit, quality fabrics, polished accessories, shoulders fully in frame",
-        "neutral": "business-casual travel outfit, quality fabrics, polished accessories, shoulders fully in frame"
+        "male": "business-casual travel outfit, quality fabrics, polished accessories",
+        "female": "business-casual travel outfit, quality fabrics, polished accessories",
+        "neutral": "business-casual travel outfit, quality fabrics, polished accessories"
       },
       "allowed": [],
       "gender_neutral": true
@@ -10389,7 +10387,8 @@
         "warm sunset",
         "soft golden hour",
         "soft window light from the side",
-        "warm interior key light, ambient practicals"
+        "warm interior key light, ambient practicals",
+        "golden hour"
       ],
       "weather": [
         "clear",
@@ -10397,8 +10396,7 @@
       ],
       "time_of_day": [
         "morning",
-        "afternoon",
-        "golden hour"
+        "afternoon"
       ],
       "season": [
         "spring",
@@ -11545,7 +11543,7 @@
     "mode": "cv",
     "type": "semi_locked",
     "base_scene": "light-grey studio backdrop, even lighting from both sides, clean and distraction-free",
-    "default_clothing": "classic professional attire, solid neutral colors, shoulders fully in frame",
+    "default_clothing": "classic professional attire, solid neutral colors",
     "expression": "Relaxed, approachable, open and friendly gaze.",
     "allowed_variations": {
       "lighting": [
@@ -11595,9 +11593,9 @@
     },
     "clothing": {
       "default": {
-        "male": "classic professional attire, solid neutral colors, shoulders fully in frame",
-        "female": "classic professional attire, solid neutral colors, shoulders fully in frame",
-        "neutral": "classic professional attire, solid neutral colors, shoulders fully in frame"
+        "male": "classic professional attire, solid neutral colors",
+        "female": "classic professional attire, solid neutral colors",
+        "neutral": "classic professional attire, solid neutral colors"
       },
       "allowed": [],
       "gender_neutral": true
@@ -12140,7 +12138,7 @@
     "mode": "social",
     "type": "flexible",
     "base_scene": "clean modern minimalist room, indirect lighting, neutral walls, warm ambient glow, polished interior",
-    "default_clothing": "curated outfit with clean lines, one statement piece, polished silhouette, shoulders fully in frame",
+    "default_clothing": "curated outfit with clean lines, one statement piece, polished silhouette",
     "expression": "Calm confident gaze, effortless polished smile, open expression.",
     "allowed_variations": {
       "lighting": [
@@ -12189,9 +12187,9 @@
     },
     "clothing": {
       "default": {
-        "male": "curated outfit with clean lines, one statement piece, polished silhouette, shoulders fully in frame",
-        "female": "curated outfit with clean lines, one statement piece, polished silhouette, shoulders fully in frame",
-        "neutral": "curated outfit with clean lines, one statement piece, polished silhouette, shoulders fully in frame"
+        "male": "curated outfit with clean lines, one statement piece, polished silhouette",
+        "female": "curated outfit with clean lines, one statement piece, polished silhouette",
+        "neutral": "curated outfit with clean lines, one statement piece, polished silhouette"
       },
       "allowed": [],
       "gender_neutral": true
@@ -12269,7 +12267,7 @@
     "mode": "social",
     "type": "flexible",
     "base_scene": "modern elevator interior, stainless steel or mirrored walls, even overhead lighting, clean minimal space",
-    "default_clothing": "fitted smart outfit, clean sharp silhouette, polished aesthetic, shoulders fully in frame",
+    "default_clothing": "fitted smart outfit, clean sharp silhouette, polished aesthetic",
     "expression": "Direct open gaze, minimal natural expression, sharp modern relaxed brow.",
     "allowed_variations": {
       "lighting": [
@@ -12317,9 +12315,9 @@
     },
     "clothing": {
       "default": {
-        "male": "fitted smart outfit, clean sharp silhouette, polished aesthetic, shoulders fully in frame",
-        "female": "fitted smart outfit, clean sharp silhouette, polished aesthetic, shoulders fully in frame",
-        "neutral": "fitted smart outfit, clean sharp silhouette, polished aesthetic, shoulders fully in frame"
+        "male": "fitted smart outfit, clean sharp silhouette, polished aesthetic",
+        "female": "fitted smart outfit, clean sharp silhouette, polished aesthetic",
+        "neutral": "fitted smart outfit, clean sharp silhouette, polished aesthetic"
       },
       "allowed": [],
       "gender_neutral": true
@@ -12393,7 +12391,7 @@
     "mode": "social",
     "type": "flexible",
     "base_scene": "urban street caught mid-stride, natural unposed moment, warm directional sunlight, pedestrians and architecture in scene",
-    "default_clothing": "effortless casual outfit, natural unstaged authentic look, shoulders fully in frame",
+    "default_clothing": "effortless casual outfit, natural unstaged authentic look",
     "expression": "Genuine unposed look, authentic spontaneous smile, natural expression.",
     "allowed_variations": {
       "lighting": [
@@ -12441,9 +12439,9 @@
     },
     "clothing": {
       "default": {
-        "male": "effortless casual outfit, natural unstaged authentic look, shoulders fully in frame",
-        "female": "effortless casual outfit, natural unstaged authentic look, shoulders fully in frame",
-        "neutral": "effortless casual outfit, natural unstaged authentic look, shoulders fully in frame"
+        "male": "effortless casual outfit, natural unstaged authentic look",
+        "female": "effortless casual outfit, natural unstaged authentic look",
+        "neutral": "effortless casual outfit, natural unstaged authentic look"
       },
       "allowed": [
         "fitted neutral knit and dark jeans, clean white sneakers",
@@ -12509,7 +12507,8 @@
         "blue hour cinematic",
         "diffused overcast daylight",
         "harsh midday sun, deep shadows",
-        "neon evening, mixed practical lights"
+        "neon evening, mixed practical lights",
+        "golden hour"
       ],
       "weather": [
         "clear",
@@ -12522,8 +12521,7 @@
         "early morning",
         "late morning",
         "midday",
-        "late afternoon",
-        "golden hour"
+        "late afternoon"
       ],
       "season": [
         "spring",
@@ -12546,7 +12544,7 @@
     "mode": "social",
     "type": "flexible",
     "base_scene": "stylish boutique or designer store window facade, clean architectural lines, warm display lighting, urban fashion setting",
-    "default_clothing": "on-trend outfit, shopping bags optional, fashion-forward street style, shoulders fully in frame",
+    "default_clothing": "on-trend outfit, shopping bags optional, fashion-forward street style",
     "expression": "Natural fashion expression, confident modern street-style half-smile.",
     "allowed_variations": {
       "lighting": [
@@ -12595,9 +12593,9 @@
     },
     "clothing": {
       "default": {
-        "male": "on-trend outfit, shopping bags optional, fashion-forward street style, shoulders fully in frame",
-        "female": "on-trend outfit, shopping bags optional, fashion-forward street style, shoulders fully in frame",
-        "neutral": "on-trend outfit, shopping bags optional, fashion-forward street style, shoulders fully in frame"
+        "male": "on-trend outfit, shopping bags optional, fashion-forward street style",
+        "female": "on-trend outfit, shopping bags optional, fashion-forward street style",
+        "neutral": "on-trend outfit, shopping bags optional, fashion-forward street style"
       },
       "allowed": [],
       "gender_neutral": true
@@ -12674,7 +12672,7 @@
     "mode": "social",
     "type": "flexible",
     "base_scene": "clean minimal backdrop fully visible, single directional key light with rich shadow on face, backdrop surfaces cleanly readable",
-    "default_clothing": "minimal dark outfit, all attention drawn to face and expression, shoulders fully in frame",
+    "default_clothing": "minimal dark outfit, all attention drawn to face and expression",
     "expression": "Intense concentrated gaze, powerful focused presence, steady direct eyes.",
     "allowed_variations": {
       "lighting": [
@@ -12725,9 +12723,9 @@
     },
     "clothing": {
       "default": {
-        "male": "minimal dark outfit, all attention drawn to face and expression, shoulders fully in frame",
-        "female": "minimal dark outfit, all attention drawn to face and expression, shoulders fully in frame",
-        "neutral": "minimal dark outfit, all attention drawn to face and expression, shoulders fully in frame"
+        "male": "minimal dark outfit, all attention drawn to face and expression",
+        "female": "minimal dark outfit, all attention drawn to face and expression",
+        "neutral": "minimal dark outfit, all attention drawn to face and expression"
       },
       "allowed": [],
       "gender_neutral": true
@@ -12807,7 +12805,7 @@
     "mode": "social",
     "type": "flexible",
     "base_scene": "trendy urban rooftop at golden hour, city skyline clearly visible, warm directional side light, natural highlights on edges",
-    "default_clothing": "streetwear layers, statement accessories, designer sneakers, shoulders fully in frame",
+    "default_clothing": "streetwear layers, statement accessories, designer sneakers",
     "expression": "Engaging direct eye contact, animated charismatic expression, bold confidence.",
     "allowed_variations": {
       "lighting": [
@@ -12855,9 +12853,9 @@
     },
     "clothing": {
       "default": {
-        "male": "streetwear layers, statement accessories, designer sneakers, shoulders fully in frame",
-        "female": "streetwear layers, statement accessories, designer sneakers, shoulders fully in frame",
-        "neutral": "streetwear layers, statement accessories, designer sneakers, shoulders fully in frame"
+        "male": "streetwear layers, statement accessories, designer sneakers",
+        "female": "streetwear layers, statement accessories, designer sneakers",
+        "neutral": "streetwear layers, statement accessories, designer sneakers"
       },
       "allowed": [
         "fitted neutral knit and dark jeans, clean white sneakers",
@@ -12961,7 +12959,7 @@
     "mode": "social",
     "type": "semi_locked",
     "base_scene": "pure white or light beige minimalist studio, clean even lighting, Scandinavian aesthetic",
-    "default_clothing": "monochrome fitted outfit, one statement accessory, clean lines, shoulders fully in frame",
+    "default_clothing": "monochrome fitted outfit, one statement accessory, clean lines",
     "expression": "Calm confident gaze, serene sophisticated smile, poised expression.",
     "allowed_variations": {
       "lighting": [
@@ -13008,9 +13006,9 @@
     },
     "clothing": {
       "default": {
-        "male": "monochrome fitted outfit, one statement accessory, clean lines, shoulders fully in frame",
-        "female": "monochrome fitted outfit, one statement accessory, clean lines, shoulders fully in frame",
-        "neutral": "monochrome fitted outfit, one statement accessory, clean lines, shoulders fully in frame"
+        "male": "monochrome fitted outfit, one statement accessory, clean lines",
+        "female": "monochrome fitted outfit, one statement accessory, clean lines",
+        "neutral": "monochrome fitted outfit, one statement accessory, clean lines"
       },
       "allowed": [],
       "gender_neutral": true
@@ -13341,7 +13339,8 @@
         "blue hour cinematic",
         "diffused overcast daylight",
         "harsh midday sun, deep shadows",
-        "neon evening, mixed practical lights"
+        "neon evening, mixed practical lights",
+        "golden hour"
       ],
       "weather": [
         "clear",
@@ -13354,8 +13353,7 @@
         "early morning",
         "late morning",
         "midday",
-        "late afternoon",
-        "golden hour"
+        "late afternoon"
       ],
       "season": [
         "spring",
@@ -13378,7 +13376,7 @@
     "mode": "social",
     "type": "flexible",
     "base_scene": "natural outdoor setting with warm golden-hour backlight, simple uncluttered composition, warm tones",
-    "default_clothing": "casual fitted outfit that shows personality, clean attractive look, shoulders fully in frame",
+    "default_clothing": "casual fitted outfit that shows personality, clean attractive look",
     "expression": "Natural genuine smile, warm attractive easy-going soft eyes.",
     "allowed_variations": {
       "lighting": [
@@ -13426,9 +13424,9 @@
     },
     "clothing": {
       "default": {
-        "male": "casual fitted outfit that shows personality, clean attractive look, shoulders fully in frame",
-        "female": "casual fitted outfit that shows personality, clean attractive look, shoulders fully in frame",
-        "neutral": "casual fitted outfit that shows personality, clean attractive look, shoulders fully in frame"
+        "male": "casual fitted outfit that shows personality, clean attractive look",
+        "female": "casual fitted outfit that shows personality, clean attractive look",
+        "neutral": "casual fitted outfit that shows personality, clean attractive look"
       },
       "allowed": [
         "fitted neutral knit and dark jeans, clean white sneakers",
@@ -13531,7 +13529,7 @@
     "mode": "social",
     "type": "flexible",
     "base_scene": "cozy home corner with diffused window light, comfortable armchair, bookshelves behind, warm domestic atmosphere",
-    "default_clothing": "comfortable quality loungewear, cozy socks, relaxed domestic style, shoulders fully in frame",
+    "default_clothing": "comfortable quality loungewear, cozy socks, relaxed domestic style",
     "expression": "Peaceful concentrated expression, warm genuine comfort, domestic intellectual gaze.",
     "allowed_variations": {
       "lighting": [
@@ -13579,9 +13577,9 @@
     },
     "clothing": {
       "default": {
-        "male": "comfortable quality loungewear, cozy socks, relaxed domestic style, shoulders fully in frame",
-        "female": "comfortable quality loungewear, cozy socks, relaxed domestic style, shoulders fully in frame",
-        "neutral": "comfortable quality loungewear, cozy socks, relaxed domestic style, shoulders fully in frame"
+        "male": "comfortable quality loungewear, cozy socks, relaxed domestic style",
+        "female": "comfortable quality loungewear, cozy socks, relaxed domestic style",
+        "neutral": "comfortable quality loungewear, cozy socks, relaxed domestic style"
       },
       "allowed": [],
       "gender_neutral": true
@@ -13910,7 +13908,7 @@
     "mode": "social",
     "type": "semi_locked",
     "base_scene": "outdoor or studio setting with interesting light conditions, professional camera in hands, creative shooting environment",
-    "default_clothing": "practical creative outfit, dark layers, camera strap, artistic professional, shoulders fully in frame",
+    "default_clothing": "practical creative outfit, dark layers, camera strap, artistic professional",
     "expression": "Focused creative expression, professional artistic steady brow, sharp gaze.",
     "allowed_variations": {
       "lighting": [
@@ -13959,9 +13957,9 @@
     },
     "clothing": {
       "default": {
-        "male": "practical creative outfit, dark layers, camera strap, artistic professional, shoulders fully in frame",
-        "female": "practical creative outfit, dark layers, camera strap, artistic professional, shoulders fully in frame",
-        "neutral": "practical creative outfit, dark layers, camera strap, artistic professional, shoulders fully in frame"
+        "male": "practical creative outfit, dark layers, camera strap, artistic professional",
+        "female": "practical creative outfit, dark layers, camera strap, artistic professional",
+        "neutral": "practical creative outfit, dark layers, camera strap, artistic professional"
       },
       "allowed": [],
       "gender_neutral": true
@@ -14038,7 +14036,7 @@
     "mode": "social",
     "type": "flexible",
     "base_scene": "serene outdoor garden or minimalist bright room, natural light, plants, calm zen atmosphere",
-    "default_clothing": "comfortable clean neutral outfit, natural tones, peaceful energy, shoulders fully in frame",
+    "default_clothing": "comfortable clean neutral outfit, natural tones, peaceful energy",
     "expression": "Serene peaceful expression, calm balanced soft eyes, mindful presence.",
     "allowed_variations": {
       "lighting": [
@@ -14087,9 +14085,9 @@
     },
     "clothing": {
       "default": {
-        "male": "comfortable clean neutral outfit, natural tones, peaceful energy, shoulders fully in frame",
-        "female": "comfortable clean neutral outfit, natural tones, peaceful energy, shoulders fully in frame",
-        "neutral": "comfortable clean neutral outfit, natural tones, peaceful energy, shoulders fully in frame"
+        "male": "comfortable clean neutral outfit, natural tones, peaceful energy",
+        "female": "comfortable clean neutral outfit, natural tones, peaceful energy",
+        "neutral": "comfortable clean neutral outfit, natural tones, peaceful energy"
       },
       "allowed": [],
       "gender_neutral": true
@@ -14291,7 +14289,7 @@
     "mode": "social",
     "type": "flexible",
     "base_scene": "scenic urban bike path or countryside road, bicycle in frame, golden light, green landscape, active lifestyle setting",
-    "default_clothing": "stylish cycling outfit or casual athletic top, sport sunglasses, shoulders fully in frame",
+    "default_clothing": "stylish cycling outfit or casual athletic top, sport sunglasses",
     "expression": "Fresh active expression, bright confident smile, healthy outdoor glow.",
     "allowed_variations": {
       "lighting": [
@@ -14338,9 +14336,9 @@
     },
     "clothing": {
       "default": {
-        "male": "stylish cycling outfit or casual athletic top, sport sunglasses, shoulders fully in frame",
-        "female": "stylish cycling outfit or casual athletic top, sport sunglasses, shoulders fully in frame",
-        "neutral": "stylish cycling outfit or casual athletic top, sport sunglasses, shoulders fully in frame"
+        "male": "stylish cycling outfit or casual athletic top, sport sunglasses",
+        "female": "stylish cycling outfit or casual athletic top, sport sunglasses",
+        "neutral": "stylish cycling outfit or casual athletic top, sport sunglasses"
       },
       "allowed": [
         "fitted neutral knit and dark jeans, clean white sneakers",
@@ -14442,7 +14440,7 @@
     "mode": "social",
     "type": "flexible",
     "base_scene": "modern gym or outdoor workout area, bright natural light, clean athletic environment",
-    "default_clothing": "premium athletic wear, sport watch, clean sneakers, headphones around neck, shoulders fully in frame",
+    "default_clothing": "premium athletic wear, sport watch, clean sneakers, headphones around neck",
     "expression": "Healthy glow, energetic bright expression, motivational confident smile.",
     "allowed_variations": {
       "lighting": [
@@ -14490,9 +14488,9 @@
     },
     "clothing": {
       "default": {
-        "male": "premium athletic wear, sport watch, clean sneakers, headphones around neck, shoulders fully in frame",
-        "female": "premium athletic wear, sport watch, clean sneakers, headphones around neck, shoulders fully in frame",
-        "neutral": "premium athletic wear, sport watch, clean sneakers, headphones around neck, shoulders fully in frame"
+        "male": "premium athletic wear, sport watch, clean sneakers, headphones around neck",
+        "female": "premium athletic wear, sport watch, clean sneakers, headphones around neck",
+        "neutral": "premium athletic wear, sport watch, clean sneakers, headphones around neck"
       },
       "allowed": [],
       "gender_neutral": true
@@ -14567,7 +14565,7 @@
     "mode": "social",
     "type": "flexible",
     "base_scene": "standing before massive floor-to-ceiling window with dramatic city panorama, soft rim light from the window, face clearly lit from front, dramatic scale",
-    "default_clothing": "minimal dark outfit against bright cityscape, face evenly lit, shoulders fully in frame",
+    "default_clothing": "minimal dark outfit against bright cityscape, face evenly lit",
     "expression": "Contemplative open expression, calm direct gaze, relaxed natural brow.",
     "allowed_variations": {
       "lighting": [
@@ -14616,9 +14614,9 @@
     },
     "clothing": {
       "default": {
-        "male": "minimal dark outfit against bright cityscape, face evenly lit, shoulders fully in frame",
-        "female": "minimal dark outfit against bright cityscape, face evenly lit, shoulders fully in frame",
-        "neutral": "minimal dark outfit against bright cityscape, face evenly lit, shoulders fully in frame"
+        "male": "minimal dark outfit against bright cityscape, face evenly lit",
+        "female": "minimal dark outfit against bright cityscape, face evenly lit",
+        "neutral": "minimal dark outfit against bright cityscape, face evenly lit"
       },
       "allowed": [
         "fitted neutral knit and dark jeans, clean white sneakers",
@@ -14684,7 +14682,8 @@
         "diffused overcast daylight",
         "harsh midday sun, deep shadows",
         "neon evening, mixed practical lights",
-        "after-rain reflections, cool tones"
+        "after-rain reflections, cool tones",
+        "golden hour"
       ],
       "weather": [
         "clear",
@@ -14697,8 +14696,7 @@
         "early morning",
         "late morning",
         "midday",
-        "late afternoon",
-        "golden hour"
+        "late afternoon"
       ],
       "season": [
         "spring",
@@ -14875,7 +14873,7 @@
     "mode": "social",
     "type": "flexible",
     "base_scene": "dramatic architectural shadows and geometric light patterns, concrete or stone surfaces, bold contrast between light and dark",
-    "default_clothing": "minimal outfit in dark tones, strong visual contrast with light, shoulders fully in frame",
+    "default_clothing": "minimal outfit in dark tones, strong visual contrast with light",
     "expression": "Mysterious confident expression, dramatic artistic presence, partial shadow.",
     "allowed_variations": {
       "lighting": [
@@ -14923,9 +14921,9 @@
     },
     "clothing": {
       "default": {
-        "male": "minimal outfit in dark tones, strong visual contrast with light, shoulders fully in frame",
-        "female": "minimal outfit in dark tones, strong visual contrast with light, shoulders fully in frame",
-        "neutral": "minimal outfit in dark tones, strong visual contrast with light, shoulders fully in frame"
+        "male": "minimal outfit in dark tones, strong visual contrast with light",
+        "female": "minimal outfit in dark tones, strong visual contrast with light",
+        "neutral": "minimal outfit in dark tones, strong visual contrast with light"
       },
       "allowed": [],
       "gender_neutral": true
@@ -15000,7 +14998,7 @@
     "mode": "social",
     "type": "flexible",
     "base_scene": "open rooftop or elevated space, bright expansive sky, sense of accomplishment and freedom, warm golden light",
-    "default_clothing": "smart outfit slightly undone in celebration, genuine joy, shoulders fully in frame",
+    "default_clothing": "smart outfit slightly undone in celebration, genuine joy",
     "expression": "Genuine bright celebration expression, relieved proud smile, triumphant wide eyes.",
     "allowed_variations": {
       "lighting": [
@@ -15048,9 +15046,9 @@
     },
     "clothing": {
       "default": {
-        "male": "smart outfit slightly undone in celebration, genuine joy, shoulders fully in frame",
-        "female": "smart outfit slightly undone in celebration, genuine joy, shoulders fully in frame",
-        "neutral": "smart outfit slightly undone in celebration, genuine joy, shoulders fully in frame"
+        "male": "smart outfit slightly undone in celebration, genuine joy",
+        "female": "smart outfit slightly undone in celebration, genuine joy",
+        "neutral": "smart outfit slightly undone in celebration, genuine joy"
       },
       "allowed": [
         "fitted neutral knit and dark jeans, clean white sneakers",
@@ -15116,7 +15114,8 @@
         "soft overcast daylight, even natural diffusion",
         "soft golden hour",
         "warm afternoon sunlight",
-        "blue hour cinematic"
+        "blue hour cinematic",
+        "golden hour"
       ],
       "weather": [
         "clear",
@@ -15129,8 +15128,7 @@
         "early morning",
         "late morning",
         "midday",
-        "late afternoon",
-        "golden hour"
+        "late afternoon"
       ],
       "season": [
         "spring",
@@ -15153,7 +15151,7 @@
     "mode": "social",
     "type": "flexible",
     "base_scene": "urban setting with interesting visual juxtaposition, slightly playful atmosphere, warm natural light, architectural context",
-    "default_clothing": "smart casual with personality, slight quirk in style, self-aware modern look, shoulders fully in frame",
+    "default_clothing": "smart casual with personality, slight quirk in style, self-aware modern look",
     "expression": "Subtle smirk, playful knowing expression, witty confident raised eyebrow.",
     "allowed_variations": {
       "lighting": [
@@ -15202,9 +15200,9 @@
     },
     "clothing": {
       "default": {
-        "male": "smart casual with personality, slight quirk in style, self-aware modern look, shoulders fully in frame",
-        "female": "smart casual with personality, slight quirk in style, self-aware modern look, shoulders fully in frame",
-        "neutral": "smart casual with personality, slight quirk in style, self-aware modern look, shoulders fully in frame"
+        "male": "smart casual with personality, slight quirk in style, self-aware modern look",
+        "female": "smart casual with personality, slight quirk in style, self-aware modern look",
+        "neutral": "smart casual with personality, slight quirk in style, self-aware modern look"
       },
       "allowed": [
         "fitted neutral knit and dark jeans, clean white sneakers",
@@ -15310,7 +15308,7 @@
     "mode": "social",
     "type": "flexible",
     "base_scene": "high-rise interior with floor-to-ceiling windows, city lights below at night rendered with crisp distant detail, dramatic metropolitan atmosphere, warm interior accent light",
-    "default_clothing": "elegant dark outfit against glowing city skyline, face clearly visible, shoulders fully in frame",
+    "default_clothing": "elegant dark outfit against glowing city skyline, face clearly visible",
     "expression": "Open serene expression, elevated sophisticated smile, calm gaze.",
     "allowed_variations": {
       "lighting": [
@@ -15359,9 +15357,9 @@
     },
     "clothing": {
       "default": {
-        "male": "elegant dark outfit against glowing city skyline, face clearly visible, shoulders fully in frame",
-        "female": "elegant dark outfit against glowing city skyline, face clearly visible, shoulders fully in frame",
-        "neutral": "elegant dark outfit against glowing city skyline, face clearly visible, shoulders fully in frame"
+        "male": "elegant dark outfit against glowing city skyline, face clearly visible",
+        "female": "elegant dark outfit against glowing city skyline, face clearly visible",
+        "neutral": "elegant dark outfit against glowing city skyline, face clearly visible"
       },
       "allowed": [],
       "gender_neutral": true
@@ -15562,7 +15560,7 @@
     "mode": "social",
     "type": "flexible",
     "base_scene": "home desk at evening, warm desk lamp light, notebook and tea, calm productivity atmosphere, dim window twilight behind",
-    "default_clothing": "comfortable smart-casual loungewear, focused domestic vibe, shoulders fully in frame",
+    "default_clothing": "comfortable smart-casual loungewear, focused domestic vibe",
     "expression": "Focused calm expression, quiet determination, productive evening still brow.",
     "allowed_variations": {
       "lighting": [
@@ -15611,9 +15609,9 @@
     },
     "clothing": {
       "default": {
-        "male": "comfortable smart-casual loungewear, focused domestic vibe, shoulders fully in frame",
-        "female": "comfortable smart-casual loungewear, focused domestic vibe, shoulders fully in frame",
-        "neutral": "comfortable smart-casual loungewear, focused domestic vibe, shoulders fully in frame"
+        "male": "comfortable smart-casual loungewear, focused domestic vibe",
+        "female": "comfortable smart-casual loungewear, focused domestic vibe",
+        "neutral": "comfortable smart-casual loungewear, focused domestic vibe"
       },
       "allowed": [],
       "gender_neutral": true
@@ -15689,7 +15687,7 @@
     "mode": "social",
     "type": "semi_locked",
     "base_scene": "retro cafe, vintage car, or old-town street, warm desaturated tones, subtle film grain, muted colors",
-    "default_clothing": "vintage-inspired outfit, classic cuts, earth and mustard tones, shoulders fully in frame",
+    "default_clothing": "vintage-inspired outfit, classic cuts, earth and mustard tones",
     "expression": "Nostalgic thoughtful gaze, gentle analog expression, timeless romantic soft eyes.",
     "allowed_variations": {
       "lighting": [
@@ -15739,9 +15737,9 @@
     },
     "clothing": {
       "default": {
-        "male": "vintage-inspired outfit, classic cuts, earth and mustard tones, shoulders fully in frame",
-        "female": "vintage-inspired outfit, classic cuts, earth and mustard tones, shoulders fully in frame",
-        "neutral": "vintage-inspired outfit, classic cuts, earth and mustard tones, shoulders fully in frame"
+        "male": "vintage-inspired outfit, classic cuts, earth and mustard tones",
+        "female": "vintage-inspired outfit, classic cuts, earth and mustard tones",
+        "neutral": "vintage-inspired outfit, classic cuts, earth and mustard tones"
       },
       "allowed": [],
       "gender_neutral": true
@@ -15947,7 +15945,7 @@
     "mode": "social",
     "type": "flexible",
     "base_scene": "visually curated setting with cohesive color palette, architectural lines or nature patterns, balanced composition",
-    "default_clothing": "color-coordinated outfit matching the background palette, shoulders fully in frame",
+    "default_clothing": "color-coordinated outfit matching the background palette",
     "expression": "Editorial confident expression, polished natural smile, striking gaze.",
     "allowed_variations": {
       "lighting": [
@@ -15996,9 +15994,9 @@
     },
     "clothing": {
       "default": {
-        "male": "color-coordinated outfit matching the background palette, shoulders fully in frame",
-        "female": "color-coordinated outfit matching the background palette, shoulders fully in frame",
-        "neutral": "color-coordinated outfit matching the background palette, shoulders fully in frame"
+        "male": "color-coordinated outfit matching the background palette",
+        "female": "color-coordinated outfit matching the background palette",
+        "neutral": "color-coordinated outfit matching the background palette"
       },
       "allowed": [],
       "gender_neutral": true
@@ -16055,8 +16053,7 @@
       "weather": [],
       "time_of_day": [
         "morning",
-        "afternoon",
-        "golden hour"
+        "afternoon"
       ],
       "season": [
         "spring",
@@ -16078,7 +16075,7 @@
     "mode": "social",
     "type": "flexible",
     "base_scene": "creator studio, neon-lit backdrop wall behind, polished floor in foreground",
-    "default_clothing": "bright casual outfit, branded merch style, expressive modern look, shoulders fully in frame",
+    "default_clothing": "bright casual outfit, branded merch style, expressive modern look",
     "expression": "Animated engaging expression, bright enthusiastic creator smile.",
     "allowed_variations": {
       "lighting": [
@@ -16126,9 +16123,9 @@
     },
     "clothing": {
       "default": {
-        "male": "bright casual outfit, branded merch style, expressive modern look, shoulders fully in frame",
-        "female": "bright casual outfit, branded merch style, expressive modern look, shoulders fully in frame",
-        "neutral": "bright casual outfit, branded merch style, expressive modern look, shoulders fully in frame"
+        "male": "bright casual outfit, branded merch style, expressive modern look",
+        "female": "bright casual outfit, branded merch style, expressive modern look",
+        "neutral": "bright casual outfit, branded merch style, expressive modern look"
       },
       "allowed": [],
       "gender_neutral": true
@@ -16329,7 +16326,7 @@
     "mode": "social",
     "type": "semi_locked",
     "base_scene": "podcast studio, acoustic foam wall behind, hardwood floor in foreground, warm side key light",
-    "default_clothing": "smart casual, comfortable quality fabrics, clean modern look, shoulders fully in frame",
+    "default_clothing": "smart casual, comfortable quality fabrics, clean modern look",
     "expression": "Natural conversational smile, engaging authentic attentive gaze.",
     "allowed_variations": {
       "lighting": [
@@ -16377,9 +16374,9 @@
     },
     "clothing": {
       "default": {
-        "male": "smart casual, comfortable quality fabrics, clean modern look, shoulders fully in frame",
-        "female": "smart casual, comfortable quality fabrics, clean modern look, shoulders fully in frame",
-        "neutral": "smart casual, comfortable quality fabrics, clean modern look, shoulders fully in frame"
+        "male": "smart casual, comfortable quality fabrics, clean modern look",
+        "female": "smart casual, comfortable quality fabrics, clean modern look",
+        "neutral": "smart casual, comfortable quality fabrics, clean modern look"
       },
       "allowed": [],
       "gender_neutral": true
@@ -16453,7 +16450,7 @@
     "mode": "social",
     "type": "flexible",
     "base_scene": "bright modern bedroom or bathroom, bright morning window light, white linens, plant on nightstand",
-    "default_clothing": "clean loungewear or casual morning outfit, fresh natural look, shoulders fully in frame",
+    "default_clothing": "clean loungewear or casual morning outfit, fresh natural look",
     "expression": "Peaceful fresh morning expression, warm genuine relaxed smile.",
     "allowed_variations": {
       "lighting": [
@@ -16502,9 +16499,9 @@
     },
     "clothing": {
       "default": {
-        "male": "clean loungewear or casual morning outfit, fresh natural look, shoulders fully in frame",
-        "female": "clean loungewear or casual morning outfit, fresh natural look, shoulders fully in frame",
-        "neutral": "clean loungewear or casual morning outfit, fresh natural look, shoulders fully in frame"
+        "male": "clean loungewear or casual morning outfit, fresh natural look",
+        "female": "clean loungewear or casual morning outfit, fresh natural look",
+        "neutral": "clean loungewear or casual morning outfit, fresh natural look"
       },
       "allowed": [],
       "gender_neutral": true
@@ -16581,7 +16578,7 @@
     "mode": "social",
     "type": "semi_locked",
     "base_scene": "beautifully plated food on marble table, restaurant or home kitchen, warm overhead lighting, fresh herbs and ingredients",
-    "default_clothing": "casual stylish outfit, clean smart look, shoulders fully in frame",
+    "default_clothing": "casual stylish outfit, clean smart look",
     "expression": "Warm engaging expression, inviting soft eyes, bright genuine smile.",
     "allowed_variations": {
       "lighting": [
@@ -16630,9 +16627,9 @@
     },
     "clothing": {
       "default": {
-        "male": "casual stylish outfit, clean smart look, shoulders fully in frame",
-        "female": "casual stylish outfit, clean smart look, shoulders fully in frame",
-        "neutral": "casual stylish outfit, clean smart look, shoulders fully in frame"
+        "male": "casual stylish outfit, clean smart look",
+        "female": "casual stylish outfit, clean smart look",
+        "neutral": "casual stylish outfit, clean smart look"
       },
       "allowed": [],
       "gender_neutral": true
@@ -16855,7 +16852,7 @@
     "mode": "social",
     "type": "flexible",
     "base_scene": "upscale lounge with marble surfaces, warm amber ambient light, velvet and brass details in background",
-    "default_clothing": "designer outfit, fine fabrics, watches or minimal jewelry, shoulders fully in frame",
+    "default_clothing": "designer outfit, fine fabrics, watches or minimal jewelry",
     "expression": "Elegant mysterious soft eyes, sophisticated calm expression.",
     "allowed_variations": {
       "lighting": [
@@ -16904,9 +16901,9 @@
     },
     "clothing": {
       "default": {
-        "male": "designer outfit, fine fabrics, watches or minimal jewelry, shoulders fully in frame",
-        "female": "designer outfit, fine fabrics, watches or minimal jewelry, shoulders fully in frame",
-        "neutral": "designer outfit, fine fabrics, watches or minimal jewelry, shoulders fully in frame"
+        "male": "designer outfit, fine fabrics, watches or minimal jewelry",
+        "female": "designer outfit, fine fabrics, watches or minimal jewelry",
+        "neutral": "designer outfit, fine fabrics, watches or minimal jewelry"
       },
       "allowed": [],
       "gender_neutral": true
@@ -16958,13 +16955,13 @@
         "candlelight glow",
         "blue-hour rim",
         "soft window light from the side",
-        "warm interior key light, ambient practicals"
+        "warm interior key light, ambient practicals",
+        "blue hour"
       ],
       "weather": [],
       "time_of_day": [
         "evening",
-        "night",
-        "blue hour"
+        "night"
       ],
       "season": []
     },
@@ -16982,7 +16979,7 @@
     "mode": "social",
     "type": "flexible",
     "base_scene": "sunlit park with dappled tree shadows, or bright airy home interior with natural window light",
-    "default_clothing": "relaxed casual wear, natural cotton and linen fabrics, shoulders fully in frame",
+    "default_clothing": "relaxed casual wear, natural cotton and linen fabrics",
     "expression": "Genuine relaxed look, warm natural feel, approachable open smile.",
     "allowed_variations": {
       "lighting": [
@@ -17030,9 +17027,9 @@
     },
     "clothing": {
       "default": {
-        "male": "relaxed casual wear, natural cotton and linen fabrics, shoulders fully in frame",
-        "female": "relaxed casual wear, natural cotton and linen fabrics, shoulders fully in frame",
-        "neutral": "relaxed casual wear, natural cotton and linen fabrics, shoulders fully in frame"
+        "male": "relaxed casual wear, natural cotton and linen fabrics",
+        "female": "relaxed casual wear, natural cotton and linen fabrics",
+        "neutral": "relaxed casual wear, natural cotton and linen fabrics"
       },
       "allowed": [],
       "gender_neutral": true
@@ -17091,8 +17088,7 @@
       ],
       "time_of_day": [
         "morning",
-        "afternoon",
-        "golden hour"
+        "afternoon"
       ],
       "season": [
         "spring",
@@ -17334,7 +17330,7 @@
     "mode": "cv",
     "type": "scene_locked",
     "base_scene": "clean uniform white, evenly lit backdrop",
-    "default_clothing": "simple solid-color business top, shoulders fully in frame",
+    "default_clothing": "simple solid-color business top",
     "expression": "Neutral composed expression, mouth closed, eyes open and looking straight into the camera, formal compliant demeanor.",
     "allowed_variations": {
       "lighting": [],
@@ -17365,9 +17361,9 @@
     },
     "clothing": {
       "default": {
-        "male": "simple solid-color business top, shoulders fully in frame",
-        "female": "simple solid-color business top, shoulders fully in frame",
-        "neutral": "simple solid-color business top, shoulders fully in frame"
+        "male": "simple solid-color business top",
+        "female": "simple solid-color business top",
+        "neutral": "simple solid-color business top"
       },
       "allowed": [],
       "gender_neutral": true
@@ -17427,7 +17423,7 @@
     "mode": "cv",
     "type": "scene_locked",
     "base_scene": "clean uniform white, evenly lit backdrop",
-    "default_clothing": "simple solid-color business top, shoulders fully in frame",
+    "default_clothing": "simple solid-color business top",
     "expression": "Neutral composed expression, mouth closed, eyes open and looking straight into the camera, formal compliant demeanor.",
     "allowed_variations": {
       "lighting": [],
@@ -17458,9 +17454,9 @@
     },
     "clothing": {
       "default": {
-        "male": "simple solid-color business top, shoulders fully in frame",
-        "female": "simple solid-color business top, shoulders fully in frame",
-        "neutral": "simple solid-color business top, shoulders fully in frame"
+        "male": "simple solid-color business top",
+        "female": "simple solid-color business top",
+        "neutral": "simple solid-color business top"
       },
       "allowed": [],
       "gender_neutral": true
@@ -17520,7 +17516,7 @@
     "mode": "cv",
     "type": "scene_locked",
     "base_scene": "clean uniform white, evenly lit backdrop",
-    "default_clothing": "simple solid-color business top, shoulders fully in frame",
+    "default_clothing": "simple solid-color business top",
     "expression": "Neutral composed expression, mouth closed, eyes open and looking straight into the camera, formal compliant demeanor.",
     "allowed_variations": {
       "lighting": [],
@@ -17551,9 +17547,9 @@
     },
     "clothing": {
       "default": {
-        "male": "simple solid-color business top, shoulders fully in frame",
-        "female": "simple solid-color business top, shoulders fully in frame",
-        "neutral": "simple solid-color business top, shoulders fully in frame"
+        "male": "simple solid-color business top",
+        "female": "simple solid-color business top",
+        "neutral": "simple solid-color business top"
       },
       "allowed": [],
       "gender_neutral": true
@@ -17613,7 +17609,7 @@
     "mode": "cv",
     "type": "scene_locked",
     "base_scene": "clean uniform white, evenly lit backdrop",
-    "default_clothing": "simple solid-color business top, shoulders fully in frame",
+    "default_clothing": "simple solid-color business top",
     "expression": "Neutral composed expression, mouth closed, eyes open and looking straight into the camera, formal compliant demeanor.",
     "allowed_variations": {
       "lighting": [],
@@ -17644,9 +17640,9 @@
     },
     "clothing": {
       "default": {
-        "male": "simple solid-color business top, shoulders fully in frame",
-        "female": "simple solid-color business top, shoulders fully in frame",
-        "neutral": "simple solid-color business top, shoulders fully in frame"
+        "male": "simple solid-color business top",
+        "female": "simple solid-color business top",
+        "neutral": "simple solid-color business top"
       },
       "allowed": [],
       "gender_neutral": true
@@ -17706,7 +17702,7 @@
     "mode": "cv",
     "type": "scene_locked",
     "base_scene": "clean uniform white, evenly lit backdrop",
-    "default_clothing": "simple solid-color business top, shoulders fully in frame",
+    "default_clothing": "simple solid-color business top",
     "expression": "Neutral composed expression, mouth closed, eyes open and looking straight into the camera, formal compliant demeanor.",
     "allowed_variations": {
       "lighting": [],
@@ -17737,9 +17733,9 @@
     },
     "clothing": {
       "default": {
-        "male": "simple solid-color business top, shoulders fully in frame",
-        "female": "simple solid-color business top, shoulders fully in frame",
-        "neutral": "simple solid-color business top, shoulders fully in frame"
+        "male": "simple solid-color business top",
+        "female": "simple solid-color business top",
+        "neutral": "simple solid-color business top"
       },
       "allowed": [],
       "gender_neutral": true
@@ -17799,7 +17795,7 @@
     "mode": "cv",
     "type": "scene_locked",
     "base_scene": "clean uniform white, evenly lit backdrop",
-    "default_clothing": "simple solid-color business top, shoulders fully in frame",
+    "default_clothing": "simple solid-color business top",
     "expression": "Neutral composed expression, mouth closed, eyes open and looking straight into the camera, formal compliant demeanor.",
     "allowed_variations": {
       "lighting": [],
@@ -17830,9 +17826,9 @@
     },
     "clothing": {
       "default": {
-        "male": "simple solid-color business top, shoulders fully in frame",
-        "female": "simple solid-color business top, shoulders fully in frame",
-        "neutral": "simple solid-color business top, shoulders fully in frame"
+        "male": "simple solid-color business top",
+        "female": "simple solid-color business top",
+        "neutral": "simple solid-color business top"
       },
       "allowed": [],
       "gender_neutral": true
@@ -17892,7 +17888,7 @@
     "mode": "cv",
     "type": "scene_locked",
     "base_scene": "clean uniform white, evenly lit backdrop",
-    "default_clothing": "simple solid-color business top, shoulders fully in frame",
+    "default_clothing": "simple solid-color business top",
     "expression": "Neutral composed expression, mouth closed, eyes open and looking straight into the camera, formal compliant demeanor.",
     "allowed_variations": {
       "lighting": [],
@@ -17923,9 +17919,9 @@
     },
     "clothing": {
       "default": {
-        "male": "simple solid-color business top, shoulders fully in frame",
-        "female": "simple solid-color business top, shoulders fully in frame",
-        "neutral": "simple solid-color business top, shoulders fully in frame"
+        "male": "simple solid-color business top",
+        "female": "simple solid-color business top",
+        "neutral": "simple solid-color business top"
       },
       "allowed": [],
       "gender_neutral": true
@@ -17985,7 +17981,7 @@
     "mode": "cv",
     "type": "scene_locked",
     "base_scene": "clean uniform white, evenly lit backdrop",
-    "default_clothing": "simple solid-color business top, shoulders fully in frame",
+    "default_clothing": "simple solid-color business top",
     "expression": "Neutral composed expression, mouth closed, eyes open and looking straight into the camera, formal compliant demeanor.",
     "allowed_variations": {
       "lighting": [],
@@ -18016,9 +18012,9 @@
     },
     "clothing": {
       "default": {
-        "male": "simple solid-color business top, shoulders fully in frame",
-        "female": "simple solid-color business top, shoulders fully in frame",
-        "neutral": "simple solid-color business top, shoulders fully in frame"
+        "male": "simple solid-color business top",
+        "female": "simple solid-color business top",
+        "neutral": "simple solid-color business top"
       },
       "allowed": [],
       "gender_neutral": true
@@ -18078,7 +18074,7 @@
     "mode": "cv",
     "type": "scene_locked",
     "base_scene": "clean uniform white, evenly lit backdrop",
-    "default_clothing": "simple solid-color business top, shoulders fully in frame",
+    "default_clothing": "simple solid-color business top",
     "expression": "Neutral composed expression, mouth closed, eyes open and looking straight into the camera, formal compliant demeanor.",
     "allowed_variations": {
       "lighting": [],
@@ -18109,9 +18105,9 @@
     },
     "clothing": {
       "default": {
-        "male": "simple solid-color business top, shoulders fully in frame",
-        "female": "simple solid-color business top, shoulders fully in frame",
-        "neutral": "simple solid-color business top, shoulders fully in frame"
+        "male": "simple solid-color business top",
+        "female": "simple solid-color business top",
+        "neutral": "simple solid-color business top"
       },
       "allowed": [],
       "gender_neutral": true

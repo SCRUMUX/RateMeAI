@@ -222,6 +222,13 @@ _WARDROBE_POSE_LEAK_RE = re.compile(
     r"|cropped\s+at\s+(?:the\s+)?(?:chest|shoulders|waist)"
     r"|sitting\s+at\s+(?:a|the)\s+desk"
     r"|on\s+(?:the\s+)?screen"
+    # May 2026 audit — ``shoulders fully in frame`` is a crop
+    # directive masquerading as a fit cue; the May 2026 social /
+    # dating curation pass injected it into ``clothing.default.*``
+    # of 40+ styles and it now overrides framing on portrait /
+    # half_body draws (the model anchors the crop on the
+    # shoulders even when scene_anchor implies a full-body).
+    r"|shoulders\s+fully\s+in\s+frame"
     r")\b",
     re.IGNORECASE,
 )
@@ -727,7 +734,12 @@ def lint_style(raw: dict[str, Any]) -> list[LintIssue]:
             issues.append(
                 LintIssue(
                     code="QI_BASE_NONEMPTY",
-                    severity="warning",
+                    # Escalated from ``warning`` to ``error`` in the
+                    # May 2026 audit follow-up — the May 2026 v4
+                    # migration zeroed these fields across the whole
+                    # catalogue, so any non-empty value here is a
+                    # regression that competes with PHOTOREAL_BLOCK.
+                    severity="error",
                     message=(
                         "quality_identity.base is non-empty; v4.1 funnels "
                         "every style through the central PHOTOREAL_BLOCK "
@@ -750,7 +762,10 @@ def lint_style(raw: dict[str, Any]) -> list[LintIssue]:
                 issues.append(
                     LintIssue(
                         code="QI_PER_MODEL_TAIL_NONEMPTY",
-                        severity="warning",
+                        # Escalated to ``error`` in the May 2026 audit
+                        # follow-up — see :data:`QI_BASE_NONEMPTY`
+                        # above for the same reasoning.
+                        severity="error",
                         message=(
                             f"quality_identity.per_model_tail has "
                             f"non-empty entries for models {non_empty!r}; "

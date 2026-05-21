@@ -15,10 +15,10 @@ from typing import Literal
 DepthOfField = Literal["deep", "shallow"]
 
 # v1.64: ``GenerationMode`` was retired alongside the PuLID / Seedream
-# StyleRouter. Production runs a single FAL edit-mode path via
-# :class:`UnifiedImageGenProvider` (GPT Image 2 Edit / Nano Banana 2
-# Edit), so styles no longer distinguish ``identity_scene`` from
-# ``scene_preserve``. See ``docs/ARCHITECTURE.md`` for the rationale.
+# StyleRouter. Post Nano-Banana cleanup production runs a single FAL
+# edit-mode path (GPT Image 2 Edit), so styles no longer distinguish
+# ``identity_scene`` from ``scene_preserve``. See
+# ``docs/ARCHITECTURE.md`` for the rationale.
 
 # Output aspect presets used by the FLUX.2 Pro Edit provider.
 # ``square_hd`` is the only 1 MP preset we use (documents — fixed
@@ -329,15 +329,6 @@ class StyleRegistry:
         # ``style_schema_v3_enabled`` flag is on and gracefully fall
         # back to v2 / v1 otherwise.
         self._v3_by_key: dict[tuple[str, str], object] = {}
-        # v1.70.17 vestige: the ``_v3_promoted`` set used to flag
-        # v2-auto-promoted specs so the executor could surface them in
-        # logs. Phase 3 of the cleanup roadmap retired the
-        # ``_auto_promote_v2_specs`` synthesiser (every entry in
-        # ``data/styles.json`` is now natively v3). The empty set
-        # stays for one release because a handful of prompt-regression
-        # tests snapshot/restore it in their isolation fixtures; the
-        # next pass will rip those teardown lines and drop the field.
-        self._v3_promoted: set[tuple[str, str]] = set()
 
     def register(self, spec: StyleSpec) -> None:
         self._by_key[(spec.mode, spec.key)] = spec

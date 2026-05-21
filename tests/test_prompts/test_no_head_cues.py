@@ -39,11 +39,9 @@ _FRAMINGS: tuple[str, ...] = ("portrait", "half_body", "full_body")
 def _register_all_styles():
     snapshot_v2 = dict(STYLE_REGISTRY._v2_by_key)
     snapshot_v3 = dict(STYLE_REGISTRY._v3_by_key)
-    snapshot_promoted = set(STYLE_REGISTRY._v3_promoted)
 
     STYLE_REGISTRY._v2_by_key.clear()
     STYLE_REGISTRY._v3_by_key.clear()
-    STYLE_REGISTRY._v3_promoted.clear()
 
     register_v2_styles_from_json()
     register_v3_styles_from_json()
@@ -53,8 +51,6 @@ def _register_all_styles():
     STYLE_REGISTRY._v2_by_key.update(snapshot_v2)
     STYLE_REGISTRY._v3_by_key.clear()
     STYLE_REGISTRY._v3_by_key.update(snapshot_v3)
-    STYLE_REGISTRY._v3_promoted.clear()
-    STYLE_REGISTRY._v3_promoted.update(snapshot_promoted)
 
 
 def _photo_pairs() -> list[tuple[AnalysisMode, str]]:

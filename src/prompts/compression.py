@@ -14,7 +14,16 @@ def compress_prompt(prompt: str) -> str:
     # Remove extra whitespace
     compressed = re.sub(r"\s+", " ", prompt).strip()
 
-    # Remove filler words
+    # Remove filler words.
+    #
+    # NOTE: "in the background" / "in the foreground" used to live in
+    # this list, but they are load-bearing tokens in catalogue
+    # triggers (e.g. ``"Eiffel Tower in the background"`` from
+    # ``paris_eiffel.trigger_pool``). Stripping them collapsed the
+    # spatial anchor to a bare ``"Eiffel Tower"``, and edit-models
+    # (GPT Image 2) gladly hallucinated the tower as a foreground
+    # prop. Keep them in the prompt — duplication risk is low because
+    # the per-style dedup pass already squashes back-to-back repeats.
     noise_words = [
         "a picture of",
         "an image of",
@@ -24,8 +33,6 @@ def compress_prompt(prompt: str) -> str:
         "depicting",
         "featuring",
         "where we can see",
-        "in the background",
-        "in the foreground",
         "looking like",
         "it is",
         "there is",
