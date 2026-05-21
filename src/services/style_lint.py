@@ -132,7 +132,13 @@ _LINT_ANATOMY_EXEMPT: frozenset[str] = (
 _EXPRESSION_PORTRAIT_LEAK_RE = re.compile(
     r"\b("
     r"authoritative"
-    r"|composed\s+gaze"
+    r"|authority"
+    r"|composed\s+confident\s+gaze"
+    r"|composed\s+direct\s+gaze"
+    r"|composed\s+steady\s+gaze"
+    r"|composed\s+decisive\s+gaze"
+    r"|composed\s+powerful\s+gaze"
+    r"|composed\s+analytical\s+gaze"
     r"|composed\s+brow"
     r"|composed\s+mouth"
     r"|composed\s+still"
@@ -150,6 +156,22 @@ _EXPRESSION_PORTRAIT_LEAK_RE = re.compile(
     r"|steady\s+composed"
     r"|composed\s+powerful"
     r"|elevated\s+sophisticated\s+still"
+    r"|intense\s+gaze"
+    r"|still\s+brow"
+    r"|shoulders\s+visible\s+in\s+frame"
+    r")\b",
+    re.IGNORECASE,
+)
+
+_TRIGGER_SELFIE_RE = re.compile(
+    r"\b(selfie|self-?portrait|mirror\s+selfie)\b",
+    re.IGNORECASE,
+)
+
+_SCENE_FACE_CROP_RE = re.compile(
+    r"\b("
+    r"face\s+clearly\s+lit\s+from\s+front"
+    r"|dramatic\s+scale"
     r")\b",
     re.IGNORECASE,
 )
@@ -229,10 +251,11 @@ _WARDROBE_POSE_LEAK_RE = re.compile(
     # half_body draws (the model anchors the crop on the
     # shoulders even when scene_anchor implies a full-body).
     r"|shoulders\s+fully\s+in\s+frame"
+    r"|collar\s+and\s+shoulder\s+seam\s+clearly\s+visible"
+    r"|crew-?neck\s+shoulder\s+line\s+clearly\s+visible"
     r")\b",
     re.IGNORECASE,
 )
-
 
 # v1.71 — TIGHT_INDOOR_SCREEN_SCENE. The post-mortem on
 # ``video_call`` showed that screen-facing scene anchors ("ring
@@ -519,6 +542,26 @@ def _hits(text: str, tokens: tuple[str, ...]) -> list[str]:
     return [t for t in tokens if t in haystack]
 
 
+def _iter_lighting_pool_strings(raw: dict[str, Any]) -> list[tuple[str, str]]:
+    """Yield ``(dotted_path, str_value)`` for every lighting pool entry."""
+    out: list[tuple[str, str]] = []
+    ambient = raw.get("ambient")
+    if isinstance(ambient, dict):
+        for idx, value in enumerate(_normalise_pool(ambient.get("lighting"))):
+            out.append((f"ambient.lighting[{idx}]", value))
+    allowed = raw.get("allowed_variations")
+    if isinstance(allowed, dict):
+        for idx, value in enumerate(_normalise_pool(allowed.get("lighting"))):
+            out.append((f"allowed_variations.lighting[{idx}]", value))
+    slots = raw.get("context_slots")
+    if isinstance(slots, dict):
+        for idx, value in enumerate(_normalise_pool(slots.get("lighting"))):
+            out.append((f"context_slots.lighting[{idx}]", value))
+    for idx, value in enumerate(_normalise_pool(raw.get("scene_overrides"))):
+        out.append((f"scene_overrides[{idx}]", value))
+    return out
+
+
 def _iter_string_fields(obj: Any, path: list[str | int]):
     """Recursively yield ``(dotted_path, str_value)`` pairs.
 
@@ -555,6 +598,8 @@ def lint_style(raw: dict[str, Any]) -> list[LintIssue]:
     """
     issues: list[LintIssue] = []
     schema_version = int(raw.get("schema_version") or 0)
+    style_id = str(raw.get("id") or "").strip()
+    anatomy_exempt = style_id in _LINT_ANATOMY_EXEMPT
 
     # v1.68 — DOUBLED_WORD. Walk every string field in the entry
     # (including nested ones — ambient pools, channel overrides) and
@@ -635,6 +680,21 @@ def lint_style(raw: dict[str, Any]) -> list[LintIssue]:
         )
 
     for idx, trig in enumerate(trigger_pool):
+        if _TRIGGER_SELFIE_RE.search(trig):
+            issues.append(
+                LintIssue(
+                    code="TRIGGER_SELFIE",
+                    severity="error",
+                    message=(
+                        f"trigger_pool[{idx}] = {trig!r} encodes a selfie / "
+                        "mirror-selfie composition; edit models render "
+                        "tight webcam-style crops and oversized heads. "
+                        "Describe the setting without selfie vocabulary."
+                    ),
+                    field="trigger_pool",
+                    detail={"index": idx, "value": trig},
+                )
+            )
         framing = _hits(trig, _FRAMING_TOKENS)
         lighting = _hits(trig, _LIGHTING_TOKENS)
         weather = _hits(trig, _WEATHER_TOKENS)
@@ -674,6 +734,26 @@ def lint_style(raw: dict[str, Any]) -> list[LintIssue]:
         scene_value = raw.get(scene_field)
         if not isinstance(scene_value, str) or not scene_value.strip():
             continue
+        face_crop_hits = sorted({
+            m.group(0).lower()
+            for m in _SCENE_FACE_CROP_RE.finditer(scene_value)
+        })
+        if face_crop_hits and not anatomy_exempt:
+            issues.append(
+                LintIssue(
+                    code="SCENE_FACE_CROP",
+                    severity="warning",
+                    message=(
+                        f"{scene_field} mentions face-crop cues "
+                        f"{face_crop_hits!r}; these push edit models toward "
+                        "frontal tight crops and oversized heads. Strip "
+                        "or rephrase (keep lighting in ambient pools)."
+                    ),
+                    field=scene_field,
+                    detail={"tokens": face_crop_hits},
+                )
+            )
+
         framing_leaks = _hits(scene_value, _SCENE_FRAMING_TOKENS)
         if framing_leaks:
             issues.append(
@@ -783,9 +863,6 @@ def lint_style(raw: dict[str, Any]) -> list[LintIssue]:
     # for studio-portrait / document styles (the only legitimate
     # carriers of tight-portrait / studio-pose vocabulary in the
     # catalog).
-    style_id = str(raw.get("id") or "").strip()
-    anatomy_exempt = style_id in _LINT_ANATOMY_EXEMPT
-
     if not anatomy_exempt:
         expression = raw.get("expression")
         if isinstance(expression, str) and expression.strip():
@@ -989,6 +1066,50 @@ def lint_style(raw: dict[str, Any]) -> list[LintIssue]:
                             "tokens": lower_hits,
                             "framings_allowed": sorted(set(framing_pool)),
                         },
+                    )
+                )
+
+        # v1.77 — lighting / scene_override pools carry the same
+        # screen-facing and implicit-pose tokens as scene_anchor; the
+        # v1.71 audit only scanned scene fields so ``video_call`` ring-
+        # light entries in ``ambient.lighting`` slipped through.
+        for field_name, pool_value in _iter_lighting_pool_strings(raw):
+            screen_hits = sorted({
+                m.group(0).lower()
+                for m in _SCREEN_FACING_RE.finditer(pool_value)
+            })
+            if screen_hits and not _DEPTH_CUE_RE.search(pool_value):
+                issues.append(
+                    LintIssue(
+                        code="LIGHTING_POOL_SCREEN_LEAK",
+                        severity="warning",
+                        message=(
+                            f"{field_name} = {pool_value!r} mentions "
+                            f"screen-facing cues {screen_hits!r} without "
+                            "a depth keyword; move to scene with "
+                            "``behind`` / ``floor`` or drop the cue."
+                        ),
+                        field=field_name,
+                        detail={"tokens": screen_hits, "value": pool_value},
+                    )
+                )
+            pose_leaks = sorted({
+                m.group(0).lower()
+                for m in _SCENE_POSE_LEAK_RE.finditer(pool_value)
+            })
+            if pose_leaks:
+                issues.append(
+                    LintIssue(
+                        code="LIGHTING_POOL_POSE_LEAK",
+                        severity="error",
+                        message=(
+                            f"{field_name} = {pool_value!r} contains "
+                            f"implicit-pose tokens {pose_leaks!r}; lighting "
+                            "pools must describe light only, not furniture "
+                            "poses (``leather chair``, ``behind desk``)."
+                        ),
+                        field=field_name,
+                        detail={"tokens": pose_leaks, "value": pool_value},
                     )
                 )
 

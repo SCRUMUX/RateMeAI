@@ -72,10 +72,13 @@ def apply_tier_context_fields(
     The historical A/B ``image_model`` knob was retired together with
     Nano Banana 2. Callers may still pass an ``image_model`` form
     field for backwards compatibility, but it is ignored here.
-    """
-    if not getattr(settings, "ab_test_enabled", False):
-        return
 
+    v1.77 — tier routing is a permanent product surface, not an A/B
+    experiment. ``settings.ab_test_enabled`` no longer gates this
+    helper (when it was False, Premium and Standard both skipped
+    tier fields and rendered identically). The flag may still exist
+    for legacy metrics elsewhere but must not block tier → quality.
+    """
     tier_norm = (tier or "").strip().lower()
     if tier_norm not in PRODUCT_TIERS_ALLOWED:
         tier_norm = "standard"
@@ -111,6 +114,24 @@ def apply_ab_test_context_fields(
     """
     _ = image_model  # explicitly unused after the Nano Banana cleanup.
     apply_tier_context_fields(ctx, settings=settings, tier=tier)
+
+
+def is_gpt_image_gen_context_active(ctx: dict | None) -> bool:
+    """Return True when ``ctx`` carries GPT Image 2 tier routing fields.
+
+    Used by the pipeline and executor to decide whether to engage the
+    edit-model path (quality knob + optional Clarity refiner) instead
+    of the legacy hybrid StyleRouter. After v1.77 this is true for
+    every analyze request that went through
+    :func:`apply_tier_context_fields`, regardless of
+    ``settings.ab_test_enabled``.
+    """
+    if not ctx:
+        return False
+    if (ctx.get("image_model") or "").strip():
+        return True
+    tier = (ctx.get("tier") or "").strip().lower()
+    return tier in PRODUCT_TIERS_ALLOWED
 
 
 def is_whitelisted_task_source_telegram(source: str) -> bool:

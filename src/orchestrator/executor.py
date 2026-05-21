@@ -1269,6 +1269,11 @@ class ImageGenerationExecutor:
         # a failed refiner (refund issued) from "user picked standard"
         # for downstream analytics.
         tier_label = (product_tier or "standard").strip().lower() or "standard"
+        _fal_q = (
+            extra.get("quality")
+            or ab_image_quality
+            or getattr(settings, "ab_default_quality", "medium")
+        )
         result_dict["enhancement"]["tier"] = tier_label
         result_dict["enhancement"]["premium_refine_attempted"] = (
             clarity_refine_attempted
@@ -1276,6 +1281,23 @@ class ImageGenerationExecutor:
         result_dict["enhancement"]["premium_refine_applied"] = (
             clarity_refine_applied
         )
+        # v1.77 — top-level telemetry for UI / support (not nested under
+        # enhancement only) so Storage and admin can verify Premium ran.
+        result_dict["product_tier"] = tier_label
+        result_dict["fal_quality"] = str(_fal_q)
+        result_dict["clarity_refine_applied"] = clarity_refine_applied
+        try:
+            import io as _io
+
+            from PIL import Image as _Image
+
+            with _Image.open(_io.BytesIO(raw)) as _im:
+                result_dict["output_pixel_dimensions"] = {
+                    "width": _im.width,
+                    "height": _im.height,
+                }
+        except Exception:
+            pass
 
         try:
             IMAGE_GEN_COST_USD_TOTAL.labels(tier=tier_label).inc(total_cost)
@@ -1610,7 +1632,16 @@ class ImageGenerationExecutor:
         # feature flag is off or the requested model isn't whitelisted,
         # we silently fall through to the default path: the default
         # hybrid pipeline is bit-for-bit untouched.
-        ab_active = bool(getattr(settings, "ab_test_enabled", False) and ab_image_model)
+        # v1.77 — engage edit-model path when tier fields are present,
+        # not only when ``ab_test_enabled`` is True (tier is product
+        # surface, not an experiment flag).
+        from src.services.analysis_request import PRODUCT_TIERS_ALLOWED
+
+        _tier_norm = (product_tier or "").strip().lower()
+        ab_active = bool(
+            ab_image_model
+            or _tier_norm in PRODUCT_TIERS_ALLOWED
+        )
         image_gen: ImageGenProvider = self._image_gen
 
         # v1.26: framing приходит из task context (см. pipeline._execute_inner),
@@ -1759,6 +1790,19 @@ class ImageGenerationExecutor:
             clarity_refine_applied = False
             clarity_refine_attempted = False
             clarity_refine_ms = 0
+            if raw and len(raw) > 100:
+                try:
+                    import io as _io
+
+                    from PIL import Image as _Image
+
+                    with _Image.open(_io.BytesIO(raw)) as _im:
+                        result_dict["base_pixel_dimensions"] = {
+                            "width": _im.width,
+                            "height": _im.height,
+                        }
+                except Exception:
+                    pass
             if (
                 raw
                 and len(raw) > 100

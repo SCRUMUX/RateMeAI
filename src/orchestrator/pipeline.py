@@ -25,6 +25,7 @@ from src.utils.image import validate_and_normalize
 from src.services.input_quality import analyze_input_quality, InputQualityReport
 from src.utils.redis_keys import preanalysis_cache_keys
 from src.utils.security import extract_nsfw_from_analysis
+from src.services.analysis_request import is_gpt_image_gen_context_active
 from src.services.face_prerestore import prerestore_if_needed
 from src.tracing import async_span
 
@@ -240,9 +241,10 @@ class AnalysisPipeline:
             # slightly altered identity. The carve-out is preserved
             # for the standard generation flow; legacy non-AB
             # callers still hit the prerestore branch below.
-            ab_active = bool(
-                getattr(settings, "ab_test_enabled", False) and ab_image_model
-            )
+            # v1.77 — tier routing is always on when ctx carries tier /
+            # image_model (see ``is_gpt_image_gen_context_active``).
+            # ``ab_test_enabled`` must not gate the edit-model path.
+            ab_active = is_gpt_image_gen_context_active(context)
             if ab_active:
                 generation_bytes = image_bytes
                 prerestore_info = {"applied": False, "reason": "ab_path_skip"}

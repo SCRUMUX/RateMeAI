@@ -4,6 +4,25 @@ Version history for RateMeAI. Each release bumps ``src/version.py:APP_VERSION``;
 
 Style: newest first, semantic-ish ``major.minor.patch`` versioning. Pre-v1.14 history is intentionally omitted (predates the FAL rebuild).
 
+## 1.77.0 — Anatomy audit v2 + Premium tier routing fix
+
+Two coordinated releases: (A) close catalogue lint holes that let webcam/selfie vocabulary reach the wire prompt and inflate heads, and (B) fix Premium rendering identically to Standard when ``AB_TEST_ENABLED=false`` on Railway.
+
+### Premium tier
+
+* **Tier routing no longer gated on ``ab_test_enabled``.** ``apply_tier_context_fields`` always writes ``tier``, ``image_model=gpt_image_2``, ``image_quality`` and ``image_refine`` — the historical A/B flag was a no-op that dropped Premium down to the legacy path (same FAL quality as Standard). New helper ``is_gpt_image_gen_context_active`` drives the pipeline prerestore skip and executor ``ab_active`` when tier fields are present.
+* **Task result telemetry.** Successful generations expose ``product_tier``, ``fal_quality``, ``clarity_refine_applied``, ``base_pixel_dimensions``, ``output_pixel_dimensions`` for Storage/admin verification.
+* **Frontend** no longer sends default ``image_quality=low`` on every analyze — tier alone owns quality on the server.
+* **Worker refund** on completed-without-image now refunds full ``premium_credit_cost`` (5), not a hardcoded 2.
+* **Docs** — ``docs/ab_image_models.md`` rewritten for v1.75+ (high + Clarity, 5 credits, hard fail).
+
+### Anatomy catalogue (196 styles)
+
+* **Lint extensions** — ``TRIGGER_SELFIE``, ``SCENE_FACE_CROP``, ``LIGHTING_POOL_SCREEN_LEAK``, ``LIGHTING_POOL_POSE_LEAK``; ``EXPRESSION_PORTRAIT_LEAK`` catches ``authority`` and specific ``composed * gaze`` forms; ``WARDROBE_POSE_LEAK`` catches ``collar and shoulder seam clearly visible``.
+* **Migration** ``scripts/migrations/2026_05_anatomy_audit_v2/migrate.py`` — P0 hotfixes (``mirror_aesthetic``, ``panoramic_window``, CV office cohort), bulk wardrobe cue replacement (``well-fitted across the shoulders``), lighting pool scrub (ring light / monitor glow / leather chair), expression authority cleanup. ~188 styles touched.
+
+Tests: ``test_style_lint_anatomy_v2``, ``test_anatomy_audit_v2_pins``, updated tier/API/executor tests; full pytest green.
+
 ## 1.76.0 — Per-user catalog shuffle (no two users see the same top-2)
 
 Product fix: the web mini-app served styles in the canonical ``data/styles.json`` order, so every new visitor opened the app on the exact same top-2 cards (``paris_eiffel`` / ``london_eye`` for dating, ``tech_developer`` / ``startup_casual`` for cv, etc.). With 196 styles in the catalogue the long tail was effectively unreachable for casual users who scroll once and pick whatever is on top — the request was to make a different ordering visible to every user without sacrificing the "same user, same order on refresh" UX contract.

@@ -551,10 +551,14 @@ async def _process_analysis_inner(ctx: dict, task_id: str):
                     and not context.get("skip_image_gen")
                     and not analysis_result.get("credit_refunded")
                 ):
-                    # v1.72 — refund 2 credits when the premium tier
-                    # reserved a second one but the task completed
-                    # without an image (image_gen_error / moderation).
-                    refund_amount = 2 if premium_pre_reserved else 1
+                    # v1.77 — refund the full premium reservation when
+                    # the task completed without an image (same amount
+                    # as the failure-path block below).
+                    refund_amount = (
+                        int(context.get("premium_credit_cost", 5))
+                        if premium_pre_reserved
+                        else 1
+                    )
                     try:
                         u_ref = await db.execute(
                             select(User)

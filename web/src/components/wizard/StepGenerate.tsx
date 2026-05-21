@@ -591,13 +591,9 @@ export default function StepGenerate({ onGoToStep, onOpenStorage }: Props) {
         </div>
       </div>
 
-      {/* v1.72 — продуктовый tier «Стандарт / Премиум». Обе кнопки
-          посылают на бэк один и тот же ``image_model=gpt_image_2``;
-          премиум дополнительно несёт ``tier=premium``, по которому
-          оркестратор включает Clarity Upscaler refiner post-pass
-          (см. src/orchestrator/executor.py) и резервирует 2 кредита
-          в src/api/deps.py::_reserve_credit_for (refund 1 кредит,
-          если refiner упал). */}
+      {/* v1.77 — tier «Стандарт / Премиум»: ``tier=premium`` → FAL
+          high + Clarity ×2, 5 кредитов; при сбое — ошибка и полный
+          refund (без даунгрейда на Standard). */}
       {showStartGenerateCta && !isDocPaywall && (
         <div className="shrink-0 flex flex-col items-center gap-[var(--space-6)] w-full max-w-[520px] mx-auto px-[var(--space-8)]">
           <div className="flex flex-wrap items-center justify-center gap-[var(--space-4)]">

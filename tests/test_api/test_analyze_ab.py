@@ -203,12 +203,16 @@ def test_analyze_unknown_quality_falls_back_to_default(
 
 @patch("src.api.v1.analyze._get_arq", new_callable=AsyncMock)
 @patch("src.api.v1.analyze.get_storage")
-def test_analyze_ignores_ab_fields_when_feature_flag_off(
+def test_analyze_standard_tier_when_ab_flag_off(
     mock_get_storage,
     mock_get_arq,
     client,
     monkeypatch,
 ):
+    """v1.77 — tier routing no longer depends on ``ab_test_enabled``.
+
+    Empty ``tier`` form → standard; legacy ``image_quality`` form
+    field does not override server-side tier mapping."""
     monkeypatch.setattr(settings, "ab_test_enabled", False)
     storage = MagicMock()
     storage.upload = AsyncMock(return_value="inputs/u/k.jpg")
@@ -231,8 +235,46 @@ def test_analyze_ignores_ab_fields_when_feature_flag_off(
         )
     assert r.status_code == 202, r.text
     ctx = cap.contexts[-1]
-    assert "image_model" not in ctx
-    assert "image_quality" not in ctx
+    assert ctx.get("tier") == "standard"
+    assert ctx.get("image_model") == "gpt_image_2"
+    assert ctx.get("image_quality") == "medium"
+    assert "image_refine" not in ctx
+
+
+@patch("src.api.v1.analyze._get_arq", new_callable=AsyncMock)
+@patch("src.api.v1.analyze.get_storage")
+def test_analyze_premium_tier_when_ab_flag_off(
+    mock_get_storage,
+    mock_get_arq,
+    client,
+    monkeypatch,
+):
+    """v1.77 — Premium must persist high + clarity even when AB flag is off."""
+    monkeypatch.setattr(settings, "ab_test_enabled", False)
+    storage = MagicMock()
+    storage.upload = AsyncMock(return_value="inputs/u/k.jpg")
+    mock_get_storage.return_value = storage
+    pool = MagicMock()
+    pool.enqueue_job = AsyncMock(return_value=None)
+    mock_get_arq.return_value = pool
+
+    token = _register_user(client, telegram_id=999107)
+    with _TaskCtxCapture() as cap:
+        r = client.post(
+            "/api/v1/analyze",
+            files={"image": ("x.jpg", _VALID_JPEG, "image/jpeg")},
+            data={
+                "mode": "rating",
+                "tier": "premium",
+            },
+            headers=_auth(token),
+        )
+    assert r.status_code == 202, r.text
+    ctx = cap.contexts[-1]
+    assert ctx.get("tier") == "premium"
+    assert ctx.get("image_model") == "gpt_image_2"
+    assert ctx.get("image_quality") == "high"
+    assert ctx.get("image_refine") == "clarity"
 
 
 @patch("src.api.v1.analyze._get_arq", new_callable=AsyncMock)

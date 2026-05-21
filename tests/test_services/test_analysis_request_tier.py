@@ -174,11 +174,12 @@ class TestPremiumCreditCost:
         assert PREMIUM_EXTRA_CREDIT_RESERVE + 1 == PREMIUM_CREDIT_COST
 
 
-class TestAbDisabled:
-    def test_disabled_ab_short_circuits(self):
-        """When ``settings.ab_test_enabled`` is False the helper is a
-        no-op — the orchestrator falls back to the default flow and
-        tier metadata is irrelevant."""
+class TestTierIndependentOfAbFlag:
+    def test_premium_tier_applies_when_ab_test_disabled(self):
+        """v1.77 — tier routing must not depend on ``ab_test_enabled``.
+
+        When the flag was False the helper returned early and Premium
+        rendered identically to Standard — the bug this class guards."""
         ctx: dict = {}
         apply_ab_test_context_fields(
             ctx,
@@ -186,7 +187,10 @@ class TestAbDisabled:
             settings=_settings(ab_test_enabled=False),
             tier="premium",
         )
-        assert ctx == {}
+        assert ctx["tier"] == "premium"
+        assert ctx["image_model"] == "gpt_image_2"
+        assert ctx["image_quality"] == "high"
+        assert ctx["image_refine"] == "clarity"
 
 
 @pytest.mark.parametrize(

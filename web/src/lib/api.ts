@@ -416,9 +416,8 @@ export type AbImageQuality = 'low' | 'medium' | 'high';
 
 /**
  * Продуктовый tier-пилл вместо выбора модели. Standard — это
- * `gpt_image_2 + medium` (1 кредит). Premium — тот же базовый
- * рендер плюс Clarity Upscaler post-pass (2 кредита, общий бюджет
- * ≤$0.10/img на стороне FAL).
+ * `gpt_image_2 + medium` (1 кредит). Premium — `high` quality на FAL
+ * плюс Clarity Upscaler ×2 (5 кредитов, ≈ $0.25/img на стороне FAL).
  */
 export type AbProductTier = 'standard' | 'premium';
 
@@ -440,8 +439,7 @@ export interface AnalyzeOptions {
   /**
    * Продуктовый tier «standard / premium». Если не задан — бэк
    * интерпретирует запрос как `standard` (1 кредит). Premium
-   * автоматически добавляет Clarity refiner и резервирует
-   * 2 кредита.
+   * ставит `high` + Clarity refiner и резервирует 5 кредитов.
    */
   tier?: AbProductTier;
   framing?: string;
@@ -488,7 +486,13 @@ export function analyze(
     fd.append('skip_composition_safety', 'true');
   }
   fd.append('image_model', options.imageModel ?? 'gpt_image_2');
-  fd.append('image_quality', options.imageQuality ?? 'low');
+  // v1.77 — quality is owned by the ``tier`` pill on the server
+  // (``apply_tier_context_fields``). Do not send a client default
+  // here — an explicit ``image_quality`` form field could override
+  // tier routing on older analyze handlers.
+  if (options.imageQuality) {
+    fd.append('image_quality', options.imageQuality);
+  }
   if (options.tier) fd.append('tier', options.tier);
   return request<TaskCreated>('/api/v1/analyze', { method: 'POST', body: fd });
 }

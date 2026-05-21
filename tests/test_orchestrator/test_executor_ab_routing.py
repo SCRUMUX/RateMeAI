@@ -262,12 +262,13 @@ async def test_single_pass_merges_user_input_hints_over_quality_hints(mock_setti
 
 @pytest.mark.asyncio
 @patch("src.orchestrator.executor.settings")
-async def test_ab_inactive_does_not_inject_image_model(mock_settings):
-    """If A/B is off (or no model chosen), don't pollute params with an
-    ``image_model`` key — the default hybrid path must stay untouched.
-    """
+async def test_legacy_path_without_tier_does_not_inject_image_model(
+    mock_settings,
+):
+    """When neither tier nor ``ab_image_model`` is on the task ctx, the
+    executor stays on the legacy hybrid path (no ``quality`` knob)."""
     _base_settings(mock_settings)
-    mock_settings.ab_test_enabled = False  # gate closed
+    mock_settings.ab_test_enabled = False
     image_gen = MagicMock()
     image_gen.generate = AsyncMock(return_value=_png())
     executor = _build_executor(image_gen)
@@ -282,12 +283,12 @@ async def test_ab_inactive_does_not_inject_image_model(mock_settings):
         trace={"decisions": [], "steps": {}},
         gender="male",
         input_quality=_ok_report(),
-        ab_image_model="gpt_image_2",  # requested but gate is closed
-        ab_image_quality="medium",
+        ab_image_model="",
+        ab_image_quality="",
+        product_tier="",
     )
 
     _, kwargs = image_gen.generate.await_args
     params = kwargs.get("params") or {}
-    # Non-A/B path must NOT pre-set ``image_model`` — the single
-    # FAL provider falls through to its constructor default.
     assert "image_model" not in params
+    assert "quality" not in params
