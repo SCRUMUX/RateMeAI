@@ -1,0 +1,69 @@
+# 2026-05 — Add 60 non-popsy styles
+
+- Timestamp: `2026-05-21T15:43:43+00:00`
+- Mode: `COMMIT`
+- Added: 60
+- Skipped (already present): 0
+
+## Added
+
+- `agronomist_field`
+- `airline_pilot_cockpit`
+- `altai_mountains`
+- `archery_range`
+- `astrophotography_field`
+- `auto_mechanic`
+- `baikal_winter_ice`
+- `barista_specialty`
+- `beekeeping_apiary`
+- `calligraphy_atelier`
+- `carpenter_workshop`
+- `chef_pro_kitchen`
+- `chefchaouen_blue`
+- `chess_park`
+- `construction_foreman`
+- `drone_aerial_pilot`
+- `electrician_panel`
+- `factory_engineer`
+- `falconry_field`
+- `firefighter_station`
+- `fisherman_harbor`
+- `fly_fishing_river`
+- `forester_taiga`
+- `homebrewing_garage`
+- `horseback_riding_forest`
+- `iceland_waterfall`
+- `jeweler_bench`
+- `kamchatka_volcano`
+- `karelia_lake`
+- `kavkaz_alpine`
+- `kayak_white_water`
+- `kazan_kremlin`
+- `luthier_workshop`
+- `moscow_red_square`
+- `moscow_zaryadye`
+- `mountaineering_summit`
+- `museum_curator`
+- `norwegian_fjord`
+- `paragliding_launch`
+- `paramedic_ambulance`
+- `patagonia_trail`
+- `pottery_studio`
+- `provence_lavender`
+- `rock_climbing_gym`
+- `sailing_yacht_open_sea`
+- `scientist_lab`
+- `shooting_range_pistol`
+- `sochi_seaside`
+- `solovki_white_sea`
+- `spb_nevsky_avenue`
+- `spb_palace_square`
+- `suzdal_golden_ring`
+- `train_driver_platform`
+- `tuscany_vineyard`
+- `veterinarian_clinic`
+- `vintage_film_camera`
+- `vinyl_records_collector`
+- `vladivostok_golden_bridge`
+- `welder_industrial`
+- `woodcarving_bench`
