@@ -4,27 +4,17 @@ from __future__ import annotations
 
 # Product tiers visible to the user. ``standard`` is the 1-credit
 # baseline (gpt_image_2 *medium*); ``premium`` is the 5-credit tier
-# that pins gpt_image_2 *high* quality **and** runs the Clarity
-# Upscaler post-pass for a real ×2 resolution bump + extra texture
-# polish (see ``src/providers/image_gen/fal_clarity_upscaler.py``
-# and the executor ``_apply_clarity_refine``). v1.74 → v1.75 change:
-# previously both tiers used ``image_quality=medium`` so the user
-# observed identical output between Standard and Premium; from
-# v1.75 onward Premium switches the FAL ``quality`` knob to ``high``
-# so the base render is materially different (≈ 2048² source @ FAL
-# high-quality reasoning) before the Clarity post-pass runs.
+# that pins gpt_image_2 *high* quality on the same prompt + pipeline
+# as Standard — no Clarity refiner post-pass (v1.79).
 #
 # Cost ceiling (FAL):
 #   * Standard ≈ $0.06 / img (gpt_image_2 medium).
-#   * Premium  ≈ $0.20 / img (gpt_image_2 high) + $0.04 (Clarity ×2)
-#                ≈ $0.24 / img — within the user-set $0.25 budget.
+#   * Premium  ≈ $0.20 / img (gpt_image_2 high only).
 #
-# There is no cross-tier downgrade: if Premium fails (Clarity
-# unavailable, gpt_image_2 returns empty, etc.) the user is shown
-# an error and refunded all 5 credits; we never silently deliver a
-# Standard render in place of a Premium one (see
-# ``src/workers/tasks.py::_premium_failure_path`` and
-# ``src/orchestrator/executor.py::_apply_clarity_refine``).
+# There is no cross-tier downgrade: if Premium fails (gpt_image_2
+# returns empty, etc.) the user is shown an error and refunded all
+# 5 credits; we never silently deliver a Standard render in place
+# of a Premium one (see ``src/workers/tasks.py``).
 PRODUCT_TIERS_ALLOWED = frozenset({"standard", "premium"})
 
 # Number of image-credits a Premium request reserves (1 base + 4
@@ -57,16 +47,13 @@ def apply_tier_context_fields(
     """Populate ``ctx`` with the product-tier image-gen fields.
 
     There is one image model in the pipeline (GPT Image 2 Edit). The
-    tier decides the FAL ``quality`` knob and whether the Clarity
-    Upscaler post-pass runs:
+    tier only switches the FAL ``quality`` knob; prompt and executor
+    path are identical to Standard:
 
     * ``standard`` → ``image_model="gpt_image_2"``,
-      ``image_quality="medium"``, no refiner. ≈ $0.06 / img.
-    * ``premium``  → ``image_quality="high"`` **and**
-      ``image_refine="clarity"`` so the executor runs the Clarity
-      post-pass after the high-quality base render. ≈ $0.24 / img
-      (gpt_image_2 high ≈ $0.20 + Clarity ×2 ≈ $0.04) — within the
-      $0.25 user budget. The user is charged 5 credits up-front;
+      ``image_quality="medium"``. ≈ $0.06 / img.
+    * ``premium``  → ``image_quality="high"`` (same pipeline, no
+      ``image_refine`` / Clarity). ≈ $0.20 / img. Charged 5 credits;
       see ``PREMIUM_CREDIT_COST``.
 
     The historical A/B ``image_model`` knob was retired together with
@@ -86,14 +73,10 @@ def apply_tier_context_fields(
     ctx["image_model"] = "gpt_image_2"
 
     if tier_norm == "premium":
-        # v1.75 — Premium now switches the base ``quality`` knob to
-        # ``high``. This is the actual "premium quality" change the
-        # tier was named after; medium / medium was indistinguishable
-        # from Standard. Clarity Upscaler still runs on top for the
-        # ×2 resolution bump.
+        # v1.79 — Premium = FAL ``quality=high`` only (same prompt /
+        # pipeline as Standard). Clarity refiner retired from the
+        # product tier to avoid SD-upscale artefacts.
         ctx["image_quality"] = "high"
-        if bool(getattr(settings, "clarity_refiner_enabled", True)):
-            ctx["image_refine"] = "clarity"
     else:
         ctx["image_quality"] = "medium"
 
@@ -120,7 +103,7 @@ def is_gpt_image_gen_context_active(ctx: dict | None) -> bool:
     """Return True when ``ctx`` carries GPT Image 2 tier routing fields.
 
     Used by the pipeline and executor to decide whether to engage the
-    edit-model path (quality knob + optional Clarity refiner) instead
+    edit-model path (quality knob) instead
     of the legacy hybrid StyleRouter. After v1.77 this is true for
     every analyze request that went through
     :func:`apply_tier_context_fields`, regardless of

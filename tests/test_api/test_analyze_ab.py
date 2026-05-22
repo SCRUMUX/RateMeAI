@@ -287,7 +287,7 @@ def test_analyze_premium_tier_when_ab_flag_off(
     assert ctx.get("tier") == "premium"
     assert ctx.get("image_model") == "gpt_image_2"
     assert ctx.get("image_quality") == "high"
-    assert ctx.get("image_refine") == "clarity"
+    assert "image_refine" not in ctx
 
 
 @patch("src.api.v1.analyze._get_arq", new_callable=AsyncMock)

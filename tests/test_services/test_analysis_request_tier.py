@@ -7,15 +7,10 @@ of :func:`apply_tier_context_fields`) accepts a backwards-compatible
 ``image_model="gpt_image_2"``. ``image_quality`` is now tier-aware:
 
 * ``standard`` → ``medium`` (≈ $0.06/img, 1 credit).
-* ``premium``  → ``high`` + ``image_refine="clarity"``
-  (≈ $0.24/img, 5 credits — see ``PREMIUM_CREDIT_COST``).
+* ``premium``  → ``high`` only (≈ $0.20/img, 5 credits — no Clarity).
 
-v1.75 change: Standard and Premium used to share ``medium`` quality
-which made the visible output identical between the two tiers. The
-``high`` quality switch is the actual reason Premium now looks
-different. Premium also no longer silently downgrades to Standard
-on refiner failure (the executor raises and the worker refunds all
-5 credits via the failure-path block in ``workers/tasks.py``).
+v1.79: Premium no longer sets ``image_refine=clarity`` — same pipeline
+as Standard, only the FAL quality knob changes.
 """
 
 from __future__ import annotations
@@ -106,9 +101,6 @@ class TestStandardTier:
 
 class TestPremiumTier:
     def test_premium_tier_pins_gpt_image_2_high(self):
-        """v1.75 — Premium now switches the FAL ``quality`` knob to
-        ``high``. The previous v1.72 contract pinned ``medium`` which
-        made the Standard / Premium output indistinguishable."""
         ctx: dict = {}
         apply_ab_test_context_fields(
             ctx,
@@ -118,13 +110,10 @@ class TestPremiumTier:
         )
         assert ctx["image_model"] == "gpt_image_2"
         assert ctx["image_quality"] == "high"
-        assert ctx["image_refine"] == "clarity"
         assert ctx["tier"] == "premium"
+        assert "image_refine" not in ctx
 
     def test_premium_tier_ignores_legacy_image_model_arg(self):
-        """Older clients may still post ``image_model=nano_banana_2``;
-        the helper must collapse it to ``gpt_image_2`` and still flag
-        the Clarity refiner + high quality."""
         ctx: dict = {}
         apply_ab_test_context_fields(
             ctx,
@@ -134,33 +123,24 @@ class TestPremiumTier:
         )
         assert ctx["image_model"] == "gpt_image_2"
         assert ctx["image_quality"] == "high"
-        assert ctx["image_refine"] == "clarity"
+        assert "image_refine" not in ctx
 
-    def test_premium_tier_respects_clarity_refiner_kill_switch(self):
-        """When the Railway kill-switch is off, premium still pins
-        ``image_quality=high`` (the base render is still upgraded)
-        but ``image_refine`` is dropped so the executor doesn't call
-        FAL clarity. Even with the kill-switch on the user is still
-        charged 5 credits because the high-quality render is the
-        more expensive part of the cost stack ($0.20 vs Clarity's
-        $0.04 share)."""
+    def test_premium_tier_never_sets_clarity_refine(self):
+        """v1.79 — Clarity is not part of the product tier even when
+        the global kill-switch is on."""
         ctx: dict = {}
         apply_ab_test_context_fields(
             ctx,
             image_model="gpt_image_2",
-            settings=_settings(clarity_refiner_enabled=False),
+            settings=_settings(clarity_refiner_enabled=True),
             tier="premium",
         )
-        assert ctx["image_model"] == "gpt_image_2"
         assert ctx["image_quality"] == "high"
-        assert ctx["tier"] == "premium"
         assert "image_refine" not in ctx
 
 
 class TestPremiumCreditCost:
-    """v1.75 — Premium reserves 5 credits (1 base + 4 extra).
-    These constants are the single source of truth shared with the
-    analyze handler and the worker refund path."""
+    """v1.75 — Premium reserves 5 credits (1 base + 4 extra)."""
 
     def test_premium_credit_cost_is_five(self):
         assert PREMIUM_CREDIT_COST == 5
@@ -169,17 +149,11 @@ class TestPremiumCreditCost:
         assert PREMIUM_EXTRA_CREDIT_RESERVE == 4
 
     def test_premium_credit_cost_invariant(self):
-        """Extra reserve plus the always-reserved first credit
-        equals the user-visible premium cost."""
         assert PREMIUM_EXTRA_CREDIT_RESERVE + 1 == PREMIUM_CREDIT_COST
 
 
 class TestTierIndependentOfAbFlag:
     def test_premium_tier_applies_when_ab_test_disabled(self):
-        """v1.77 — tier routing must not depend on ``ab_test_enabled``.
-
-        When the flag was False the helper returned early and Premium
-        rendered identically to Standard — the bug this class guards."""
         ctx: dict = {}
         apply_ab_test_context_fields(
             ctx,
@@ -190,25 +164,19 @@ class TestTierIndependentOfAbFlag:
         assert ctx["tier"] == "premium"
         assert ctx["image_model"] == "gpt_image_2"
         assert ctx["image_quality"] == "high"
-        assert ctx["image_refine"] == "clarity"
+        assert "image_refine" not in ctx
 
 
 @pytest.mark.parametrize(
-    "tier,expected_quality,expected_refine",
+    "tier,expected_quality",
     [
-        ("standard", "medium", None),
-        ("premium", "high", "clarity"),
+        ("standard", "medium"),
+        ("premium", "high"),
     ],
 )
-def test_tier_to_quality_refine_mapping_pins_contract(
-    tier: str, expected_quality: str, expected_refine: str | None,
+def test_tier_to_quality_mapping_pins_contract(
+    tier: str, expected_quality: str,
 ):
-    """Parametrised pin so a future refactor that introduces a new
-    refiner backend (CodeFormer / Aura-SR) or a new quality tier
-    has to update this table consciously. v1.75 adds the
-    ``expected_quality`` axis because the prior medium / medium
-    overlap was the bug that made the Premium pill visually
-    identical to Standard."""
     ctx: dict = {}
     apply_ab_test_context_fields(
         ctx,
@@ -217,4 +185,4 @@ def test_tier_to_quality_refine_mapping_pins_contract(
         tier=tier,
     )
     assert ctx["image_quality"] == expected_quality
-    assert ctx.get("image_refine") == expected_refine
+    assert "image_refine" not in ctx

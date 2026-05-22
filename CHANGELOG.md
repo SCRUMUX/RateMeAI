@@ -4,6 +4,14 @@ Version history for RateMeAI. Each release bumps ``src/version.py:APP_VERSION``;
 
 Style: newest first, semantic-ish ``major.minor.patch`` versioning. Pre-v1.14 history is intentionally omitted (predates the FAL rebuild).
 
+## 1.79.0 — Premium: high quality only (no Clarity pass)
+
+Product change: Premium uses the **same prompt and pipeline** as Standard; only FAL ``quality=high``. Clarity Upscaler is no longer attached to ``tier=premium`` (avoids SD-upscale artefacts). **5 credits** unchanged.
+
+* ``apply_tier_context_fields`` — premium sets ``image_quality=high`` only; no ``image_refine``.
+* Docs / UI copy updated (no ×2 / Clarity promises).
+* Tests: tier mapping pins ``high`` without ``image_refine``.
+
 ## 1.78.0 — RU edge: forward `tier` to primary (Premium fix)
 
 **Prod symptom:** on ``ailookstudio.ru`` (edge mode) every generation looked like Standard even when the UI pill was «Премиум» and 5 credits were reserved.

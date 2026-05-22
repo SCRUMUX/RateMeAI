@@ -4,17 +4,10 @@
  *
  *   * «Стандарт»  → `image_model=gpt_image_2`, `image_quality=medium`,
  *                   без refiner-а. ≈ $0.06/img. **1 кредит.**
- *   * «Премиум»   → `image_quality=high` (другая ветвь рендера на
- *                   стороне FAL — больше шагов reasoning'а и более
- *                   тонкая прорисовка лица) плюс Clarity Upscaler
- *                   post-pass с `upscale_factor=2` (реальное ×2
- *                   повышение разрешения). ≈ $0.24/img на FAL,
- *                   в пределах продуктового бюджета $0.25. **5 кредитов.**
- *                   Если премиум не отработал (Clarity недоступен,
- *                   FAL вернул пустоту и т.п.) — фронту приходит
- *                   ошибка и все 5 кредитов автоматически
- *                   возвращаются на баланс; никакого "тихого
- *                   даунгрейда" на Стандарт.
+ *   * «Премиум»   → `image_quality=high` (тот же пайплайн и промпт,
+ *                   другая ветвь качества на FAL). **5 кредитов.**
+ *                   При ошибке генерации все 5 кредитов возвращаются;
+ *                   даунгрейда на Стандарт нет.
  *
  * Бэк (`src/services/analysis_request.py::apply_tier_context_fields`)
  * на любом tier'е жёстко пинит `image_model=gpt_image_2`, поэтому
@@ -69,15 +62,12 @@ const AB_MODEL_DEFS: AbModelDef[] = [
     key: 'premium',
     imageModel: 'gpt_image_2',
     label: 'Премиум',
-    short: 'Высокое качество и ×2 разрешение',
+    short: 'Высокое качество рендера',
     description:
-      'GPT Image 2 в режиме high quality (больше reasoning-шагов, ' +
-      'детальнее лицо и текстуры) плюс отдельный проход Clarity ' +
-      'Upscaler с увеличением разрешения в 2×. Композиция и ' +
-      'идентичность лица сохраняются. Если премиум-проход ' +
-      'недоступен — генерация завершается ошибкой и все 5 ' +
-      'кредитов возвращаются на баланс; даунгрейда на ' +
-      'обычное качество не бывает.',
+      'Тот же сценарий и промпт, что у Стандарта, но GPT Image 2 ' +
+      'в режиме high quality — больше шагов reasoning и тоньше ' +
+      'прорисовка лица и текстур. При ошибке генерации все 5 ' +
+      'кредитов возвращаются на баланс.',
     creditCost: 5,
     cost: { low: 0.18, medium: 0.20, high: 0.25 },
   },
@@ -151,8 +141,7 @@ export function getAbModelCreditCost(tier: AbProductTier): number {
 
 /**
  * Резолвит, какую модель посылать на бэк для выбранного tier'а.
- * Всегда `gpt_image_2`; premium-tier дополнительно включает Clarity
- * Upscaler post-pass на стороне бэка.
+ * Всегда `gpt_image_2`; premium-tier только меняет quality=high на бэке.
  */
 export function getImageModelForTier(tier: AbProductTier): AbImageModel {
   const meta = AB_MODELS.find((m) => m.key === tier);

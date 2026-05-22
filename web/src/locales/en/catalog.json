@@ -28,8 +28,8 @@
     },
     "premium": {
       "label": "Premium",
-      "short": "High quality and 2× resolution",
-      "description": "GPT Image 2 on the high-quality branch (more reasoning steps, finer face and texture rendering) plus a separate Clarity Upscaler pass that doubles the resolution. Composition and face identity stay locked. If the premium pipeline is unavailable, the generation fails with an error and all 5 credits are refunded automatically — there is no silent downgrade to Standard."
+      "short": "High-quality render",
+      "description": "Same scenario and prompt as Standard, but GPT Image 2 on the high-quality branch — more reasoning steps and finer face and texture rendering. If generation fails, all 5 credits are refunded automatically."
     }
   },
   "abQualities": {

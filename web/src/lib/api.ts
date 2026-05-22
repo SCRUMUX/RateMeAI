@@ -417,7 +417,7 @@ export type AbImageQuality = 'low' | 'medium' | 'high';
 /**
  * Продуктовый tier-пилл вместо выбора модели. Standard — это
  * `gpt_image_2 + medium` (1 кредит). Premium — `high` quality на FAL
- * плюс Clarity Upscaler ×2 (5 кредитов, ≈ $0.25/img на стороне FAL).
+ * (5 кредитов, тот же пайплайн).
  */
 export type AbProductTier = 'standard' | 'premium';
 
@@ -439,7 +439,7 @@ export interface AnalyzeOptions {
   /**
    * Продуктовый tier «standard / premium». Если не задан — бэк
    * интерпретирует запрос как `standard` (1 кредит). Premium
-   * ставит `high` + Clarity refiner и резервирует 5 кредитов.
+   * ставит `high` и резервирует 5 кредитов.
    */
   tier?: AbProductTier;
   framing?: string;

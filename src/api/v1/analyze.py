@@ -547,7 +547,8 @@ async def create_analysis(
     # Product-tier context (shared with internal/edge). Post Nano-
     # Banana cleanup: there is one image model — the helper pins
     # ``image_model=gpt_image_2`` + ``image_quality=medium`` and
-    # writes ``image_refine="clarity"`` on the premium tier. The
+    # pins ``image_quality=high`` on the premium tier (v1.79: no
+    # Clarity refiner). The
     # legacy ``image_model`` form field is accepted for backwards
     # compatibility with older clients and is otherwise ignored.
     apply_ab_test_context_fields(

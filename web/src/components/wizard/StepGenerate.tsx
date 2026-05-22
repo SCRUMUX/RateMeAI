@@ -591,9 +591,8 @@ export default function StepGenerate({ onGoToStep, onOpenStorage }: Props) {
         </div>
       </div>
 
-      {/* v1.77 — tier «Стандарт / Премиум»: ``tier=premium`` → FAL
-          high + Clarity ×2, 5 кредитов; при сбое — ошибка и полный
-          refund (без даунгрейда на Standard). */}
+      {/* v1.79 — tier «Стандарт / Премиум»: premium → FAL quality=high
+          (тот же пайплайн), 5 кредитов; при сбое — полный refund. */}
       {showStartGenerateCta && !isDocPaywall && (
         <div className="shrink-0 flex flex-col items-center gap-[var(--space-6)] w-full max-w-[520px] mx-auto px-[var(--space-8)]">
           <div className="flex flex-wrap items-center justify-center gap-[var(--space-4)]">

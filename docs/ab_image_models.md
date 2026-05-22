@@ -10,10 +10,9 @@
 - Every `/api/v1/analyze` request uses **GPT Image 2 Edit**
   (`openai/gpt-image-2/edit`). Framing uses native portrait sizing
   (e.g. 1024×1536 at medium quality).
-- Form field `tier` controls quality and post-processing:
-  - **standard** (1 credit) — `image_quality=medium`, no refiner. ≈ $0.06 / img.
-  - **premium** (5 credits) — `image_quality=high` **plus** Clarity Upscaler ×2.
-    ≈ $0.24 / img (high base ≈ $0.20 + Clarity ≈ $0.04).
+- Form field `tier` controls FAL quality only (same prompt + pipeline):
+  - **standard** (1 credit) — `image_quality=medium`. ≈ $0.06 / img.
+  - **premium** (5 credits) — `image_quality=high` only (no Clarity). ≈ $0.20 / img.
 - No cross-model fallback. Failures refund credits; Premium does **not**
   silently downgrade to Standard (v1.75+ hard fail + full 5-credit refund).
 - Legacy `image_model` / `image_quality` form fields are accepted for
@@ -24,7 +23,7 @@
 
 ```
 UI tier pill → FormData tier=premium → apply_tier_context_fields → task.context
-  → pipeline (edit path) → executor quality=high → Clarity ×2 (if premium)
+  → pipeline (edit path) → executor quality=high (premium) | medium (standard)
 ```
 
 ### RU edge (`ailookstudio.ru`, `DEPLOYMENT_MODE=edge`)
@@ -45,30 +44,29 @@ edge task.context (premium) → remote_ai payload tier=premium → primary ctx �
 | `tier` | `standard` | `premium` |
 | `image_model` | `gpt_image_2` | `gpt_image_2` |
 | `image_quality` | `medium` | `high` |
-| `image_refine` | — | `clarity` |
+| `image_refine` | — | — (v1.79: Clarity not used on product tier) |
 
 ## Cost
 
 | Tier | FAL quality | Refiner | Approx USD/img | Credits |
 |------|-------------|---------|----------------|---------|
 | Standard | medium | — | ≈ $0.06 | 1 |
-| Premium | high | Clarity ×2 | ≈ $0.24 | 5 |
+| Premium | high | — | ≈ $0.20 | 5 |
 
 ## Kill-switches and ENV
 
 | Variable | Default | Effect |
 |----------|---------|--------|
 | `AB_TEST_ENABLED` | `true` | **Legacy.** v1.77+ tier routing does **not** depend on this flag. |
-| `CLARITY_REFINER_ENABLED` | `true` | When `false`, Premium Clarity step is skipped → task **fails** and all 5 credits refunded. |
-| `CLARITY_REFINER_UPSCALE_FACTOR` | `2.0` | Clarity resolution multiplier (1.0–4.0). |
-| `FAL_API_KEY` | — | Required on **worker** for GPT Image 2 and Clarity. |
+| `CLARITY_REFINER_ENABLED` | `true` | Legacy knob; **not** used for product Premium tier since v1.79. |
+| `FAL_API_KEY` | — | Required on **worker** for GPT Image 2. |
 
 ## Task result telemetry (v1.77)
 
 Successful generations may include:
 
-- `product_tier`, `fal_quality`, `clarity_refine_applied`
-- `base_pixel_dimensions` (before Clarity), `output_pixel_dimensions` (final)
+- `product_tier`, `fal_quality`
+- `output_pixel_dimensions` (final render size)
 
 Use these fields in Storage/admin to verify Premium actually ran.
 
