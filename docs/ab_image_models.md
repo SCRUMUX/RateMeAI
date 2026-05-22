@@ -27,6 +27,19 @@ UI tier pill → FormData tier=premium → apply_tier_context_fields → task.co
   → pipeline (edit path) → executor quality=high → Clarity ×2 (if premium)
 ```
 
+### RU edge (`ailookstudio.ru`, `DEPLOYMENT_MODE=edge`)
+
+Edge `/analyze` applies tier fields locally (credits, `task.context`), then proxies
+to primary via [`RemoteAIService`](../src/services/remote_ai.py) →
+`POST /api/v1/internal/process-analysis`. **v1.78+** must include `tier` in that
+JSON payload. Before v1.78 only `image_quality` was forwarded; primary called
+`apply_tier_context_fields(tier="")` and **always** rebuilt **standard** — Premium
+in the UI charged 5 credits but the worker rendered medium quality.
+
+```
+edge task.context (premium) → remote_ai payload tier=premium → primary ctx → worker
+```
+
 | Field | Standard | Premium |
 |-------|----------|---------|
 | `tier` | `standard` | `premium` |

@@ -57,6 +57,7 @@ ALLOWED_KEYS: frozenset[str] = frozenset(
         "artifact_refs",
         "image_model",
         "image_quality",
+        "tier",
         "framing",
         "input_hints",
         "source",

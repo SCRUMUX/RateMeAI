@@ -81,6 +81,7 @@ async def _handle_edge_analysis(
     entry_mode: str,
     image_model: str = "",
     image_quality: str = "",
+    tier: str = "",
     framing: str = "",
     input_hints: dict | None = None,
     source: str = "",
@@ -160,6 +161,7 @@ async def _handle_edge_analysis(
                 image_model=(task_context or {}).get("image_model", "") or image_model,
                 image_quality=(task_context or {}).get("image_quality", "")
                 or image_quality,
+                tier=(task_context or {}).get("tier", "") or tier,
                 # v1.26: forward framing (user-selected ракурс) и
                 # input_hints (per-style настройки «Другой вариант») —
                 # раньше они оставались на edge и primary всегда брал
@@ -683,6 +685,7 @@ async def create_analysis(
                 # string that would land on the legacy StyleRouter.
                 image_model=ctx.get("image_model", "") or image_model,
                 image_quality=ctx.get("image_quality", "") or image_quality,
+                tier=ctx.get("tier", "") or tier,
                 # v1.26: framing / input_hints на RU-edge тоже должны
                 # доезжать до primary — иначе tumbler «Другой вариант»
                 # и выбор ракурса ничего не меняют на RU-сервере.

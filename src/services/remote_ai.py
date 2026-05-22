@@ -71,6 +71,7 @@ class RemoteAIService:
         artifact_refs: dict[str, str] | None = None,
         image_model: str = "",
         image_quality: str = "",
+        tier: str = "",
         framing: str = "",
         input_hints: dict[str, Any] | None = None,
         source: str = "",
@@ -105,6 +106,10 @@ class RemoteAIService:
             # Older primaries simply ignore the extra fields.
             "image_model": image_model or "",
             "image_quality": image_quality or "",
+            # v1.78: product tier (standard / premium). Primary rebuilds
+            # ctx via apply_tier_context_fields — without this field RU edge
+            # always landed on standard despite edge reserving 5 credits.
+            "tier": tier or "",
             # v1.26: framing (ракурс) и user-provided input_hints (per-style
             # настройки «Другой вариант»: lighting/scene/clothing). Раньше
             # edge выбрасывал их, и primary получал дефолт — именно поэтому
@@ -290,6 +295,7 @@ class RemoteAIService:
         artifact_refs: dict[str, str] | None = None,
         image_model: str = "",
         image_quality: str = "",
+        tier: str = "",
         framing: str = "",
         input_hints: dict[str, Any] | None = None,
         source: str = "",
@@ -315,6 +321,7 @@ class RemoteAIService:
             artifact_refs=artifact_refs,
             image_model=image_model,
             image_quality=image_quality,
+            tier=tier,
             framing=framing,
             input_hints=input_hints,
             source=source,

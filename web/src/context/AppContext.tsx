@@ -78,8 +78,8 @@ interface AppState {
    * v1.72 — продуктовый tier «standard / premium». В UI на нём
    * висит pill-переключатель в StepGenerate; на бэк уходит
    * отдельным полем формы ``tier``. Стандарт = gpt_image_2 medium
-   * (1 кредит). Премиум = gpt_image_2 medium + Clarity refiner
-   * post-pass (2 кредита).
+   * (1 кредит). Премиум = gpt_image_2 high + Clarity refiner
+   * post-pass (5 кредитов).
    */
   tier: api.AbProductTier;
   framing: string;

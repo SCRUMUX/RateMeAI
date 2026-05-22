@@ -4,6 +4,17 @@ Version history for RateMeAI. Each release bumps ``src/version.py:APP_VERSION``;
 
 Style: newest first, semantic-ish ``major.minor.patch`` versioning. Pre-v1.14 history is intentionally omitted (predates the FAL rebuild).
 
+## 1.78.0 — RU edge: forward `tier` to primary (Premium fix)
+
+**Prod symptom:** on ``ailookstudio.ru`` (edge mode) every generation looked like Standard even when the UI pill was «Премиум» and 5 credits were reserved.
+
+**Root cause:** edge ``task.context`` had ``tier=premium``, but ``RemoteAIService.submit_task`` did not send ``tier`` to primary ``/internal/process-analysis``. Primary rebuilt context with empty tier → ``standard`` / ``medium`` / no Clarity.
+
+* **``remote_ai.py``** — ``tier`` kwarg on ``submit_task`` / ``submit_and_wait`` and JSON payload.
+* **``analyze.py``** — ``_handle_edge_analysis`` and edge ``create_task`` pass ``tier`` from saved ``task.context``.
+* **Tests** — ``ALLOWED_KEYS`` includes ``tier``; ``test_remote_ai_tier.py`` asserts ``tier=premium`` in payload.
+* **Docs** — edge hop documented in ``docs/ab_image_models.md``.
+
 ## 1.77.0 — Anatomy audit v2 + Premium tier routing fix
 
 Two coordinated releases: (A) close catalogue lint holes that let webcam/selfie vocabulary reach the wire prompt and inflate heads, and (B) fix Premium rendering identically to Standard when ``AB_TEST_ENABLED=false`` on Railway.
